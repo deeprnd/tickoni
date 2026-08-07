@@ -1,3 +1,0 @@
-$ sudo firedancer configure init irq-balance
-[32mNOTICE [0m irq-balance ... unconfigured ... irqbalance daemon has no banned CPUs
-[32mNOTICE [0m irq-balance ... configuring
