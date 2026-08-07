@@ -415,7 +415,7 @@ jobs:
         run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/linux
 
       - name: Upload Linux conformance bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: demo-conformance-linux
           path: build/demo-conformance/linux
@@ -450,7 +450,7 @@ jobs:
         run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-15-x86_64
 
       - name: Upload macOS 15 x86_64 conformance bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: demo-conformance-macos-15-x86_64
           path: build/demo-conformance/macos-15-x86_64
@@ -485,7 +485,7 @@ jobs:
         run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-15-arm
 
       - name: Upload macOS 15 ARM conformance bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: demo-conformance-macos-15-arm
           path: build/demo-conformance/macos-15-arm
@@ -520,7 +520,7 @@ jobs:
         run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-26-x86_64
 
       - name: Upload macOS 26 x86_64 conformance bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: demo-conformance-macos-26-x86_64
           path: build/demo-conformance/macos-26-x86_64
@@ -555,7 +555,7 @@ jobs:
         run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-26-arm
 
       - name: Upload macOS 26 ARM conformance bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: demo-conformance-macos-26-arm
           path: build/demo-conformance/macos-26-arm
@@ -590,7 +590,7 @@ jobs:
         run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/windows-x86
 
       - name: Upload Windows x86_64 conformance bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: demo-conformance-windows-x86
           path: build/demo-conformance/windows-x86
@@ -625,7 +625,7 @@ jobs:
         run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/windows-arm
 
       - name: Upload Windows ARM64 conformance bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: demo-conformance-windows-arm
           path: build/demo-conformance/windows-arm
@@ -731,7 +731,7 @@ jobs:
 
       - name: Upload coverage summary
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-tk
           path: build/coverage/tk/coverage-summary.json
