@@ -656,43 +656,43 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Download Linux conformance bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: demo-conformance-linux
           path: build/demo-conformance/linux
 
       - name: Download macOS 15 x86_64 conformance bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: demo-conformance-macos-15-x86_64
           path: build/demo-conformance/macos-15-x86_64
 
       - name: Download macOS 15 ARM conformance bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: demo-conformance-macos-15-arm
           path: build/demo-conformance/macos-15-arm
 
       - name: Download macOS 26 x86_64 conformance bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: demo-conformance-macos-26-x86_64
           path: build/demo-conformance/macos-26-x86_64
 
       - name: Download macOS 26 ARM conformance bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: demo-conformance-macos-26-arm
           path: build/demo-conformance/macos-26-arm
 
       - name: Download Windows x86_64 conformance bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: demo-conformance-windows-x86
           path: build/demo-conformance/windows-x86
 
       - name: Download Windows ARM64 conformance bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: demo-conformance-windows-arm
           path: build/demo-conformance/windows-arm
