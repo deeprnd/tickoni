@@ -1,2 +1,0 @@
-$ fdctl keys new ~/identity.json --config config.toml
-[32mNOTICE [0m successfully created keypair in `/home/firedancer/identity.json`
