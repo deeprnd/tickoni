@@ -20,7 +20,7 @@ jobs:
     outputs:
       run: ${{ steps.detect.outputs.run }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -37,7 +37,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -61,7 +61,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -89,7 +89,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -117,7 +117,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -145,7 +145,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -173,7 +173,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -201,7 +201,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -229,7 +229,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -254,7 +254,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -279,7 +279,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -304,7 +304,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -329,7 +329,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -354,7 +354,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -378,7 +378,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -398,7 +398,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -429,7 +429,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -464,7 +464,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -499,7 +499,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -534,7 +534,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
@@ -568,7 +568,7 @@ jobs:
     runs-on: windows-2025-vs2026
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup deps + Zig
         uses: ./.github/actions/setup-public-gh-runner
@@ -603,7 +603,7 @@ jobs:
     runs-on: windows-11-vs2026-arm
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup deps + Zig
         uses: ./.github/actions/setup-public-gh-runner
@@ -653,7 +653,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download Linux conformance bundle
         uses: actions/download-artifact@v4
@@ -716,7 +716,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
