@@ -17,7 +17,7 @@ This file is the repository entry point.  Detailed rules live in:
 - the [Firedancer contributor guide](doc/execution/contribution/firedancer.md)
   for retained C substrate, topology, Tango, workspaces, sandboxing, C style,
   portability, fuzzing, and C-specific testing.
-- the [Qt terminal architecture decision](doc/knowledge/adr/qt-for-terminal-ui.md)
+- the [Qt terminal architecture decision](doc/knowledge/rant/qt-for-terminal-ui.md)
   for the GPL-3.0-only desktop terminal, Qt/QML/C++ boundaries, CMake,
   packaging, and Qt-specific licensing requirements;
 - [LICENSING.md](LICENSING.md) for the repository-wide license map;
