@@ -11,6 +11,7 @@ These terms apply to:
 
 - all files under doc/strategy/lore/;
 - all files under doc/strategy/roadmap/releases/;
+- all files under assets/banners/;
 - all files under assets/characters/;
 - all files under assets/lore/;
 - all files under assets/release-art/;
