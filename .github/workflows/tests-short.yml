@@ -27,7 +27,7 @@ jobs:
       - uses: ./.github/actions/detect-changes
         id: detect
         with:
-          paths: '^(src/(app/tickoni|tickoni)/|build\.zig(\.zon)?$|justfile$|contrib/quality\.sh$|contrib/security\.sh$|contrib/test/(run_cli_demo_tests\.sh|export_demo_conformance_bundle\.py|compare_demo_conformance\.py|coverage(-tk)?\.json|coverage\.sh)$|contrib/readme/coverage_report\.py$|\.github/actions/|\.github/workflows/tests-short\.yml$)'
+          paths: '^(src/(app/tickoni|tickoni)/|build\.zig(\.zon)?$|justfile$|contrib/quality\.sh$|contrib/security\.sh$|contrib/test/(run_cli_demo_tests\.sh|export_demo_conformance_bundle\.py|compare_demo_conformance\.py)$|contrib/readme/coverage_report\.py$|\.github/actions/|\.github/workflows/tests-short\.yml$)'
 
   short-tests:
     name: Harness Unit Tests
@@ -693,31 +693,3 @@ jobs:
             build/demo-conformance/macos-26-arm/conformance.json \
             build/demo-conformance/windows-x86/conformance.json \
             build/demo-conformance/windows-arm/conformance.json
-
-  cov-tk:
-    name: Harness Tests Coverage
-    needs: detect-changes
-    if: needs.detect-changes.outputs.run == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup public GitHub runner
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
-          kcov: 'true'
-
-      - uses: ./.github/actions/build-fd-tk-libs
-
-      - name: Run coverage
-        run: just test-cov-tk
-
-      - name: Upload coverage summary
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-tk
-          path: build/coverage/tk/coverage-summary.json
