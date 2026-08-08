@@ -345,6 +345,7 @@ test-integration-tk:
 
 # Windows x86_64 unit test: build FD libs for Windows x86_64, then run Zig tests.
 test-unit-tk-windows-x86:
+	mkdir -p build
 	just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log
 	ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} test
 	ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} run-tests
@@ -353,12 +354,14 @@ test-unit-tk-windows-x86:
 # contrib/zigw.sh prefers an x86_64 Windows Zig install on Windows ARM when
 # available because native Zig 0.16.0 is unstable on this lane.
 test-unit-tk-windows-arm:
+	mkdir -p build
 	just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log
 	ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} test
 	ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} run-tests
 
 # Windows x86_64 integration test: build FD libs for Windows x86_64, then run Zig integration tests.
 test-integration-tk-windows-x86:
+	mkdir -p build
 	just build-fd-windows-x86 > build/fd-windows-x86.log 2>&1
 	ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} integration-test
 
@@ -366,6 +369,7 @@ test-integration-tk-windows-x86:
 # contrib/zigw.sh prefers an x86_64 Windows Zig install on Windows ARM when
 # available because native Zig 0.16.0 is unstable on this lane.
 test-integration-tk-windows-arm:
+	mkdir -p build
 	just build-fd-windows-arm > build/fd-windows-arm.log 2>&1
 	ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} integration-test
 
@@ -388,12 +392,14 @@ test-system-all:
 # Windows x86_64 system test: build FD libs, ensure llama.cpp, run live test.
 # Mirrors `test-system-tk` on Linux/macOS but for Windows.
 test-system-tk-windows-x86:
+	mkdir -p build
 	just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log
 	bash contrib/test/run_system_model_tests_win.sh
 
 # Windows ARM64 system test: build FD libs, ensure llama.cpp, run live test.
 # Same as x86_64: mirrors Linux/macOS `test-system-tk` on Windows ARM.
 test-system-tk-windows-arm:
+	mkdir -p build
 	just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log
 	bash contrib/test/run_system_model_tests_win.sh
 
