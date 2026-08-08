@@ -16,7 +16,7 @@ test "system demo live: real tkmodl, allowed, blocked, restricted, replay proof"
         .use_fixture = true,
     };
     if (std.c.getenv("TK_LIVE_TEST")) |v| {
-        if (std.mem.eql(u8, v, "1")) {
+        if (std.mem.eql(u8, std.mem.sliceTo(v, 0), "1")) {
             live_config.use_fixture = false;
         }
     }
