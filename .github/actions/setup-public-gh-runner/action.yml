@@ -62,21 +62,19 @@ runs:
       if: inputs.zig == 'true' && runner.os == 'Windows'
       shell: pwsh
       env:
-        # Force Zig to target aarch64-windows (MSVC ABI) on ARM runners.
+        # Force Zig to target aarch64-windows on ARM runners.
         # zigw.sh reads ZIG_TARGET_OVERRIDE and passes it as -Dtarget.
-        # The FD libs on Windows are compiled with --target=aarch64-windows-msvc.
-        # Using aarch64-windows-gnu as Zig target on the MSVC-ABI Zig binary
-        # causes a segfault (Zig doesn't support cross-compiling MSVC→GNU on ARM).
-        # aarch64-windows is the only native ARM64 Windows Zig ABI available.
+        # Zig only ships GNU ABI Windows binaries — 'aarch64-windows'
+        # is Zig's ARM64 Windows target name. Passing a nonexistent
+        # target causes a segfault. The FD libs on Windows are compiled
+        # with --target=aarch64-windows-msvc.
         ZIG_TARGET_OVERRIDE: ${{ runner.os == 'Windows' && runner.arch == 'ARM64' && 'aarch64-windows' || '' }}
       run: |
         $zigArgs = @('--version', '${{ inputs.zig-version }}')
         if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') {
-          # Install native Windows ARM64 zig with MSVC ABI (aarch64-windows).
-          # This is the only native ARM64 Windows Zig binary available; it
-          # must match the FD libs which are compiled with
-          # --target=aarch64-windows-msvc. Using aarch64-windows-gnu would
-          # segfault because Zig cannot cross-compile MSVC→GNU ABI on ARM.
+          # Install native Windows ARM64 zig (aarch64-windows).
+          # This is the only native ARM64 Windows Zig binary available;
+          # passing a nonexistent Zig target causes a segfault.
           $zigArgs += @('--target', 'aarch64-windows')
         }
         python "$env:GITHUB_WORKSPACE/contrib/install-zig.py" @zigArgs
