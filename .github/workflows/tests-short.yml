@@ -584,7 +584,11 @@ jobs:
           compiler: clang
           compiler-version: system
 
-      - name: Build FD libs + system test binaries (compile-only)
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: windows-x86_64
+
+      - name: Build system test binaries (compile-only)
         # Live llama-server test (test_investment_demo_live.zig) requires Linux.
         # Fixture-backed test_portfolio_cash_demo.zig is covered by demo-conformance CI.
         # This lane verifies Windows compilation of system test code.
@@ -609,7 +613,11 @@ jobs:
           compiler: clang
           compiler-version: system
 
-      - name: Build FD libs + system test binaries (compile-only)
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: windows-arm
+
+      - name: Build system test binaries (compile-only)
         # Live llama-server test (test_investment_demo_live.zig) requires Linux.
         # Fixture-backed test_portfolio_cash_demo.zig is covered by demo-conformance CI.
         # This lane verifies Windows compilation of system test code.
