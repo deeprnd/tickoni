@@ -38,144 +38,145 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
           zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          gitleaks: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
 
-      - name: Run test suite
+      - name: Run unit tests
         run: just test-unit-tk
 
-      - name: Run deterministic demo CLI conformance suite
-        run: just test-demo-tk
-
-  # ── macOS: Clang (x86_64, macOS 15) ────────────────────────────────────────
+  # ── Harness Tests: macOS 15 (x86_64) ───────────────────────────────────────
   short-tests-macos-15-x86_64:
     name: Harness Unit Tests / macOS 15 (x86_64)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-15-intel
+    runs-on: macos-15-xlarge
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
           zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          gitleaks: 'false'
 
-      - name: Install GNU make (macOS)
-        run: brew install make
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-x86_64
 
-      - name: Build FD libs
-        run: just build-fd-macos-x86_64
-
-      - name: Run test suite
+      - name: Run unit tests
         run: just test-unit-tk
 
-      - name: Run deterministic demo CLI conformance suite
-        run: just test-demo-tk
-
-  # ── macOS: Clang (ARM64, macOS 15) ─────────────────────────────────────────
+  # ── Harness Tests: macOS 15 (ARM) ──────────────────────────────────────────
   short-tests-macos-15-arm:
     name: Harness Unit Tests / macOS 15 (ARM)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-15
+    runs-on: macos-15-xlarge
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
           zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          gitleaks: 'false'
 
-      - name: Install GNU make (macOS)
-        run: brew install make
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-arm
 
-      - name: Build FD libs
-        run: just build-fd-macos-arm
-
-      - name: Run test suite
+      - name: Run unit tests
         run: just test-unit-tk
 
-      - name: Run deterministic demo CLI conformance suite
-        run: just test-demo-tk
-
-  # ── macOS: Clang (x86_64, macOS 26) ────────────────────────────────────────
+  # ── Harness Tests: macOS 26 (x86_64) ───────────────────────────────────────
   short-tests-macos-26-x86_64:
     name: Harness Unit Tests / macOS 26 (x86_64)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-26-intel
+    runs-on: macos-26-xlarge
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
           zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          gitleaks: 'false'
 
-      - name: Install GNU make (macOS)
-        run: brew install make
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-x86_64
 
-      - name: Build FD libs
-        run: just build-fd-macos-x86_64
-
-      - name: Run test suite
+      - name: Run unit tests
         run: just test-unit-tk
 
-      - name: Run deterministic demo CLI conformance suite
-        run: just test-demo-tk
-
-  # ── macOS: Clang (ARM64, macOS 26) ─────────────────────────────────────────
+  # ── Harness Tests: macOS 26 (ARM) ──────────────────────────────────────────
   short-tests-macos-26-arm:
     name: Harness Unit Tests / macOS 26 (ARM)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-26
+    runs-on: macos-26-xlarge
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
           zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          gitleaks: 'false'
 
-      - name: Install GNU make (macOS)
-        run: brew install make
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-arm
 
-      - name: Build FD libs
-        run: just build-fd-macos-arm
-
-      - name: Run test suite
+      - name: Run unit tests
         run: just test-unit-tk
 
-      - name: Run deterministic demo CLI conformance suite
-        run: just test-demo-tk
-
-  # ── Windows: Clang (x86_64) ────────────────────────────────────────────────
+  # ── Harness Tests: Windows x86_64 ──────────────────────────────────────────
   short-tests-windows-x86_64:
     name: Harness Unit Tests / Windows x86_64
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
     runs-on: windows-2025-vs2026
-    timeout-minutes: 25
+    timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
 
-      - name: Setup public GitHub runner
+      - name: Setup deps + Zig
         uses: ./.github/actions/setup-public-gh-runner
         with:
           zig: 'true'
@@ -183,27 +184,24 @@ jobs:
           compiler: clang
           compiler-version: system
 
-      - name: Build FD libs
-        run: just build-fd-windows-x86
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: windows-x86_64
 
-      - name: Run test suite
+      - name: Run unit tests
         run: just test-unit-tk-windows-x86
 
-      - name: Run deterministic demo CLI conformance suite
-        run: just test-demo-tk
-
-  # ── Windows: Clang (ARM64) ─────────────────────────────────────────────────
+  # ── Harness Tests: Windows ARM ─────────────────────────────────────────────
   short-tests-windows-arm:
-    name: Harness Unit Tests / Windows ARM64
+    name: Harness Unit Tests / Windows ARM
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
     runs-on: windows-11-vs2026-arm
-    timeout-minutes: 25
+    timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
 
-      - name: Setup public GitHub runner
+      - name: Setup deps + Zig
         uses: ./.github/actions/setup-public-gh-runner
         with:
           zig: 'true'
@@ -211,205 +209,147 @@ jobs:
           compiler: clang
           compiler-version: system
 
-      - name: Build FD libs
-        run: just build-fd-windows-arm
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: windows-arm
 
-      - name: Run test suite
+      - name: Run unit tests
         run: just test-unit-tk-windows-arm
 
-      - name: Run deterministic demo CLI conformance suite
+  # ── Harness Tests: macOS 15 (x86_64) ───────────────────────────────────────
+  test-demo-macos-15-x86_64:
+    name: Demo Conformance / macOS 15 (x86_64)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run == 'true'
+    runs-on: macos-15-xlarge
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup public GitHub runner
+        uses: ./.github/actions/setup-public-gh-runner
+        with:
+          zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          gitleaks: 'false'
+
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-x86_64
+
+      - name: Run demo conformance suite
         run: just test-demo-tk
 
-  # ── macOS: Clang (x86_64, macOS 15) ────────────────────────────────────────
-  integration-tests-macos-15-x86_64:
-    name: Integration Tests / macOS 15 (x86_64)
+  # ── Harness Tests: macOS 15 (ARM) ──────────────────────────────────────────
+  test-demo-macos-15-arm:
+    name: Demo Conformance / macOS 15 (ARM)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-15-intel
-    timeout-minutes: 20
+    runs-on: macos-15-xlarge
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
           zig: 'true'
-
-      - name: Install GNU make (macOS)
-        run: brew install make
-
-      - name: Build FD libs
-        run: just build-fd-macos-x86_64
-
-      - name: Run integration tests
-        run: just test-integration-tk
-
-  # ── macOS: Clang (ARM64, macOS 15) ─────────────────────────────────────────
-  integration-tests-macos-15-arm:
-    name: Integration Tests / macOS 15 (ARM)
-    needs: detect-changes
-    if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-15
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup public GitHub runner
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
-
-      - name: Install GNU make (macOS)
-        run: brew install make
-
-      - name: Build FD libs
-        run: just build-fd-macos-arm
-
-      - name: Run integration tests
-        run: just test-integration-tk
-
-  # ── macOS: Clang (x86_64, macOS 26) ────────────────────────────────────────
-  integration-tests-macos-26-x86_64:
-    name: Integration Tests / macOS 26 (x86_64)
-    needs: detect-changes
-    if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-26-intel
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup public GitHub runner
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
-
-      - name: Install GNU make (macOS)
-        run: brew install make
-
-      - name: Build FD libs
-        run: just build-fd-macos-x86_64
-
-      - name: Run integration tests
-        run: just test-integration-tk
-
-  # ── macOS: Clang (ARM64, macOS 26) ─────────────────────────────────────────
-  integration-tests-macos-26-arm:
-    name: Integration Tests / macOS 26 (ARM)
-    needs: detect-changes
-    if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-26
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup public GitHub runner
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
-
-      - name: Install GNU make (macOS)
-        run: brew install make
-
-      - name: Build FD libs
-        run: just build-fd-macos-arm
-
-      - name: Run integration tests
-        run: just test-integration-tk
-
-  # ── Windows: Clang (x86_64) ────────────────────────────────────────────────
-  integration-tests-windows-x86_64:
-    name: Integration Tests / Windows x86_64
-    needs: detect-changes
-    if: needs.detect-changes.outputs.run == 'true'
-    runs-on: windows-2025-vs2026
-    timeout-minutes: 25
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup public GitHub runner
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
+          kcov: 'false'
           fd-deps: 'false'
-          compiler: clang
-          compiler-version: system
-
-      - name: Build FD libs
-        run: just build-fd-windows-x86
-
-      - name: Run integration tests
-        run: just test-integration-tk-windows-x86
-
-  # ── Windows: Clang (ARM64) ─────────────────────────────────────────────────
-  integration-tests-windows-arm:
-    name: Integration Tests / Windows ARM64
-    needs: detect-changes
-    if: needs.detect-changes.outputs.run == 'true'
-    runs-on: windows-11-vs2026-arm
-    timeout-minutes: 25
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup public GitHub runner
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
-          fd-deps: 'false'
-          compiler: clang
-          compiler-version: system
-
-      - name: Build FD libs
-        run: just build-fd-windows-arm
-
-      - name: Run integration tests
-        run: just test-integration-tk-windows-arm
-
-  integration-tests-tk:
-    name: Harness Integration Tests
-    needs: detect-changes
-    if: needs.detect-changes.outputs.run == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup public GitHub runner
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
+          gitleaks: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-arm
 
-      - name: Run test suite
-        run: just test-integration-tk
+      - name: Run demo conformance suite
+        run: just test-demo-tk
 
+  # ── Harness Tests: macOS 26 (x86_64) ───────────────────────────────────────
+  test-demo-macos-26-x86_64:
+    name: Demo Conformance / macOS 26 (x86_64)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run == 'true'
+    runs-on: macos-26-xlarge
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup public GitHub runner
+        uses: ./.github/actions/setup-public-gh-runner
+        with:
+          zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          gitleaks: 'false'
+
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-x86_64
+
+      - name: Run demo conformance suite
+        run: just test-demo-tk
+
+  # ── Harness Tests: macOS 26 (ARM) ──────────────────────────────────────────
+  test-demo-macos-26-arm:
+    name: Demo Conformance / macOS 26 (ARM)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run == 'true'
+    runs-on: macos-26-xlarge
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup public GitHub runner
+        uses: ./.github/actions/setup-public-gh-runner
+        with:
+          zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          gitleaks: 'false'
+
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-arm
+
+      - name: Run demo conformance suite
+        run: just test-demo-tk
+
+  # ── Demo Conformance: Linux ─────────────────────────────────────────────────
   demo-conformance-linux:
-    name: Demo Conformance Baseline / Linux
+    name: Demo Conformance / Linux
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
           zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          gitleaks: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
-
-      - name: Build supervisor
-        shell: bash
-        run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all
 
       - name: Export Linux conformance bundle
         run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/linux
@@ -420,31 +360,30 @@ jobs:
           name: demo-conformance-linux
           path: build/demo-conformance/linux
 
-  # ── Demo Conformance: macOS 15 x86_64 ───────────────────────────────────────
+  # ── Demo Conformance: macOS 15 (x86_64) ────────────────────────────────────
   demo-conformance-macos-15-x86_64:
     name: Demo Conformance / macOS 15 (x86_64)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-15-intel
-    timeout-minutes: 20
+    runs-on: macos-15-xlarge
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
           zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          gitleaks: 'false'
 
-      - name: Install GNU make (macOS)
-        run: brew install make
-
-      - name: Build FD libs
-        run: just build-fd-macos-x86_64
-
-      - name: Build supervisor
-        shell: bash
-        run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-x86_64
 
       - name: Export macOS 15 x86_64 conformance bundle
         run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-15-x86_64
@@ -455,31 +394,30 @@ jobs:
           name: demo-conformance-macos-15-x86_64
           path: build/demo-conformance/macos-15-x86_64
 
-  # ── Demo Conformance: macOS 15 ARM ──────────────────────────────────────────
+  # ── Demo Conformance: macOS 15 (ARM) ───────────────────────────────────────
   demo-conformance-macos-15-arm:
     name: Demo Conformance / macOS 15 (ARM)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-15
-    timeout-minutes: 20
+    runs-on: macos-15-xlarge
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
           zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          gitleaks: 'false'
 
-      - name: Install GNU make (macOS)
-        run: brew install make
-
-      - name: Build FD libs
-        run: just build-fd-macos-arm
-
-      - name: Build supervisor
-        shell: bash
-        run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-arm
 
       - name: Export macOS 15 ARM conformance bundle
         run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-15-arm
@@ -490,31 +428,30 @@ jobs:
           name: demo-conformance-macos-15-arm
           path: build/demo-conformance/macos-15-arm
 
-  # ── Demo Conformance: macOS 26 x86_64 ───────────────────────────────────────
+  # ── Demo Conformance: macOS 26 (x86_64) ────────────────────────────────────
   demo-conformance-macos-26-x86_64:
     name: Demo Conformance / macOS 26 (x86_64)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-26-intel
-    timeout-minutes: 20
+    runs-on: macos-26-xlarge
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
           zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          gitleaks: 'false'
 
-      - name: Install GNU make (macOS)
-        run: brew install make
-
-      - name: Build FD libs
-        run: just build-fd-macos-x86_64
-
-      - name: Build supervisor
-        shell: bash
-        run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-x86_64
 
       - name: Export macOS 26 x86_64 conformance bundle
         run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-26-x86_64
@@ -525,31 +462,30 @@ jobs:
           name: demo-conformance-macos-26-x86_64
           path: build/demo-conformance/macos-26-x86_64
 
-  # ── Demo Conformance: macOS 26 ARM ──────────────────────────────────────────
+  # ── Demo Conformance: macOS 26 (ARM) ───────────────────────────────────────
   demo-conformance-macos-26-arm:
     name: Demo Conformance / macOS 26 (ARM)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-26
-    timeout-minutes: 20
+    runs-on: macos-26-xlarge
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
           zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          gitleaks: 'false'
 
-      - name: Install GNU make (macOS)
-        run: brew install make
-
-      - name: Build FD libs
-        run: just build-fd-macos-arm
-
-      - name: Build supervisor
-        shell: bash
-        run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-arm
 
       - name: Export macOS 26 ARM conformance bundle
         run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-26-arm
@@ -560,7 +496,7 @@ jobs:
           name: demo-conformance-macos-26-arm
           path: build/demo-conformance/macos-26-arm
 
-  # ── Demo Conformance: Windows x86_64 ────────────────────────────────────────
+  # ── Demo Conformance: Windows x86_64 ───────────────────────────────────────
   demo-conformance-windows-x86:
     name: Demo Conformance / Windows x86_64
     needs: detect-changes
@@ -595,9 +531,9 @@ jobs:
           name: demo-conformance-windows-x86
           path: build/demo-conformance/windows-x86
 
-  # ── Demo Conformance: Windows ARM64 ─────────────────────────────────────────
+  # ── Demo Conformance: Windows ARM ──────────────────────────────────────────
   demo-conformance-windows-arm:
-    name: Demo Conformance / Windows ARM64
+    name: Demo Conformance / Windows ARM
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
     runs-on: windows-11-vs2026-arm
@@ -620,15 +556,60 @@ jobs:
         shell: bash
         run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all
 
-      - name: Export Windows ARM64 conformance bundle
+      - name: Export Windows ARM conformance bundle
         shell: bash
         run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/windows-arm
 
-      - name: Upload Windows ARM64 conformance bundle
+      - name: Upload Windows ARM conformance bundle
         uses: actions/upload-artifact@v7
         with:
           name: demo-conformance-windows-arm
           path: build/demo-conformance/windows-arm
+
+  # ── System Tests: Windows x86_64 (compile-only, live test requires llama-server) ──────────────
+  system-tests-windows-x86:
+    name: System Tests / Windows x86_64 (compile-only)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run == 'true'
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup deps + Zig
+        uses: ./.github/actions/setup-public-gh-runner
+        with:
+          zig: 'true'
+          fd-deps: 'false'
+          compiler: clang
+          compiler-version: system
+
+      - name: Build FD libs + system test binaries (compile-only)
+        # Live llama-server test (test_investment_demo_live.zig) requires Linux.
+        # Fixture-backed test_portfolio_cash_demo.zig is covered by demo-conformance CI.
+        # This lane verifies Windows compilation of system test code.
+        run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib system-test
+
+  # ── System Tests: Windows ARM (compile-only, live test requires llama-server) ──────
+  system-tests-windows-arm:
+    name: System Tests / Windows ARM (compile-only)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run == 'true'
+    runs-on: windows-11-vs2026-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup deps + Zig
+        uses: ./.github/actions/setup-public-gh-runner
+        with:
+          zig: 'true'
+          fd-deps: 'false'
+          compiler: clang
+          compiler-version: system
+
+      - name: Build FD libs + system test binaries (compile-only)
+        run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib system-test
 
   # ── Demo Conformance: Compare ───────────────────────────────────────────────
   demo-conformance-compare:

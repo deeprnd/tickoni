@@ -383,6 +383,22 @@ test-system-fd:
 test-system-all:
 	{{python}} contrib/readme/run-badged-command.py system bash -c "just test-system-tk && just test-system-fd"
 
+# ── Windows-specific system tests (fixture-backed only, no llama.cpp) ───
+
+# Windows x86_64 system test: build FD libs + system test binaries.
+# The live `test_investment_demo_live.zig` requires a llama-server (Linux-only),
+# so Windows CI only verifies compilation (no run step). Fixture-backed
+# `test_portfolio_cash_demo.zig` is covered by demo-conformance CI instead.
+test-system-tk-windows-x86:
+	just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log
+	ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} system-test
+
+# Windows ARM64 system test: build FD libs + system test binaries.
+# Same as x86_64: compile-only on Windows (no llama-server for live test).
+test-system-tk-windows-arm:
+	just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log
+	ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} system-test
+
 # ── Infrastructure: ensure llama.cpp and model (for LLM system tests) ──────
 
 # Build llama.cpp (CPU or CUDA if detected).
