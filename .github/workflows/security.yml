@@ -1,9 +1,8 @@
 name: Security
 
 on:
-  pull_request:
-    branches:
-      - main
+  schedule:
+    - cron: '0 9 * * 1'
   workflow_dispatch:
 
 permissions:
