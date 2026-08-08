@@ -11,12 +11,21 @@ source "${SCRIPT_DIR}/llama_cpp_env.sh"
 # Windows CI uses CPU only (no CUDA available).
 # Use backend=gpu when running locally on Windows with a CUDA build.
 backend="${1:-cpu}"
+ensure_args=()
+case "$backend" in
+  cpu) ;;
+  gpu) ensure_args+=(--gpu) ;;
+  *)
+    echo "usage: $0 [cpu|gpu]" >&2
+    exit 2
+    ;;
+esac
 
 llama_dir="$(tk_resolve_llama_cpp_dir)"
 server_bin="${llama_dir}/llama-server.exe"
 
 # Ensure llama.cpp is built.
-bash "${SCRIPT_DIR}/ensure_llama_cpp_win.sh" --"${backend}"
+bash "${SCRIPT_DIR}/ensure_llama_cpp_win.sh" "${ensure_args[@]}"
 
 # Ensure model is present.
 bash "${SCRIPT_DIR}/ensure_hf_model.sh"

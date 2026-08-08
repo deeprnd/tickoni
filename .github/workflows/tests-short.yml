@@ -538,7 +538,7 @@ jobs:
 
       - name: Export Windows x86_64 conformance bundle
         shell: bash
-        run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/windows-x86
+        run: python contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/windows-x86
 
       - name: Upload Windows x86_64 conformance bundle
         uses: actions/upload-artifact@v7
@@ -573,7 +573,7 @@ jobs:
 
       - name: Export Windows ARM conformance bundle
         shell: bash
-        run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/windows-arm
+        run: python contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/windows-arm
 
       - name: Upload Windows ARM conformance bundle
         uses: actions/upload-artifact@v7
