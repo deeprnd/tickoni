@@ -4,7 +4,6 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-  - package-ecosystem: 'npm'
-    directory: '/book'
-    schedule:
-      interval: 'daily'
+    labels:
+        - "area/dependencies"
+        - "bot"
