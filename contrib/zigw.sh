@@ -54,7 +54,7 @@ if [[ "${1:-}" == "build" ]]; then
   if [[ -n "$force_target" && "$has_target" -eq 0 ]]; then
     set -- "$1" "-Dtarget=$force_target" "${@:2}"
   elif [[ "$using_windows_arm_x64_zig" -eq 1 && "$has_target" -eq 0 ]]; then
-    set -- "$1" "-Dtarget=aarch64-windows-gnu" "${@:2}"
+    set -- "$1" "-Dtarget=aarch64-windows" "${@:2}"
   fi
 fi
 
