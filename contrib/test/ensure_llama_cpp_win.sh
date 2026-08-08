@@ -30,6 +30,7 @@ check_only=0
 gpu_build=0
 for arg in "$@"; do
   case "$arg" in
+    --cpu)        ;;
     --check-only) check_only=1 ;;
     --gpu)        gpu_build=1 ;;
     --help|-h)    usage; exit 0 ;;
@@ -75,6 +76,26 @@ if [[ -z "$cc" ]] && command -v cl >/dev/null 2>&1; then
 else
   cc="${TK_WINDOWS_CC:-clang}"
 fi
+
+if ! command -v "$cc" >/dev/null 2>&1; then
+  llvm_paths=("/c/Program Files/LLVM/bin")
+  if [[ -n "${LOCALAPPDATA:-}" ]] && command -v cygpath >/dev/null 2>&1; then
+    local_appdata_unix="$(cygpath -u "$LOCALAPPDATA")"
+    for root in "$local_appdata_unix"/Microsoft/WinGet/Packages/LLVM.LLVM_*; do
+      [[ -d "$root" ]] || continue
+      llvm_paths+=("$root" "$root/bin")
+    done
+  fi
+
+  for llvm_path in "${llvm_paths[@]}"; do
+    [[ -d "$llvm_path" ]] || continue
+    PATH="$llvm_path:$PATH"
+    if command -v "$cc" >/dev/null 2>&1; then
+      break
+    fi
+  done
+fi
+
 if ! command -v "$cc" >/dev/null 2>&1; then
   echo "'$cc' not found in PATH; set TK_WINDOWS_CC to an explicit compiler" >&2
   exit 127
@@ -88,16 +109,34 @@ else
 fi
 
 # Build args
+cmake_args=(
+  -B "${llama_dir}/build"
+  -S "$llama_dir"
+  -DCMAKE_BUILD_TYPE=Release
+)
+
+if [[ "$cc" != "cl" ]]; then
+  case "$cc" in
+    *clang) cxx="${cc%clang}clang++" ;;
+    *gcc)   cxx="${cc%gcc}g++" ;;
+    *)      cxx="${CXX:-${cc}++}" ;;
+  esac
+  cmake_args=(
+    -G Ninja
+    -DCMAKE_C_COMPILER="$cc"
+    -DCMAKE_CXX_COMPILER="$cxx"
+    "${cmake_args[@]}"
+  )
+fi
+
 if (( gpu_build )); then
   echo "building llama.cpp (CUDA) in ${llama_dir}/build"
-  cmake -B "${llama_dir}/build" -S "$llama_dir" \
-    -DGGML_CUDA=ON \
-    -DCMAKE_BUILD_TYPE=Release
+  cmake "${cmake_args[@]}" \
+    -DGGML_CUDA=ON
 else
   echo "building llama.cpp (CPU) in ${llama_dir}/build"
   # CPU-only: no OpenBLAS (avoids dynamic DLL dependency on CI runners).
-  cmake -B "${llama_dir}/build" -S "$llama_dir" \
-    -DCMAKE_BUILD_TYPE=Release \
+  cmake "${cmake_args[@]}" \
     -DGGML_BLAS=OFF
 fi
 cmake --build "${llama_dir}/build" --config Release -j 4

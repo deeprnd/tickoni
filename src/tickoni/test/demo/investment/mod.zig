@@ -853,7 +853,10 @@ pub fn runSystemSuite(
     live_config: LiveConfig,
 ) !void {
     const input = support.operationsThesisInput();
-    var live_result = try runLiveModel(allocator, io, live_config, input);
+    var live_result = if (live_config.use_fixture)
+        try runFixtureModel(allocator, input)
+    else
+        try runLiveModel(allocator, io, live_config, input);
     defer live_result.deinit(allocator);
     std.debug.print(
         "=== Live tkmodl ===\nendpoint={s}\nmodel={s}\nmatched_ticker={s}\nexcerpt={s}\n",
