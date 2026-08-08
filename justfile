@@ -383,21 +383,19 @@ test-system-fd:
 test-system-all:
 	{{python}} contrib/readme/run-badged-command.py system bash -c "just test-system-tk && just test-system-fd"
 
-# ── Windows-specific system tests (fixture-backed only, no llama.cpp) ───
+# ── Windows-specific system tests (live, mirrors Linux/macOS flow) ───
 
-# Windows x86_64 system test: build FD libs + system test binaries.
-# The live `test_investment_demo_live.zig` requires a llama-server (Linux-only),
-# so Windows CI only verifies compilation (no run step). Fixture-backed
-# `test_portfolio_cash_demo.zig` is covered by demo-conformance CI instead.
+# Windows x86_64 system test: build FD libs, ensure llama.cpp, run live test.
+# Mirrors `test-system-tk` on Linux/macOS but for Windows.
 test-system-tk-windows-x86:
 	just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log
-	ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} system-test
+	bash contrib/test/run_system_model_tests_win.sh
 
-# Windows ARM64 system test: build FD libs + system test binaries.
-# Same as x86_64: compile-only on Windows (no llama-server for live test).
+# Windows ARM64 system test: build FD libs, ensure llama.cpp, run live test.
+# Same as x86_64: mirrors Linux/macOS `test-system-tk` on Windows ARM.
 test-system-tk-windows-arm:
 	just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log
-	ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} system-test
+	bash contrib/test/run_system_model_tests_win.sh
 
 # ── Infrastructure: ensure llama.cpp and model (for LLM system tests) ──────
 
@@ -415,6 +413,27 @@ infra-ensure-llamacpp:
 	else
 	bash contrib/test/ensure_llama_cpp.sh
 	fi
+
+# ── Infrastructure: ensure llama.cpp and model (Windows) ────────────────────
+
+# Build llama.cpp for Windows (CPU only; CUDA not available on CI runners).
+infra-ensure-llamacpp-win:
+	bash contrib/test/ensure_llama_cpp_win.sh
+
+# Run llama-server.exe for Windows live system tests.
+infra-run-llamacpp-win:
+	source contrib/test/llama_cpp_env.sh
+	llama_dir="$(tk_resolve_llama_cpp_dir)"
+	backend=cpu
+	if command -v nvidia-smi >/dev/null 2>&1; then
+	gpu_count="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l || echo 0)"
+	if (( gpu_count > 0 )) && ldd "${llama_dir}/llama-server.exe" 2>/dev/null | grep -qi 'cuda\|cublas'; then
+	backend=gpu
+	fi
+	fi
+	[[ "$backend" == "gpu" ]] && bash contrib/test/ensure_llama_cpp_win.sh --gpu || bash contrib/test/ensure_llama_cpp_win.sh
+	bash contrib/test/ensure_hf_model.sh
+	exec bash contrib/test/run_llm_server_win.sh "$backend"
 
 # Download the GGUF model for system tests (requires `hf` CLI).
 infra-ensure-model:
