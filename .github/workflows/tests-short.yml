@@ -581,13 +581,13 @@ jobs:
           name: demo-conformance-windows-arm
           path: build/demo-conformance/windows-arm
 
-  # ── System Tests: Windows x86_64 (compile-only, live test requires llama-server) ──────────────
+  # ── System Tests: Windows x86_64 (live llama.cpp, mirrors Linux/macOS) ──────
   system-tests-windows-x86:
-    name: System Tests / Windows x86_64 (compile-only)
+    name: System Tests / Windows x86_64
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
     runs-on: windows-2025-vs2026
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
 
@@ -603,20 +603,17 @@ jobs:
         with:
           build-profile: windows-x86_64
 
-      - name: Build system test binaries (compile-only)
-        # Live llama-server test (test_investment_demo_live.zig) requires Linux.
-        # Fixture-backed test_portfolio_cash_demo.zig is covered by demo-conformance CI.
-        # This lane verifies Windows compilation of system test code.
+      - name: Build llama.cpp + run live system test
         shell: bash
-        run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib system-test
+        run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/test/run_system_model_tests_win.sh
 
-  # ── System Tests: Windows ARM (compile-only, live test requires llama-server) ──────
+  # ── System Tests: Windows ARM (live llama.cpp, mirrors Linux/macOS) ──────
   system-tests-windows-arm:
-    name: System Tests / Windows ARM (compile-only)
+    name: System Tests / Windows ARM
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
     runs-on: windows-11-vs2026-arm
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
 
@@ -632,12 +629,9 @@ jobs:
         with:
           build-profile: windows-arm
 
-      - name: Build system test binaries (compile-only)
-        # Live llama-server test (test_investment_demo_live.zig) requires Linux.
-        # Fixture-backed test_portfolio_cash_demo.zig is covered by demo-conformance CI.
-        # This lane verifies Windows compilation of system test code.
+      - name: Build llama.cpp + run live system test
         shell: bash
-        run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib system-test
+        run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/test/run_system_model_tests_win.sh
 
   # ── Demo Conformance: Compare ───────────────────────────────────────────────
   demo-conformance-compare:
