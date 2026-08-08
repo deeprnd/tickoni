@@ -588,6 +588,7 @@ jobs:
         # Live llama-server test (test_investment_demo_live.zig) requires Linux.
         # Fixture-backed test_portfolio_cash_demo.zig is covered by demo-conformance CI.
         # This lane verifies Windows compilation of system test code.
+        shell: bash
         run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib system-test
 
   # ── System Tests: Windows ARM (compile-only, live test requires llama-server) ──────
