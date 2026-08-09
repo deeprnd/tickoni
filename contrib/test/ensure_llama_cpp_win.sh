@@ -28,6 +28,37 @@ find_msvc_root() {
   printf '%s\n' "${candidates[@]}" | sort | tail -n 1
 }
 
+resolve_windows_sdk_bin_dir() {
+  local sdk_root="$1"
+  local sdk_version="$2"
+  local target="$3"
+  local host_arch="${TK_WINDOWS_HOST_ARCH:-${PROCESSOR_ARCHITECTURE:-}}"
+  local -a candidates=()
+  local candidate arch
+
+  case "${host_arch,,}" in
+    arm64|aarch64) candidates+=(arm64) ;;
+    amd64|x86_64)  candidates+=(x64) ;;
+    x86)           candidates+=(x86) ;;
+  esac
+
+  case "$target" in
+    x64|arm64|x86) candidates+=("$target") ;;
+  esac
+
+  candidates+=(x64 arm64 x86)
+
+  for arch in "${candidates[@]}"; do
+    candidate="$sdk_root/bin/$sdk_version/$arch"
+    if [[ -f "$candidate/rc.exe" && -f "$candidate/mt.exe" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 setup_msvc_env() {
   local msvc_root="$1"
   local target="$2"
@@ -51,7 +82,12 @@ setup_msvc_env() {
 
   include_root="$sdk_root/Include/$sdk_version"
   lib_root="$sdk_root/Lib/$sdk_version"
-  sdk_bin="$sdk_root/bin/$sdk_version/$target"
+  sdk_bin="$(resolve_windows_sdk_bin_dir "$sdk_root" "$sdk_version" "$target" || true)"
+  if [[ -z "$sdk_bin" ]]; then
+    echo "Windows SDK rc.exe/mt.exe not found under $sdk_root/bin/$sdk_version for target=$target host_arch=${TK_WINDOWS_HOST_ARCH:-${PROCESSOR_ARCHITECTURE:-unknown}}" >&2
+    find "$sdk_root/bin/$sdk_version" -maxdepth 2 -type f \( -iname 'rc.exe' -o -iname 'mt.exe' \) 2>/dev/null | sort >&2 || true
+    return 1
+  fi
   WINDOWS_SDK_RC_EXE="$sdk_bin/rc.exe"
   WINDOWS_SDK_MT_EXE="$sdk_bin/mt.exe"
 
