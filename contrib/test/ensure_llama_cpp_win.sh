@@ -113,6 +113,7 @@ cmake_args=(
   -B "${llama_dir}/build"
   -S "$llama_dir"
   -DCMAKE_BUILD_TYPE=Release
+  -DGGML_NATIVE=OFF
 )
 
 if [[ "$cc" != "cl" ]]; then
@@ -136,6 +137,9 @@ if (( gpu_build )); then
 else
   echo "building llama.cpp (CPU) in ${llama_dir}/build"
   # CPU-only: no OpenBLAS (avoids dynamic DLL dependency on CI runners).
+  # Also keep GGML native-tuning disabled on Windows: upstream probes can emit
+  # -mcpu=native for clang's default x86_64 Windows target on ARM runners,
+  # which fails before compilation starts.
   cmake "${cmake_args[@]}" \
     -DGGML_BLAS=OFF
 fi
