@@ -262,7 +262,7 @@ echo "copying llama-server runtime DLLs to ${llama_dir}"
 find "${llama_dir}/build/bin" -maxdepth 1 -type f -name '*.dll' -exec cp {} "${llama_dir}/" \;
 
 if [[ -n "${vc_root:-}" ]]; then
-  redist_root="$(cd "$vc_root/../../Redist/MSVC" 2>/dev/null && pwd || true)"
+  redist_root="$(cd "$vc_root/../../../Redist/MSVC" 2>/dev/null && pwd || true)"
   if [[ -n "$redist_root" ]]; then
     redist_dir="$(find "$redist_root" -path '*/x64/Microsoft.VC143.CRT' | sort | tail -n 1)"
     if [[ -n "$redist_dir" ]]; then
