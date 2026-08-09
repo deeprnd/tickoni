@@ -5,17 +5,27 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/llama_cpp_env.sh"
 
 find_msvc_root() {
-  local root latest
-  for root in \
-    "/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC" \
-    "/c/Program Files/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC" \
-    "/c/Program Files (x86)/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC" \
-    "/c/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC"; do
-    [[ -d "$root" ]] || continue
-    latest="$(find "$root" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
-    [[ -n "$latest" ]] && printf '%s\n' "$latest" && return 0
+  local base root latest
+  local -a candidates=()
+
+  shopt -s nullglob
+  for base in \
+    "/c/Program Files (x86)/Microsoft Visual Studio" \
+    "/c/Program Files/Microsoft Visual Studio"; do
+    [[ -d "$base" ]] || continue
+    for root in "$base"/*/{BuildTools,Community,Professional,Enterprise}/VC/Tools/MSVC; do
+      [[ -d "$root" ]] || continue
+      latest="$(find "$root" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
+      [[ -n "$latest" ]] && candidates+=("$latest")
+    done
   done
-  return 1
+  shopt -u nullglob
+
+  if (( ${#candidates[@]} == 0 )); then
+    return 1
+  fi
+
+  printf '%s\n' "${candidates[@]}" | sort | tail -n 1
 }
 
 setup_msvc_env() {
@@ -204,6 +214,7 @@ cmake_args=(
 )
 
 if [[ "$force_x64_toolchain" -eq 1 ]]; then
+  rm -rf "${llama_dir}/build"
   mkdir -p "${llama_dir}/build"
   toolchain_file="$(cd "${llama_dir}/build" && pwd)/tickoni-windows-arm-x64-toolchain.cmake"
   ninja_bin="$(command -v ninja)"
