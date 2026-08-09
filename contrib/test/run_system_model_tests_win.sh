@@ -21,8 +21,17 @@ case "$backend" in
     ;;
 esac
 
+host_windows_arch="$(bash "${SCRIPT_DIR}/../detect-windows-arch.sh" 2>/dev/null || echo unknown)"
 llama_dir="$(tk_resolve_llama_cpp_dir)"
 server_bin="${llama_dir}/llama-server.exe"
+model_dir="${TK_HF_MODEL_DIR:-$HOME/work/models/gemma/gemma-4-E2B-it-qat-GGUF}"
+model_file="${TK_HF_MODEL_FILE:-gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf}"
+endpoint="${TK_LLM_ENDPOINT:-http://127.0.0.1:8080/v1}"
+
+echo "Windows live system-test config: host_windows_arch=${host_windows_arch} backend=${backend}"
+echo "Windows live system-test llama_dir: ${llama_dir}"
+echo "Windows live system-test model: ${model_dir}/${model_file}"
+echo "Windows live system-test endpoint: ${endpoint}"
 
 # Ensure llama.cpp is built.
 bash "${SCRIPT_DIR}/ensure_llama_cpp_win.sh" "${ensure_args[@]}"

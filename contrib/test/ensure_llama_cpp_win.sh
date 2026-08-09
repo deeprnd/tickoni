@@ -111,6 +111,7 @@ host_windows_arm=0
 if [[ "$host_windows_arch" == "arm64" ]]; then
   host_windows_arm=1
 fi
+echo "Windows llama.cpp host detection: windows_arch=${host_windows_arch:-unknown} uname_m=$(uname -m 2>/dev/null || echo unknown)"
 
 llama_dir="$(tk_resolve_llama_cpp_dir)"
 server_bin="${llama_dir}/llama-server.exe"
@@ -158,6 +159,7 @@ if [[ -z "$cc" ]]; then
       if [[ "$host_windows_arm" -eq 0 && -f "$vc_root/lib/arm64/oldnames.lib" ]]; then
         msvc_target=arm64
       fi
+      echo "resolved MSVC root: ${vc_root}"
       echo "loading MSVC environment from ${vc_root} (${msvc_target})"
       setup_msvc_env "$vc_root" "$msvc_target"
       if [[ "$host_windows_arm" -eq 0 ]] && command -v cl >/dev/null 2>&1; then
@@ -166,7 +168,7 @@ if [[ -z "$cc" ]]; then
       elif [[ "$host_windows_arm" -eq 1 ]] && command -v cl >/dev/null 2>&1; then
         cc="cl"
         force_x64_toolchain=1
-        echo "Windows ARM host detected (${host_windows_arch:-unknown}); forcing x64 MSVC toolchain for llama.cpp"
+        echo "Windows ARM host detected (${host_windows_arch:-unknown}); forcing x64 MSVC toolchain for llama.cpp to avoid ARM backend mixing on CI/local MSYS shells"
       fi
     fi
   fi
@@ -197,6 +199,8 @@ if ! command -v "$cc" >/dev/null 2>&1; then
   echo "'$cc' not found in PATH; set TK_WINDOWS_CC to an explicit compiler" >&2
   exit 127
 fi
+
+echo "selected Windows llama.cpp compiler: $cc"
 
 if [[ ! -d "$llama_dir" ]]; then
   echo "cloning llama.cpp into ${llama_dir}"
@@ -236,6 +240,7 @@ EOF
     -DCMAKE_CXX_COMPILER=cl
     "${cmake_args[@]}"
   )
+  echo "generated forced-x64 toolchain file: ${toolchain_file}"
 elif [[ "$cc" == "cl" ]]; then
   cmake_args=(
     -G Ninja
