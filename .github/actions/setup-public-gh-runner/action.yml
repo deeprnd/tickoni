@@ -62,20 +62,20 @@ runs:
       if: inputs.zig == 'true' && runner.os == 'Windows'
       shell: pwsh
       env:
-        # Force Zig to target aarch64-windows on ARM runners.
-        # zigw.sh reads ZIG_TARGET_OVERRIDE and passes it as -Dtarget.
-        # Zig only ships GNU ABI Windows binaries — 'aarch64-windows'
-        # is Zig's ARM64 Windows target name. Passing a nonexistent
-        # target causes a segfault. The FD libs on Windows are compiled
-        # with --target=aarch64-windows-msvc.
+        # Force Windows ARM runners to cross-build the harness for
+        # aarch64-windows while executing the stable x86_64 Zig binary under
+        # Windows emulation. The native aarch64 Zig 0.16.0 binary is unstable
+        # on this lane and can segfault during plain `zig build` / `zig env`
+        # invocations. zigw.sh reads ZIG_TARGET_OVERRIDE and injects -Dtarget
+        # when the caller didn't specify one.
         ZIG_TARGET_OVERRIDE: ${{ runner.os == 'Windows' && runner.arch == 'ARM64' && 'aarch64-windows' || '' }}
       run: |
         $zigArgs = @('--version', '${{ inputs.zig-version }}')
         if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') {
-          # Install native Windows ARM64 zig (aarch64-windows).
-          # This is the only native ARM64 Windows Zig binary available;
-          # passing a nonexistent Zig target causes a segfault.
-          $zigArgs += @('--target', 'aarch64-windows')
+          # Install the x86_64 Windows Zig binary on Windows ARM so later bash
+          # steps can run it reliably under emulation while still targeting
+          # aarch64-windows via ZIG_TARGET_OVERRIDE / contrib/zigw.sh.
+          $zigArgs += @('--target', 'x86_64-windows')
         }
         python "$env:GITHUB_WORKSPACE/contrib/install-zig.py" @zigArgs
         if ($env:ZIG_TARGET_OVERRIDE) {
