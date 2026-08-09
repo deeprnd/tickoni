@@ -187,6 +187,33 @@ patch_llama_ui_embed_cpp() {
   echo "patched llama UI embed helper for PRIx64 C++ macro compatibility: ${embed_cpp}"
 }
 
+prepare_windows_host_cxx_compiler() {
+  local build_dir="$1"
+  local host_cxx host_cxx_version host_cxx_major wrapper_path host_cxx_native
+
+  host_cxx="$(command -v g++ || command -v clang++ || true)"
+  if [[ -z "$host_cxx" ]]; then
+    return 0
+  fi
+
+  host_cxx_native="$(cygpath -w "$host_cxx")"
+  host_cxx_version="$($host_cxx -dumpfullversion -dumpversion 2>/dev/null | head -n 1 || true)"
+  host_cxx_major="${host_cxx_version%%.*}"
+
+  if [[ "${TK_WINDOWS_HOST_CXX_FORCE_STDCXXFS:-0}" == "1" ]] || [[ "$(basename "$host_cxx")" == "g++.exe" && "$host_cxx_major" =~ ^[0-9]+$ && "$host_cxx_major" -lt 9 ]]; then
+    wrapper_path="$build_dir/host-cxx.cmd"
+    cat > "$wrapper_path" <<EOF
+@echo off
+"${host_cxx_native}" %* -lstdc++fs
+EOF
+    echo "using Windows host C++ wrapper for filesystem link compatibility: ${wrapper_path} -> ${host_cxx} (${host_cxx_version:-unknown})" >&2
+    cygpath -w "$wrapper_path"
+    return 0
+  fi
+
+  printf '%s\n' "$host_cxx_native"
+}
+
 usage() {
   cat <<'USAGE'
 Usage: contrib/test/ensure_llama_cpp_win.sh [--gpu] [--check-only]
@@ -327,6 +354,7 @@ echo "selected Windows llama.cpp compiler: $cc"
 
 windows_sdk_rc_native=""
 windows_sdk_mt_native=""
+host_cxx_compiler_native=""
 
 if [[ ! -d "$llama_dir" ]]; then
   echo "cloning llama.cpp into ${llama_dir}"
@@ -336,6 +364,8 @@ else
 fi
 
 patch_llama_ui_embed_cpp "$llama_dir"
+mkdir -p "${llama_build_dir}"
+host_cxx_compiler_native="$(prepare_windows_host_cxx_compiler "${llama_build_dir}")"
 
 # Build args
 cmake_args=(
@@ -369,6 +399,7 @@ EOF
     -DCMAKE_CXX_COMPILER=cl
     "-DCMAKE_RC_COMPILER=${windows_sdk_rc_native}"
     "-DCMAKE_MT=${windows_sdk_mt_native}"
+    "-DHOST_CXX_COMPILER=${host_cxx_compiler_native}"
     "${cmake_args[@]}"
   )
   echo "generated forced-x64 toolchain file: ${toolchain_file}"
@@ -381,6 +412,7 @@ elif [[ "$cc" == "cl" ]]; then
     -DCMAKE_CXX_COMPILER=cl
     "-DCMAKE_RC_COMPILER=${windows_sdk_rc_native}"
     "-DCMAKE_MT=${windows_sdk_mt_native}"
+    "-DHOST_CXX_COMPILER=${host_cxx_compiler_native}"
     "${cmake_args[@]}"
   )
 else
@@ -393,6 +425,7 @@ else
     -G Ninja
     -DCMAKE_C_COMPILER="$cc"
     -DCMAKE_CXX_COMPILER="$cxx"
+    "-DHOST_CXX_COMPILER=${host_cxx_compiler_native}"
     "${cmake_args[@]}"
   )
 fi
