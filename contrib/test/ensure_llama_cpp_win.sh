@@ -207,10 +207,10 @@ echo "selected Windows llama.cpp compiler: $cc"
 windows_sdk_rc_native=""
 windows_sdk_mt_native=""
 if [[ -n "${WINDOWS_SDK_RC_EXE:-}" && -f "${WINDOWS_SDK_RC_EXE}" ]]; then
-  windows_sdk_rc_native="$(cygpath -m "$WINDOWS_SDK_RC_EXE")"
+  windows_sdk_rc_native="$(cygpath -m "$(cygpath -d "$WINDOWS_SDK_RC_EXE")")"
 fi
 if [[ -n "${WINDOWS_SDK_MT_EXE:-}" && -f "${WINDOWS_SDK_MT_EXE}" ]]; then
-  windows_sdk_mt_native="$(cygpath -m "$WINDOWS_SDK_MT_EXE")"
+  windows_sdk_mt_native="$(cygpath -m "$(cygpath -d "$WINDOWS_SDK_MT_EXE")")"
 fi
 
 if [[ ! -d "$llama_dir" ]]; then
