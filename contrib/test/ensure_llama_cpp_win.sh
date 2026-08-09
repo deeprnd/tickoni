@@ -59,6 +59,24 @@ resolve_windows_sdk_bin_dir() {
   return 1
 }
 
+resolve_windows_sdk_version() {
+  local sdk_root="$1"
+  local include_root="$sdk_root/Include"
+  local version
+
+  if [[ ! -d "$include_root" ]]; then
+    return 1
+  fi
+
+  version="$(find "$include_root" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | grep -E '^[0-9]+(\.[0-9]+)+$' | sort -V | tail -n 1 || true)"
+  if [[ -n "$version" ]]; then
+    printf '%s\n' "$version"
+    return 0
+  fi
+
+  return 1
+}
+
 setup_msvc_env() {
   local msvc_root="$1"
   local target="$2"
@@ -74,9 +92,10 @@ setup_msvc_env() {
   fi
 
   sdk_root="/c/Program Files (x86)/Windows Kits/10"
-  sdk_version="$(find "$sdk_root/Include" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1 | xargs -I{} basename "{}")"
+  sdk_version="$(resolve_windows_sdk_version "$sdk_root" || true)"
   if [[ -z "$sdk_version" ]]; then
-    echo "Windows SDK include tree not found under $sdk_root" >&2
+    echo "Windows SDK include version dirs not found under $sdk_root/Include" >&2
+    find "$sdk_root/Include" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort >&2 || true
     return 1
   fi
 
