@@ -353,9 +353,6 @@ if [[ -z "$cc" ]]; then
     vc_root="$(find_msvc_root || true)"
     if [[ -n "$vc_root" ]]; then
       msvc_target=x64
-      if [[ "$host_windows_arm" -eq 0 && -f "$vc_root/lib/arm64/oldnames.lib" ]]; then
-        msvc_target=arm64
-      fi
       echo "resolved MSVC root: ${vc_root}"
       echo "loading MSVC environment from ${vc_root} (${msvc_target})"
       setup_msvc_env "$vc_root" "$msvc_target"
