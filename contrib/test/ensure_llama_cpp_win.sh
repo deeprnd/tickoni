@@ -4,6 +4,59 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/llama_cpp_env.sh"
 
+find_msvc_root() {
+  local root latest
+  for root in \
+    "/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC" \
+    "/c/Program Files/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC" \
+    "/c/Program Files (x86)/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC" \
+    "/c/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC"; do
+    [[ -d "$root" ]] || continue
+    latest="$(find "$root" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
+    [[ -n "$latest" ]] && printf '%s\n' "$latest" && return 0
+  done
+  return 1
+}
+
+setup_msvc_env() {
+  local msvc_root="$1"
+  local target="$2"
+  local host_bin sdk_root sdk_version include_root lib_root sdk_bin path_prefix
+
+  if [[ -d "$msvc_root/bin/Hostarm64/$target" ]]; then
+    host_bin="$msvc_root/bin/Hostarm64/$target"
+  elif [[ -d "$msvc_root/bin/Hostx64/$target" ]]; then
+    host_bin="$msvc_root/bin/Hostx64/$target"
+  else
+    echo "MSVC toolchain missing bin directory for target $target under $msvc_root" >&2
+    return 1
+  fi
+
+  sdk_root="/c/Program Files (x86)/Windows Kits/10"
+  sdk_version="$(find "$sdk_root/Include" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1 | xargs -I{} basename "{}")"
+  if [[ -z "$sdk_version" ]]; then
+    echo "Windows SDK include tree not found under $sdk_root" >&2
+    return 1
+  fi
+
+  include_root="$sdk_root/Include/$sdk_version"
+  lib_root="$sdk_root/Lib/$sdk_version"
+  sdk_bin="$sdk_root/bin/$sdk_version/$target"
+
+  export INCLUDE="$(cygpath -w "$msvc_root/include");$(cygpath -w "$include_root/ucrt");$(cygpath -w "$include_root/um");$(cygpath -w "$include_root/shared");$(cygpath -w "$include_root/winrt");$(cygpath -w "$include_root/cppwinrt")"
+  export LIB="$(cygpath -w "$msvc_root/lib/$target");$(cygpath -w "$lib_root/ucrt/$target");$(cygpath -w "$lib_root/um/$target")"
+  export LIBPATH="$LIB"
+
+  path_prefix="$host_bin"
+  [[ -d "$sdk_bin" ]] && path_prefix="$path_prefix:$sdk_bin"
+  export PATH="$path_prefix:$PATH"
+  export VCINSTALLDIR="$(cygpath -w "$(dirname "$msvc_root")")\\"
+  export VCToolsInstallDir="$(cygpath -w "$msvc_root")\\"
+  export WindowsSdkDir="$(cygpath -w "$sdk_root")\\"
+  export VisualStudioVersion=17.0
+  export UCRTVersion="$sdk_version"
+}
+
 usage() {
   cat <<'USAGE'
 Usage: contrib/test/ensure_llama_cpp_win.sh [--gpu] [--check-only]
@@ -38,6 +91,11 @@ for arg in "$@"; do
   esac
 done
 
+host_windows_arm=0
+case "$(uname -s)" in
+  *ARM64*) host_windows_arm=1 ;;
+esac
+
 llama_dir="$(tk_resolve_llama_cpp_dir)"
 server_bin="${llama_dir}/llama-server.exe"
 
@@ -66,16 +124,39 @@ for cmd in git cmake ninja; do
   fi
 done
 
-# Prefer MSVC on Windows CI runners (bundled with Visual Studio Build Tools,
-# provides UCRT runtime). Fall back to clang if MSVC not available.
-# MSVC avoids clang DLL-dependency issues on GitHub Actions Windows runners.
+# Prefer MSVC on Windows when available; it brings the CRT import libs that
+# upstream llama.cpp needs for a real Windows link. On Windows ARM developer
+# machines we only require llama-server.exe itself, so an x64 MSVC lane is fine
+# when only x64 CRT libs are installed.
 cc="${TK_WINDOWS_CC:-}"
-if [[ -z "$cc" ]] && command -v cl >/dev/null 2>&1; then
-  cc="cl"
-  echo "using MSVC toolchain (cl)"
-else
-  cc="${TK_WINDOWS_CC:-clang}"
+msvc_target=""
+force_x64_toolchain=0
+if [[ -z "$cc" ]]; then
+  if [[ "$host_windows_arm" -eq 0 ]] && command -v cl >/dev/null 2>&1; then
+    cc="cl"
+    echo "using MSVC toolchain (cl from PATH)"
+  else
+    vc_root="$(find_msvc_root || true)"
+    if [[ -n "$vc_root" ]]; then
+      msvc_target=x64
+      if [[ -f "$vc_root/lib/arm64/oldnames.lib" ]]; then
+        msvc_target=arm64
+      fi
+      echo "loading MSVC environment from ${vc_root} (${msvc_target})"
+      setup_msvc_env "$vc_root" "$msvc_target"
+      if [[ "$host_windows_arm" -eq 0 ]] && command -v cl >/dev/null 2>&1; then
+        cc="cl"
+        echo "using MSVC toolchain (cl via discovered MSVC root)"
+      elif [[ "$host_windows_arm" -eq 1 && "$msvc_target" == "x64" ]] && command -v cl >/dev/null 2>&1; then
+        cc="cl"
+        force_x64_toolchain=1
+        echo "Windows ARM host detected; forcing x64 MSVC toolchain for llama.cpp"
+      fi
+    fi
+  fi
 fi
+
+cc="${cc:-clang}"
 
 if ! command -v "$cc" >/dev/null 2>&1; then
   llvm_paths=("/c/Program Files/LLVM/bin")
@@ -116,7 +197,36 @@ cmake_args=(
   -DGGML_NATIVE=OFF
 )
 
-if [[ "$cc" != "cl" ]]; then
+if [[ "$force_x64_toolchain" -eq 1 ]]; then
+  mkdir -p "${llama_dir}/build"
+  toolchain_file="$(cd "${llama_dir}/build" && pwd)/tickoni-windows-arm-x64-toolchain.cmake"
+  ninja_bin="$(command -v ninja)"
+  toolchain_file_native="$(cygpath -w "$toolchain_file")"
+  ninja_bin_native="$(cygpath -w "$ninja_bin")"
+  cat > "$toolchain_file" <<'EOF'
+set(CMAKE_SYSTEM_NAME Windows)
+set(CMAKE_SYSTEM_PROCESSOR AMD64)
+set(CMAKE_C_COMPILER cl)
+set(CMAKE_CXX_COMPILER cl)
+set(CMAKE_RC_COMPILER rc)
+set(CMAKE_MT mt)
+EOF
+  cmake_args=(
+    -G Ninja
+    -DCMAKE_TOOLCHAIN_FILE=$toolchain_file_native
+    -DCMAKE_MAKE_PROGRAM=$ninja_bin_native
+    -DCMAKE_C_COMPILER=cl
+    -DCMAKE_CXX_COMPILER=cl
+    "${cmake_args[@]}"
+  )
+elif [[ "$cc" == "cl" ]]; then
+  cmake_args=(
+    -G Ninja
+    -DCMAKE_C_COMPILER=cl
+    -DCMAKE_CXX_COMPILER=cl
+    "${cmake_args[@]}"
+  )
+else
   case "$cc" in
     *clang) cxx="${cc%clang}clang++" ;;
     *gcc)   cxx="${cc%gcc}g++" ;;
@@ -147,6 +257,21 @@ cmake --build "${llama_dir}/build" --config Release -j 4
 
 echo "copying llama-server.exe to ${llama_dir}"
 cp "${llama_dir}/build/bin/llama-server.exe" "${llama_dir}/"
+
+echo "copying llama-server runtime DLLs to ${llama_dir}"
+find "${llama_dir}/build/bin" -maxdepth 1 -type f -name '*.dll' -exec cp {} "${llama_dir}/" \;
+
+if [[ -n "${vc_root:-}" ]]; then
+  redist_root="$(cd "$vc_root/../../Redist/MSVC" 2>/dev/null && pwd || true)"
+  if [[ -n "$redist_root" ]]; then
+    redist_dir="$(find "$redist_root" -path '*/x64/Microsoft.VC143.CRT' | sort | tail -n 1)"
+    if [[ -n "$redist_dir" ]]; then
+      for dll in msvcp140.dll vcruntime140.dll vcruntime140_1.dll; do
+        [[ -f "$redist_dir/$dll" ]] && cp "$redist_dir/$dll" "${llama_dir}/"
+      done
+    fi
+  fi
+fi
 
 if [[ ! -x "$server_bin" ]]; then
   echo "build finished but llama-server.exe is missing: ${server_bin}" >&2
