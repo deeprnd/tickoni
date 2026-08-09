@@ -18,6 +18,7 @@ normalize_arch() {
 }
 
 for candidate in \
+  "${TK_WINDOWS_HOST_ARCH:-}" \
   "${MSYSTEM_CARCH:-}" \
   "${PROCESSOR_ARCHITEW6432:-}" \
   "${PROCESSOR_ARCHITECTURE:-}" \
