@@ -603,7 +603,7 @@ jobs:
         with:
           build-profile: windows-x86_64
 
-      - name: Build llama.cpp + run live system test
+      - name: Build llama.cpp + run live system test (toolchain diagnostics)
         shell: bash
         run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/test/run_system_model_tests_win.sh
 
@@ -629,7 +629,7 @@ jobs:
         with:
           build-profile: windows-arm
 
-      - name: Build llama.cpp + run live system test
+      - name: Build llama.cpp + run live system test (toolchain diagnostics)
         shell: bash
         run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/test/run_system_model_tests_win.sh
 
