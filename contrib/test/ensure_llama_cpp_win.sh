@@ -187,6 +187,53 @@ patch_llama_ui_embed_cpp() {
   echo "patched llama UI embed helper for PRIx64 C++ macro compatibility: ${embed_cpp}"
 }
 
+patch_llama_ui_cmake_for_old_windows_gxx() {
+  local llama_dir="$1"
+  local ui_cmake="$llama_dir/tools/ui/CMakeLists.txt"
+
+  if [[ ! -f "$ui_cmake" ]]; then
+    return 0
+  fi
+
+  if grep -q 'LLAMA_UI_HOST_CXX_EXTRA_LIBS' "$ui_cmake"; then
+    return 0
+  fi
+
+  python - "$ui_cmake" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding='utf-8')
+
+needle1 = '    message(STATUS "UI: building llama-ui-embed with host compiler ${HOST_CXX_COMPILER}")\n\n'
+insert1 = (
+    '    set(LLAMA_UI_HOST_CXX_EXTRA_LIBS "")\n'
+    '    if(CMAKE_HOST_WIN32 AND HOST_CXX_COMPILER MATCHES "(^|[/\\\\])g\\\\+\\\\+(\\\\.exe)?$")\n'
+    '        execute_process(COMMAND "${HOST_CXX_COMPILER}" -dumpfullversion -dumpversion\n'
+    '            OUTPUT_VARIABLE LLAMA_UI_HOST_CXX_VERSION\n'
+    '            OUTPUT_STRIP_TRAILING_WHITESPACE\n'
+    '            ERROR_QUIET)\n'
+    '        if(LLAMA_UI_HOST_CXX_VERSION VERSION_LESS 9)\n'
+    '            list(APPEND LLAMA_UI_HOST_CXX_EXTRA_LIBS -lstdc++fs)\n'
+    '        endif()\n'
+    '    endif()\n\n'
+)
+
+needle2 = '        COMMAND "${HOST_CXX_COMPILER}" -O2 -std=c++17\n                -o "${LLAMA_UI_EMBED_EXE}" "${CMAKE_CURRENT_SOURCE_DIR}/embed.cpp"\n'
+insert2 = '        COMMAND "${HOST_CXX_COMPILER}" -O2 -std=c++17\n                -o "${LLAMA_UI_EMBED_EXE}" "${CMAKE_CURRENT_SOURCE_DIR}/embed.cpp" ${LLAMA_UI_HOST_CXX_EXTRA_LIBS}\n'
+
+if needle1 not in text or needle2 not in text:
+    raise SystemExit(f'failed to find expected UI host compiler snippets in {path}')
+
+text = text.replace(needle1, needle1 + insert1, 1)
+text = text.replace(needle2, insert2, 1)
+path.write_text(text, encoding='utf-8')
+PY
+
+  echo "patched llama UI CMake host compiler link flags for old Windows g++: ${ui_cmake}"
+}
+
 prepare_windows_host_cxx_compiler() {
   local build_dir="$1"
   local host_cxx host_cxx_version host_cxx_major wrapper_path host_cxx_native
@@ -364,6 +411,7 @@ else
 fi
 
 patch_llama_ui_embed_cpp "$llama_dir"
+patch_llama_ui_cmake_for_old_windows_gxx "$llama_dir"
 mkdir -p "${llama_build_dir}"
 host_cxx_compiler_native="$(prepare_windows_host_cxx_compiler "${llama_build_dir}")"
 
