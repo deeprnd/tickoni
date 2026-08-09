@@ -91,10 +91,16 @@ for arg in "$@"; do
   esac
 done
 
+host_windows_arch=""
+if host_windows_arch="$(bash "${SCRIPT_DIR}/../detect-windows-arch.sh" 2>/dev/null)"; then
+  :
+else
+  host_windows_arch=""
+fi
 host_windows_arm=0
-case "$(uname -s)" in
-  *ARM64*) host_windows_arm=1 ;;
-esac
+if [[ "$host_windows_arch" == "arm64" ]]; then
+  host_windows_arm=1
+fi
 
 llama_dir="$(tk_resolve_llama_cpp_dir)"
 server_bin="${llama_dir}/llama-server.exe"
@@ -139,7 +145,7 @@ if [[ -z "$cc" ]]; then
     vc_root="$(find_msvc_root || true)"
     if [[ -n "$vc_root" ]]; then
       msvc_target=x64
-      if [[ -f "$vc_root/lib/arm64/oldnames.lib" ]]; then
+      if [[ "$host_windows_arm" -eq 0 && -f "$vc_root/lib/arm64/oldnames.lib" ]]; then
         msvc_target=arm64
       fi
       echo "loading MSVC environment from ${vc_root} (${msvc_target})"
@@ -147,10 +153,10 @@ if [[ -z "$cc" ]]; then
       if [[ "$host_windows_arm" -eq 0 ]] && command -v cl >/dev/null 2>&1; then
         cc="cl"
         echo "using MSVC toolchain (cl via discovered MSVC root)"
-      elif [[ "$host_windows_arm" -eq 1 && "$msvc_target" == "x64" ]] && command -v cl >/dev/null 2>&1; then
+      elif [[ "$host_windows_arm" -eq 1 ]] && command -v cl >/dev/null 2>&1; then
         cc="cl"
         force_x64_toolchain=1
-        echo "Windows ARM host detected; forcing x64 MSVC toolchain for llama.cpp"
+        echo "Windows ARM host detected (${host_windows_arch:-unknown}); forcing x64 MSVC toolchain for llama.cpp"
       fi
     fi
   fi
