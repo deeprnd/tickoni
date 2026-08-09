@@ -69,6 +69,40 @@ setup_msvc_env() {
   export UCRTVersion="$sdk_version"
 }
 
+prepare_windows_sdk_tool_aliases() {
+  local build_dir="$1"
+  local sdk_bin_dir alias_dir alias_native target_native
+
+  if [[ -z "${WINDOWS_SDK_RC_EXE:-}" || ! -f "${WINDOWS_SDK_RC_EXE}" ]]; then
+    echo "Windows SDK rc.exe not found; expected WINDOWS_SDK_RC_EXE to point to an existing file" >&2
+    return 1
+  fi
+  if [[ -z "${WINDOWS_SDK_MT_EXE:-}" || ! -f "${WINDOWS_SDK_MT_EXE}" ]]; then
+    echo "Windows SDK mt.exe not found; expected WINDOWS_SDK_MT_EXE to point to an existing file" >&2
+    return 1
+  fi
+
+  sdk_bin_dir="$(dirname "$WINDOWS_SDK_RC_EXE")"
+  mkdir -p "$build_dir"
+  alias_dir="$build_dir/windows-sdk-bin"
+  alias_native="$(cygpath -w "$alias_dir")"
+  target_native="$(cygpath -w "$sdk_bin_dir")"
+
+  python -c 'import shutil, subprocess, sys; link, target = sys.argv[1:3]; shutil.rmtree(link, ignore_errors=True); subprocess.run(["cmd.exe", "/c", "mklink", "/J", link, target], check=True)' "$alias_native" "$target_native"
+
+  windows_sdk_rc_native="$(cygpath -m "$alias_dir/rc.exe")"
+  windows_sdk_mt_native="$(cygpath -m "$alias_dir/mt.exe")"
+
+  if [[ ! -f "$alias_dir/rc.exe" || ! -f "$alias_dir/mt.exe" ]]; then
+    echo "failed to materialize Windows SDK tool alias dir: $alias_dir" >&2
+    return 1
+  fi
+
+  echo "using Windows SDK tool alias dir: ${alias_dir}"
+  echo "resolved Windows SDK rc path: ${windows_sdk_rc_native}"
+  echo "resolved Windows SDK mt path: ${windows_sdk_mt_native}"
+}
+
 usage() {
   cat <<'USAGE'
 Usage: contrib/test/ensure_llama_cpp_win.sh [--gpu] [--check-only]
@@ -117,6 +151,9 @@ echo "Windows llama.cpp host detection: windows_arch=${host_windows_arch:-unknow
 
 llama_dir="$(tk_resolve_llama_cpp_dir)"
 server_bin="${llama_dir}/llama-server.exe"
+llama_dir_native="$(cygpath -m "$llama_dir")"
+llama_build_dir="${llama_dir}/build"
+llama_build_dir_native="$(cygpath -m "$llama_build_dir")"
 
 # Check if binary exists and backend matches
 if [[ -x "$server_bin" ]]; then
@@ -206,12 +243,6 @@ echo "selected Windows llama.cpp compiler: $cc"
 
 windows_sdk_rc_native=""
 windows_sdk_mt_native=""
-if [[ -n "${WINDOWS_SDK_RC_EXE:-}" && -f "${WINDOWS_SDK_RC_EXE}" ]]; then
-  windows_sdk_rc_native="$(cygpath -m "$(cygpath -d "$WINDOWS_SDK_RC_EXE")")"
-fi
-if [[ -n "${WINDOWS_SDK_MT_EXE:-}" && -f "${WINDOWS_SDK_MT_EXE}" ]]; then
-  windows_sdk_mt_native="$(cygpath -m "$(cygpath -d "$WINDOWS_SDK_MT_EXE")")"
-fi
 
 if [[ ! -d "$llama_dir" ]]; then
   echo "cloning llama.cpp into ${llama_dir}"
@@ -222,16 +253,17 @@ fi
 
 # Build args
 cmake_args=(
-  -B "${llama_dir}/build"
-  -S "$llama_dir"
+  -B "${llama_build_dir_native}"
+  -S "$llama_dir_native"
   -DCMAKE_BUILD_TYPE=Release
   -DGGML_NATIVE=OFF
 )
 
 if [[ "$force_x64_toolchain" -eq 1 ]]; then
-  rm -rf "${llama_dir}/build"
-  mkdir -p "${llama_dir}/build"
-  toolchain_file="$(cd "${llama_dir}/build" && pwd)/tickoni-windows-arm-x64-toolchain.cmake"
+  rm -rf "${llama_build_dir}"
+  mkdir -p "${llama_build_dir}"
+  prepare_windows_sdk_tool_aliases "${llama_build_dir}"
+  toolchain_file="$(cd "${llama_build_dir}" && pwd)/tickoni-windows-arm-x64-toolchain.cmake"
   ninja_bin="$(command -v ninja)"
   toolchain_file_native="$(cygpath -w "$toolchain_file")"
   ninja_bin_native="$(cygpath -w "$ninja_bin")"
@@ -255,6 +287,8 @@ EOF
   )
   echo "generated forced-x64 toolchain file: ${toolchain_file}"
 elif [[ "$cc" == "cl" ]]; then
+  mkdir -p "${llama_build_dir}"
+  prepare_windows_sdk_tool_aliases "${llama_build_dir}"
   cmake_args=(
     -G Ninja
     -DCMAKE_C_COMPILER=cl
@@ -278,11 +312,11 @@ else
 fi
 
 if (( gpu_build )); then
-  echo "building llama.cpp (CUDA) in ${llama_dir}/build"
+  echo "building llama.cpp (CUDA) in ${llama_build_dir}"
   cmake "${cmake_args[@]}" \
     -DGGML_CUDA=ON
 else
-  echo "building llama.cpp (CPU) in ${llama_dir}/build"
+  echo "building llama.cpp (CPU) in ${llama_build_dir}"
   # CPU-only: no OpenBLAS (avoids dynamic DLL dependency on CI runners).
   # Also keep GGML native-tuning disabled on Windows: upstream probes can emit
   # -mcpu=native for clang's default x86_64 Windows target on ARM runners,
@@ -290,7 +324,7 @@ else
   cmake "${cmake_args[@]}" \
     -DGGML_BLAS=OFF
 fi
-cmake --build "${llama_dir}/build" --config Release -j 4
+cmake --build "${llama_build_dir_native}" --config Release -j 4
 
 echo "copying llama-server.exe to ${llama_dir}"
 cp "${llama_dir}/build/bin/llama-server.exe" "${llama_dir}/"
