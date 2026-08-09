@@ -158,6 +158,35 @@ prepare_windows_sdk_tool_aliases() {
   echo "resolved Windows SDK mt path: ${windows_sdk_mt_native}"
 }
 
+patch_llama_ui_embed_cpp() {
+  local llama_dir="$1"
+  local embed_cpp="$llama_dir/tools/ui/embed.cpp"
+
+  if [[ ! -f "$embed_cpp" ]]; then
+    return 0
+  fi
+
+  if grep -q '^#define __STDC_FORMAT_MACROS$' "$embed_cpp"; then
+    return 0
+  fi
+
+  awk '
+    BEGIN { inserted = 0 }
+    $0 == "#include <inttypes.h>" && !inserted {
+      print "#define __STDC_FORMAT_MACROS"
+      inserted = 1
+    }
+    { print }
+  ' "$embed_cpp" > "$embed_cpp.tmp"
+  mv "$embed_cpp.tmp" "$embed_cpp"
+  if ! grep -q '^#define __STDC_FORMAT_MACROS$' "$embed_cpp"; then
+    echo "failed to patch ${embed_cpp} for PRIx64 C++ macro compatibility" >&2
+    return 1
+  fi
+
+  echo "patched llama UI embed helper for PRIx64 C++ macro compatibility: ${embed_cpp}"
+}
+
 usage() {
   cat <<'USAGE'
 Usage: contrib/test/ensure_llama_cpp_win.sh [--gpu] [--check-only]
@@ -305,6 +334,8 @@ if [[ ! -d "$llama_dir" ]]; then
 else
   echo "directory exists, skipping clone: ${llama_dir}"
 fi
+
+patch_llama_ui_embed_cpp "$llama_dir"
 
 # Build args
 cmake_args=(
