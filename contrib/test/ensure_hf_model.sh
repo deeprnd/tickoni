@@ -20,6 +20,45 @@ Defaults:
 USAGE
 }
 
+ensure_hf_cli() {
+  local scripts_dir scripts_dir_unix
+
+  if command -v hf >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if ! command -v python >/dev/null 2>&1; then
+    return 1
+  fi
+
+  scripts_dir="$(python - <<'PY'
+import sysconfig
+print(sysconfig.get_path('scripts'))
+PY
+)"
+
+  if [[ -n "$scripts_dir" ]]; then
+    scripts_dir_unix="$scripts_dir"
+    if command -v cygpath >/dev/null 2>&1; then
+      scripts_dir_unix="$(cygpath -u "$scripts_dir")"
+    fi
+    export PATH="$scripts_dir_unix:$PATH"
+  fi
+
+  if command -v hf >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo "hf not found; installing huggingface_hub CLI with python -m pip --user" >&2
+  python -m pip install --user "huggingface_hub[cli]"
+
+  if [[ -n "${scripts_dir_unix:-}" ]]; then
+    export PATH="$scripts_dir_unix:$PATH"
+  fi
+
+  command -v hf >/dev/null 2>&1
+}
+
 check_only=0
 if [[ "${1:-}" == "--check-only" ]]; then
   check_only=1
@@ -58,7 +97,7 @@ if (( check_only )); then
   exit 1
 fi
 
-if ! command -v hf >/dev/null 2>&1; then
+if ! ensure_hf_cli; then
   echo "hf is required to download ${repo_id}/${model_file}" >&2
   echo "Install the Hugging Face CLI so the `hf` command is available, then rerun this command." >&2
   exit 127
