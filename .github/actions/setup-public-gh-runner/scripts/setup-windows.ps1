@@ -28,6 +28,19 @@ function Add-ToGitHubPath {
     Add-Content -Path $env:GITHUB_PATH -Value $Value
 }
 
+function Add-ToGitHubEnv {
+    param(
+        [string]$Name,
+        [string]$Value
+    )
+    if (-not $env:GITHUB_ENV) {
+        return
+    }
+    Add-Content -Path $env:GITHUB_ENV -Value "${Name}=${Value}"
+}
+
+Add-ToGitHubEnv -Name 'TK_WINDOWS_HOST_ARCH' -Value $env:PROCESSOR_ARCHITECTURE
+
 function Add-PathEntry {
     param([string]$Value)
     if (-not (Test-Path $Value)) {

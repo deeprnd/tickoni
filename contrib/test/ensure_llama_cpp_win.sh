@@ -52,6 +52,8 @@ setup_msvc_env() {
   include_root="$sdk_root/Include/$sdk_version"
   lib_root="$sdk_root/Lib/$sdk_version"
   sdk_bin="$sdk_root/bin/$sdk_version/$target"
+  WINDOWS_SDK_RC_EXE="$sdk_bin/rc.exe"
+  WINDOWS_SDK_MT_EXE="$sdk_bin/mt.exe"
 
   export INCLUDE="$(cygpath -w "$msvc_root/include");$(cygpath -w "$include_root/ucrt");$(cygpath -w "$include_root/um");$(cygpath -w "$include_root/shared");$(cygpath -w "$include_root/winrt");$(cygpath -w "$include_root/cppwinrt")"
   export LIB="$(cygpath -w "$msvc_root/lib/$target");$(cygpath -w "$lib_root/ucrt/$target");$(cygpath -w "$lib_root/um/$target")"
@@ -202,6 +204,15 @@ fi
 
 echo "selected Windows llama.cpp compiler: $cc"
 
+windows_sdk_rc_native=""
+windows_sdk_mt_native=""
+if [[ -n "${WINDOWS_SDK_RC_EXE:-}" && -f "${WINDOWS_SDK_RC_EXE}" ]]; then
+  windows_sdk_rc_native="$(cygpath -m "$WINDOWS_SDK_RC_EXE")"
+fi
+if [[ -n "${WINDOWS_SDK_MT_EXE:-}" && -f "${WINDOWS_SDK_MT_EXE}" ]]; then
+  windows_sdk_mt_native="$(cygpath -m "$WINDOWS_SDK_MT_EXE")"
+fi
+
 if [[ ! -d "$llama_dir" ]]; then
   echo "cloning llama.cpp into ${llama_dir}"
   git clone https://github.com/ggml-org/llama.cpp "$llama_dir"
@@ -224,13 +235,13 @@ if [[ "$force_x64_toolchain" -eq 1 ]]; then
   ninja_bin="$(command -v ninja)"
   toolchain_file_native="$(cygpath -w "$toolchain_file")"
   ninja_bin_native="$(cygpath -w "$ninja_bin")"
-  cat > "$toolchain_file" <<'EOF'
+  cat > "$toolchain_file" <<EOF
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR AMD64)
 set(CMAKE_C_COMPILER cl)
 set(CMAKE_CXX_COMPILER cl)
-set(CMAKE_RC_COMPILER rc)
-set(CMAKE_MT mt)
+set(CMAKE_RC_COMPILER "${windows_sdk_rc_native}")
+set(CMAKE_MT "${windows_sdk_mt_native}")
 EOF
   cmake_args=(
     -G Ninja
@@ -238,6 +249,8 @@ EOF
     -DCMAKE_MAKE_PROGRAM=$ninja_bin_native
     -DCMAKE_C_COMPILER=cl
     -DCMAKE_CXX_COMPILER=cl
+    "-DCMAKE_RC_COMPILER=${windows_sdk_rc_native}"
+    "-DCMAKE_MT=${windows_sdk_mt_native}"
     "${cmake_args[@]}"
   )
   echo "generated forced-x64 toolchain file: ${toolchain_file}"
@@ -246,6 +259,8 @@ elif [[ "$cc" == "cl" ]]; then
     -G Ninja
     -DCMAKE_C_COMPILER=cl
     -DCMAKE_CXX_COMPILER=cl
+    "-DCMAKE_RC_COMPILER=${windows_sdk_rc_native}"
+    "-DCMAKE_MT=${windows_sdk_mt_native}"
     "${cmake_args[@]}"
   )
 else
