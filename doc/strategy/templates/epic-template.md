@@ -1,7 +1,7 @@
 <!--
 Tickoni epic issue template.
 
-Use this template for a GitHub issue labeled `epic`.
+Use this template for a GitHub issue labeled `type/epic`.
 
 An epic is a huge new feature or product increment: a group of related stories
 that deliver a complete capability across domains. In GitHub, connect `story`
@@ -29,7 +29,7 @@ Example:
   V1.6.S2.T3 = task 3 under story V1.6.S2
 
 GitHub label guidance for epic creation:
-  - Required issue-kind label: `epic`.
+  - Required issue-kind label: `type/epic`.
   - Add all relevant boundary/domain labels covered by the child stories, such
     as `area/agents`, `area/audit`, `area/crypto`, `area/investing`, `area/operations`,
     `area/payments`, `area/platform`, `area/security`, `area/social`, `area/trust`,
@@ -64,9 +64,8 @@ Read before filling:
 
 # VX.Y: [Epic Title]
 
-**Status:** [Backlog] upon creation
-**Milestone:** [M1 | M2 | M4 | M5 | M6 | M7 | M8 | M9 | M10 | M11 | M12]
 **Labels:** `type/epic`, [`area/agents` | `area/audit` | `area/crypto` | `type/documentation` | `type/feature` | `area/investing` | `area/operations` | `area/payments` | `area/platform` | `area/security` | `area/social` | `area/trust`]
+**GitHub Issue:** TBD
 
 <!-- One paragraph: what complete feature this epic delivers and why now.
      This is market-facing — (lead with WHY,

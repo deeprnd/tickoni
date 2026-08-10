@@ -9,7 +9,7 @@ implementable deliverable) or an epic (a huge new feature spanning related
 stories); it is the highest-level roadmap container that the team ships
 together and measures completion against.
 
-In GitHub, connect `epic` issues as sub-issues of this milestone.
+In GitHub, connect `type/epic` issues as sub-issues of this milestone.
 
 Milestone labels:
   Milestone: M{N}
