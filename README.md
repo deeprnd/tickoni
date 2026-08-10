@@ -121,4 +121,11 @@ Tickoni is experimental. Start with paper capital, conservative limits, and stag
 
 ## License
 
-Apache-2.0
+Tickoni is a mixed-license repository:
+
+- runtime, CLI, APIs, schemas, and non-UI SDKs: [Apache-2.0](LICENSE);
+- official Qt desktop terminal: [GPL-3.0-only](LICENSES/GPL-3.0-only.txt);
+- lore, characters, banners, narratives, and release artwork:
+  [Tickoni Creative Content Terms](CONTENT-LICENSE.md).
+
+See [LICENSING.md](LICENSING.md) for the complete license map.
