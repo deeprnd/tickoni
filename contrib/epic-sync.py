@@ -130,7 +130,7 @@ def update_issue_title(issue_num, new_title, current_title, dry_run):
         return False
     result = run(['gh', 'issue', 'edit', str(issue_num), '--title', new_title])
     if result and 'https' in result:
-        print(f"  UPDATED: #{issue_num} title to '{new_title}'")
+        print(f"  UPDATED: #{issue_num} title to '{new_title}' — Epic #{issue_num} is updated")
         return True
     return False
 
@@ -154,7 +154,7 @@ def update_issue_body(issue_num, new_body, current_body, dry_run):
     os.unlink(tmpfile)
 
     if result and 'https' in result:
-        print(f"  UPDATED: #{issue_num} body ({len(current_body)} → {len(new_body)} chars)")
+        print(f"  UPDATED: #{issue_num} body ({len(current_body)} → {len(new_body)} chars) — Epic #{issue_num} is updated")
         return True
     return False
 
@@ -188,7 +188,7 @@ def update_issue_labels(issue_num, new_labels, current_labels, dry_run):
         result = run(['gh', 'issue', 'edit', str(issue_num),
                        '--add-label', ','.join(sorted(to_add))])
 
-    print(f"  UPDATED: #{issue_num} labels ({len(current_labels)} → {len(new_labels)})")
+    print(f"  UPDATED: #{issue_num} labels ({len(current_labels)} → {len(new_labels)}) — Epic #{issue_num} is updated")
     return True
 
 
