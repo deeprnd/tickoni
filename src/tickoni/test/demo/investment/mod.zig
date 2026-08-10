@@ -865,6 +865,9 @@ pub fn runSystemSuite(
         try runFixtureModel(allocator, input)
     else
         try runLiveModel(allocator, io, live_config, input);
+    std.debug.print("=== runSystemSuite: model path={s} ===\n", .{
+        if (live_config.use_fixture) "fixture" else "live",
+    });
     defer live_result.deinit(allocator);
     std.debug.print(
         "=== Live tkmodl ===\nendpoint={s}\nmodel={s}\nmatched_ticker={s}\nexcerpt={s}\n",
