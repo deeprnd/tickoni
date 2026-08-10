@@ -121,6 +121,15 @@ Tips:
 - [ ] Dependency/tooling changes reviewed for risk
 - [ ] No sensitive data exposure introduced
 
+## Licensing / dependencies
+
+- [ ] No license boundary changed
+- [ ] Modified files use the correct Apache-2.0 / GPL-3.0-only / creative-content terms
+- [ ] Existing copyright, SPDX, NOTICE, and attribution notices are preserved
+- [ ] New third-party dependencies and their licenses are documented
+- [ ] No GPL terminal implementation was copied into an Apache-2.0 component
+- [ ] No restricted lore or character assets were embedded into GPL software without review
+
 ## Release notes
 
 - [ ] No release note needed
