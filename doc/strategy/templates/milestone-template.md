@@ -158,3 +158,30 @@ Use deterministic, reproducible language. Examples:
   - [domain] proposals are replayable from deterministic fixtures with
     [allowed, blocked, resized, approval-required] flows demonstrated
 -->
+
+## Summary
+
+<!--
+A market-facing synthesis (2–5 sentences, ~300–550 chars).
+This is NOT a feature list or epic inventory. It is the WHY, the transformation,
+the trust signal.
+
+Pattern:
+  1. Contrast / framing — what most people think vs what is actually happening
+  2. Transformation — what changes, what becomes possible
+  3. Trust signal — the counterintuitive insight that makes this a milestone
+
+Example:
+  "People don't trust systems — they trust proof. M0 is where Tickoni stops
+  being code and starts being a system that can prove it works every time.
+  It's not a feature — it's the first claim Tickoni makes on trust."
+
+Rules:
+  - No technical detail: "tiles move to supervisor processes" is HOW, not WHY
+  - No defensive language: "A crashing tile leaves its siblings running"
+  - No epic inventory: GH milestone page already lists epics as sub-issues
+  - Single paragraph, ~300–550 chars (fits cleanly in GH milestone descriptions)
+  - Written start with WHY and reframe constraints as trust signals
+
+See `roadmap-authoring` skill for the full summary specification.
+-->
