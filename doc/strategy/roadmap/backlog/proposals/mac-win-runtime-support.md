@@ -1,7 +1,5 @@
 # Backlog Proposal: Mac And Windows Consumer Runtime Support
 
-**Status:** Backlog Proposal
-**Proposed milestone:** M2
 **Candidate issue type if accepted:** epic
 **Candidate labels:** `platform`, `operations`, `security`, `trust`
 **Related docs / examples:** [`development.md`](../../../../execution/development.md), [`architecture.md`](../../../../knowledge/architecture.md), [`firedancer.md`](../../../../execution/contribution/firedancer.md), [`V2.14`](../../epics/v2.14.md), [Hermes installer](https://hermes-agent.nousresearch.com/install.sh), [Hermes PowerShell installer](https://hermes-agent.nousresearch.com/install.ps1), [OpenClaw README](https://github.com/openclaw/openclaw)
