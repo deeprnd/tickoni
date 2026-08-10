@@ -23,14 +23,15 @@ These terms apply to:
 
 For avoidance of doubt, files in the paths listed above are Covered
 Content in their entirety, including any technical discussion they
-contain, unless a specific file expressly states that it is licensed
-under Apache-2.0.
+contain, unless a specific file expressly states that it is licensed under
+Apache-2.0 or GPL-3.0-only.
 
 ## Software Exclusion
 
 Except for files designated as Covered Content above, these terms do
 not apply to software source code, tests, build files, configuration,
-examples, APIs, or technical documentation licensed under Apache-2.0.
+examples, APIs, or technical documentation licensed under Apache-2.0
+or GPL-3.0-only.
 
 The Software Exclusion does not override the path-based designations
 in the Covered Content section.
@@ -71,8 +72,8 @@ license from the Licensor.
 
 ## No Software Restriction
 
-Nothing in these terms limits rights granted under Apache-2.0 for
-Tickoni software or incorporated Apache-licensed material.
+Nothing in these terms limits rights granted under Apache-2.0 or
+GPL-3.0-only for Tickoni software or incorporated third-party software.
 
 ## No Trademark License
 

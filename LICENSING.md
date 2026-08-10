@@ -18,8 +18,9 @@ The Apache-2.0 license text is contained in `LICENSE`.
 
 ## GPL-3.0-only terminal
 
-The official Tickoni desktop terminal uses Qt components under Qt's
-open-source GPLv3 terms.
+The official Tickoni desktop terminal uses Qt Graphs under Qt's
+open-source GPLv3 terms and is therefore distributed under
+GPL-3.0-only.
 
 All source code under `src/tickoni/ui/`, including C++, QML,
 terminal-specific CMake files, terminal resources, and terminal tests,
@@ -29,9 +30,14 @@ otherwise.
 The GPL-3.0-only license text is contained in
 `LICENSES/GPL-3.0-only.txt`.
 
-The Tickoni runtime and terminal are separate programs. The terminal
-communicates with the runtime through the versioned `tkapi`
-HTTP/WebSocket interface. The runtime and CLI remain Apache-2.0.
+The Tickoni runtime and terminal are separate programs and separate
+processes.
+
+For local operation, the terminal communicates with `tk_api` through
+bounded shared-memory channels. For remote operation, network
+communication is mediated by the Tickoni gateway.
+
+The runtime and CLI remain Apache-2.0.
 
 Apache-2.0 libraries, schemas, or generated clients used by the
 terminal retain their original Apache-2.0 licensing. The distributed
@@ -46,7 +52,11 @@ They are not licensed under Apache-2.0 or GPL-3.0-only.
 
 ## Third-party software
 
-Qt and other dependencies retain their respective copyrights and
-licenses.
+Qt, Qt Graphs, and other dependencies retain their respective
+copyrights and licenses.
 
-See `NOTICE` for applicable attributions.
+The licenses and attribution requirements for the exact Qt libraries,
+plugins, and other third-party components distributed with the terminal
+must be preserved in the terminal's third-party notices.
+
+See `NOTICE` for repository-level attributions.
