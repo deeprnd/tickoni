@@ -6,7 +6,7 @@ Use this template for a GitHub issue labeled `story`.
 A story is a single implementable deliverable that can be independently
 verified. It should be small enough to complete without splitting across
 multiple unrelated outcomes, but large enough to produce a user-visible or
-operator-visible change. In GitHub, connect it as a sub-issue of one `epic`
+operator-visible change. In GitHub, connect it as a sub-issue of one `type/epic`
 issue and connect domain `task` issues as sub-issues of this story.
 
 Copy this file into the GitHub issue body or into the relevant
@@ -86,10 +86,8 @@ Read before filling:
 
 # VX.Y.SN: [Story Title]
 
-**Status:** [Backlog] upon creation
-**Epic:** #[github-epic-issue]
-**Parent roadmap item:** [VX.Y: Epic title]
 **Labels:** `type/story`, [exactly one of: `area/agents` | `area/audit` | `area/crypto` | `type/documentation` | `area/investing` | `area/operations` | `area/payments` | `area/platform` | `area/security` | `area/social` | `area/trust`], [`type/feature` if applicable]
+**GitHub Issue:** TBD
 
 <!-- One sentence: the independently verifiable deliverable. -->
 

@@ -19,7 +19,7 @@ Important story rule:
 
 ## Shared Status Enum
 
-<!-- Use these exact statuses for issues labeled `epic`, `story`, or `task`. -->
+<!-- Use these exact statuses for issues labeled `type/epic`, `story`, or `task`. -->
 
 **Backlog**
 
