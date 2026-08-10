@@ -8,7 +8,7 @@ different labels and sub-issue relationships.
 
 | Type | GitHub label | Purpose | Relationship |
 | --- | --- | --- | --- |
-| Epic | `epic` | Huge new feature or product increment. Groups related stories that deliver a complete capability across domains. | Has story sub-issues |
+| Epic | `type/epic` | Huge new feature or product increment. Groups related stories that deliver a complete capability across domains. | Has story sub-issues |
 | Story | `story` | Single implementable deliverable that can be independently verified. | Sub-issue of one epic, has task sub-issues |
 | Task | `task` | Domain-scoped implementation work for one story. | Sub-issue of one story |
 
