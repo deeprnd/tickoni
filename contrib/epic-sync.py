@@ -120,10 +120,13 @@ def get_gh_issue_labels(issue_num):
     return sorted([label['name'] for label in data.get('labels', [])])
 
 
-def update_issue_title(issue_num, new_title, dry_run):
+def update_issue_title(issue_num, new_title, current_title, dry_run):
     """Update issue title."""
+    if new_title == current_title:
+        print(f"  OK: #{issue_num} title matches")
+        return False
     if dry_run:
-        print(f"  DRY-RUN: #{issue_num} title: unchanged")
+        print(f"  DRY-RUN: #{issue_num} title: '{current_title}' → '{new_title}'")
         return False
     result = run(['gh', 'issue', 'edit', str(issue_num), '--title', new_title])
     if result and 'https' in result:
@@ -240,7 +243,7 @@ def main():
                              '--jq', '.title']) or ''
 
         # Title check
-        title_changed = update_issue_title(issue_num, epic['title'], args.dry_run)
+        title_changed = update_issue_title(issue_num, epic['title'], current_title, args.dry_run)
 
         # Body check
         body_changed = update_issue_body(issue_num, epic['body'], current_body or '', args.dry_run)
