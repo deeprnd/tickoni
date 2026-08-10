@@ -68,7 +68,10 @@ Read before filling:
 **Milestone:** [M1 | M2 | M4 | M5 | M6 | M7 | M8 | M9 | M10 | M11 | M12]
 **Labels:** `type/epic`, [`area/agents` | `area/audit` | `area/crypto` | `type/documentation` | `type/feature` | `area/investing` | `area/operations` | `area/payments` | `area/platform` | `area/security` | `area/social` | `area/trust`]
 
-<!-- One paragraph: what complete feature this epic delivers and why now. -->
+<!-- One paragraph: what complete feature this epic delivers and why now.
+     This is market-facing — (lead with WHY,
+     reframe constraints as trust signals). Do NOT describe the tool or
+     process; describe the transformation. Stories stay technical.-->
 
 ## Product Intent
 
