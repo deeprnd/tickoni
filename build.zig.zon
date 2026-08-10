@@ -1,7 +1,7 @@
 .{
     .name = .tickoni,
     .fingerprint = 0x149e1b83d94619dd,
-    .version = "0.0.1",
+    .version = "0.1.3",
     .dependencies = .{
         .clap = .{
             .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.12.0.tar.gz",
