@@ -11,8 +11,6 @@ epic or story using the relevant template.
 
 # Backlog Proposal: Portfolio Management And Valuation Queue
 
-**Status:** Backlog Proposal
-**Proposed milestone:** M5
 **Candidate issue type if accepted:** epic
 **Candidate labels:** [`investing` | `platform` | `enhancement` | `documentation`]
 **Related docs / examples:** [doc/strategy/roadmap/epics/v3.22.md] (DCF valuation engine), [doc/strategy/capabilities.md] (valuation capabilities, trading_portfolio.read), [doc/strategy/roadmap/milestones/m4.md] (source M5 description)
