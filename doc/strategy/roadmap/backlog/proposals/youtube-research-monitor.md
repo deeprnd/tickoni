@@ -11,8 +11,6 @@ epic or story using the relevant template.
 
 # Backlog Proposal: YouTube Research Monitor
 
-**Status:** Backlog Proposal
-**Proposed milestone:** [Unassigned]
 **Candidate issue type if accepted:** epic
 **Candidate labels:** [`agents` | `audit` | `investing` | `operations` | `platform` | `security` | `trust` | `documentation`]
 **Related docs / examples:** [`doc/strategy/roadmap/backlog/proposals/youtube-research-monitor.md` (source), `doc/knowledge/architecture.md`, `doc/strategy/positioning.md`, `doc/strategy/capabilities.md`]

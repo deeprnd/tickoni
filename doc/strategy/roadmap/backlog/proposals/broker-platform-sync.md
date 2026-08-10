@@ -11,8 +11,6 @@ epic or story using the relevant template.
 
 # Backlog Proposal: Broker Platform Sync — Read-Only Portfolio Ingestion
 
-**Status:** Backlog Proposal
-**Proposed milestone:** M10 (end-to-end read-only system with broker/crypto sync)
 **Candidate issue type if accepted:** epic
 **Candidate labels:** `investing`, `platform`, `security`, `audit`, `operations`
 **Related docs / examples:**
