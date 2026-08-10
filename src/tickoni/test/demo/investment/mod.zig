@@ -372,6 +372,8 @@ pub fn runFixtureModel(
     allocator: std.mem.Allocator,
     input: thesis.ThesisInput,
 ) !LiveModelEvidence {
+    std.debug.print("=== runFixtureModel BEGIN ===\n", .{});
+
     const user_prompt = try buildUserPrompt(allocator, input);
     defer allocator.free(user_prompt);
 
@@ -425,7 +427,9 @@ pub fn runFixtureModel(
     tkmodl_result.response = null;
     defer response.deinit(allocator);
 
-    return assertLiveModelResponse(allocator, &response);
+    const result = try assertLiveModelResponse(allocator, &response);
+    std.debug.print("=== runFixtureModel END ===\nmodel_id={s}\nticker={s}\n", .{ result.model_id, result.matched_ticker });
+    return result;
 }
 
 pub fn runAllowedTradeScenario(
