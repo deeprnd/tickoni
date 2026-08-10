@@ -11,8 +11,6 @@ epic or story using the relevant template.
 
 # Backlog Proposal: Push Notifications And Device Subscriptions
 
-**Status:** Backlog Proposal
-**Proposed milestone:** TBD (post-M5 or parallel to M6+)
 **Candidate issue type if accepted:** epic
 **Candidate labels:** [`platform` | `security` | `investing` | `operations`]
 **Related docs / examples:**

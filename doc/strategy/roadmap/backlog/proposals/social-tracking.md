@@ -1,7 +1,5 @@
 # Backlog Proposal: Social Tracking And Copy Feed
 
-**Status:** Backlog Proposal
-**Proposed milestone:** M12 (Social Thesis And Money Feed)
 **Candidate issue type if accepted:** epic
 **Candidate labels:** [`social` `investing` `trust` `enhancement`]
 **Related docs / examples:** doc/strategy/roadmap/milestones/m11.md, doc/knowledge/architecture.md
