@@ -21,7 +21,7 @@ USAGE
 }
 
 ensure_hf_cli() {
-  local scripts_dir scripts_dir_unix
+  local scripts_dir user_scripts_dir scripts_dir_unix user_scripts_dir_unix
 
   if command -v hf >/dev/null 2>&1; then
     return 0
@@ -33,7 +33,19 @@ ensure_hf_cli() {
 
   scripts_dir="$(python - <<'PY'
 import sysconfig
-print(sysconfig.get_path('scripts'))
+print(sysconfig.get_path('scripts') or '')
+PY
+)"
+
+  user_scripts_dir="$(python - <<'PY'
+import sysconfig
+paths = []
+for scheme in ('nt_user', 'posix_user'):
+    if scheme in sysconfig.get_scheme_names():
+        path = sysconfig.get_path('scripts', scheme=scheme)
+        if path:
+            paths.append(path)
+print(paths[0] if paths else '')
 PY
 )"
 
@@ -45,6 +57,14 @@ PY
     export PATH="$scripts_dir_unix:$PATH"
   fi
 
+  if [[ -n "$user_scripts_dir" ]]; then
+    user_scripts_dir_unix="$user_scripts_dir"
+    if command -v cygpath >/dev/null 2>&1; then
+      user_scripts_dir_unix="$(cygpath -u "$user_scripts_dir")"
+    fi
+    export PATH="$user_scripts_dir_unix:$PATH"
+  fi
+
   if command -v hf >/dev/null 2>&1; then
     return 0
   fi
@@ -52,9 +72,8 @@ PY
   echo "hf not found; installing huggingface_hub CLI with python -m pip --user" >&2
   python -m pip install --user "huggingface_hub[cli]"
 
-  if [[ -n "${scripts_dir_unix:-}" ]]; then
-    export PATH="$scripts_dir_unix:$PATH"
-  fi
+  if [[ -n "${scripts_dir_unix:-}" ]]; then export PATH="$scripts_dir_unix:$PATH"; fi
+  if [[ -n "${user_scripts_dir_unix:-}" ]]; then export PATH="$user_scripts_dir_unix:$PATH"; fi
 
   command -v hf >/dev/null 2>&1
 }
