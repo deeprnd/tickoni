@@ -48,15 +48,16 @@ pub const EvidenceLink = struct {
         };
     }
 
-    /// Serialize this link as a JSON object to the given writer.
-    pub fn toJson(self: EvidenceLink, writer: anytype) !void {
+    /// Serialize this link as JSON bytes to an allocator.
+    pub fn toJson(self: EvidenceLink, gpa: std.mem.Allocator) ![]u8 {
         log.warn("EvidenceLink.toJson() — TODO: implement JSON serialization", .{});
-        try writer.beginObject();
-        try writer.objectField("file_path");
-        try writer.string(self.file_path);
-        try writer.objectField("sha256_hash");
-        try writer.string("not_implemented");
-        try writer.endObject();
+        var buf = try std.ArrayList(u8).initCapacity(gpa, 0);
+        errdefer buf.deinit(gpa);
+        try buf.append(gpa, '{');
+        try buf.appendSlice(gpa, "\"file_path\":\"");
+        try buf.appendSlice(gpa, self.file_path);
+        try buf.appendSlice(gpa, "\",\"sha256_hash\":\"not_implemented\"}");
+        return buf.toOwnedSlice(gpa);
     }
 };
 
@@ -77,36 +78,34 @@ pub const EvidenceBundle = struct {
     }
 
     /// Convert all references into an array of EvidenceLink entries.
-    pub fn toLinks(self: *const EvidenceBundle, gpa: std.mem.Allocator) ![][].EvidenceLink {
-        log.warn("EvidenceBundle.toLinks() — TODO: implement", .{});
-        _ = self;
-        _ = gpa;
+    pub fn toLinks(self: *const EvidenceBundle, gpa: std.mem.Allocator) ![]EvidenceLink {
+        _ = self; _ = gpa;
         unreachable; // Not yet implemented
     }
 
-    /// Serialize the entire bundle as JSON.
-    pub fn toJson(self: *const EvidenceBundle, gpa: std.mem.Allocator, writer: anytype) !void {
-        log.warn("EvidenceBundle.toJson() — TODO: implement", .{});
-        _ = self;
-        _ = gpa;
-        try writer.beginObject();
-        try writer.objectField("support_matrix");
-        try writer.string(self.support_matrix_ref);
-        try writer.objectField("version");
-        try writer.string(self.version_ref);
-        try writer.objectField("doctor");
-        try writer.string(self.doctor_ref);
-        try writer.objectField("demo");
-        try writer.string(self.demo_ref);
-        try writer.objectField("audit");
-        try writer.string(self.audit_ref);
-        try writer.objectField("replay");
-        try writer.string(self.replay_ref);
-        try writer.objectField("blocked_flow");
-        try writer.string(self.blocked_flow_ref);
-        try writer.objectField("conformance");
-        try writer.string(self.conformance_ref);
-        try writer.endObject();
+    /// Serialize the entire bundle as JSON bytes to an allocator.
+    pub fn toJson(self: *const EvidenceBundle, gpa: std.mem.Allocator) ![]u8 {
+        var buf = try std.ArrayList(u8).initCapacity(gpa, 0);
+        errdefer buf.deinit(gpa);
+        try buf.append(gpa, '{');
+        try buf.appendSlice(gpa, "\"support_matrix\":\"");
+        try buf.appendSlice(gpa, self.support_matrix_ref);
+        try buf.appendSlice(gpa, "\",\"version\":\"");
+        try buf.appendSlice(gpa, self.version_ref);
+        try buf.appendSlice(gpa, "\",\"doctor\":\"");
+        try buf.appendSlice(gpa, self.doctor_ref);
+        try buf.appendSlice(gpa, "\",\"demo\":\"");
+        try buf.appendSlice(gpa, self.demo_ref);
+        try buf.appendSlice(gpa, "\",\"audit\":\"");
+        try buf.appendSlice(gpa, self.audit_ref);
+        try buf.appendSlice(gpa, "\",\"replay\":\"");
+        try buf.appendSlice(gpa, self.replay_ref);
+        try buf.appendSlice(gpa, "\",\"blocked_flow\":\"");
+        try buf.appendSlice(gpa, self.blocked_flow_ref);
+        try buf.appendSlice(gpa, "\",\"conformance\":\"");
+        try buf.appendSlice(gpa, self.conformance_ref);
+        try buf.appendSlice(gpa, "\"}");
+        return buf.toOwnedSlice(gpa);
     }
 };
 
@@ -141,20 +140,21 @@ pub const EvidenceIndex = struct {
         self.links[self.links.len - 1] = link;
     }
 
-    /// Serialize the index as a JSON object to the given writer.
-    pub fn toJson(self: *const EvidenceIndex, writer: anytype) !void {
+    /// Serialize the index as JSON bytes to an allocator.
+    pub fn toJson(self: *const EvidenceIndex, gpa: std.mem.Allocator) ![]u8 {
         log.warn("EvidenceIndex.toJson() — TODO: implement", .{});
-        try writer.beginObject();
-        try writer.objectField("title");
-        try writer.string(self.title);
-        try writer.objectField("version");
-        try writer.string(self.version);
-        try writer.objectField("generated_at");
-        try writer.string(self.generated_at);
-        try writer.objectField("links");
-        try writer.beginArray();
-        try writer.endArray();
-        try writer.endObject();
+        var buf = try std.ArrayList(u8).initCapacity(gpa, 0);
+        errdefer buf.deinit(gpa);
+        try buf.append(gpa, '{');
+        try buf.appendSlice(gpa, "\"title\":\"");
+        try buf.appendSlice(gpa, self.title);
+        try buf.appendSlice(gpa, "\",\"version\":\"");
+        try buf.appendSlice(gpa, self.version);
+        try buf.appendSlice(gpa, "\",\"generated_at\":\"");
+        try buf.appendSlice(gpa, self.generated_at);
+        try buf.appendSlice(gpa, "\",\"links\":[]");
+        try buf.append(gpa, '}');
+        return buf.toOwnedSlice(gpa);
     }
 };
 
@@ -162,8 +162,6 @@ pub const EvidenceIndex = struct {
 /// Returns hex-encoded hash string.
 pub fn computeFileHash(gpa: std.mem.Allocator, file_path: []const u8) ![]u8 {
     log.warn("computeFileHash({s}) — TODO: implement actual SHA256 computation", .{file_path});
-    _ = gpa;
-    _ = file_path;
     return try gpa.dupe(u8, "not_implemented_hash_placeholder");
 }
 
@@ -183,32 +181,29 @@ test "EvidenceBundle init returns default refs" {
     try std.testing.expectEqualStrings("doc/execution/V2.22.S7/conformance-result.json", bundle.conformance_ref);
 }
 
-test "EvidenceBundle toJson produces valid JSON object" {
+test "EvidenceBundle toJson produces valid JSON" {
     const bundle = EvidenceBundle.init();
-    var buffer: [1024]u8 = undefined;
-    var writer = std.json.FmtWrite.init(&buffer);
-
-    try bundle.toJson(&bundle, std.testing.allocator, &writer);
-    const json_str = try std.fmt.allocPrint(std.testing.allocator, "{s}", .{writer.buffered()});
+    const json_str = try bundle.toJson(std.testing.allocator);
     defer std.testing.allocator.free(json_str);
 
     // Parse the JSON to validate it's well-formed
-    const parsed = try std.json.parseFromJson(std.json.Value, json_str, .{});
+    const parsed = try std.json.parseFromSlice(
+        std.json.Value,
+        std.testing.allocator,
+        json_str,
+        .{ .ignore_unknown_fields = true },
+    );
     defer parsed.deinit();
     try std.testing.expect(parsed.value == .object);
 }
 
 test "EvidenceBundle toJson contains all required fields" {
     const bundle = EvidenceBundle.init();
-    var buffer: [1024]u8 = undefined;
-    var writer = std.json.FmtWrite.init(&buffer);
-
-    try bundle.toJson(&bundle, std.testing.allocator, &writer);
-    const json_str = try std.fmt.allocPrint(std.testing.allocator, "{s}", .{writer.buffered()});
+    const json_str = try bundle.toJson(std.testing.allocator);
     defer std.testing.allocator.free(json_str);
 
     try std.testing.expect(std.mem.indexOf(u8, json_str, "support_matrix") != null);
-    try std.testing.expect(std.mem.indexOf(u8, json_str, "version") != null);
+    try std.testing.expect(std.mem.indexOf(u8, json_str, "\"version\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, json_str, "doctor") != null);
     try std.testing.expect(std.mem.indexOf(u8, json_str, "demo") != null);
     try std.testing.expect(std.mem.indexOf(u8, json_str, "audit") != null);
@@ -223,17 +218,18 @@ test "EvidenceLink init creates valid link" {
     try std.testing.expectEqualStrings(path, link.file_path);
 }
 
-test "EvidenceLink toJson produces valid JSON object" {
+test "EvidenceLink toJson produces valid JSON" {
     const path = "doc/execution/test-sample.json";
     const link = EvidenceLink.init(path);
-    var buffer: [256]u8 = undefined;
-    var writer = std.json.FmtWrite.init(&buffer);
-
-    try link.toJson(&link, &writer);
-    const json_str = try std.fmt.allocPrint(std.testing.allocator, "{s}", .{writer.buffered()});
+    const json_str = try link.toJson(std.testing.allocator);
     defer std.testing.allocator.free(json_str);
 
-    const parsed = try std.json.parseFromJson(std.json.Value, json_str, .{});
+    const parsed = try std.json.parseFromSlice(
+        std.json.Value,
+        std.testing.allocator,
+        json_str,
+        .{ .ignore_unknown_fields = true },
+    );
     defer parsed.deinit();
     try std.testing.expect(parsed.value == .object);
     try std.testing.expect(std.mem.indexOf(u8, json_str, "file_path") != null);
@@ -270,7 +266,7 @@ test "EvidenceIndex addLink grows links array" {
     try std.testing.expectEqual(@as(usize, 1), index.links.len);
 }
 
-test "EvidenceIndex toJson produces valid JSON object" {
+test "EvidenceIndex toJson produces valid JSON" {
     var index = try EvidenceIndex.init(
         std.testing.allocator,
         "Test Index",
@@ -279,13 +275,15 @@ test "EvidenceIndex toJson produces valid JSON object" {
     );
     defer index.deinit(std.testing.allocator);
 
-    var buffer: [512]u8 = undefined;
-    var writer = std.json.FmtWrite.init(&buffer);
-    try index.toJson(&index, &writer);
-    const json_str = try std.fmt.allocPrint(std.testing.allocator, "{s}", .{writer.buffered()});
+    const json_str = try index.toJson(std.testing.allocator);
     defer std.testing.allocator.free(json_str);
 
-    const parsed = try std.json.parseFromJson(std.json.Value, json_str, .{});
+    const parsed = try std.json.parseFromSlice(
+        std.json.Value,
+        std.testing.allocator,
+        json_str,
+        .{ .ignore_unknown_fields = true },
+    );
     defer parsed.deinit();
     try std.testing.expect(parsed.value == .object);
 }
@@ -299,10 +297,7 @@ test "EvidenceIndex toJson contains all metadata fields" {
     );
     defer index.deinit(std.testing.allocator);
 
-    var buffer: [512]u8 = undefined;
-    var writer = std.json.FmtWrite.init(&buffer);
-    try index.toJson(&index, &writer);
-    const json_str = try std.fmt.allocPrint(std.testing.allocator, "{s}", .{writer.buffered()});
+    const json_str = try index.toJson(std.testing.allocator);
     defer std.testing.allocator.free(json_str);
 
     try std.testing.expect(std.mem.indexOf(u8, json_str, "\"title\"") != null);
@@ -313,12 +308,9 @@ test "EvidenceIndex toJson contains all metadata fields" {
 
 test "empty bundle validation" {
     const bundle = EvidenceBundle.init();
-    var buffer: [256]u8 = undefined;
-    var writer = std.json.FmtWrite.init(&buffer);
-
-    // Even with default refs, toJson should work
-    try bundle.toJson(&bundle, std.testing.allocator, &writer);
-    try std.testing.expect(writer.buffered().len > 0);
+    const json_str = try bundle.toJson(std.testing.allocator);
+    defer std.testing.allocator.free(json_str);
+    try std.testing.expect(json_str.len > 0);
 }
 
 test "EvidenceBundle ref constants match plan" {
