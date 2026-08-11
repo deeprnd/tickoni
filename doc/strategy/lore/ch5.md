@@ -1,4 +1,4 @@
-## Chapter 5: The Paper Moon
+## Chapter 5: Paper Moon
 
 Three days after the ghost ships sank, the Ledger Sea turned white.
 

@@ -1,4 +1,4 @@
-## Chapter 3: The Seal of the Ticket
+## Chapter 3: Seal of the Ticket
 
 For three nights after Firedancer vanished, Tickoni followed what the water gave.
 

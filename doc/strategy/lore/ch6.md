@@ -1,4 +1,4 @@
-## Chapter 6: The Seal of Placement
+## Chapter 6: Seal of Placement
 
 By morning, Maro had chosen.
 

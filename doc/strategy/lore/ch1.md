@@ -1,4 +1,4 @@
-## Chapter 1: The Order of the Oni
+## Chapter 1: Order of the Oni
 
 The story begins on the Ledger Sea.
 

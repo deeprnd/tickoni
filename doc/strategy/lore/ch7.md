@@ -1,4 +1,4 @@
-## Chapter 7: The First Bite
+## Chapter 7: First Bite
 
 North of the Eight-Core Strait, the Ledger Sea froze around Tickoni’s boat.
 

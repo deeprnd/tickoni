@@ -1,4 +1,4 @@
-## Chapter 4: The Seal of Weight
+## Chapter 4: Seal of Weight
 
 By sunset, the Ledger Sea had forgotten the storm.
 
