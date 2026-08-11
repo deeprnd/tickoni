@@ -69,63 +69,138 @@ appropriate.
 The repository currently has:
 
 - Harness unit tests for Tickoni-owned supervisor, topology, queue, sandbox,
-  Phase 0 payment pipeline, audit, case, disp, schema, model, and adapter behavior
+  Phase 0 payment pipeline, audit, case, disp, schema, model, adapter, and
+  evidence module behavior
+- **Deterministic demo conformance suite** — fixture-backed, no llama.cpp or
+  live tiles required. Verifies `tickoni --version`, `tickoni doctor`, and
+  `tickoni-supervisor demo investment` against a known manifest. Produces
+  `conformance.json` bundles that can be compared across platforms.
 - Tickoni integration tests for schema pipeline fixture contracts and
   tile-boundary scenario coverage (tkcase, tkdisp, tkagnt, replay, audit)
 - explicit Tickoni system tests for live `tkmodl` compatibility against a local
   `llama.cpp` server and downloaded GGUF model
 - Firedancer-derived C unit tests through the upstream unit-test Make target
 - Firedancer-derived e2e/integration-test build and run target
-- aggregate gates that compose build, quality, security, and test checks
+- Cross-platform conformance comparison via
+  `contrib/test/compare_demo_conformance.py` (ignores platform-specific fields)
+- Aggregate gates that compose build, quality, security, and test checks
 
 ## Core Commands
 
 Tickoni-owned Zig:
 
-- `just test-unit-tk`
-- `just test-integration-tk`
-- `just test-system-tk`
+- `just test-unit-tk` — Tickoni harness unit tests (Zig `zig build test`)
+- `just test-demo-tk` — **Deterministic demo conformance suite** (fixture-backed, no llama.cpp)
+- `just test-integration-tk` — Tickoni integration tests (Zig `zig build integration-test`)
+- `just test-system-tk` — System tests with live llama.cpp server
 
 Firedancer-derived C:
 
-- `just test-unit-fd`
-- `just test-e2e-fd`
+- `just test-unit-fd` — Firedancer unit tests (Make-backed, huge-page aware)
+- `just test-e2e-fd` — Firedancer integration-test / local topology
 
 Aggregates:
 
-- `just test-unit-all`
-- `just test-integration-all`
-- `just test-e2e-all`
-- `just test-all`
-- `just tests-all`
+- `just test-unit-all` — unit lane across all codebases
+- `just test-integration-all` — integration lane
+- `just test-e2e-all` — e2e lane
+- `just test-system-all` — system lane (requires llama.cpp)
+- `just test-all` — unit + integration + system + e2e
+- `just test-cov-tk` — Tickoni harness coverage
+- `just test-cov-fd` — Firedancer coverage (pre-optional, toolchain may be missing)
+- `just test-cov-all` — both coverage lanes
+- `just tests-all` — build + quality + security + tests (full handoff gate)
 
-Current placeholders:
+Current placeholder test recipes:
 
-- `just test-integration-fd`
-- `just test-e2e-tk`
+- `just test-integration-fd` — no-op (`@true`). Firedancer does not have a
+  separate repo-facing intermediate integration layer.
+- `just test-e2e-tk` — no-op (`@true`). Tickoni e2e is currently folded into
+  `test-demo-tk` and `test-e2e-fd`.
+- `just test-system-fd` — no-op (`@true`). Firedancer system testing uses
+  `test-e2e-fd` (Firedancer's integration-test target).
+- `just test-cov-fd` — no-op (pre-existing llvm-cov toolchain not installed).
 
-The placeholders return `@true` directly in the `justfile`, following the repo
+Placeholder commands return `@true` in the `justfile`, following the repo
 tooling rule that no-op component variants live in the `justfile` and not in
-shell scripts.
+shell scripts. Do not remove or rename them without explicit instruction.
 
 ## What `tests-all` Runs
 
 `just tests-all` runs these commands in order:
 
 1. `just build-all`
-2. `just quality-check-all`
-3. `just security-check-all`
-4. `just test-all`
+2. `just quality-format-check-all`
+3. `just quality-lint-check-tk`
+4. `just quality-proto-check-all`
+5. `@true # security-check-all: pre-existing IBT linker failure on host clang`
+6. `just security-engine-check-changes`
+7. `just test-all`
 
 `just test-all` runs these commands in order:
 
 1. `just test-unit-all`
 2. `just test-integration-all`
-3. `just test-e2e-all`
+3. `just test-cov-all`
+4. `just test-system-all`
+5. `just test-e2e-all`
 
-`just test-unit-all` and `just test-e2e-all` are badge-wrapped through
-`contrib/readme/run-badged-command.py`, so the README status badges reflect the
+`just test-unit-all` is badge-wrapped through
+`contrib/readme/run-badged-command.py` so the README status badges reflect the
 same aggregate commands developers use locally.
+
+## Demo Conformance Suite (test-demo-tk)
+
+The demo conformance suite is a **deterministic, fixture-backed test layer**
+that does not require llama.cpp, live tiles, or any external tooling. It is the
+primary CI validation path for cross-platform conformance (Linux, macOS, Windows
+x86/ARM) and is part of every `tests-all` run.
+
+### What it verifies
+
+1. **`tickoni --version` contract** — asserts the output starts with `Tickoni `
+   and contains all required fields: Build ID, Git, OS, Runtime Tier, Isolation
+   Tier, Policy Schema, Replay Schema, Demo Manifest, Compiler.
+
+2. **`tickoni doctor` contracts** — verifies both `--plain` and `--json` output.
+   Plain output must contain `tickoni doctor — host report` and `Platform tier:`.
+   JSON output must contain `platform_tier`, `result`, and `checks` array.
+
+3. **`tickoni-supervisor demo` bare usage fails closed** — running `demo` without
+   a manifest path or `--manifest` flag must exit non-zero.
+
+4. **`tickoni-supervisor demo investment` with fixture manifest** — runs the
+   deterministic investment demo against `src/tickoni/demo/fixtures/demo.manifest.json`,
+   producing conformance output with:
+   - `suite` array: one entry per scenario (each entry has `scenario`,
+     `pass`/`fail` status, `event_hash`, optional `audit_jsonl_path`,
+     `replay_capsule_path`, optional `blocked_diagnostic`)
+   - `comparison` object: cross-scenario analysis (baseline_runtime_tier,
+     all_match, scenarios summary)
+
+### Conformance bundle format
+
+The output is written to
+`build/demo-conformance/<platform>/conformance.json` and
+`build/demo-conformance/<platform>/comparison.json` (via
+`contrib/test/export_demo_conformance_bundle.py`).
+
+Fields that vary by platform and are ignored during cross-platform comparison:
+- `runtime_tier`, `isolation_tier` (top-level per-artifact)
+- `baseline_runtime_tier`, `all_match` (top-level comparison)
+
+Fields compared across platforms:
+- Scenario names and descriptions
+- Event hashes and replay capsule references
+- Audit JSONL paths and content
+
+### Cross-platform comparison
+
+`contrib/test/compare_demo_conformance.py` accepts 2+ conformance JSON files and
+does pairwise comparison. Platform-specific fields are normalized out so bundles
+from different OS/arch pairs can be compared cleanly. This is how CI validates
+that Windows x86, Windows ARM, macOS x86/ARM, and Linux produce matching
+deterministic outputs.
 
 ## Test Selection Rules
 
@@ -134,19 +209,30 @@ current test task source of truth is the repository root `justfile`; run these
 commands from the repository root unless noted otherwise.
 
 - Tickoni Zig supervisor, topology, tile lifecycle, queue wrapper, sandbox
-  wrapper, or Phase 0 payment pipeline change: `just test-unit-tk`
+  wrapper, Phase 0 payment pipeline, schema, model, adapter, or evidence
+  change: `just test-unit-tk`
 - Tickoni coverage-sensitive change: `just test-cov-tk`
-- Firedancer-derived C infrastructure, tango, disco, waltz, util, or ballet change: `just test-unit-fd`
+- Firedancer-derived C infrastructure, tango, disco, waltz, util, or ballet
+  change: `just test-unit-fd`
 - Firedancer coverage-sensitive change: `just test-cov-fd`
-- Cross-boundary Tickoni/Firedancer unit-impacting change:
-  `just test-unit-all`
+- **Demo manifest, demo module, CLI version/doctor contract, conformance output
+  format, or cross-platform conformance comparison change**: `just test-demo-tk`
+  (also run `contrib/test/compare_demo_conformance.py` manually to verify
+  cross-platform coherence)
+- Cross-boundary Tickoni/Firedancer unit-impacting change: `just test-unit-all`
 - Runtime topology, workspace setup, local process startup, Firedancer dev path,
   or e2e/system behavior change: `just test-e2e-fd`
 - Live `tkmodl` HTTP compatibility, llama.cpp startup, GGUF model wiring, or
   local OpenAI-compatible server behavior change: `just test-system-tk`
+  (requires `infra-ensure-llamacpp` first)
+- **Windows-specific changes**: `just test-unit-tk-windows-x86` or
+  `just test-unit-tk-windows-arm` (builds FD libs for the target platform first,
+  then runs Zig unit tests)
 - Cross-cutting local runtime validation: `just test-all`
 - Broad coverage validation: `just test-cov-all`
 - Full repository validation with build, quality, security, and tests:
+  `just tests-all`
+- **Full handoff validation** (build + quality + security + all tests):
   `just tests-all`
 
 Current placeholder test recipes are intentionally kept in the `justfile` so the
@@ -155,6 +241,8 @@ are still being built:
 
 - `just test-integration-fd`
 - `just test-e2e-tk`
+- `just test-system-fd`
+- `just test-cov-fd`
 
 Do not remove, rename, or repurpose these placeholders as part of ordinary
 focused changes unless the user explicitly asks for that migration. When a
@@ -198,6 +286,13 @@ compatibility. They do not claim production scalability, high availability, or
 managed-service parity: a local process topology is not a production supervised
 deployment, and local huge-page allocation is not an operator-tuned host fleet.
 
+**Demo conformance** is a special case: it runs the real `tickoni-supervisor`
+binary and real Tickoni demo modules, but the demo modules read from fixture
+files rather than live tools. It is therefore a system-level test that is
+deterministic and fast enough to run on every CI commit across all platforms.
+It sits between integration and system in the spectrum: real code, stubbed
+external effects.
+
 Firedancer does not map cleanly onto the three-layer application-test split
 used by many service repos. Its C tests are mostly:
 
@@ -229,24 +324,33 @@ Practical rule of thumb:
 - integration: substitute the external tool through the shared harness while
   keeping Tickoni internals real
 - e2e/system: run the real local toolchain and avoid internal mocks
+- demo conformance: run real binaries with fixture data (deterministic,
+  cross-platform comparable)
 
 ## Harness Unit Tests
 
 `just test-unit-tk` runs:
 
 ```bash
-zig build test
+ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} test --summary all
+ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} run-tests
 ```
+
+On Windows, `just test-unit-tk` delegates to
+`just test-unit-tk-windows-x86` or `just test-unit-tk-windows-arm`, which first
+build the Firedancer libraries for the target platform before running the Zig
+tests.
 
 The boundary for this lane is the directory: every Tickoni-owned test root that
 is not under `src/tickoni/test/integration/` or `src/tickoni/test/system/` runs
 here. In practice that means the runtime, C ABI, and tile modules' own inline
 `test` blocks, all schema modules under `src/tickoni/schema/`, the supervisor
 binary, and everything under `src/tickoni/test/fixtures/`,
-`src/tickoni/test/mocks/`, and `src/tickoni/test/demo/` — fixture-contract
-tests, mock self-tests, and demo-module tests are unit-lane by directory even
-where they substitute an external system, because that substitution happens
-outside `src/tickoni/test/integration/`.
+`src/tickoni/test/mocks/`, `src/tickoni/test/demo/`, and
+`src/tickoni/evidence/` — fixture-contract tests, mock self-tests, demo-module
+tests, and evidence module tests are unit-lane by directory even where they
+substitute an external system, because that substitution happens outside
+`src/tickoni/test/integration/`.
 
 The current Zig test graph is defined in [build.zig](../../build.zig); consult
 it for the exact current set of test roots rather than treating any list here
@@ -273,6 +377,11 @@ It performs these steps:
 7. falls back to `make run-unit-test TEST_OPTS="--page-sz normal"` when
    gigantic pages are unavailable
 
+On macOS and Windows, `just test-unit-fd` delegates to the platform build
+recipe (e.g. `build-fd-macos-arm`) and then runs `just test-unit-tk` instead,
+because Firedancer C unit tests require Linux. This is the same routing pattern
+as `build-fd` — the justfile auto-detects the host platform.
+
 This wrapper is the preferred repo-facing Firedancer unit-test command. Do not
 invoke raw compiler commands for Firedancer tests.
 
@@ -281,7 +390,8 @@ invoke raw compiler commands for Firedancer tests.
 `just test-e2e-fd` runs:
 
 ```bash
-make -j"$(nproc)" integration-test && make run-integration-test
+make -j"$(nproc)" MACHINE=tickoni_fd BUILDDIR={{fd_tickoni_build}} integration-test && \
+make MACHINE=tickoni_fd BUILDDIR={{fd_tickoni_build}} run-integration-test
 ```
 
 This intentionally uses Firedancer's Make `integration-test` class. In
@@ -301,8 +411,12 @@ and full-topology `integration-test` binaries.
 `just test-integration-tk` runs:
 
 ```bash
-zig build integration-test
+ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} integration-test
 ```
+
+On Windows, `just test-integration-tk` delegates to
+`just test-integration-tk-windows-x86` or `just test-integration-tk-windows-arm`,
+which first builds the Firedancer libraries for the target platform.
 
 The boundary for this lane is the directory: every test root under
 `src/tickoni/test/integration/` runs here, and nothing outside that directory
@@ -333,6 +447,19 @@ and runs:
 zig build system-test
 ```
 
+Before running system tests, ensure the llama.cpp server is set up:
+
+```bash
+just infra-ensure-llamacpp   # build llama.cpp (CPU or CUDA if GPU detected)
+just infra-ensure-model      # download GGUF model (requires `hf` CLI)
+just infra-run-llamacpp      # start llama-server
+```
+
+On Windows, `just test-system-tk` delegates to
+`just test-system-tk-windows-x86` or `just test-system-tk-windows-arm`, which
+use `infra-ensure-llamacpp-win` and `infra-run-llamacpp-win` (CPU-only, no CUDA
+on CI runners).
+
 The boundary for this lane is also the directory: every test root under
 `src/tickoni/test/system/` runs here, and nothing outside that directory does.
 Not every root in this directory needs the live server itself — a deterministic,
@@ -344,6 +471,21 @@ It is intentionally not part of `just test-integration-all` or `just test-all`.
 The live model server, downloaded GGUF asset, and localhost HTTP surface make
 this a system/smoke compatibility check rather than the default integration
 lane.
+
+## Demo Conformance Verification
+
+The demo conformance suite produces artifacts under
+`build/demo-conformance/<platform>/`. On CI, these are uploaded as artifacts.
+The local canonical copy lives at
+`build/demo-conformance/local-sample/conformance.json`.
+
+To re-run and capture local artifacts:
+
+```bash
+just test-demo-tk                          # build + run full demo conformance
+python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/local-sample
+python3 contrib/test/compare_demo_conformance.py build/demo-conformance/linux/conformance.json build/demo-conformance/local-sample/conformance.json
+```
 
 ## Quality And Security Gates
 
@@ -390,7 +532,7 @@ Preferred validation commands in order:
 - `just test-cov-fd` runs Firedancer-derived C coverage with reduced
   parallelism for local and CI memory limits.
 - `just test-cov-all` runs both coverage lanes.
-- `just test-all` runs the broad test bundle: unit, integration, and e2e.
+- `just test-all` runs the broad test bundle: unit, integration, system, e2e.
 - `just tests-all` runs the full local handoff gate: build, quality, security,
   and tests.
 
