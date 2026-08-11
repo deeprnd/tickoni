@@ -1,271 +1,487 @@
-## Chapter 5: The Seal of Placement
+## Chapter 5: The Paper Moon
 
-By morning, Maro had chosen.
+Three days after the ghost ships sank, the Ledger Sea turned white.
 
-The boatwright would be paid first. The investment basket could wait.
+Thousands of origami cranes floated across the water, each bearing a company name or an amount in red ink. One brushed against Tickoni’s boat.
 
-With the payment proposal beneath his belt, Maro sat beside the mast as Tickoni guided their black boat north.
+Maro unfolded it.
 
-At noon, eight red pillars appeared through the mist.
+Inside was written:
 
-Between them lay the Eight-Core Strait.
+**Double before sunrise.**
 
-Eight channels cut through black cliffs toward a harbor built on cedar stilts. Foxfire lanterns marked safe routes between reefs.
+A bell rang beyond the horizon.
 
-But no ship was moving.
+Every crane lifted from the sea and flew east.
 
-Rice carriers, barges, skiffs, and treasury vessels crowded the entrance, their sails like a forest trapped at sea.
+They led the boat toward a floating city built from chained ships, lantern bridges, gambling decks, and towers roofed with folded paper.
 
-Every captain demanded private passage.
+Above the harbor hung an enormous white moon.
 
-At the harbor’s center, a kitsune stood atop a signal tower. The fox spirit wore a white captain’s mask, three red tails moving behind her as she directed traffic with burning fans.
+Thin ropes suspended it between the tallest masts. Lanterns burned behind its surface, making it glow brighter than the stars.
 
-Green meant advance. Blue meant turn. Red meant hold.
+— A paper moon, — Maro said.
 
-Then the seabed groaned.
+— Bright enough to hide a crease, — Tickoni replied.
 
-Coins rattled inside Maro’s purse. Far below, an enormous yellow eye opened. Long whiskers dragged through the mud. A black tail struck the earth.
+At the city’s center stood a bronze bell beneath a painted sign:
 
-The sea rose.
+**THE THOUSAND-CRANE AUCTION**
 
-All eight channels twisted toward the harbor’s center, forming a whirlpool.
+No real coins moved here. Traders used **ori**, folded paper currency that existed only inside the auction’s practice ledgers.
 
-— Namazu, — Tickoni said.
+Every crane carried a paper trade.
 
-The giant catfish spirit caused earthquakes when it thrashed beneath the earth. Here, its anger bent currents.
+Maro watched one merchant celebrate an imagined fortune while another tore his failed crane apart.
 
-The kitsune raised every fan.
+— No one can truly lose here, — he said.
 
-Red fire filled the harbor.
+— Practice can teach discipline, — Tickoni replied. — Or appetite.
 
-Hold.
+At the end of the main bridge stood a stall shaped like a fox’s mouth.
 
-Turn back.
+A tanuki, a raccoon-like spirit of mischief, waited inside.
 
-The captains ignored her.
+He wore a blue silk robe, round spectacles without glass, and a smile polished smooth by repetition.
 
-A treasury ship forced toward the first channel. A grain carrier crossed its bow, and skiffs rushed between them.
+— Saburō, — he announced. — Master folder of favorable winds.
 
-A copper barge struck the carrier. One skiff caught the treasury ship’s anchor chain. The anchor tore free and smashed through a fishing vessel.
+Tickoni examined the empty spaces where official marks should have been.
 
-Wood exploded across the water.
+— Licensed by whom?
 
-One ship struck another.
+Saburō spread his paws.
 
-Then another.
+— By results.
 
-Masts broke. Cargo spilled. Boats drifted without signals.
+— Results issue no licenses.
 
-A vessel struck the signal tower. It tilted above the whirlpool.
+Maro placed his ticket on the counter.
 
-Tickoni pulled the sail hard. Their boat shot between two barges as the tower collapsed.
+After surviving the funayūrei, he had chosen the smaller basket.
 
-The kitsune leapt.
+The ironworks.
 
-For one moment, she became a red fox running through open air.
+The cloud tower.
 
-She landed in Tickoni’s boat and returned to human form. Her mask was cracked.
+The cable maker.
 
-— You crossed a closed harbor.
+The basket required 2,000 ori, leaving enough practice cash to keep the boat above its safety line.
 
-— It is no longer closed. It is unguided.
+His payment to the boatwright remained separate, awaiting renewed approval.
 
-Another tower fell.
+Saburō examined the ticket.
 
-— Eight channels. Forty-three ships, — the kitsune said. — Every captain demands water no one else may enter. Without the towers, I cannot place them.
+— Modest.
 
-Tickoni studied the spaces between the ships.
+— Bounded, — Tickoni said.
 
-Their direction. Their speed. Their damage.
+The tanuki laid down a square of pale-blue washi—handmade Japanese paper.
 
-The flame-script beneath its ribs glowed, and lines appeared across the water.
+His paws moved quickly.
 
-— Those four are moving north. Place them together.
+Corner to corner.
 
-— Each demanded an exclusive channel.
+Edge to center.
 
-— They demanded safety. They mistook exclusivity for its only form.
+Wing beneath wing.
 
-The treasury captain raised his horn.
+As the crane took shape, Maro’s idea appeared across it: three islands supporting the hidden machinery of artificial minds.
 
-— My vessel will not share water with common cargo!
+The names of the investments marked its wings.
 
-The whirlpool caught his stern. A crack opened below deck, and silver coins poured into the sea.
+**2,000 ORI** appeared across its breast.
 
-Maro shouted:
+The untouched reserve ran along its back.
 
-— Your private channel is sinking!
+Maro lifted the finished crane.
 
-Tickoni drew a black line through the nearest passage.
+For the first time, he could see the whole trade at once.
 
-— One shared channel. Same direction. Same pace. Separate ships.
+Not a wish.
 
-— If one loses control, all four collide.
+A choice.
 
-— Then govern entry. Each captain keeps command. No one advances until the space ahead is clear.
+A cannon fired above the harbor.
 
-The kitsune smiled.
+— Final launch! — shouted the auction callers.
 
-— A convoy.
+The crowd surged toward the Moon Deck.
 
-She climbed Tickoni’s mast. Maro tied a fallen signal bell beneath the torn sail.
+Maro placed the genuine crane safely inside his coat.
 
-Their little boat became the new signal tower.
+Saburō watched him leave.
 
-One bell meant hold. Two meant enter. Three meant clear the channel.
+Then the tanuki opened a hidden drawer and removed another sheet of blue washi.
 
-Foxfire settled upon the water as markers.
+He copied Maro’s handwriting, his basket, and even the small thumbprint near the crane’s tail.
 
-The grain carrier entered first, followed by the treasury ship and two barges.
+But across its breast he wrote:
 
-— Match the vessel ahead! — the kitsune called.
+**25,000 ORI**
 
-— I refuse to be paced by rice! — shouted the treasury captain.
+The Moon Deck curved around the highest ship in the city.
 
-Tickoni crossed his bow.
+Across a gap of black water hung the bronze bell.
 
-— Then be paced by the seabed.
+Between the traders and the bell roared an artificial storm. Giant fans churned the air. Pipes fired steam. Sailors pulled ropes to change the wind without warning.
 
-Namazu’s mouth opened beneath the harbor.
+The auction master stood beneath the paper moon, wearing a mask with one smiling face and one weeping face.
 
-The captain slowed.
+— The first crane to strike the bell shall be crowned the market’s chosen one!
 
-Four vessels entered one channel.
+The crowd roared.
 
-Separate decks.
+Some traders kissed their cranes.
 
-Separate rudders.
+Others had folded blades into the wings.
 
-One declared passage.
+One boy held a crane made from his family’s land deed.
 
-Then Namazu struck again.
+Tickoni touched Maro’s coat.
 
-The last barge lurched sideways. Its mast snapped toward the treasury ship.
+The flame-script beneath its ribs answered.
 
-Maro rang the danger bell.
+Receive.
 
-The channel burned red.
+Carry.
 
-Tickoni leapt onto the barge and caught the mast before impact. Black water poured through the hull.
+Check.
 
-— Tie us to the treasury ship! — the captain shouted.
+Record.
 
-Tickoni cut the rope.
+Stop.
 
-— One broken ship must not drag the others down.
+— Your crane knows its path, — Tickoni said.
 
-Tugboats pulled the damaged barge into a protected lane while the others continued north.
+Saburō appeared beside them carrying a spool of golden ribbon.
 
-— They shared the channel, but the damage stayed with one ship, — Maro said.
+— Every crane needs an auction ribbon before launch.
 
-— Because they shared a path, not a hull.
+— You did not mention that before, — Maro said.
 
-Namazu rose from the harbor, its black head large as an island. Broken anchors hung from its whiskers.
+— A formality.
 
-The captains panicked again.
+Saburō held out one paw.
 
-Maro struck his payment tag against the signal bell.
+— Your crane, please.
 
-The clear note cut through the shouting.
+Maro handed it over.
 
-— I thought moving first would make my problems smaller. It only made them heavier. You are doing the same with your ships!
+The tanuki turned toward the ribbon table. His sleeves covered his paws for only a moment.
 
-The harbor fell silent.
+Then he returned a pale-blue crane tied with gold thread.
 
-— There is no empty sea. Stop fighting for one.
+— Ready for the premium wind.
 
-Only four channels still burned.
+Maro reached for it.
 
-— Give each one a purpose, — Tickoni said.
+Tickoni caught Saburō’s wrist.
 
-One for ships moving north.
+— Give him back the real one.
 
-One for ships moving south.
+Maro stared at the crane.
 
-One protected lane for damaged vessels and rescue boats.
+— That is the real one.
 
-One waiting basin where unplaced ships held position instead of drifting free.
+— It looks like yours, — Tickoni said. — It does not carry your choice.
 
-The kitsune sent the pattern across the harbor.
+Saburō laughed.
 
-This time, the captains obeyed.
+— Same trader. Same three investments. I merely gave the crane enough courage to win.
 
-When one ship slowed, those behind waited. When one failed, its channel closed. Tickoni carried each changed signal from vessel to vessel.
+— What did you change? — Maro asked.
 
-Nothing moved without a place.
+Tickoni turned the bird over.
 
-Nothing shared without a rule.
+Hidden beneath its folded breast were the words:
 
-At sunset, the final ship cleared the northern gate.
+**25,000 ORI**
 
-The whirlpool weakened.
+Maro’s face hardened.
 
-Namazu’s yellow eye watched Tickoni.
+— I chose two thousand.
 
-— You did not defeat me, little guardian.
+— Twenty-five thousand flies faster, — Saburō said.
 
-— No.
+— Twenty-five thousand does not exist in my ledger.
 
-— Then what did you protect?
+The nearby traders began to chant.
 
-Tickoni looked across the harbor.
+— Let it fly!
 
-Separate vessels floated beneath separate flags—some damaged, some delayed, all still themselves.
+— Paper only!
 
-Between them burned shared lines of foxfire.
+— Let the bell decide!
 
-— Their boundaries.
+Above them, the false moon glowed brighter, smoothing every crease beneath its white light.
 
-Namazu closed its eye and sank.
+Maro looked at Tickoni.
 
-The water became still.
+— Can we prove the crane was changed?
 
-Then one of the foxfire lines remained burning.
+Tickoni placed the forged bird on the deck.
 
-It ran from the northern channel to the southern channel, across the rescue lane, and around the waiting basin.
+Then Maro removed the genuine crane, which Saburō had hidden beneath the ribbon table.
 
-Four paths.
+— Unfold them, — Tickoni said.
 
-Four purposes.
+Saburō stepped back.
 
-One harbor.
+— That will destroy them.
 
-The lines folded inward.
+— A true path survives being traced.
 
-At their crossing, something black rose from the water.
+Tickoni opened the genuine crane.
 
-A fragment shaped like an eight-pointed compass.
+Each reversed fold released an image into the air.
 
-Tickoni recognized the black fire before the fragment reached it.
+Maro naming his thesis.
 
-Another lost law.
+Choosing the three islands.
 
-It struck the flame—script beneath Tickoni's ribs and locked beside Ticket and Weight.
+Rejecting the fourth.
 
-All eight harbor bells rang.
+Setting the amount at 2,000 ori.
 
-A name returned to the sea.
+Preserving his reserve.
 
-**The Seal of Placement.**
+The paper returned to a flat blue square.
 
-Every action must have a declared place.
+At its center remained Maro’s original choice.
 
-Every shared place must have a rule.
+Tickoni unfolded the copy.
 
-Maro watched the ships divide among the channels.
+The first images matched.
 
-The damaged barge floated alone in the rescue lane. Beyond it, the grain carrier and treasury ship continued north.
+Then, at the seventh fold, Saburō’s paw appeared.
 
-Maro watched them for a while.
+Two thousand became twenty-five thousand.
 
-— They can travel together without belonging to each other.
+The reserve vanished.
 
-— They have to, — Tickoni said.
+A hidden crease pointed past every inspection gate and directly toward the bell.
 
-The torn sail rose.
+A red line burned across the air.
 
-Behind them, the captains entered the shared waters in order.
+**First difference: amount changed.**
 
-Ahead, the Ledger Sea opened.
+The crowd fell silent.
 
-Beneath Tickoni’s ribs, three seals burned.
+Saburō snapped his fingers.
+
+Every crane he had folded rose from the city at once.
+
+Hundreds filled the sky.
+
+Inside each one, a hidden change awakened.
+
+Savings became debt.
+
+Small trades became enormous wagers.
+
+Copies became originals.
+
+The cranes rushed toward the bell.
+
+Tickoni’s ribs ignited.
+
+One line received the swarm.
+
+One carried each crane’s history.
+
+One checked every fold against its maker’s choice.
+
+One recorded every difference.
+
+One became a wall across the sky.
+
+The genuine cranes passed through.
+
+The altered cranes struck the barrier and burst open.
+
+A widow found borrowed ori beneath her name.
+
+A fisherman discovered that his modest trade had been multiplied tenfold.
+
+The boy tore his family’s land deed from his crane before it reached the storm.
+
+The crowd turned on Saburō.
+
+The tanuki leaped onto the ropes supporting the paper moon.
+
+— You cannot stop desire!
+
+— I am stopping your hand from wearing its face, — Tickoni replied.
+
+Saburō pulled one final golden crane from his sleeve.
+
+Across its wings was written:
+
+**EVERYTHING**
+
+The bird grew as it flew, swallowing smaller cranes and darkening the false moon.
+
+Maro held his genuine blue crane.
+
+— Mine cannot beat that.
+
+— It does not need to.
+
+The golden crane reached the bell first.
+
+Its beak struck bronze.
+
+No sound came.
+
+It struck again.
+
+Nothing.
+
+The bell did not recognize its path.
+
+The bird crashed into the moon’s ropes.
+
+The paper moon tore from top to bottom.
+
+Lantern light poured through the wound as the golden crane collapsed into blank sheets.
+
+Behind the false moon, the real night sky appeared.
+
+Maro stepped to the edge of the deck.
+
+— I do not need to win this auction.
+
+He released his crane.
+
+The storm caught it.
+
+Steam tore at its wings. Faster birds passed above it. Larger ones struck the wind around it.
+
+But the blue crane did not chase them.
+
+It passed through the first gate.
+
+Then the second.
+
+Then the third.
+
+At each gate, a lantern lit.
+
+Trader.
+
+Basket.
+
+Amount.
+
+Limits.
+
+Cash remaining.
+
+Choice.
+
+The crane touched the bell.
+
+Gong.
+
+Above the harbor, the completed paper trade appeared.
+
+Three positions entered Maro’s practice ledger.
+
+His ori balance fell by the chosen amount but remained safe.
+
+No debt appeared.
+
+No forbidden instrument entered.
+
+The boatwright’s payment remained separate.
+
+Then the crane’s entire journey began again.
+
+Maro’s words.
+
+The folded basket.
+
+The checks.
+
+The launch.
+
+The gates.
+
+The bell.
+
+Every step repeated exactly.
+
+Beside Saburō’s ruined copy appeared the same red line:
+
+**First difference: amount changed.**
+
+The guards seized the tanuki.
+
+At dawn, Tickoni and Maro returned to the Ledger Sea.
+
+The blue crane rested on the mast.
+
+Maro opened his practice ledger.
+
+The positions were there.
+
+So were the 2,000 ori spent and the ori left untouched.
+
+Nothing had become real money.
+
+Yet nothing was imaginary.
+
+The trade had followed its path.
+
+Its consequence had been shown.
+
+Its journey had been recorded.
+
+Its forgery had failed.
+
+Maro looked at the seals beneath Tickoni’s ribs.
+
+— Nothing returned this time.
+
+Tickoni looked down at the two black marks.
+
+Ticket.
+
+Weight.
+
+Both had returned only when the sea revealed a law Tickoni did not yet carry.
+
+Tonight had been different.
+
+The ticket had already known Maro’s choice.
+
+The weight had already known what the false crane would cost him.
+
+Firedancer’s paths had carried the history, checked it, recorded it, and exposed the first broken fold.
+
+Nothing new had been found.
+
+Something old had been tested.
+
+— No, — Tickoni said.
+
+— No what?
+
+— No missing piece.
+
+Tickoni looked back at the torn paper moon.
+
+— Not every lesson is a missing piece, — Tickoni said.
+
+Behind them, workers lowered the torn paper moon.
+
+Ahead, the real sky brightened over the sea.
+
+Maro closed the ledger.
+
+— What happens after paper trading?
+
+Tickoni raised the sail.
+
+— Then the sea has to carry what we choose.

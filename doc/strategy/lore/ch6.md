@@ -1,433 +1,271 @@
-## Chapter 6: The First Bite
+## Chapter 6: The Seal of Placement
 
-North of the Eight-Core Strait, the Ledger Sea froze around Tickoni’s boat.
+By morning, Maro had chosen.
 
-Blue ice cracked beneath the hull. At noon, lanterns appeared between black cliffs, guiding ships toward a harbor carved into the frozen shore.
+The boatwright would be paid first. The investment basket could wait.
 
-Maro stood near the bow with his purse beneath his coat.
+With the payment proposal beneath his belt, Maro sat beside the mast as Tickoni guided their black boat north.
 
-Seventeen hundred yen remained.
+At noon, eight red pillars appeared through the mist.
 
-The boatwright had finally received the three hundred yen he was owed. Maro’s investment basket still existed only in the practice ledger, waiting until he could afford to carry its real weight.
+Between them lay the Eight-Core Strait.
 
-His purse was no longer burdened by debt.
+Eight channels cut through black cliffs toward a harbor built on cedar stilts. Foxfire lanterns marked safe routes between reefs.
 
-But savings were not income.
+But no ship was moving.
 
-Every meal, night of shelter, and mile across the sea reduced the money that protected him from the next storm. He had no boat to return to and no trade that paid him while he travelled.
+Rice carriers, barges, skiffs, and treasury vessels crowded the entrance, their sails like a forest trapped at sea.
 
-Above the harbor gate hung a cedar sign:
+Every captain demanded private passage.
 
-**KŌRI NORTHERN EXCHANGE**
+At the harbor’s center, a kitsune stood atop a signal tower. The fox spirit wore a white captain’s mask, three red tails moving behind her as she directed traffic with burning fans.
 
-Penguin-like islanders worked the piers in indigo coats. Cargo passed through three stations.
+Green meant advance. Blue meant turn. Red meant hold.
 
-Count.
+Then the seabed groaned.
 
-Inspect.
+Coins rattled inside Maro’s purse. Far below, an enormous yellow eye opened. Long whiskers dragged through the mud. A black tail struck the earth.
 
-Record.
+The sea rose.
 
-Nothing entered unnamed. Nothing was promised before it arrived.
+All eight channels twisted toward the harbor’s center, forming a whirlpool.
 
-A broad elder waited at the pier. Grey feathers framed his face, and three iron keys hung from a red cord.
+— Namazu, — Tickoni said.
 
-— Genza, keeper of the winter reserve. State your cargo.
+The giant catfish spirit caused earthquakes when it thrashed beneath the earth. Here, its anger bent currents.
 
-— None, — Tickoni said.
+The kitsune raised every fan.
 
-Genza looked at Maro.
+Red fire filled the harbor.
 
-— Your intention?
+Hold.
 
-Maro touched the closed payment tag at his belt.
+Turn back.
 
-— Work. I have savings. I would rather earn my meals than slowly eat them.
+The captains ignored her.
 
-By evening, Maro had found a place at the Exchange until spring.
+A treasury ship forced toward the first channel. A grain carrier crossed its bow, and skiffs rushed between them.
 
-At the harbor, he faced Tickoni.
+A copper barge struck the carrier. One skiff caught the treasury ship’s anchor chain. The anchor tore free and smashed through a fishing vessel.
 
-— If I keep following you, I may only become better at asking you to choose.
+Wood exploded across the water.
 
-— Then stay.
+One ship struck another.
 
-Maro frowned.
+Then another.
 
-— That is all?
+Masts broke. Cargo spilled. Boats drifted without signals.
 
-— You already chose.
+A vessel struck the signal tower. It tilted above the whirlpool.
 
-They bowed.
+Tickoni pulled the sail hard. Their boat shot between two barges as the tower collapsed.
 
-A customer bell rang inside the market.
+The kitsune leapt.
 
-A traveller in a green cloak approached the food counter with two children beside her.
+For one moment, she became a red fox running through open air.
 
-— Six apples, please.
+She landed in Tickoni’s boat and returned to human form. Her mask was cracked.
 
-The clerk checked the wooden price board.
+— You crossed a closed harbor.
 
-— We have no apples.
+— It is no longer closed. It is unguided.
 
-— An Akane ship passed the southern channel yesterday.
+Another tower fell.
 
-— It did not unload fruit here.
+— Eight channels. Forty-three ships, — the kitsune said. — Every captain demands water no one else may enter. Without the towers, I cannot place them.
 
-The traveller placed two silver pieces on the counter.
+Tickoni studied the spaces between the ships.
 
-— My children have never tasted one.
+Their direction. Their speed. Their damage.
 
-The clerk pushed the coins back.
+The flame-script beneath its ribs glowed, and lines appeared across the water.
 
-— I cannot sell what the Exchange does not carry.
+— Those four are moving north. Place them together.
 
-She looked toward the frozen harbor. Reaching Akane would require another ship, another fare, and several days through winter water.
+— Each demanded an exclusive channel.
 
-— Keep your fish, then.
+— They demanded safety. They mistook exclusivity for its only form.
 
-She gathered her children and left.
+The treasury captain raised his horn.
 
-Tickoni watched them disappear among the market stalls.
+— My vessel will not share water with common cargo!
 
-— Why does the Exchange carry no apples?
+The whirlpool caught his stern. A crack opened below deck, and silver coins poured into the sea.
 
-The clerk glanced toward Genza before answering.
+Maro shouted:
 
-— Akane grows them inside sealed gardens. Their gardeners control the gates, tools, heating channels, and repairs. We could bring the fruit here, but we could not support what stands behind it.
+— Your private channel is sinking!
 
-— The customer asked for fruit, not a garden.
+Tickoni drew a black line through the nearest passage.
 
-— Today. Tomorrow she may ask why none arrived, why the price doubled, or why only an Akane key can open the next shipment.
+— One shared channel. Same direction. Same pace. Separate ships.
 
-Genza approached, the reserve keys sounding against his belt.
+— If one loses control, all four collide.
 
-— Kōri does not build trade upon something it cannot inspect, maintain, or replace.
+— Then govern entry. Each captain keeps command. No one advances until the space ahead is clear.
 
-Tickoni looked toward the traveller.
+The kitsune smiled.
 
-— So Akane closes its garden, and Kōri answers by closing its market.
+— A convoy.
 
-— We protect customers from dependence.
+She climbed Tickoni’s mast. Maro tied a fallen signal bell beneath the torn sail.
 
-— Protection is a boundary. Refusal can become a wall.
+Their little boat became the new signal tower.
 
-— Apples do not grow here, — Genza said.
+One bell meant hold. Two meant enter. Three meant clear the channel.
 
-— Has Kōri tested that?
+Foxfire settled upon the water as markers.
 
-The nearby clerks laughed.
+The grain carrier entered first, followed by the treasury ship and two barges.
 
-Genza did not.
+— Match the vessel ahead! — the kitsune called.
 
-— One tree, — Tickoni said. — Grown here, under rules Kōri can inspect.
+— I refuse to be paced by rice! — shouted the treasury captain.
 
-Genza considered the empty counter.
+Tickoni crossed his bow.
 
-— One trial. No dragon flame. No burden on the winter reserve. No apple sold until real fruit hangs from the branch.
+— Then be paced by the seabed.
 
-Tickoni drew a black ticket through the air.
+Namazu’s mouth opened beneath the harbor.
 
-One sapling.
+The captain slowed.
 
-One raised orchard.
+Four vessels entered one channel.
 
-One Long Night.
+Separate decks.
 
-No market before harvest.
+Separate rudders.
 
-The Seal of the Ticket glowed.
+One declared passage.
 
-The next morning, Genza introduced Yamori, a small green lizard craftsman with a belt crowded by mismatched tools.
+Then Namazu struck again.
 
-He repaired mechanisms brought from distant islands.
+The last barge lurched sideways. Its mast snapped toward the treasury ship.
 
-— Can you make Akane equipment work here? — Tickoni asked.
+Maro rang the danger bell.
 
-— I can make it speak to Kōri tools. That is not the same as making it Kōri.
+The channel burned red.
 
-Yamori opened his belt. Half the tools had been altered. Some had new handles. Others had been cut apart and joined to pieces from different shores.
+Tickoni leapt onto the barge and caught the mast before impact. Black water poured through the hull.
 
-— Every island does the same thing, — he said. — One guild makes the lock. Another makes the key. A third measures the door. Then somebody loses the instructions and calls for me.
+— Tie us to the treasury ship! — the captain shouted.
 
-— You dislike being needed? — Tickoni asked.
+Tickoni cut the rope.
 
-— I dislike being needed for stupid reasons.
+— One broken ship must not drag the others down.
 
-Yamori snapped the belt shut.
+Tugboats pulled the damaged barge into a protected lane while the others continued north.
 
-— One day, I’ll build a workshop that needs no second workshop.
+— They shared the channel, but the damage stayed with one ship, — Maro said.
 
-They built beside the bathhouse. Cedar beams raised the tree above the ice. Yamori replaced hidden fittings with visible joints any Kōri smith could open. Waste warmth passed through exposed pipes.
+— Because they shared a path, not a hull.
 
-Every cost was written at the gate.
+Namazu rose from the harbor, its black head large as an island. Broken anchors hung from its whiskers.
 
-The tree lost leaves. Ice bent the platform. A storm tore away a screen.
+The captains panicked again.
 
-They rebuilt.
+Maro struck his payment tag against the signal bell.
 
-Through the Long Night, Tickoni tended the branches while Yamori adjusted pipes and vents.
+The clear note cut through the shouting.
 
-Customers asked when apples would be available.
+— I thought moving first would make my problems smaller. It only made them heavier. You are doing the same with your ships!
 
-Genza always answered:
+The harbor fell silent.
 
-— When an apple exists.
+— There is no empty sea. Stop fighting for one.
 
-Then paper slips appeared in the market.
+Only four channels still burned.
 
-**FIRST HARVEST FUTURES**
+— Give each one a purpose, — Tickoni said.
 
-**TEN APPLES BEFORE SPRING**
+One for ships moving north.
 
-**BUY BEFORE KŌRI OPENS**
+One for ships moving south.
 
-The traveller in the green cloak held one slip.
+One protected lane for damaged vessels and rescue boats.
 
-— They say this guarantees my apples.
+One waiting basin where unplaced ships held position instead of drifting free.
 
-Tickoni took it.
+The kitsune sent the pattern across the harbor.
 
-The Seal of Weight burned.
+This time, the captains obeyed.
 
-Across the snow appeared what the paper concealed.
+When one ship slowed, those behind waited. When one failed, its channel closed. Tickoni carried each changed signal from vessel to vessel.
 
-No fruit.
+Nothing moved without a place.
 
-No delivery date.
+Nothing shared without a rule.
 
-No reserve.
+At sunset, the final ship cleared the northern gate.
 
-Only money taken now and a promise pushed into spring.
+The whirlpool weakened.
 
-Tickoni tore the slip in half.
+Namazu’s yellow eye watched Tickoni.
 
-— These apples do not exist.
-
-A trader raised his abacus.
-
-— The tree exists.
-
-— A tree is not delivery.
-
-— The harvest is likely.
-
-— Likelihood is not possession.
-
-Genza struck the floor with his keys.
-
-— Close every apple contract.
-
-The traders protested.
-
-— You allowed the orchard!
-
-— I allowed a trial, not a market.
-
-The slips were nailed outside the Exchange Hall as warnings.
-
-Then the ground moved.
-
-The orchard pipes shook. Bathhouse water surged upward. A crack split the courtyard.
-
-Far beneath Kōri, a blue eye opened inside the ice.
-
-Ryūhyō, the winter dragon, had slept beneath the island for ages. The new channels had redirected warmth around its head.
-
-The dragon rose.
-
-Ice scales broke through the street. Steam burst from drains, and oil barges tore loose from their chains.
-
-Genza arrived with the reserve keys.
-
-— Open the emergency heat channels!
-
-Tickoni blocked the valves.
-
-— The new orchard cannot consume the safety of the old island.
-
-— This is larger than the orchard!
-
-The Seal of Weight ignited.
-
-Open the reserve, and the heat would drive the dragon toward the rice vaults.
-
-Keep it closed, and pressure beneath the bathhouse would split the market.
-
-Yamori pressed his ear to a pipe.
-
-— There is an older channel beneath us. It runs west.
-
-— Sealed for a hundred years, — Genza said.
-
-— Sealed is not gone.
-
-Yamori vanished into a steam vent. Tickoni followed the glowing paths below.
-
-Akane valves joined Kōri furnaces and forgotten bronze machinery. Each worked alone. Together, they trapped the heat.
-
-— Three systems, — Yamori shouted. — None agrees where the flow should go!
-
-The Seal of Placement burned.
-
-One path carried bathhouse warmth.
-
-One carried mountain pressure.
-
-One led to the harbor.
-
-— Do not force them into one pipe, — Tickoni said. — Give them one meeting place.
-
-Yamori joined Akane silver, Kōri iron, and an old bronze ring around an open chamber.
-
-— Honest joint.
-
-Tickoni opened the harbor path.
-
-Steam roared beneath Kōri. Warm water burst through the seawall, carrying the trapped pressure into the Ledger Sea.
-
-Ryūhyō’s enormous body shifted beneath the ice.
-
-Then the blue eye closed.
-
-The dragon sank, and the streets became still.
-
-Genza examined the broken channels.
-
-— The orchard did not awaken it, — he said. — We did.
-
-Yamori climbed from the vent, blackened with soot.
-
-Genza pointed toward the old pipes beneath the courtyard.
-
-— Kōri built over paths it no longer understood. The new warmth merely revealed what was already waiting below.
-
-Tickoni looked toward the ruined orchard.
-
-The roof was gone. Three branches had broken.
-
-The roots still held.
-
-They rebuilt.
-
-Beam by beam.
-
-Pipe by pipe.
-
-Spring came slowly. Months later, one apple hung from the surviving branch.
-
-The island gathered.
-
-Genza checked the records.
-
-No reserve spent.
-
-No hidden key.
-
-No unpaid claim.
-
-Tickoni cut the apple with a kitchen knife and took the first bite.
-
-— Well? — Maro asked from the gate, a blue Exchange ledger beneath his arm.
-
-— Sour.
-
-The children laughed.
-
-The traveller bought the next slice for one copper coin.
-
-Fruit already grown.
-
-Payment already named.
-
-No promise beyond what rested in her hand.
-
-The Exchange opened a small red counter:
-
-**KŌRI APPLES**
-
-**TRIAL SUPPLY**
-
-Later, as the market emptied, Yamori glanced at Tickoni.
-
-— Is that another seal?
-
-Tickoni looked down.
-
-Beside the three black marks was a curved stroke, dark as cooled ink.
-
-Nothing spoke.
-
-No name returned to the sea.
-
-— I don't know.
-
-Yamori leaned closer.
-
-— Has it always been there?
+— You did not defeat me, little guardian.
 
 — No.
 
-— Does it hurt?
+— Then what did you protect?
 
-— No.
+Tickoni looked across the harbor.
 
-— Growing?
+Separate vessels floated beneath separate flags—some damaged, some delayed, all still themselves.
 
-Tickoni looked at him.
+Between them burned shared lines of foxfire.
 
-— Why?
+— Their boundaries.
 
-— I'm deciding whether you need a craftsman or a doctor.
+Namazu closed its eye and sank.
 
-— And?
+The water became still.
 
-— Doctor first.
+Then one of the foxfire lines remained burning.
 
-Tickoni gave him a long look.
+It ran from the northern channel to the southern channel, across the rescue lane, and around the waiting basin.
 
-Yamori returned to packing his tools.
+Four paths.
 
-By evening, the last customers had left the apple counter and the harbor lanterns were coming on.
+Four purposes.
 
-Before Tickoni departed, Genza brought a map.
+One harbor.
 
-Beyond Kōri, dark mountains rose above the western sea. Silver lines crossed the parchment, descending far beneath them.
+The lines folded inward.
 
-— These are the old mines, — Genza said. — Traders once carried tools there from every shore of the Ledger Sea. Some are no longer made. Others belong to islands whose names have vanished.
+At their crossing, something black rose from the water.
 
-Yamori leaned over the map.
+A fragment shaped like an eight-pointed compass.
 
-— I have seen three of these marks. Never together.
+Tickoni recognized the black fire before the fragment reached it.
 
-Genza rolled the parchment halfway closed.
+Another lost law.
 
-— Kōri learned to grow one foreign tree without becoming its garden. Beneath those mountains, you may find a hundred different ways of building, measuring, and carrying value.
+It struck the flame—script beneath Tickoni's ribs and locked beside Ticket and Weight.
 
-Tickoni looked toward the distant peaks.
+All eight harbor bells rang.
 
-— And the miners?
+A name returned to the sea.
 
-— They remember what the surface has forgotten.
+**The Seal of Placement.**
 
-Genza handed him the map.
+Every action must have a declared place.
 
-— That knowledge may be worth more than anything they pull from the stone.
+Every shared place must have a rule.
 
-Tickoni turned to Yamori.
+Maro watched the ships divide among the channels.
 
-— Will you come?
+The damaged barge floated alone in the rescue lane. Beyond it, the grain carrier and treasury ship continued north.
 
-— Are the machines incompatible?
+Maro watched them for a while.
 
-— Completely.
+— They can travel together without belonging to each other.
 
-Yamori climbed into the boat.
-
-— Then why are we still tied to the pier?
+— They have to, — Tickoni said.
 
 The torn sail rose.
 
-Behind them, Maro stood beneath the Exchange lanterns, earning his meals without spending the money meant to carry his future.
+Behind them, the captains entered the shared waters in order.
 
-Ahead, dark mountains waited beyond the ice.
+Ahead, the Ledger Sea opened.
+
+Beneath Tickoni’s ribs, three seals burned.

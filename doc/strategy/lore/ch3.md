@@ -1,419 +1,361 @@
-## Chapter 3: The Seal of Weight
+## Chapter 3: The Seal of the Ticket
 
-By sunset, the Ledger Sea had forgotten the storm.
+For three nights after Firedancer vanished, Tickoni followed what the water gave.
 
-The green lightning was gone. The oil ships had passed. Only their distant bells remained, fading beyond the horizon.
+A seam between currents.
 
-Maro sat beneath the mast of Tickoni’s narrow black boat, counting the coins in his purse.
+A reef line under moonlight.
 
-Two thousand yen.
+A bell that rang once, then never again.
 
-He closed his fingers around them.
+The boat still moved slowly. The sail was still torn. The lantern still burned without oil.
 
-For the first time, he was grateful the oil ticket had never become an order.
+But when the sea changed, Tickoni changed with it.
 
-Yet he counted more slowly now.
+On the fourth night, green lightning flashed inside a wall of fog.
 
-Beside him lay another possibility.
+Then came a shout.
 
-During the afternoon, they had sailed past four islands linked by silver bridges: an ironworks whose furnaces burned without smoke, a cloud tower crowded with messengers, a cable maker threading light beneath the sea, and a broad technology fund that owned pieces of all three.
+Not for help.
 
-Maro had watched them until they disappeared behind the mist.
+For speed.
 
-Now their names rested inside a fresh ticket.
+A small boat burst into view, one side dragging through the water. Its sail was patched with old price charts, and a plank beneath the mast had split.
 
-Four positions.
+A young trader clung to the mast while holding a purse above his head. His eyes remained fixed on a green storm in the east.
 
-No leverage.
+— Your boat is sinking, — Tickoni called.
 
-No forbidden gate.
+— It only needs to last until sunrise.
 
-A narrow basket built around one idea.
+A wave struck.
 
-From Maro’s belt hung something older.
+The mast cracked.
 
-A brass payment tag.
+Tickoni pulled him aboard just before the smaller vessel rolled beneath the sea.
 
-Three hundred yen owed to the boatwright who had repaired the mast of Maro’s abandoned vessel before his chase toward the oil storm.
+A brass payment tag tore loose from its stern.
 
-The first payment had failed.
+Three hundred yen owed to the boatwright.
 
-One retry remained.
+Retry pending.
 
-Approval valid until moonrise.
+The trader tied it to his belt.
 
-Maro placed the tag beside the ticket.
+— I will pay that when this is over.
 
-— The basket gives me a path forward, — he said. — The payment closes what I left behind.
+— When what is over?
 
-Tickoni looked at both marks.
+He pointed toward the storm.
 
-— Separately, perhaps.
+— Fortune.
 
-Before Maro could answer, fog rose from the sea.
+His name was Maro: two thousand yen, three unpaid debts, one drowned boat, and the expression of someone who had mistaken urgency for destiny.
 
-Not drifting fog.
+— Oil ships are delayed, — Maro said. — Everyone at Rumor Port is rowing east. By dawn, oil will be worth twice what it was yesterday.
 
-Advancing fog.
+— Who counted the ships?
 
-It moved against the wind in long white walls.
+— Everyone knows.
 
-Bells rang inside it.
+— That is not a number.
 
-One bell.
+Maro lifted the purse.
 
-Then ten.
+— This is. And it needs to become a larger one.
 
-Then hundreds beneath the water.
+He looked back at the place where his boat had disappeared beneath the water.
 
-A black vessel emerged without sail, oar, or wake.
+— One day I will have a ship of my own again. A real one. No patched sails. No debt tags hanging from the stern.
 
-Pale sailors lined its rail. Their robes clung to them like wet burial cloth. Seaweed hung from their mouths. Small fish moved inside the hollows of their ribs.
+Tickoni looked at the three-hundred-yen tag on his belt.
 
-Maro pulled his purse close.
+— Then why are you risking the money that might build it?
 
-— What are they?
+Maro looked toward the green storm.
 
-— Funayūrei, — Tickoni said. — Sailors claimed by the sea.
+— Because waiting will take years.
 
-Another ghost ship appeared behind the first.
+The water grew still.
 
-Then another.
+Too still.
 
-Soon the boat was surrounded.
+Then something rose beneath the moon.
 
-On the nearest deck, a drowned captain raised one white hand.
+At first, Tickoni thought it was an island.
 
-— Travelers, — he called. — Lend us a ladle.
+The island opened its eyes.
 
-His voice came from every direction.
+A vast black head lifted from the Ledger Sea, round as a temple bell, water pouring from its shoulders.
 
-— Give us one, and we will open the fog.
+— Say the wish, little trader.
 
-Maro reached toward the wooden scoop beside the water bucket.
+Maro froze.
 
-Tickoni caught his wrist.
+Tickoni did not.
 
-— A ladle with a bottom becomes a weapon in their hands.
+— Umibōzu.
 
-The drowned captain smiled.
+The spirit smiled.
 
-— The little oni remembers old stories.
+Maro whispered:
 
-A woman with coral woven through her hair leaned over the ghost ship’s rail.
+— What is it?
 
-Her empty eyes fixed upon Maro’s brass tag.
+— A hunger that learned to speak like opportunity.
 
-— Three hundred yen, — she whispered. — Owed to the boatwright.
+Umibōzu lowered one enormous eye toward Maro’s purse.
 
-A dead cabin boy pointed toward the ticket.
+— I carry wishes faster than wind. No gates. No forms. Say buy, and the current moves.
 
-— And four bright islands waiting to make you rich.
+Green lightning flashed.
 
-Maro stiffened.
+— You can get me oil? — Maro asked.
 
-— How do they know?
+— I can get you longing. Longing is what traders call opportunity before it drowns them.
 
-Tickoni watched the water.
-
-— The sea remembers unfinished things.
-
-The captain opened both arms.
-
-— We can carry them for you.
-
-The fog beneath Maro’s boat brightened.
-
-The four investments appeared as iron crates resting on the seabed.
-
-The payment appeared as a smooth black stone chained to the stern.
-
-— Send both, — the captain said. — Leave nothing unfinished.
-
-Maro looked at Tickoni.
-
-— The basket is bounded. The payment is approved. Neither breaks its ticket.
-
-— Then send them, — the coral-haired ghost urged.
+The current pulled east.
 
 Maro opened his purse.
 
-— Yes. Send both.
+— Then buy. Two thousand yen into anything that moves before sunrise.
 
-The funayūrei struck their hulls.
+The boat turned toward the storm.
 
-Knock.
+Tickoni placed one claw over the purse.
 
-Knock.
+The boat stopped.
 
-Knock.
+— Not yet.
 
-The chains beneath the boat pulled tight.
+— You heard the rumor.
 
-The four iron crates rose from the depths.
+— I heard a wish.
 
-The payment stone rose with them.
+— Then act on it.
 
-The boat dropped so suddenly that Maro fell against the mast.
+— A wish cannot touch the sea raw.
 
-Black water spilled over the rail.
+Umibōzu laughed.
 
-— Close the purse! — Tickoni shouted.
+— The Order was right about you. You close doors and call it protection.
 
-Maro obeyed.
+Tickoni drew a thin line through the air.
 
-The crates stopped halfway between the seabed and the boat.
+— First, the wish becomes a ticket.
 
-The payment stone hung below them, swaying in the dark.
+Maro’s desire rose between them as green fire.
 
-Maro gripped the mast.
+Two thousand yen.
 
-— What happened?
+Oil exposure.
 
-— You counted two actions, — Tickoni said. — The boat carries one consequence.
+Before sunrise.
 
-Tickoni drove a claw into the water.
+Everything available.
 
-The sea split like polished glass.
+Tickoni cut through the final line.
 
-Three reflections opened around them.
+— Not everything.
 
-In the first, the boat floated high.
+It bound the wish: no borrowed money, no ruinous position, no forbidden gate, and cash left for the return journey.
 
-Two thousand yen remained in cash. Technology exposure was narrow. The boatwright was still unpaid.
+The wild fire contracted into a narrow black mark.
 
-In the second, the four iron crates landed on deck.
+Then the basket appeared: a broad oil fund, a shipping current, an energy reef, and part of the purse left untouched.
 
-The boat rode lower but remained steady.
+— Why divide it? — Maro asked.
 
-Words burned across the water.
+— Because one belief does not require one point of failure.
 
-Cash reduced.
+A serpent with three bright heads coiled above the storm.
 
-Technology exposure increased.
+More, they whispered.
 
-Buying power narrowed.
+— That moves three times as fast.
 
-Four positions now carried one thesis.
+Tickoni cut a red line across it.
 
-In the third reflection, the payment stone rose behind the crates.
+— Leveraged current. Outside the ticket.
 
-The stern sank.
+Behind it rose a kraken of hooks and old contracts.
 
-Water crossed the floorboards.
+— Futures, — Maro said.
 
-More words appeared.
+— Not for this purse.
 
-Payment obligation resolved.
+A third gate opened beneath the boat, filled with blue fire and coins whose names changed as Maro tried to read them.
 
-Emergency reserve breached.
+Tickoni sealed it.
 
-No room for another storm.
+— Not this market. Not this ticket.
 
-Maro stared at the three boats.
+Umibōzu smiled.
 
-— Each action was safe alone.
+— Watch the oni cut away your fortune.
 
-— The sea does not carry them alone, — Tickoni said.
+Maro looked at the bounded basket.
 
-Maro looked at the sinking reflection.
+— What if I ask for twenty-five thousand yen?
 
-— If I keep doing this, I will never own another boat.
+The ticket darkened.
 
-— Not one that stays above water.
+— Then the wish breaks the purse.
 
-The drowned captain stretched out his hand.
+— But if the move is real—
 
-— Pay the boatwright first. Let the basket’s profit restore the purse.
+— Your evidence has not grown. Only your size.
 
-The coral-haired woman whispered from the opposite side:
+Umibōzu lowered its face until one black eye filled the sky.
 
-— Buy first. The islands are rising. Pay the debt after fortune arrives.
+— Send it now. Before another trader takes what should be yours.
 
-The cabin boy laughed.
+Maro looked at the ticket.
 
-— Or send everything now. Tomorrow’s sea can carry tomorrow’s weight.
+It was no longer a wild desire.
 
-Maro looked from ghost to ghost.
+But it was not yet an order.
 
-— Every path sounds possible.
+His hand moved toward it.
 
-— They show you the stone, — Tickoni said. — Never the waterline.
+— Say it raw, — Umibōzu whispered. — No limits. No little demon between you and the life you deserve.
 
-The bells beneath the sea rang once.
+The flame-script beneath Tickoni’s ribs began to glow: one tile to receive, one to carry, one to check, one to record, and one to stop the breach.
 
-Moonrise.
+Tickoni placed one claw between Maro’s hand and the sea.
 
-The brass tag flashed.
+— No raw order.
 
-Its approval mark cracked.
+Umibōzu hissed.
 
-Then went dark.
+— I need no ticket.
 
-Maro snatched it from his belt.
+Tickoni looked up.
 
-— Retry the payment.
+— That is why you drown people.
 
-— The approval has expired, — Tickoni said.
+The storm exploded.
 
-— Then renew it.
+All night, Umibōzu circled them.
 
-— I can shape a replacement proposal.
+It showed Maro a golden pier, his debts paid, his drowned boat replaced by a ship with a hundred sails.
 
-— Do it.
+All he had to do was speak.
 
-— I cannot approve it for you.
+Maro gripped the rail.
 
-The captain’s face split into a grin.
+— I could miss it.
 
-— Hear that, trader? The oni sees the safe path and still refuses to move.
+— You could.
 
-Dead hands rose from every ghost ship.
+— I could miss the fortune meant for me.
 
-Dozens.
+— You could also survive the fortune that was never yours.
 
-Hundreds.
+Maro looked at the raw current, then at the ticket.
 
-They reached toward Tickoni’s boat.
+For one long breath, the sea waited.
 
-— Give us the purse!
+Maro closed his purse and pulled his hand back.
 
-— Give us the ticket!
+The current broke against the boat without taking a single coin.
 
-— Give us the ladle!
+Then dawn came.
 
-The flame-script across Tickoni’s ribs ignited.
+The storm split open.
 
-One line received the expired approval.
+Out of the eastern mist came the missing oil ships.
 
-One carried the changed state.
+Slow, black, heavy, and real.
 
-One weighed the basket against the remaining cash.
+Their bells rang through the harbor routes. The panic dissolved.
 
-One recorded every reflection.
+Maro watched them pass.
 
-One stopped the breach before it spread.
+His full purse remained in his hand.
 
-Tickoni drew two marks through the fog.
+Umibōzu rose behind the boat, furious.
 
-The first reduced the basket.
+— Another night, little trader. Another wish.
 
-Three smaller crates replaced the four heavy ones. The boat rose above its safety line.
+Then it sank beneath the Ledger Sea.
 
-The second mark formed a new payment proposal around the darkened brass tag.
+For a long time, Maro said nothing.
 
-Fresh approval required.
+At last, he looked at Tickoni.
 
-No coin moved.
+— I thought you were stopping me from becoming rich.
 
-No crate landed.
+Tickoni looked toward the place where Umibōzu had vanished.
 
-Maro looked at the waiting marks.
+For part of the night, it had feared the same thing.
 
-— That combination keeps us afloat.
+Maro closed his hand around the purse.
 
-— Yes.
+— I would have given it everything.
 
-— Then execute it.
+He touched the boatwright’s brass tag.
 
-Tickoni faced him.
+— Even what I already owed.
 
-— Seeing the consequence does not grant me your authority.
+Then he bowed his head.
 
-The ghosts shrieked.
+— Thank you.
 
-The captain lunged across the gap between the ships.
+The bounded ticket gave a quiet sound, like metal cooling after flame.
 
-— Then give us the ladle!
+A black fragment rose from beneath it.
 
-Tickoni lifted the wooden scoop.
+Small, curved, and part of an older seal.
 
-With one claw, it cut away the bottom.
+Before Tickoni could touch it, the fragment flew toward the lines beneath its ribs and locked into the flame-script below the wound left by the Council.
 
-Then it placed the hollow ladle in the captain’s hand.
+Tickoni froze.
 
-The funayūrei plunged it into the sea.
+It had seen that black fire before.
 
-Water poured through.
+The Council Hall.
 
-He scooped again.
+The shattered seal.
 
-Nothing remained.
+The sparks fleeing through the roof and scattering across the Ledger Sea.
 
-The coral-haired woman seized it from him.
+This was one of them.
 
-Again, the water escaped.
+But it had not returned when Tickoni found it.
 
-The fog tore open.
+It had returned only after the rule had been tested.
 
-For the first time, Maro saw what the ghost ships carried beneath their decks.
+A name returned to the air.
+ 
+ **The Seal of the Ticket.**
+ 
+ A wish must become a bounded proposal before action.
+ 
+Tickoni touched the new mark beneath its ribs.
 
-Chains.
+The Council had inherited its laws and forgotten them.
 
-Unpaid debts.
+Perhaps that was why the Contract had broken.
 
-Broken contracts.
+If Tickoni was going to forge it again, inheritance would not be enough.
 
-Orders sent without consequence.
+Each law would have to be earned.
 
-Promises made against money that had already been spent.
+Each law would have to survive the sea.
 
-The vessels were not empty.
+Far behind them stood the village with too many maps.
+ 
+Ahead, the Ledger Sea stretched without end.
 
-They were overloaded.
+Somewhere beyond the horizon, other black fragments were waiting.
 
-Without stolen seawater to hide their burden, the ghost ships began to sink.
+Tickoni did not know how many.
 
-The captain clawed at the air.
+For the first time since its exile, that did not matter.
 
-— Take our weight!
+It knew how to find them.
 
-Tickoni did not move.
+Not by searching.
 
-One by one, the funayūrei vanished beneath the Ledger Sea.
-
-Their bells continued ringing long after the fog had closed above them.
-
-Then silence returned.
-
-Something black floated beside the boat.
-
-A fragment curved like the edge of a scale.
-
-Tickoni lifted it from the water.
-
-It struck the flame-script beneath its ribs and locked beside the Seal of the Ticket.
-
-The boat trembled.
-
-A name returned to the sea.
-
-**The Seal of Weight.**
-
-Every action must show its consequence.
-
-Tickoni touched the two black marks.
-
-Ticket.
-
-Weight.
-
-The first fragment might have been chance.
-
-The second was an answer.
-
-The lost laws were not waiting to be collected.
-
-They were waiting to be proven.
-
-Maro looked at the smaller basket.
-
-Then at the replacement payment proposal.
-
-Both waited untouched.
-
-— What happens now? — he asked.
-
-Tickoni turned the boat toward the open water.
-
-— Now you choose which weight is yours.
+By proving them.

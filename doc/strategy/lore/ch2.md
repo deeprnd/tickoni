@@ -1,4 +1,4 @@
-## Chapter 2: The Seal of the Ticket
+## Chapter 2: Firedancer
 
 The sea did not welcome Tickoni.
 
@@ -6,352 +6,662 @@ Without the Order’s seal, no gate opened at its approach. No ledger turned its
 
 So Tickoni crossed the Ledger Sea the slow way, in a narrow black boat with a torn sail and a lantern that burned without oil.
 
-Behind it stood the village with too many maps. Ahead waited waters that did not care what anyone believed.
+Behind it stood the village with too many maps.
 
-For three nights, Tickoni sailed past drowned filing temples, glowing whale tracks, and reefs of broken order tiles.
+Ahead waited waters that did not care what anyone believed.
 
-On the fourth night, someone shouted through the fog.
+For one day, Tickoni sailed east.
 
-Not for help.
+By evening, the wind turned north.
 
-For speed.
+By midnight, the current carried the boat west.
 
-A small boat burst into view, one side dragging through the water. Its sail was patched with old price charts, and a plank beneath the mast had split.
+Tickoni adjusted the sail.
 
-A young trader clung to the mast while holding a purse above his head. His eyes remained fixed on a green storm in the east.
+The sea adjusted first.
 
-— Your boat is sinking, — Tickoni called.
+On the second night, clouds covered the stars. The lantern showed rope, wet wood, and Tickoni’s claws gripping the rail.
 
-— It only needs to last until sunrise.
+No path appeared beyond them.
 
-A wave struck.
+The Council had taken the outer seal.
 
-The mast cracked.
+Something still burned inside Tickoni.
 
-Tickoni pulled him aboard just before the smaller vessel rolled beneath the sea.
+Something chosen.
 
-A brass payment tag tore loose from its stern.
+But choice did not fill a sail.
 
-Three hundred yen owed to the boatwright.
+Choice did not steer a boat.
 
-Retry pending.
+Near midnight, the sea became still.
 
-The trader tied it to his belt.
+Not calm.
 
-— I will pay that when this is over.
+Still.
 
-— When what is over?
+The waves flattened into black glass. The sail hung loose. Even the lantern flame stood straight.
 
-He pointed toward the storm.
+Far ahead, a shore appeared.
 
-— Fortune.
+A thin line of black sand curved beneath the moon. One cedar tree stood on it. Beside the tree burned a small red lamp.
 
-His name was Maro: two thousand yen, three unpaid debts, one drowned boat, and the expression of someone who had mistaken urgency for destiny.
+Land.
 
-— Oil ships are delayed, — Maro said. — Everyone at Rumor Port is rowing east. By dawn, oil will be worth twice what it was yesterday.
+Rest.
 
-— Who counted the ships?
+A place to fix the sail.
 
-— Everyone knows.
+Tickoni took the oar and turned toward it.
 
-— That is not a number.
+The boat moved.
 
-Maro lifted the purse.
+By dawn, the shore remained ahead.
 
-— This is. And it needs to become a larger one.
+No closer.
 
-He looked back at the place where his boat had disappeared beneath the water.
+The water behind showed no wake.
 
-— One day I will have a ship of my own again. A real one. No patched sails. No debt tags hanging from the stern.
+The boat had moved all night.
 
-Tickoni looked at the three-hundred-yen tag on his belt.
+The sea had remembered nothing.
 
-— Then why are you risking the money that might build it?
+Tickoni turned again.
 
-Maro looked toward the green storm.
+The shore shifted east.
 
-— Because waiting will take years.
+Tickoni turned east.
 
-The water grew still.
+The shore shifted north.
 
-Too still.
+Tickoni turned north.
 
-Then something rose beneath the moon.
+For hours, Tickoni followed.
 
-At first, Tickoni thought it was an island.
+Each correction seemed right.
 
-The island opened its eyes.
+Each correction came too late.
 
-A vast black head lifted from the Ledger Sea, round as a temple bell, water pouring from its shoulders.
+No monster attacked. No wave crushed the hull. No dragon opened its eye beneath the boat.
 
-— Say the wish, little trader.
+That made it worse.
 
-Maro froze.
+There was no enemy to strike.
 
-Tickoni did not.
+Only a shore that stayed almost reachable.
 
-— Umibōzu.
+By the third evening, the sail had torn wider. Salt dried white along the rail. Tickoni’s arms ached from rowing toward land that did not arrive.
 
-The spirit smiled.
+The red lamp glowed brighter.
 
-Maro whispered:
+Tickoni lowered the oar.
 
-— What is it?
+The boat drifted.
 
-— A hunger that learned to speak like opportunity.
+The shore drifted with it.
 
-Umibōzu lowered one enormous eye toward Maro’s purse.
+Tickoni placed one claw over the fire beneath its ribs.
 
-— I carry wishes faster than wind. No gates. No forms. Say buy, and the current moves.
+— I chose.
 
-Green lightning flashed.
+The sea remained still.
 
-— You can get me oil? — Maro asked.
+— I chose.
 
-— I can get you longing. Longing is what traders call opportunity before it drowns them.
+No current came.
 
-The current pulled east.
+No path answered.
 
-Maro opened his purse.
+Then something tapped the water.
 
-— Then buy. Two thousand yen into anything that moves before sunrise.
+Tap.
 
-The boat turned toward the storm.
+A spark appeared far to the west.
 
-Tickoni placed one claw over the purse.
+Tap.
 
-The boat stopped.
+Another spark.
 
-— Not yet.
+Tap.
 
-— You heard the rumor.
+A third.
 
-— I heard a wish.
+Not lightning.
 
-— Then act on it.
+Not lanterns.
 
-— A wish cannot touch the sea raw.
+Footsteps.
 
-Umibōzu laughed.
+No.
 
-— The Order was right about you. You close doors and call it protection.
+Not footsteps.
 
-Tickoni drew a thin line through the air.
+A dance.
 
-— First, the wish becomes a ticket.
+A figure in black cloth spun across the Ledger Sea, one heel touching a wave crest, one toe sliding along the rib of a drowned ship. He kicked off a reef tooth, caught a floating chain, turned once in the air, and landed on a strip of foam as if the sea had been waiting for him.
 
-Maro’s desire rose between them as green fire.
+Each step flashed red.
 
-Two thousand yen.
+Each step vanished.
 
-Oil exposure.
+The figure moved like fire given ankles and too much confidence.
 
-Before sunrise.
+He crossed in breaths what Tickoni had spent three nights failing to cross.
 
-Everything available.
+Then he reached the black shore.
 
-Tickoni cut through the final line.
+The red lamp flickered.
 
-— Not everything.
+The cedar tree bent.
 
-It bound the wish: no borrowed money, no ruinous position, no forbidden gate, and cash left for the return journey.
+The shore slid north.
 
-The wild fire contracted into a narrow black mark.
+The figure did not follow.
 
-Then the basket appeared: a broad oil fund, a shipping current, an energy reef, and part of the purse left untouched.
+He stopped where the shore had been and turned slowly on one heel.
 
-— Why divide it? — Maro asked.
+The black sand thinned into mist. The cedar tree folded like smoke. The red lamp became a moon reflection trembling on the water.
 
-— Because one belief does not require one point of failure.
+Then even that disappeared.
 
-A serpent with three bright heads coiled above the storm.
+Tickoni stared.
 
-More, they whispered.
+The figure had not been chasing the shore.
 
-— That moves three times as fast.
+Five sparks later, he stood beside the boat.
 
-Tickoni cut a red line across it.
+The sea hissed beneath his feet.
 
-— Leveraged current. Outside the ticket.
+— Are you one of the Order? — Tickoni asked.
 
-Behind it rose a kraken of hooks and old contracts.
+The figure laughed.
 
-— Futures, — Maro said.
+Not politely.
 
-— Not for this purse.
+He laughed so hard one heel slipped into the water.
 
-A third gate opened beneath the boat, filled with blue fire and coins whose names changed as Maro tried to read them.
+He pulled it back at once and glared down, as if the sea had insulted him.
 
-Tickoni sealed it.
+— The Order? No. The Order marches.
 
-— Not this market. Not this ticket.
+He bowed with one arm across his chest and one arm raised like flame caught in wind.
 
-Umibōzu smiled.
+— I dance.
 
-— Watch the oni cut away your fortune.
+Tickoni studied the last footprint. It burned for one breath longer than the others, then vanished without smoke.
 
-Maro looked at the bounded basket.
+— Then who are you?
 
-— What if I ask for twenty-five thousand yen?
+The figure straightened.
 
-The ticket darkened.
+— Firedancer, keeper of the fast path, breaker of bottlenecks, prince of the skipped queue, validator of suspicious puddles, terror of slow bridges, and temporary master of wherever my feet have not yet exploded.
 
-— Then the wish breaks the purse.
+He waited.
 
-— But if the move is real—
+Tickoni said nothing.
 
-— Your evidence has not grown. Only your size.
+Firedancer sighed.
 
-Umibōzu lowered its face until one black eye filled the sky.
+— Usually there is more reaction.
 
-— Send it now. Before another trader takes what should be yours.
+— Why did you stop here?
 
-Maro looked at the ticket.
+Firedancer sat on the boat’s rail. The wood did not burn.
 
-It was no longer a wild desire.
+From somewhere inside his sleeve, he produced a pickled agave fruit, bit into it, and looked at the torn sail.
 
-But it was not yet an order.
+Then the oar.
 
-His hand moved toward it.
+Then the empty place where the shore had been.
 
-— Say it raw, — Umibōzu whispered. — No limits. No little demon between you and the life you deserve.
+— Curiosity.
 
-The flame-script beneath Tickoni’s ribs began to glow: one tile to receive, one to carry, one to check, one to record, and one to stop the breach.
+— About what?
 
-Tickoni placed one claw between Maro’s hand and the sea.
+— Whether you were lost professionally.
 
-— No raw order.
+Tickoni frowned.
 
-Umibōzu hissed.
+— I am not lost.
 
-— I need no ticket.
+Firedancer looked around the empty sea.
 
-Tickoni looked up.
+— A bold local custom.
 
-— That is why you drown people.
+Tickoni gripped the rail.
 
-The storm exploded.
+— I am crossing the Ledger Sea.
 
-All night, Umibōzu circled them.
+— To where?
 
-It showed Maro a golden pier, his debts paid, his drowned boat replaced by a ship with a hundred sails.
+Tickoni looked east.
 
-All he had to do was speak.
+No gate waited there. No old path answered. The black sparks had vanished beyond the horizon.
 
-Maro gripped the rail.
+But the vow remained.
 
-— I could miss it.
+— I going to forge a contract no oni can break.
 
-— You could.
+Firedancer stopped chewing.
 
-— I could miss the fortune meant for me.
+Then he spat the agave into the sea.
 
-— You could also survive the fortune that was never yours.
+It hissed.
 
-Maro looked at the raw current, then at the ticket.
+— You?
 
-For one long breath, the sea waited.
+Tickoni’s ears lowered.
 
-Maro closed his purse and pulled his hand back.
+Firedancer looked at the boat.
 
-The current broke against the boat without taking a single coin.
+Then at Tickoni.
 
-Then dawn came.
+Then at the boat again.
 
-The storm split open.
+— You cannot forge a path through a puddle.
 
-Out of the eastern mist came the missing oil ships.
+— This is not a puddle.
 
-Slow, black, heavy, and real.
+— That makes it even worse!
 
-Their bells rang through the harbor routes. The panic dissolved.
+Firedancer hopped backward onto the water.
 
-Maro watched them pass.
+Five ember footprints appeared across the sea.
 
-His full purse remained in his hand.
+The first rested on a ripple.
 
-Umibōzu rose behind the boat, furious.
+The second on a floating reed.
 
-— Another night, little trader. Another wish.
+The third on a dark stone just beneath the surface.
 
-Then it sank beneath the Ledger Sea.
+The fourth on the back of a passing fish.
 
-For a long time, Maro said nothing.
+The fifth on nothing Tickoni could see.
 
-At last, he looked at Tickoni.
+Firedancer stretched his arms.
 
-— I thought you were stopping me from becoming rich.
+— One cannot forge an unbreakable contract with feet like dumped cargo.
 
-Tickoni looked toward the place where Umibōzu had vanished.
+He cracked his neck.
 
-For part of the night, it had feared the same thing.
+— Also, I am bored.
 
-Maro closed his hand around the purse.
+Tickoni stared at the marks.
 
-— I would have given it everything.
+— That is not a path.
 
-He touched the boatwright’s brass tag.
+— It is five steps.
 
-— Even what I already owed.
+— The fifth is empty.
 
-Then he bowed his head.
+— Then watch better.
 
-— Thank you.
+Firedancer crossed them again.
 
-The bounded ticket gave a quiet sound, like metal cooling after flame.
+Ripple.
 
-A black fragment rose from beneath it.
+Reed.
 
-Small, curved, and part of an older seal.
+Stone.
 
-Before Tickoni could touch it, the fragment flew toward the lines beneath its ribs and locked into the flame-script below the wound left by the Council.
+Fish.
 
-Tickoni froze.
+Nothing.
 
-It had seen that black fire before.
+He moved lightly, almost lazily, one hand behind his back.
 
-The Council Hall.
+— Your turn.
 
-The shattered seal.
+Tickoni stepped onto the rail.
 
-The sparks fleeing through the roof and scattering across the Ledger Sea.
+No gate opened.
 
-This was one of them.
+No old current rose.
 
-But it had not returned when Tickoni found it.
+The first footprint burned.
 
-It had returned only after the rule had been tested.
+Tickoni stepped.
 
-A name returned to the air.
- 
- **The Seal of the Ticket.**
- 
- A wish must become a bounded proposal before action.
- 
-Tickoni touched the new mark beneath its ribs.
+Its foot punched straight through the ripple.
 
-The Council had inherited its laws and forgotten them.
+Cold water swallowed its leg.
 
-Perhaps that was why the Contract had broken.
+Firedancer caught its wrist before the sea took the rest.
 
-If Tickoni was going to forge it again, inheritance would not be enough.
+For a moment, Tickoni hung upside down beside the boat, dripping.
 
-Each law would have to be earned.
+Firedancer looked at it.
 
-Each law would have to survive the sea.
+— Heavy.
 
-Far behind them stood the village with too many maps.
- 
-Ahead, the Ledger Sea stretched without end.
+— I am not heavy.
 
-Somewhere beyond the horizon, other black fragments were waiting.
+— Your foot is.
 
-Tickoni did not know how many.
+Tickoni pulled itself back onto the rail.
 
-For the first time since its exile, that did not matter.
+— I stepped where you stepped.
 
-It knew how to find them.
+— You stepped where I had been.
 
-Not by searching.
+Firedancer tapped the ripple with one toe.
 
-By proving them.
+Two small waves touched, lifted each other for less than a breath, then passed apart.
+
+— This held me when the waves met. Then it stopped being a step.
+
+He pointed to the reed.
+
+— This holds only while it floats between currents.
+
+The reed spun away.
+
+He pointed to the stone.
+
+— This holds only where the pull is weak.
+
+The water darkened around it.
+
+He pointed to the fish.
+
+— This holds only if you wait.
+
+The fish surfaced, blinked, and vanished.
+
+Firedancer pointed to the fifth mark.
+
+— And this?
+
+Tickoni saw nothing.
+
+Firedancer smiled.
+
+— Warm water. Cold water. They meet here.
+
+He placed one foot on empty sea.
+
+The water held.
+
+Tickoni narrowed its eyes.
+
+— That is cheating.
+
+— That is looking.
+
+Again, Firedancer made the five steps.
+
+This time he added a clap.
+
+Clap.
+
+Ripple.
+
+Clap.
+
+Reed.
+
+Clap.
+
+Stone.
+
+Clap.
+
+Fish.
+
+Clap.
+
+Seam.
+
+The rhythm hung over the water.
+
+— Receive.
+
+Clap.
+
+— Carry.
+
+Clap.
+
+— Check.
+
+Clap.
+
+— Record.
+
+Clap.
+
+— Stop.
+
+Clap.
+
+Tickoni blinked.
+
+— Are those rules?
+
+— They are steps.
+
+— They sound like rules.
+
+— Good steps usually do.
+
+Tickoni tried again.
+
+First step.
+
+The water held.
+
+Second step.
+
+The reed dipped.
+
+Tickoni waved both arms.
+
+Firedancer clapped once.
+
+— Less statue.
+
+Tickoni bent its knees.
+
+The reed held.
+
+Third step.
+
+The stone cut its foot.
+
+Tickoni hissed.
+
+— The stone bit me.
+
+— The stone has standards.
+
+Fourth step.
+
+The fish surfaced.
+
+Tickoni hesitated.
+
+The fish vanished.
+
+Tickoni fell.
+
+Firedancer caught it again.
+
+— Too slow? — Tickoni asked.
+
+— Too much dignity. The fish is not judging you.
+
+One more time.
+
+Ripple.
+
+Reed.
+
+Stone.
+
+Fish.
+
+Seam.
+
+For one breath, Tickoni stood on the fifth step.
+
+The sea held.
+
+The boat waited behind it.
+
+The open water waited ahead.
+
+Beneath Tickoni’s chest, the chosen fire answered the ember marks.
+
+Not with a name.
+
+Only heat.
+
+Firedancer nodded.
+
+— There.
+
+Tickoni looked down.
+
+— I am standing on nothing.
+
+— No. You are standing on what you finally noticed.
+
+The seam moved.
+
+Tickoni jumped back to the boat before it fell.
+
+Almost gracefully.
+
+Not quite.
+
+Firedancer allowed this to count.
+
+Dawn paled the edge of the Ledger Sea. Black reefs rose ahead, sharp as broken teeth.
+
+Firedancer pointed east.
+
+— Your boat can pass there.
+
+Tickoni looked at the reefs.
+
+— The gap is too narrow.
+
+— Then stop staring at the gap.
+
+— What should I watch?
+
+Firedancer tapped the boat’s rail.
+
+— What touches the boat.
+
+A small wave struck the hull.
+
+— What carries it.
+
+The boat tilted with the current.
+
+— What tests the way.
+
+Foam covered the third black tooth, then cleared.
+
+— What mark remains.
+
+Tickoni scratched a line into the rail.
+
+— And when the sea lies.
+
+The foam returned.
+
+Tickoni waited.
+
+The foam cleared again.
+
+A narrow channel opened.
+
+Tickoni adjusted the sail.
+
+Not toward the vanished shore.
+
+Toward the seam between wind and current.
+
+The boat turned.
+
+Slowly.
+
+Correctly.
+
+The first reef passed to port.
+
+The second passed to starboard.
+
+The third vanished under foam.
+
+Tickoni waited.
+
+The sea opened.
+
+The boat slipped through.
+
+Behind it, the wake finally remained.
+
+A thin black line held on the water where the boat had crossed.
+
+Not long.
+
+Long enough.
+
+Ahead, Firedancer stood on the last reef, wrapped in ember-red light.
+
+— Better.
+
+Tickoni looked at the wake.
+
+— Is this your path?
+
+— No.
+
+— Mine?
+
+— For now.
+
+— Where does it lead?
+
+Firedancer smiled.
+
+— Better question next time.
+
+Then he spun east.
+
+Three red turns.
+
+One kick from the foam.
+
+Gone.
+
+Tickoni stood alone in the boat.
+
+The Ledger Sea moved around it.
+
+Still vast.
+
+Still indifferent.
+
+But no longer blank.
+
+Beneath the wound where the seal had been, five narrow lines warmed once and faded before Tickoni could name them.
+
+Tickoni looked at the rail.
+
+At the water behind the boat.
+
+For a moment, the sea remembered where it had crossed.
+
+Not long.
+
+Long enough.
+
+Tickoni raised the torn sail.
+
+This time, the boat did not chase the horizon.
+
+It followed the water beneath it.

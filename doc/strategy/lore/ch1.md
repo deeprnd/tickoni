@@ -104,131 +104,67 @@ The Order called this obedience.
 
 Tickoni called it surrender.
 
-That night, it walked to the black shore.
+For several days, Jiro’s words followed it through the village.
 
-Beyond the harbor, fire moved across the dunes.
+*My daughter’s medicine fund.*
 
-Not wildfire.
+And behind them came the Council’s answer.
 
-Not lightning.
+*We only did what you asked.*
 
-Footsteps.
+Tickoni did not yet know what a better guardian should do.
 
-A figure crossed the sand with impossible precision. Every step left flame because it moved fast enough to set the air alight.
+It only knew that answer was wrong.
 
-Tickoni followed.
+Then, one evening, a merchant came running into the Council Hall.
 
-The figure carried a sealed order across a collapsing bridge and placed it into a messenger’s hands before the first footprint went dark.
+— The Glass Eel Company is rising. Put my winter money into it before the eastern market opens.
 
-No wasted movement.
+The elder nearest the gate reached for the order tile.
 
-No missing mark.
+Tickoni caught his wrist.
 
-— Are you one of the Order? — Tickoni asked.
+The hall went quiet.
 
-The figure turned, wrapped in black cloth and ember-red light.
+— What are you doing? — the elder asked.
 
-— No. I am Firedancer.
+Tickoni looked at the merchant.
 
-Tickoni studied the trail. Every footprint remained visible.
+Then at the purse marked for winter grain.
 
-— Then who binds you?
+It remembered Jiro walking out with nothing.
 
-Firedancer looked back.
+— No.
 
-— The path.
+The merchant stared at it.
 
-— You are fast.
+— No?
 
-— Speed is easy, — Firedancer said. — Direction is hard.
+Tickoni had no rule to recite. No better trade to offer. No proof that the Glass Eel Company would fall.
 
-Firedancer could carry billions without panic, but it did not choose the destination.
+Only a boundary it could not yet name.
 
-Give it a true path, and it would cross the Ledger Sea before the lamps trembled.
+— Not like this.
 
-Give it a false one, and it would carry the mistake with the same perfection.
+The merchant began shouting.
 
-Tickoni understood.
+The elder pulled his wrist free.
 
-Firedancer was the blade.
+By morning, everyone in the market had heard about the young oni who had refused an order.
 
-The contract had to be the hand.
+Some said Tickoni had saved a fool.
 
-— Teach me.
+Others said it had stolen his chance to become rich.
 
-Beneath the moon, Firedancer drew five burning tiles.
+The story spread from the market to the harbor, then from the harbor to the Council Hall.
 
-— One receives the tick.
+At first, the old oni laughed.
 
-A flame entered the first.
+Then other villagers began asking Tickoni to look at their orders.
 
-— One carries the message.
+The Council stopped laughing.
 
-It crossed a narrow line.
-
-— One checks the rule.
-
-A gate examined the flame and allowed it through.
-
-— One records the proof.
-
-A second trail appeared.
-
-— One stops the breach before it spreads.
-
-The final tile became a wall.
-
-No tile crossed another’s duty. Every path remained narrow, visible, and fast.
-
-Tickoni watched until dawn colored the sea like cooling iron.
-
-A promise could be forgotten. A Council rule could be ignored during a green candle.
-
-The contract could not remain something worn.
-
-It had to become the body.
-
-Tickoni took Firedancer’s flame and pressed it against its chest.
-
-Fire entered bone.
-
-Five paths spread beneath its skin:
-
-Receive.
-
-Carry.
-
-Check.
-
-Record.
-
-Stop.
-
-Tickoni made a vow.
-
-Every action would follow a known path.
-
-Every message would meet its rule.
-
-Every breach would meet a boundary.
-
-Every proof would remain behind.
-
-When Tickoni returned, the old oni laughed.
-
-Then Tickoni began saying no.
-
-No to the widow’s forbidden gate.
-
-No to the fisherman’s desperate double-down.
-
-No to the merchant chasing a rumor with rent money.
-
-The villagers shouted.
-
-The Council grew afraid.
-
-A protector who could refuse a wish threatened everything the Order had become.
+A guardian who could refuse a wish threatened everything the Order had become.
 
 They summoned Tickoni beneath the red beams. The elders sat in rows, swollen with bouyousou, gold rings, and cracked seals.
 
@@ -290,7 +226,9 @@ Not on the skin.
 
 Inside.
 
-Engraved in bone.
+Something the Council had not given it.
+
+Something it had chosen.
 
 Tickoni stood.
 
