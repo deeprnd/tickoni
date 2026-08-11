@@ -1,0 +1,25 @@
+# V2.22.S7 Evidence Index
+
+**Story:** V2.22.S7 — Retail runtime trust, security, docs, and evidence gate
+**Epic:** V2.22 — Windows Retail Runtime Support
+**Generated:** 2026-08-11
+
+## Artifact Manifest
+
+| Artifact | Source | Description |
+|---|---|---|
+| Support matrix | `doc/knowledge/platform-tiers.md` | Tier table with windows_retail row |
+| Version sample | `tickoni --version` from S6 Windows build | Runtime tier, isolation tier, git SHA |
+| Doctor sample | `tickoni doctor` from S6 Windows build | Tier + degraded dimensions |
+| Demo output | S6 CI conformance runs | `tickoni demo investment` on fixture inputs |
+| Audit JSONL | S6 demo run output | Append-only, hash-chained audit records |
+| Replay capsule | S6 replay run output | Replay with external effects disabled |
+| Blocked-flow output | S6 tamper/unsupported flow | Fail-closed diagnostic |
+| Conformance result | `build/demo-conformance/local-sample/conformance.json` | all_match=true, 4 scenarios |
+
+## Link Summary
+
+- Total artifacts: 8
+- Evidence directory: `doc/execution/V2.22.S7/`
+- Parent story: [v2.22-s7.md](../../strategy/roadmap/stories/v2.22-s7.md)
+- Parent epic: [v2.22.md](../../strategy/roadmap/epics/v2.22.md)
