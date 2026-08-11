@@ -79,7 +79,8 @@ pub const EvidenceBundle = struct {
 
     /// Convert all references into an array of EvidenceLink entries.
     pub fn toLinks(self: *const EvidenceBundle, gpa: std.mem.Allocator) ![]EvidenceLink {
-        _ = self; _ = gpa;
+        _ = self;
+        _ = gpa;
         unreachable; // Not yet implemented
     }
 
