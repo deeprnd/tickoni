@@ -135,5 +135,5 @@ docs or stories reference them.
 - [x] No story in V2.21/V2.22 can proceed with an implicit WSL2, container,
       or VM choice without an explicit tier decision (see `?` cell for
       WSL2 replay — not resolved yet, but the table makes it visible).
-- [ ] Documentation and roadmap status are updated when tier definitions change.
+- [x] Documentation and roadmap status are updated when tier definitions change.
       (Owners of roadmap stories must reference this doc.)
