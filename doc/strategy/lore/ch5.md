@@ -218,11 +218,29 @@ Between them burned shared lines of foxfire.
 
 Namazu closed its eye and sank.
 
-The kitsune approached with a black fragment shaped like an eight-pointed compass.
+The water became still.
 
-— This slept beneath the harbor before I wore this face.
+Then one of the foxfire lines remained burning.
 
-The fragment rose and locked into the flame-script beneath Tickoni’s ribs.
+It ran from the northern channel to the southern channel, across the rescue lane, and around the waiting basin.
+
+Four paths.
+
+Four purposes.
+
+One harbor.
+
+The lines folded inward.
+
+At their crossing, something black rose from the water.
+
+A fragment shaped like an eight-pointed compass.
+
+Tickoni recognized the black fire before the fragment reached it.
+
+Another lost law.
+
+It struck the flame—script beneath Tickoni's ribs and locked beside Ticket and Weight.
 
 All eight harbor bells rang.
 
@@ -236,11 +254,15 @@ Every shared place must have a rule.
 
 Maro watched the ships divide among the channels.
 
-— Like investments, — he said. — Not every coin needs its own market. But every position needs a limit.
+The damaged barge floated alone in the rescue lane. Beyond it, the grain carrier and treasury ship continued north.
 
-Tickoni raised the torn sail.
+Maro watched them for a while.
 
-— And when one fails, it must not sink the rest.
+— They can travel together without belonging to each other.
+
+— They have to, — Tickoni said.
+
+The torn sail rose.
 
 Behind them, the captains entered the shared waters in order.
 

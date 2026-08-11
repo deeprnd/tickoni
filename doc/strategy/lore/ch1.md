@@ -24,6 +24,14 @@ Long ago, every oni carried a contract seal. Every seal named a duty. Every duty
 
 Some guarded vaults, some marked approvals, and others carried orders between islands.
 
+The oldest stories said these seals came from something greater: an ancient Contract whose laws had once bound every guardian of the Ledger Sea.
+
+No surviving tablet named all of its laws.
+
+No elder knew how many there had been.
+
+The Order had stopped asking.
+
 At first, the Order was careful.
 
 Then it became proud.
@@ -248,7 +256,21 @@ They seized Tickoni’s seal and tore it away.
 
 The hall thundered.
 
-The old contract cracked into black sparks.
+The old seal cracked into black sparks.
+
+But the sparks did not fall.
+
+They rose.
+
+They passed through the red beams, through the roof, and into the night like a swarm of black stars.
+
+Some flew east across the Ledger Sea. Others vanished north and west. For an instant, shapes burned inside them: a folded line, the curve of a scale, an eight-pointed mark, and others Tickoni could not name before they disappeared.
+
+The eldest oni looked upward.
+
+For the first time, the bouyousou haze left his eyes.
+
+— What have we done?
 
 The gates of the realm closed.
 
@@ -288,13 +310,35 @@ The ledgers no longer opened at its touch.
 
 The order paths no longer answered.
 
-To protect the village now, Tickoni would have to earn that right again.
+Tickoni looked toward the black horizon where the sparks had disappeared.
+
+Refusing the Council was not enough.
+
+If the Order could forget its boundaries once, another Order could forget them again. A seal worn on the outside could be ignored, corrupted, or torn away.
+
+Somewhere across the Ledger Sea, the lost laws of the Contract had scattered.
+
+Tickoni did not know how many there were.
+
+It did not know where they had gone.
+
+But it knew what it would do when it found them.
+
+It would prove each law rather than merely inherit it.
+
+It would bind those laws so deeply that no appetite, command, shortcut, or guardian could step around them.
+
+And one day, it would return to the gates that had cast it out.
 
 It walked to the harbor, entered a narrow black boat, and raised a torn sail toward the horizon.
 
 Behind it stood a village with too many maps.
 
 Ahead waited the Ledger Sea.
+
+Tickoni placed one claw over the fire beneath its ribs.
+
+— I will forge a contract no oni can break.
 
 The contract was no longer something Tickoni carried.
 

@@ -444,6 +444,34 @@ Maro looked at the seals beneath Tickoni’s ribs.
 
 — Nothing returned this time.
 
+Tickoni looked down at the two black marks.
+
+Ticket.
+
+Weight.
+
+Both had returned only when the sea revealed a law Tickoni did not yet carry.
+
+Tonight had been different.
+
+The ticket had already known Maro’s choice.
+
+The weight had already known what the false crane would cost him.
+
+Firedancer’s paths had carried the history, checked it, recorded it, and exposed the first broken fold.
+
+Nothing new had been found.
+
+Something old had been tested.
+
+— No, — Tickoni said.
+
+— No what?
+
+— No missing piece.
+
+Tickoni looked back at the torn paper moon.
+
 — Not every lesson is a missing piece, — Tickoni said.
 
 Behind them, workers lowered the torn paper moon.
@@ -456,4 +484,4 @@ Maro closed the ledger.
 
 Tickoni raised the sail.
 
-— Then choices begin to carry real weight.
+— Then the sea has to carry what we choose.

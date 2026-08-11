@@ -146,6 +146,18 @@ He repaired mechanisms brought from distant islands.
 
 — I can make it speak to Kōri tools. That is not the same as making it Kōri.
 
+Yamori opened his belt. Half the tools had been altered. Some had new handles. Others had been cut apart and joined to pieces from different shores.
+
+— Every island does the same thing, — he said. — One guild makes the lock. Another makes the key. A third measures the door. Then somebody loses the instructions and calls for me.
+
+— You dislike being needed? — Tickoni asked.
+
+— I dislike being needed for stupid reasons.
+
+Yamori snapped the belt shut.
+
+— One day, I’ll build a workshop that needs no second workshop.
+
 They built beside the bathhouse. Cedar beams raised the tree above the ice. Yamori replaced hidden fittings with visible joints any Kōri smith could open. Waste warmth passed through exposed pipes.
 
 Every cost was written at the gate.
@@ -335,6 +347,48 @@ The Exchange opened a small red counter:
 **KŌRI APPLES**
 
 **TRIAL SUPPLY**
+
+Later, as the market emptied, Yamori glanced at Tickoni.
+
+— Is that another seal?
+
+Tickoni looked down.
+
+Beside the three black marks was a curved stroke, dark as cooled ink.
+
+Nothing spoke.
+
+No name returned to the sea.
+
+— I don't know.
+
+Yamori leaned closer.
+
+— Has it always been there?
+
+— No.
+
+— Does it hurt?
+
+— No.
+
+— Growing?
+
+Tickoni looked at him.
+
+— Why?
+
+— I'm deciding whether you need a craftsman or a doctor.
+
+— And?
+
+— Doctor first.
+
+Tickoni gave him a long look.
+
+Yamori returned to packing his tools.
+
+By evening, the last customers had left the apple counter and the harbor lanterns were coming on.
 
 Before Tickoni departed, Genza brought a map.
 

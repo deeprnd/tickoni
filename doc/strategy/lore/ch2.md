@@ -60,6 +60,18 @@ Maro lifted the purse.
 
 — This is. And it needs to become a larger one.
 
+He looked back at the place where his boat had disappeared beneath the water.
+
+— One day I will have a ship of my own again. A real one. No patched sails. No debt tags hanging from the stern.
+
+Tickoni looked at the three-hundred-yen tag on his belt.
+
+— Then why are you risking the money that might build it?
+
+Maro looked toward the green storm.
+
+— Because waiting will take years.
+
 The water grew still.
 
 Too still.
@@ -294,16 +306,52 @@ Small, curved, and part of an older seal.
 
 Before Tickoni could touch it, the fragment flew toward the lines beneath its ribs and locked into the flame-script below the wound left by the Council.
 
+Tickoni froze.
+
+It had seen that black fire before.
+
+The Council Hall.
+
+The shattered seal.
+
+The sparks fleeing through the roof and scattering across the Ledger Sea.
+
+This was one of them.
+
+But it had not returned when Tickoni found it.
+
+It had returned only after the rule had been tested.
+
 A name returned to the air.
+ 
+ **The Seal of the Ticket.**
+ 
+ A wish must become a bounded proposal before action.
+ 
+Tickoni touched the new mark beneath its ribs.
 
-**The Seal of the Ticket.**
+The Council had inherited its laws and forgotten them.
 
-A wish must become a bounded proposal before action.
+Perhaps that was why the Contract had broken.
+
+If Tickoni was going to forge it again, inheritance would not be enough.
+
+Each law would have to be earned.
+
+Each law would have to survive the sea.
 
 Far behind them stood the village with too many maps.
-
+ 
 Ahead, the Ledger Sea stretched without end.
 
-But one lost fragment had returned.
+Somewhere beyond the horizon, other black fragments were waiting.
 
-And for the first time since its exile, Tickoni knew it was on the right path.
+Tickoni did not know how many.
+
+For the first time since its exile, that did not matter.
+
+It knew how to find them.
+
+Not by searching.
+
+By proving them.

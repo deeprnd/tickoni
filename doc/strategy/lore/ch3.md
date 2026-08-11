@@ -216,6 +216,12 @@ Maro stared at the three boats.
 
 — The sea does not carry them alone, — Tickoni said.
 
+Maro looked at the sinking reflection.
+
+— If I keep doing this, I will never own another boat.
+
+— Not one that stays above water.
+
 The drowned captain stretched out his hand.
 
 — Pay the boatwright first. Let the basket’s profit restore the purse.
@@ -376,7 +382,7 @@ A fragment curved like the edge of a scale.
 
 Tickoni lifted it from the water.
 
-It struck the flame-tapestry beneath its ribs and locked beside the Seal of the Ticket.
+It struck the flame-script beneath its ribs and locked beside the Seal of the Ticket.
 
 The boat trembled.
 
@@ -385,6 +391,20 @@ A name returned to the sea.
 **The Seal of Weight.**
 
 Every action must show its consequence.
+
+Tickoni touched the two black marks.
+
+Ticket.
+
+Weight.
+
+The first fragment might have been chance.
+
+The second was an answer.
+
+The lost laws were not waiting to be collected.
+
+They were waiting to be proven.
 
 Maro looked at the smaller basket.
 
