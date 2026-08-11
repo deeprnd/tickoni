@@ -1476,6 +1476,21 @@ inline for (shim_c_files) |shim_file| {
         run_tests_cmd.addArtifactArg(topologies_test);
 
         // ---------------------------------------------------------------------------
+        // V2.22.S7 evidence module — standalone (only imports std).
+        // Run with: zig build test
+        // ---------------------------------------------------------------------------
+        const evidence_mod = b.createModule(.{
+            .root_source_file = b.path("src/tickoni/evidence/mod.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        const evidence_test = b.addTest(.{
+            .root_module = evidence_mod,
+        });
+        test_step.dependOn(&evidence_test.step);
+        run_tests_cmd.addArtifactArg(evidence_test);
+
+        // ---------------------------------------------------------------------------
         // Integration-test step — transport and boundary wiring against local mocks.
         // Local mock HTTP servers live here; this lane must stay deterministic.
         // Run with: zig build integration-test
