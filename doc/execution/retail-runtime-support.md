@@ -240,3 +240,72 @@ Excluded from retail packages:
 - [x] Manual verification via SHA256 checksums documented.
 - [x] Update/uninstall behavior documented (evidence preserved by default).
 - [x] Privacy and telemetry defaults documented (opt-out, not opt-in).
+
+## Tier Visibility on Windows
+
+### `tickoni --version`
+
+On Windows retail, `tickoni --version` prints:
+
+```
+Tickoni 0.1.1
+Build ID: ...
+Git: abc123def456
+OS: Windows x86_64
+Runtime Tier: windows_retail
+Isolation Tier: retail
+Policy Schema: 2
+Replay Schema: 2
+Demo Manifest: none
+Compiler: ...
+```
+
+The runtime tier field shows `windows_retail` and the isolation tier shows
+`retail` (same as macOS retail).
+
+### `tickoni doctor`
+
+On Windows retail, `tickoni doctor` prints:
+
+```
+tickoni doctor — host report
+Platform tier: windows_retail
+OS: Windows | arch: x86_64
+Degradations: sandboxing (disabled), shared memory (disabled), networking (socket path)
+Tiles excluded: 5
+---
+...
+```
+
+The degraded dimensions are:
+
+| Dimension | Windows retail | Linux full |
+| --- | --- | --- |
+| Sandboxing | disabled (no seccomp/Landlock) | enabled |
+| Shared memory | disabled (no workspace shm) | enabled |
+| Networking | socket path | AF_PACKET / XDP |
+
+Five tiles are excluded from the Windows retail tile set: replay_proof,
+sandbox_adapter, full_linux_tile_runtime, and shared-memory-dependent tiles.
+
+### Audit Events
+
+Audit events on Windows carry `platform_tier` in the event header, serialized
+identically to Linux and macOS:
+
+- JSONL: `"platform_tier":"windows_retail"`
+- Binary: platform_tier field in `schema.Header`
+- Wire: 64-byte `platform_tier` field
+- Protobuf: field 91 `platform_tier`
+
+### Replay Capsules
+
+Replay capsules on Windows carry the original host's `platform_tier` and flag
+any dimension that differs from the replay environment.
+
+### CaseOps (Deferred)
+
+CaseOps tier/degraded-guarantee display is deferred for V2.22. Platform trust
+is exposed through CLI, audit, replay, metrics, diagnostics, and linked evidence
+artifacts. A future tkapi/UI story must add the dashboard host metadata surface
+before docs can claim CaseOps display is shipped.
