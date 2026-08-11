@@ -12,11 +12,13 @@ Makefiles.
 Core requirements:
 
 - Linux on x86-64 for Firedancer-derived runtime work
+- Windows 10 2004+ (x86_64) or Windows 11 (ARM64) for retail tier builds
 - `just`
 - `make`
 - GCC for the default Firedancer build path
 - Zig for Tickoni-owned runtime and supervisor work
 - Python 3
+- clang or MSVC for Windows builds (MinGW-w64 for MSYS2)
 
 Useful local tools for full gates:
 
@@ -30,6 +32,28 @@ Useful local tools for full gates:
 Firedancer only supports x86-64 Linux. Other targets are not valid for the
 Firedancer runtime because the code relies on x86-64 memory-ordering
 assumptions.
+
+### Windows Build Notes
+
+The Tickoni-owned Zig runtime builds on Windows with the following conventions:
+
+- Target: `--target x86_64-pc-windows-msvc` (MSVC) or
+  `--target x86_64-pc-windows-gnu` (MinGW-w64)
+- CRT compat header: `src/tickoni/util/fd_windows_compat.h` provides
+  `stricmp`, `strnicmp`, `strdup`, `snprintf`, `vsnprintf` shim functions
+  for MSVC environments
+- Build scope: Windows retail mode excludes Firedancer shared-memory tiles,
+  seccomp tiles, and the full tile runtime — only portable Firedancer
+  substrate is linked
+- CI: Windows lanes run on `windows-2025` and `windows-11-arm` runners;
+  demo conformance verifies deterministic fixture outputs match Linux
+
+CI expectations:
+
+- `zig build check` runs on Windows with MSVC and MinGW-w64 toolchains
+- Demo conformance output is compared cross-platform against Linux reference
+- No large-page or huge-page infrastructure on Windows — retail tier does not
+  attempt shared-memory topology
 
 ## Install
 
