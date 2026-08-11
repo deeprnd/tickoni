@@ -112,6 +112,22 @@ rule files exist:
 - unexpected policy deny rate
 - queue depth saturation
 
+## Retail Runtime Privacy Defaults (V2.21 / V2.22)
+
+Both V2.21 (macOS) and V2.22 (Windows) retail runtime support share the same
+privacy defaults:
+
+- **Telemetry is disabled by default** on all retail tiers
+- `tickoni --version`, `tickoni doctor`, and the deterministic demo flows do not
+  require outbound telemetry
+- Evidence generation is local/offline by default
+- A later story may add opt-in diagnostics or managed export, but V2.21 and
+  V2.22 do not claim that remote telemetry is part of the retail support path
+- Installers do not request broker, payment, crypto, approved execution ledger,
+  or live model-provider credentials
+- The retail trust surface is inspectable without network-side collection,
+  background exporters, or hosted analytics dependencies
+
 ## Label Policy
 
 Telemetry in this repo must stay low-cardinality and alert-friendly.
