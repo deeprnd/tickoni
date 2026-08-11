@@ -15,25 +15,25 @@ pub const log = std.log.scoped(.evidence);
 pub const support_matrix_ref: []const u8 = "doc/knowledge/platform-tiers.md";
 
 /// Reference to the version/sample output.
-pub const version_ref: []const u8 = "doc/execution/V2.22.S7/version-sample.txt";
+pub const version_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-version-output.md";
 
 /// Reference to the doctor sample output.
-pub const doctor_ref: []const u8 = "doc/execution/V2.22.S7/doctor-sample.txt";
+pub const doctor_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-doctor-output.md";
 
 /// Reference to the demo output.
-pub const demo_ref: []const u8 = "doc/execution/V2.22.S7/demo-output.txt";
+pub const demo_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-demo-output.md";
 
 /// Reference to the audit JSONL sample.
-pub const audit_ref: []const u8 = "doc/execution/V2.22.S7/audit-sample.jsonl";
+pub const audit_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-audit-sample.md";
 
 /// Reference to the replay capsule sample.
-pub const replay_ref: []const u8 = "doc/execution/V2.22.S7/replay-capsule.json";
+pub const replay_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-replay-capsule.md";
 
 /// Reference to the blocked flow diagnostic.
-pub const blocked_flow_ref: []const u8 = "doc/execution/V2.22.S7/blocked-flow-output.txt";
+pub const blocked_flow_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-blocked-flow.md";
 
 /// Reference to the conformance result.
-pub const conformance_ref: []const u8 = "doc/execution/V2.22.S7/conformance-result.json";
+pub const conformance_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-conformance-result.md";
 
 /// A single evidence link referencing a file path and its SHA256 hash.
 pub const EvidenceLink = struct {
@@ -64,13 +64,13 @@ pub const EvidenceLink = struct {
 /// A bundle of evidence references for a story closure.
 pub const EvidenceBundle = struct {
     support_matrix_ref: []const u8 = "doc/knowledge/platform-tiers.md",
-    version_ref: []const u8 = "doc/execution/V2.22.S7/version-sample.txt",
-    doctor_ref: []const u8 = "doc/execution/V2.22.S7/doctor-sample.txt",
-    demo_ref: []const u8 = "doc/execution/V2.22.S7/demo-output.txt",
-    audit_ref: []const u8 = "doc/execution/V2.22.S7/audit-sample.jsonl",
-    replay_ref: []const u8 = "doc/execution/V2.22.S7/replay-capsule.json",
-    blocked_flow_ref: []const u8 = "doc/execution/V2.22.S7/blocked-flow-output.txt",
-    conformance_ref: []const u8 = "doc/execution/V2.22.S7/conformance-result.json",
+    version_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-version-output.md",
+    doctor_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-doctor-output.md",
+    demo_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-demo-output.md",
+    audit_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-audit-sample.md",
+    replay_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-replay-capsule.md",
+    blocked_flow_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-blocked-flow.md",
+    conformance_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-conformance-result.md",
 
     pub fn init() EvidenceBundle {
         log.warn("EvidenceBundle.init() — scaffold, TODO: populate with actual artifacts", .{});
@@ -172,13 +172,13 @@ pub fn computeFileHash(gpa: std.mem.Allocator, file_path: []const u8) ![]u8 {
 test "EvidenceBundle init returns default refs" {
     const bundle = EvidenceBundle.init();
     try std.testing.expectEqualStrings("doc/knowledge/platform-tiers.md", bundle.support_matrix_ref);
-    try std.testing.expectEqualStrings("doc/execution/V2.22.S7/version-sample.txt", bundle.version_ref);
-    try std.testing.expectEqualStrings("doc/execution/V2.22.S7/doctor-sample.txt", bundle.doctor_ref);
-    try std.testing.expectEqualStrings("doc/execution/V2.22.S7/demo-output.txt", bundle.demo_ref);
-    try std.testing.expectEqualStrings("doc/execution/V2.22.S7/audit-sample.jsonl", bundle.audit_ref);
-    try std.testing.expectEqualStrings("doc/execution/V2.22.S7/replay-capsule.json", bundle.replay_ref);
-    try std.testing.expectEqualStrings("doc/execution/V2.22.S7/blocked-flow-output.txt", bundle.blocked_flow_ref);
-    try std.testing.expectEqualStrings("doc/execution/V2.22.S7/conformance-result.json", bundle.conformance_ref);
+    try std.testing.expectEqualStrings("doc/execution/audits/stories/V2.22.S7-version-output.md", bundle.version_ref);
+    try std.testing.expectEqualStrings("doc/execution/audits/stories/V2.22.S7-doctor-output.md", bundle.doctor_ref);
+    try std.testing.expectEqualStrings("doc/execution/audits/stories/V2.22.S7-demo-output.md", bundle.demo_ref);
+    try std.testing.expectEqualStrings("doc/execution/audits/stories/V2.22.S7-audit-sample.md", bundle.audit_ref);
+    try std.testing.expectEqualStrings("doc/execution/audits/stories/V2.22.S7-replay-capsule.md", bundle.replay_ref);
+    try std.testing.expectEqualStrings("doc/execution/audits/stories/V2.22.S7-blocked-flow.md", bundle.blocked_flow_ref);
+    try std.testing.expectEqualStrings("doc/execution/audits/stories/V2.22.S7-conformance-result.md", bundle.conformance_ref);
 }
 
 test "EvidenceBundle toJson produces valid JSON" {
@@ -319,7 +319,7 @@ test "EvidenceBundle ref constants match plan" {
         support_matrix_ref,
     );
     try std.testing.expectEqualStrings(
-        "doc/execution/V2.22.S7/version-sample.txt",
+        "doc/execution/audits/stories/V2.22.S7-version-output.md",
         version_ref,
     );
 }
