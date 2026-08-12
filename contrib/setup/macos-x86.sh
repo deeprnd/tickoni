@@ -52,7 +52,7 @@ ensure_precommit
 ensure_buf
 
 # 9. Coverage tool (optional)
-ensure_kcov || log_warn "kcov not available — coverage builds will be skipped"
+ensure_kcpy || log_warn "kcpy not available — coverage builds will be skipped"
 
 # 10. macOS-specific: install llvm tools if not in PATH
 if ! tool_exists llvm-config; then
