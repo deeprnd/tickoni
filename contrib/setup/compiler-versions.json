@@ -7,7 +7,14 @@
   },
   "clang": {
     "linux-x86": "18",
+    "linux-arm": null,
     "macos-x86": null,
-    "macos-arm": null
+    "macos-arm": null,
+    "windows-x86": "18",
+    "windows-arm": "18"
+  },
+  "msvc": {
+    "windows-x86": "17",
+    "windows-arm": "17"
   }
 }

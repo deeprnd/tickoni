@@ -29,8 +29,15 @@ scoop install \
     buf
 
 # 3. LLVM (Clang compiler)
-log-info "Installing LLVM..."
-scoop install llvm
+$platform_key = get-windows-platform-key
+$clang_version = read-compiler-version "clang" $platform_key
+if ($clang_version) {
+    log-info "Installing LLVM/Clang ${clang_version}..."
+    scoop install llvm@"${clang_version}"
+} else {
+    log-info "Installing LLVM (latest)..."
+    scoop install llvm
+}
 
 # Add LLVM to PATH
 $llvmPath = (Get-Command clang -ErrorAction SilentlyContinue).Source | Split-Path
@@ -52,13 +59,24 @@ python3 (Join-Path $scriptDir "helpers\install-zig.py") `
 log-info "Zig installed (x86_64 binary)"
 
 # 5. MSVC build tools (for llama.cpp / Windows-specific builds)
+$msvc_version = read-compiler-version "msvc" $platform_key
 if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
-    log-info "Installing Visual Studio Build Tools..."
-    if (Get-Command choco -ErrorAction SilentlyContinue) {
-        log-info "Installing VS Build Tools via chocolatey..."
-        choco install visualstudio2022buildtools -y --params "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
-    } elseif (Get-Command winget -ErrorAction SilentlyContinue) {
-        winget install --id Microsoft.VisualStudio.2022.BuildTools -e
+    log-info "Installing Visual Studio Build Tools (MSVC ${msvc_version})..."
+    if ($msvc_version) {
+        if (Get-Command choco -ErrorAction SilentlyContinue) {
+            log-info "Installing VS Build Tools ${msvc_version} via chocolatey..."
+            choco install visualstudio2022buildtools -y --version "${msvc_version}.*" --params "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+        } elseif (Get-Command winget -ErrorAction SilentlyContinue) {
+            log-info "Installing VS Build Tools ${msvc_version} via winget..."
+            winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --version "*${msvc_version}*" -e
+        }
+    } else {
+        log-warn "No MSVC version in JSON — trying without version pin"
+        if (Get-Command choco -ErrorAction SilentlyContinue) {
+            choco install visualstudio2022buildtools -y --params "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+        } elseif (Get-Command winget -ErrorAction SilentlyContinue) {
+            winget install --id Microsoft.VisualStudio.2022.BuildTools -e
+        }
     }
 }
 
