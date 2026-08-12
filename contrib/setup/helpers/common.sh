@@ -132,24 +132,49 @@ ensure_firedancer_deps() {
     log_info "Firedancer deps installed"
 }
 
-# Install gitleaks
+# Install gitleaks (pinned version — matches CI gitleaks on main)
+GITLEAKS_VERSION="8.30.1"
+
 ensure_gitleaks() {
     if tool_exists gitleaks; then
-        log_info "gitleaks already installed"
+        log_info "gitleaks ${GITLEAKS_VERSION} already installed"
         return 0
     fi
 
-    log_info "Installing gitleaks..."
-    if command -v apt-get &>/dev/null; then
-        sudo apt-get install -y gitleaks
-    elif command -v brew &>/dev/null; then
-        brew install gitleaks
-    elif command -v scoop &>/dev/null; then
-        scoop install gitleaks
-    else
-        log_warn "No package manager found for gitleaks — skipping"
-        return 1
-    fi
+    log_info "Installing gitleaks ${GITLEAKS_VERSION}..."
+    local os arch asset
+
+    os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+    case "$(uname -m)" in
+        x86_64)    arch="x64" ;;
+        aarch64|arm64) arch="arm64" ;;
+        *) echo "unsupported arch: $(uname -m)" >&2; return 1 ;;
+    esac
+
+    case "${os}" in
+        linux)   asset="gitleaks_${GITLEAKS_VERSION}_linux_${arch}.tar.gz" ;;
+        darwin)
+            if [ "$arch" = "arm64" ]; then
+                asset="gitleaks_${GITLEAKS_VERSION}_darwin_arm64.tar.gz"
+            else
+                asset="gitleaks_${GITLEAKS_VERSION}_darwin_x64.tar.gz"
+            fi
+            ;;
+        *)
+            log_warn "Unsupported OS ${os} — skipping gitleaks"
+            return 1
+            ;;
+    esac
+
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    curl -sSfL "https://github.com/zricethezav/gitleaks/releases/download/v${GITLEAKS_VERSION}/${asset}" \
+        -o "${tmpdir}/gitleaks.tar.gz"
+    tar -xzf "${tmpdir}/gitleaks.tar.gz" -C "${tmpdir}"
+    sudo cp "${tmpdir}/gitleaks" /usr/local/bin/gitleaks
+    sudo chmod 755 /usr/local/bin/gitleaks
+    rm -rf "${tmpdir}"
+    log_info "gitleaks ${GITLEAKS_VERSION} installed"
 }
 
 # Install kcpy from source (SimonKagstrom/kcpy)
