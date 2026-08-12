@@ -126,7 +126,7 @@ function read-compiler-version {
 import json, sys
 try:
     data = json.load(open('$escapedJson'))
-    v = data.get(r'$Tool', {}).get(r'$PlatformKey')
+    $v = data.get('$Tool', {}).get('$PlatformKey')
     if v is None:
         sys.exit(1)
     with open(sys.argv[1], 'w') as f:
