@@ -121,11 +121,11 @@ function read-compiler-version {
     # Write the helper script so it accepts output file as argv[1] and
     # writes directly — avoids python3.exe (Microsoft Store shim) stdout
     # redirect issues on Windows PowerShell.
-    $escapedJson = $jsonPath.Replace('\', '\\')
+    $escapedJson = $jsonPath.Replace('\', '/')
     $pythonScript = @"
 import json, sys
 try:
-    data = json.load(open(r'$escapedJson'))
+    data = json.load(open('$escapedJson'))
     v = data.get(r'$Tool', {}).get(r'$PlatformKey')
     if v is None:
         sys.exit(1)
