@@ -2,7 +2,7 @@
 # Source this from your lane script (windows-x86.ps1, windows-arm.ps1)
 
 $script:SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
-$script:REPO_ROOT = (Get-Item (Join-Path $script:SCRIPT_DIR "..\..")).FullName
+$script:REPO_ROOT = (Get-Item (Join-Path $script:SCRIPT_DIR "..\..\..")).FullName
 
 function log-info { Write-Host "[setup] $args" }
 function log-warn { Write-Host "[setup] WARN: $args" -ForegroundColor Yellow }
