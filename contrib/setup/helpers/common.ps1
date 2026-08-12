@@ -13,6 +13,52 @@ function tool-exists {
     return Get-Command $Name -ErrorAction SilentlyContinue
 }
 
+# Install gitleaks (pinned version — matches CI gitleaks on main)
+$script:GITLEAKS_VERSION = "8.30.1"
+
+function ensure-gitleaks {
+    if (tool-exists "gitleaks") {
+        log-info "gitleaks ${script:GITLEAKS_VERSION} already installed"
+        return
+    }
+
+    log-info "Installing gitleaks ${script:GITLEAKS_VERSION}..."
+
+    $arch = (Get-CimInstance Win32_ComputerSystem).SystemType
+    $asset = switch ($arch) {
+        "X64-based PC"  { "gitleaks_${script:GITLEAKS_VERSION}_windows_x64.zip" }
+        "ARM64-based PC" { "gitleaks_${script:GITLEAKS_VERSION}_windows_arm64.zip" }
+        default {
+            log-error "Unsupported system type: $arch"
+            exit 1
+        }
+    }
+
+    $tmpDir = [System.IO.Path]::GetTempFileName()
+    Remove-Item $tmpDir
+    New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
+
+    Invoke-WebRequest `
+        -Uri "https://github.com/zricethezav/gitleaks/releases/download/v${script:GITLEAKS_VERSION}/${asset}" `
+        -OutFile (Join-Path $tmpDir "gitleaks.zip") -UseBasicParsing
+
+    Expand-Archive -Path (Join-Path $tmpDir "gitleaks.zip") -DestinationPath $tmpDir -Force
+    $gitleaksBin = Join-Path $tmpDir "gitleaks.exe"
+    if (-not (Test-Path $gitleaksBin)) {
+        # Fallback: binary may not be zip (tar.gz with .exe inside)
+        $gitleaksBin = (Get-ChildItem -Path $tmpDir -Recurse -Filter "gitleaks.exe" | Select-Object -First 1).FullName
+    }
+    if ($gitleaksBin) {
+        Copy-Item $gitleaksBin "$env:SYSTEMROOT\System32\gitleaks.exe"
+        log-info "gitleaks ${script:GITLEAKS_VERSION} installed"
+    } else {
+        log-error "gitleaks binary not found in archive"
+        exit 1
+    }
+
+    Remove-Item -Recurse -Force $tmpDir
+}
+
 # Install Zig via install-zig.py
 function ensure-zig {
     param([string]$Target)

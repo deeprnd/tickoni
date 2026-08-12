@@ -59,10 +59,12 @@ Install-Dep -Choco "cmake" -WingetId "CMake.CMake"
 Install-Dep -Choco "ninja" -WingetId "Ninja-build.Ninja"
 Install-Dep -Choco "zstd" -WingetId "Facebook.zstd"
 Install-Dep -Choco "python3" -WingetId "Python.Python.3.12"
-Install-Dep -Choco "gitleaks" -WingetId "ZioZio.gitleaks"
 Install-Dep -Choco "shellcheck" -WingetId "Koalaman.shellcheck"
 Install-Dep -Choco "pre-commit" -WingetId "PreCommit.PreCommit"
 Install-Dep -Choco "buf" -WingetId "bufbuild.buf"
+
+# ── 1b. Gitleaks (pinned version, not package manager) ────────────────────────
+ensure-gitleaks
 
 # ── 2. just ──────────────────────────────────────────────────────────────────
 if (-not (Get-Command just -ErrorAction SilentlyContinue)) {
