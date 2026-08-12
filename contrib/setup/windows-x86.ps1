@@ -106,7 +106,21 @@ if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
     }
 }
 
-# ── 6. Firedancer deps ───────────────────────────────────────────────────────
+# ── 6. cpanm (for MSYS2 Perl module installs) ───────────────────────────────
+if (-not (Get-Command cpanm -ErrorAction SilentlyContinue)) {
+    log-info "Installing cpanm (cpanminus)...";
+    $cpanmUrl = "https://cpanmin.pl/v1.0001";
+    $cpanmPath = "$env:USERPROFILE\.cpanm\bin\cpanm.exe";
+    $cpanmDir = Split-Path $cpanmPath -Parent;
+    if (-not (Test-Path $cpanmDir)) {
+        New-Item -ItemType Directory -Force -Path $cpanmDir | Out-Null;
+    }
+    Invoke-WebRequest -Uri $cpanmUrl -OutFile $cpanmPath -UseBasicParsing;
+    $env:PATH = $cpanmDir + ";" + $env:PATH;
+    log-info "cpanm installed to $cpanmPath";
+}
+
+# ── 7. Firedancer deps ───────────────────────────────────────────────────────
 $env:CC = "clang"
 $env:CXX = "clang++"
 log-info "Installing Firedancer dependencies (CC=clang, CXX=clang++)..."
