@@ -54,8 +54,10 @@ runs:
           pwsh "$GITHUB_WORKSPACE/contrib/setup/windows-${arch}.ps1" -NoLLM
         elif [ "$os" = "linux" ] && [ "$compiler" = "clang" ]; then
           just "setup-${os}-${arch}-clang"
-        else
+        elif [ "$os" = "linux" ]; then
           just "setup-${os}-${arch}-gcc"
+        else
+          just "setup-${os}-${arch}"
         fi
 
     - name: Setup Python
