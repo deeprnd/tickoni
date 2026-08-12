@@ -41,7 +41,9 @@ fi
 ensure_firedancer_deps
 
 # 7. Quality tools
-ensure_gitleaks
+if [ "${SECURITY:-on}" = "on" ]; then
+    ensure_gitleaks
+fi
 ensure_shellcheck
 ensure_precommit
 

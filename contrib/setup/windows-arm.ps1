@@ -2,10 +2,11 @@
 # Usage:
 #   .\windows-arm.ps1              # default: install all deps + LLM tooling
 #   .\windows-arm.ps1 -NoLLM       # skip LLM tooling (llama.cpp build)
+#   .\windows-arm.ps1 -NoSecurity  # skip security tools (gitleaks)
 # Package manager: winget (preferred) → choco → auto-install winget
 # Note: Zig is x86_64 binary (runs under Windows ARM x64 emulation)
 
-param([switch]$NoLLM)
+param([switch]$NoLLM, [switch]$NoSecurity)
 
 $ErrorActionPreference = 'Stop'
 
@@ -63,8 +64,12 @@ Install-Dep -Choco "shellcheck" -WingetId "Koalaman.shellcheck"
 Install-Dep -Choco "pre-commit" -WingetId "PreCommit.PreCommit"
 Install-Dep -Choco "buf" -WingetId "bufbuild.buf"
 
-# ── 1b. Gitleaks (pinned version, not package manager) ────────────────────────
-ensure-gitleaks
+# ── 1b. Security tools (optional) ────────────────────────────────────────────
+if (-not $NoSecurity) {
+    ensure-gitleaks
+} else {
+    log-info "Skipping security tools (-NoSecurity)"
+}
 
 # ── 2. just ──────────────────────────────────────────────────────────────────
 if (-not (Get-Command just -ErrorAction SilentlyContinue)) {

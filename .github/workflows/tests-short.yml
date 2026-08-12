@@ -179,7 +179,7 @@ jobs:
       - name: Setup Windows deps
         shell: pwsh
         run: |
-          & "$Env:GITHUB_WORKSPACE\contrib\setup\windows-x86.ps1" -NoLLM
+          & "$Env:GITHUB_WORKSPACE\contrib\setup\windows-x86.ps1" -NoLLM -NoSecurity
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
@@ -201,7 +201,7 @@ jobs:
       - name: Setup Windows deps
         shell: pwsh
         run: |
-          & "$Env:GITHUB_WORKSPACE\contrib\setup\windows-arm.ps1" -NoLLM
+          & "$Env:GITHUB_WORKSPACE\contrib\setup\windows-arm.ps1" -NoLLM -NoSecurity
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
