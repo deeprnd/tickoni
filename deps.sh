@@ -393,7 +393,7 @@ check () {
     done
   fi
 
-  if [[ ! -z "${PACKAGE_INSTALL_CMD[@]}" ]]; then
+  if [[ ${#PACKAGE_INSTALL_CMD[@]} -gt 0 ]]; then
     echo "[!] Found missing system packages"
     echo "[?] This is fixed by the following command:"
     echo "        ${PACKAGE_INSTALL_CMD[@]}"
