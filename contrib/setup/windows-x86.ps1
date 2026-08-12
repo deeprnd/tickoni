@@ -107,17 +107,20 @@ if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
 }
 
 # ── 6. cpanm (for MSYS2 Perl module installs) ───────────────────────────────
+# Use MSYS2's cpanminus (not the cpanmin.pl fat-pack which is missing
+# ExtUtils::Manifest and deadlocks when installing dependencies).
 if (-not (Get-Command cpanm -ErrorAction SilentlyContinue)) {
-    log-info "Installing cpanm (cpanminus)...";
-    $cpanmUrl = "https://cpanmin.pl/v1.0001";
-    $cpanmPath = "$env:USERPROFILE\.cpanm\bin\cpanm.exe";
-    $cpanmDir = Split-Path $cpanmPath -Parent;
-    if (-not (Test-Path $cpanmDir)) {
-        New-Item -ItemType Directory -Force -Path $cpanmDir | Out-Null;
+    log-info "Installing cpanm via MSYS2 pacman...";
+    $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe";
+    if (Test-Path $msysBash) {
+        & $msysBash -lc "pacman -S --noconfirm cpanminus" 2>&1 | Out-Null
     }
-    Invoke-WebRequest -Uri $cpanmUrl -OutFile $cpanmPath -UseBasicParsing;
-    $env:PATH = $cpanmDir + ";" + $env:PATH;
-    log-info "cpanm installed to $cpanmPath";
+    # MSYS2 bin is at /usr/bin/cpanm — ensure MSYS2 is in PATH
+    $msysPath = "$env:SystemDrive\msys64\usr\bin"
+    if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $msysPath })) {
+        $env:PATH = $msysPath + ";" + $env:PATH
+    }
+    log-info "cpanm installed via MSYS2 pacman";
 }
 
 # ── 7. Firedancer deps ───────────────────────────────────────────────────────
