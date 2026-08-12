@@ -3,7 +3,7 @@ description: Setup just, Zig, optional Python tooling, optional apt packages, an
 
 inputs:
   apt-packages:
-    description: Space-delimited apt packages to install
+    description: Space-delimited apt packages to install (legacy — lane scripts handle this)
     required: false
     default: ''
   compiler:
@@ -19,11 +19,11 @@ inputs:
     required: false
     default: 'false'
   gitleaks:
-    description: Install gitleaks
+    description: Install gitleaks (legacy — lane scripts handle this)
     required: false
     default: 'false'
   kcov:
-    description: Build and install kcov from source
+    description: Build and install kcov from source (legacy — lane scripts handle this)
     required: false
     default: 'false'
   python-tools:
@@ -44,51 +44,37 @@ runs:
   steps:
     - uses: taiki-e/install-action@just
 
-    - name: Install gmake on macOS
-      if: runner.os == 'macOS'
+    - name: Run platform setup
       shell: bash
       run: |
-        # Homebrew no longer has 'gmake' — 'make' IS GNU make, installed as 'gmake' in gnubin
-        brew install make
-        echo "$(brew --prefix)/opt/make/libexec/gnubin" >> "$GITHUB_PATH"
-
-    - name: Install Windows bootstrap tools
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        .github/actions/setup-public-gh-runner/scripts/setup-windows.ps1 -AptPackages '${{ inputs.apt-packages }}' -InstallGnuMake -InstallGitleaks:('${{ inputs.gitleaks }}' -eq 'true') -GitleaksVersion '8.30.1' -InstallKcov:('${{ inputs.kcov }}' -eq 'true')
-
-    - name: Setup Zig via official release (Windows)
-      if: inputs.zig == 'true' && runner.os == 'Windows'
-      shell: pwsh
-      env:
-        # Force Windows ARM runners to cross-build the harness for
-        # aarch64-windows while executing the stable x86_64 Zig binary under
-        # Windows emulation. The native aarch64 Zig 0.16.0 binary is unstable
-        # on this lane and can segfault during plain `zig build` / `zig env`
-        # invocations. zigw.sh reads ZIG_TARGET_OVERRIDE and injects -Dtarget
-        # when the caller didn't specify one.
-        ZIG_TARGET_OVERRIDE: ${{ runner.os == 'Windows' && runner.arch == 'ARM64' && 'aarch64-windows' || '' }}
-      run: |
-        $zigArgs = @('--version', '${{ inputs.zig-version }}')
-        if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') {
-          # Install the x86_64 Windows Zig binary on Windows ARM so later bash
-          # steps can run it reliably under emulation while still targeting
-          # aarch64-windows via ZIG_TARGET_OVERRIDE / contrib/zigw.sh.
-          $zigArgs += @('--target', 'x86_64-windows')
-        }
-        python "$env:GITHUB_WORKSPACE/contrib/install-zig.py" @zigArgs
-        if ($env:ZIG_TARGET_OVERRIDE) {
-          # Persist for later bash build/test steps; step-local env does not
-          # survive across GitHub Actions steps.
-          "ZIG_TARGET_OVERRIDE=$env:ZIG_TARGET_OVERRIDE" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        }
-
-    - name: Setup Zig via official release (POSIX)
-      if: inputs.zig == 'true' && runner.os != 'Windows'
-      shell: bash
-      run: |
-        python3 "$GITHUB_WORKSPACE/contrib/install-zig.py" --version '${{ inputs.zig-version }}'
+        os="${{ runner.os == 'Linux' && 'linux' || runner.os == 'macOS' && 'macos' || 'windows' }}"
+        arch="${{ runner.arch == 'ARM64' && 'arm' || 'x86' }}"
+        compiler="${{ inputs.compiler }}"
+        if [ "$os" = "windows" ]; then
+          if [ "${{ inputs.gitleaks }}" = "true" ]; then
+            pwsh "$GITHUB_WORKSPACE/contrib/setup/windows-${arch}.ps1" -NoLLM
+          else
+            pwsh "$GITHUB_WORKSPACE/contrib/setup/windows-${arch}.ps1" -NoLLM -NoSecurity
+          fi
+        elif [ "$os" = "linux" ] && [ "$compiler" = "clang" ]; then
+          if [ "${{ inputs.gitleaks }}" = "true" ]; then
+            SECURITY=on just "setup-${os}-${arch}-clang"
+          else
+            just "setup-${os}-${arch}-clang"
+          fi
+        elif [ "$os" = "linux" ]; then
+          if [ "${{ inputs.gitleaks }}" = "true" ]; then
+            SECURITY=on just "setup-${os}-${arch}-gcc"
+          else
+            just "setup-${os}-${arch}-gcc"
+          fi
+        else
+          if [ "${{ inputs.gitleaks }}" = "true" ]; then
+            SECURITY=on just "setup-${os}-${arch}"
+          else
+            just "setup-${os}-${arch}"
+          fi
+        fi
 
     - name: Setup Python
       if: inputs.python-tools != ''
@@ -102,55 +88,6 @@ runs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install ${{ inputs.python-tools }}
-
-    - name: Install apt packages
-      if: inputs.apt-packages != '' && runner.os != 'Windows'
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ${{ inputs.apt-packages }}
-
-    - name: Install kcov
-      if: inputs.kcov == 'true' && runner.os != 'Windows'
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          binutils-dev \
-          cmake \
-          libcurl4-openssl-dev \
-          libdw-dev \
-          libelf-dev \
-          libiberty-dev \
-          libssl-dev \
-          libstdc++-12-dev \
-          zlib1g-dev
-        git clone --depth 1 https://github.com/SimonKagstrom/kcov.git "$RUNNER_TEMP/kcov-src"
-        cmake -S "$RUNNER_TEMP/kcov-src" -B "$RUNNER_TEMP/kcov-build"
-        make -j$(nproc) -C "$RUNNER_TEMP/kcov-build"
-        sudo make -C "$RUNNER_TEMP/kcov-build" install
-
-    - name: Install Gitleaks
-      if: inputs.gitleaks == 'true' && runner.os != 'Windows'
-      shell: bash
-      env:
-        GITLEAKS_VERSION: 8.30.1
-      run: |
-        mkdir -p "$RUNNER_TEMP/gitleaks"
-        case "${{ runner.os }}-${{ runner.arch }}" in
-          Linux-X64)   asset="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" ;;
-          Linux-ARM64) asset="gitleaks_${GITLEAKS_VERSION}_linux_arm64.tar.gz" ;;
-          macOS-X64)   asset="gitleaks_${GITLEAKS_VERSION}_darwin_x64.tar.gz" ;;
-          macOS-ARM64) asset="gitleaks_${GITLEAKS_VERSION}_darwin_arm64.tar.gz" ;;
-          *)
-            echo "unsupported runner for gitleaks asset selection: ${{ runner.os }}-${{ runner.arch }}" >&2
-            exit 1
-            ;;
-        esac
-        curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${asset}" -o "$RUNNER_TEMP/gitleaks/gitleaks.tar.gz"
-        tar -xzf "$RUNNER_TEMP/gitleaks/gitleaks.tar.gz" -C "$RUNNER_TEMP/gitleaks"
-        chmod +x "$RUNNER_TEMP/gitleaks/gitleaks"
-        echo "$RUNNER_TEMP/gitleaks" >> "$GITHUB_PATH"
 
     - name: Install Firedancer deps
       if: inputs.fd-deps == 'true'

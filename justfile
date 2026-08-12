@@ -58,6 +58,87 @@ default:
 help:
 	@just --list
 
+# ── Platform Detection ────────────────────────────────────────────────────────
+
+# Detect OS from uname (falls back to "unknown")
+os := `uname -s`
+
+# Detect arch from uname (falls back to "unknown")
+arch := `uname -m`
+
+# ── Setup ──────────────────────────────────────────────────────────────────────
+
+# Single entry point — detects platform and routes to the correct setup script
+# Usage: just setup-env
+# Examples:
+#   just setup-env             — auto-detects (Linux x86_64 → setup-linux-x86-gcc)
+#   just setup-linux-x86-clang — explicit lane
+#   just setup-macos-arm       — macOS ARM64
+#   just setup-windows-x86     — Windows x86_64
+setup-env:
+	@if [ "$(os)" = "Linux" ]; then \
+	  if [ "$(arch)" = "aarch64" ]; then \
+	    just setup-linux-arm-gcc; \
+	  else \
+	    just setup-linux-x86-gcc; \
+	  fi; \
+	elif [ "$(os)" = "Darwin" ]; then \
+	  if [ "$(arch)" = "arm64" ]; then \
+	    just setup-macos-arm; \
+	  else \
+	    just setup-macos-x86; \
+	  fi; \
+	elif [ "$(os)" = "MINGW"* ] || [ "$(os)" = "MSYS"* ] || [ "$(os)" = "CYGWIN"* ]; then \
+	  win_arch=""; \
+	  if command -v powershell >/dev/null 2>&1; then \
+	    win_arch=$$(powershell -Command "$env:PROCESSOR_ARCHITECTURE" 2>/dev/null); \
+	  fi; \
+	  if [ "$$win_arch" = "ARM64" ]; then \
+	    just setup-windows-arm; \
+	  else \
+	    just setup-windows-x86; \
+	  fi; \
+	else \
+	  echo "unsupported OS: $(os)" >&2; \
+	  exit 1; \
+	fi
+
+# Linux x86_64 — GCC toolchain
+setup-linux-x86-gcc:
+	SECURITY=off bash contrib/setup/linux-x86-gcc.sh
+
+# Linux x86_64 — Clang toolchain
+setup-linux-x86-clang:
+	SECURITY=off bash contrib/setup/linux-x86-clang.sh
+
+# Linux aarch64 — GCC toolchain
+setup-linux-arm-gcc:
+	SECURITY=off bash contrib/setup/linux-arm-gcc.sh
+
+# macOS x86_64
+setup-macos-x86:
+	SECURITY=off bash contrib/setup/macos-x86.sh
+
+# macOS ARM64
+setup-macos-arm:
+	SECURITY=off bash contrib/setup/macos-arm.sh
+
+# Windows x86_64 — dev mode (includes LLM tooling)
+setup-windows-x86:
+	powershell -ExecutionPolicy Bypass -File contrib/setup/windows-x86.ps1
+
+# Windows ARM64 — dev mode (includes LLM tooling)
+setup-windows-arm:
+	powershell -ExecutionPolicy Bypass -File contrib/setup/windows-arm.ps1
+
+# Windows x86_64 — CI mode (no LLM tooling, no security tools)
+setup-windows-ci-x86:
+	powershell -ExecutionPolicy Bypass -File contrib/setup/windows-x86.ps1 -NoLLM -NoSecurity
+
+# Windows ARM64 — CI mode (no LLM tooling, no security tools)
+setup-windows-ci-arm:
+	powershell -ExecutionPolicy Bypass -File contrib/setup/windows-arm.ps1 -NoLLM -NoSecurity
+
 # ── Python ─────────────────────────────────────────────────────────────────
 
 python-dev-install extras="dev":

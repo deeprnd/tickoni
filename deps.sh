@@ -393,7 +393,7 @@ check () {
     done
   fi
 
-  if [[ ! -z "${PACKAGE_INSTALL_CMD[@]}" ]]; then
+  if [[ ${#PACKAGE_INSTALL_CMD[@]} -gt 0 ]]; then
     echo "[!] Found missing system packages"
     echo "[?] This is fixed by the following command:"
     echo "        ${PACKAGE_INSTALL_CMD[@]}"
@@ -512,19 +512,26 @@ install_openssl () {
   if [[ "$ID" = windows ]]; then
     local openssl_target
     local windows_arch="${FD_WINDOWS_ARCH:-$(uname -m)}"
-    local openssl_perl="perl"
+    local openssl_perl="/usr/bin/perl"
+    local cpanm_cmd=""
 
-    # In the MSYS/Git-Bash build path, OpenSSL Configure expects a Perl that
-    # speaks Unix-style paths. Prefer the shell-matched /usr/bin/perl when it
-    # exists; only fall back to Strawberry if no MSYS/Git Perl is available.
-    if [[ -x /usr/bin/perl ]]; then
-      openssl_perl="/usr/bin/perl"
-    elif [[ -x /c/Strawberry/perl/bin/perl.exe ]]; then
-      openssl_perl="/c/Strawberry/perl/bin/perl.exe"
-    elif [[ -x /c/Strawberry/perl/bin/perl ]]; then
-      openssl_perl="/c/Strawberry/perl/bin/perl"
-    elif command -v perl >/dev/null 2>&1; then
-      openssl_perl="$(command -v perl)"
+    # OpenSSL Configure needs Unix-style paths (e.g. /msys2/...), so we must
+    # use MSYS2/Git-Bash Perl, not Strawberry (which produces MSWin32 paths).
+    # The MSYS2 Perl on GitHub runners is missing Locale::Maketext::Simple.
+    # Install it via cpanm if available.
+    if ! perl -e 'use Locale::Maketext::Simple' >/dev/null 2>&1; then
+      cpanm_cmd="cpanm"
+      if ! command -v cpanm >/dev/null 2>&1; then
+        echo "[!] cpanm not found — cannot install missing Perl module"
+        echo "    Please install it: pacman -S cpanminus"
+        echo "    Or skip this build and install: pacman -S cpanminus"
+        exit 1
+      fi
+      echo "[~] Installing missing OpenSSL Perl module: Locale::Maketext::Simple"
+      cpanm --notest Locale::Maketext::Simple || {
+        echo "[!] Failed to install Locale::Maketext::Simple via cpanm"
+        exit 1
+      }
     fi
 
     if [[ "$windows_arch" =~ ^(arm64|aarch64)$ ]]; then

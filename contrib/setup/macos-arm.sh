@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# macos-arm.sh — Setup macOS ARM64
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd)"
+source "${SCRIPT_DIR}/helpers/common.sh"
+
+log_info "macOS ARM64 setup starting..."
+
+# 1. Homebrew (install if missing)
+if ! command -v brew &>/dev/null; then
+    log_info "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    export PATH="/opt/homebrew/bin:${PATH}"
+fi
+
+# 2. Core packages
+log_info "Installing Homebrew packages (gcc, make, git, cmake)..."
+brew install \
+    gcc make git cmake pkg-config \
+    coreutils zstd
+
+# 3. Zig
+ensure_zig
+
+# 4. just
+if ! tool_exists just; then
+    log_info "Installing just..."
+    brew install just
+fi
+
+# 5. Xcode CLT (if not already installed)
+if ! xcode-select -p &>/dev/null; then
+    log_info "Installing Xcode Command Line Tools..."
+    xcode-select --install
+    # Wait for user to accept the license
+    while ! xcode-select -p &>/dev/null; do
+        sleep 2
+    done
+    sudo xcodebuild -license accept 2>/dev/null || true
+fi
+
+# 6. Firedancer deps
+CC=clang CXX=clang++ ensure_firedancer_deps
+
+# 7. Quality tools
+if [ "${SECURITY:-on}" = "on" ]; then
+    ensure_gitleaks
+fi
+ensure_shellcheck
+ensure_precommit
+
+# 8. Build tools
+ensure_buf
+
+# 9. Coverage tool (optional)
+ensure_kcov || log_warn "kcov not available — coverage builds will be skipped"
+
+# 10. macOS-specific: install llvm tools if not in PATH
+if ! tool_exists llvm-config; then
+    log_info "Installing llvm..."
+    brew install llvm
+    export PATH="$(brew --prefix llvm)/bin:${PATH}"
+fi
+
+print_install_summary
+
+log_info "macOS ARM64 setup complete"

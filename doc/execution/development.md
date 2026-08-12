@@ -13,18 +13,20 @@ Core requirements:
 
 - Linux on x86-64 for Firedancer-derived runtime work
 - Windows 10 2004+ (x86_64) or Windows 11 (ARM64) for retail tier builds
-- `just`
-- `make`
-- GCC for the default Firedancer build path
-- Zig for Tickoni-owned runtime and supervisor work
+- `just` (install manually — it is the sole documented manual prerequisite)
 - Python 3
 - clang or MSVC for Windows builds (MinGW-w64 for MSYS2)
 
+Install platform-specific tooling with one command:
+
+```bash
+just setup-env
+```
+
+This installs Zig, the system compiler (GCC on Linux, clang on macOS, LLVM on Windows), make, gitleaks, shellcheck, pre-commit, buf, and Firedancer system dependencies. After `just setup-env` the rest of the `justfile` works without any further configuration.
+
 Useful local tools for full gates:
 
-- `pre-commit`
-- `shellcheck`
-- `gitleaks`
 - `codeql`
 - Clang for sanitizer builds
 - CBMC/proof tooling used by Firedancer proof checks
