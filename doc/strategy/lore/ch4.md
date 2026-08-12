@@ -6,7 +6,7 @@ The green lightning was gone. The oil ships had passed. Only their distant bells
 
 Maro sat beneath the mast of Tickoni’s narrow black boat, counting the coins in his purse.
 
-Two thousand yen.
+Two thousand rei.
 
 He closed his fingers around them.
 
@@ -16,7 +16,7 @@ Yet he counted more slowly now.
 
 Beside him lay another possibility.
 
-During the afternoon, they had sailed past four islands linked by silver bridges: an ironworks whose furnaces burned without smoke, a cloud tower crowded with messengers, a cable maker threading light beneath the sea, and a broad technology fund that owned pieces of all three.
+During the afternoon, they had sailed past four islands linked by silver bridges: an ironworks whose furnaces burned without smoke, a cloud tower crowded with messengers, a cable maker threading light beneath the sea, and a broad maker's fund that owned pieces of all three.
 
 Maro had watched them until they disappeared behind the mist.
 
@@ -34,7 +34,7 @@ From Maro’s belt hung something older.
 
 A brass payment tag.
 
-Three hundred yen owed to the boatwright who had repaired the mast of Maro’s abandoned vessel before his chase toward the oil storm.
+Three hundred rei owed to the boatwright who had repaired the mast of Maro’s abandoned vessel before his chase toward the oil storm.
 
 The first payment had failed.
 
@@ -104,7 +104,7 @@ A woman with coral woven through her hair leaned over the ghost ship’s rail.
 
 Her empty eyes fixed upon Maro’s brass tag.
 
-— Three hundred yen, — she whispered. — Owed to the boatwright.
+— Three hundred rei, — she whispered. — Owed to the boatwright.
 
 A dead cabin boy pointed toward the ticket.
 
@@ -180,7 +180,7 @@ Three reflections opened around them.
 
 In the first, the boat floated high.
 
-Two thousand yen remained in cash. Technology exposure was narrow. The boatwright was still unpaid.
+Two thousand rei remained in cash. Technology exposure was narrow. The boatwright was still unpaid.
 
 In the second, the four iron crates landed on deck.
 

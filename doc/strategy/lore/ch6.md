@@ -26,6 +26,9 @@ Then the seabed groaned.
 
 Coins rattled inside Maro’s purse. Far below, an enormous yellow eye opened. Long whiskers dragged through the mud. A black tail struck the earth.
 
+Above its head, a great old stone leaned from the seabed.
+A crack split its center.
+
 The sea rose.
 
 All eight channels twisted toward the harbor’s center, forming a whirlpool.
@@ -90,7 +93,7 @@ The treasury captain raised his horn.
 
 — My vessel will not share water with common cargo!
 
-The whirlpool caught his stern. A crack opened below deck, and silver coins poured into the sea.
+The whirlpool caught his stern. A crack opened below deck, and rei poured into the sea.
 
 Maro shouted:
 
@@ -217,6 +220,8 @@ Between them burned shared lines of foxfire.
 — Their boundaries.
 
 Namazu closed its eye and sank.
+
+The cracked stone settled deeper into the mud.
 
 The water became still.
 

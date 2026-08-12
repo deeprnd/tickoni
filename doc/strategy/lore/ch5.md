@@ -32,6 +32,10 @@ No real coins moved here. Traders used **ori**, folded paper currency that exist
 
 Every crane carried a paper trade.
 
+Most ended there.
+
+Some traders later carried their winning cranes into the real market.
+
 Maro watched one merchant celebrate an imagined fortune while another tore his failed crane apart.
 
 — No one can truly lose here, — he said.
@@ -40,7 +44,7 @@ Maro watched one merchant celebrate an imagined fortune while another tore his f
 
 At the end of the main bridge stood a stall shaped like a fox’s mouth.
 
-A tanuki, a raccoon-like spirit of mischief, waited inside.
+A tanuki waited inside.
 
 He wore a blue silk robe, round spectacles without glass, and a smile polished smooth by repetition.
 
@@ -76,7 +80,7 @@ Saburō examined the ticket.
 
 — Bounded, — Tickoni said.
 
-The tanuki laid down a square of pale-blue washi—handmade Japanese paper.
+The tanuki laid down a square of pale-blue washi, fine handmade paper.
 
 His paws moved quickly.
 
@@ -161,6 +165,12 @@ Saburō appeared beside them carrying a spool of golden ribbon.
 — You did not mention that before, — Maro said.
 
 — A formality.
+
+Tickoni looked at the gold thread.
+
+— What does the gold ribbon say?
+
+— Why, a winner, of course.
 
 Saburō held out one paw.
 
@@ -260,6 +270,12 @@ Two thousand became twenty-five thousand.
 
 The reserve vanished.
 
+A golden fold appeared beneath the amount.
+
+**LIVE SETTLEMENT**
+
+A path ran from the practice ledger toward Maro’s real purse.
+
 A hidden crease pointed past every inspection gate and directly toward the bell.
 
 A red line burned across the air.
@@ -300,11 +316,17 @@ The genuine cranes passed through.
 
 The altered cranes struck the barrier and burst open.
 
+Their paper trades remained paper.
+
+Their hidden settlement paths did not.
+
 A widow found borrowed ori beneath her name.
 
 A fisherman discovered that his modest trade had been multiplied tenfold.
 
-The boy tore his family’s land deed from his crane before it reached the storm.
+The boy found his family’s land deed folded into the trade.
+
+He tore it from the crane before it reached the storm.
 
 The crowd turned on Saburō.
 

@@ -6,9 +6,9 @@ Blue ice cracked beneath the hull. At noon, lanterns appeared between black clif
 
 Maro stood near the bow with his purse beneath his coat.
 
-Seventeen hundred yen remained.
+Seventeen hundred rei remained.
 
-The boatwright had finally received the three hundred yen he was owed. Maro’s investment basket still existed only in the practice ledger, waiting until he could afford to carry its real weight.
+The boatwright had finally received the three hundred rei he was owed. Maro’s investment basket still existed only in the practice ledger, waiting until he could afford to carry its real weight.
 
 Two debts remained, but winter already had first claim on his purse. And winter did not care whether the money was called savings.
 
@@ -74,7 +74,7 @@ The clerk checked the wooden price board.
 
 — It did not unload fruit here.
 
-The traveller placed two silver pieces on the counter.
+The traveller placed two rei on the counter.
 
 — My children have never tasted one.
 
@@ -94,7 +94,7 @@ Tickoni watched them disappear among the market stalls.
 
 The clerk glanced toward Genza before answering.
 
-— Akane grows them inside sealed gardens. Their gardeners control the gates, tools, heating channels, and repairs. We could bring the fruit here, but we could not support what stands behind it.
+— Akane grows them inside sealed gardens. Their gardeners control the gates, tools, heating channels, and repairs. We could bring the fruit here, but every harvest would still depend on them.
 
 — The customer asked for fruit, not a garden.
 
@@ -112,7 +112,7 @@ Tickoni looked toward the traveller.
 
 — Protection is a boundary. Refusal can become a wall.
 
-— Apples do not grow here, — Genza said.
+— Apples do not survive our Long Night, — Genza said.
 
 — Has Kōri tested that?
 

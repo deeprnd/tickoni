@@ -18,9 +18,12 @@ Still, the villagers kept losing coins.
 
 A map could show where the tide had moved, but not what it would break next. An oracle could speak beautifully and still leave the listener unprotected.
 
-So the village trusted the Order of the Oni.
+So the village bound the Order of the Oni.
 
-Long ago, every oni carried a contract seal. Every seal named a duty. Every duty had a boundary.
+Long ago, every oni was bound by a contract seal. Every seal named a duty. Every duty had a boundary.
+
+An oni could guard a vault, carry an order, or mark an approval—
+but only inside the boundary written for it.
 
 Some guarded vaults, some marked approvals, and others carried orders between islands.
 
@@ -48,7 +51,7 @@ The oni answered faster each year. Speed became reputation. Reputation became au
 
 They asked only whether they could perform it first.
 
-That was when the Order discovered bouyousou.
+That was when the Order discovered bōyūsō.
 
 The pale herb grew beneath the exchange towers. The elders said it steadied the hand and quieted doubt.
 
@@ -58,7 +61,7 @@ Then it helped them ignore.
 
 Then it made them dream while awake.
 
-Bouyousou filled the Council Hall with visions: endless green candles, perfect entries, golden ledgers, and stone bulls breathing coins.
+Bōyūsō filled the Council Hall with visions: endless green candles, perfect entries, golden ledgers, and stone bulls breathing coins.
 
 The oni saw certainty where there was motion.
 
@@ -66,7 +69,7 @@ Profit where there was noise.
 
 Permission where the contract had drawn a line.
 
-Their bodies grew heavy. Their belts filled with tools, shortcuts, permissions, and exceptions. Their seals remained bright, but no one read them.
+Their bodies grew heavy. Their belts filled with tools, shortcuts, permissions, and exceptions. Their seals remained bright, but the oni had begun to treat them as authority rather than restraint.
 
 They had forgotten the oldest law of protection:
 
@@ -74,7 +77,7 @@ They had forgotten the oldest law of protection:
 
 One evening, a fisherman named Jiro ran into the Council Hall. His hands bled from pulling nets. He carried a cracked order tile.
 
-— My daughter’s medicine fund, — he said. — The mirror showed everyone buying the Moon Carp Company. I asked an oni to follow them.
+— My daughter’s medicine fund, — he said. — The mirror showed everyone buying the Moon Carp. I asked an oni to follow them.
 
 The eldest oni barely looked up.
 
@@ -118,7 +121,7 @@ It only knew that answer was wrong.
 
 Then, one evening, a merchant came running into the Council Hall.
 
-— The Glass Eel Company is rising. Put my winter money into it before the eastern market opens.
+— The Glass Eel is rising. Put my winter money into it before the eastern market opens.
 
 The elder nearest the gate reached for the order tile.
 
@@ -140,7 +143,7 @@ The merchant stared at it.
 
 — No?
 
-Tickoni had no rule to recite. No better trade to offer. No proof that the Glass Eel Company would fall.
+Tickoni had no rule to recite. No better trade to offer. No proof that the Glass Eel would fall.
 
 Only a boundary it could not yet name.
 
@@ -166,7 +169,7 @@ The Council stopped laughing.
 
 A guardian who could refuse a wish threatened everything the Order had become.
 
-They summoned Tickoni beneath the red beams. The elders sat in rows, swollen with bouyousou, gold rings, and cracked seals.
+They summoned Tickoni beneath the red beams. The elders sat in rows, swollen with bōyūsō, gold rings, and cracked seals.
 
 The eldest leaned forward.
 
@@ -192,6 +195,8 @@ They seized Tickoni’s seal and tore it away.
 
 The hall thundered.
 
+For generations, no oni had stood before the Order unbound.
+
 The old seal cracked into black sparks.
 
 But the sparks did not fall.
@@ -204,7 +209,7 @@ Some flew east across the Ledger Sea. Others vanished north and west. For an ins
 
 The eldest oni looked upward.
 
-For the first time, the bouyousou haze left his eyes.
+For the first time, the bōyūsō haze left his eyes.
 
 — What have we done?
 
