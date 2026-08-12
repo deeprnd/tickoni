@@ -1,0 +1,73 @@
+# Platform Setup Scripts
+
+One `bash`/PowerShell script per supported machine variation. Developers run
+`bash contrib/setup/linux-x86-gcc.sh` (or the single `just setup-env` command)
+to install everything a lane needs before building or testing. CI calls the same
+scripts so developer and CI installs are provably identical.
+
+## Quick Start
+
+```bash
+just setup-env                # auto-detect platform and run the right script
+just setup-linux-x86-gcc      # explicit lane
+just setup-macos-arm          # macOS ARM64
+just setup-windows-x86        # Windows x86_64
+```
+
+## Supported Variations
+
+| Script | Platform | Arch | Compiler |
+|---|---|---|---|
+| `linux-x86-gcc.sh` | Linux | x86_64 | gcc-12 |
+| `linux-x86-clang.sh` | Linux | x86_64 | clang-18 |
+| `linux-arm-gcc.sh` | Linux | aarch64 | gcc-14 |
+| `macos-x86.sh` | macOS | x86_64 | clang (Xcode) |
+| `macos-arm.sh` | macOS | arm64 | clang (Xcode) |
+| `windows-x86.ps1` | Windows | x86_64 | clang (LLVM) |
+| `windows-arm.ps1` | Windows | arm64 | clang (LLVM) |
+
+## Design Principles
+
+1. **One source of truth.** `contrib/setup/zig-version` controls the Zig
+   version everywhere — no need to hardcode versions in setup scripts.
+2. **Setup may use sudo.** The V1.21 no-sudo constraint applies to daily
+   operations. Setup is a one-time privileged operation.
+3. **Idempotent.** Every script checks before installing. Re-running is a no-op.
+4. **Transparent.** Each script echoes what it's doing, exits non-zero on
+   failure, and leaves a clear error message.
+
+## Folder Structure
+
+```
+contrib/setup/
+  zig-version             # Zig version (single source of truth)
+  linux-x86-gcc.sh        # Linux x86_64 — GCC 12
+  linux-x86-clang.sh      # Linux x86_64 — Clang 18
+  linux-arm-gcc.sh        # Linux aarch64 — GCC 14
+  macos-x86.sh            # macOS x86_64
+  macos-arm.sh            # macOS ARM64
+  windows-x86.ps1         # Windows x86_64
+  windows-arm.ps1         # Windows ARM64
+  helpers/
+    common.sh             # Shared POSIX functions
+    common.ps1            # Shared Windows PowerShell functions
+    install-zig.py        # Official Zig binary installer wrapper
+    detect-windows-arch.sh# Windows arch normalization
+    firedancer-deps.sh    # Thin wrapper around contrib/deps.sh
+```
+
+## What Each Script Installs
+
+Every lane script installs:
+
+- **Zig** — from `contrib/setup/zig-version` via `helpers/install-zig.py`
+- **Compiler** — gcc-12 (Linux x86), clang-18 (Linux clang lane), clang (macOS/Windows)
+- **Build tools** — just, make, git, cmake
+- **Firedancer deps** — via `helpers/firedancer-deps.sh` (wraps `contrib/deps.sh`)
+- **Quality tools** — gitleaks, shellcheck, pre-commit
+- **Optional** — kcov (coverage builds), buf (protobuf)
+
+## CI Integration
+
+The `setup-public-gh-runner` composite action now calls `just setup-*` recipes
+instead of inline branching, keeping developer and CI installs identical.
