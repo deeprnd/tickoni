@@ -74,16 +74,7 @@ if (-not $NoSecurity) {
 # ── 2. just ──────────────────────────────────────────────────────────────────
 if (-not (Get-Command just -ErrorAction SilentlyContinue)) {
     log-info "Installing just..."
-    curl -sSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
-    # Add MSYS2 just install directory to PATH (and GITHUB_PATH for subsequent
-    # CI steps) — ARM runner images don't have /usr/local/bin on PATH.
-    $justDir = "C:\msys64\usr\local\bin"
-    if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $justDir })) {
-        $env:PATH = "$justDir;$env:PATH"
-    }
-    if ($env:GITHUB_PATH) {
-        Add-Content -Path $env:GITHUB_PATH -Value $justDir
-    }
+    winget install --id just.systems.just --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
 }
 
 # ── 3. LLVM (Clang compiler) ─────────────────────────────────────────────────
@@ -113,7 +104,43 @@ python3 (Join-Path $scriptDir "helpers\install-zig.py") `
     --user-path
 log-info "Zig installed (x86_64 binary)"
 
-# ── 5. MSVC build tools ──────────────────────────────────────────────────────
+# ── 5. cpanm (for MSYS2 Perl module installs) ───────────────────────────────
+# Strawberry Perl ships a cpanm fat-pack (cpanmin.pl) that is missing
+# ExtUtils::Manifest. Always use MSYS2's cpanminus instead — verify it
+# works by checking for ExtUtils::Manifest, then install via MSYS2 if
+# the first-found cpanm doesn't satisfy it.
+function Test-CpanmWorks {
+    $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
+    if (Test-Path $msysBash) {
+        $result = & $msysBash -lc "perl -MExtUtils::Manifest -e1 2>&1"
+        return $LASTEXITCODE -eq 0
+    }
+    return $false
+}
+
+$cpanmFound = Get-Command cpanm -ErrorAction SilentlyContinue
+if (-not $cpanmFound) {
+    log-info "cpanm not found — installing via MSYS2 pacman...";
+    $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
+    if (Test-Path $msysBash) {
+        & $msysBash -lc "pacman -S --noconfirm cpanminus" 2>&1 | Out-Null
+    }
+} elseif (-not (Test-CpanmWorks)) {
+    log-info "cpanm found but missing ExtUtils::Manifest (Strawberry Perl fat-pack) — installing MSYS2 cpanminus...";
+    $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
+    if (Test-Path $msysBash) {
+        & $msysBash -lc "pacman -S --noconfirm cpanminus" 2>&1 | Out-Null
+    }
+}
+
+# MSYS2 bin is at /usr/bin/cpanm — ensure MSYS2 is in PATH
+$msysPath = "$env:SystemDrive\msys64\usr\bin"
+if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $msysPath })) {
+    $env:PATH = $msysPath + ";" + $env:PATH
+}
+log-info "cpanm ready for Perl module installs";
+
+# ── 6. MSVC build tools ──────────────────────────────────────────────────────
 $msvc_version = read-compiler-version "msvc" $platform_key
 if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
     log-info "Installing Visual Studio Build Tools (MSVC ${msvc_version})..."
@@ -125,7 +152,7 @@ if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
     }
 }
 
-# ── 6. Firedancer deps ───────────────────────────────────────────────────────
+# ── 7. Firedancer deps ───────────────────────────────────────────────────────
 $env:CC = "clang"
 $env:CXX = "clang++"
 log-info "Installing Firedancer dependencies (CC=clang, CXX=clang++)..."
