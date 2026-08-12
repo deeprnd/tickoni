@@ -31,13 +31,8 @@ scoop install \
 # 3. LLVM (Clang compiler)
 $platform_key = get-windows-platform-key
 $clang_version = read-compiler-version "clang" $platform_key
-if ($clang_version) {
-    log-info "Installing LLVM/Clang ${clang_version}..."
-    scoop install llvm@"${clang_version}"
-} else {
-    log-info "Installing LLVM (latest)..."
-    scoop install llvm
-}
+log-info "Installing LLVM/Clang ${clang_version}..."
+scoop install llvm@"${clang_version}"
 
 # Add LLVM to PATH
 $llvmPath = (Get-Command clang -ErrorAction SilentlyContinue).Source | Split-Path

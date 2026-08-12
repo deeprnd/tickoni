@@ -30,13 +30,8 @@ scoop install \
 # 3. LLVM (Clang compiler)
 $platform_key = get-windows-platform-key
 $clang_version = read-compiler-version "clang" $platform_key
-if ($clang_version) {
-    log-info "Installing LLVM/Clang ${clang_version}..."
-    scoop install llvm@"${clang_version}"
-} else {
-    log-info "Installing LLVM (latest)..."
-    scoop install llvm
-}
+log-info "Installing LLVM/Clang ${clang_version}..."
+scoop install llvm@"${clang_version}"
 
 # Add LLVM to PATH
 $llvmPath = (Get-Command clang -ErrorAction SilentlyContinue).Source | Split-Path
@@ -57,21 +52,12 @@ if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
     log-info "Installing Visual Studio Build Tools (MSVC ${msvc_version})..."
     if (Test-Path "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat") {
         log-info "Visual Studio Build Tools found"
-    } elseif ($msvc_version) {
-        if (Get-Command choco -ErrorAction SilentlyContinue) {
-            log-info "Installing VS Build Tools ${msvc_version} via chocolatey..."
-            choco install visualstudio2022buildtools -y --version "${msvc_version}.*" --params "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
-        } else {
-            log-info "Installing VS Build Tools ${msvc_version} via winget..."
-            winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --version "*${msvc_version}*" -e
-        }
+    } elseif (Get-Command choco -ErrorAction SilentlyContinue) {
+        log-info "Installing VS Build Tools ${msvc_version} via chocolatey..."
+        choco install visualstudio2022buildtools -y --version "${msvc_version}.*" --params "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
     } else {
-        log-warn "No MSVC version in JSON — trying winget without version pin"
-        if (Get-Command winget -ErrorAction SilentlyContinue) {
-            winget install --id Microsoft.VisualStudio.2022.BuildTools -e
-        } else {
-            log-warn "No package manager found for VS Build Tools — build may fail"
-        }
+        log-info "Installing VS Build Tools ${msvc_version} via winget..."
+        winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --version "*${msvc_version}*" -e
     }
 }
 
