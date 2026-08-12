@@ -163,7 +163,7 @@ if (Test-Path (Join-Path $repoRoot "deps.sh")) {
     log-warn "deps.sh not found — skipping Firedancer deps"
 }
 
-# ── 7. LLM tooling (optional) ────────────────────────────────────────────────
+# ── 8. LLM tooling (optional) ────────────────────────────────────────────────
 if (-not $NoLLM) {
     log-info "Installing LLM tooling (llama.cpp build deps: MinGW-w64)..."
     Install-Dep -Choco "mingw" -WingetId "BrechtSanders.WinLibs.POSIX.UCRT"
@@ -172,7 +172,7 @@ if (-not $NoLLM) {
     log-info "Skipping LLM tooling (-NoLLM)"
 }
 
-# ── 8. Summary ───────────────────────────────────────────────────────────────
+# ── 9. Summary ───────────────────────────────────────────────────────────────
 log-info "Windows ARM64 setup complete"
 log-info "Tools:"
 foreach ($tool in @("clang", "zig", "just", "cl")) {
