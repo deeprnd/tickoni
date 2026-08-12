@@ -137,10 +137,10 @@ except Exception:
     Set-Content -Path $pythonPath -Value $pythonScript -Encoding UTF8
 
     try {
-        # Do not redirect stdout or stderr from python3 on Windows — the
-        # Microsoft Store shim triggers a StandardOutputEncoding error on any
-        # shell-level redirect.  The Python code already swallows exceptions.
-        python3 $pythonPath $tmpFile
+        # python3.exe on Windows is the Microsoft Store shim — PowerShell
+        # blocks it entirely. Use the Python launcher (py.exe) which is
+        # installed alongside Python and bypasses the shim.
+        py -3 "$pythonPath" > "$tmpFile" 2>&1
 
         $result = Get-Content $tmpFile -ErrorAction SilentlyContinue
 
