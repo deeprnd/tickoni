@@ -58,7 +58,7 @@ function get-windows-platform-key {
     return "windows-x86"
 }
 
-# Read compiler version from compiler-versions.json — fail hard if missing and not null
+# Read compiler version from compiler-versions.json — abort if missing or null
 # Usage: read-compiler-version "clang" "windows-x86"
 function read-compiler-version {
     param([string]$Tool, [string]$PlatformKey)
@@ -73,18 +73,18 @@ function read-compiler-version {
 import json, sys
 try:
     data = json.load(open(r'${jsonPath.Replace('\','\\')}'))
-    v = data.get(r'${Tool}', {}).get(r'${PlatformKey}', None)
+    v = data.get(r'${Tool}', {}).get(r'${PlatformKey}')
     if v is None:
-        print('null')
-    else:
-        print(v)
+        sys.exit(1)
+    print(v)
 except Exception:
-    print('null')
+    sys.exit(1)
 " 2>$null
 
-    if ($result -eq "null" -or -not $result) {
-        log-warn "No compiler version defined for ${Tool} on ${PlatformKey} (null in JSON) — skipping versioned install"
-        return $null
+    if ($LASTEXITCODE -ne 0 -or -not $result) {
+        log-error "Compiler version not defined for ${Tool} on ${PlatformKey}"
+        log-error "Add '${Tool}-${PlatformKey}' to ${jsonPath}"
+        exit 1
     }
 
     Write-Output $result.Trim()
