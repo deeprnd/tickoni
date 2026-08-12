@@ -81,7 +81,8 @@ function ensure-zig {
     if ($Target) {
         $zigArgs += @("--target", $Target)
     }
-    python3 (Join-Path $script:SCRIPT_DIR "install-zig.py") @zigArgs
+    # Use py.exe (Python launcher) instead of python3.exe to avoid the Microsoft Store shim.
+    py -3 (Join-Path $script:SCRIPT_DIR "install-zig.py") @zigArgs
     log-info "Zig installed"
 }
 
