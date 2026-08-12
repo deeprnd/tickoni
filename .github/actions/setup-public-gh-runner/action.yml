@@ -51,7 +51,7 @@ runs:
         arch="${{ runner.arch == 'ARM64' && 'arm' || 'x86' }}"
         compiler="${{ inputs.compiler }}"
         if [ "$os" = "windows" ]; then
-          pwsh "$GITHUB_WORKSPACE/contrib/setup/windows-${arch}.ps1" -NoLLM
+          pwsh "$GITHUB_WORKSPACE/contrib/setup/windows-${arch}.ps1" -NoLLM -NoSecurity
         elif [ "$os" = "linux" ] && [ "$compiler" = "clang" ]; then
           just "setup-${os}-${arch}-clang"
         elif [ "$os" = "linux" ]; then

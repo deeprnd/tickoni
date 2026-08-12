@@ -105,23 +105,23 @@ setup-env:
 
 # Linux x86_64 — GCC toolchain
 setup-linux-x86-gcc:
-	bash contrib/setup/linux-x86-gcc.sh
+	SECURITY=off bash contrib/setup/linux-x86-gcc.sh
 
 # Linux x86_64 — Clang toolchain
 setup-linux-x86-clang:
-	bash contrib/setup/linux-x86-clang.sh
+	SECURITY=off bash contrib/setup/linux-x86-clang.sh
 
 # Linux aarch64 — GCC toolchain
 setup-linux-arm-gcc:
-	bash contrib/setup/linux-arm-gcc.sh
+	SECURITY=off bash contrib/setup/linux-arm-gcc.sh
 
 # macOS x86_64
 setup-macos-x86:
-	bash contrib/setup/macos-x86.sh
+	SECURITY=off bash contrib/setup/macos-x86.sh
 
 # macOS ARM64
 setup-macos-arm:
-	bash contrib/setup/macos-arm.sh
+	SECURITY=off bash contrib/setup/macos-arm.sh
 
 # Windows x86_64 — dev mode (includes LLM tooling)
 setup-windows-x86:
@@ -131,13 +131,13 @@ setup-windows-x86:
 setup-windows-arm:
 	powershell -ExecutionPolicy Bypass -File contrib/setup/windows-arm.ps1
 
-# Windows x86_64 — CI mode (no LLM tooling)
+# Windows x86_64 — CI mode (no LLM tooling, no security tools)
 setup-windows-ci-x86:
-	powershell -ExecutionPolicy Bypass -File contrib/setup/windows-x86.ps1 -NoLLM
+	powershell -ExecutionPolicy Bypass -File contrib/setup/windows-x86.ps1 -NoLLM -NoSecurity
 
-# Windows ARM64 — CI mode (no LLM tooling)
+# Windows ARM64 — CI mode (no LLM tooling, no security tools)
 setup-windows-ci-arm:
-	powershell -ExecutionPolicy Bypass -File contrib/setup/windows-arm.ps1 -NoLLM
+	powershell -ExecutionPolicy Bypass -File contrib/setup/windows-arm.ps1 -NoLLM -NoSecurity
 
 # ── Python ─────────────────────────────────────────────────────────────────
 
