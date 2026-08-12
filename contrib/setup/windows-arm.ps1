@@ -109,9 +109,10 @@ $msvc_version = read-compiler-version "msvc" $platform_key
 if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
     log-info "Installing Visual Studio Build Tools (MSVC ${msvc_version})..."
     if ($pm -eq "choco") {
-        choco install visualstudio2022buildtools -y --version "${msvc_version}.*" --params "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+        # choco --version requires exact version — no wildcards. Just install latest.
+        choco install visualstudio2022buildtools -y --params "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
     } else {
-        winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --version "*${msvc_version}*" -e
+        winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
     }
 }
 
