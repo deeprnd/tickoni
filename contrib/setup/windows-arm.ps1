@@ -130,6 +130,6 @@ log-info "Windows ARM64 setup complete"
 log-info "Tools:"
 foreach ($tool in @("clang", "zig", "just", "cl")) {
     $ver = (Get-Command $tool -ErrorAction SilentlyContinue).Version
-    if ($ver) { log-info "  $tool: $ver" }
+    if ($ver) { log-info "  ${tool}: $ver" }
 }
 log-info "NOTE: Zig is x86_64 binary — builds run under Windows ARM x64 emulation"

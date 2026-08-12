@@ -125,5 +125,5 @@ log-info "Windows x86_64 setup complete"
 log-info "Tools:"
 foreach ($tool in @("clang", "zig", "just", "cl")) {
     $ver = (Get-Command $tool -ErrorAction SilentlyContinue).Version
-    if ($ver) { log-info "  $tool: $ver" }
+    if ($ver) { log-info "  ${tool}: $ver" }
 }
