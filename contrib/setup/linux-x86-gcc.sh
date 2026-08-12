@@ -7,44 +7,49 @@ source "${SCRIPT_DIR}/helpers/common.sh"
 
 log_info "Linux x86_64 GCC setup starting..."
 
-# 1. OS packages
-log_info "Installing system packages (gcc, make, build-essential, git)..."
+# 1. Read GCC version from JSON (fail if missing)
+platform_key="$(get_platform_key)"
+gcc_version="$(read_compiler_version gcc "$platform_key")"
+log_info "GCC version from compiler-versions.json: ${gcc_version}"
+
+# 2. OS packages
+log_info "Installing system packages (gcc-${gcc_version}, make, build-essential, git)..."
 sudo apt-get update -qq
 sudo apt-get install -y --no-install-recommends \
-    gcc-12 g++-12 make git curl ca-certificates \
+    "gcc-${gcc_version}" "g++-${gcc_version}" make git curl ca-certificates \
     cmake pkg-config libssl-dev zstd
 
-# 2. Zig
+# 3. Zig
 ensure_zig
 
-# 3. GCC version check
-if gcc-12 --version &>/dev/null; then
-    log_info "gcc-12: $(gcc-12 --version | head -1)"
+# 4. GCC version check
+if gcc-${gcc_version} --version &>/dev/null; then
+    log_info "gcc-${gcc_version}: $(gcc-${gcc_version} --version | head -1)"
 else
-    log_error "gcc-12 not found after install"
+    log_error "gcc-${gcc_version} not found after install"
     exit 1
 fi
-export CC=gcc-12 CXX=g++-12
+export CC="gcc-${gcc_version}" CXX="g++-${gcc_version}"
 
-# 4. just
+# 5. just
 if ! tool_exists just; then
     log_info "Installing just..."
     curl -sSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
 fi
 
-# 5. Firedancer deps
+# 6. Firedancer deps
 ensure_firedancer_deps
 
-# 6. Quality tools
+# 7. Quality tools
 ensure_gitleaks
 ensure_shellcheck
 ensure_precommit
 
-# 7. Build tools
+# 8. Build tools
 ensure_buf
 
-# 8. Coverage tool (optional, skip if kcov fails)
-ensure_kcov || log_warn "kcov not available — coverage builds will be skipped"
+# 9. Coverage tool (optional, skip if kcov fails)
+ensure_kcpy || log_warn "kcpy not available — coverage builds will be skipped"
 
 print_install_summary
 

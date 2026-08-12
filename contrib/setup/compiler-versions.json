@@ -1,0 +1,13 @@
+{
+  "gcc": {
+    "linux-x86": "12",
+    "linux-arm": "14",
+    "macos-x86": null,
+    "macos-arm": null
+  },
+  "clang": {
+    "linux-x86": "18",
+    "macos-x86": null,
+    "macos-arm": null
+  }
+}

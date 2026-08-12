@@ -7,44 +7,49 @@ source "${SCRIPT_DIR}/helpers/common.sh"
 
 log_info "Linux x86_64 Clang setup starting..."
 
-# 1. OS packages — clang-18, lld-18, llvm-18
-log_info "Installing system packages (clang-18, llvm-18, make, git)..."
+# 1. Read Clang version from JSON (fail if missing)
+platform_key="$(get_platform_key)"
+clang_version="$(read_compiler_version clang "$platform_key")"
+log_info "Clang version from compiler-versions.json: ${clang_version}"
+
+# 2. OS packages — clang-${clang_version}, lld-${clang_version}, llvm-${clang_version}
+log_info "Installing system packages (clang-${clang_version}, llvm-${clang_version}, make, git)..."
 sudo apt-get update -qq
 sudo apt-get install -y --no-install-recommends \
-    clang-18 llvm-18 lld-18 make git curl ca-certificates \
+    "clang-${clang_version}" "llvm-${clang_version}" "lld-${clang_version}" make git curl ca-certificates \
     cmake pkg-config libssl-dev zstd
 
-# 2. Zig
+# 3. Zig
 ensure_zig
 
-# 3. Clang version check
-if clang-18 --version &>/dev/null; then
-    log_info "clang-18: $(clang-18 --version | head -1)"
+# 4. Clang version check
+if clang-${clang_version} --version &>/dev/null; then
+    log_info "clang-${clang_version}: $(clang-${clang_version} --version | head -1)"
 else
-    log_error "clang-18 not found after install"
+    log_error "clang-${clang_version} not found after install"
     exit 1
 fi
-export CC=clang-18 CXX=clang++-18
+export CC="clang-${clang_version}" CXX="clang++-${clang_version}"
 
-# 4. just
+# 5. just
 if ! tool_exists just; then
     log_info "Installing just..."
     curl -sSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
 fi
 
-# 5. Firedancer deps
+# 6. Firedancer deps
 ensure_firedancer_deps
 
-# 6. Quality tools
+# 7. Quality tools
 ensure_gitleaks
 ensure_shellcheck
 ensure_precommit
 
-# 7. Build tools
+# 8. Build tools
 ensure_buf
 
-# 8. Coverage tool (optional)
-ensure_kcov || log_warn "kcov not available — coverage builds will be skipped"
+# 9. Coverage tool (optional)
+ensure_kcpy || log_warn "kcpy not available — coverage builds will be skipped"
 
 print_install_summary
 

@@ -6,6 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
+COMPILER_VERSIONS="${REPO_ROOT}/contrib/setup/compiler-versions.json"
 
 log_info()  { printf '[setup] %s\n' "$*" ; }
 log_warn()  { printf '[setup] WARN: %s\n' "$*" >&2 ; }
@@ -14,10 +15,89 @@ log_error() { printf '[setup] ERROR: %s\n' "$*" >&2 ; }
 # Check if a command exists on PATH
 tool_exists() { command -v "$1" &>/dev/null ; }
 
+# Read zig-version from file — fail hard if missing
+read_zig_version() {
+    local zig_file="${REPO_ROOT}/contrib/setup/zig-version"
+    if [ ! -f "$zig_file" ]; then
+        log_error "Zig version file missing: ${zig_file}"
+        log_error "Create it with: echo '0.16.0' > ${zig_file}"
+        exit 1
+    fi
+    local version
+    version="$(cat "$zig_file" | tr -d '[:space:]')"
+    if [ -z "$version" ]; then
+        log_error "Zig version file is empty: ${zig_file}"
+        exit 1
+    fi
+    echo "$version"
+}
+
+# Read compiler version from JSON — fail hard if missing
+# Usage: read_compiler_version "gcc" "linux-x86"
+read_compiler_version() {
+    local tool="$1"
+    local platform_key="$2"
+    
+    if [ ! -f "$COMPILER_VERSIONS" ]; then
+        log_error "Compiler versions file missing: ${COMPILER_VERSIONS}"
+        exit 1
+    fi
+    
+    local version
+    version="$(python3 -c "
+import json, sys
+try:
+    data = json.load(open('${COMPILER_VERSIONS}'))
+    v = data.get('${tool}', {}).get('${platform_key}', '')
+    if not v:
+        sys.exit(1)
+    print(v)
+except (json.JSONDecodeError, Exception):
+    sys.exit(1)
+" 2>/dev/null)" || {
+        log_error "Compiler version not defined for ${tool} on ${platform_key}"
+        log_error "Add '${tool}-${platform_key}' to ${COMPILER_VERSIONS}"
+        exit 1
+    }
+    
+    echo "$version"
+}
+
+# Get platform key for version lookup
+# Usage: get_platform_key
+# Returns: linux-x86, linux-arm, macos-x86, macos-arm
+get_platform_key() {
+    local os
+    os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+    local arch
+    arch="$(uname -m)"
+    
+    case "$os" in
+        linux)
+            case "$arch" in
+                x86_64) echo "linux-x86" ;;
+                aarch64|arm64) echo "linux-arm" ;;
+                *) log_error "Unknown Linux architecture: $arch"; exit 1 ;;
+            esac
+            ;;
+        darwin)
+            case "$arch" in
+                x86_64) echo "macos-x86" ;;
+                arm64) echo "macos-arm" ;;
+                *) log_error "Unknown macOS architecture: $arch"; exit 1 ;;
+            esac
+            ;;
+        *)
+            log_error "Unsupported OS: $os ($arch)"
+            exit 1
+            ;;
+    esac
+}
+
 # Install Zig via install-zig.py
 ensure_zig() {
     local zig_version
-    zig_version="$(cat "${REPO_ROOT}/contrib/setup/zig-version" 2>/dev/null || echo "0.16.0")"
+    zig_version="$(read_zig_version)"
     local zig_bin="${HOME}/.local/zig/zig"
 
     if [ -f "$zig_bin" ] && "${zig_bin}" --version &>/dev/null; then
@@ -33,28 +113,6 @@ ensure_zig() {
         --cache-root "${HOME}/.cache"
     export PATH="${HOME}/.local/zig:${PATH}"
     log_info "Zig installed to ${HOME}/.local/zig"
-}
-
-# Install Zig via install-zig-bootstrap.py (for bootstrap build users)
-ensure_zig_bootstrap() {
-    local zig_ref="master"
-    if [ -f "${REPO_ROOT}/.zig-bootstrap-ref" ]; then
-        zig_ref="$(cat "${REPO_ROOT}/.zig-bootstrap-ref")"
-    fi
-    local install_root="${HOME}/.local/zig-bootstrap"
-
-    if [ -d "${install_root}" ] && [ -f "${install_root}/zig" ]; then
-        log_info "Zig-bootstrap ${zig_ref} already installed"
-        export PATH="${install_root}:${PATH}"
-        return 0
-    fi
-
-    log_info "Installing Zig-bootstrap (ref=${zig_ref})..."
-    python3 "${SCRIPT_DIR}/install-zig-bootstrap.py" \
-        --bootstrap-ref "${zig_ref}" \
-        --install-root "${install_root}" \
-        --cache-root "${HOME}/.cache/zig-bootstrap"
-    log_info "Zig-bootstrap installed to ${install_root}"
 }
 
 # Install Firedancer dependencies via deps.sh
@@ -94,23 +152,23 @@ ensure_gitleaks() {
     fi
 }
 
-# Install kcov from source (SimonKagstrom/kcpy)
-ensure_kcov() {
-    if tool_exists kcov; then
-        log_info "kcov already installed"
+# Install kcpy from source (SimonKagstrom/kcpy)
+ensure_kcpy() {
+    if tool_exists kcpy; then
+        log_info "kcpy already installed"
         return 0
     fi
 
-    log_info "Building kcov from source..."
+    log_info "Building kcpy from source..."
     (
         cd "$(mktemp -d)"
-        git clone --depth 1 https://github.com/SimonKagstrom/kcov.git .
+        git clone --depth 1 https://github.com/SimonKagstrom/kcpy.git .
         mkdir build && cd build
         cmake .. -DCMAKE_BUILD_TYPE=Release
-        make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
-        sudo make install || sudo cp kcov /usr/local/bin/kcov
+        make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || (log_error "Cannot detect CPU count"; exit 1))"
+        sudo make install || sudo cp kcpy /usr/local/bin/kcpy
     )
-    log_info "kcov built and installed"
+    log_info "kcpy built and installed"
 }
 
 # Install shellcheck
@@ -172,7 +230,7 @@ ensure_buf() {
 
 # Print summary of what was installed
 print_install_summary() {
-    local tools=("zig" "gcc" "clang" "make" "just" "gitleaks" "kcov" "shellcheck" "pre-commit" "buf")
+    local tools=("zig" "gcc" "clang" "make" "just" "gitleaks" "kcpy" "shellcheck" "pre-commit" "buf")
     log_info "Installed tools:"
     for tool in "${tools[@]}"; do
         if tool_exists "$tool"; then
