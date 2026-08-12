@@ -73,8 +73,9 @@ if (-not (Get-Command just -ErrorAction SilentlyContinue)) {
 }
 
 # ── 3. LLVM (Clang compiler) ─────────────────────────────────────────────────
-# Note: ARM runners use x64 emulation, so arch detection returns x86_64.
-# Hardcode platform-key to windows-arm for this lane.
+# detect-windows-arch.sh checks PROCESSOR_ARCHITEW6432 (WOW64) before
+# PROCESSOR_ARCHITECTURE. On native ARM64, WOW64 env = AMD64 → returns
+# x86_64. Hardcode platform-key for this lane instead.
 $platform_key = "windows-arm"
 $clang_version = read-compiler-version "clang" $platform_key
 log-info "Installing LLVM/Clang ${clang_version}..."
