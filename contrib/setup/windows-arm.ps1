@@ -66,11 +66,11 @@ if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
 $env:CC = "clang"
 $env:CXX = "clang++"
 log-info "Installing Firedancer dependencies (CC=clang, CXX=clang++)..."
-if (Test-Path (Join-Path $repoRoot "contrib\deps.sh")) {
-    & bash (Join-Path $repoRoot "contrib\deps.sh") check
-    & bash (Join-Path $repoRoot "contrib\deps.sh") fetch install
+if (Test-Path (Join-Path $repoRoot "deps.sh")) {
+    & bash (Join-Path $repoRoot "deps.sh") check
+    & bash (Join-Path $repoRoot "deps.sh") fetch install
 } else {
-    log-warn "contrib/deps.sh not found — skipping Firedancer deps"
+    log-warn "deps.sh not found — skipping Firedancer deps"
 }
 
 # 7. Print summary
