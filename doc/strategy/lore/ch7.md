@@ -10,11 +10,11 @@ Seventeen hundred yen remained.
 
 The boatwright had finally received the three hundred yen he was owed. Maro’s investment basket still existed only in the practice ledger, waiting until he could afford to carry its real weight.
 
-His purse was no longer burdened by debt.
-
-But savings were not income.
+Two debts remained, but winter already had first claim on his purse. And winter did not care whether the money was called savings.
 
 Every meal, night of shelter, and mile across the sea reduced the money that protected him from the next storm. He had no boat to return to and no trade that paid him while he travelled.
+
+What he needed was income.
 
 Above the harbor gate hung a cedar sign:
 
@@ -144,7 +144,7 @@ He repaired mechanisms brought from distant islands.
 
 — Can you make Akane equipment work here? — Tickoni asked.
 
-— I can make it speak to Kōri tools. That is not the same as making it Kōri.
+— I can make it fit Kōri tools. That is not the same as making it Kōri.
 
 Yamori opened his belt. Half the tools had been altered. Some had new handles. Others had been cut apart and joined to pieces from different shores.
 
@@ -250,9 +250,27 @@ Tickoni blocked the valves.
 
 The Seal of Weight ignited.
 
-Open the reserve, and the heat would drive the dragon toward the rice vaults.
+The reserve channels brightened beneath the ice.
 
-Keep it closed, and pressure beneath the bathhouse would split the market.
+One ran beneath the rice vaults.
+
+Pressure swelled beneath the bathhouse. Cracks already spread through the stone above it.
+
+Genza gripped the valve.
+
+— Will it go to the rice vaults?
+
+— I don't know.
+
+— Then why stop me?
+
+Tickoni looked at the glowing channel beneath the ice.
+
+— Because that is where the heat goes.
+
+Open the reserve, and the heat had somewhere to travel.
+
+Keep it closed, and the pressure had nowhere to go.
 
 Yamori pressed his ear to a pipe.
 
@@ -266,7 +284,7 @@ Yamori vanished into a steam vent. Tickoni followed the glowing paths below.
 
 Akane valves joined Kōri furnaces and forgotten bronze machinery. Each worked alone. Together, they trapped the heat.
 
-— Three systems, — Yamori shouted. — None agrees where the flow should go!
+— Three systems! — Yamori shouted. — Each has its own path. Nothing says where they are supposed to meet!
 
 The Seal of Placement burned.
 
@@ -281,6 +299,10 @@ One led to the harbor.
 Yamori joined Akane silver, Kōri iron, and an old bronze ring around an open chamber.
 
 — Honest joint.
+
+No mechanism decided what the flow meant.
+
+Three paths simply met in one visible place.
 
 Tickoni opened the harbor path.
 
@@ -348,7 +370,11 @@ The Exchange opened a small red counter:
 
 **TRIAL SUPPLY**
 
-Later, as the market emptied, Yamori glanced at Tickoni.
+Later, as the market emptied, something dark flickered through the steam.
+
+Tickoni felt a brief heat beneath its ribs.
+
+Yamori glanced at Tickoni.
 
 — Is that another seal?
 
@@ -357,7 +383,6 @@ Tickoni looked down.
 Beside the three black marks was a curved stroke, dark as cooled ink.
 
 Nothing spoke.
-
 No name returned to the sea.
 
 — I don't know.

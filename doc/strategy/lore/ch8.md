@@ -252,7 +252,7 @@ Mokichi pointed at the bronze plate.
 
 Yamori read the carving.
 
-**RELEASE THE BRAKE. RAISE THE CAGE.**
+**DOWN — RELEASE BRAKE**
 
 Mokichi crossed to the iron machine.
 
@@ -262,7 +262,7 @@ Yamori read its plate.
 
 He stopped.
 
-**RELEASE THE BRAKE. LOWER THE CAGE.**
+**DOWN — LOWER CAGE**
 
 Below them, a bell rang.
 
@@ -272,37 +272,37 @@ Yamori looked at the two levers.
 
 Same position.
 
-On one machine, **down** meant **raise**.
+On one machine, **down** released the cage.
 
-On the other, **down** meant **lower**.
+On the other, **down** sent it lower.
 
 — Same movement, — Yamori said.
 
-— Opposite command, — Tickoni replied.
+— Different meaning, — Tickoni replied.
 
 The Seal of the Ticket burned beneath Tickoni’s ribs.
 
 Tickoni pointed toward the cage.
 
-— Six miners. Bring them to the upper landing. The lower brake remains the final stop. If either machine sends something we do not understand, we stop.
+— Six miners. Bring them to the upper landing. The bronze brake remains the final stop. If either machine sends something we do not understand, we stop.
 
 The rescue had a boundary.
 
 Then the Seal of Weight burned.
 
-Three outcomes opened before Tickoni like reflections in dark water.
+The brake glowed beneath one possible command.
 
-In one, the brake released too early.
+Its grip vanished.
 
-The cage fell.
+Six bodies remained above an open shaft.
 
-In another, the hoist pulled against a locked brake.
+The hoist glowed beneath another.
 
-The cable snapped.
+The cable pulled against the locked brake until its strands burned red.
 
-In the third, an unknown warning passed between the machines.
+Then an unknown warning crossed between the machines.
 
-After that, the reflection became black.
+Beyond it, everything went black.
 
 — Making them move together is not enough, — Tickoni said.
 
@@ -316,9 +316,21 @@ The other controlled the lift.
 
 Between them was only the place where their commands had to meet.
 
+Placement had done its work.
+
+The boundary was clear.
+
+The danger remained.
+
 Yamori stared at the controls.
 
-Then tore the Guild Hachi-Roku adapters apart.
+— We know where they meet, — he said.
+
+He looked at the two plates.
+
+— We still don't know what they are saying.
+
+Then he tore the Guild Hachi-Roku adapters apart.
 
 — They need to speak alike.
 
@@ -392,6 +404,9 @@ Yamori pulled the control.
 
 **RAISE.**
 
+On the bronze side, **RAISE** released the brake.
+On the iron side, it lifted the cage.
+
 The cage climbed.
 
 Ten feet.
@@ -432,7 +447,9 @@ For now.
 
 The Seal of Weight remained hot.
 
-It showed no safe path through a guess.
+Beyond the unknown warning, it showed nothing.
+
+Weight could show the cost of what they knew. It could not weigh what they did not understand.
 
 Yamori lowered his hand.
 
@@ -452,6 +469,12 @@ Perhaps the cage would have passed.
 
 Perhaps not.
 
+Yamori looked at Tickoni.
+
+— Your seal didn't show this.
+
+— I didn't know it was there.
+
 Yamori reset it, measured it, and tested it.
 
 Only when both machines again agreed on **READY** did they continue.
@@ -466,13 +489,15 @@ Tickoni stood beside the wooden box.
 
 The half-mark beneath its ribs burned.
 
-At Kōri, Akane silver, Kōri iron, and forgotten bronze had been joined without forcing them to become the same machine.
+At Kōri, different systems had been given one place to meet without becoming one system.
 
 That had been only half the lesson.
 
 Different machines could meet.
 
 But meeting was not enough.
+
+A boundary can not say what should cross.
 
 The bronze brake remained bronze.
 
@@ -488,11 +513,16 @@ And when neither side understood what had been said—
 
 nothing moved.
 
-A second curved stroke appeared beneath Tickoni’s ribs.
+Suddenly, something black rose from the wooden box.
 
-A short line joined it to the first.
+A small fragment spun through the air.
 
-The half-mark became whole.
+It struck the curved mark beneath Tickoni’s ribs and locked against it.
+
+A second stroke formed.
+A short line joined the two.
+
+The mark became whole.
 
 Black fire moved across it.
 

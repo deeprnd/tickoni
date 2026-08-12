@@ -216,7 +216,13 @@ Maro stared at the three boats.
 
 — The sea does not carry them alone, — Tickoni said.
 
-Maro looked at the sinking reflection.
+Maro looked again at the reflections.
+
+— Are these futures?
+
+— No. They are consequences. The sea does not know what you will choose.
+
+Maro looked at the sinking reflection one more time.
 
 — If I keep doing this, I will never own another boat.
 
