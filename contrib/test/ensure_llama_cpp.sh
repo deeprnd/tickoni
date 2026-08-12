@@ -70,6 +70,22 @@ for cmd in git cmake ninja; do
   fi
 done
 
+# Ensure OpenBLAS is available for CPU + OpenBLAS builds
+if ! command -v cmake >/dev/null 2>&1; then
+    : # cmake not available, can't check/fix deps
+elif (( gpu_build == 0 )); then
+    if ! pkg-config --exists openblas 2>/dev/null && \
+       ! ldconfig -p 2>/dev/null | grep -q libopenblas && \
+       ! ldconfig -p 2>/dev/null | grep -q libblas && \
+       ! find /usr/include /usr/local/include /opt -maxdepth 3 -name "cblas.h" -print -quit 2>/dev/null | grep -q .; then
+        if command -v apt-get >/dev/null 2>&1; then
+            echo "Installing OpenBLAS development package for llama.cpp CPU build..."
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends libopenblas-dev
+        fi
+    fi
+fi
+
 if [[ ! -d "$llama_dir" ]]; then
   echo "cloning llama.cpp into ${llama_dir}"
   git clone https://github.com/ggml-org/llama.cpp "$llama_dir"
