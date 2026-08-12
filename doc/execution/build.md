@@ -41,6 +41,29 @@ deps):
 just python-dev-install-all
 ```
 
+Setup
+~~~~~
+
+Platform-specific tooling is installed by `just setup-env`, which
+auto-detects your platform and runs the appropriate script. Each lane has its
+own script so developer and CI installs are provably identical:
+
+| Command | Platform | Arch | Compiler |
+|---|---|---|---|
+| `just setup-linux-x86-gcc` | Linux | x86_64 | gcc-12 |
+| `just setup-linux-x86-clang` | Linux | x86_64 | clang-18 |
+| `just setup-linux-arm-gcc` | Linux | aarch64 | gcc-14 |
+| `just setup-macos-x86` | macOS | x86_64 | clang (Xcode) |
+| `just setup-macos-arm` | macOS | arm64 | clang (Xcode) |
+| `just setup-windows-x86` | Windows | x86_64 | clang (LLVM) |
+| `just setup-windows-arm` | Windows | arm64 | clang (LLVM) |
+
+Every lane script installs Zig (from `contrib/setup/zig-version`), a system
+compiler, build tools, Firedancer deps, and quality tooling. Scripts are
+idempotent — re-running is a no-op.
+
+See [contrib/setup/README.md](../../contrib/setup/README.md) for details.
+
 Build the Tickoni-owned Zig supervisor:
 
 ```bash
