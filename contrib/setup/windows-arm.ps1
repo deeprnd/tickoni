@@ -73,7 +73,9 @@ if (-not (Get-Command just -ErrorAction SilentlyContinue)) {
 }
 
 # ── 3. LLVM (Clang compiler) ─────────────────────────────────────────────────
-$platform_key = get-windows-platform-key
+# Note: ARM runners use x64 emulation, so arch detection returns x86_64.
+# Hardcode platform-key to windows-arm for this lane.
+$platform_key = "windows-arm"
 $clang_version = read-compiler-version "clang" $platform_key
 log-info "Installing LLVM/Clang ${clang_version}..."
 Install-Dep -Choco "llvm" -WingetId "LLVM.LLVM.$clang_version"
