@@ -15,9 +15,12 @@ function tool-exists {
 
 # Install Zig via install-zig.py
 function ensure-zig {
-    $zigVersion = if (Test-Path (Join-Path $script:REPO_ROOT ".zig-version")) {
-        Get-Content (Join-Path $script:REPO_ROOT ".zig-version")
+    param([string]$Target)
+
+    $zigVersion = if (Test-Path (Join-Path $script:REPO_ROOT "contrib\setup\zig-version")) {
+        Get-Content (Join-Path $script:REPO_ROOT "contrib\setup\zig-version") -ErrorAction SilentlyContinue
     } else { "0.16.0" }
+    $zigVersion = $zigVersion.Trim()
 
     $zigBin = Join-Path $env:LOCALAPPDATA "Programs\Zig\zig"
 
@@ -28,34 +31,12 @@ function ensure-zig {
     }
 
     log-info "Installing Zig $zigVersion..."
-    python3 (Join-Path $script:SCRIPT_DIR "install-zig.py") `
-        --version $zigVersion `
-        --install-root (Join-Path $env:LOCALAPPDATA "Programs") `
-        --cache-root (Join-Path $env:LOCALAPPDATA "zig") `
-        --user-path
-    log-info "Zig installed"
-}
-
-# Install Zig bootstrap build
-function ensure-zig-bootstrap {
-    $zigRef = if (Test-Path (Join-Path $script:REPO_ROOT ".zig-bootstrap-ref")) {
-        Get-Content (Join-Path $script:REPO_ROOT ".zig-bootstrap-ref")
-    } else { "master" }
-
-    $installRoot = Join-Path $env:LOCALAPPDATA "Programs\zig-bootstrap"
-
-    if (Test-Path (Join-Path $installRoot "zig")) {
-        log-info "Zig-bootstrap $zigRef already installed"
-        $env:PATH = $installRoot + ";" + $env:PATH
-        return
+    $zigArgs = @("--version", $zigVersion, "--install-root", (Join-Path $env:LOCALAPPDATA "Programs"), "--cache-root", (Join-Path $env:LOCALAPPDATA "zig"), "--user-path")
+    if ($Target) {
+        $zigArgs += @("--target", $Target)
     }
-
-    log-info "Installing Zig-bootstrap (ref=$zigRef)..."
-    python3 (Join-Path $script:SCRIPT_DIR "install-zig-bootstrap.py") `
-        --bootstrap-ref $zigRef `
-        --install-root $installRoot `
-        --cache-root (Join-Path $env:LOCALAPPDATA "zig-bootstrap")
-    log-info "Zig-bootstrap installed"
+    python3 (Join-Path $script:SCRIPT_DIR "install-zig.py") @zigArgs
+    log-info "Zig installed"
 }
 
 # Detect Windows architecture using detect-windows-arch.sh
