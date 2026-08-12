@@ -75,6 +75,15 @@ if (-not $NoSecurity) {
 if (-not (Get-Command just -ErrorAction SilentlyContinue)) {
     log-info "Installing just..."
     curl -sSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+    # Add MSYS2 just install directory to PATH (and GITHUB_PATH for subsequent
+    # CI steps) — ARM runner images don't have /usr/local/bin on PATH.
+    $justDir = "C:\msys64\usr\local\bin"
+    if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $justDir })) {
+        $env:PATH = "$justDir;$env:PATH"
+    }
+    if ($env:GITHUB_PATH) {
+        Add-Content -Path $env:GITHUB_PATH -Value $justDir
+    }
 }
 
 # ── 3. LLVM (Clang compiler) ─────────────────────────────────────────────────

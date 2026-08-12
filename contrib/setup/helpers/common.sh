@@ -134,6 +134,7 @@ ensure_firedancer_deps() {
 
 # Install gitleaks (pinned version — matches CI gitleaks on main)
 GITLEAKS_VERSION="8.30.1"
+GITLEAKS_ORG="gitleaks"
 
 ensure_gitleaks() {
     if tool_exists gitleaks; then
@@ -146,7 +147,7 @@ ensure_gitleaks() {
 
     os="$(uname -s | tr '[:upper:]' '[:lower:]')"
     case "$(uname -m)" in
-        x86_64)    arch="x64" ;;
+        x86_64)    arch="amd64" ;;
         aarch64|arm64) arch="arm64" ;;
         *) echo "unsupported arch: $(uname -m)" >&2; return 1 ;;
     esac
@@ -168,7 +169,7 @@ ensure_gitleaks() {
 
     local tmpdir
     tmpdir="$(mktemp -d)"
-    curl -sSfL "https://github.com/zricethezav/gitleaks/releases/download/v${GITLEAKS_VERSION}/${asset}" \
+    curl -sSfL "https://github.com/${GITLEAKS_ORG}/gitleaks/releases/download/v${GITLEAKS_VERSION}/${asset}" \
         -o "${tmpdir}/gitleaks.tar.gz"
     tar -xzf "${tmpdir}/gitleaks.tar.gz" -C "${tmpdir}"
     sudo cp "${tmpdir}/gitleaks" /usr/local/bin/gitleaks

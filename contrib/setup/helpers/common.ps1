@@ -39,7 +39,7 @@ function ensure-gitleaks {
     New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
 
     Invoke-WebRequest `
-        -Uri "https://github.com/zricethezav/gitleaks/releases/download/v${script:GITLEAKS_VERSION}/${asset}" `
+        -Uri "https://github.com/gitleaks/gitleaks/releases/download/v${script:GITLEAKS_VERSION}/${asset}" `
         -OutFile (Join-Path $tmpDir "gitleaks.zip") -UseBasicParsing
 
     Expand-Archive -Path (Join-Path $tmpDir "gitleaks.zip") -DestinationPath $tmpDir -Force
