@@ -15,6 +15,7 @@ Core requirements:
 - Windows 10 2004+ (x86_64) or Windows 11 (ARM64) for retail tier builds
 - `just` (install manually — it is the sole documented manual prerequisite)
 - Python 3
+- clang or MSVC for Windows builds (MinGW-w64 for MSYS2)
 
 Install platform-specific tooling with one command:
 
