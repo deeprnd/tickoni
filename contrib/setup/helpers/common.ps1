@@ -115,12 +115,12 @@ function read-compiler-version {
         exit 1
     }
 
-    # Use a temp file to avoid "StdoutEncoding" restriction when python3
-    # writes directly to stdout in a non-redirected context on Windows.
     $tmpFile = Join-Path $env:TEMP "py_compiler_version_$([Guid]::NewGuid().ToString('N')).txt"
     $pythonPath = Join-Path $script:SCRIPT_DIR "py_read_compiler_version.py"
 
-    # Write the helper script with the resolved JSON path baked in.
+    # Write the helper script so it accepts output file as argv[1] and
+    # writes directly — avoids python3.exe (Microsoft Store shim) stdout
+    # redirect issues on Windows PowerShell.
     $escapedJson = $jsonPath.Replace('\', '\\')
     $pythonScript = @"
 import json, sys
@@ -129,14 +129,15 @@ try:
     v = data.get(r'$Tool', {}).get(r'$PlatformKey')
     if v is None:
         sys.exit(1)
-    print(v)
+    with open(sys.argv[1], 'w') as f:
+        f.write(str(v))
 except Exception:
     sys.exit(1)
 "@
     Set-Content -Path $pythonPath -Value $pythonScript -Encoding UTF8
 
     try {
-        python3 $pythonPath > $tmpFile 2>$null
+        python3 $pythonPath $tmpFile 2>$null
 
         $result = Get-Content $tmpFile -ErrorAction SilentlyContinue
 
