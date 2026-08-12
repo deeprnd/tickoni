@@ -115,25 +115,42 @@ function read-compiler-version {
         exit 1
     }
 
-    $result = python3 -c "
+    # Use a temp file to avoid "StdoutEncoding" restriction when python3
+    # writes directly to stdout in a non-redirected context on Windows.
+    $tmpFile = Join-Path $env:TEMP "py_compiler_version_$([Guid]::NewGuid().ToString('N')).txt"
+    $pythonPath = Join-Path $script:SCRIPT_DIR "py_read_compiler_version.py"
+
+    # Write the helper script with the resolved JSON path baked in.
+    $escapedJson = $jsonPath.Replace('\', '\\')
+    $pythonScript = @"
 import json, sys
 try:
-    data = json.load(open(r'${jsonPath.Replace('\','\\')}'))
-    v = data.get(r'${Tool}', {}).get(r'${PlatformKey}')
+    data = json.load(open(r'$escapedJson'))
+    v = data.get(r'$Tool', {}).get(r'$PlatformKey')
     if v is None:
         sys.exit(1)
     print(v)
 except Exception:
     sys.exit(1)
-" 2>$null
+"@
+    Set-Content -Path $pythonPath -Value $pythonScript -Encoding UTF8
 
-    if ($LASTEXITCODE -ne 0 -or -not $result) {
-        log-error "Compiler version not defined for ${Tool} on ${PlatformKey}"
-        log-error "Add '${Tool}-${PlatformKey}' to ${jsonPath}"
-        exit 1
+    try {
+        python3 $pythonPath > $tmpFile 2>$null
+
+        $result = Get-Content $tmpFile -ErrorAction SilentlyContinue
+
+        if ($LASTEXITCODE -ne 0 -or -not $result -or $result.Count -eq 0) {
+            log-error "Compiler version not defined for ${Tool} on ${PlatformKey}"
+            log-error "Add '${Tool}-${PlatformKey}' to ${jsonPath}"
+            exit 1
+        }
+
+        Write-Output $result.Trim()
+    } finally {
+        Remove-Item $pythonPath -ErrorAction SilentlyContinue
+        Remove-Item $tmpFile -ErrorAction SilentlyContinue
     }
-
-    Write-Output $result.Trim()
 }
 
 # Detect Windows architecture using detect-windows-arch.sh
