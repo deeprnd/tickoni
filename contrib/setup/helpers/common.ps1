@@ -144,7 +144,8 @@ except Exception:
         # python3.exe on Windows is the Microsoft Store shim — PowerShell
         # blocks it entirely. Use the Python launcher (py.exe) which is
         # installed alongside Python and bypasses the shim.
-        py -3 "$pythonPath" > "$tmpFile" 2>&1
+        # No stdout redirect — Python writes directly to argv[1] (the output file).
+        py -3 "$pythonPath" "$tmpFile"
 
         $result = Get-Content $tmpFile -ErrorAction SilentlyContinue
 
