@@ -51,13 +51,29 @@ runs:
         arch="${{ runner.arch == 'ARM64' && 'arm' || 'x86' }}"
         compiler="${{ inputs.compiler }}"
         if [ "$os" = "windows" ]; then
-          pwsh "$GITHUB_WORKSPACE/contrib/setup/windows-${arch}.ps1" -NoLLM -NoSecurity
+          if [ "${{ inputs.gitleaks }}" = "true" ]; then
+            pwsh "$GITHUB_WORKSPACE/contrib/setup/windows-${arch}.ps1" -NoLLM
+          else
+            pwsh "$GITHUB_WORKSPACE/contrib/setup/windows-${arch}.ps1" -NoLLM -NoSecurity
+          fi
         elif [ "$os" = "linux" ] && [ "$compiler" = "clang" ]; then
-          just "setup-${os}-${arch}-clang"
+          if [ "${{ inputs.gitleaks }}" = "true" ]; then
+            SECURITY=on just "setup-${os}-${arch}-clang"
+          else
+            just "setup-${os}-${arch}-clang"
+          fi
         elif [ "$os" = "linux" ]; then
-          just "setup-${os}-${arch}-gcc"
+          if [ "${{ inputs.gitleaks }}" = "true" ]; then
+            SECURITY=on just "setup-${os}-${arch}-gcc"
+          else
+            just "setup-${os}-${arch}-gcc"
+          fi
         else
-          just "setup-${os}-${arch}"
+          if [ "${{ inputs.gitleaks }}" = "true" ]; then
+            SECURITY=on just "setup-${os}-${arch}"
+          else
+            just "setup-${os}-${arch}"
+          fi
         fi
 
     - name: Setup Python
