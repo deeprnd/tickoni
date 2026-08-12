@@ -18,6 +18,14 @@ wrapper:
 Quick start
 -----------
 
+Before building, install platform-specific tooling:
+
+```bash
+just setup-env
+```
+
+This installs Zig, the system compiler, make, gitleaks, shellcheck, pre-commit, buf, Firedancer deps, and everything else a lane needs. See [contrib/setup/](../../contrib/setup/README.md) for lane details.
+
 Install the common Python tooling used by repo maintenance, codegen, and test
 scripts:
 
