@@ -123,11 +123,11 @@ ensure_firedancer_deps() {
     (
         cd "${REPO_ROOT}"
         export CC="${cc}" CXX="${cxx}"
+        export FD_AUTO_INSTALL_PACKAGES=1
         bash deps.sh check || {
             log_warn "deps.sh check failed — attempting install anyway"
         }
         bash deps.sh fetch install
-        bash contrib/deps-bundle.sh
     )
     log_info "Firedancer deps installed"
 }
