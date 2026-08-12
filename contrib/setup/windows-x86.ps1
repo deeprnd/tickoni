@@ -107,21 +107,40 @@ if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
 }
 
 # ── 6. cpanm (for MSYS2 Perl module installs) ───────────────────────────────
-# Use MSYS2's cpanminus (not the cpanmin.pl fat-pack which is missing
-# ExtUtils::Manifest and deadlocks when installing dependencies).
-if (-not (Get-Command cpanm -ErrorAction SilentlyContinue)) {
-    log-info "Installing cpanm via MSYS2 pacman...";
-    $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe";
+# Strawberry Perl ships a cpanm fat-pack (cpanmin.pl) that is missing
+# ExtUtils::Manifest. Always use MSYS2's cpanminus instead — verify it
+# works by checking for ExtUtils::Manifest, then install via MSYS2 if
+# the first-found cpanm doesn't satisfy it.
+function Test-CpanmWorks {
+    $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
+    if (Test-Path $msysBash) {
+        $result = & $msysBash -lc "perl -MExtUtils::Manifest -e1 2>&1"
+        return $LASTEXITCODE -eq 0
+    }
+    return $false
+}
+
+$cpanmFound = Get-Command cpanm -ErrorAction SilentlyContinue
+if (-not $cpanmFound) {
+    log-info "cpanm not found — installing via MSYS2 pacman...";
+    $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
     if (Test-Path $msysBash) {
         & $msysBash -lc "pacman -S --noconfirm cpanminus" 2>&1 | Out-Null
     }
-    # MSYS2 bin is at /usr/bin/cpanm — ensure MSYS2 is in PATH
-    $msysPath = "$env:SystemDrive\msys64\usr\bin"
-    if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $msysPath })) {
-        $env:PATH = $msysPath + ";" + $env:PATH
+} elseif (-not (Test-CpanmWorks)) {
+    log-info "cpanm found but missing ExtUtils::Manifest (Strawberry Perl fat-pack) — installing MSYS2 cpanminus...";
+    $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
+    if (Test-Path $msysBash) {
+        & $msysBash -lc "pacman -S --noconfirm cpanminus" 2>&1 | Out-Null
     }
-    log-info "cpanm installed via MSYS2 pacman";
 }
+
+# MSYS2 bin is at /usr/bin/cpanm — ensure MSYS2 is in PATH
+$msysPath = "$env:SystemDrive\msys64\usr\bin"
+if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $msysPath })) {
+    $env:PATH = $msysPath + ";" + $env:PATH
+}
+log-info "cpanm ready for Perl module installs";
 
 # ── 7. Firedancer deps ───────────────────────────────────────────────────────
 $env:CC = "clang"
