@@ -176,13 +176,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Setup deps + Zig
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
-          fd-deps: 'false'
-          compiler: clang
-          compiler-version: system
+      - name: Setup Windows deps
+        shell: pwsh
+        run: |
+          & "$Env:GITHUB_WORKSPACE\contrib\setup\windows-x86.ps1" -NoLLM
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
@@ -201,13 +198,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Setup deps + Zig
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
-          fd-deps: 'false'
-          compiler: clang
-          compiler-version: system
+      - name: Setup Windows deps
+        shell: pwsh
+        run: |
+          & "$Env:GITHUB_WORKSPACE\contrib\setup\windows-arm.ps1" -NoLLM
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:

@@ -172,12 +172,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Setup deps
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          fd-deps: 'false'
-          compiler: clang
-          compiler-version: system
+      - name: Setup Windows deps
+        shell: pwsh
+        run: |
+          & "$Env:GITHUB_WORKSPACE\contrib\setup\windows-x86.ps1" -NoLLM
 
       - name: Build
         run: just build-fd-windows-x86
@@ -192,12 +190,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Setup deps
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          fd-deps: 'false'
-          compiler: clang
-          compiler-version: system
+      - name: Setup Windows deps
+        shell: pwsh
+        run: |
+          & "$Env:GITHUB_WORKSPACE\contrib\setup\windows-arm.ps1" -NoLLM
 
       - name: Build
         run: just build-fd-windows-arm
