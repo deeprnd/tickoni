@@ -58,7 +58,27 @@ include config/extra/with-hosted.mk
 # Parse EXTRAS from the command line to include corresponding with-*.mk files.
 # This is necessary because tickoni_fd.mk overrides LOCAL_MKS and doesn't
 # include the extras infrastructure like the default machine profiles do.
-ifneq ($(EXTRAS),)
-$(foreach extra,$(EXTRAS),\
-  $(eval include config/extra/with-$(extra).mk))
+ifneq ($(findstring blst,$(EXTRAS)),)
+include config/extra/with-blst.mk
+endif
+ifneq ($(findstring lz4,$(EXTRAS)),)
+include config/extra/with-lz4.mk
+endif
+ifneq ($(findstring zstd,$(EXTRAS)),)
+include config/extra/with-zstd.mk
+endif
+ifneq ($(findstring asan,$(EXTRAS)),)
+include config/extra/with-asan.mk
+endif
+ifneq ($(findstring ubsan,$(EXTRAS)),)
+include config/extra/with-ubsan.mk
+endif
+ifneq ($(findstring llvm-cov,$(EXTRAS)),)
+include config/extra/with-llvm-cov.mk
+endif
+ifneq ($(findstring nanobind,$(EXTRAS)),)
+include config/extra/with-nanobind.mk
+endif
+ifneq ($(findstring rocksdb,$(EXTRAS)),)
+include config/extra/with-rocksdb.mk
 endif
