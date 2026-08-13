@@ -135,7 +135,7 @@ ensure_gitleaks() {
 
     os="$(uname -s | tr '[:upper:]' '[:lower:]')"
     case "$(uname -m)" in
-        x86_64)    arch="amd64" ;;
+        x86_64)    arch="x64" ;;
         aarch64|arm64) arch="arm64" ;;
         *) echo "unsupported arch: $(uname -m)" >&2; return 1 ;;
     esac
