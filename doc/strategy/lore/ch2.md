@@ -40,11 +40,7 @@ Not calm.
 
 Still.
 
-The waves flattened into black glass. The sail hung loose. Even the lantern flame stood straight.
-
-Far ahead, a shore appeared.
-
-A thin line of black sand curved beneath the moon. One cedar tree stood on it. Beside the tree burned a small red lamp.
+The waves flattened into black glass. Far ahead, a thin shore curved beneath the moon. One cedar tree stood on it. Beside the tree burned a red lamp.
 
 Land.
 
@@ -52,37 +48,21 @@ Rest.
 
 A place to fix the sail.
 
-Tickoni took the oar and turned toward it.
+Tickoni turned toward it.
 
-The boat moved.
-
-By dawn, the shore remained ahead.
-
-No closer.
+By dawn, the shore was no closer.
 
 The water behind showed no wake.
-
-The boat had moved all night.
-
-The sea had remembered nothing.
-
-Tickoni turned again.
-
-The shore shifted east.
 
 Tickoni turned east.
 
 The shore shifted north.
 
-Tickoni turned north.
+It turned north.
 
-For hours, Tickoni followed.
+The shore slid west.
 
-Each correction seemed right.
-
-Each correction came too late.
-
-No monster attacked. No wave crushed the hull. No dragon opened its eye beneath the boat.
+No monster attacked. No wave crushed the hull.
 
 That made it worse.
 
@@ -90,17 +70,11 @@ There was no enemy to strike.
 
 Only a shore that stayed almost reachable.
 
-By the third evening, the sail had torn wider. Salt dried white along the rail. Tickoni’s arms ached from rowing toward land that did not arrive.
+By the third evening, the sail had torn wider. Salt crusted the rail. Tickoni’s arms shook from rowing.
 
 The red lamp glowed brighter.
 
 Tickoni lowered the oar.
-
-The boat drifted.
-
-The shore drifted with it.
-
-Tickoni placed one claw over the fire beneath its ribs.
 
 — I chose.
 
@@ -108,9 +82,7 @@ The sea remained still.
 
 — I chose.
 
-No current came.
-
-No path answered.
+No current answered.
 
 Then something tapped the water.
 
@@ -120,7 +92,7 @@ A spark appeared far to the west.
 
 Tap.
 
-Another spark.
+Another.
 
 Tap.
 
@@ -128,23 +100,17 @@ A third.
 
 Not lightning.
 
-Not lanterns.
-
 Footsteps.
 
 No.
 
-Not footsteps.
-
 A dance.
 
-A figure in black cloth spun across the Ledger Sea, one heel touching a wave crest, one toe sliding along the rib of a drowned ship. He kicked off a reef tooth, caught a floating chain, turned once in the air, and landed on a strip of foam as if the sea had been waiting for him.
+A figure in black cloth spun across the Ledger Sea, heel on wave crest, toe on drowned timber. He kicked from a reef tooth, caught a floating chain, turned in the air, and landed on foam as if the sea had placed it there for him.
 
 Each step flashed red.
 
 Each step vanished.
-
-The figure moved like fire given ankles and too much confidence.
 
 He crossed in breaths what Tickoni had spent three nights failing to cross.
 
@@ -152,17 +118,17 @@ Then he reached the black shore.
 
 The red lamp flickered.
 
-The cedar tree bent.
+The cedar bent.
 
 The shore slid north.
 
 The figure did not follow.
 
-He stopped where the shore had been and turned slowly on one heel.
+He stopped where it had been.
 
-The black sand thinned into mist. The cedar tree folded like smoke. The red lamp became a moon reflection trembling on the water.
+Black sand thinned into mist. Cedar folded into smoke. The lamp became a moon reflection trembling on water.
 
-Then even that disappeared.
+Then vanished.
 
 Tickoni stared.
 
@@ -170,31 +136,21 @@ The figure had not been chasing the shore.
 
 Five sparks later, he stood beside the boat.
 
-The sea hissed beneath his feet.
-
 — Are you one of the Order? — Tickoni asked.
 
-The figure laughed.
+The figure laughed so hard one heel slipped into the sea.
 
-Not politely.
-
-He laughed so hard one heel slipped into the water.
-
-He pulled it back at once and glared down, as if the sea had insulted him.
+He yanked it back and glared down.
 
 — The Order? No. The Order marches.
 
-He bowed with one arm across his chest and one arm raised like flame caught in wind.
+He bowed, one arm across his chest, the other raised like flame in wind.
 
 — I dance.
 
-Tickoni studied the last footprint. It burned for one breath longer than the others, then vanished without smoke.
-
 — Then who are you?
 
-The figure straightened.
-
-— Firedancer, keeper of the fast path, breaker of bottlenecks, prince of the skipped queue, validator of suspicious puddles, terror of slow bridges, and temporary master of wherever my feet have not yet exploded.
+— Firedancer, keeper of the fast path, breaker of bottlenecks, prince of the skipped queue, terror of slow bridges, and temporary master of wherever my feet have not yet exploded.
 
 He waited.
 
@@ -204,111 +160,71 @@ Firedancer sighed.
 
 — Usually there is more reaction.
 
-— Why did you stop here?
+He sat on the rail, produced a pickled agave fruit from his sleeve, and inspected the torn sail.
 
-Firedancer sat on the boat’s rail. The wood did not burn.
-
-From somewhere inside his sleeve, he produced a pickled agave fruit, bit into it, and looked at the torn sail.
-
-Then the oar.
-
-Then the empty place where the shore had been.
-
-— Curiosity.
-
-— About what?
-
-— Whether you were lost professionally.
-
-Tickoni frowned.
-
-— I am not lost.
-
-Firedancer looked around the empty sea.
-
-— A bold local custom.
-
-Tickoni gripped the rail.
+— You are lost.
 
 — I am crossing the Ledger Sea.
 
 — To where?
 
-Tickoni looked east.
-
-No gate waited there. No old path answered. The black sparks had vanished beyond the horizon.
+Tickoni looked east. No gate waited there. No old path answered.
 
 But the vow remained.
 
-— I going to forge a contract no oni can break.
+— I am going to forge a contract no oni can break.
 
 Firedancer stopped chewing.
 
-Then he spat the agave into the sea.
+Then looked at Tickoni.
 
-It hissed.
+At the boat.
 
-— You?
-
-Tickoni’s ears lowered.
-
-Firedancer looked at the boat.
-
-Then at Tickoni.
-
-Then at the boat again.
+Back at Tickoni.
 
 — You cannot forge a path through a puddle.
 
 — This is not a puddle.
 
-— That makes it even worse!
+— That makes it worse.
 
-Firedancer hopped backward onto the water.
+He hopped onto the water.
 
-Five ember footprints appeared across the sea.
+Five ember footprints appeared.
 
-The first rested on a ripple.
+One on a ripple.
 
-The second on a floating reed.
+One on a floating reed.
 
-The third on a dark stone just beneath the surface.
+One on a dark stone beneath the surface.
 
-The fourth on the back of a passing fish.
+One on the back of a passing fish.
 
-The fifth on nothing Tickoni could see.
-
-Firedancer stretched his arms.
-
-— One cannot forge an unbreakable contract with feet like dumped cargo.
-
-He cracked his neck.
-
-— Also, I am bored.
+The fifth on nothing.
 
 Tickoni stared at the marks.
 
-— That is not a path.
+Firedancer glanced back at the boat.
 
-— It is five steps.
+— An unbreakable contract...
 
-— The fifth is empty.
+He rolled the words around for a moment.
 
-— Then watch better.
+— Ambitious.
 
-Firedancer crossed them again.
+A grin.
 
-Ripple.
+— I like ambitious.
 
-Reed.
+He turned away, muttering as he counted on his fingers.
 
-Stone.
+— Keeper of the fast path... prince of the skipped queue... lord of ambition...
 
-Fish.
+He paused.
 
-Nothing.
+— No. Awful.
 
-He moved lightly, almost lazily, one hand behind his back.
+Then he pointed at the first ember mark.
 
 — Your turn.
 
@@ -316,21 +232,15 @@ Tickoni stepped onto the rail.
 
 No gate opened.
 
-No old current rose.
+No current rose.
 
-The first footprint burned.
+It stepped onto the first mark.
 
-Tickoni stepped.
-
-Its foot punched straight through the ripple.
+Its foot punched through the ripple.
 
 Cold water swallowed its leg.
 
 Firedancer caught its wrist before the sea took the rest.
-
-For a moment, Tickoni hung upside down beside the boat, dripping.
-
-Firedancer looked at it.
 
 — Heavy.
 
@@ -338,143 +248,91 @@ Firedancer looked at it.
 
 — Your foot is.
 
-Tickoni pulled itself back onto the rail.
+Tickoni pulled itself up.
 
 — I stepped where you stepped.
 
 — You stepped where I had been.
 
-Firedancer tapped the ripple with one toe.
-
-Two small waves touched, lifted each other for less than a breath, then passed apart.
+Firedancer tapped the ripple. Two small waves met, lifted each other for less than a breath, then separated.
 
 — This held me when the waves met. Then it stopped being a step.
 
-He pointed to the reed.
+He pointed.
 
-— This holds only while it floats between currents.
+— The reed holds only between currents. The stone only where the pull is weak. The fish only if you wait.
 
-The reed spun away.
-
-He pointed to the stone.
-
-— This holds only where the pull is weak.
-
-The water darkened around it.
-
-He pointed to the fish.
-
-— This holds only if you wait.
-
-The fish surfaced, blinked, and vanished.
-
-Firedancer pointed to the fifth mark.
+He pointed to empty water.
 
 — And this?
 
 Tickoni saw nothing.
 
-Firedancer smiled.
-
 — Warm water. Cold water. They meet here.
 
-He placed one foot on empty sea.
+Firedancer placed one foot on the empty sea.
 
 The water held.
-
-Tickoni narrowed its eyes.
 
 — That is cheating.
 
 — That is looking.
 
-Again, Firedancer made the five steps.
-
-This time he added a clap.
+Again he crossed, this time clapping a rhythm.
 
 Clap.
+
+— Receive.
 
 Ripple.
 
 Clap.
 
-Reed.
-
-Clap.
-
-Stone.
-
-Clap.
-
-Fish.
-
-Clap.
-
-Seam.
-
-The rhythm hung over the water.
-
-— Receive.
-
-Clap.
-
 — Carry.
+
+Reed.
 
 Clap.
 
 — Check.
 
+Stone.
+
 Clap.
 
 — Record.
+
+Fish.
 
 Clap.
 
 — Stop.
 
-Clap.
+Seam.
 
-Tickoni blinked.
+Tickoni narrowed its eyes.
 
-— Are those rules?
-
-— They are steps.
-
-— They sound like rules.
+— Those sound like rules.
 
 — Good steps usually do.
 
 Tickoni tried again.
 
-First step.
+The ripple held.
 
-The water held.
+The reed dipped. Tickoni stiffened.
 
-Second step.
+— Less statue!
 
-The reed dipped.
-
-Tickoni waved both arms.
-
-Firedancer clapped once.
-
-— Less statue.
-
-Tickoni bent its knees.
+It bent its knees.
 
 The reed held.
 
-Third step.
-
 The stone cut its foot.
-
-Tickoni hissed.
 
 — The stone bit me.
 
 — The stone has standards.
-
-Fourth step.
 
 The fish surfaced.
 
@@ -482,35 +340,53 @@ Tickoni hesitated.
 
 The fish vanished.
 
-Tickoni fell.
+Splash.
 
-Firedancer caught it again.
+Firedancer hauled Tickoni back up.
 
 — Too slow? — Tickoni asked.
 
-— Too much dignity. The fish is not judging you.
+— Less thinky. More footy.
 
-One more time.
+Tickoni stared at the five marks.
+
+Then tried once more.
 
 Ripple.
 
+Receive.
+
 Reed.
+
+Carry.
 
 Stone.
 
+Check.
+
+The fish surfaced.
+
+Record.
+
+Tickoni stepped before doubt could turn into thought.
+
 Fish.
 
-Seam.
+Then the last mark.
 
-For one breath, Tickoni stood on the fifth step.
+Nothing.
 
-The sea held.
+Stop.
 
-The boat waited behind it.
+Tickoni looked, not at where Firedancer had stood, but at the water itself.
 
-The open water waited ahead.
+A faint seam trembled where two temperatures met.
 
-Beneath Tickoni’s chest, the chosen fire answered the ember marks.
+It stepped.
+
+For one breath, Tickoni stood on empty sea.
+
+The chosen fire beneath its ribs answered the ember marks.
 
 Not with a name.
 
@@ -520,41 +396,35 @@ Firedancer nodded.
 
 — There.
 
-Tickoni looked down.
-
 — I am standing on nothing.
 
 — No. You are standing on what you finally noticed.
 
 The seam moved.
 
-Tickoni jumped back to the boat before it fell.
+Tickoni jumped back to the boat.
 
 Almost gracefully.
 
-Not quite.
-
 Firedancer allowed this to count.
 
-Dawn paled the edge of the Ledger Sea. Black reefs rose ahead, sharp as broken teeth.
+Dawn paled the Ledger Sea. Ahead, black reefs rose like broken teeth.
 
 Firedancer pointed east.
 
-— Your boat can pass there.
-
-Tickoni looked at the reefs.
+— You know, your boat can pass there.
 
 — The gap is too narrow.
 
-— Then stop staring at the gap.
+— Stop staring at the gap.
 
 — What should I watch?
 
-Firedancer tapped the boat’s rail.
+Firedancer tapped the rail.
 
 — What touches the boat.
 
-A small wave struck the hull.
+A wave struck the hull.
 
 — What carries it.
 
@@ -562,27 +432,31 @@ The boat tilted with the current.
 
 — What tests the way.
 
-Foam covered the third black tooth, then cleared.
+Foam covered a black reef tooth, then cleared.
 
 — What mark remains.
 
 Tickoni scratched a line into the rail.
 
+Firedancer’s grin faded.
+
 — And when the sea lies.
 
-The foam returned.
+Foam returned.
 
-Tickoni waited.
+Tickoni almost turned the sail.
+
+Almost.
+
+Then stopped.
+
+Waited.
 
 The foam cleared again.
 
 A narrow channel opened.
 
-Tickoni adjusted the sail.
-
-Not toward the vanished shore.
-
-Toward the seam between wind and current.
+Tickoni adjusted the sail, not toward the vanished shore, but toward the seam between wind and current.
 
 The boat turned.
 
@@ -590,13 +464,29 @@ Slowly.
 
 Correctly.
 
-The first reef passed to port.
+First reef to port.
 
-The second passed to starboard.
+Second to starboard.
 
 The third vanished under foam.
 
 Tickoni waited.
+
+Receive.
+
+Carry.
+
+Check.
+
+The foam thinned.
+
+Record.
+
+The channel shifted.
+
+Stop.
+
+Tickoni held the tiller.
 
 The sea opened.
 
@@ -649,16 +539,6 @@ Still indifferent.
 But no longer blank.
 
 Beneath the wound where the seal had been, five narrow lines warmed once and faded before Tickoni could name them.
-
-Tickoni looked at the rail.
-
-At the water behind the boat.
-
-For a moment, the sea remembered where it had crossed.
-
-Not long.
-
-Long enough.
 
 Tickoni raised the torn sail.
 
