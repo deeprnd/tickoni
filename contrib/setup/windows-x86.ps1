@@ -64,7 +64,7 @@ if ($Security) {
 # ── 2. just ──────────────────────────────────────────────────────────────────
 if (-not (Get-Command just -ErrorAction SilentlyContinue)) {
     log-info "Installing just..."
-    curl -sSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+    winget install --id just.systems.just --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
 }
 
 # ── 3. LLVM (Clang compiler) ─────────────────────────────────────────────────
