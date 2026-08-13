@@ -133,6 +133,17 @@ if ($Security) {
 if (-not (Get-Command just -ErrorAction SilentlyContinue)) {
     log-info "Installing just..."
     winget install --id just.systems.just --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
+    # Ensure just is discoverable in PATH
+    $windowsApps = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
+    if ($env:PATH -notlike "*$windowsApps*") {
+        $env:PATH = "$windowsApps;$env:PATH"
+    }
+    if (Get-Command just -ErrorAction SilentlyContinue) {
+        log-info "just ready"
+    } else {
+        log-error "Failed to install just"
+        exit 1
+    }
 }
 
 # ── 3. LLVM (Clang compiler) ─────────────────────────────────────────────────
@@ -142,7 +153,44 @@ if (-not (Get-Command just -ErrorAction SilentlyContinue)) {
 $platform_key = "windows-arm"
 $clang_version = read-compiler-version "clang" $platform_key
 log-info "Installing LLVM/Clang ${clang_version}..."
-Install-Dep -WingetId "LLVM.LLVM.$clang_version"
+# ARM64 LLVM not available as versioned ID in winget — try unversioned first
+if (Get-Command clang -ErrorAction SilentlyContinue) {
+    log-info "Clang already available"
+} else {
+    # Try unversioned ID (ARM64 support)
+    $llvmInstalled = $false
+    try {
+        winget install --id LLVM.LLVM --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
+        $llvmPath = (Get-Command clang -ErrorAction SilentlyContinue).Source | Split-Path
+        if ($llvmPath) {
+            $env:PATH = "$llvmPath;$env:PATH"
+            $llvmInstalled = $true
+            log-info "LLVM installed via winget"
+        }
+    } catch {
+        log-info "LLVM.LLVM winget install failed, trying direct download..."
+    }
+
+    # Fallback: direct download to C:\Program Files\LLVM
+    if (-not $llvmInstalled) {
+        log-info "Downloading LLVM ${clang_version} ARM64..."
+        $llvmUrl = "https://github.com/llvm/llvm-project/releases/download/llvmorg-${clang_version}.0.0/LLVM-${clang_version}.0.0-windows-arm64.exe"
+        $llvmInstaller = Join-Path $env:TEMP "llvm-installer.exe"
+        try {
+            Invoke-WebRequest -Uri $llvmUrl -OutFile $llvmInstaller -UseBasicParsing
+            Start-Process -FilePath $llvmInstaller -ArgumentList "/S", "/D=C:\Program Files\LLVM" -Wait
+            Remove-Item $llvmInstaller -ErrorAction SilentlyContinue
+            $llvmPath = "C:\Program Files\LLVM\bin"
+            if (Test-Path (Join-Path $llvmPath "clang.exe")) {
+                $env:PATH = "$llvmPath;$env:PATH"
+                log-info "LLVM installed via direct download: $llvmPath"
+            }
+        } catch {
+            log-error "Failed to install LLVM via direct download"
+            log-error "Build may fail without a C compiler"
+        }
+    }
+}
 
 $llvmPath = (Get-Command clang -ErrorAction SilentlyContinue).Source | Split-Path
 if (-not $llvmPath) {
@@ -199,6 +247,29 @@ $msvc_version = read-compiler-version "msvc" $platform_key
 if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
     log-info "Installing Visual Studio Build Tools (MSVC ${msvc_version})..."
     winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
+}
+
+# ── 6b. MSYS2 (required for OpenSSL build on Windows) ──────────────────────
+$msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
+if (-not (Test-Path $msysBash)) {
+    log-info "Installing MSYS2..."
+    winget install --id MSYS2.MSYS2 --exact --accept-package-agreements --accept-source-agreements --disable-interactivity --accept-source-agreements
+    # Wait for MSYS2 to be available
+    $msysReady = $false
+    for ($i = 0; $i -lt 30; $i++) {
+        Start-Sleep -Seconds 2
+        if (Test-Path $msysBash) {
+            $msysReady = $true
+            break
+        }
+    }
+    if (-not $msysReady) {
+        log-error "MSYS2 install timed out — bash not found at $msysBash"
+        exit 1
+    }
+    log-info "MSYS2 installed"
+} else {
+    log-info "MSYS2 already installed"
 }
 
 # ── 7. OpenSSL 3.6.2 — build from source (deps.sh logic) via MSYS2 bash
