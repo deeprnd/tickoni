@@ -22,6 +22,9 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
     log-info "winget already installed"
 } else {
     log-info "winget not found — installing..."
+    # GitHub ARM runners may not have winget pre-installed. The MSIX bundle
+    # doesn't work on ARM64, so fall back to choco (always available on GH
+    # Actions runners).
     $temp = Join-Path $env:TEMP "winget-msi"
     New-Item -ItemType Directory -Force -Path $temp | Out-Null
     $url = "https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
@@ -29,10 +32,30 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
     Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
     Expand-Archive -Path $zip -DestinationPath $temp -Force
     $msix = Get-ChildItem -Path $temp -Filter "*.msixbundle" -Recurse | Select-Object -First 1
+    $installed = $false
     if ($msix) {
-        Add-AppxPackage -Path $msix.FullName
-        $env:PATH = (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps") + ";$env:PATH"
-        log-info "winget installed"
+        try {
+            Add-AppxPackage -Path $msix.FullName -ErrorAction Stop
+            $installed = $true
+            log-info "winget installed via MSIX"
+        } catch {
+            log-info "MSIX install failed — falling back to choco..."
+        }
+    }
+    if (-not $installed) {
+        choco install -y microsoft-winget-cli --no-progress
+    }
+    $env:PATH = (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps") + ";$env:PATH"
+    # Ensure winget is discoverable (choco install may not update PATH)
+    $wingetPath = Get-Command winget -ErrorAction SilentlyContinue
+    if (-not $wingetPath) {
+        $wingetPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
+        if (Test-Path $wingetPath) {
+            $env:PATH = $wingetPath + ";$env:PATH"
+        }
+    }
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        log-info "winget ready"
     } else {
         log-error "Failed to install winget"
         exit 1
