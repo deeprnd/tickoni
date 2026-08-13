@@ -265,16 +265,30 @@ if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $msysPath })) {
     $env:PATH = $msysPath + ";" + $env:PATH
 }
 
-# ── 6c. Ensure git is installed in MSYS2 (required for OpenSSL build) ────────
-# MSYS2 pacman doesn't include git by default. We need it inside MSYS2 because
-# install-openssl.sh runs via MSYS2 bash and calls 'git clone'.
+# ── 6c. Ensure git, make, and perl are installed in MSYS2 (required for OpenSSL build) ────────
+# MSYS2 pacman doesn't include these by default. We need them inside MSYS2 because
+# install-openssl.sh runs via MSYS2 bash and calls 'git clone' and 'make'.
 $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
 if (Test-Path $msysBash) {
     if (-not (& $msysBash -lc "git --version" 2>$null)) {
         log-info "Installing git via MSYS2 pacman..."
         & $msysBash -lc "pacman -S --noconfirm --needed git" 2>&1 | Out-Null
+    } else {
+        log-info "git already available in MSYS2"
     }
-    log-info "git available in MSYS2"
+    if (-not (& $msysBash -lc "make --version" 2>$null)) {
+        log-info "Installing make via MSYS2 pacman..."
+        & $msysBash -lc "pacman -S --noconfirm --needed make" 2>&1 | Out-Null
+    } else {
+        log-info "make already available in MSYS2"
+    }
+    if (-not (& $msysBash -lc "perl --version" 2>$null)) {
+        log-info "Installing perl via MSYS2 pacman..."
+        & $msysBash -lc "pacman -S --noconfirm --needed perl" 2>&1 | Out-Null
+    } else {
+        log-info "perl already available in MSYS2"
+    }
+    log-info "git, make, perl available in MSYS2"
 }
 
 # ── 7. OpenSSL 3.6.2 — build from source (deps.sh logic) via MSYS2 bash
