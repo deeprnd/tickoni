@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
 # common.sh — shared POSIX helper functions for contrib/setup/ lane scripts.
 # Source this from your lane script (linux-x86-gcc.sh, macos-x86.sh, etc.)
+#
+# Version source of truth: contrib/setup/tool-versions.json
+#
+#   versions.*  — explicit version pins for tools whose version matters for
+#                 install behavior (download URLs, package names, build scripts).
+#                 Read with read_tool_version (universal) or read_compiler_version
+#                 (platform-specific).
+#
+#   packages.*  — package manager identifiers for tools where "latest" from
+#                 the manager is fine (winget IDs, apt/brew package names, etc.).
+#                 Read with read_package.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
-COMPILER_VERSIONS="${REPO_ROOT}/contrib/setup/compiler-versions.json"
+TOOL_VERSIONS="${REPO_ROOT}/contrib/setup/tool-versions.json"
 
 log_info()  { printf '[setup] %s\n' "$*" ; }
 log_warn()  { printf '[setup] WARN: %s\n' "$*" >&2 ; }
@@ -15,63 +26,150 @@ log_error() { printf '[setup] ERROR: %s\n' "$*" >&2 ; }
 # Check if a command exists on PATH
 tool_exists() { command -v "$1" &>/dev/null ; }
 
-# Read zig-version from file — fail hard if missing
-read_zig_version() {
-    local zig_file="${REPO_ROOT}/contrib/setup/zig-version"
-    if [ ! -f "$zig_file" ]; then
-        log_error "Zig version file missing: ${zig_file}"
-        log_error "Create it with: echo '0.16.0' > ${zig_file}"
-        exit 1
-    fi
-    local version
-    version="$(cat "$zig_file" | tr -d '[:space:]')"
-    if [ -z "$version" ]; then
-        log_error "Zig version file is empty: ${zig_file}"
-        exit 1
-    fi
-    echo "$version"
-}
-
-# Read compiler version from JSON — fail hard if missing
-# Usage: read_compiler_version "gcc" "linux-x86"
-read_compiler_version() {
+# ── Read version from versions section ────────────────────────────────────────
+#
+# Universal tools (single version everywhere):
+#   read_tool_version "just"      → "1.58.0"
+#   read_tool_version "gitleaks"  → "8.30.1"
+#   read_tool_version "zig"       → "0.16.0"
+#   read_tool_version "openssl"   → "3.6.2"
+#
+# Usage: read_tool_version "just"
+read_tool_version() {
     local tool="$1"
-    local platform_key="$2"
-    
-    if [ ! -f "$COMPILER_VERSIONS" ]; then
-        log_error "Compiler versions file missing: ${COMPILER_VERSIONS}"
+
+    if [ ! -f "$TOOL_VERSIONS" ]; then
+        log_error "Tool versions file missing: ${TOOL_VERSIONS}"
         exit 1
     fi
-    
+
     local version
     version="$(python3 -c "
 import json, sys
 try:
-    data = json.load(open('${COMPILER_VERSIONS}'))
-    v = data.get('${tool}', {}).get('${platform_key}', '')
+    data = json.load(open('${TOOL_VERSIONS}'))
+    v = data.get('versions', {}).get('${tool}')
+    if isinstance(v, dict):
+        v = v.get('version', '')
     if not v:
         sys.exit(1)
     print(v)
 except (json.JSONDecodeError, Exception):
     sys.exit(1)
 " 2>/dev/null)" || {
-        log_error "Compiler version not defined for ${tool} on ${platform_key}"
-        log_error "Add '${tool}-${platform_key}' to ${COMPILER_VERSIONS}"
+        log_error "Version not defined for '${tool}' in ${TOOL_VERSIONS}"
         exit 1
     }
-    
+
     echo "$version"
 }
 
-# Get platform key for version lookup
-# Usage: get_platform_key
-# Returns: linux-x86, linux-arm, macos-x86, macos-arm
+# Read platform-specific version (gcc, clang, llvm, msvc).
+# Usage: read_compiler_version "clang" "linux-x86"
+read_compiler_version() {
+    local tool="$1"
+    local platform_key="$2"
+
+    if [ ! -f "$TOOL_VERSIONS" ]; then
+        log_error "Tool versions file missing: ${TOOL_VERSIONS}"
+        exit 1
+    fi
+
+    local version
+    version="$(python3 -c "
+import json, sys
+try:
+    data = json.load(open('${TOOL_VERSIONS}'))
+    v = data.get('versions', {}).get('${tool}', {}).get('${platform_key}')
+    if not v:
+        sys.exit(1)
+    print(v)
+except (json.JSONDecodeError, Exception):
+    sys.exit(1)
+" 2>/dev/null)" || {
+        log_error "Version not defined for ${tool} on ${platform_key}"
+        exit 1
+    }
+
+    echo "$version"
+}
+
+# Read package manager identifier (winget ID, apt/brew name, etc.).
+# Usage: read_package "winget" "python"   → "Python.Python.3.12"
+# Usage: read_package "apt"    "cmake"    → "cmake"
+# Usage: read_package "brew"   "gcc"      → "gcc"
+#
+# Note: for apt/brew, the "package name" IS the identifier.
+#       For winget, this maps to the full winget package ID.
+read_package() {
+    local manager="$1"
+    local tool="$2"
+
+    if [ ! -f "$TOOL_VERSIONS" ]; then
+        log_error "Tool versions file missing: ${TOOL_VERSIONS}"
+        exit 1
+    fi
+
+    # For apt/brew, the package name IS the tool name (they don't have a
+    # separate "identifier" mapping — just a list of package names to install).
+    if [ "$manager" = "apt" ] || [ "$manager" = "brew" ]; then
+        # Check if the tool is in the packages array
+        local in_array
+        in_array="$(python3 -c "
+import json, sys
+try:
+    data = json.load(open('${TOOL_VERSIONS}'))
+    mgr = data.get('packages', {}).get('${manager}', [])
+    if not isinstance(mgr, list) or '${tool}' not in mgr:
+        sys.exit(1)
+    print('ok')
+except (json.JSONDecodeError, Exception):
+    sys.exit(1)
+" 2>/dev/null)" || {
+            log_error "Package '${tool}' not in packages.${manager} in ${TOOL_VERSIONS}"
+            exit 1
+        }
+        echo "$tool"
+        return 0
+    fi
+
+    # For winget/pip: read from the mapping object
+    local value
+    value="$(python3 -c "
+import json, sys
+try:
+    data = json.load(open('${TOOL_VERSIONS}'))
+    mgr = data.get('packages', {}).get('${manager}', {})
+    if not isinstance(mgr, dict):
+        sys.exit(1)
+    v = mgr.get('${tool}')
+    if not v:
+        sys.exit(1)
+    print(v)
+except (json.JSONDecodeError, Exception):
+    sys.exit(1)
+" 2>/dev/null)" || {
+        log_error "Package mapping not defined for ${manager}.${tool} in ${TOOL_VERSIONS}"
+        exit 1
+    }
+
+    echo "$value"
+}
+
+# Read zig version (alias for tool-versions.json).
+# Usage: read_zig_version
+read_zig_version() {
+    read_tool_version "zig"
+}
+
+# ── Platform detection ────────────────────────────────────────────────────────
+# Returns: linux-x86, linux-arm, macos-x86, macos-arm, windows-x86, windows-arm
 get_platform_key() {
     local os
     os="$(uname -s | tr '[:upper:]' '[:lower:]')"
     local arch
     arch="$(uname -m)"
-    
+
     case "$os" in
         linux)
             case "$arch" in
@@ -94,10 +192,12 @@ get_platform_key() {
     esac
 }
 
-# Install Zig via install-zig.py
+# ── Tool installers ───────────────────────────────────────────────────────────
+
+# Install Zig via install-zig.py (uses versions.zig from tool-versions.json)
 ensure_zig() {
     local zig_version
-    zig_version="$(read_zig_version)"
+    zig_version="$(read_tool_version "zig")"
     local zig_bin="${HOME}/.local/zig/zig"
 
     if [ -f "$zig_bin" ] && "${zig_bin}" --version &>/dev/null; then
@@ -115,17 +215,19 @@ ensure_zig() {
     log_info "Zig installed to ${HOME}/.local/zig"
 }
 
-# Install gitleaks (pinned version — matches CI gitleaks on main)
-GITLEAKS_VERSION="8.30.1"
+# Install gitleaks (pinned version from tool-versions.json)
 GITLEAKS_ORG="gitleaks"
 
 ensure_gitleaks() {
+    local version
+    version="$(read_tool_version "gitleaks")"
+
     if tool_exists gitleaks; then
-        log_info "gitleaks ${GITLEAKS_VERSION} already installed"
+        log_info "gitleaks ${version} already installed"
         return 0
     fi
 
-    log_info "Installing gitleaks ${GITLEAKS_VERSION}..."
+    log_info "Installing gitleaks ${version}..."
     local os arch asset
 
     os="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -136,12 +238,12 @@ ensure_gitleaks() {
     esac
 
     case "${os}" in
-        linux)   asset="gitleaks_${GITLEAKS_VERSION}_linux_${arch}.tar.gz" ;;
+        linux)   asset="gitleaks_${version}_linux_${arch}.tar.gz" ;;
         darwin)
             if [ "$arch" = "arm64" ]; then
-                asset="gitleaks_${GITLEAKS_VERSION}_darwin_arm64.tar.gz"
+                asset="gitleaks_${version}_darwin_arm64.tar.gz"
             else
-                asset="gitleaks_${GITLEAKS_VERSION}_darwin_x64.tar.gz"
+                asset="gitleaks_${version}_darwin_x64.tar.gz"
             fi
             ;;
         *)
@@ -152,13 +254,13 @@ ensure_gitleaks() {
 
     local tmpdir
     tmpdir="$(mktemp -d)"
-    curl -sSfL "https://github.com/${GITLEAKS_ORG}/gitleaks/releases/download/v${GITLEAKS_VERSION}/${asset}" \
+    curl -sSfL "https://github.com/${GITLEAKS_ORG}/gitleaks/releases/download/v${version}/${asset}" \
         -o "${tmpdir}/gitleaks.tar.gz"
     tar -xzf "${tmpdir}/gitleaks.tar.gz" -C "${tmpdir}"
     sudo cp "${tmpdir}/gitleaks" /usr/local/bin/gitleaks
     sudo chmod 755 /usr/local/bin/gitleaks
     rm -rf "${tmpdir}"
-    log_info "gitleaks ${GITLEAKS_VERSION} installed"
+    log_info "gitleaks ${version} installed"
 }
 
 # Install kcpy from source (SimonKagstrom/kcpy)
@@ -180,7 +282,7 @@ ensure_kcpy() {
     log_info "kcpy built and installed"
 }
 
-# Install shellcheck
+# Install shellcheck (latest from system package manager)
 ensure_shellcheck() {
     if tool_exists shellcheck; then
         log_info "shellcheck already installed"
@@ -188,12 +290,13 @@ ensure_shellcheck() {
     fi
 
     log_info "Installing shellcheck..."
-    if command -v apt-get &>/dev/null; then
+    local os
+    os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+
+    if [ "$os" = "linux" ] && command -v apt-get &>/dev/null; then
         sudo apt-get install -y shellcheck
-    elif command -v brew &>/dev/null; then
+    elif [ "$os" = "darwin" ] && command -v brew &>/dev/null; then
         brew install shellcheck
-    elif command -v scoop &>/dev/null; then
-        scoop install shellcheck
     else
         log_warn "No package manager found for shellcheck — skipping"
         return 1
@@ -226,15 +329,48 @@ ensure_buf() {
     fi
 
     log_info "Installing buf..."
-    if command -v brew &>/dev/null; then
-        brew install buf || { log_warn "brew install buf failed — falling back to go"; }
+    local os
+    os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+
+    if [ "$os" = "darwin" ] && command -v brew &>/dev/null; then
+        brew install buf || log_warn "brew install buf failed"
     fi
     if ! tool_exists buf && command -v go &>/dev/null; then
         go install github.com/bufbuild/buf/cmd/buf@latest
         export PATH="${HOME}/go/bin:${PATH}"
     fi
+    if ! tool_exists buf && command -v apt-get &>/dev/null; then
+        # Linux: try apt first, then go
+        sudo apt-get install -y buf || log_warn "apt install buf failed"
+    fi
     if ! tool_exists buf; then
         log_warn "No package manager found for buf — skipping"
+        return 1
+    fi
+}
+
+# Install just — uses versions.just from tool-versions.json
+ensure_just() {
+    local version
+    version="$(read_tool_version "just")"
+
+    if tool_exists just; then
+        log_info "just ${version} already installed"
+        return 0
+    fi
+
+    log_info "Installing just ${version}..."
+    local os
+    os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+
+    if [ "$os" = "darwin" ] && command -v brew &>/dev/null; then
+        brew install just || log_warn "brew install just failed — falling back"
+    elif command -v apt-get &>/dev/null; then
+        curl -sSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+    elif command -v dnf &>/dev/null || command -v yum &>/dev/null; then
+        curl -sSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+    else
+        log_warn "No package manager found for just — skipping"
         return 1
     fi
 }

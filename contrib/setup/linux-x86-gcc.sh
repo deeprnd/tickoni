@@ -11,7 +11,7 @@ log_info "Linux x86_64 GCC setup starting..."
 # 1. Read GCC version from JSON (fail if missing)
 platform_key="$(get_platform_key)"
 gcc_version="$(read_compiler_version gcc "$platform_key")"
-log_info "GCC version from compiler-versions.json: ${gcc_version}"
+log_info "GCC version from tool-versions.json: ${gcc_version}"
 
 # 2. OS packages
 log_info "Installing system packages (gcc-${gcc_version}, make, build-essential, git)..."
@@ -33,12 +33,9 @@ fi
 export CC="gcc-${gcc_version}" CXX="g++-${gcc_version}"
 
 # 5. just
-if ! tool_exists just; then
-    log_info "Installing just..."
-    curl -sSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
-fi
+ensure_just
 
-# 6. OpenSSL 3.6.2 — build from source (deps.sh logic) to get the
+# 6. OpenSSL — build from source (deps.sh logic) to get the
 # right API level for Firedancer; system libssl-dev headers are incompatible.
 if [ ! -f "./opt/lib/libssl.a" ]; then
     bash "${SCRIPT_DIR}/install-openssl.sh"

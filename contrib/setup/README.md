@@ -28,7 +28,7 @@ just setup-windows-x86        # Windows x86_64
 
 ## Design Principles
 
-1. **One source of truth.** `contrib/setup/zig-version` controls the Zig
+1. **One source of truth.** `contrib/setup/tool-versions.json` controls all
    version everywhere — no need to hardcode versions in setup scripts.
 2. **Setup may use sudo.** The V1.21 no-sudo constraint applies to daily
    operations. Setup is a one-time privileged operation.
@@ -40,7 +40,7 @@ just setup-windows-x86        # Windows x86_64
 
 ```
 contrib/setup/
-  zig-version             # Zig version (single source of truth)
+  tool-versions.json      # Single source of truth for all versions
   linux-x86-gcc.sh        # Linux x86_64 — GCC 12
   linux-x86-clang.sh      # Linux x86_64 — Clang 18
   linux-arm-gcc.sh        # Linux aarch64 — GCC 14
@@ -59,11 +59,13 @@ contrib/setup/
 
 Every lane script installs:
 
-- **Zig** — from `contrib/setup/zig-version` via `helpers/install-zig.py`
-- **Compiler** — gcc-12 (Linux x86), clang-18 (Linux clang lane), clang (macOS/Windows)
-- **Build tools** — just, make, git, cmake
-- **OpenSSL** — built from source via `install-openssl.sh` (deps.sh logic) into
-  `./opt/` so the Firedancer build finds it at `./opt/lib/libssl.a`
+- **Zig** — from `contrib/setup/tool-versions.json` via `helpers/install-zig.py`
+- **Compiler** — from `contrib/setup/tool-versions.json` (gcc-12 on Linux x86, clang-18 on Linux/macOS/Windows)
+- **just, gitleaks** — from `contrib/setup/tool-versions.json`
+- **Build tools** — make, git, cmake
+- **OpenSSL** — from `contrib/setup/tool-versions.json`; built from source via
+  `install-openssl.sh` (deps.sh logic) into `./opt/` so the Firedancer build
+  finds it at `./opt/lib/libssl.a`
 - **Quality tools** — gitleaks, shellcheck, pre-commit
 - **Optional** — kcov (coverage builds), buf (protobuf)
 

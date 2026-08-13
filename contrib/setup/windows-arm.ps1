@@ -106,21 +106,24 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
     Install-WinGet
 }
 
-function Install-Dep {
-    param([string]$WingetId)
-    winget install --id $WingetId --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
+# Install winget package by name from tool-versions.json
+function Install-Package {
+    param([string]$Name)
+    $wingetId = read-package "winget" $Name
+    log-info "Installing ${Name} (${wingetId})..."
+    winget install --id $wingetId --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
 }
 
 # ── 1. Core packages ─────────────────────────────────────────────────────────
 log-info "Installing core packages..."
-Install-Dep -WingetId "Git.Git"
-Install-Dep -WingetId "CMake.CMake"
-Install-Dep -WingetId "Ninja-build.Ninja"
-Install-Dep -WingetId "Facebook.zstd"
-Install-Dep -WingetId "Python.Python.3.12"
-Install-Dep -WingetId "Koalaman.shellcheck"
-Install-Dep -WingetId "PreCommit.PreCommit"
-Install-Dep -WingetId "bufbuild.buf"
+Install-Package "git"
+Install-Package "cmake"
+Install-Package "ninja"
+Install-Package "zstd"
+Install-Package "python"
+Install-Package "shellcheck"
+Install-Package "pre-commit"
+Install-Package "buf"
 
 # ── 1b. Security tools (opt-in via -Security flag) ──────────────────────────
 if ($Security) {
@@ -142,14 +145,16 @@ if (-not (Get-Command just -ErrorAction SilentlyContinue)) {
 $platform_key = "windows-arm"
 $clang_version = read-compiler-version "clang" $platform_key
 log-info "Installing LLVM/Clang ${clang_version}..."
-# ARM64 LLVM not available as versioned ID in winget — try unversioned first
+# ARM64 LLVM: winget unversioned ID is the only option (ARM64 support).
+# Falls back to direct download if winget fails.
 if (Get-Command clang -ErrorAction SilentlyContinue) {
     log-info "Clang already available"
 } else {
-    # Try unversioned ID (ARM64 support)
+    # Try unversioned winget ID (ARM64 support)
     $llvmInstalled = $false
     try {
-        winget install --id LLVM.LLVM --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
+        $wingetId = read-package "winget" "llvm"
+        winget install --id $wingetId --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
         $llvmPath = (Get-Command clang -ErrorAction SilentlyContinue).Source | Split-Path
         if ($llvmPath) {
             $env:PATH = "$llvmPath;$env:PATH"
@@ -157,7 +162,7 @@ if (Get-Command clang -ErrorAction SilentlyContinue) {
             log-info "LLVM installed via winget"
         }
     } catch {
-        log-info "LLVM.LLVM winget install failed, trying direct download..."
+        log-info "LLVM winget install failed, trying direct download..."
     }
 
     # Fallback: direct download to C:\Program Files\LLVM
@@ -231,18 +236,16 @@ if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $msysPath })) {
 }
 log-info "cpanm ready for Perl module installs"
 
-# ── 6. MSVC build tools ─────────────────────────────────────────────────────
-$msvc_version = read-compiler-version "msvc" $platform_key
-if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
-    log-info "Installing Visual Studio Build Tools (MSVC ${msvc_version})..."
-    winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
-}
+# ── 6. MSVC build tools ──────────────────────────────────────────────────────
+log-info "Installing Visual Studio Build Tools..."
+Install-Package "vs-build-tools"
 
 # ── 6b. MSYS2 (required for OpenSSL build on Windows) ──────────────────────
 $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
 if (-not (Test-Path $msysBash)) {
     log-info "Installing MSYS2..."
-    winget install --id MSYS2.MSYS2 --exact --accept-package-agreements --accept-source-agreements --disable-interactivity --accept-source-agreements
+    Install-Package "msys2"
+
     # Wait for MSYS2 to be available
     $msysReady = $false
     for ($i = 0; $i -lt 30; $i++) {
@@ -279,7 +282,7 @@ if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
 # ── 8. LLM tooling (optional) ────────────────────────────────────────────────
 if (-not $NoLLM) {
     log-info "Installing LLM tooling (llama.cpp build deps: MinGW-w64)..."
-    Install-Dep -WingetId "BrechtSanders.WinLibs.POSIX.UCRT"
+    Install-Package "winlibs"
     log-info "LLM tooling installed"
 } else {
     log-info "Skipping LLM tooling (-NoLLM)"
