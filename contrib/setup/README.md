@@ -62,14 +62,10 @@ Every lane script installs:
 - **Zig** — from `contrib/setup/zig-version` via `helpers/install-zig.py`
 - **Compiler** — gcc-12 (Linux x86), clang-18 (Linux clang lane), clang (macOS/Windows)
 - **Build tools** — just, make, git, cmake
-- **OpenSSL** — system package manager (apt/Homebrew/winget), copied into `./opt/` so the Firedancer build finds it at `./opt/lib/libssl.a`
+- **OpenSSL** — built from source via `install-openssl.sh` (deps.sh logic) into
+  `./opt/` so the Firedancer build finds it at `./opt/lib/libssl.a`
 - **Quality tools** — gitleaks, shellcheck, pre-commit
 - **Optional** — kcov (coverage builds), buf (protobuf)
-
-**Note:** Setup scripts no longer call `deps.sh`. OpenSSL is installed via the
-platform's native package manager and copied into `./opt/`. `deps.sh` is retained
-only for `contrib/build.sh` (standalone build helper) and `contrib/deps-bundle.sh`
-(reproducible bundle creation).
 
 ## CI Integration
 
