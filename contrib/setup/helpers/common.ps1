@@ -13,7 +13,7 @@
 #                 Read with read-package.
 
 $script:SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
-$script:REPO_ROOT = (Get-Item (Join-Path $script:SCRIPT_DIR "..\..")).FullName
+$script:REPO_ROOT = (Get-Item (Join-Path $script:SCRIPT_DIR "..\..\..")).FullName
 $script:TOOL_VERSIONS = Join-Path $script:REPO_ROOT "contrib\setup\tool-versions.json"
 
 function log-info { Write-Host "[setup] $args" }
