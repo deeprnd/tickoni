@@ -157,8 +157,14 @@ build_macos() {
   case "$(uname -m)" in
     x86_64) cf_opts+=" -fcf-protection=return" ;;
   esac
+  # Clear host CPPFLAGS/HOSTCFLAGS — CI runners may have -fcf-protection=return
+  # (x86 CET flag) which clang on arm64 rejects.  OpenSSL ./config inherits
+  # env vars; we must wipe host toolchain flags to avoid leaking non-portable
+  # options into the generated Makefile.
   CFLAGS="${cf_opts}" \
     CXXFLAGS="${cf_opts}" \
+    CPPFLAGS="" \
+    HOSTCFLAGS="" \
     ./config "${CONFIG_OPTS[@]}"
 
   make -j build_libs
