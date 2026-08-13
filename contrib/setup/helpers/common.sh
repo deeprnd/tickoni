@@ -115,11 +115,6 @@ ensure_zig() {
     log_info "Zig installed to ${HOME}/.local/zig"
 }
 
-# Ensure Firedancer deps. REMOVED: setup scripts no longer use deps.sh.
-# OpenSSL is installed via the platform's native package manager and copied
-# into ./opt/ by each lane script. If you need deps.sh for standalone builds,
-# use contrib/build.sh instead.
-
 # Install gitleaks (pinned version — matches CI gitleaks on main)
 GITLEAKS_VERSION="8.30.1"
 GITLEAKS_ORG="gitleaks"
