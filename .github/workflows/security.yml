@@ -42,7 +42,7 @@ jobs:
           - name: Gitleaks
             timeout_minutes: 20
             command: just security-gitleaks-check-all
-            gitleaks: 'true'
+            security: 'true'
             fd_deps: 'false'
             zig: 'false'
             apt_packages: ''
@@ -51,7 +51,7 @@ jobs:
           - name: SecComp
             timeout_minutes: 10
             command: just security-seccomp-check-fd
-            gitleaks: 'false'
+            security: 'false'
             fd_deps: 'false'
             zig: 'false'
             apt_packages: ''
@@ -60,7 +60,7 @@ jobs:
           - name: Sanitizers
             timeout_minutes: 45
             command: just security-sanitize-check-all
-            gitleaks: 'false'
+            security: 'false'
             fd_deps: 'true'
             zig: 'true'
             apt_packages: clang
@@ -79,7 +79,7 @@ jobs:
           compiler: ${{ matrix.compiler }}
           compiler-version: ${{ matrix.compiler_version }}
           fd-deps: ${{ matrix.fd_deps }}
-          gitleaks: ${{ matrix.gitleaks }}
+          security: ${{ matrix.security }}
           zig: ${{ matrix.zig }}
 
       - if: matrix.zig == 'true'

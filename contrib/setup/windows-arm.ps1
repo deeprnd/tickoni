@@ -6,7 +6,7 @@
 # Package manager: winget (preferred) → choco → auto-install winget
 # Note: Zig uses native aarch64-windows prebuilt binary
 
-param([switch]$NoLLM, [switch]$NoSecurity)
+param([switch]$Security, [switch]$NoLLM)
 
 $ErrorActionPreference = 'Stop'
 
@@ -64,11 +64,11 @@ Install-Dep -Choco "shellcheck" -WingetId "Koalaman.shellcheck"
 Install-Dep -Choco "pre-commit" -WingetId "PreCommit.PreCommit"
 Install-Dep -Choco "buf" -WingetId "bufbuild.buf"
 
-# ── 1b. Security tools (optional) ────────────────────────────────────────────
-if (-not $NoSecurity) {
+# ── 1b. Security tools (opt-in via -Security flag) ──────────────────────────
+if ($Security) {
     ensure-gitleaks
 } else {
-    log-info "Skipping security tools (-NoSecurity)"
+    log-info "Skipping security tools (pass -Security to install)"
 }
 
 # ── 2. just ──────────────────────────────────────────────────────────────────

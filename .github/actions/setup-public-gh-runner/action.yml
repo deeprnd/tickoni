@@ -18,8 +18,8 @@ inputs:
     description: Install Firedancer build dependencies
     required: false
     default: 'false'
-  gitleaks:
-    description: Install gitleaks (legacy — lane scripts handle this)
+  security:
+    description: Install security tools (gitleaks) — off by default, opt-in via CI matrix
     required: false
     default: 'false'
   kcov:
@@ -51,25 +51,25 @@ runs:
         arch="${{ runner.arch == 'ARM64' && 'arm' || 'x86' }}"
         compiler="${{ inputs.compiler }}"
         if [ "$os" = "windows" ]; then
-          if [ "${{ inputs.gitleaks }}" = "true" ]; then
-            pwsh "$GITHUB_WORKSPACE/contrib/setup/windows-${arch}.ps1" -NoLLM
+          if [ "${{ inputs.security }}" = "true" ]; then
+            pwsh "$GITHUB_WORKSPACE/contrib/setup/windows-${arch}.ps1" -NoLLM -Security
           else
-            pwsh "$GITHUB_WORKSPACE/contrib/setup/windows-${arch}.ps1" -NoLLM -NoSecurity
+            pwsh "$GITHUB_WORKSPACE/contrib/setup/windows-${arch}.ps1" -NoLLM
           fi
         elif [ "$os" = "linux" ] && [ "$compiler" = "clang" ]; then
-          if [ "${{ inputs.gitleaks }}" = "true" ]; then
+          if [ "${{ inputs.security }}" = "true" ]; then
             SECURITY=on just "setup-${os}-${arch}-clang"
           else
             just "setup-${os}-${arch}-clang"
           fi
         elif [ "$os" = "linux" ]; then
-          if [ "${{ inputs.gitleaks }}" = "true" ]; then
+          if [ "${{ inputs.security }}" = "true" ]; then
             SECURITY=on just "setup-${os}-${arch}-gcc"
           else
             just "setup-${os}-${arch}-gcc"
           fi
         else
-          if [ "${{ inputs.gitleaks }}" = "true" ]; then
+          if [ "${{ inputs.security }}" = "true" ]; then
             SECURITY=on just "setup-${os}-${arch}"
           else
             just "setup-${os}-${arch}"

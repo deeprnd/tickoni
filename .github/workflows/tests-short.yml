@@ -47,7 +47,7 @@ jobs:
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
-          gitleaks: 'false'
+          security: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
 
@@ -73,7 +73,7 @@ jobs:
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
-          gitleaks: 'false'
+          security: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
@@ -101,7 +101,7 @@ jobs:
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
-          gitleaks: 'false'
+          security: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
@@ -129,7 +129,7 @@ jobs:
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
-          gitleaks: 'false'
+          security: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
@@ -157,7 +157,7 @@ jobs:
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
-          gitleaks: 'false'
+          security: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
@@ -229,7 +229,7 @@ jobs:
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
-          gitleaks: 'false'
+          security: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
@@ -257,7 +257,7 @@ jobs:
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
-          gitleaks: 'false'
+          security: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
@@ -285,7 +285,7 @@ jobs:
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
-          gitleaks: 'false'
+          security: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
@@ -313,7 +313,7 @@ jobs:
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
-          gitleaks: 'false'
+          security: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
@@ -341,7 +341,7 @@ jobs:
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
-          gitleaks: 'false'
+          security: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
 
@@ -376,7 +376,7 @@ jobs:
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
-          gitleaks: 'false'
+          security: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
@@ -413,7 +413,7 @@ jobs:
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
-          gitleaks: 'false'
+          security: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
@@ -450,7 +450,7 @@ jobs:
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
-          gitleaks: 'false'
+          security: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
@@ -487,7 +487,7 @@ jobs:
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
-          gitleaks: 'false'
+          security: 'false'
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
