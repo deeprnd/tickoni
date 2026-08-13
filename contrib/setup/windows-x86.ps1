@@ -3,7 +3,7 @@
 #   .\windows-x86.ps1              # default: install all deps + LLM tooling
 #   .\windows-x86.ps1 -NoLLM       # skip LLM tooling (llama.cpp build)
 #   .\windows-x86.ps1 -Security -NoLLM  # install gitleaks, skip LLM
-# Package manager: winget (preferred) → choco → auto-install winget
+# Package manager: winget ONLY. If winget is missing, auto-install it.
 
 param([switch]$Security)
 
@@ -16,14 +16,11 @@ $repoRoot = (Get-Item (Join-Path $scriptDir "..\..")).FullName
 
 log-info "Windows x86_64 setup starting..."
 
-# ── 0. Package manager (winget or choco) ─────────────────────────────────────
-function Get-PackageManager {
-    if (Get-Command winget -ErrorAction SilentlyContinue) { return "winget" }
-    if (Test-Path (Join-Path $env:ProgramData "chocolatey\bin\choco.exe")) { return "choco" }
-    if (Get-Command choco -ErrorAction SilentlyContinue) { return "choco" }
-
-    # Install winget via Microsoft installer
-    log-info "No package manager — installing winget..."
+# ── 0. Winget (only package manager — auto-install if missing) ────────────────
+if (Get-Command winget -ErrorAction SilentlyContinue) {
+    log-info "winget already installed"
+} else {
+    log-info "winget not found — installing..."
     $temp = Join-Path $env:TEMP "winget-msi"
     New-Item -ItemType Directory -Force -Path $temp | Out-Null
     $url = "https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
@@ -34,34 +31,28 @@ function Get-PackageManager {
     if ($msix) {
         Add-AppxPackage -Path $msix.FullName
         $env:PATH = (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps") + ";$env:PATH"
-        return "winget"
+        log-info "winget installed"
+    } else {
+        log-error "Failed to install winget"
+        exit 1
     }
-    log-error "Cannot install winget"
-    exit 1
 }
 
-$pm = Get-PackageManager
-log-info "Using package manager: $pm"
-
 function Install-Dep {
-    param([string]$Choco, [string]$WingetId)
-    if ($pm -eq "choco") {
-        choco install $Choco -y --no-progress
-    } else {
-        winget install --id $WingetId --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
-    }
+    param([string]$WingetId)
+    winget install --id $WingetId --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
 }
 
 # ── 1. Core packages ─────────────────────────────────────────────────────────
 log-info "Installing core packages..."
-Install-Dep -Choco "git" -WingetId "Git.Git"
-Install-Dep -Choco "cmake" -WingetId "CMake.CMake"
-Install-Dep -Choco "ninja" -WingetId "Ninja-build.Ninja"
-Install-Dep -Choco "zstd" -WingetId "Facebook.zstd"
-Install-Dep -Choco "python3" -WingetId "Python.Python.3.12"
-Install-Dep -Choco "shellcheck" -WingetId "Koalaman.shellcheck"
-Install-Dep -Choco "pre-commit" -WingetId "PreCommit.PreCommit"
-Install-Dep -Choco "buf" -WingetId "bufbuild.buf"
+Install-Dep -WingetId "Git.Git"
+Install-Dep -WingetId "CMake.CMake"
+Install-Dep -WingetId "Ninja-build.Ninja"
+Install-Dep -WingetId "Facebook.zstd"
+Install-Dep -WingetId "Python.Python.3.12"
+Install-Dep -WingetId "Koalaman.shellcheck"
+Install-Dep -WingetId "PreCommit.PreCommit"
+Install-Dep -WingetId "bufbuild.buf"
 
 # ── 1b. Security tools (opt-in via -Security flag) ──────────────────────────
 if ($Security) {
@@ -80,7 +71,7 @@ if (-not (Get-Command just -ErrorAction SilentlyContinue)) {
 $platform_key = get-windows-platform-key
 $clang_version = read-compiler-version "clang" $platform_key
 log-info "Installing LLVM/Clang ${clang_version}..."
-Install-Dep -Choco "llvm" -WingetId "LLVM.LLVM.$clang_version"
+Install-Dep -WingetId "LLVM.LLVM.$clang_version"
 
 $llvmPath = (Get-Command clang -ErrorAction SilentlyContinue).Source | Split-Path
 if (-not $llvmPath) {
@@ -98,19 +89,10 @@ ensure-zig
 $msvc_version = read-compiler-version "msvc" $platform_key
 if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
     log-info "Installing Visual Studio Build Tools (MSVC ${msvc_version})..."
-    if ($pm -eq "choco") {
-        # choco --version doesn't accept wildcards — install latest
-        choco install visualstudio2022buildtools -y --params "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
-    } else {
-        winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
-    }
+    winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
 }
 
 # ── 6. cpanm (for MSYS2 Perl module installs) ───────────────────────────────
-# Strawberry Perl ships a cpanm fat-pack (cpanmin.pl) that is missing
-# ExtUtils::Manifest. Always use MSYS2's cpanminus instead — verify it
-# works by checking for ExtUtils::Manifest, then install via MSYS2 if
-# the first-found cpanm doesn't satisfy it.
 function Test-CpanmWorks {
     $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
     if (Test-Path $msysBash) {
@@ -122,13 +104,13 @@ function Test-CpanmWorks {
 
 $cpanmFound = Get-Command cpanm -ErrorAction SilentlyContinue
 if (-not $cpanmFound) {
-    log-info "cpanm not found — installing via MSYS2 pacman...";
+    log-info "cpanm not found — installing via MSYS2 pacman..."
     $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
     if (Test-Path $msysBash) {
         & $msysBash -lc "pacman -S --noconfirm cpanminus" 2>&1 | Out-Null
     }
 } elseif (-not (Test-CpanmWorks)) {
-    log-info "cpanm found but missing ExtUtils::Manifest (Strawberry Perl fat-pack) — installing MSYS2 cpanminus...";
+    log-info "cpanm found but missing ExtUtils::Manifest (Strawberry Perl fat-pack) — installing MSYS2 cpanminus..."
     $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
     if (Test-Path $msysBash) {
         & $msysBash -lc "pacman -S --noconfirm cpanminus" 2>&1 | Out-Null
@@ -140,16 +122,16 @@ $msysPath = "$env:SystemDrive\msys64\usr\bin"
 if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $msysPath })) {
     $env:PATH = $msysPath + ";" + $env:PATH
 }
-log-info "cpanm ready for Perl module installs";
+log-info "cpanm ready for Perl module installs"
 
 # ── 7. OpenSSL — install from winget (not from source via deps.sh) ──────────
 # deps.sh builds OpenSSL from source; the Makefile passes the Clang path
 # (e.g. "C:/Program Files/LLVM/bin/clang") to /usr/bin/sh which splits
-# on spaces → Error 127.  Install via winget instead and symlink into
+# on spaces → Error 127.  Install via winget instead and copy into
 # ./opt/ so the Firedancer build finds it.
 if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
     log-info "Installing OpenSSL via winget..."
-    winget install --id ShiningLight.OpenSSL.Light --exact --accept-package-agreements --accept-source-agreements --disable-interactivity --accept-source-agreements
+    winget install --id ShiningLight.OpenSSL.Light --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
     # Copy headers and static libs into ./opt/ (where Firedancer build expects them)
     $optInclude = Join-Path $repoRoot "opt\include"
     $optLib     = Join-Path $repoRoot "opt\lib"
@@ -158,7 +140,6 @@ if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
     # Find the winget-installed OpenSSL (standard winget path)
     $opensslDir = Get-ChildItem -Directory "C:\Program Files\OpenSSL" -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $opensslDir) {
-        # Try alternate winget install location
         $opensslDir = Get-ChildItem -Directory "C:\Program Files (x86)\OpenSSL" -ErrorAction SilentlyContinue | Select-Object -First 1
     }
     if ($opensslDir) {
@@ -176,7 +157,7 @@ if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
 # ── 8. LLM tooling (optional) ────────────────────────────────────────────────
 if (-not $NoLLM) {
     log-info "Installing LLM tooling (llama.cpp build deps: MinGW-w64)..."
-    Install-Dep -Choco "mingw" -WingetId "BrechtSanders.WinLibs.POSIX.UCRT"
+    Install-Dep -WingetId "BrechtSanders.WinLibs.POSIX.UCRT"
     log-info "LLM tooling installed"
 } else {
     log-info "Skipping LLM tooling (-NoLLM)"
