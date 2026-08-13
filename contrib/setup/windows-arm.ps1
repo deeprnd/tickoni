@@ -152,15 +152,34 @@ if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
     }
 }
 
-# ── 7. Firedancer deps ───────────────────────────────────────────────────────
-$env:CC = "clang"
-$env:CXX = "clang++"
-log-info "Installing Firedancer dependencies (CC=clang, CXX=clang++)..."
-if (Test-Path (Join-Path $repoRoot "deps.sh")) {
-    & bash (Join-Path $repoRoot "deps.sh") check
-    & bash (Join-Path $repoRoot "deps.sh") fetch install
+# ── 7. OpenSSL — install from winget (not from source via deps.sh) ──────────
+# deps.sh builds OpenSSL from source; the Makefile passes the Clang path
+# (e.g. "C:/Program Files/LLVM/bin/clang") to /usr/bin/sh which splits
+# on spaces → Error 127.  Install via winget instead and copy into
+# ./opt/ so the Firedancer build finds it.
+if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
+    log-info "Installing OpenSSL via winget..."
+    winget install --id ShiningLight.OpenSSL.Light --exact --accept-package-agreements --accept-source-agreements --disable-interactivity --accept-source-agreements
+    # Copy headers and static libs into ./opt/ (where Firedancer build expects them)
+    $optInclude = Join-Path $repoRoot "opt\include"
+    $optLib     = Join-Path $repoRoot "opt\lib"
+    New-Item -ItemType Directory -Force -Path $optInclude\openssl | Out-Null
+    New-Item -ItemType Directory -Force -Path $optLib         | Out-Null
+    # Find the winget-installed OpenSSL
+    $opensslDir = Get-ChildItem -Directory "C:\Program Files\OpenSSL" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $opensslDir) {
+        $opensslDir = Get-ChildItem -Directory "C:\Program Files (x86)\OpenSSL" -ErrorAction SilentlyContinue | Select-Object -First 1
+    }
+    if ($opensslDir) {
+        Copy-Item -Recurse -Force "$($opensslDir.FullName)\include\openssl\*" "$optInclude\openssl\"
+        Copy-Item -Force "$($opensslDir.FullName)\lib\libcrypto-*.a"   "$optLib\" -ErrorAction SilentlyContinue
+        Copy-Item -Force "$($opensslDir.FullName)\lib\libssl-*.a"      "$optLib\"   -ErrorAction SilentlyContinue
+        log-info "OpenSSL headers and static libs copied to ./opt/"
+    } else {
+        log-warn "OpenSSL winget installed but headers/libs not found — build may need manual setup"
+    }
 } else {
-    log-warn "deps.sh not found — skipping Firedancer deps"
+    log-info "OpenSSL already installed in ./opt/"
 }
 
 # ── 8. LLM tooling (optional) ────────────────────────────────────────────────

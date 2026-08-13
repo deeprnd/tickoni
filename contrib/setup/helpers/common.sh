@@ -115,22 +115,10 @@ ensure_zig() {
     log_info "Zig installed to ${HOME}/.local/zig"
 }
 
-# Install Firedancer dependencies via deps.sh
-ensure_firedancer_deps() {
-    local cc="${CC:-gcc}"
-    local cxx="${CXX:-g++}"
-    log_info "Installing Firedancer deps (CC=${cc}, CXX=${cxx})..."
-    (
-        cd "${REPO_ROOT}"
-        export CC="${cc}" CXX="${cxx}"
-        export FD_AUTO_INSTALL_PACKAGES=1
-        bash deps.sh check || {
-            log_warn "deps.sh check failed — attempting install anyway"
-        }
-        bash deps.sh fetch install
-    )
-    log_info "Firedancer deps installed"
-}
+# Ensure Firedancer deps. REMOVED: setup scripts no longer use deps.sh.
+# OpenSSL is installed via the platform's native package manager and copied
+# into ./opt/ by each lane script. If you need deps.sh for standalone builds,
+# use contrib/build.sh instead.
 
 # Install gitleaks (pinned version — matches CI gitleaks on main)
 GITLEAKS_VERSION="8.30.1"

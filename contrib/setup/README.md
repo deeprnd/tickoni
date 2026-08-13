@@ -53,7 +53,6 @@ contrib/setup/
     common.ps1            # Shared Windows PowerShell functions
     install-zig.py        # Official Zig binary installer wrapper
     detect-windows-arch.sh# Windows arch normalization
-    firedancer-deps.sh    # Thin wrapper around contrib/deps.sh
 ```
 
 ## What Each Script Installs
@@ -63,9 +62,14 @@ Every lane script installs:
 - **Zig** — from `contrib/setup/zig-version` via `helpers/install-zig.py`
 - **Compiler** — gcc-12 (Linux x86), clang-18 (Linux clang lane), clang (macOS/Windows)
 - **Build tools** — just, make, git, cmake
-- **Firedancer deps** — via `helpers/firedancer-deps.sh` (wraps `contrib/deps.sh`)
+- **OpenSSL** — system package manager (apt/Homebrew/winget), copied into `./opt/` so the Firedancer build finds it at `./opt/lib/libssl.a`
 - **Quality tools** — gitleaks, shellcheck, pre-commit
 - **Optional** — kcov (coverage builds), buf (protobuf)
+
+**Note:** Setup scripts no longer call `deps.sh`. OpenSSL is installed via the
+platform's native package manager and copied into `./opt/`. `deps.sh` is retained
+only for `contrib/build.sh` (standalone build helper) and `contrib/deps-bundle.sh`
+(reproducible bundle creation).
 
 ## CI Integration
 
