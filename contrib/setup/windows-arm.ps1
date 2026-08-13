@@ -260,6 +260,12 @@ if (-not (Test-Path $msysBash)) {
     log-info "MSYS2 already installed"
 }
 
+# Ensure MSYS2 bin (cygpath, bash, etc.) is in PATH
+$msysPath = "$env:SystemDrive\msys64\usr\bin"
+if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $msysPath })) {
+    $env:PATH = $msysPath + ";" + $env:PATH
+}
+
 # ── 7. OpenSSL 3.6.2 — build from source (deps.sh logic) via MSYS2 bash
 # so Firedancer gets the right API level.
 if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
