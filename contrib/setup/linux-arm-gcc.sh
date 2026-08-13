@@ -37,17 +37,12 @@ if ! tool_exists just; then
     curl -sSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
 fi
 
-# 6. OpenSSL — system packages provide it (libssl-dev), copy into ./opt/
-# so the Firedancer build finds it at ./opt/lib/libssl.a
+# 6. OpenSSL 3.6.2 — build from source (deps.sh logic) to get the
+# right API level for Firedancer; system libssl-dev headers are incompatible.
 if [ ! -f "./opt/lib/libssl.a" ]; then
-    log_info "Copying system OpenSSL into ./opt/..."
-    mkdir -p opt/include/openssl opt/lib
-    cp -rf /usr/include/openssl/* opt/include/openssl/
-    cp -f /usr/lib/*-linux-gnu/libssl.a opt/lib/libssl.a 2>/dev/null || \
-    cp -f /usr/lib/x86_64-linux-gnu/libssl.a opt/lib/libssl.a 2>/dev/null || true
-    cp -f /usr/lib/*-linux-gnu/libcrypto.a opt/lib/libcrypto.a 2>/dev/null || \
-    cp -f /usr/lib/x86_64-linux-gnu/libcrypto.a opt/lib/libcrypto.a 2>/dev/null || true
-    log_info "OpenSSL copied to ./opt/"
+    bash "${SCRIPT_DIR}/install-openssl.sh"
+else
+    log_info "OpenSSL 3.6.2 already installed in ./opt/"
 fi
 
 # 7. Quality tools (security tools off by default, opt-in via SECURITY=on env var)
