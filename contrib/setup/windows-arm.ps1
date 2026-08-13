@@ -21,38 +21,15 @@ log-info "Windows ARM64 setup starting..."
 if (Get-Command winget -ErrorAction SilentlyContinue) {
     log-info "winget already installed"
 } else {
-    log-info "winget not found — installing..."
-    # GitHub ARM runners may not have winget pre-installed. The MSIX bundle
-    # doesn't work on ARM64, so fall back to choco (always available on GH
-    # Actions runners).
-    $temp = Join-Path $env:TEMP "winget-msi"
-    New-Item -ItemType Directory -Force -Path $temp | Out-Null
-    $url = "https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
-    $zip = Join-Path $temp "winget.zip"
-    Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
-    Expand-Archive -Path $zip -DestinationPath $temp -Force
-    $msix = Get-ChildItem -Path $temp -Filter "*.msixbundle" -Recurse | Select-Object -First 1
-    $installed = $false
-    if ($msix) {
-        try {
-            Add-AppxPackage -Path $msix.FullName -ErrorAction Stop
-            $installed = $true
-            log-info "winget installed via MSIX"
-        } catch {
-            log-info "MSIX install failed — falling back to choco..."
-        }
-    }
-    if (-not $installed) {
-        choco install -y microsoft-winget-cli --no-progress
-    }
-    $env:PATH = (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps") + ";$env:PATH"
-    # Ensure winget is discoverable (choco install may not update PATH)
-    $wingetPath = Get-Command winget -ErrorAction SilentlyContinue
-    if (-not $wingetPath) {
-        $wingetPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
-        if (Test-Path $wingetPath) {
-            $env:PATH = $wingetPath + ";$env:PATH"
-        }
+    log-info "winget not found — installing via PowerShell NuGet/PSGallery..."
+    $ProgressPreference = 'SilentlyContinue'
+    Install-PackageProvider -Name NuGet -Force | Out-Null
+    Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery
+    Repair-WinGetPackageManager -AllUsers
+    # Ensure winget is discoverable in PATH
+    $wingetDir = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
+    if ($wingetDir -notlike '*$env:PATH*') {
+        $env:PATH = $wingetDir + ";$env:PATH"
     }
     if (Get-Command winget -ErrorAction SilentlyContinue) {
         log-info "winget ready"
