@@ -90,6 +90,8 @@ CONFIG_OPTS=(
 build_linux() {
   echo "[openssl] Building OpenSSL 3.6.2 for Linux ($(uname -m))"
   local src_dir="${PREFIX}/git/openssl"
+  local host_arch
+  host_arch="$(uname -m)"
 
   if [[ ! -d "${src_dir}/config" ]]; then
     echo "[openssl] Fetching OpenSSL 3.6.2..."
@@ -101,8 +103,12 @@ build_linux() {
   cd "${src_dir}"
 
   # Apply config patches for Linux (deps.sh lines 543-544)
-  CFLAGS="-g3 -fno-omit-frame-pointer -fcf-protection=return" \
-    CXXFLAGS="-g3 -fno-omit-frame-pointer -fcf-protection=return" \
+  local cf_opts="-g3 -fno-omit-frame-pointer"
+  case "${host_arch}" in
+    x86_64|i686) cf_opts+=" -fcf-protection=return" ;;
+  esac
+  CFLAGS="${cf_opts}" \
+    CXXFLAGS="${cf_opts}" \
     ./config "${CONFIG_OPTS[@]}"
 
   make -j build_libs
@@ -146,8 +152,13 @@ build_macos() {
     done
   fi
 
-  CFLAGS="-g3 -fno-omit-frame-pointer -fcf-protection=return" \
-    CXXFLAGS="-g3 -fno-omit-frame-pointer -fcf-protection=return" \
+  # -fcf-protection=return is x86-only
+  local cf_opts="-g3 -fno-omit-frame-pointer"
+  case "$(uname -m)" in
+    x86_64) cf_opts+=" -fcf-protection=return" ;;
+  esac
+  CFLAGS="${cf_opts}" \
+    CXXFLAGS="${cf_opts}" \
     ./config "${CONFIG_OPTS[@]}"
 
   make -j build_libs
@@ -216,8 +227,13 @@ build_windows() {
     openssl_target="mingw64"
   fi
 
-  CFLAGS="-g3 -fno-omit-frame-pointer -fcf-protection=return" \
-    CXXFLAGS="-g3 -fno-omit-frame-pointer -fcf-protection=return" \
+  # -fcf-protection=return is x86-only
+  local cf_opts="-g3 -fno-omit-frame-pointer"
+  case "${windows_arch}" in
+    x86_64|x64|i686|x86) cf_opts+=" -fcf-protection=return" ;;
+  esac
+  CFLAGS="${cf_opts}" \
+    CXXFLAGS="${cf_opts}" \
     perl ./Configure "${openssl_target}" "${CONFIG_OPTS[@]}"
 
   make -j build_libs
