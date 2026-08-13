@@ -65,6 +65,17 @@ if ($Security) {
 if (-not (Get-Command just -ErrorAction SilentlyContinue)) {
     log-info "Installing just..."
     winget install --id just.systems.just --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
+    # Ensure just is discoverable in PATH
+    $windowsApps = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
+    if ($env:PATH -notlike "*$windowsApps*") {
+        $env:PATH = "$windowsApps;$env:PATH"
+    }
+    if (Get-Command just -ErrorAction SilentlyContinue) {
+        log-info "just ready"
+    } else {
+        log-error "Failed to install just"
+        exit 1
+    }
 }
 
 # ── 3. LLVM (Clang compiler) ─────────────────────────────────────────────────
