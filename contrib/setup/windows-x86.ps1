@@ -2,7 +2,7 @@
 # Usage:
 #   .\windows-x86.ps1              # default: install all deps + LLM tooling
 #   .\windows-x86.ps1 -NoLLM       # skip LLM tooling (llama.cpp build)
-#   .\windows-x86.ps1 -NoSecurity  # skip security tools (gitleaks)
+#   .\windows-x86.ps1 -Security -NoLLM  # install gitleaks, skip LLM
 # Package manager: winget (preferred) → choco → auto-install winget
 
 param([switch]$Security)

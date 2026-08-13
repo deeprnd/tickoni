@@ -2,7 +2,7 @@
 # Usage:
 #   .\windows-arm.ps1              # default: install all deps + LLM tooling
 #   .\windows-arm.ps1 -NoLLM       # skip LLM tooling (llama.cpp build)
-#   .\windows-arm.ps1 -NoSecurity  # skip security tools (gitleaks)
+#   .\windows-arm.ps1 -Security -NoLLM  # install gitleaks, skip LLM
 # Package manager: winget (preferred) → choco → auto-install winget
 # Note: Zig uses native aarch64-windows prebuilt binary
 
