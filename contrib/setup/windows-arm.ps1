@@ -116,7 +116,6 @@ function Install-Package {
 
 # ── 1. Core packages ─────────────────────────────────────────────────────────
 log-info "Installing core packages..."
-Install-Package "git"
 Install-Package "cmake"
 Install-Package "ninja"
 Install-Package "zstd"
