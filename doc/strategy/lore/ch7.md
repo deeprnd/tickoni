@@ -232,9 +232,9 @@ The orchard pipes shook. Bathhouse water surged upward. A crack split the courty
 
 Far beneath Kōri, a blue eye opened inside the ice.
 
-Ryūhyō, the winter dragon, had slept beneath the island for ages. The new channels had redirected warmth around its head.
+Takaokami, Kōri's old mountain dragon, had slept beneath the island for ages. The new channels had redirected warmth around its head.
 
-The dragon rose.
+The mountain moved with it.
 
 Ice scales broke through the street. Steam burst from drains, and oil barges tore loose from their chains.
 
@@ -308,7 +308,7 @@ Tickoni opened the harbor path.
 
 Steam roared beneath Kōri. Warm water burst through the seawall, carrying the trapped pressure into the Ledger Sea.
 
-Ryūhyō’s enormous body shifted beneath the ice.
+Takaokami’s enormous body shifted beneath the ice.
 
 Then the blue eye closed.
 
