@@ -265,6 +265,18 @@ if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $msysPath })) {
     $env:PATH = $msysPath + ";" + $env:PATH
 }
 
+# ── 6c. Ensure git is installed in MSYS2 (required for OpenSSL build) ────────
+# MSYS2 pacman doesn't include git by default. We need it inside MSYS2 because
+# install-openssl.sh runs via MSYS2 bash and calls 'git clone'.
+$msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
+if (Test-Path $msysBash) {
+    if (-not (& $msysBash -lc "git --version" 2>$null)) {
+        log-info "Installing git via MSYS2 pacman..."
+        & $msysBash -lc "pacman -S --noconfirm --needed git" 2>&1 | Out-Null
+    }
+    log-info "git available in MSYS2"
+}
+
 # ── 7. OpenSSL 3.6.2 — build from source (deps.sh logic) via MSYS2 bash
 # so Firedancer gets the right API level.
 if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
