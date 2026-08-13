@@ -40,18 +40,12 @@ if ! xcode-select -p &>/dev/null; then
     sudo xcodebuild -license accept 2>/dev/null || true
 fi
 
-# 6. OpenSSL — install via Homebrew, copy into ./opt/ so the Firedancer build
-# finds it at ./opt/lib/libssl.a
-log_info "Installing OpenSSL via Homebrew..."
-brew install openssl@3 2>/dev/null || brew link openssl@3 2>/dev/null || true
+# 6. OpenSSL 3.6.2 — build from source (deps.sh logic) to get the
+# right API level for Firedancer; Homebrew OpenSSL is incompatible.
 if [ ! -f "./opt/lib/libssl.a" ]; then
-    log_info "Copying Homebrew OpenSSL into ./opt/..."
-    mkdir -p opt/include/openssl opt/lib
-    brew_prefix="$(brew --prefix openssl@3 2>/dev/null || echo "/usr/local/opt/openssl@3")"
-    cp -rf "${brew_prefix}/include/openssl/"* opt/include/openssl/ 2>/dev/null || true
-    cp -f "${brew_prefix}/lib/libssl.a" opt/lib/libssl.a 2>/dev/null || true
-    cp -f "${brew_prefix}/lib/libcrypto.a" opt/lib/libcrypto.a 2>/dev/null || true
-    log_info "OpenSSL copied to ./opt/"
+    bash "${SCRIPT_DIR}/install-openssl.sh"
+else
+    log_info "OpenSSL 3.6.2 already installed in ./opt/"
 fi
 
 # 7. Quality tools (security tools off by default, opt-in via SECURITY=on env var)

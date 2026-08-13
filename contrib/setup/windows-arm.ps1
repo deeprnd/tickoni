@@ -134,34 +134,19 @@ if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
     winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
 }
 
-# ── 7. OpenSSL — install from winget (not from source via deps.sh) ──────────
-# deps.sh builds OpenSSL from source; the Makefile passes the Clang path
-# (e.g. "C:/Program Files/LLVM/bin/clang") to /usr/bin/sh which splits
-# on spaces → Error 127.  Install via winget instead and copy into
-# ./opt/ so the Firedancer build finds it.
+# ── 7. OpenSSL 3.6.2 — build from source (deps.sh logic) via MSYS2 bash
+# so Firedancer gets the right API level.
 if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
-    log-info "Installing OpenSSL via winget..."
-    winget install --id ShiningLight.OpenSSL.Light --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
-    # Copy headers and static libs into ./opt/ (where Firedancer build expects them)
-    $optInclude = Join-Path $repoRoot "opt\include"
-    $optLib     = Join-Path $repoRoot "opt\lib"
-    New-Item -ItemType Directory -Force -Path $optInclude\openssl | Out-Null
-    New-Item -ItemType Directory -Force -Path $optLib         | Out-Null
-    # Find the winget-installed OpenSSL
-    $opensslDir = Get-ChildItem -Directory "C:\Program Files\OpenSSL" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $opensslDir) {
-        $opensslDir = Get-ChildItem -Directory "C:\Program Files (x86)\OpenSSL" -ErrorAction SilentlyContinue | Select-Object -First 1
-    }
-    if ($opensslDir) {
-        Copy-Item -Recurse -Force "$($opensslDir.FullName)\include\openssl\*" "$optInclude\openssl\"
-        Copy-Item -Force "$($opensslDir.FullName)\lib\libcrypto-*.a"   "$optLib\" -ErrorAction SilentlyContinue
-        Copy-Item -Force "$($opensslDir.FullName)\lib\libssl-*.a"      "$optLib\"   -ErrorAction SilentlyContinue
-        log-info "OpenSSL headers and static libs copied to ./opt/"
+    $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
+    if (Test-Path $msysBash) {
+        log-info "Building OpenSSL 3.6.2 via MSYS2 bash..."
+        & $msysBash -lc "bash $(Join-Path $repoRoot 'contrib/setup/install-openssl.sh') --prefix $(Join-Path $repoRoot 'opt')" 2>&1
     } else {
-        log-warn "OpenSSL winget installed but headers/libs not found — build may need manual setup"
+        log-error "MSYS2 bash not found — OpenSSL 3.6.2 cannot be built"
+        exit 1
     }
 } else {
-    log-info "OpenSSL already installed in ./opt/"
+    log-info "OpenSSL 3.6.2 already installed in ./opt/"
 }
 
 # ── 8. LLM tooling (optional) ────────────────────────────────────────────────
