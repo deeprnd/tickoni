@@ -102,6 +102,9 @@ zig-out/
 .codex
 .hermes-tmp.*
 
+# Lore
+doc/strategy/lore/audits/
+
 # Version derive
 src/util/fd_version_generated.h
 src/util/fd_version_generated1.h
