@@ -18,7 +18,9 @@ Rice carriers, barges, skiffs, and treasury vessels crowded the entrance, their 
 
 Every captain demanded private passage.
 
-At the harbor’s center, a kitsune stood atop a signal tower. The fox spirit wore a white captain’s mask, three red tails moving behind her as she directed traffic with burning fans.
+At the harbor’s center, Sora, a kitsune harbor-master, stood atop a signal tower.
+
+The fox spirit wore a white captain’s mask, three red tails moving behind her as she directed traffic with burning fans.
 
 Green meant advance. Blue meant turn. Red meant hold.
 
@@ -73,9 +75,22 @@ She landed in Tickoni’s boat and returned to human form. Her mask was cracked.
 
 — It is no longer closed. It is unguided.
 
+— And where is an oni without an Order going?
+
+— To forge a contract no oni can break.
+
+The kitsune studied him for a moment.
+
+— I see.
+
 Another tower fell.
 
 — Eight channels. Forty-three ships, — the kitsune said. — Every captain demands water no one else may enter. Without the towers, I cannot place them.
+— Once one captain thinks a channel is safer, the others follow. Then it stops being safer.
+
+She watched another ship turn toward the crowded passage.
+
+— Fear travels faster than ships.
 
 Tickoni studied the spaces between the ships.
 
@@ -92,6 +107,10 @@ The flame-script beneath its ribs glowed, and lines appeared across the water.
 The treasury captain raised his horn.
 
 — My vessel will not share water with common cargo!
+
+The kitsune watched the ships behind him begin turning toward other channels.
+
+— One captain believes the channel is unsafe, — she said. — Soon it will be.
 
 The whirlpool caught his stern. A crack opened below deck, and rei poured into the sea.
 
@@ -193,6 +212,8 @@ The kitsune sent the pattern across the harbor.
 
 This time, the captains obeyed.
 
+— Interesting, — she said. — The water has not changed. Only what they expect from one another.
+
 When one ship slowed, those behind waited. When one failed, its channel closed. Tickoni carried each changed signal from vessel to vessel.
 
 Nothing moved without a place.
@@ -274,3 +295,21 @@ Behind them, the captains entered the shared waters in order.
 Ahead, the Ledger Sea opened.
 
 Beneath Tickoni’s ribs, three seals burned.
+
+Long after the harbor had gone quiet, the kitsune climbed the ruined signal tower.
+
+Inside, a single lantern burned above an empty desk.
+
+On the wall hung a sheet bearing the crest of the Order of the Oni.
+
+Below the crest was a charcoal likeness.
+
+**TICKONI**
+
+Her eyes passed once over the notice.
+
+— Forge a contract no oni can break...
+
+One tail moved through the lantern light.
+
+— We'll see.
