@@ -10,6 +10,25 @@ cd "$(dirname "$0")/.."
 raw_arch="${1:-$(bash contrib/detect-windows-arch.sh)}"
 cc="${2:-${TK_WINDOWS_CC:-clang}}"
 
+# Firedancer Makefile passes CC through /usr/bin/sh on MSYS2.
+# Paths with spaces (e.g. /c/Program Files/LLVM/bin/clang) get split.
+# Detect this and create a no-space symlink, then update CC to use it.
+if command -v "$cc" >/dev/null 2>&1; then
+  cc_abs="$(command -v "$cc")"
+  if [[ "$cc_abs" == *" "* ]]; then
+    symlink_dir="/tmp/.tickoni-clang"
+    symlink_bin="${symlink_dir}/clang"
+    if [[ ! -f "$symlink_bin" ]]; then
+      mkdir -p "$symlink_dir"
+      ln -sf "$(dirname "$cc_abs")/clang" "$symlink_bin"
+    fi
+    export PATH="$symlink_dir:$PATH"
+    cc="clang"
+    export CC="$cc"
+    echo "[+] clang path has spaces, using symlink: $cc_abs -> $cc"
+  fi
+fi
+
 if ! command -v "$cc" >/dev/null 2>&1; then
   llvm_paths=("/c/Program Files/LLVM/bin")
   if [[ -n "${LOCALAPPDATA:-}" ]] && command -v cygpath >/dev/null 2>&1; then
