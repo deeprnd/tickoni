@@ -11,7 +11,7 @@ param([switch]$Security, [switch]$NoLLM)
 $ErrorActionPreference = 'Stop'
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot = (Get-Item (Join-Path $scriptDir "..\..")).FullName
+$repoRoot = (Get-Item (Join-Path $scriptDir "..\..\..")).FullName
 
 . (Join-Path $scriptDir "helpers\common.ps1")
 
@@ -197,11 +197,7 @@ if ($llvmPath) {
 
 # ── 4. Zig (native aarch64-windows) ─────────────────────────────────────────
 log-info "Installing Zig (aarch64-windows native)..."
-python3 (Join-Path $scriptDir "helpers\install-zig.py") `
-    --target "aarch64-windows" `
-    --install-root (Join-Path $env:LOCALAPPDATA "Programs") `
-    --cache-root (Join-Path $env:LOCALAPPDATA "zig") `
-    --user-path
+ensure-zig "aarch64-windows"
 log-info "Zig installed (aarch64-windows native)"
 
 # ── 5. cpanm (for MSYS2 Perl module installs) ───────────────────────────────
