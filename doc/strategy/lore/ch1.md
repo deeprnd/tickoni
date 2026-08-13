@@ -16,9 +16,41 @@ One map showed every price. One oracle answered every question. One mirror showe
 
 Still, the villagers kept losing coins.
 
+One evening, a fisherman named Jiro ran into the Council Hall. His hands bled from pulling nets. He carried a cracked order tile.
+
+— My daughter’s medicine fund, — he said. — The mirror showed everyone buying the Moon Carp. I asked an oni to follow them.
+
+The eldest oni barely looked up.
+
+— And the price fell.
+
+— The company had no boats, — Jiro said. — No catch. Only painted sails and borrowed bells.
+
+The elder shrugged.
+
+— We only did what you asked.
+
+Jiro looked at the empty purse tied to his waist.
+
+No one moved.
+
+Except Tickoni.
+
+Tickoni stood near the rear pillars, smaller than the elders and without their gold rings. It watched Jiro leave.
+
+That answer followed Tickoni into the night.
+
+*We only did what you asked.*
+
+It had heard those words after copied losses, hidden debts, and forbidden gates.
+
+The Order called this obedience.
+
+Tickoni called it surrender.
+
 A map could show where the tide had moved, but not what it would break next. An oracle could speak beautifully and still leave the listener unprotected.
 
-So the village bound the Order of the Oni.
+The village had bound the Order of the Oni because it had not always been like this.
 
 Long ago, every oni was bound by a contract seal. Every seal named a duty. Every duty had a boundary.
 
@@ -74,38 +106,6 @@ Their bodies grew heavy. Their belts filled with tools, shortcuts, permissions, 
 They had forgotten the oldest law of protection:
 
 **A guardian must know what not to touch.**
-
-One evening, a fisherman named Jiro ran into the Council Hall. His hands bled from pulling nets. He carried a cracked order tile.
-
-— My daughter’s medicine fund, — he said. — The mirror showed everyone buying the Moon Carp. I asked an oni to follow them.
-
-The eldest oni barely looked up.
-
-— And the price fell.
-
-— The company had no boats, — Jiro said. — No catch. Only painted sails and borrowed bells.
-
-The elder shrugged.
-
-— We only did what you asked.
-
-Jiro looked at the empty purse tied to his waist.
-
-No one moved.
-
-Except Tickoni.
-
-Tickoni stood near the rear pillars, smaller than the elders and without their gold rings. It watched Jiro leave.
-
-That answer followed Tickoni into the night.
-
-We only did what you asked.
-
-It had heard those words after copied losses, hidden debts, and forbidden gates.
-
-The Order called this obedience.
-
-Tickoni called it surrender.
 
 For several days, Jiro’s words followed it through the village.
 
