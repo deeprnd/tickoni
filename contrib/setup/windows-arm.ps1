@@ -17,26 +17,93 @@ $repoRoot = (Get-Item (Join-Path $scriptDir "..\..")).FullName
 
 log-info "Windows ARM64 setup starting..."
 
+function Install-WinGet {
+    # Primary: MSIX installer (works on Win11 ARM64 without PackageManagement)
+    $msixUrl = "https://aka.ms/getwinget"
+    $msixPath = Join-Path $env:TEMP "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+    log-info "Downloading winget MSIX installer..."
+    try {
+        Invoke-WebRequest -Uri $msixUrl -OutFile $msixPath -UseBasicParsing -ErrorAction Stop
+        Add-AppxPackage -Path $msixPath
+        Remove-Item $msixPath -ErrorAction SilentlyContinue
+        $wingetDir = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
+        if ($env:PATH -notlike "*$wingetDir*") {
+            $env:PATH = "$wingetDir;$env:PATH"
+        }
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            log-info "winget installed via MSIX"
+            return
+        }
+    } catch {
+        log-info "MSIX install failed, falling back..."
+    }
+
+    # Fallback: try the built-in Install-WinGetPackage cmdlet (Win10 1709+)
+    try {
+        if (Get-Command Install-WinGetPackage -ErrorAction SilentlyContinue) {
+            Install-WinGetPackage -Destination Latest -ErrorAction Stop
+            $wingetDir = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
+            if ($env:PATH -notlike "*$wingetDir*") {
+                $env:PATH = "$wingetDir;$env:PATH"
+            }
+            if (Get-Command winget -ErrorAction SilentlyContinue) {
+                log-info "winget installed via Install-WinGetPackage"
+                return
+            }
+        }
+    } catch {
+        log-info "Install-WinGetPackage failed, trying NuGet/PSGallery fallback..."
+    }
+
+    # Last resort: PSGallery + PackageManagement (may fail on minimal images)
+    try {
+        $ProgressPreference = 'SilentlyContinue'
+        if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+            Install-PackageProvider -Name NuGet -Force | Out-Null
+        }
+        Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery -ErrorAction Stop
+        Repair-WinGetPackageManager -AllUsers -ErrorAction SilentlyContinue
+        $wingetDir = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
+        if ($env:PATH -notlike "*$wingetDir*") {
+            $env:PATH = "$wingetDir;$env:PATH"
+        }
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            log-info "winget installed via PSGallery"
+            return
+        }
+    } catch {
+        log-info "PSGallery fallback failed, trying direct MSIX URL..."
+    }
+
+    # Absolute last resort: direct MSIX bundle download
+    try {
+        $ProgressPreference = 'SilentlyContinue'
+        $msixUrl2 = "https://github.com/microsoft/winget-cli/releases/download/v1.9.3202/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+        $msixPath2 = Join-Path $env:TEMP "winget.msixbundle"
+        Invoke-WebRequest -Uri $msixUrl2 -OutFile $msixPath2 -UseBasicParsing
+        Add-AppxPackage -Path $msixPath2
+        Remove-Item $msixPath2 -ErrorAction SilentlyContinue
+        $wingetDir = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
+        if ($env:PATH -notlike "*$wingetDir*") {
+            $env:PATH = "$wingetDir;$env:PATH"
+        }
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            log-info "winget installed via direct MSIX"
+            return
+        }
+    } catch {
+        log-info "All winget install methods failed"
+    }
+    log-error "Failed to install winget"
+    exit 1
+}
+
 # ── 0. Winget (only package manager — auto-install if missing) ────────────────
 if (Get-Command winget -ErrorAction SilentlyContinue) {
     log-info "winget already installed"
 } else {
-    log-info "winget not found — installing via PowerShell NuGet/PSGallery..."
-    $ProgressPreference = 'SilentlyContinue'
-    Install-PackageProvider -Name NuGet -Force | Out-Null
-    Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery
-    Repair-WinGetPackageManager -AllUsers
-    # Ensure winget is discoverable in PATH
-    $wingetDir = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
-    if ($wingetDir -notlike '*$env:PATH*') {
-        $env:PATH = $wingetDir + ";$env:PATH"
-    }
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
-        log-info "winget ready"
-    } else {
-        log-error "Failed to install winget"
-        exit 1
-    }
+    log-info "winget not found — installing..."
+    Install-WinGet
 }
 
 function Install-Dep {
