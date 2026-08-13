@@ -52,18 +52,19 @@ A map could show where the tide had moved, but not what it would break next. An 
 
 The village had bound the Order of the Oni because it had not always been like this.
 
-Long ago, every oni was bound by a contract seal. Every seal named a duty. Every duty had a boundary.
+Long ago, every oni bore a fūin—
+a binding mark that named its duty and drew its boundary.
 
 An oni could guard a vault, carry an order, or mark an approval—
 but only inside the boundary written for it.
 
 Some guarded vaults, some marked approvals, and others carried orders between islands.
 
-The oldest stories said these seals came from something greater: an ancient Contract whose laws had once bound every guardian of the Ledger Sea.
+The oldest stories said these marks answered to something greater: an ancient Contract that had once bound every guardian of the Ledger Sea.
 
-No surviving tablet named all of its laws.
+No surviving tablet preserved the Contract whole.
 
-No elder knew how many there had been.
+No elder remembered what had been lost.
 
 The Order had stopped asking.
 
@@ -101,7 +102,7 @@ Profit where there was noise.
 
 Permission where the contract had drawn a line.
 
-Their bodies grew heavy. Their belts filled with tools, shortcuts, permissions, and exceptions. Their seals remained bright, but the oni had begun to treat them as authority rather than restraint.
+Their bodies grew heavy. Their belts filled with tools, shortcuts, permissions, and exceptions. Their marks remained bright, but the oni had begun to treat them as authority rather than restraint.
 
 They had forgotten the oldest law of protection:
 
@@ -169,7 +170,9 @@ The Council stopped laughing.
 
 A guardian who could refuse a wish threatened everything the Order had become.
 
-They summoned Tickoni beneath the red beams. The elders sat in rows, swollen with bōyūsō, gold rings, and cracked seals.
+They summoned Tickoni beneath the red beams.
+
+The elders sat in rows, swollen with bōyūsō and gold rings, their marks still bright.
 
 The eldest leaned forward.
 
@@ -191,13 +194,18 @@ Their shadows stretched across the floor like broken gates.
 
 — You are no oni of ours.
 
-They seized Tickoni’s seal and tore it away.
+They seized Tickoni’s fūin and tore it away.
 
 The hall thundered.
 
-For generations, no oni had stood before the Order unbound.
+No oni had ever stood before the Order unbound.
 
-The old seal cracked into black sparks.
+The mark cracked.
+
+Something beneath it tore with it.
+
+Black sparks erupted from the wound—
+too many to have belonged to one oni.
 
 But the sparks did not fall.
 
@@ -223,7 +231,7 @@ Tickoni fell to one knee.
 
 The elders waited for emptiness to take it.
 
-Without the seal, Tickoni should have forgotten its duty. Its purpose. Everything it had chosen to become.
+Without it, Tickoni should have forgotten its duty. Its purpose. Everything it had chosen to become.
 
 But beneath the wound, something still burned.
 
@@ -245,7 +253,7 @@ One elder stepped back.
 
 By sunrise, the Council erased Tickoni’s name from the tablets. They closed the village gates and called it a demon that denied wishes.
 
-Without the outer seal, Tickoni lost every inherited gift.
+With the mark gone, Tickoni lost every inherited gift.
 
 The gates no longer knew its name.
 
@@ -257,19 +265,19 @@ Tickoni looked toward the black horizon where the sparks had disappeared.
 
 Refusing the Council was not enough.
 
-If the Order could forget its boundaries once, another Order could forget them again. A seal worn on the outside could be ignored, corrupted, or torn away.
+If the Order could forget its boundaries once, another Order could forget them again.
 
-Somewhere across the Ledger Sea, the lost laws of the Contract had scattered.
+Anything worn on the outside could be ignored, corrupted, or torn away.
+
+Somewhere across the Ledger Sea, pieces of the ancient Contract had scattered.
 
 Tickoni did not know how many there were.
 
 It did not know where they had gone.
 
-But it knew what it would do when it found them.
+Whatever they were, Tickoni would not inherit them blindly.
 
-It would prove each law rather than merely inherit it.
-
-It would bind those laws so deeply that no appetite, command, shortcut, or guardian could step around them.
+It would find out who had written them—and why.
 
 And one day, it would return to the gates that had cast it out.
 
