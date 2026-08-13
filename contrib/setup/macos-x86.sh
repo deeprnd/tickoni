@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd)"
 source "${SCRIPT_DIR}/helpers/common.sh"
+SCRIPT_DIR="${REPO_ROOT}/contrib/setup"
 
 log_info "macOS x86_64 setup starting..."
 
