@@ -44,7 +44,7 @@ Maro watched one merchant celebrate an imagined fortune while another tore his f
 
 At the end of the main bridge stood a stall shaped like a fox’s mouth.
 
-A tanuki waited inside.
+A round-faced trader waited inside.
 
 He wore a blue silk robe, round spectacles without glass, and a smile polished smooth by repetition.
 
@@ -80,7 +80,7 @@ Saburō examined the ticket.
 
 — Bounded, — Tickoni said.
 
-The tanuki laid down a square of pale-blue washi, fine handmade paper.
+Saburō laid down a square of pale-blue washi, fine handmade paper.
 
 His paws moved quickly.
 
@@ -116,7 +116,7 @@ Maro placed the genuine crane safely inside his coat.
 
 Saburō watched him leave.
 
-Then the tanuki opened a hidden drawer and removed another sheet of blue washi.
+Then Saburō opened a hidden drawer and removed another sheet of blue washi.
 
 He copied Maro’s handwriting, his basket, and even the small thumbprint near the crane’s tail.
 
@@ -178,7 +178,7 @@ Saburō held out one paw.
 
 Maro handed it over.
 
-The tanuki turned toward the ribbon table. His sleeves covered his paws for only a moment.
+Saburō toward the ribbon table. His sleeves covered his paws for only a moment.
 
 Then he returned a pale-blue crane tied with gold thread.
 
@@ -265,6 +265,16 @@ Tickoni unfolded the copy.
 The first images matched.
 
 Then, at the seventh fold, Saburō’s paw appeared.
+
+It changed.
+
+For an instant, it became Maro’s hand, right down to the thumbprint.
+
+Maro stared.
+
+— A shape-shifter.
+
+— Tanuki, — Tickoni said.
 
 Two thousand became twenty-five thousand.
 
