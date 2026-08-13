@@ -38,21 +38,24 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
     }
 }
 
-function Install-Dep {
-    param([string]$WingetId)
-    winget install --id $WingetId --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
+# Install winget package by name from tool-versions.json
+function Install-Package {
+    param([string]$Name)
+    $wingetId = read-package "winget" $Name
+    log-info "Installing ${Name} (${wingetId})..."
+    winget install --id $wingetId --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
 }
 
 # ── 1. Core packages ─────────────────────────────────────────────────────────
 log-info "Installing core packages..."
-Install-Dep -WingetId "Git.Git"
-Install-Dep -WingetId "CMake.CMake"
-Install-Dep -WingetId "Ninja-build.Ninja"
-Install-Dep -WingetId "Facebook.zstd"
-Install-Dep -WingetId "Python.Python.3.12"
-Install-Dep -WingetId "Koalaman.shellcheck"
-Install-Dep -WingetId "PreCommit.PreCommit"
-Install-Dep -WingetId "bufbuild.buf"
+Install-Package "git"
+Install-Package "cmake"
+Install-Package "ninja"
+Install-Package "zstd"
+Install-Package "python"
+Install-Package "shellcheck"
+Install-Package "pre-commit"
+Install-Package "buf"
 
 # ── 1b. Security tools (opt-in via -Security flag) ──────────────────────────
 if ($Security) {
@@ -71,7 +74,7 @@ if (-not (Get-Command just -ErrorAction SilentlyContinue)) {
 $platform_key = get-windows-platform-key
 $clang_version = read-compiler-version "clang" $platform_key
 log-info "Installing LLVM/Clang ${clang_version}..."
-Install-Dep -WingetId "LLVM.LLVM.$clang_version"
+Install-Package "llvm"
 
 $llvmPath = (Get-Command clang -ErrorAction SilentlyContinue).Source | Split-Path
 if (-not $llvmPath) {
@@ -86,11 +89,8 @@ if ($llvmPath) {
 ensure-zig
 
 # ── 5. MSVC build tools ──────────────────────────────────────────────────────
-$msvc_version = read-compiler-version "msvc" $platform_key
-if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
-    log-info "Installing Visual Studio Build Tools (MSVC ${msvc_version})..."
-    winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
-}
+log-info "Installing Visual Studio Build Tools..."
+Install-Package "vs-build-tools"
 
 # ── 6. cpanm (for MSYS2 Perl module installs) ───────────────────────────────
 function Test-CpanmWorks {
@@ -142,7 +142,7 @@ if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
 # ── 8. LLM tooling (optional) ────────────────────────────────────────────────
 if (-not $NoLLM) {
     log-info "Installing LLM tooling (llama.cpp build deps: MinGW-w64)..."
-    Install-Dep -WingetId "BrechtSanders.WinLibs.POSIX.UCRT"
+    Install-Package "winlibs"
     log-info "LLM tooling installed"
 } else {
     log-info "Skipping LLM tooling (-NoLLM)"

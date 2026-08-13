@@ -1,0 +1,70 @@
+{
+  "versions": {
+    "just": "1.58.0",
+    "gitleaks": "8.30.1",
+    "zig": "0.16.0",
+    "openssl": {
+      "version": "3.6.2",
+      "tag": "openssl-3.6.2"
+    },
+    "gcc": {
+      "linux-x86": "12",
+      "linux-arm": "14"
+    },
+    "clang": {
+      "linux-x86": "18",
+      "windows-x86": "18",
+      "windows-arm": "18"
+    },
+    "llvm": {
+      "linux-x86": "18",
+      "windows-x86": "18",
+      "windows-arm": "18"
+    },
+    "msvc": {
+      "windows-x86": "17",
+      "windows-arm": "17"
+    },
+    "python": "Python.Python.3.12"
+  },
+  "packages": {
+    "winget": {
+      "python": "Python.Python.3.12",
+      "cmake": "CMake.CMake",
+      "git": "Git.Git",
+      "ninja": "Ninja-build.Ninja",
+      "zstd": "Facebook.zstd",
+      "pre-commit": "PreCommit.PreCommit",
+      "buf": "bufbuild.buf",
+      "shellcheck": "Koalaman.shellcheck",
+      "llvm": "LLVM.LLVM",
+      "winlibs": "BrechtSanders.WinLibs.POSIX.UCRT",
+      "vs-build-tools": "Microsoft.VisualStudio.2022.BuildTools",
+      "msys2": "MSYS2.MSYS2"
+    },
+    "apt": [
+      "build-essential",
+      "cmake",
+      "curl",
+      "g++",
+      "git",
+      "lld",
+      "make",
+      "pkg-config",
+      "zstd"
+    ],
+    "brew": [
+      "coreutils",
+      "cmake",
+      "gcc",
+      "git",
+      "llvm",
+      "make",
+      "pkg-config",
+      "zstd"
+    ],
+    "pip": [
+      "pre-commit"
+    ]
+  }
+}

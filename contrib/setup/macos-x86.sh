@@ -25,10 +25,7 @@ brew install \
 ensure_zig
 
 # 4. just
-if ! tool_exists just; then
-    log_info "Installing just..."
-    brew install just
-fi
+ensure_just
 
 # 5. Xcode CLT (if not already installed)
 if ! xcode-select -p &>/dev/null; then

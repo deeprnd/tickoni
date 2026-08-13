@@ -11,7 +11,7 @@ log_info "Linux x86_64 Clang setup starting..."
 # 1. Read Clang version from JSON (fail if missing)
 platform_key="$(get_platform_key)"
 clang_version="$(read_compiler_version clang "$platform_key")"
-log_info "Clang version from compiler-versions.json: ${clang_version}"
+log_info "Clang version from tool-versions.json: ${clang_version}"
 
 # 2. OS packages — clang-${clang_version}, lld-${clang_version}, llvm-${clang_version}
 log_info "Installing system packages (clang-${clang_version}, llvm-${clang_version}, make, git)..."
@@ -33,10 +33,7 @@ fi
 export CC="clang-${clang_version}" CXX="clang++-${clang_version}"
 
 # 5. just
-if ! tool_exists just; then
-    log_info "Installing just..."
-    curl -sSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
-fi
+ensure_just
 
 # 6. OpenSSL 3.6.2 — build from source (deps.sh logic) to get the
 # right API level for Firedancer; system libssl-dev headers are incompatible.
