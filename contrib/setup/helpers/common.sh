@@ -218,7 +218,7 @@ ensure_precommit() {
     fi
 }
 
-# Install buf via bufbuild/buf-install (user-level, no sudo)
+# Install buf — prefer brew (handles all deps including git) then go install
 ensure_buf() {
     if tool_exists buf; then
         log_info "buf already installed"
@@ -226,12 +226,14 @@ ensure_buf() {
     fi
 
     log_info "Installing buf..."
-    if command -v go &>/dev/null; then
+    if command -v brew &>/dev/null; then
+        brew install buf || { log_warn "brew install buf failed — falling back to go"; }
+    fi
+    if ! tool_exists buf && command -v go &>/dev/null; then
         go install github.com/bufbuild/buf/cmd/buf@latest
         export PATH="${HOME}/go/bin:${PATH}"
-    elif command -v brew &>/dev/null; then
-        brew install bufbuild/buf/buf
-    else
+    fi
+    if ! tool_exists buf; then
         log_warn "No package manager found for buf — skipping"
         return 1
     fi

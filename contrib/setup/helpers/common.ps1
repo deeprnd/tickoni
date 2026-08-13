@@ -13,6 +13,67 @@ function tool-exists {
     return Get-Command $Name -ErrorAction SilentlyContinue
 }
 
+# Install just (https://github.com/casey/just/releases)
+$script:JUST_VERSION = "1.43.1"
+
+function ensure-just {
+    if (tool-exists "just") {
+        log-info "just already installed"
+        return
+    }
+
+    log-info "Installing just..."
+
+    # Try winget first (try common ID variants)
+    $justInstalled = $false
+    $justIds = @("just.systems.just", "jklab_hk.just", "jklabhk.just")
+    foreach ($id in $justIds) {
+        try {
+            $result = winget install --id $id --accept-package-agreements --accept-source-agreements --disable-interactivity 2>&1
+            if ($LASTEXITCODE -eq 0 -and (tool-exists "just")) {
+                $justInstalled = $true
+                log-info "just installed via winget ($id)"
+                break
+            }
+        } catch {
+            # winget install may throw; try next ID
+        }
+    }
+
+    if ($justInstalled) {
+        log-info "just ready"
+        return
+    }
+
+    log-warn "winget install failed — downloading directly"
+
+    # Direct download from GitHub releases
+    $arch = (Get-CimInstance Win32_ComputerSystem).SystemType
+    $asset = switch ($arch) {
+        "X64-based PC"  { "just-x86_64-pc-windows-msvc.zip" }
+        "ARM64-based PC" { "just-aarch64-pc-windows-msvc.zip" }
+        default { "just-x86_64-pc-windows-msvc.zip" }
+    }
+
+    $url = "https://github.com/casey/just/releases/download/${script:JUST_VERSION}/${asset}"
+    $zip = Join-Path $env:TEMP "just.zip"
+    Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+
+    Expand-Archive -Path $zip -DestinationPath $env:TEMP\just-extract -Force
+    $justExe = Get-ChildItem -Path $env:TEMP\just-extract -Filter "just.exe" -Recurse | Select-Object -First 1
+
+    if ($justExe) {
+        Copy-Item $justExe.FullName (Join-Path $env:SYSTEMROOT "System32\just.exe")
+        log-info "just installed via direct download (${script:JUST_VERSION})"
+    } else {
+        log-error "just binary not found in archive"
+        exit 1
+    }
+
+    Remove-Item -Recurse -Force $env:TEMP\just-extract -ErrorAction SilentlyContinue
+    Remove-Item $zip -ErrorAction SilentlyContinue
+}
+
 # Install gitleaks (pinned version — matches CI gitleaks on main)
 $script:GITLEAKS_VERSION = "8.30.1"
 
