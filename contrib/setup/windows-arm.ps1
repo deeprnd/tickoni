@@ -11,7 +11,7 @@ param([switch]$Security, [switch]$NoLLM)
 $ErrorActionPreference = 'Stop'
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot = (Get-Item (Join-Path $scriptDir "..\..\..")).FullName
+$repoRoot = (Get-Item (Join-Path $scriptDir "..\..")).FullName
 
 . (Join-Path $scriptDir "helpers\common.ps1")
 
