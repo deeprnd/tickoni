@@ -279,6 +279,8 @@ if (Test-Path $msysBash) {
 
 # ── 7. OpenSSL 3.6.2 — build from source (deps.sh logic) via MSYS2 bash
 # so Firedancer gets the right API level.
+# FD_WINDOWS_ARCH=arm64 overrides uname -m (returns x86_64 inside the
+# x86_64 MSYS2 package running under Windows emulation on ARM64).
 if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
     $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
     if (Test-Path $msysBash) {
@@ -287,7 +289,7 @@ if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
         $opt_path = Join-Path $repoRoot 'opt'
         $openssl_posix = & cygpath -u $openssl_script
         $opt_posix = & cygpath -u $opt_path
-        & $msysBash -lc "bash $openssl_posix --prefix $opt_posix" 2>&1
+        & $msysBash -lc "FD_WINDOWS_ARCH=arm64 bash $openssl_posix --prefix $opt_posix" 2>&1
     } else {
         log-error "MSYS2 bash not found — OpenSSL 3.6.2 cannot be built"
         exit 1
