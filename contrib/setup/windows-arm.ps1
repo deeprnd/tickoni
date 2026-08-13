@@ -4,7 +4,7 @@
 #   .\windows-arm.ps1 -NoLLM       # skip LLM tooling (llama.cpp build)
 #   .\windows-arm.ps1 -NoSecurity  # skip security tools (gitleaks)
 # Package manager: winget (preferred) → choco → auto-install winget
-# Note: Zig is x86_64 binary (runs under Windows ARM x64 emulation)
+# Note: Zig uses native aarch64-windows prebuilt binary
 
 param([switch]$NoLLM, [switch]$NoSecurity)
 
@@ -95,14 +95,14 @@ if ($llvmPath) {
     log-info "LLVM added to PATH: $llvmPath"
 }
 
-# ── 4. Zig (x86_64 binary — runs under Windows ARM emulation) ────────────────
-log-info "Installing Zig (x86_64 binary via emulation)..."
-python3 (Join-Path $scriptDir "helpers\install-zig.py") `
-    --target "x86_64-windows" `
-    --install-root (Join-Path $env:LOCALAPPDATA "Programs") `
-    --cache-root (Join-Path $env:LOCALAPPDATA "zig") `
+# ── 4. Zig (native aarch64-windows) ─────────────────────────────────────────
+log-info "Installing Zig (aarch64-windows native)..."
+python3 (Join-Path $scriptDir "helpers\install-zig.py") `\
+    --target "aarch64-windows" `\
+    --install-root (Join-Path $env:LOCALAPPDATA "Programs") `\
+    --cache-root (Join-Path $env:LOCALAPPDATA "zig") `\
     --user-path
-log-info "Zig installed (x86_64 binary)"
+log-info "Zig installed (aarch64-windows native)"
 
 # ── 5. cpanm (for MSYS2 Perl module installs) ───────────────────────────────
 # Strawberry Perl ships a cpanm fat-pack (cpanmin.pl) that is missing
@@ -179,4 +179,4 @@ foreach ($tool in @("clang", "zig", "just", "cl")) {
     $ver = (Get-Command $tool -ErrorAction SilentlyContinue).Version
     if ($ver) { log-info "  ${tool}: $ver" }
 }
-log-info "NOTE: Zig is x86_64 binary — builds run under Windows ARM x64 emulation"
+log-info "NOTE: Zig uses native aarch64-windows binary"
