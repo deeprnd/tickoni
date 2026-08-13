@@ -130,7 +130,11 @@ if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
     $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
     if (Test-Path $msysBash) {
         log-info "Building OpenSSL 3.6.2 via MSYS2 bash..."
-        & $msysBash -lc "bash $(Join-Path $repoRoot 'contrib/setup/install-openssl.sh') --prefix $(Join-Path $repoRoot 'opt')" 2>&1
+        $openssl_script = Join-Path $repoRoot 'contrib/setup/install-openssl.sh'
+        $opt_path = Join-Path $repoRoot 'opt'
+        $openssl_posix = & cygpath -u $openssl_script
+        $opt_posix = & cygpath -u $opt_path
+        & $msysBash -lc "bash $openssl_posix --prefix $opt_posix" 2>&1
     } else {
         log-error "MSYS2 bash not found — OpenSSL 3.6.2 cannot be built"
         exit 1
