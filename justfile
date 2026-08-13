@@ -105,15 +105,15 @@ setup-env:
 
 # Linux x86_64 — GCC toolchain
 setup-linux-x86-gcc:
-	SECURITY=off bash contrib/setup/linux-x86-gcc.sh
+	bash contrib/setup/linux-x86-gcc.sh
 
 # Linux x86_64 — Clang toolchain
 setup-linux-x86-clang:
-	SECURITY=off bash contrib/setup/linux-x86-clang.sh
+	bash contrib/setup/linux-x86-clang.sh
 
 # Linux aarch64 — GCC toolchain
 setup-linux-arm-gcc:
-	SECURITY=off bash contrib/setup/linux-arm-gcc.sh
+	bash contrib/setup/linux-arm-gcc.sh
 
 # macOS x86_64
 setup-macos-x86:
