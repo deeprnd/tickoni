@@ -332,7 +332,7 @@ He looked at the two plates.
 
 Then he tore the Guild Hachi-Roku adapters apart.
 
-— They need to speak alike.
+— They don't need to speak alike. They need to agree on what crosses.
 
 He kept one connection from each machine.
 
@@ -497,7 +497,7 @@ Different machines could meet.
 
 But meeting was not enough.
 
-A boundary can not say what should cross.
+A boundary could say what may cross. It could not make both sides mean the same thing.
 
 The bronze brake remained bronze.
 
