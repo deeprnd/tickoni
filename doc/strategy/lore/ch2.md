@@ -530,7 +530,23 @@ Gone.
 
 Tickoni stood alone in the boat.
 
-The Ledger Sea moved around it.
+Something rolled against its foot.
+
+Half a pickled agave fruit.
+
+One bite missing.
+
+Tickoni picked it up, stared at it, then looked toward the empty horizon.
+
+— We won’t be needing this.
+
+It tossed the fruit overboard.
+
+Tickoni watched the fruit drift away.
+
+Then it raised its eyes.
+
+The Ledger Sea moved around the boat.
 
 Still vast.
 
