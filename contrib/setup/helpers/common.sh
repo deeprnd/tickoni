@@ -107,7 +107,7 @@ ensure_zig() {
     fi
 
     log_info "Installing Zig ${zig_version}..."
-    python3 "${SCRIPT_DIR}/install-zig.py" \
+    python3 "${SCRIPT_DIR}/helpers/install-zig.py" \
         --version "${zig_version}" \
         --install-root "${HOME}/.local" \
         --cache-root "${HOME}/.cache"
