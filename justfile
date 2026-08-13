@@ -133,11 +133,11 @@ setup-windows-arm:
 
 # Windows x86_64 — CI mode (no LLM tooling, no security tools)
 setup-windows-ci-x86:
-	powershell -ExecutionPolicy Bypass -File contrib/setup/windows-x86.ps1 -NoLLM -NoSecurity
+	powershell -ExecutionPolicy Bypass -File contrib/setup/windows-x86.ps1 -NoLLM
 
 # Windows ARM64 — CI mode (no LLM tooling, no security tools)
 setup-windows-ci-arm:
-	powershell -ExecutionPolicy Bypass -File contrib/setup/windows-arm.ps1 -NoLLM -NoSecurity
+	powershell -ExecutionPolicy Bypass -File contrib/setup/windows-arm.ps1 -NoLLM
 
 # ── Python ─────────────────────────────────────────────────────────────────
 

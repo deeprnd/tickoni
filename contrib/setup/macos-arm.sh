@@ -43,8 +43,8 @@ fi
 # 6. Firedancer deps
 CC=clang CXX=clang++ ensure_firedancer_deps
 
-# 7. Quality tools
-if [ "${SECURITY:-on}" = "on" ]; then
+# 7. Quality tools (security tools off by default, opt-in via SECURITY=on env var)
+if [ "${SECURITY:-off}" = "on" ]; then
     ensure_gitleaks
 fi
 ensure_shellcheck
