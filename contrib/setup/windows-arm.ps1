@@ -289,12 +289,13 @@ if (Test-Path $msysBash) {
         log-info "perl already available in MSYS2"
     }
     # OpenSSL's build process invokes gcc inside MSYS2 bash (make + shell).
-    # On ARM64 the MSYS2 package is mingw-w64-ucrt-aarch64-gcc (UCRT runtime).
+    # On ARM64 the MSYS2 package is mingw-w64-aarch64-ucrt-gcc (UCRT runtime).
+    # Note: architecture prefix comes BEFORE 'ucrt' — NOT mingw-w64-ucrt-aarch64-gcc.
     if (-not (& $msysBash -lc "gcc --version" 2>$null)) {
-        log-info "Installing gcc (mingw-w64-ucrt-aarch64) via MSYS2 pacman..."
-        $gcc_install = & $msysBash -lc "pacman -S --noconfirm --needed mingw-w64-ucrt-aarch64-gcc" 2>&1
+        log-info "Installing gcc (mingw-w64-aarch64-ucrt) via MSYS2 pacman..."
+        $gcc_install = & $msysBash -lc "pacman -S --noconfirm --needed mingw-w64-aarch64-ucrt-gcc" 2>&1
         if ($LASTEXITCODE -ne 0) {
-            log-error "Failed to install mingw-w64-ucrt-aarch64-gcc: $gcc_install"
+            log-error "Failed to install mingw-w64-aarch64-ucrt-gcc: $gcc_install"
             exit 1
         }
     } else {
