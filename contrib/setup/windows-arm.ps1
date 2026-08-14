@@ -311,12 +311,8 @@ if (Test-Path $msysBash) {
         log-info "Installing gcc (ucrt-aarch64-gcc) via MSYS2 pacman..."
         $gcc_install = & $msysBash -lc "pacman -S --noconfirm --needed ucrt-aarch64-gcc" 2>&1
         if ($LASTEXITCODE -ne 0) {
-            log-warn "ucrt-aarch64-gcc not found, trying mingw-w64-aarch64-gcc as fallback..."
-            $gcc_install2 = & $msysBash -lc "pacman -S --noconfirm --needed mingw-w64-aarch64-gcc" 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                log-error "Failed to install gcc (tried ucrt-aarch64-gcc and mingw-w64-aarch64-gcc): $gcc_install2"
-                exit 1
-            }
+            log-error "Failed to install gcc (ucrt-aarch64-gcc): $gcc_install"
+            exit 1
         }
     } else {
         log-info "gcc already available in MSYS2"
