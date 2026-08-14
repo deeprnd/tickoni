@@ -127,7 +127,10 @@ checkout_repo () {
 }
 
 fetch () {
-  git submodule update --init
+  # NOTE: Do NOT run git submodule update --init here.
+  # Submodules are handled separately by CI's submodule-init action
+  # where needed. The 'content' submodule (git@github.com) requires
+  # SSH auth and fails on public CI runners.
 
   mkdir -pv "$PREFIX/git"
 
