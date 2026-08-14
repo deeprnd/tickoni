@@ -229,6 +229,22 @@ $msysPath = "$env:SystemDrive\msys64\usr\bin"
 if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $msysPath })) {
     $env:PATH = $msysPath + ";" + $env:PATH
 }
+
+# Add ALL MSYS2 gcc/bin dirs so the compiler is discoverable.
+# clang defaults to MSVC target and can't find MinGW-w64 system headers
+# like <x86intrin.h>; we need gcc with proper MinGW-w64 paths.
+$msysGccDirs = @(
+    "$env:SystemDrive\msys64\ucrt64\bin",
+    "$env:SystemDrive\msys64\mingw64\bin",
+    "$env:SystemDrive\msys64\usr\bin"
+)
+foreach ($d in $msysGccDirs) {
+    if (Test-Path $d) {
+        if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $d })) {
+            $env:PATH = $d + ";" + $env:PATH
+        }
+    }
+}
 log-info "cpanm ready for Perl module installs"
 
 # ── 6. MSVC build tools ──────────────────────────────────────────────────────
