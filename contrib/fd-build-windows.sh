@@ -3,12 +3,12 @@
 # Usage:
 #   bash contrib/fd-build-windows.sh [arch] [compiler]
 #   arch: x86_64|arm64 (default: host arch)
-#   compiler: clang by default
+#   compiler: gcc by default (MSYS2 MinGW-w64 gcc with proper system headers)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 raw_arch="${1:-$(bash contrib/detect-windows-arch.sh)}"
-cc="${2:-${TK_WINDOWS_CC:-clang}}"
+cc="${2:-${TK_WINDOWS_CC:-gcc}}"
 
 # Firedancer Makefile passes CC through /usr/bin/sh on MSYS2.
 # Paths with spaces (e.g. /c/Program Files/LLVM/bin/clang) get split.
