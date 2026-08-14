@@ -9,17 +9,27 @@ For purposes of these terms, “Licensor” means Victor Genin.
 
 These terms apply to:
 
-- all files under doc/strategy/lore/;
-- all files under doc/strategy/roadmap/releases/;
-- all files under assets/banners/;
-- all files under assets/characters/;
-- all files under assets/lore/;
-- all files under assets/release-art/;
+- Tickoni creative content maintained in the `tickoni-content`
+  repository, including when accessed through the `content/`
+  Git submodule;
+- Tickoni fictional lore, characters, character designs, biographies,
+  dialogue, stories, settings, illustrations, comic or manga material,
+  banners, and creative release narratives;
+- Tickoni creative content reproduced in GitHub release descriptions
+  in the `deeprnd/tickoni` repository;
+- Tickoni comics, illustrations, artwork, or other creative materials
+  attached as assets to GitHub releases in the `deeprnd/tickoni`
+  repository;
 - Tickoni fictional characters, character designs, biographies,
   dialogue, stories, settings, illustrations, comic or manga material,
   and creative release narratives;
 - Tickoni character and narrative material published in GitHub release
   descriptions or attached to GitHub releases.
+
+Copies of Covered Content published in GitHub release descriptions,
+release assets, or other official Tickoni publication surfaces remain
+Covered Content. Copying or publishing Covered Content in another
+location does not change its licensing terms.
 
 For avoidance of doubt, files in the paths listed above are Covered
 Content in their entirety, including any technical discussion they
