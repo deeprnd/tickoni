@@ -71,9 +71,17 @@ UNAME?=$(shell uname)
 ifeq ($(UNAME), Darwin)
   include config/machine/macos_clang.mk
 else ifneq (,$(filter MINGW% MSYS% CYGWIN% Windows_NT,$(UNAME)))
-  include config/machine/windows_clang.mk
+  ifeq ($(CC),clang)
+    include config/machine/windows_clang.mk
+  else
+    include config/machine/windows_gcc.mk
+  endif
 else ifneq (,$(FD_WINDOWS_ARCH))
-  include config/machine/windows_clang.mk
+  ifeq ($(CC),clang)
+    include config/machine/windows_clang.mk
+  else
+    include config/machine/windows_gcc.mk
+  endif
 else
   include config/machine/native.mk
 endif
