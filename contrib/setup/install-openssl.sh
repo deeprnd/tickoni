@@ -214,6 +214,23 @@ build_windows() {
     export PATH="${msys2_bin}:${PATH}"
   fi
 
+  # Set CC explicitly: MinGW-w64 may install the binary as
+  # x86_64-w64-mingw32-gcc / aarch64-w64-mingw32-gcc rather than
+  # plain gcc, depending on the MSYS2 channel/version.
+  # Prefer the short alias, fall back to the full triplet for the
+  # detected arch.
+  if command -v gcc >/dev/null 2>&1; then
+    CC=gcc
+  else
+    local windows_arch="${FD_WINDOWS_ARCH:-$(uname -m)}"
+    if [[ "${windows_arch}" =~ ^(arm64|aarch64)$ ]]; then
+      CC=aarch64-w64-mingw32-gcc
+    else
+      CC=x86_64-w64-mingw32-gcc
+    fi
+  fi
+  export CC
+
   # OpenSSL Configure on Windows uses Unix-style paths — must use MSYS2/
   # Git-Bash Perl, not Strawberry.  Also needs Locale::Maketext::Simple.
   if ! perl -e 'use Locale::Maketext::Simple' 2>/dev/null; then
