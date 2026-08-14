@@ -214,20 +214,29 @@ build_windows() {
     export PATH="${msys2_bin}:${PATH}"
   fi
 
-  # Set CC explicitly: MinGW-w64 may install the binary as
-  # x86_64-w64-mingw32-gcc / aarch64-w64-mingw32-gcc rather than
-  # plain gcc, depending on the MSYS2 channel/version.
-  # Prefer the short alias, fall back to the full triplet for the
-  # detected arch.
-  if command -v gcc >/dev/null 2>&1; then
-    CC=gcc
-  else
-    local windows_arch="${FD_WINDOWS_ARCH:-$(uname -m)}"
-    if [[ "${windows_arch}" =~ ^(arm64|aarch64)$ ]]; then
+  # Determine architecture first (for both CC and OpenSSL target).
+  local windows_arch="${FD_WINDOWS_ARCH:-$(uname -m)}"
+
+  # Set CC to the MinGW-w64 cross-compiler (not native MSYS2 gcc).
+  # Prefer the full triplet names which are unambiguous; fall back
+  # to plain gcc only if the triplets are missing (rare edge case).
+  local CC=""
+  if [[ "${windows_arch}" =~ ^(arm64|aarch64)$ ]]; then
+    if command -v aarch64-w64-mingw32-gcc >/dev/null 2>&1; then
       CC=aarch64-w64-mingw32-gcc
-    else
-      CC=x86_64-w64-mingw32-gcc
+    elif command -v gcc >/dev/null 2>&1; then
+      CC=gcc
     fi
+  else
+    if command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
+      CC=x86_64-w64-mingw32-gcc
+    elif command -v gcc >/dev/null 2>&1; then
+      CC=gcc
+    fi
+  fi
+  if [[ -z "${CC}" ]]; then
+    echo "[openssl] ERROR: No suitable C compiler found (tried x86_64-w64-mingw32-gcc/aarch64-w64-mingw32-gcc/gcc)" >&2
+    exit 1
   fi
   export CC
 
@@ -244,8 +253,7 @@ build_windows() {
     fi
   fi
 
-  # Determine OpenSSL target
-  local windows_arch="${FD_WINDOWS_ARCH:-$(uname -m)}"
+  # OpenSSL target is determined from the same windows_arch above.
   local openssl_target
   if [[ "${windows_arch}" =~ ^(arm64|aarch64)$ ]]; then
     openssl_target="mingwarm64"
