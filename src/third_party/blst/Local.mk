@@ -6,7 +6,7 @@ ifdef FD_HAS_BLST
 # calls.  x86: __BLST_PORTABLE__ assembles both ADX and portable paths
 # with runtime cpuid dispatch; -mno-avx per upstream (avoid SSE<->AVX
 # transition penalties).  arm: no variant dispatch; armv8 bodies only.
-BLST_CFLAGS_NOWARN:=$(filter-out -W%,$(filter-out -Werror,$(CPPFLAGS) $(CFLAGS))) -fno-builtin
+BLST_CFLAGS_NOWARN:=$(filter-out -W% -m%,$(filter-out -Werror,$(CPPFLAGS) $(CFLAGS))) -fno-builtin
 ifdef FD_HAS_X86
 BLST_CFLAGS_NOWARN+=-D__BLST_PORTABLE__ -mno-avx
 endif
