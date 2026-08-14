@@ -9,6 +9,12 @@
 
 BUILDDIR?=macos/clang
 
+# Clear GCC-specific EXTRA_CFLAGS — macOS uses Apple clang, not GCC.
+# Flags like -fno-eliminate-unused-debug-types are GCC-only and cause clang
+# to error out.
+EXTRA_CFLAGS:=
+EXTRA_CXXFLAGS:=
+
 include config/extra/with-clang-pre.mk
 include config/base.mk
 include config/extra/with-clang.mk
