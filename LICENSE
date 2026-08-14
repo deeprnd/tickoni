@@ -30,7 +30,7 @@ GPL-3.0-only:
   CONTENT-LICENSE.md.
 
 The `content/` directory is a Git submodule referencing the separately
-licensed `tickoni-content` repository. The contents of that repository
+licensed `deeprnd/tickoni-content` repository. The contents of that repository
 are governed by the license terms provided there.
 
 Creative content published through this repository's GitHub Releases

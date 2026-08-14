@@ -107,7 +107,7 @@ Changes that move or copy material across Apache-2.0, GPL-3.0-only, or creative-
 
 ## Creative Content Contributions
 
-Tickoni lore, characters, narrative releases, illustrations, comics, and related creative assets are maintained in the separate `tickoni-content` repository.
+Tickoni lore, characters, narrative releases, illustrations, comics, and related creative assets are maintained in the separate `deeprnd/tickoni-content` repository.
 
 Do not submit fictional lore, character designs, character biographies,
 narrative material, dialogue, illustrations, comic or manga material, or
