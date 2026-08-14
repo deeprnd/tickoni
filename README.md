@@ -27,7 +27,7 @@
 </p>
 
 <img
-  src="assets/banners/banner.png"
+  src="content/assets/banners/banner.png"
   alt="A blue oni studying investment charts beside an abacus and coins"
   width="100%"/>
 

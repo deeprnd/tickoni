@@ -94,7 +94,20 @@ Do not call retained `fd_*` APIs directly from Tickoni product code, invent
 linkage stubs to hide an unhealthy boundary, or place business-adjacent C code
 in the ABI directory merely because Zig calls it through `extern`.
 
-### Creative Content Contributions
+# Contribution Licensing
+
+Tickoni is a mixed-license repository. Contributions are licensed according to the component they modify:
+
+* Apache-2.0 for the runtime, CLI, retained C substrate, APIs, schemas, non-UI SDKs, and other Apache-2.0-designated files;
+* GPL-3.0-only for `src/tickoni/ui/**` and other GPL-3.0-only-designated files.
+
+Existing third-party code remains under its existing license. Contributors must have the legal right to submit their contributions and must preserve applicable copyright, license, attribution, NOTICE, SPDX, and modification notices.
+
+Changes that move or copy material across Apache-2.0, GPL-3.0-only, or creative-content boundaries require explicit licensing review.
+
+## Creative Content Contributions
+
+Tickoni lore, characters, narrative releases, illustrations, comics, and related creative assets are maintained in the separate `tickoni-content` repository.
 
 Do not submit fictional lore, character designs, character biographies,
 narrative material, dialogue, illustrations, comic or manga material, or
@@ -112,34 +125,6 @@ Creative-content contributions require a separate written agreement confirming:
 Opening a pull request containing creative content does not by itself establish
 that the contribution has been accepted or that the required rights have been
 granted.
-
-## Contribution Licensing
-
-Tickoni is a mixed-license repository. The license applicable to a contribution
-is determined by the component, directory, and file being modified.
-
-By submitting a contribution, you agree to license that contribution under the
-license applicable to its destination:
-
-- contributions to the runtime, CLI, retained C substrate, APIs, schemas,
-  non-UI SDKs, and other files designated Apache-2.0 are submitted under the
-  Apache License, Version 2.0;
-- contributions to `src/tickoni/ui/**` and other files designated
-  GPL-3.0-only are submitted under the GNU General Public License,
-  version 3 only;
-- creative-content contributions are not accepted under either software
-  license and require a separate written agreement.
-
-Existing third-party code remains under its existing license. A contribution
-must not remove or alter applicable copyright, license, attribution, NOTICE,
-SPDX, or modification notices.
-
-Contributors must have the legal right to submit their contributions. Do not
-submit code, documentation, artwork, generated material, or other content that
-cannot lawfully be distributed under the applicable component license.
-
-Changes that move or copy material across Apache-2.0, GPL-3.0-only, and creative
-content boundaries require an explicit licensing review.
 
 ## Architectural Rules
 

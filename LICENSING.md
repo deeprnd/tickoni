@@ -45,10 +45,16 @@ terminal combination is provided under GPL-3.0-only.
 
 ## Creative content
 
-Tickoni lore, characters, narrative release material, illustrations,
-and related creative content are governed by `CONTENT-LICENSE.md`.
+Tickoni fictional lore, characters, narrative release material,
+illustrations, banners, and related creative content are maintained
+in the separate `tickoni-content` repository, included here as the
+`content/` Git submodule.
 
-They are not licensed under Apache-2.0 or GPL-3.0-only.
+That repository is separately licensed and is not covered by the
+Apache-2.0 or GPL-3.0-only licenses applicable to Tickoni software.
+
+The license contained in the `tickoni-content` repository governs
+those materials.
 
 ## Third-party software
 

@@ -21,16 +21,20 @@ The full GPL-3.0-only license text is provided in:
 The following materials are excluded from both Apache-2.0 and
 GPL-3.0-only:
 
-- all files under doc/strategy/lore/;
-- all files under doc/strategy/roadmap/releases/;
-- all files under assets/banners/;
-- all files under assets/characters/;
-- all files under assets/lore/;
-- all files under assets/release-art/;
+- creative content contained in the `content/` Git submodule;
+- Tickoni fictional lore, characters, character designs, narrative
+  text, illustrations, comics, manga material, banners, and release
+  artwork published in GitHub release descriptions or attached to
+  GitHub releases;
 - any other materials expressly identified as governed by
   CONTENT-LICENSE.md.
 
-Those creative materials are governed by CONTENT-LICENSE.md.
+The `content/` directory is a Git submodule referencing the separately
+licensed `tickoni-content` repository. The contents of that repository
+are governed by the license terms provided there.
+
+Creative content published through this repository's GitHub Releases
+is governed by CONTENT-LICENSE.md.
 
 See LICENSING.md for the repository license map and NOTICE for
 applicable attribution information.
