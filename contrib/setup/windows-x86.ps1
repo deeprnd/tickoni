@@ -124,6 +124,27 @@ if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $msysPath })) {
 }
 log-info "cpanm ready for Perl module installs"
 
+# ── 6b. Ensure git, make, and perl are installed in MSYS2 (required for OpenSSL build) ────────
+# MSYS2 pacman doesn't include these by default. We need them inside MSYS2 because
+# install-openssl.sh runs via MSYS2 bash and calls 'git clone', 'perl ./Configure',
+# and 'make -j build_libs'.
+$msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
+if (Test-Path $msysBash) {
+    if (-not (& $msysBash -lc "git --version" 2>$null)) {
+        log-info "Installing git via MSYS2 pacman..."
+        & $msysBash -lc "pacman -S --noconfirm --needed git" 2>&1 | Out-Null
+    }
+    if (-not (& $msysBash -lc "make --version" 2>$null)) {
+        log-info "Installing make via MSYS2 pacman..."
+        & $msysBash -lc "pacman -S --noconfirm --needed make" 2>&1 | Out-Null
+    }
+    if (-not (& $msysBash -lc "perl --version" 2>$null)) {
+        log-info "Installing perl via MSYS2 pacman..."
+        & $msysBash -lc "pacman -S --noconfirm --needed perl" 2>&1 | Out-Null
+    }
+    log-info "git, make, perl available in MSYS2"
+}
+
 # ── 7. OpenSSL 3.6.2 — build from source (deps.sh logic) via MSYS2 bash
 # so Firedancer gets the right API level.
 if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
