@@ -164,6 +164,13 @@ fd_build_fd() {
   cmd+=(${TARGETS})
   [ -n "${BUILD_TARGET}" ] && cmd+=("${BUILD_TARGET}")
 
+  # Unset GCC-specific environment variables when using clang.
+  # Homebrew's GCC formula sets EXTRA_CFLAGS with GCC-only flags
+  # (e.g. -fno-eliminate-unused-debug-types) that clang rejects.
+  if [[ "${CC}" == clang* ]]; then
+    export EXTRA_CFLAGS="" EXTRA_CXXFLAGS=""
+  fi
+
   "${cmd[@]}"
 }
 
