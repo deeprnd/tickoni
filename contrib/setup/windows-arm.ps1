@@ -288,7 +288,15 @@ if (Test-Path $msysBash) {
     } else {
         log-info "perl already available in MSYS2"
     }
-    log-info "git, make, perl available in MSYS2"
+    # OpenSSL's build process invokes gcc inside MSYS2 bash (make + shell).
+    # On ARM64 the MSYS2 package is mingw-w64-aarch64-gcc.
+    if (-not (& $msysBash -lc "gcc --version" 2>$null)) {
+        log-info "Installing gcc (mingw-w64-aarch64) via MSYS2 pacman..."
+        & $msysBash -lc "pacman -S --noconfirm --needed mingw-w64-aarch64-gcc" 2>&1 | Out-Null
+    } else {
+        log-info "gcc already available in MSYS2"
+    }
+    log-info "git, make, perl, gcc available in MSYS2"
 }
 
 # ── 7. OpenSSL 3.6.2 — build from source (deps.sh logic) via MSYS2 bash
