@@ -9,7 +9,7 @@ For purposes of these terms, “Licensor” means Victor Genin.
 
 These terms apply to:
 
-- Tickoni creative content maintained in the `tickoni-content`
+- Tickoni creative content maintained in the `deeprnd/tickoni-content`
   repository, including when accessed through the `content/`
   Git submodule;
 - Tickoni fictional lore, characters, character designs, biographies,
