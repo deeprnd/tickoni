@@ -199,9 +199,12 @@ build_windows() {
 
   cd "${src_dir}"
 
-  # MSYS2: ensure Make and Perl are on PATH
+  # MSYS2: ensure Make, Perl, and GCC are on PATH.
+  # ARM64 UCRT runtime uses /ucrt64/bin/ (not /mingw64/bin/).
   local msys2_bin=""
-  if [[ -d "/mingw64/bin" ]]; then
+  if [[ -d "/ucrt64/bin" ]]; then
+    msys2_bin="/ucrt64/bin"
+  elif [[ -d "/mingw64/bin" ]]; then
     msys2_bin="/mingw64/bin"
   elif [[ -d "/usr/bin" ]]; then
     msys2_bin="/usr/bin"
