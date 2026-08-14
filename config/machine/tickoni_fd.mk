@@ -31,33 +31,10 @@ LOCAL_MKS := $(filter src/tango/% src/util/% src/ballet/% src/disco/% src/waltz/
 LOCAL_MKS := $(filter-out src/discof/% src/disco/tickoni/% src/flamenco/% src/choreo/% src/app/platform/%,$(LOCAL_MKS))
 endif
 
-# Platform-specific config.
-# On macOS, use the dedicated macOS build profile which auto-detects
-# architecture (Apple Silicon vs x86_64) and sets correct flags.
-# On Windows/MSYS, use the dedicated Windows clang profile.
-# On Linux, use native detection (native_config.sh).
-# Windows detection: primarily via uname (MINGW/MSYS/CYGWIN/Windows_NT),
-# with FD_WINDOWS_ARCH env var as fallback (set by fd-build-windows.sh).
-UNAME?=$(shell uname)
-ifeq ($(UNAME), Darwin)
-  include config/machine/macos_clang.mk
-else ifneq (,$(filter MINGW% MSYS% CYGWIN% Windows_NT,$(UNAME)))
-  include config/machine/windows_clang.mk
-else ifneq (,$(FD_WINDOWS_ARCH))
-  include config/machine/windows_clang.mk
-else
-  include config/machine/native.mk
-endif
-include config/extra/with-hosted.mk
-
-# Platform-specific FD_HAS_* macros are now defined in base.mk for all
-# MACHINE profiles. The block below is intentionally removed — base.mk
-# already sets FD_HAS_LINUX/FD_HAS_HOSTED/FD_HAS_MACOS based on UNAME,
-# and adding it here would duplicate work. See base.mk for details.
-
 # Parse EXTRAS from the command line to include corresponding with-*.mk files.
-# This is necessary because tickoni_fd.mk overrides LOCAL_MKS and doesn't
-# include the extras infrastructure like the default machine profiles do.
+# MUST come before machine-specific includes so that FD_HAS_* flags are set
+# before Local.mks are processed (everything.mk loads them via the MACHINE
+# profile's base.mk → everything.mk chain).
 ifneq ($(findstring blst,$(EXTRAS)),)
 include config/extra/with-blst.mk
 endif
@@ -82,3 +59,22 @@ endif
 ifneq ($(findstring rocksdb,$(EXTRAS)),)
 include config/extra/with-rocksdb.mk
 endif
+
+# Platform-specific config.
+# On macOS, use the dedicated macOS build profile which auto-detects
+# architecture (Apple Silicon vs x86_64) and sets correct flags.
+# On Windows/MSYS, use the dedicated Windows clang profile.
+# On Linux, use native detection (native_config.sh).
+# Windows detection: primarily via uname (MINGW/MSYS/CYGWIN/Windows_NT),
+# with FD_WINDOWS_ARCH env var as fallback (set by fd-build-windows.sh).
+UNAME?=$(shell uname)
+ifeq ($(UNAME), Darwin)
+  include config/machine/macos_clang.mk
+else ifneq (,$(filter MINGW% MSYS% CYGWIN% Windows_NT,$(UNAME)))
+  include config/machine/windows_clang.mk
+else ifneq (,$(FD_WINDOWS_ARCH))
+  include config/machine/windows_clang.mk
+else
+  include config/machine/native.mk
+endif
+include config/extra/with-hosted.mk
