@@ -189,6 +189,7 @@ build_macos() {
 # Uses native MSVC compiler (cl.exe) + nmake from VS Build Tools.
 # Git Bash provides bash/perl/make for the build harness.
 # No MinGW-w64, no MSYS2 gcc, no cross-compiler needed.
+# IMPORTANT: Must activate MSVC env via vcvarsall.bat before running nmake.
 build_windows() {
   echo "[openssl] Building OpenSSL 3.6.2 for Windows (MSVC)"
   local src_dir="${PREFIX}/git/openssl"
