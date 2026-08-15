@@ -265,7 +265,7 @@ if (-not (Test-Path $msysBash)) {
     log-info "Downloading MSYS2 ARM64 installer..."
     Invoke-WebRequest -Uri $msysUrl -OutFile $msysInstaller -UseBasicParsing
     log-info "Running MSYS2 ARM64 installer..."
-    Start-Process -FilePath $msysInstaller -ArgumentList "/S", "/D=C:\msys64" -Wait
+    Start-Process -FilePath $msysInstaller -ArgumentList "--confirm-command", "--accept-messages", "--root", "C:/msys64" -Wait
     Remove-Item $msysInstaller -ErrorAction SilentlyContinue
 
     # Wait for MSYS2 to be available
