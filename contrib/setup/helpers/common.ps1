@@ -62,7 +62,14 @@ except Exception:
     Set-Content -Path (Join-Path $script:SCRIPT_DIR "py_read_tool_version.py") -Value $pythonScript -Encoding UTF8
 
     try {
-        py -3 (Join-Path $script:SCRIPT_DIR "py_read_tool_version.py") "$tmpFile"
+        $pyCmd = Get-Command python3 -ErrorAction SilentlyContinue
+        if (-not $pyCmd) { $pyCmd = Get-Command python -ErrorAction SilentlyContinue }
+        if (-not $pyCmd) { $pyCmd = Get-Command py -ErrorAction SilentlyContinue }
+        if (-not $pyCmd) {
+            log-error "Python not found — cannot read tool versions"
+            exit 1
+        }
+        & $pyCmd.Source -3 (Join-Path $script:SCRIPT_DIR "py_read_tool_version.py") "$tmpFile"
 
         $result = Get-Content $tmpFile -ErrorAction SilentlyContinue
 
@@ -106,7 +113,14 @@ except Exception:
     Set-Content -Path (Join-Path $script:SCRIPT_DIR "py_read_compiler_version.py") -Value $pythonScript -Encoding UTF8
 
     try {
-        py -3 (Join-Path $script:SCRIPT_DIR "py_read_compiler_version.py") "$tmpFile"
+        $pyCmd = Get-Command python3 -ErrorAction SilentlyContinue
+        if (-not $pyCmd) { $pyCmd = Get-Command python -ErrorAction SilentlyContinue }
+        if (-not $pyCmd) { $pyCmd = Get-Command py -ErrorAction SilentlyContinue }
+        if (-not $pyCmd) {
+            log-error "Python not found — cannot read tool versions"
+            exit 1
+        }
+        & $pyCmd.Source -3 (Join-Path $script:SCRIPT_DIR "py_read_compiler_version.py") "$tmpFile"
 
         $result = Get-Content $tmpFile -ErrorAction SilentlyContinue
 
@@ -154,7 +168,14 @@ except Exception:
     Set-Content -Path (Join-Path $script:SCRIPT_DIR "py_read_package.py") -Value $pythonScript -Encoding UTF8
 
     try {
-        py -3 (Join-Path $script:SCRIPT_DIR "py_read_package.py") "$tmpFile"
+        $pyCmd = Get-Command python3 -ErrorAction SilentlyContinue
+        if (-not $pyCmd) { $pyCmd = Get-Command python -ErrorAction SilentlyContinue }
+        if (-not $pyCmd) { $pyCmd = Get-Command py -ErrorAction SilentlyContinue }
+        if (-not $pyCmd) {
+            log-error "Python not found — cannot read tool versions"
+            exit 1
+        }
+        & $pyCmd.Source -3 (Join-Path $script:SCRIPT_DIR "py_read_package.py") "$tmpFile"
 
         $result = Get-Content $tmpFile -ErrorAction SilentlyContinue
 
@@ -223,7 +244,14 @@ function ensure-zig {
     if ($Target) {
         $zigArgs += @("--target", $Target)
     }
-    py -3 (Join-Path $script:SCRIPT_DIR "install-zig.py") @zigArgs
+    $pyCmd = Get-Command python3 -ErrorAction SilentlyContinue
+    if (-not $pyCmd) { $pyCmd = Get-Command python -ErrorAction SilentlyContinue }
+    if (-not $pyCmd) { $pyCmd = Get-Command py -ErrorAction SilentlyContinue }
+    if (-not $pyCmd) {
+        log-error "Python not found — cannot install Zig"
+        exit 1
+    }
+    & $pyCmd.Source (Join-Path $script:SCRIPT_DIR "install-zig.py") @zigArgs
     log-info "Zig installed"
 }
 
