@@ -148,7 +148,7 @@ enum {
 };
 
 FD_STATIC_ASSERT( 0<SET_(MAX) && SET_(MAX)<=SET_(PRIVATE_BIT_CNT),              range );
-FD_STATIC_ASSERT( (ulong)SET_(PRIVATE_BIT_CNT)<=(1UL<<(8*sizeof(SET_IDX_T)-1)), range );
+FD_STATIC_ASSERT( (ulong)SET_(PRIVATE_BIT_CNT)<=(1ULL<<(8*sizeof(SET_IDX_T)-1)), range );
 
 typedef SET_TYPE SET_(t);
 typedef SET_TYPE SET_(iter_t);
