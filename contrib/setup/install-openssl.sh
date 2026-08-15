@@ -215,16 +215,41 @@ build_windows() {
     openssl_target="msvc-x86_64"
   fi
 
-  # Ensure perl is available (Git for Windows includes Strawberry Perl)
-  if ! perl -e 'use Locale::Maketext::Simple' 2>/dev/null; then
-    if command -v cpanm >/dev/null 2>&1; then
-      cpanm --notest Locale::Maketext::Simple || \
-        { echo "[openssl] Failed to install Perl module via cpanm"; exit 1; }
-    else
-      echo "[openssl] cpanm not found — cannot install Perl module" >&2
-      echo "    Install it via Git for Windows Strawberry Perl" >&2
-      exit 1
-    fi
+  # Ensure Locale::Maketkit::Simple is available for OpenSSL Configure.
+  # Git for Windows includes Strawberry Perl with CPAN.
+  # cpanm fatpack is broken on Strawberry — can't find ExtUtils::Manifest
+  # in @INC, so it can't install anything (chicken-and-egg).
+  # Use CPAN shell in script mode (cpan -M) with a pre-written config
+  # to avoid all interactive prompts on the CI runner.
+  if ! perl -e 'use Locale::Maketkit::Simple' 2>/dev/null; then
+    echo "[openssl] Installing Locale::Maketkit::Simple via CPAN..."
+    # Pre-configure CPAN — use $HOME so it resolves correctly on
+    # Windows Git Bash (/c/Users/runneradmin/.cpan, not /root).
+    local cpan_home="$HOME/.cpan"
+    mkdir -pv "${cpan_home}/CPAN"
+    cat > "${cpan_home}/CPAN/MyConfig.pm" <<PERLCONFIG
+require Config; import Config;
+\$CPAN::Config = {
+  'build_requires_install_policy' => 'yes',
+  'cpan_home' => '${cpan_home}',
+  'ftp_passive' => '1',
+  'inactivity_timeout' => 0,
+  'index_expire' => '1',
+  'keep_source_where' => '${cpan_home}/sources',
+  'prefer_installer' => 'MB',
+  'prerequisites_policy' => 'follow',
+  'scan_cache' => 'atstart',
+  'shell' => '${SHELL:-/bin/bash}',
+  'test_report' => '0',
+  'urllist' => ['https://www.cpan.org/'],
+  'version_timeout' => 15,
+};
+1;
+__END__
+PERLCONFIG
+    cpan -M -e 'install "Locale::Maketkit::Simple"' 2>&1 && \
+      log-info "Locale::Maketkit::Simple installed" || \
+      { echo "[openssl] Failed to install Perl module via CPAN"; exit 1; }
   fi
 
   # -fcf-protection=return is x86-only
