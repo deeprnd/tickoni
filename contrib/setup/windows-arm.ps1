@@ -263,8 +263,8 @@ if (-not (Test-Path $msysBash)) {
     $msysInstaller = Join-Path $env:TEMP "msys2-arm64-installer.exe"
 
     log-info "Downloading MSYS2 ARM64 installer..."
-    curl.exe -L -o $msysInstaller -# -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" $msysUrl
-    if ($LASTEXITCODE -ne 0) {
+    Invoke-WebRequest -Uri $msysUrl -OutFile $msysInstaller -UseBasicParsing
+    if (-not (Test-Path $msysInstaller)) {
         log-error "MSYS2 ARM64 download failed"
         exit 1
     }
