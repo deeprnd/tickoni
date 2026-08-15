@@ -185,9 +185,12 @@ build_macos() {
   echo "[openssl] Installed to ${PREFIX}"
 }
 
-# ── Windows (MSYS2) ──────────────────────────────────────────────────────────
+# ── Windows (MSVC via cl.exe/nmake) ───────────────────────────────────────────
+# Uses native MSVC compiler (cl.exe) + nmake from VS Build Tools.
+# Git Bash provides bash/perl/make for the build harness.
+# No MinGW-w64, no MSYS2 gcc, no cross-compiler needed.
 build_windows() {
-  echo "[openssl] Building OpenSSL 3.6.2 for Windows ($(uname -m))"
+  echo "[openssl] Building OpenSSL 3.6.2 for Windows (MSVC)"
   local src_dir="${PREFIX}/git/openssl"
 
   if [[ ! -d "${src_dir}/config" ]]; then
@@ -199,70 +202,29 @@ build_windows() {
 
   cd "${src_dir}"
 
-  # MSYS2: ensure Make, Perl, and GCC are on PATH.
-  # Newer MSYS2 versions include /ucrt64/bin, /mingw64/bin, and /usr/bin.
-  # Add ALL three (not just the first) so that both UCRT and MinGW-w64
-  # compilers are discoverable regardless of which one the target needs.
-  local msys2_bin=""
-  for d in /ucrt64/bin /mingw64/bin /usr/bin; do
-    if [[ -d "$d" ]]; then
-      if [[ -n "$msys2_bin" ]]; then
-        msys2_bin="${msys2_bin}:${d}"
-      else
-        msys2_bin="$d"
-      fi
-    fi
-  done
-
-  if [[ -n "${msys2_bin}" ]]; then
-    export PATH="${msys2_bin}:${PATH}"
-  fi
-
-  # Determine architecture first (for both CC and OpenSSL target).
+  # Determine architecture for the OpenSSL target.
+  # FD_WINDOWS_ARCH is set by the caller (arm64/x86_64).
+  # Default to current architecture.
   local windows_arch="${FD_WINDOWS_ARCH:-$(uname -m)}"
 
-  # Set CC to the MinGW-w64 cross-compiler (not native MSYS2 gcc).
-  # Prefer the full triplet names which are unambiguous; fall back
-  # to plain gcc only if the triplets are missing (rare edge case).
-  local CC=""
+  # OpenSSL target for MSVC: msvc-arm64 or msvc-x86_64
+  local openssl_target
   if [[ "${windows_arch}" =~ ^(arm64|aarch64)$ ]]; then
-    if command -v aarch64-w64-mingw32-gcc >/dev/null 2>&1; then
-      CC=aarch64-w64-mingw32-gcc
-    elif command -v gcc >/dev/null 2>&1; then
-      CC=gcc
-    fi
+    openssl_target="msvc-arm64"
   else
-    if command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
-      CC=x86_64-w64-mingw32-gcc
-    elif command -v gcc >/dev/null 2>&1; then
-      CC=gcc
-    fi
+    openssl_target="msvc-x86_64"
   fi
-  if [[ -z "${CC}" ]]; then
-    echo "[openssl] ERROR: No suitable C compiler found (tried x86_64-w64-mingw32-gcc/aarch64-w64-mingw32-gcc/gcc)" >&2
-    exit 1
-  fi
-  export CC
 
-  # OpenSSL Configure on Windows uses Unix-style paths — must use MSYS2/
-  # Git-Bash Perl, not Strawberry.  Also needs Locale::Maketext::Simple.
+  # Ensure perl is available (Git for Windows includes Strawberry Perl)
   if ! perl -e 'use Locale::Maketext::Simple' 2>/dev/null; then
     if command -v cpanm >/dev/null 2>&1; then
       cpanm --notest Locale::Maketext::Simple || \
         { echo "[openssl] Failed to install Perl module via cpanm"; exit 1; }
     else
       echo "[openssl] cpanm not found — cannot install Perl module" >&2
-      echo "    Install it: pacman -S cpanminus" >&2
+      echo "    Install it via Git for Windows Strawberry Perl" >&2
       exit 1
     fi
-  fi
-
-  # OpenSSL target is determined from the same windows_arch above.
-  local openssl_target
-  if [[ "${windows_arch}" =~ ^(arm64|aarch64)$ ]]; then
-    openssl_target="mingwarm64"
-  else
-    openssl_target="mingw64"
   fi
 
   # -fcf-protection=return is x86-only
@@ -270,12 +232,22 @@ build_windows() {
   case "${windows_arch}" in
     x86_64|x64|i686|x86) cf_opts+=" -fcf-protection=return" ;;
   esac
+
+  # For MSVC targets, CFLAGS are passed via the compiler invocation
+  # OpenSSL's msvc targets use nmake, not make, so we pass flags differently
+  # Use CFLAGS for MSVC-compatible flags that will be picked up
   CFLAGS="${cf_opts}" \
     CXXFLAGS="${cf_opts}" \
     perl ./Configure "${openssl_target}" "${CONFIG_OPTS[@]}"
 
-  make -j build_libs
-  make -j install_dev
+  # MSVC OpenSSL uses nmake instead of make
+  if command -v nmake >/dev/null 2>&1; then
+    nmake -j build_libs
+    nmake -j install_dev
+  else
+    make -j build_libs
+    make -j install_dev
+  fi
 
   echo "[openssl] Installed to ${PREFIX}"
 }
