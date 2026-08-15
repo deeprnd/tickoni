@@ -208,12 +208,14 @@ build_windows() {
   # Default to current architecture.
   local windows_arch="${FD_WINDOWS_ARCH:-$(uname -m)}"
 
-  # OpenSSL target for MSVC: msvc-arm64 or msvc-x86_64
+  # OpenSSL target for Windows.
+  # ARM64: VC-WIN64-ARM (uses MSVC cl.exe + nmake)
+  # x86_64: VC-WIN64A (uses MSVC cl.exe + nmake)
   local openssl_target
   if [[ "${windows_arch}" =~ ^(arm64|aarch64)$ ]]; then
-    openssl_target="msvc-arm64"
+    openssl_target="VC-WIN64-ARM"
   else
-    openssl_target="msvc-x86_64"
+    openssl_target="VC-WIN64A"
   fi
 
   # Ensure Text::Template >= 1.46 is available for OpenSSL Configure.
