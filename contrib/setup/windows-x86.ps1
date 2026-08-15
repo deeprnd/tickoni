@@ -89,8 +89,33 @@ if ($llvmPath) {
 ensure-zig
 
 # ── 5. MSVC build tools ──────────────────────────────────────────────────────
-log-info "Installing Visual Studio Build Tools..."
-Install-Package "vs-build-tools"
+# winget installs the VS Installer shell by default but NOT the C++ workload.
+# Must pass --package-arguments to install the VCTools workload.
+log-info "Installing Visual Studio Build Tools (VCTools workload)..."
+$wingetId = read-package "winget" "vs-build-tools"
+winget install --id $wingetId --exact --accept-package-agreements --accept-source-agreements --disable-interactivity `
+    --silent --wait `
+    --package-arguments '"--add Microsoft.VisualStudio.Workload.VCTools --optional"'
+
+# Verify cl.exe and nmake are available
+$vcBase = @()
+Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio" -Directory -ErrorAction SilentlyContinue | ForEach-Object { $vcBase += $_.Name }
+Get-ChildItem -Path "C:\Program Files (x86)\Microsoft Visual Studio" -Directory -ErrorAction SilentlyContinue | ForEach-Object { $vcBase += $_.Name }
+foreach ($vsVer in $vcBase) {
+    $bat = "C:\Program Files\Microsoft Visual Studio\$vsVer\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
+    if ($vsVer -notlike "Microsoft Visual Studio*") {
+        $bat = "C:\Program Files (x86)\Microsoft Visual Studio\$vsVer\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
+    }
+    if (Test-Path $bat) {
+        log-info "Found VS $vsVer BuildTools"
+    }
+}
+
+if (Get-Command cl.exe -ErrorAction SilentlyContinue) {
+    log-info "MSVC cl.exe found: $(cl.exe 2>&1 | Select-Object -First 1)"
+} else {
+    log-warn "cl.exe not in PATH — OpenSSL build via MSYS2 will use MinGW gcc, not MSVC"
+}
 
 # ── 6. cpanm (for MSYS2 Perl module installs) ───────────────────────────────
 function Test-CpanmWorks {
