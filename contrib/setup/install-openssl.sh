@@ -217,12 +217,19 @@ build_windows() {
 
   # Ensure Locale::Maketkit::Simple is available for OpenSSL Configure.
   # Git for Windows includes Strawberry Perl with CPAN.
-  # cpanm fatpack is broken on Strawberry — can't find ExtUtils::Manifest
-  # in @INC, so it can't install anything (chicken-and-egg).
-  # Use CPAN shell in script mode (cpan -M) with a pre-written config
-  # to avoid all interactive prompts on the CI runner.
+  # CI runners may have multiple Perl installations (system + Strawberry).
+  # Force Strawberry Perl to be first in PATH so perl/cpan resolve correctly.
   if ! perl -e 'use Locale::Maketkit::Simple' 2>/dev/null; then
     echo "[openssl] Installing Locale::Maketkit::Simple via CPAN..."
+    # Prepend Strawberry Perl to PATH so perl and cpan resolve to the right ones.
+    local strawberry_perl_bin="/c/Strawberry/perl/bin"
+    if [[ -d "${strawberry_perl_bin}" ]]; then
+      export PATH="${strawberry_perl_bin}:${PATH}"
+    fi
+    # Verify we're using Strawberry Perl
+    if [[ "$(perl -v 2>&1 | grep -i strawberry)" == "" ]]; then
+      echo "[openssl] WARNING: perl is not Strawberry Perl (found: $(which perl))" >&2
+    fi
     # Pre-configure CPAN — use $HOME so it resolves correctly on
     # Windows Git Bash (/c/Users/runneradmin/.cpan, not /root).
     local cpan_home="$HOME/.cpan"
@@ -247,8 +254,9 @@ require Config; import Config;
 1;
 __END__
 PERLCONFIG
-    cpan -M -e 'install "Locale::Maketkit::Simple"' 2>&1 && \
-      log-info "Locale::Maketkit::Simple installed" || \
+    # Use perl -MCPAN directly to avoid system Perl's cpan CLI issues.
+    perl -MCPAN -e 'install "Locale::Maketkit::Simple"' 2>&1 && \
+      echo "[openssl] Locale::Maketkit::Simple installed successfully" || \
       { echo "[openssl] Failed to install Perl module via CPAN"; exit 1; }
   fi
 
