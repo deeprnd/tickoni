@@ -155,7 +155,15 @@ fd_build_fd() {
     exit 1
   fi
 
-  local -a cmd=( "$MAKE" -j"$(fd_nproc)" MACHINE=tickoni_fd BUILDDIR="${BUILDDIR}" )
+  # On macOS, default `ar` is `libtool` which embeds TBD (Text-Based Dylib)
+  # metadata inside .a files. Zig 0.16 chokes on TBD format. Use `llvm-ar`
+  # which produces standard UNIX archives without TBD metadata.
+  local AR_OPTS=()
+  if [ "$(fd_host_os)" = "macOS" ]; then
+    AR_OPTS=( "AR=llvm-ar" "ARFLAGS=rcs" )
+  fi
+
+  local -a cmd=( "$MAKE" -j"$(fd_nproc)" MACHINE=tickoni_fd BUILDDIR="${BUILDDIR}" "${AR_OPTS[@]}" )
   [ -n "${FD_WINDOWS_ARCH:-}" ] && cmd+=( "FD_WINDOWS_ARCH=${FD_WINDOWS_ARCH}" )
   [ -n "${LDFLAGS_EXE}" ] && cmd+=( "LDFLAGS_EXE=${LDFLAGS_EXE}" )
   cmd+=( "CC=${CC}" )
