@@ -5,6 +5,7 @@
 #   .\windows-arm.ps1 -Security -NoLLM  # install gitleaks, skip LLM
 # Package manager: winget ONLY. If winget is missing, auto-install it.
 # Note: Zig uses native aarch64-windows prebuilt binary
+# Note: OpenSSL uses native MSVC target (msvc-arm64), no MinGW-w64/MSYS2 needed.
 
 param([switch]$Security, [switch]$NoLLM)
 
@@ -199,231 +200,37 @@ log-info "Installing Zig (aarch64-windows native)..."
 ensure-zig "aarch64-windows"
 log-info "Zig installed (aarch64-windows native)"
 
-# ── 5. cpanm (for MSYS2 Perl module installs) ───────────────────────────────
-function Test-CpanmWorks {
-    $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
-    if (Test-Path $msysBash) {
-        $result = & $msysBash -lc "perl -MExtUtils::Manifest -e1 2>&1"
-        return $LASTEXITCODE -eq 0
-    }
-    return $false
-}
-
-$cpanmFound = Get-Command cpanm -ErrorAction SilentlyContinue
-if (-not $cpanmFound) {
-    log-info "cpanm not found — installing via MSYS2 pacman..."
-    $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
-    if (Test-Path $msysBash) {
-        & $msysBash -lc "pacman -S --noconfirm cpanminus" 2>&1 | Out-Null
-    }
-} elseif (-not (Test-CpanmWorks)) {
-    log-info "cpanm found but missing ExtUtils::Manifest (Strawberry Perl fat-pack) — installing MSYS2 cpanminus..."
-    $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
-    if (Test-Path $msysBash) {
-        & $msysBash -lc "pacman -S --noconfirm cpanminus" 2>&1 | Out-Null
-    }
-}
-
-# MSYS2 bin is at /usr/bin/cpanm — ensure MSYS2 is in PATH
-$msysPath = "$env:SystemDrive\msys64\usr\bin"
-if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $msysPath })) {
-    $env:PATH = $msysPath + ";" + $env:PATH
-}
-
-# Add ALL MSYS2 gcc/bin dirs so the compiler is discoverable.
-# clang defaults to MSVC target and can't find MinGW-w64 system headers
-# like <x86intrin.h>; we need gcc with proper MinGW-w64 paths.
-$msysGccDirs = @(
-    "$env:SystemDrive\msys64\ucrt64\bin",
-    "$env:SystemDrive\msys64\mingw64\bin",
-    "$env:SystemDrive\msys64\usr\bin"
-)
-foreach ($d in $msysGccDirs) {
-    if (Test-Path $d) {
-        if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $d })) {
-            $env:PATH = $d + ";" + $env:PATH
-        }
-    }
-}
-log-info "cpanm ready for Perl module installs"
-
-# ── 6. MSVC build tools ──────────────────────────────────────────────────────
+# ── 5. MSVC build tools ──────────────────────────────────────────────────────
 log-info "Installing Visual Studio Build Tools..."
 Install-Package "vs-build-tools"
 
-# ── 6b. MSYS2 (required for OpenSSL build on Windows) ──────────────────────
-# On ARM64, winget's MSYS2.MSYS2 package is the x86_64 build which runs under
-# emulation and has NO access to ARM64-native repos (e.g. ucrtarm). We must
-# download the ARM64-native installer directly.
-$msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
-if (-not (Test-Path $msysBash)) {
-    log-info "Installing MSYS2 (ARM64-native installer)..."
-    $msysRelease = "2026-06-11"
-    $msysUrl = "https://github.com/msys2/msys2-installer/releases/download/${msysRelease}/msys2-arm64-${msysRelease.Replace('-','')}.exe"
-    $msysInstaller = Join-Path $env:TEMP "msys2-arm64-installer.exe"
-
-    log-info "Downloading MSYS2 ARM64 installer..."
-    # Use curl.exe (MSYS2 ships it) — it handles redirects well.
-    # Fall back to Invoke-WebRequest (native Windows) if curl fails,
-    # since the GitHub Actions ARM64 runner may have a curl that can't
-    # follow GitHub's multi-hop redirect chain to S3.
-    $curlPath = Join-Path $env:SystemDrive "msys64\usr\bin\curl.exe"
-    $downloadFailed = $true
-
-    if (Test-Path $curlPath) {
-        log-info "Downloading MSYS2 ARM64 installer via curl..."
-        $prevErrorAction = $ErrorActionPreference
-        $ErrorActionPreference = 'Continue'
-        & $curlPath -L -f -sS -o $msysInstaller $msysUrl
-        $exitCode = $LASTEXITCODE
-        $ErrorActionPreference = $prevErrorAction
-        if ($exitCode -eq 0 -and (Test-Path $msysInstaller)) {
-            $downloadFailed = $false
-            log-info "MSYS2 ARM64 installer downloaded via curl"
-        } else {
-            Remove-Item $msysInstaller -ErrorAction SilentlyContinue
-            log-info "curl download failed (exit code $exitCode), falling back to Invoke-WebRequest..."
-        }
-    }
-
-    if ($downloadFailed) {
-        # Pre-MSYS2 bootstrap: try the built-in Windows curl if available
-        $curlPath = "$env:SystemDrive\Windows\System32\curl.exe"
-        if (Test-Path $curlPath) {
-            log-info "Downloading MSYS2 ARM64 installer via Windows curl..."
-            $prevErrorAction = $ErrorActionPreference
-            $ErrorActionPreference = 'Continue'
-            & $curlPath -L -f -sS -o $msysInstaller $msysUrl
-            $exitCode = $LASTEXITCODE
-            $ErrorActionPreference = $prevErrorAction
-            if ($exitCode -eq 0 -and (Test-Path $msysInstaller)) {
-                $downloadFailed = $false
-                log-info "MSYS2 ARM64 installer downloaded via Windows curl"
-            } else {
-                Remove-Item $msysInstaller -ErrorAction SilentlyContinue
-                log-info "Windows curl failed (exit code $exitCode), falling back to Invoke-WebRequest..."
-            }
-        }
-
-        # Last resort: Invoke-WebRequest (native Windows HTTP stack, handles redirects)
-        # Must include GITHUB_TOKEN Bearer header — GitHub blocks unauthenticated
-        # downloads from ARM64 runners (Cloudflare/rate-limit → 404).
-        if ($downloadFailed) {
-            log-info "Downloading MSYS2 ARM64 installer via Invoke-WebRequest..."
-            try {
-                $ProgressPreference = 'SilentlyContinue'
-                $headers = @{ }
-                if ($env:GITHUB_TOKEN) {
-                    $headers["Authorization"] = "Bearer $env:GITHUB_TOKEN"
-                }
-                Invoke-WebRequest -Uri $msysUrl -Headers $headers -OutFile $msysInstaller -UseBasicParsing -MaximumRedirection 10
-                log-info "MSYS2 ARM64 installer downloaded via Invoke-WebRequest"
-            } catch {
-                log-error "Invoke-WebRequest failed: $_"
-                Remove-Item $msysInstaller -ErrorAction SilentlyContinue
-                exit 1
-            }
-        }
-    }
-
-    if (-not (Test-Path $msysInstaller)) {
-        log-error "MSYS2 ARM64 download failed"
-        exit 1
-    }
-    $downloadedSize = (Get-Item $msysInstaller).Length
-    if ($downloadedSize -lt 10MB) {
-        log-error "MSYS2 ARM64 installer download failed or truncated (size: $downloadedSize bytes)"
-        exit 1
-    }
-    log-info "Running MSYS2 ARM64 installer..."
-    Start-Process -FilePath $msysInstaller -ArgumentList "--confirm-command", "--accept-messages", "--root", "C:/msys64" -Wait
-    Remove-Item $msysInstaller -ErrorAction SilentlyContinue
-
-    # Wait for MSYS2 to be available
-    $msysReady = $false
-    for ($i = 0; $i -lt 30; $i++) {
-        Start-Sleep -Seconds 2
-        if (Test-Path $msysBash) {
-            $msysReady = $true
-            break
-        }
-    }
-    if (-not $msysReady) {
-        log-error "MSYS2 install timed out — bash not found at $msysBash"
-        exit 1
-    }
-    log-info "MSYS2 (ARM64-native) installed"
-} else {
-    log-info "MSYS2 already installed"
-}
-
-# Ensure MSYS2 bin (cygpath, bash, etc.) is in PATH
-$msysPath = "$env:SystemDrive\msys64\usr\bin"
-if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $msysPath })) {
-    $env:PATH = $msysPath + ";" + $env:PATH
-}
-
-# ── 6c. Ensure git, make, and perl are installed in MSYS2 (required for OpenSSL build) ────────
-# MSYS2 pacman doesn't include these by default. We need them inside MSYS2 because
-# install-openssl.sh runs via MSYS2 bash and calls 'git clone' and 'make'.
-$msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
-if (Test-Path $msysBash) {
-    if (-not (& $msysBash -lc "git --version" 2>$null)) {
-        log-info "Installing git via MSYS2 pacman..."
-        & $msysBash -lc "pacman -S --noconfirm --needed git" 2>&1 | Out-Null
-    } else {
-        log-info "git already available in MSYS2"
-    }
-    if (-not (& $msysBash -lc "make --version" 2>$null)) {
-        log-info "Installing make via MSYS2 pacman..."
-        & $msysBash -lc "pacman -S --noconfirm --needed make" 2>&1 | Out-Null
-    } else {
-        log-info "make already available in MSYS2"
-    }
-    if (-not (& $msysBash -lc "perl --version" 2>$null)) {
-        log-info "Installing perl via MSYS2 pacman..."
-        & $msysBash -lc "pacman -S --noconfirm --needed perl" 2>&1 | Out-Null
-    } else {
-        log-info "perl already available in MSYS2"
-    }
-    # OpenSSL's build process invokes gcc inside MSYS2 bash (make + shell).
-    # On ARM64 the MSYS2 package is ucrt-aarch64-ucrt-gcc (ucrtarm repo, UCRT runtime).
-    # The 'ucrt-aarch64-' prefix is used by ucrtarm on ARM64 (not mingw-w64-*).
-    if (-not (& $msysBash -lc "gcc --version" 2>$null)) {
-        log-info "Installing gcc (ucrt-aarch64-ucrt-gcc) via MSYS2 pacman..."
-        $gcc_install = & $msysBash -lc "pacman -S --noconfirm --needed ucrt-aarch64-ucrt-gcc" 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            log-error "Failed to install gcc (ucrt-aarch64-ucrt-gcc): $gcc_install"
-            exit 1
-        }
-    } else {
-        log-info "gcc already available in MSYS2"
-    }
-    log-info "git, make, perl, gcc available in MSYS2"
-}
-
-# ── 7. OpenSSL 3.6.2 — build from source (deps.sh logic) via MSYS2 bash
-# so Firedancer gets the right API level.
-# FD_WINDOWS_ARCH=arm64 overrides uname -m (returns x86_64 inside the
-# x86_64 MSYS2 package running under Windows emulation on ARM64).
+# ── 6. OpenSSL 3.6.2 — build from source via Git Bash (native MSVC target)
+# Git for Windows includes: bash, perl (Strawberry), make.
+# VS Build Tools provides: cl.exe, nmake.
+# OpenSSL 3.x supports msvc-arm64/msvc-x86_64 targets natively — no MinGW-w64.
+# No MSYS2, no gcc, no cross-compiler needed.
 if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
-    $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
-    if (Test-Path $msysBash) {
-        log-info "Building OpenSSL 3.6.2 via MSYS2 bash..."
+    $gitBash = "${env:ProgramFiles}\Git\usr\bin\bash.exe"
+    if (-not (Test-Path $gitBash)) {
+        $gitBash = "${env:ProgramFiles(x86)}\Git\usr\bin\bash.exe"
+    }
+    if (Test-Path $gitBash) {
+        log-info "Building OpenSSL 3.6.2 via Git Bash (MSVC target)..."
         $openssl_script = Join-Path $repoRoot 'contrib/setup/install-openssl.sh'
         $opt_path = Join-Path $repoRoot 'opt'
         $openssl_posix = & cygpath -u $openssl_script
         $opt_posix = & cygpath -u $opt_path
-        & $msysBash -lc "FD_WINDOWS_ARCH=arm64 bash $openssl_posix --prefix $opt_posix" 2>&1
+        & $gitBash -lc "FD_WINDOWS_ARCH=arm64 bash $openssl_posix --prefix $opt_posix" 2>&1
     } else {
-        log-error "MSYS2 bash not found — OpenSSL 3.6.2 cannot be built"
+        log-error "Git Bash not found — OpenSSL 3.6.2 cannot be built"
+        log-error "Install Git for Windows and rerun setup"
         exit 1
     }
 } else {
     log-info "OpenSSL 3.6.2 already installed in ./opt/"
 }
 
-# ── 8. LLM tooling (optional) ────────────────────────────────────────────────
+# ── 7. LLM tooling (optional) ────────────────────────────────────────────────
 if (-not $NoLLM) {
     log-info "Installing LLM tooling (llama.cpp build deps: MinGW-w64)..."
     Install-Package "winlibs"
@@ -432,7 +239,7 @@ if (-not $NoLLM) {
     log-info "Skipping LLM tooling (-NoLLM)"
 }
 
-# ── 9. Summary ───────────────────────────────────────────────────────────────
+# ── 8. Summary ───────────────────────────────────────────────────────────────
 log-info "Windows ARM64 setup complete"
 log-info "Tools:"
 foreach ($tool in @("clang", "zig", "just", "cl")) {
