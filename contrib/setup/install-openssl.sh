@@ -255,9 +255,13 @@ build_windows() {
     local vc_target="x64"
   fi
 
-  # Try standard VS 2022 Build Tools paths first, fall back to VS 2019.
+  # Try VS 2026 first, then VS 2022, then VS 2019.
   local vcvars_path=""
   for candidate in \
+    "/c/Program Files/Microsoft Visual Studio/2026/BuildTools/VC/Auxiliary/Build/vcvarsall.bat" \
+    "/c/Program Files/Microsoft Visual Studio/2026/Community/VC/Auxiliary/Build/vcvarsall.bat" \
+    "/c/Program Files/Microsoft Visual Studio/2026/Professional/VC/Auxiliary/Build/vcvarsall.bat" \
+    "/c/Program Files/Microsoft Visual Studio/2026/Enterprise/VC/Auxiliary/Build/vcvarsall.bat" \
     "/c/Program Files/Microsoft Visual Studio/2022/BuildTools/VC/Auxiliary/Build/vcvarsall.bat" \
     "/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Auxiliary/Build/vcvarsall.bat" \
     "/c/Program Files/Microsoft Visual Studio/2022/Community/VC/Auxiliary/Build/vcvarsall.bat" \
