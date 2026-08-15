@@ -263,14 +263,63 @@ if (-not (Test-Path $msysBash)) {
     $msysInstaller = Join-Path $env:TEMP "msys2-arm64-installer.exe"
 
     log-info "Downloading MSYS2 ARM64 installer..."
-    # Use curl.exe (MSYS2 ships it) — Invoke-WebRequest fails on the
-    # GitHub 302 redirect in the GitHub Actions ARM64 runner image.
+    # Use curl.exe (MSYS2 ships it) — it handles redirects well.
+    # Fall back to Invoke-WebRequest (native Windows) if curl fails,
+    # since the GitHub Actions ARM64 runner may have a curl that can't
+    # follow GitHub's multi-hop redirect chain to S3.
     $curlPath = Join-Path $env:SystemDrive "msys64\usr\bin\curl.exe"
-    if (-not (Test-Path $curlPath)) {
-        # Pre-MSYS2 bootstrap: use the built-in Windows curl if available
-        $curlPath = "$env:SystemDrive\Windows\System32\curl.exe"
+    $downloadFailed = $true
+
+    if (Test-Path $curlPath) {
+        log-info "Downloading MSYS2 ARM64 installer via curl..."
+        $prevErrorAction = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        & $curlPath -L -f -sS -o $msysInstaller $msysUrl
+        $exitCode = $LASTEXITCODE
+        $ErrorActionPreference = $prevErrorAction
+        if ($exitCode -eq 0 -and (Test-Path $msysInstaller)) {
+            $downloadFailed = $false
+            log-info "MSYS2 ARM64 installer downloaded via curl"
+        } else {
+            Remove-Item $msysInstaller -ErrorAction SilentlyContinue
+            log-info "curl download failed (exit code $exitCode), falling back to Invoke-WebRequest..."
+        }
     }
-    & $curlPath -L -f -sS -o $msysInstaller $msysUrl
+
+    if ($downloadFailed) {
+        # Pre-MSYS2 bootstrap: try the built-in Windows curl if available
+        $curlPath = "$env:SystemDrive\Windows\System32\curl.exe"
+        if (Test-Path $curlPath) {
+            log-info "Downloading MSYS2 ARM64 installer via Windows curl..."
+            $prevErrorAction = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            & $curlPath -L -f -sS -o $msysInstaller $msysUrl
+            $exitCode = $LASTEXITCODE
+            $ErrorActionPreference = $prevErrorAction
+            if ($exitCode -eq 0 -and (Test-Path $msysInstaller)) {
+                $downloadFailed = $false
+                log-info "MSYS2 ARM64 installer downloaded via Windows curl"
+            } else {
+                Remove-Item $msysInstaller -ErrorAction SilentlyContinue
+                log-info "Windows curl failed (exit code $exitCode), falling back to Invoke-WebRequest..."
+            }
+        }
+
+        # Last resort: Invoke-WebRequest (native Windows HTTP stack, handles redirects)
+        if ($downloadFailed) {
+            log-info "Downloading MSYS2 ARM64 installer via Invoke-WebRequest..."
+            try {
+                $ProgressPreference = 'SilentlyContinue'
+                Invoke-WebRequest -Uri $msysUrl -OutFile $msysInstaller -UseBasicParsing -MaximumRedirection 10
+                log-info "MSYS2 ARM64 installer downloaded via Invoke-WebRequest"
+            } catch {
+                log-error "Invoke-WebRequest failed: $_"
+                Remove-Item $msysInstaller -ErrorAction SilentlyContinue
+                exit 1
+            }
+        }
+    }
+
     if (-not (Test-Path $msysInstaller)) {
         log-error "MSYS2 ARM64 download failed"
         exit 1
