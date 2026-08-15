@@ -579,58 +579,58 @@ pub fn build(b: *std.Build) void {
             .{ .name = "trade_ticket", .module = trade_ticket_mod },
         },
     });
-// Diagnostic C compile-check: compiles each shim file individually and
-// prints errors to stdout (not stderr) so CI can surface them. Zig's
-// C compiler writes to stderr via --listen=- which CI captures as
-// opaque; this step forces compilation output into stdout.
-const shim_c_files = &.{
-    "tango.c",
-    "util.c",
-    "wksp.c",
-    "sandbox.c",
-    "os.c",
-    "topo_run.c",
-    "topob.c",
-    "tile_run.c",
-    "ballet.c",
-};
-const shim_flags = shimCFlagsFor(target.result);
-const arch_name = switch (target.result.cpu.arch) {
-    .x86_64 => "x86_64",
-    .aarch64 => "aarch64",
-    .x86 => "x86",
-    .arm => "arm",
-    else => b.fmt("{s}", .{@tagName(target.result.cpu.arch)}),
-};
-const os_name = switch (target.result.os.tag) {
-    .linux => "linux",
-    .windows => "windows",
-    .macos => "macos",
-    else => b.fmt("{s}", .{@tagName(target.result.os.tag)}),
-};
-const abi_name = switch (target.result.abi) {
-    .gnu => "gnu",
-    .gnuabi64 => "gnu",
-    .musl => "musl",
-    .msvc => "msvc",
-    else => "",
-};
-const triple = if (abi_name.len > 0)
-    b.fmt("{s}-{s}-{s}", .{ arch_name, os_name, abi_name })
-else
-    b.fmt("{s}-{s}", .{ arch_name, os_name });
-const c_compile_check_step = b.step("check-c-compile", "Compile-check all C shim files and print errors to stdout");
-inline for (shim_c_files) |shim_file| {
-    const c_check = b.addSystemCommand(&.{
-        "sh", "-c",
-        b.fmt("zig cc -target {s} -c -I src -std=c17 -UBMI2 -ULZCNT -DFD_HAS_HOSTED=1 {s} {s} 2>&1 || true", .{
-            triple,
-            shim_flags[0],
-            b.fmt("src/tickoni/c_abi/shim/{s}", .{shim_file}),
-        }),
-    });
-    c_compile_check_step.dependOn(&c_check.step);
-}
+    // Diagnostic C compile-check: compiles each shim file individually and
+    // prints errors to stdout (not stderr) so CI can surface them. Zig's
+    // C compiler writes to stderr via --listen=- which CI captures as
+    // opaque; this step forces compilation output into stdout.
+    const shim_c_files = &.{
+        "tango.c",
+        "util.c",
+        "wksp.c",
+        "sandbox.c",
+        "os.c",
+        "topo_run.c",
+        "topob.c",
+        "tile_run.c",
+        "ballet.c",
+    };
+    const shim_flags = shimCFlagsFor(target.result);
+    const arch_name = switch (target.result.cpu.arch) {
+        .x86_64 => "x86_64",
+        .aarch64 => "aarch64",
+        .x86 => "x86",
+        .arm => "arm",
+        else => b.fmt("{s}", .{@tagName(target.result.cpu.arch)}),
+    };
+    const os_name = switch (target.result.os.tag) {
+        .linux => "linux",
+        .windows => "windows",
+        .macos => "macos",
+        else => b.fmt("{s}", .{@tagName(target.result.os.tag)}),
+    };
+    const abi_name = switch (target.result.abi) {
+        .gnu => "gnu",
+        .gnuabi64 => "gnu",
+        .musl => "musl",
+        .msvc => "msvc",
+        else => "",
+    };
+    const triple = if (abi_name.len > 0)
+        b.fmt("{s}-{s}-{s}", .{ arch_name, os_name, abi_name })
+    else
+        b.fmt("{s}-{s}", .{ arch_name, os_name });
+    const c_compile_check_step = b.step("check-c-compile", "Compile-check all C shim files and print errors to stdout");
+    inline for (shim_c_files) |shim_file| {
+        const c_check = b.addSystemCommand(&.{
+            "sh", "-c",
+            b.fmt("zig cc -target {s} -c -I src -std=c17 -UBMI2 -ULZCNT -DFD_HAS_HOSTED=1 {s} {s} 2>&1 || true", .{
+                triple,
+                shim_flags[0],
+                b.fmt("src/tickoni/c_abi/shim/{s}", .{shim_file}),
+            }),
+        });
+        c_compile_check_step.dependOn(&c_check.step);
+    }
     check_step.dependOn(c_compile_check_step);
 
     if (build_tests) {
@@ -650,7 +650,7 @@ inline for (shim_c_files) |shim_file| {
         // This avoids Zig's --listen=- parallel coordination which panics
         // with EndOfStream when 48+ test binaries communicate over the same pipe.
         const run_tests_cmd = std.Build.Step.Run.create(b, "run-tests");
-        run_tests_cmd.addArgs(&.{"bash", "contrib/run-test-series.sh"});
+        run_tests_cmd.addArgs(&.{ "bash", "contrib/run-test-series.sh" });
         run_tests_cmd.step.dependOn(test_step);
         run_tests_step.dependOn(&run_tests_cmd.step);
 
@@ -725,12 +725,10 @@ inline for (shim_c_files) |shim_file| {
                 });
                 t.root_module.link_libc = true;
             }
-            if (std.mem.eql(u8, path, "src/tickoni/tiles/audit/mod.zig"))
-            {
+            if (std.mem.eql(u8, path, "src/tickoni/tiles/audit/mod.zig")) {
                 linkTickoniCodec(b, t, fd_lib_dir);
             }
-            if (std.mem.eql(u8, path, "src/tickoni/tiles/payment_pipeline/mod.zig"))
-            {
+            if (std.mem.eql(u8, path, "src/tickoni/tiles/payment_pipeline/mod.zig")) {
                 linkTickoniCodec(b, t, fd_lib_dir);
                 // Logger module imports util -> c_abi.os which needs shim/os.c
                 linkTickoniFiredancer(b, t, fd_lib_dir);
@@ -2205,22 +2203,22 @@ fn shimCFlagsFor(target: std.Target) []const []const u8 {
         .macos => &.{ "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1", "-DFD_HAS_MACOS=1" },
         .windows => switch (target.cpu.arch) {
             .aarch64 => &.{
-                "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1", "-DFD_HAS_WINDOWS=1",
-                "-D_CRT_SECURE_NO_WARNINGS", "-DFD_IO_STYLE=1", "-DFD_LOG_STYLE=1", "-DFD_HAS_THREADS=1",
-                "-DFD_HAS_ATOMIC=1", "-DFD_HAS_ARM64=1", "-DFD_HAS_INT128=0", "-DFD_HAS_DOUBLE=1",
-                "-DFD_HAS_ALLOCA=1", "-Wno-format", "-Wno-format-extra-args",
+                "-std=c17",                  "-U__BMI2__",        "-U__LZCNT__",       "-DFD_HAS_HOSTED=1",  "-DFD_HAS_WINDOWS=1",
+                "-D_CRT_SECURE_NO_WARNINGS", "-DFD_IO_STYLE=1",   "-DFD_LOG_STYLE=1",  "-DFD_HAS_THREADS=1", "-DFD_HAS_ATOMIC=1",
+                "-DFD_HAS_ARM64=1",          "-DFD_HAS_INT128=0", "-DFD_HAS_DOUBLE=1", "-DFD_HAS_ALLOCA=1",  "-Wno-format",
+                "-Wno-format-extra-args",
             },
             .x86_64 => &.{
-                "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1", "-DFD_HAS_WINDOWS=1",
-                "-D_CRT_SECURE_NO_WARNINGS", "-DFD_IO_STYLE=1", "-DFD_LOG_STYLE=1", "-DFD_HAS_THREADS=1",
-                "-DFD_HAS_ATOMIC=1", "-DFD_HAS_X86=1", "-DFD_HAS_SSE=1", "-DFD_HAS_AVX=1",
-                "-DFD_HAS_AVX2=1", "-DFD_HAS_AESNI=1", "-DFD_IS_X86_64=1", "-DFD_HAS_INT128=0",
-                "-DFD_HAS_DOUBLE=1", "-DFD_HAS_ALLOCA=1", "-Wno-format", "-Wno-format-extra-args",
+                "-std=c17",                  "-U__BMI2__",        "-U__LZCNT__",       "-DFD_HAS_HOSTED=1",  "-DFD_HAS_WINDOWS=1",
+                "-D_CRT_SECURE_NO_WARNINGS", "-DFD_IO_STYLE=1",   "-DFD_LOG_STYLE=1",  "-DFD_HAS_THREADS=1", "-DFD_HAS_ATOMIC=1",
+                "-DFD_HAS_X86=1",            "-DFD_HAS_SSE=1",    "-DFD_HAS_AVX=1",    "-DFD_HAS_AVX2=1",    "-DFD_HAS_AESNI=1",
+                "-DFD_IS_X86_64=1",          "-DFD_HAS_INT128=0", "-DFD_HAS_DOUBLE=1", "-DFD_HAS_ALLOCA=1",  "-Wno-format",
+                "-Wno-format-extra-args",
             },
             else => &.{
-                "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1", "-DFD_HAS_WINDOWS=1",
-                "-D_CRT_SECURE_NO_WARNINGS", "-DFD_IO_STYLE=1", "-DFD_LOG_STYLE=1", "-DFD_HAS_THREADS=1",
-                "-DFD_HAS_ATOMIC=1", "-Wno-format", "-Wno-format-extra-args",
+                "-std=c17",                  "-U__BMI2__",             "-U__LZCNT__",      "-DFD_HAS_HOSTED=1",  "-DFD_HAS_WINDOWS=1",
+                "-D_CRT_SECURE_NO_WARNINGS", "-DFD_IO_STYLE=1",        "-DFD_LOG_STYLE=1", "-DFD_HAS_THREADS=1", "-DFD_HAS_ATOMIC=1",
+                "-Wno-format",               "-Wno-format-extra-args",
             },
         },
         else => &.{ "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1" },
