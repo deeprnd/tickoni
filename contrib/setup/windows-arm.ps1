@@ -263,7 +263,14 @@ if (-not (Test-Path $msysBash)) {
     $msysInstaller = Join-Path $env:TEMP "msys2-arm64-installer.exe"
 
     log-info "Downloading MSYS2 ARM64 installer..."
-    Invoke-WebRequest -Uri $msysUrl -OutFile $msysInstaller -UseBasicParsing
+    # Use curl.exe (MSYS2 ships it) — Invoke-WebRequest fails on the
+    # GitHub 302 redirect in the GitHub Actions ARM64 runner image.
+    $curlPath = Join-Path $env:SystemDrive "msys64\usr\bin\curl.exe"
+    if (-not (Test-Path $curlPath)) {
+        # Pre-MSYS2 bootstrap: use the built-in Windows curl if available
+        $curlPath = "$env:SystemDrive\Windows\System32\curl.exe"
+    }
+    & $curlPath -L -f -sS -o $msysInstaller $msysUrl
     if (-not (Test-Path $msysInstaller)) {
         log-error "MSYS2 ARM64 download failed"
         exit 1
