@@ -215,45 +215,19 @@ build_windows() {
     openssl_target="msvc-x86_64"
   fi
 
-  # Ensure Locale::Maketfile::Simple is available for OpenSSL Configure.
-  # Git for Windows includes Strawberry Perl with CPAN.
-  # CI runners may have multiple Perl installations (system + Strawberry).
-  # Force Strawberry Perl to be first in PATH so perl/cpan resolve correctly.
-  if ! perl -e 'use Locale::Maketfile::Simple' 2>/dev/null; then
-    echo "[openssl] Installing Locale::Maketfile::Simple via CPAN..."
-    # Prepend Strawberry Perl to PATH so perl and cpan resolve to the right ones.
+  # Ensure Text::Template >= 1.46 is available for OpenSSL Configure.
+  # Git for Windows includes Strawberry Perl which bundles Text::Template.
+  # CPAN will auto-fetch it if missing (prerequisites_policy=follow).
+  if ! perl -e 'use Text::Template 1.46' 2>/dev/null; then
+    echo "[openssl] Installing Text::Template via CPAN..."
+    # Prepend Strawberry Perl to PATH so perl resolves correctly.
     local strawberry_perl_bin="/c/Strawberry/perl/bin"
     if [[ -d "${strawberry_perl_bin}" ]]; then
       export PATH="${strawberry_perl_bin}:${PATH}"
     fi
-    # Write a minimal, valid CPAN config to avoid all interactive prompts.
-    # Only use config variables known to exist in CPAN.pm v2.x.
-    local cpan_home="$HOME/.cpan"
-    mkdir -pv "${cpan_home}/CPAN"
-    cat > "${cpan_home}/CPAN/MyConfig.pm" <<PERLCONFIG
-require Config; import Config;
-\$CPAN::Config = {
-  'build_requires_install_policy' => 'yes',
-  'cpan_home' => '${cpan_home}',
-  'ftp_passive' => '1',
-  'inactivity_timeout' => 0,
-  'index_expire' => '1',
-  'keep_source_where' => '${cpan_home}/sources',
-  'prefer_installer' => 'MB',
-  'prerequisites_policy' => 'follow',
-  'scan_cache' => 'atstart',
-  'test_report' => '0',
-  'urllist' => ['https://www.cpan.org/'],
-  'version_timeout' => 15,
-};
-1;
-__END__
-PERLCONFIG
-    # Install the module — CPAN will auto-fetch prerequisites with
-    # 'prerequisites_policy => follow' from our config above.
-    perl -MCPAN -e 'CPAN::install("Locale::Maketfile::Simple")' 2>&1 && \
-      echo "[openssl] Locale::Maketfile::Simple installed successfully" || \
-      { echo "[openssl] Failed to install Perl module via CPAN"; exit 1; }
+    perl -MCPAN -e 'CPAN::install("Text::Template")' 2>&1 && \
+      echo "[openssl] Text::Template installed successfully" || \
+      { echo "[openssl] Failed to install Text::Template"; exit 1; }
   fi
 
   # -fcf-protection=return is x86-only
