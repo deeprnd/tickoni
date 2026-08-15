@@ -305,7 +305,7 @@ if (Test-Path $msysBash) {
         log-info "perl already available in MSYS2"
     }
     # OpenSSL's build process invokes gcc inside MSYS2 bash (make + shell).
-    # On ARM64 the MSYS2 package is ucrt-aarch64-gcc (ucrtarm repo, UCRT runtime).
+    # On ARM64 the MSYS2 package is ucrt-aarch64-ucrt-gcc (ucrtarm repo, UCRT runtime).
     # The 'ucrt-aarch64-' prefix is used by ucrtarm on ARM64 (not mingw-w64-*).
     if (-not (& $msysBash -lc "gcc --version" 2>$null)) {
         log-info "Installing gcc (ucrt-aarch64-ucrt-gcc) via MSYS2 pacman..."
