@@ -308,10 +308,10 @@ if (Test-Path $msysBash) {
     # On ARM64 the MSYS2 package is ucrt-aarch64-gcc (ucrtarm repo, UCRT runtime).
     # The 'ucrt-aarch64-' prefix is used by ucrtarm on ARM64 (not mingw-w64-*).
     if (-not (& $msysBash -lc "gcc --version" 2>$null)) {
-        log-info "Installing gcc (ucrt-aarch64-gcc) via MSYS2 pacman..."
-        $gcc_install = & $msysBash -lc "pacman -S --noconfirm --needed ucrt-aarch64-gcc" 2>&1
+        log-info "Installing gcc (ucrt-aarch64-ucrt-gcc) via MSYS2 pacman..."
+        $gcc_install = & $msysBash -lc "pacman -S --noconfirm --needed ucrt-aarch64-ucrt-gcc" 2>&1
         if ($LASTEXITCODE -ne 0) {
-            log-error "Failed to install gcc (ucrt-aarch64-gcc): $gcc_install"
+            log-error "Failed to install gcc (ucrt-aarch64-ucrt-gcc): $gcc_install"
             exit 1
         }
     } else {
