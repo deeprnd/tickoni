@@ -252,10 +252,21 @@ log-info "Installing Visual Studio Build Tools..."
 Install-Package "vs-build-tools"
 
 # ── 6b. MSYS2 (required for OpenSSL build on Windows) ──────────────────────
+# On ARM64, winget's MSYS2.MSYS2 package is the x86_64 build which runs under
+# emulation and has NO access to ARM64-native repos (e.g. ucrtarm). We must
+# download the ARM64-native installer directly.
 $msysBash = "$env:SystemDrive\msys64\usr\bin\bash.exe"
 if (-not (Test-Path $msysBash)) {
-    log-info "Installing MSYS2..."
-    Install-Package "msys2"
+    log-info "Installing MSYS2 (ARM64-native installer)..."
+    $msysRelease = "2026-06-11"
+    $msysUrl = "https://github.com/msys2/msys2-installer/releases/download/${msysRelease}/msys2-arm64-${msysRelease.Replace('-','')}.exe"
+    $msysInstaller = Join-Path $env:TEMP "msys2-arm64-installer.exe"
+
+    log-info "Downloading MSYS2 ARM64 installer..."
+    Invoke-WebRequest -Uri $msysUrl -OutFile $msysInstaller -UseBasicParsing
+    log-info "Running MSYS2 ARM64 installer..."
+    Start-Process -FilePath $msysInstaller -ArgumentList "/S", "/D=C:\msys64" -Wait
+    Remove-Item $msysInstaller -ErrorAction SilentlyContinue
 
     # Wait for MSYS2 to be available
     $msysReady = $false
@@ -270,7 +281,7 @@ if (-not (Test-Path $msysBash)) {
         log-error "MSYS2 install timed out — bash not found at $msysBash"
         exit 1
     }
-    log-info "MSYS2 installed"
+    log-info "MSYS2 (ARM64-native) installed"
 } else {
     log-info "MSYS2 already installed"
 }
