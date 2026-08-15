@@ -80,8 +80,17 @@ archive_tool="${AR:-llvm-ar}"
 for dir in "$libdir" "$libdir_native"; do
   if [ -d "$dir" ]; then
     echo "[+] Building libuuid.a from stub in ${dir}"
-    ${cc:-clang} -c -o "${dir}/libuuid_stub.obj" \
-      --target=${fd_windows_arch}-windows-msvc \
+    # --target is a Clang-only flag. MinGW-w64 gcc is already cross-compiled
+    # for Windows and rejects --target. Detect compiler and pass flags
+    # accordingly.
+    target_flags=""
+    case "${cc:-gcc}" in
+      clang*|clang++*|clang-cl*)
+        target_flags="--target=${fd_windows_arch}-windows-msvc"
+        ;;
+    esac
+    ${cc:-gcc} -c -o "${dir}/libuuid_stub.obj" \
+      ${target_flags} \
       -I src \
       -DFD_HAS_HOSTED=1 \
       -DFD_USING_MSVC=1 \
