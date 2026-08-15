@@ -69,7 +69,7 @@ except Exception:
             log-error "Python not found — cannot read tool versions"
             exit 1
         }
-        & $pyCmd.Source -3 (Join-Path $script:SCRIPT_DIR "py_read_tool_version.py") "$tmpFile"
+        & $pyCmd.Source (Join-Path $script:SCRIPT_DIR "py_read_tool_version.py") "$tmpFile"
 
         $result = Get-Content $tmpFile -ErrorAction SilentlyContinue
 
@@ -120,7 +120,7 @@ except Exception:
             log-error "Python not found — cannot read tool versions"
             exit 1
         }
-        & $pyCmd.Source -3 (Join-Path $script:SCRIPT_DIR "py_read_compiler_version.py") "$tmpFile"
+        & $pyCmd.Source (Join-Path $script:SCRIPT_DIR "py_read_compiler_version.py") "$tmpFile"
 
         $result = Get-Content $tmpFile -ErrorAction SilentlyContinue
 
@@ -175,7 +175,7 @@ except Exception:
             log-error "Python not found — cannot read tool versions"
             exit 1
         }
-        & $pyCmd.Source -3 (Join-Path $script:SCRIPT_DIR "py_read_package.py") "$tmpFile"
+        & $pyCmd.Source (Join-Path $script:SCRIPT_DIR "py_read_package.py") "$tmpFile"
 
         $result = Get-Content $tmpFile -ErrorAction SilentlyContinue
 
