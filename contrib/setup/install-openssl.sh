@@ -215,53 +215,44 @@ build_windows() {
     openssl_target="msvc-x86_64"
   fi
 
-  # Ensure Locale::Maketkit::Simple is available for OpenSSL Configure.
+  # Ensure Locale::Maketfile::Simple is available for OpenSSL Configure.
   # Git for Windows includes Strawberry Perl with CPAN.
   # CI runners may have multiple Perl installations (system + Strawberry).
   # Force Strawberry Perl to be first in PATH so perl/cpan resolve correctly.
-  if ! perl -e 'use Locale::Maketkit::Simple' 2>/dev/null; then
-    echo "[openssl] Installing Locale::Maketkit::Simple via CPAN..."
+  if ! perl -e 'use Locale::Maketfile::Simple' 2>/dev/null; then
+    echo "[openssl] Installing Locale::Maketfile::Simple via CPAN..."
     # Prepend Strawberry Perl to PATH so perl and cpan resolve to the right ones.
     local strawberry_perl_bin="/c/Strawberry/perl/bin"
     if [[ -d "${strawberry_perl_bin}" ]]; then
       export PATH="${strawberry_perl_bin}:${PATH}"
     fi
-    # Pre-configure CPAN with values that are valid on Windows.
-    # - shell points to a valid Windows command interpreter
-    # - use_native_zip=1 avoids needing Archive::Zip (circular dep)
-    # - use_git=0 avoids needing Net::SSLeay or git CLI
+    # Write a minimal, valid CPAN config to avoid all interactive prompts.
+    # Only use config variables known to exist in CPAN.pm v2.x.
     local cpan_home="$HOME/.cpan"
     mkdir -pv "${cpan_home}/CPAN"
-    cat > "${cpan_home}/CPAN/MyConfig.pm" <<'PERLCONFIG'
+    cat > "${cpan_home}/CPAN/MyConfig.pm" <<PERLCONFIG
 require Config; import Config;
-$CPAN::Config = {
+\$CPAN::Config = {
   'build_requires_install_policy' => 'yes',
-  'cpan_home' => '/tmp/.placeholder',
+  'cpan_home' => '${cpan_home}',
   'ftp_passive' => '1',
   'inactivity_timeout' => 0,
   'index_expire' => '1',
-  'keep_source_where' => '/tmp/.placeholder/sources',
+  'keep_source_where' => '${cpan_home}/sources',
   'prefer_installer' => 'MB',
   'prerequisites_policy' => 'follow',
   'scan_cache' => 'atstart',
-  'shell' => 'perl',
   'test_report' => '0',
   'urllist' => ['https://www.cpan.org/'],
   'version_timeout' => 15,
-  'use_native_zip' => '1',
-  'use_git' => '0',
 };
 1;
 __END__
 PERLCONFIG
-    # Replace placeholder with actual home for the paths written above
-    sed -i "s|/tmp/.placeholder|${cpan_home}|g" "${cpan_home}/CPAN/MyConfig.pm"
-    # PERL_MM_USE_DEFAULT=1 prevents CPAN from asking about config or
-    # re-running the dialog when it detects missing options.
-    export PERL_MM_USE_DEFAULT=1
-    # Force a full index refresh and install the module via CPAN::install().
-    perl -MCPAN -e 'CPAN::install("Locale::Maketkit::Simple")' 2>&1 && \
-      echo "[openssl] Locale::Maketkit::Simple installed successfully" || \
+    # Install the module — CPAN will auto-fetch prerequisites with
+    # 'prerequisites_policy => follow' from our config above.
+    perl -MCPAN -e 'CPAN::install("Locale::Maketfile::Simple")' 2>&1 && \
+      echo "[openssl] Locale::Maketfile::Simple installed successfully" || \
       { echo "[openssl] Failed to install Perl module via CPAN"; exit 1; }
   fi
 
