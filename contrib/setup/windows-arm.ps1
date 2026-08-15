@@ -306,11 +306,17 @@ if (-not (Test-Path $msysBash)) {
         }
 
         # Last resort: Invoke-WebRequest (native Windows HTTP stack, handles redirects)
+        # Must include GITHUB_TOKEN Bearer header — GitHub blocks unauthenticated
+        # downloads from ARM64 runners (Cloudflare/rate-limit → 404).
         if ($downloadFailed) {
             log-info "Downloading MSYS2 ARM64 installer via Invoke-WebRequest..."
             try {
                 $ProgressPreference = 'SilentlyContinue'
-                Invoke-WebRequest -Uri $msysUrl -OutFile $msysInstaller -UseBasicParsing -MaximumRedirection 10
+                $headers = @{ }
+                if ($env:GITHUB_TOKEN) {
+                    $headers["Authorization"] = "Bearer $env:GITHUB_TOKEN"
+                }
+                Invoke-WebRequest -Uri $msysUrl -Headers $headers -OutFile $msysInstaller -UseBasicParsing -MaximumRedirection 10
                 log-info "MSYS2 ARM64 installer downloaded via Invoke-WebRequest"
             } catch {
                 log-error "Invoke-WebRequest failed: $_"
