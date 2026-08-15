@@ -263,7 +263,16 @@ if (-not (Test-Path $msysBash)) {
     $msysInstaller = Join-Path $env:TEMP "msys2-arm64-installer.exe"
 
     log-info "Downloading MSYS2 ARM64 installer..."
-    Invoke-WebRequest -Uri $msysUrl -OutFile $msysInstaller -UseBasicParsing
+    curl.exe -L -o $msysInstaller -# -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" $msysUrl
+    if ($LASTEXITCODE -ne 0) {
+        log-error "MSYS2 ARM64 download failed"
+        exit 1
+    }
+    $downloadedSize = (Get-Item $msysInstaller).Length
+    if ($downloadedSize -lt 10MB) {
+        log-error "MSYS2 ARM64 installer download failed or truncated (size: $downloadedSize bytes)"
+        exit 1
+    }
     log-info "Running MSYS2 ARM64 installer..."
     Start-Process -FilePath $msysInstaller -ArgumentList "--confirm-command", "--accept-messages", "--root", "C:/msys64" -Wait
     Remove-Item $msysInstaller -ErrorAction SilentlyContinue
