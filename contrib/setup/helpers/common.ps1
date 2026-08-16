@@ -40,7 +40,11 @@ function get-tool-versions-data {
         exit 1
     }
 
-    if (-not $script:TOOL_VERSIONS_DATA) {
+    if (-not (Get-Variable -Scope Script -Name TOOL_VERSIONS_DATA -ErrorAction SilentlyContinue)) {
+        $script:TOOL_VERSIONS_DATA = $null
+    }
+
+    if ($null -eq $script:TOOL_VERSIONS_DATA) {
         try {
             $script:TOOL_VERSIONS_DATA = Get-Content -Path $script:TOOL_VERSIONS -Raw | ConvertFrom-Json
         } catch {
