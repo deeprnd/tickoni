@@ -326,10 +326,7 @@ $(OBJDIR)/lib/%.a :
 	@echo -e "AR	$(notdir $@)"
 	$(Q)$(MKDIR) $(dir $@) && \
 	$(RM) $@ && \
-	if [ -n "$$^" ]; then \
-		_objs=$$(for _o in $$^; do [ -s "$$_o" ] && echo "$$_o"; done); \
-		if [ -n "$$_objs" ]; then $(AR) $(ARFLAGS) $@ $$_objs; else touch $@; fi; \
-	else touch $@; fi
+	$(AR) $(ARFLAGS) $@ $^
 
 $(OBJDIR)/include/firedancer/% : src/%
 	$(Q)$(MKDIR) $(dir $@) && \

@@ -418,7 +418,7 @@ test-integration-tk:
 # Windows x86_64 unit test: build FD libs for Windows x86_64, then run Zig tests.
 test-unit-tk-windows-x86:
     mkdir -p build
-    just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log
+    bash -lc 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
     ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
     ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
 
@@ -427,7 +427,7 @@ test-unit-tk-windows-x86:
 # available because native Zig 0.16.0 is unstable on this lane.
 test-unit-tk-windows-arm:
     mkdir -p build
-    just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log
+    bash -lc 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
     ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
     ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
 
@@ -465,14 +465,14 @@ test-system-all:
 # Mirrors `test-system-tk` on Linux/macOS but for Windows.
 test-system-tk-windows-x86:
     mkdir -p build
-    just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log
+    bash -lc 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
     bash contrib/test/run_system_model_tests_win.sh
 
 # Windows ARM64 system test: build FD libs, ensure llama.cpp, run live test.
 # Same as x86_64: mirrors Linux/macOS `test-system-tk` on Windows ARM.
 test-system-tk-windows-arm:
     mkdir -p build
-    just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log
+    bash -lc 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
     bash contrib/test/run_system_model_tests_win.sh
 
 # ── Infrastructure: ensure llama.cpp and model (for LLM system tests) ──────
