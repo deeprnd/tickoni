@@ -293,7 +293,7 @@ echo -e \
 "# source   `whoami`@`hostname`:`pwd`\n"\
 "# machine  $(MACHINE)\n"\
 "# extras   $(EXTRAS)" > $(OBJDIR)/info && \
-git status --porcelain=2 --branch >> $(OBJDIR)/info
+{ git status --porcelain=2 --branch >> $(OBJDIR)/info || echo "# git status unavailable" >> $(OBJDIR)/info; }
 
 $(OBJDIR)/obj/util/log/fd_log.o: $(OBJDIR)/info
 

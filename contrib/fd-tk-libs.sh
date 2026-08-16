@@ -84,6 +84,36 @@ fd_resolve_make() {
   return 1
 }
 
+# Resolve a usable llvm-ar on macOS. Homebrew's llvm formula is keg-only
+# (it conflicts with Apple's own clang/llvm), so `brew install llvm` does
+# NOT symlink llvm-ar into the Homebrew bin prefix on PATH — only under
+# the formula's own opt/Cellar paths.
+fd_resolve_llvm_ar() {
+  if command -v llvm-ar >/dev/null 2>&1; then
+    command -v llvm-ar
+    return 0
+  fi
+
+  if command -v brew >/dev/null 2>&1; then
+    local llvm_prefix
+    llvm_prefix="$(brew --prefix llvm 2>/dev/null)"
+    if [ -n "${llvm_prefix}" ] && [ -x "${llvm_prefix}/bin/llvm-ar" ]; then
+      printf '%s\n' "${llvm_prefix}/bin/llvm-ar"
+      return 0
+    fi
+  fi
+
+  local opt_path
+  for opt_path in /opt/homebrew/opt/llvm/bin/llvm-ar /usr/local/opt/llvm/bin/llvm-ar; do
+    if [ -x "${opt_path}" ]; then
+      printf '%s\n' "${opt_path}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 # Compute the LOCAL_MKS string from a given source-dir list.
 # Usage: local mks; mks=$(fd_compute_mks "${FD_TK_LIB_SRCS[@]}")
 fd_compute_mks() {
@@ -157,10 +187,16 @@ fd_build_fd() {
 
   # On macOS, default `ar` is `libtool` which embeds TBD (Text-Based Dylib)
   # metadata inside .a files. Zig 0.16 chokes on TBD format. Use `llvm-ar`
-  # which produces standard UNIX archives without TBD metadata.
+  # which produces standard UNIX archives without TBD metadata. Resolve its
+  # full path since Homebrew's keg-only llvm formula doesn't put it on PATH.
   local AR_OPTS=()
   if [ "$(fd_host_os)" = "macOS" ]; then
-    AR_OPTS=( "AR=llvm-ar" "ARFLAGS=rcs" )
+    local llvm_ar
+    if ! llvm_ar="$(fd_resolve_llvm_ar)"; then
+      echo "failed to locate llvm-ar for macOS Tickoni FD build (install with: brew install llvm)" >&2
+      exit 1
+    fi
+    AR_OPTS=( "AR=${llvm_ar}" "ARFLAGS=rcs" )
   fi
 
   local -a cmd=( "$MAKE" -j"$(fd_nproc)" MACHINE=tickoni_fd BUILDDIR="${BUILDDIR}" "${AR_OPTS[@]}" )
