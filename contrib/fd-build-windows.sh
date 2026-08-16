@@ -3,12 +3,12 @@
 # Usage:
 #   bash contrib/fd-build-windows.sh [arch] [compiler]
 #   arch: x86_64|arm64 (default: host arch)
-#   compiler: gcc by default (MSYS2 MinGW-w64 gcc with proper system headers)
+#   compiler: clang by default (matches checked-in Windows CI lanes)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 raw_arch="${1:-$(bash contrib/detect-windows-arch.sh)}"
-cc="${2:-${TK_WINDOWS_CC:-gcc}}"
+cc="${2:-${TK_WINDOWS_CC:-clang}}"
 
 # Firedancer Makefile passes CC through /usr/bin/sh on MSYS2.
 # Paths with spaces (e.g. /c/Program Files/LLVM/bin/clang) get split.
@@ -76,7 +76,26 @@ env FD_WINDOWS_ARCH="$fd_windows_arch" bash contrib/fd-build-lib.sh fd-tickoni-f
 # library lookup for libuuid.a. We need an actual static archive.
 libdir="build/fd-tickoni-fd/lib"
 libdir_native="build/native/gcc/lib"
-archive_tool="${AR:-llvm-ar}"
+archive_tool="${AR:-}"
+if [[ -z "$archive_tool" ]]; then
+  candidates=()
+  case "${cc:-gcc}" in
+    clang*|clang++*|clang-cl*) candidates=(llvm-ar gcc-ar ar) ;;
+    *) candidates=(gcc-ar ar llvm-ar) ;;
+  esac
+  for candidate in "${candidates[@]}"; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      archive_tool="$candidate"
+      break
+    fi
+  done
+fi
+
+if [[ -z "$archive_tool" ]]; then
+  echo "No archive tool found for Windows FD build; set AR or install one of: gcc-ar, llvm-ar, ar" >&2
+  exit 127
+fi
+
 for dir in "$libdir" "$libdir_native"; do
   if [ -d "$dir" ]; then
     echo "[+] Building libuuid.a from stub in ${dir}"
