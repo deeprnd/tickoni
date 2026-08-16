@@ -5,12 +5,14 @@
 
 #include <stddef.h>
 
+#define FD_MALLOC_FUNDAMENTAL_ALIGN ((alignof(long double) > alignof(void *)) ? alignof(long double) : alignof(void *))
+
 static ulong g_initialized;
 static FD_TL fd_alloc_t * cjson_alloc_ctx;
 
 static void *
 cjson_alloc( ulong sz ) {
-  return fd_alloc_malloc( cjson_alloc_ctx, alignof(max_align_t), sz );
+  return fd_alloc_malloc( cjson_alloc_ctx, FD_MALLOC_FUNDAMENTAL_ALIGN, sz );
 }
 
 static void
