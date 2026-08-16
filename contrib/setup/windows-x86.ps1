@@ -1,4 +1,4 @@
-# windows-x86.ps1 — Setup Windows x86_64
+# windows-x86.ps1 - Setup Windows x86_64
 # Usage:
 #   .\windows-x86.ps1              # default: install all deps + LLM tooling
 #   .\windows-x86.ps1 -NoLLM       # skip LLM tooling (llama.cpp build)
@@ -17,11 +17,67 @@ $repoRoot = (Get-Item (Join-Path $scriptDir "..\..")).FullName
 
 log-info "Windows x86_64 setup starting..."
 
-# ── 0. Winget (only package manager — auto-install if missing) ────────────────
+function Add-PathEntry {
+    param([string]$PathEntry)
+
+    if (-not $PathEntry -or -not (Test-Path $PathEntry)) {
+        return
+    }
+
+    $entries = $env:PATH -split ';'
+    if ($entries -notcontains $PathEntry) {
+        $env:PATH = "$PathEntry;$env:PATH"
+    }
+}
+
+function Add-WindowsSetupPaths {
+    Add-PathEntry (Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps')
+    Add-PathEntry 'C:\Program Files\LLVM\bin'
+
+    Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs\Python') -Directory -ErrorAction SilentlyContinue |
+        Sort-Object Name -Descending |
+        ForEach-Object {
+            Add-PathEntry $_.FullName
+            Add-PathEntry (Join-Path $_.FullName 'Scripts')
+        }
+}
+
+function Install-PreCommit {
+    Add-WindowsSetupPaths
+
+    $pythonExe = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs\Python') -Filter python.exe -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch '\\Lib\\venv\\' } |
+        Select-Object -ExpandProperty FullName -First 1
+
+    if (-not $pythonExe) {
+        $python = resolve-python-command
+        if ($python) {
+            $pythonExe = $python.Path
+        }
+    }
+
+    if (-not $pythonExe) {
+        log-error 'Python not found - cannot install pre-commit'
+        exit 1
+    }
+
+    log-info 'Installing pre-commit via pip...'
+    & $pythonExe -m pip install --disable-pip-version-check --upgrade pre-commit
+    if ($LASTEXITCODE -ne 0) {
+        log-error 'Failed to install pre-commit via pip'
+        exit 1
+    }
+
+    Add-WindowsSetupPaths
+}
+
+Add-WindowsSetupPaths
+
+# -- 0. Winget (only package manager - auto-install if missing) ----------------
 if (Get-Command winget -ErrorAction SilentlyContinue) {
     log-info "winget already installed"
 } else {
-    log-info "winget not found — installing..."
+    log-info "winget not found - installing..."
     $temp = Join-Path $env:TEMP "winget-msi"
     New-Item -ItemType Directory -Force -Path $temp | Out-Null
     $url = "https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
@@ -42,12 +98,18 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
 # Install winget package by name from tool-versions.json
 function Install-Package {
     param([string]$Name)
+
+    if ($Name -eq 'pre-commit') {
+        Install-PreCommit
+        return
+    }
+
     $wingetId = read-package "winget" $Name
     log-info "Installing ${Name} (${wingetId})..."
     winget install --id $wingetId --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
 }
 
-# ── 1. Core packages ─────────────────────────────────────────────────────────
+# -- 1. Core packages ---------------------------------------------------------
 log-info "Installing core packages..."
 Install-Package "git"
 Install-Package "cmake"
@@ -58,60 +120,74 @@ Install-Package "shellcheck"
 Install-Package "pre-commit"
 Install-Package "buf"
 
-# ── 1b. Security tools (opt-in via -Security flag) ──────────────────────────
+# -- 1b. Security tools (opt-in via -Security flag) --------------------------
 if ($Security) {
     ensure-gitleaks
 } else {
     log-info "Skipping security tools (pass -Security to install)"
 }
 
-# ── 2. just ──────────────────────────────────────────────────────────────────
+# -- 2. just ------------------------------------------------------------------
 if (-not (Get-Command just -ErrorAction SilentlyContinue)) {
     log-info "Installing just..."
     ensure-just
 }
 
-# ── 3. LLVM (Clang compiler) ─────────────────────────────────────────────────
+# -- 3. LLVM (Clang compiler) -------------------------------------------------
 $platform_key = get-windows-platform-key
 $clang_version = read-compiler-version "clang" $platform_key
 log-info "Installing LLVM/Clang ${clang_version}..."
 Install-Package "llvm"
 
-$llvmPath = (Get-Command clang -ErrorAction SilentlyContinue).Source | Split-Path
-if (-not $llvmPath) {
-    $llvmPath = (Get-ChildItem "C:\Program Files\LLVM\bin" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+$clangCmd = Get-Command clang -ErrorAction SilentlyContinue
+$llvmPath = $null
+if ($clangCmd) {
+    $llvmPath = Split-Path $clangCmd.Source
+} elseif (Test-Path 'C:\Program Files\LLVM\bin\clang.exe') {
+    $llvmPath = 'C:\Program Files\LLVM\bin'
 }
 if ($llvmPath) {
-    $env:PATH = "$llvmPath;$env:PATH"
+    Add-PathEntry $llvmPath
     log-info "LLVM added to PATH: $llvmPath"
 }
 
-# ── 4. Zig ───────────────────────────────────────────────────────────────────
+# -- 4. Zig -------------------------------------------------------------------
 ensure-zig
 
-# ── 5. MSVC build tools ──────────────────────────────────────────────────────
+# -- 5. MSVC build tools ------------------------------------------------------
 log-info "Installing Visual Studio Build Tools..."
 Install-Package "vs-build-tools"
 
-# ── 6. OpenSSL 3.6.2 — build from source via Git Bash (native MSVC target)
+# -- 6. OpenSSL 3.6.2 - build from source via Git Bash (native MSVC target)
 # Git for Windows includes: bash, perl (Strawberry), make.
 # VS Build Tools provides: cl.exe, nmake.
-# OpenSSL 3.x supports msvc-x86_64 target natively — no MinGW-w64.
+# OpenSSL 3.x supports msvc-x86_64 target natively - no MinGW-w64.
 # No MSYS2, no gcc, no cross-compiler needed.
-if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
-    $gitBash = "${env:ProgramFiles}\Git\usr\bin\bash.exe"
+$opensslStaticLib = Join-Path $repoRoot 'opt\lib\libssl.lib'
+$opensslArchive = Join-Path $repoRoot 'opt\lib\libssl.a'
+if (-not ((Test-Path $opensslStaticLib) -or (Test-Path $opensslArchive))) {
+    $bashCmd = Get-Command bash -ErrorAction SilentlyContinue
+    $gitBash = $null
+    if ($bashCmd) {
+        $gitBash = $bashCmd.Source
+    }
+    if (-not $gitBash) {
+        $gitBash = "${env:ProgramFiles}\Git\usr\bin\bash.exe"
+    }
     if (-not (Test-Path $gitBash)) {
         $gitBash = "${env:ProgramFiles(x86)}\Git\usr\bin\bash.exe"
     }
     if (Test-Path $gitBash) {
         log-info "Building OpenSSL 3.6.2 via Git Bash (MSVC target)..."
         $openssl_script = Join-Path $repoRoot 'contrib/setup/install-openssl.sh'
-        $opt_path = Join-Path $repoRoot 'opt'
         $openssl_posix = & cygpath -u $openssl_script
-        $opt_posix = & cygpath -u $opt_path
-        & $gitBash -lc "FD_WINDOWS_ARCH=x86_64 bash $openssl_posix --prefix $opt_posix" 2>&1
+        $opensslProc = Start-Process -FilePath $gitBash -ArgumentList @('-lc', "cd '$($repoRoot -replace '\\','/')' && FD_WINDOWS_ARCH=x86_64 bash '$openssl_posix'") -Wait -NoNewWindow -PassThru
+        if ($opensslProc.ExitCode -ne 0) {
+            log-error "OpenSSL build failed with exit code $($opensslProc.ExitCode)"
+            exit $opensslProc.ExitCode
+        }
     } else {
-        log-error "Git Bash not found — OpenSSL 3.6.2 cannot be built"
+        log-error "Git Bash not found - OpenSSL 3.6.2 cannot be built"
         log-error "Install Git for Windows and rerun setup"
         exit 1
     }
@@ -119,7 +195,7 @@ if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
     log-info "OpenSSL 3.6.2 already installed in ./opt/"
 }
 
-# ── 7. LLM tooling (optional) ────────────────────────────────────────────────
+# -- 7. LLM tooling (optional) ------------------------------------------------
 if (-not $NoLLM) {
     log-info "Installing LLM tooling (llama.cpp build deps: MinGW-w64)..."
     Install-Package "winlibs"
@@ -128,7 +204,7 @@ if (-not $NoLLM) {
     log-info "Skipping LLM tooling (-NoLLM)"
 }
 
-# ── 8. Summary ───────────────────────────────────────────────────────────────
+# -- 8. Summary ---------------------------------------------------------------
 log-info "Windows x86_64 setup complete"
 log-info "Tools:"
 foreach ($tool in @("clang", "zig", "just", "cl")) {

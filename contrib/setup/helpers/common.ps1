@@ -1,14 +1,14 @@
-# common.ps1 — shared Windows PowerShell functions for contrib/setup/ lane scripts.
+# common.ps1 - shared Windows PowerShell functions for contrib/setup/ lane scripts.
 # Source this from your lane script (windows-x86.ps1, windows-arm.ps1)
 #
 # Version source of truth: contrib/setup/tool-versions.json
 #
-#   versions.*  — explicit version pins for tools whose version matters for
+#   versions.*  - explicit version pins for tools whose version matters for
 #                 install behavior (download URLs, package names, build scripts).
 #                 Read with read-tool-version (universal) or read-compiler-version
 #                 (platform-specific).
 #
-#   packages.*  — package manager identifiers for tools where "latest" from
+#   packages.*  - package manager identifiers for tools where "latest" from
 #                 the manager is fine (winget IDs, apt/brew package names, etc.).
 #                 Read with read-package.
 
@@ -25,64 +25,82 @@ function tool-exists {
     return Get-Command $Name -ErrorAction SilentlyContinue
 }
 
-# ── Read version from versions section ────────────────────────────────────────
+# -- Read version from versions section ----------------------------------------
 #
 # Universal tools (single version everywhere):
-#   read-tool-version "just"      → "1.58.0"
-#   read-tool-version "gitleaks"  → "8.30.1"
-#   read-tool-version "zig"       → "0.16.0"
-#   read-tool-version "openssl"   → "3.6.2"
+#   read-tool-version "just"      -> "1.58.0"
+#   read-tool-version "gitleaks"  -> "8.30.1"
+#   read-tool-version "zig"       -> "0.16.0"
+#   read-tool-version "openssl"   -> "3.6.2"
 #
 # Usage: read-tool-version "just"
-function read-tool-version {
-    param([string]$Tool)
-
+function get-tool-versions-data {
     if (-not (Test-Path $script:TOOL_VERSIONS)) {
         log-error "Tool versions file missing: $script:TOOL_VERSIONS"
         exit 1
     }
 
-    $jsonPath = $script:TOOL_VERSIONS.Replace('\', '/')
-    $tmpFile = Join-Path $env:TEMP "py_tool_version_$([Guid]::NewGuid().ToString('N')).txt"
-
-    $pythonScript = @"
-import json, sys
-try:
-    data = json.load(open('$jsonPath'))
-    v = data.get('versions', {}).get('$Tool')
-    if isinstance(v, dict):
-        v = v.get('version', '')
-    if not v:
-        sys.exit(1)
-    with open(sys.argv[1], 'w') as f:
-        f.write(str(v))
-except Exception:
-    sys.exit(1)
-"@
-    Set-Content -Path (Join-Path $script:SCRIPT_DIR "py_read_tool_version.py") -Value $pythonScript -Encoding UTF8
-
-    try {
-        $pyCmd = Get-Command python3 -ErrorAction SilentlyContinue
-        if (-not $pyCmd) { $pyCmd = Get-Command python -ErrorAction SilentlyContinue }
-        if (-not $pyCmd) { $pyCmd = Get-Command py -ErrorAction SilentlyContinue }
-        if (-not $pyCmd) {
-            log-error "Python not found — cannot read tool versions"
+    if (-not $script:TOOL_VERSIONS_DATA) {
+        try {
+            $script:TOOL_VERSIONS_DATA = Get-Content -Path $script:TOOL_VERSIONS -Raw | ConvertFrom-Json
+        } catch {
+            log-error "Failed to parse tool versions file: $script:TOOL_VERSIONS"
             exit 1
         }
-        & $pyCmd.Source (Join-Path $script:SCRIPT_DIR "py_read_tool_version.py") "$tmpFile"
-
-        $result = Get-Content $tmpFile -ErrorAction SilentlyContinue
-
-        if ($LASTEXITCODE -ne 0 -or -not $result -or $result.Count -eq 0) {
-            log-error "Version not defined for '${Tool}' in $script:TOOL_VERSIONS"
-            exit 1
-        }
-
-        Write-Output $result.Trim()
-    } finally {
-        Remove-Item (Join-Path $script:SCRIPT_DIR "py_read_tool_version.py") -ErrorAction SilentlyContinue
-        Remove-Item $tmpFile -ErrorAction SilentlyContinue
     }
+
+    return $script:TOOL_VERSIONS_DATA
+}
+
+function get-object-member {
+    param(
+        [Parameter(Mandatory = $true)]$Object,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    if ($null -eq $Object) {
+        return $null
+    }
+
+    if ($Object -is [System.Collections.IDictionary]) {
+        if ($Object.Contains($Name)) {
+            return $Object[$Name]
+        }
+        return $null
+    }
+
+    $prop = $Object.PSObject.Properties[$Name]
+    if ($prop) {
+        return $prop.Value
+    }
+
+    return $null
+}
+
+function read-tool-version {
+    param([string]$Tool)
+
+    $data = get-tool-versions-data
+    $versions = get-object-member $data 'versions'
+    $value = get-object-member $versions $Tool
+
+    if ($null -eq $value) {
+        log-error "Version not defined for '${Tool}' in $script:TOOL_VERSIONS"
+        exit 1
+    }
+
+    if ($value -is [string]) {
+        Write-Output $value.Trim()
+        return
+    }
+
+    $nestedVersion = get-object-member $value 'version'
+    if (-not $nestedVersion) {
+        log-error "Version not defined for '${Tool}' in $script:TOOL_VERSIONS"
+        exit 1
+    }
+
+    Write-Output ([string]$nestedVersion).Trim()
 }
 
 # Read platform-specific version (gcc, clang, llvm, msvc).
@@ -90,105 +108,36 @@ except Exception:
 function read-compiler-version {
     param([string]$Tool, [string]$PlatformKey)
 
-    if (-not (Test-Path $script:TOOL_VERSIONS)) {
-        log-error "Tool versions file missing: $script:TOOL_VERSIONS"
+    $data = get-tool-versions-data
+    $versions = get-object-member $data 'versions'
+    $toolVersions = get-object-member $versions $Tool
+    $value = get-object-member $toolVersions $PlatformKey
+
+    if (-not $value) {
+        log-error "Version not defined for ${Tool} on ${PlatformKey}"
         exit 1
     }
 
-    $jsonPath = $script:TOOL_VERSIONS.Replace('\', '/')
-    $tmpFile = Join-Path $env:TEMP "py_compiler_version_$([Guid]::NewGuid().ToString('N')).txt"
-
-    $pythonScript = @"
-import json, sys
-try:
-    data = json.load(open('$jsonPath'))
-    v = data.get('versions', {}).get('$Tool', {}).get('$PlatformKey')
-    if not v:
-        sys.exit(1)
-    with open(sys.argv[1], 'w') as f:
-        f.write(str(v))
-except Exception:
-    sys.exit(1)
-"@
-    Set-Content -Path (Join-Path $script:SCRIPT_DIR "py_read_compiler_version.py") -Value $pythonScript -Encoding UTF8
-
-    try {
-        $pyCmd = Get-Command python3 -ErrorAction SilentlyContinue
-        if (-not $pyCmd) { $pyCmd = Get-Command python -ErrorAction SilentlyContinue }
-        if (-not $pyCmd) { $pyCmd = Get-Command py -ErrorAction SilentlyContinue }
-        if (-not $pyCmd) {
-            log-error "Python not found — cannot read tool versions"
-            exit 1
-        }
-        & $pyCmd.Source (Join-Path $script:SCRIPT_DIR "py_read_compiler_version.py") "$tmpFile"
-
-        $result = Get-Content $tmpFile -ErrorAction SilentlyContinue
-
-        if ($LASTEXITCODE -ne 0 -or -not $result -or $result.Count -eq 0) {
-            log-error "Version not defined for ${Tool} on ${PlatformKey}"
-            exit 1
-        }
-
-        Write-Output $result.Trim()
-    } finally {
-        Remove-Item (Join-Path $script:SCRIPT_DIR "py_read_compiler_version.py") -ErrorAction SilentlyContinue
-        Remove-Item $tmpFile -ErrorAction SilentlyContinue
-    }
+    Write-Output ([string]$value).Trim()
 }
 
 # Read package manager identifier (winget ID) from packages.winget section.
-# Usage: read-package "winget" "python" → "Python.Python.3.12"
-# Usage: read-package "winget" "cmake"  → "CMake.CMake"
+# Usage: read-package "winget" "python" -> "Python.Python.3.12"
+# Usage: read-package "winget" "cmake"  -> "CMake.CMake"
 function read-package {
     param([string]$Manager, [string]$Tool)
 
-    if (-not (Test-Path $script:TOOL_VERSIONS)) {
-        log-error "Tool versions file missing: $script:TOOL_VERSIONS"
+    $data = get-tool-versions-data
+    $packages = get-object-member $data 'packages'
+    $managerPackages = get-object-member $packages $Manager
+    $value = get-object-member $managerPackages $Tool
+
+    if (-not $value) {
+        log-error "Package mapping not defined for ${Manager}.${Tool} in $script:TOOL_VERSIONS"
         exit 1
     }
 
-    $jsonPath = $script:TOOL_VERSIONS.Replace('\', '/')
-    $tmpFile = Join-Path $env:TEMP "py_package_$([Guid]::NewGuid().ToString('N')).txt"
-
-    $pythonScript = @"
-import json, sys
-try:
-    data = json.load(open('$jsonPath'))
-    mgr = data.get('packages', {}).get('$Manager', {})
-    if not isinstance(mgr, dict):
-        sys.exit(1)
-    v = mgr.get('$Tool')
-    if not v:
-        sys.exit(1)
-    with open(sys.argv[1], 'w') as f:
-        f.write(str(v))
-except Exception:
-    sys.exit(1)
-"@
-    Set-Content -Path (Join-Path $script:SCRIPT_DIR "py_read_package.py") -Value $pythonScript -Encoding UTF8
-
-    try {
-        $pyCmd = Get-Command python3 -ErrorAction SilentlyContinue
-        if (-not $pyCmd) { $pyCmd = Get-Command python -ErrorAction SilentlyContinue }
-        if (-not $pyCmd) { $pyCmd = Get-Command py -ErrorAction SilentlyContinue }
-        if (-not $pyCmd) {
-            log-error "Python not found — cannot read tool versions"
-            exit 1
-        }
-        & $pyCmd.Source (Join-Path $script:SCRIPT_DIR "py_read_package.py") "$tmpFile"
-
-        $result = Get-Content $tmpFile -ErrorAction SilentlyContinue
-
-        if ($LASTEXITCODE -ne 0 -or -not $result -or $result.Count -eq 0) {
-            log-error "Package mapping not defined for ${Manager}.${Tool} in $script:TOOL_VERSIONS"
-            exit 1
-        }
-
-        Write-Output $result.Trim()
-    } finally {
-        Remove-Item (Join-Path $script:SCRIPT_DIR "py_read_package.py") -ErrorAction SilentlyContinue
-        Remove-Item $tmpFile -ErrorAction SilentlyContinue
-    }
+    Write-Output ([string]$value).Trim()
 }
 
 # Read zig version (alias for tool-versions.json).
@@ -197,7 +146,7 @@ function read-zig-version {
     read-tool-version "zig"
 }
 
-# ── Platform detection ────────────────────────────────────────────────────────
+# -- Platform detection --------------------------------------------------------
 # Returns: windows-x86 or windows-arm
 
 function get-windows-platform-key {
@@ -223,7 +172,32 @@ function get-windows-arch {
     return "x86_64"
 }
 
-# ── Tool installers ───────────────────────────────────────────────────────────
+function resolve-python-command {
+    foreach ($candidate in @('python', 'py', 'python3')) {
+        $cmd = Get-Command $candidate -ErrorAction SilentlyContinue
+        if (-not $cmd) {
+            continue
+        }
+
+        $args = if ($candidate -eq 'py') { @('-3') } else { @() }
+
+        try {
+            & $cmd.Source @args '--version' *> $null
+            if ($LASTEXITCODE -eq 0) {
+                return [PSCustomObject]@{
+                    Path = $cmd.Source
+                    Args = $args
+                }
+            }
+        } catch {
+            continue
+        }
+    }
+
+    return $null
+}
+
+# -- Tool installers -----------------------------------------------------------
 
 # Install Zig via install-zig.py (uses versions.zig from tool-versions.json)
 function ensure-zig {
@@ -231,27 +205,63 @@ function ensure-zig {
 
     $zigVersion = read-zig-version
 
-    $zigBin = Join-Path $env:LOCALAPPDATA "Programs\Zig\zig"
+    $installRoot = Join-Path $env:LOCALAPPDATA 'Programs'
+    $zigInstallDir = $null
+    if ($Target) {
+        $zigInstallDir = Join-Path $installRoot ("zig-{0}-{1}" -f $Target, $zigVersion)
+    }
 
-    if (Test-Path $zigBin) {
+    $zigBin = $null
+    if ($zigInstallDir) {
+        $candidate = Join-Path $zigInstallDir 'zig.exe'
+        if (Test-Path $candidate) {
+            $zigBin = $candidate
+        }
+    }
+
+    if (-not $zigBin) {
+        $legacyCandidate = Join-Path $env:LOCALAPPDATA 'Programs\Zig\zig.exe'
+        if (Test-Path $legacyCandidate) {
+            $zigBin = $legacyCandidate
+            $zigInstallDir = Split-Path $legacyCandidate
+        }
+    }
+
+    if ($zigBin) {
         log-info "Zig $zigVersion already installed"
-        $env:PATH = Join-Path $env:LOCALAPPDATA "Programs\Zig" + ";" + $env:PATH
+        $env:PATH = $zigInstallDir + ';' + $env:PATH
         return
     }
 
     log-info "Installing Zig $zigVersion..."
-    $zigArgs = @("--version", $zigVersion, "--install-root", (Join-Path $env:LOCALAPPDATA "Programs"), "--cache-root", (Join-Path $env:LOCALAPPDATA "zig"), "--user-path")
+    $zigArgs = @("--version", $zigVersion, "--install-root", $installRoot, "--cache-root", (Join-Path $env:LOCALAPPDATA "zig"), "--user-path")
     if ($Target) {
         $zigArgs += @("--target", $Target)
     }
-    $pyCmd = Get-Command python3 -ErrorAction SilentlyContinue
-    if (-not $pyCmd) { $pyCmd = Get-Command python -ErrorAction SilentlyContinue }
-    if (-not $pyCmd) { $pyCmd = Get-Command py -ErrorAction SilentlyContinue }
-    if (-not $pyCmd) {
-        log-error "Python not found — cannot install Zig"
+    $python = resolve-python-command
+    if (-not $python) {
+        log-error "Python not found - cannot install Zig"
         exit 1
     }
-    & $pyCmd.Source (Join-Path $script:SCRIPT_DIR "install-zig.py") @zigArgs
+    & $python.Path @($python.Args + @((Join-Path $script:SCRIPT_DIR "install-zig.py")) + $zigArgs)
+
+    if ($LASTEXITCODE -ne 0) {
+        log-error "Zig installer failed with exit code $LASTEXITCODE"
+        exit $LASTEXITCODE
+    }
+
+    if (-not $zigInstallDir -or -not (Test-Path (Join-Path $zigInstallDir 'zig.exe'))) {
+        $zigInstallDir = Get-ChildItem $installRoot -Directory -Filter 'zig-*' -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -ExpandProperty FullName -First 1
+    }
+
+    if (-not $zigInstallDir -or -not (Test-Path (Join-Path $zigInstallDir 'zig.exe'))) {
+        log-error "Zig install completed without a usable zig.exe"
+        exit 1
+    }
+
+    $env:PATH = $zigInstallDir + ';' + $env:PATH
     log-info "Zig installed"
 }
 
@@ -331,7 +341,7 @@ function ensure-just {
         return
     }
 
-    log-warn "winget install failed — downloading directly"
+    log-warn "winget install failed - downloading directly"
 
     $arch = (Get-CimInstance Win32_ComputerSystem).SystemType
     $asset = switch ($arch) {
