@@ -93,11 +93,20 @@ build_linux() {
   local host_arch
   host_arch="$(uname -m)"
 
+  if [[ -d "${src_dir}" && ! -d "${src_dir}/config" ]]; then
+    echo "[openssl] Removing incomplete source tree at ${src_dir}..."
+    rm -rf "${src_dir}"
+  fi
+
   if [[ ! -d "${src_dir}/config" ]]; then
     echo "[openssl] Fetching OpenSSL 3.6.2..."
-    git -c advice.detachedHead=false clone \
-      https://github.com/openssl/openssl \
-      "${src_dir}" --branch openssl-3.6.2 --depth=1
+    mkdir -p "${PREFIX}/git"
+    (
+      cd "${PREFIX}/git"
+      git -c advice.detachedHead=false clone \
+        https://github.com/openssl/openssl \
+        openssl --branch openssl-3.6.2 --depth=1
+    )
   fi
 
   cd "${src_dir}"
@@ -127,11 +136,20 @@ build_macos() {
   brew install flex gettext 2>/dev/null || true
 
   local src_dir="${PREFIX}/git/openssl"
+  if [[ -d "${src_dir}" && ! -d "${src_dir}/config" ]]; then
+    echo "[openssl] Removing incomplete source tree at ${src_dir}..."
+    rm -rf "${src_dir}"
+  fi
+
   if [[ ! -d "${src_dir}/config" ]]; then
     echo "[openssl] Fetching OpenSSL 3.6.2..."
-    git -c advice.detachedHead=false clone \
-      https://github.com/openssl/openssl \
-      "${src_dir}" --branch openssl-3.6.2 --depth=1
+    mkdir -p "${PREFIX}/git"
+    (
+      cd "${PREFIX}/git"
+      git -c advice.detachedHead=false clone \
+        https://github.com/openssl/openssl \
+        openssl --branch openssl-3.6.2 --depth=1
+    )
   fi
 
   cd "${src_dir}"
@@ -194,11 +212,20 @@ build_windows() {
   echo "[openssl] Building OpenSSL 3.6.2 for Windows (MSVC)"
   local src_dir="${PREFIX}/git/openssl"
 
+  if [[ -d "${src_dir}" && ! -d "${src_dir}/config" ]]; then
+    echo "[openssl] Removing incomplete source tree at ${src_dir}..."
+    rm -rf "${src_dir}"
+  fi
+
   if [[ ! -d "${src_dir}/config" ]]; then
     echo "[openssl] Fetching OpenSSL 3.6.2..."
-    git -c advice.detachedHead=false clone \
-      https://github.com/openssl/openssl \
-      "${src_dir}" --branch openssl-3.6.2 --depth=1
+    mkdir -p "${PREFIX}/git"
+    (
+      cd "${PREFIX}/git"
+      git -c advice.detachedHead=false clone \
+        https://github.com/openssl/openssl \
+        openssl --branch openssl-3.6.2 --depth=1
+    )
   fi
 
   cd "${src_dir}"
@@ -239,12 +266,17 @@ build_windows() {
     x86_64|x64|i686|x86) cf_opts+=" -fcf-protection=return" ;;
   esac
 
+  local prefix_win
+  prefix_win="$(cygpath -aw "${PREFIX}")"
+  local config_opts=("${CONFIG_OPTS[@]}")
+  config_opts[1]="--prefix=${prefix_win}"
+
   # For MSVC targets, CFLAGS are passed via the compiler invocation
   # OpenSSL's msvc targets use nmake, not make, so we pass flags differently
   # Use CFLAGS for MSVC-compatible flags that will be picked up
   CFLAGS="${cf_opts}" \
     CXXFLAGS="${cf_opts}" \
-    perl ./Configure "${openssl_target}" "${CONFIG_OPTS[@]}"
+    perl ./Configure "${openssl_target}" "${config_opts[@]}"
 
   # Activate MSVC environment (VS Build Tools / Developer Command Prompt).
   # Without this, nmake is not in PATH inside Git Bash and GNU make cannot
@@ -280,12 +312,46 @@ build_windows() {
     exit 1
   fi
 
+  local vcvars_win
+  vcvars_win="$(cygpath -aw "${vcvars_path}")"
+  local nmake_path=""
+  for candidate in \
+    "/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC"/*/bin/Hostarm64/arm64/nmake.exe \
+    "/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC"/*/bin/Hostarm64/x64/nmake.exe \
+    "/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC"/*/bin/Hostx64/x64/nmake.exe \
+    "/c/Program Files/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC"/*/bin/Hostarm64/arm64/nmake.exe \
+    "/c/Program Files/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC"/*/bin/Hostarm64/x64/nmake.exe \
+    "/c/Program Files/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC"/*/bin/Hostx64/x64/nmake.exe; do
+    if [[ -f "${candidate}" ]]; then
+      nmake_path="${candidate}"
+      break
+    fi
+  done
+
+  if [[ -z "${nmake_path}" ]]; then
+    echo "[openssl] ERROR: nmake.exe not found under Visual Studio Build Tools" >&2
+    exit 1
+  fi
+
+  local nmake_dir_win
+  nmake_dir_win="$(cygpath -aw "$(dirname "${nmake_path}")")"
+  local runner_cmd
+  runner_cmd="${src_dir}/fd-openssl-build.cmd"
+  cat >"${runner_cmd}" <<EOF
+@echo off
+call "${vcvars_win}" ${vc_target}
+if errorlevel 1 exit /b %errorlevel%
+set "PATH=${nmake_dir_win};%PATH%"
+nmake /NOLOGO build_libs
+if errorlevel 1 exit /b %errorlevel%
+nmake /NOLOGO install_dev
+EOF
+
   echo "[openssl] Activating MSVC environment (${vc_target}) via ${vcvars_path##*/}..."
   # Run nmake inside a cmd session with vcvarsall activated;
   # capture stdout/stderr so failures show in CI logs.
-  cmd //c "call \"${vcvars_path}\" ${vc_target} && nmake /NOLOGO build_libs" 2>&1 && \
-    cmd //c "call \"${vcvars_path}\" ${vc_target} && nmake /NOLOGO install_dev" 2>&1 || \
-    { echo "[openssl] OpenSSL build failed" >&2; exit 1; }
+  cmd.exe /c "$(cygpath -aw "${runner_cmd}")" 2>&1 || { echo "[openssl] OpenSSL build failed" >&2; rm -f "${runner_cmd}"; exit 1; }
+  rm -f "${runner_cmd}"
 
   echo "[openssl] Installed to ${PREFIX}"
 }
