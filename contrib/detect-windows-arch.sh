@@ -2,12 +2,22 @@
 set -euo pipefail
 
 normalize_arch() {
-  case "${1:-}" in
-    arm64|ARM64|Arm64|aarch64|AARCH64)
+  local raw="${1:-}"
+  raw="$(printf '%s' "$raw" | tr -d '\r' | tr -d '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  case "${raw,,}" in
+    arm64|aarch64|arm64-bit*|arm\ 64-bit*|*arm64*)
       echo arm64
       return 0
       ;;
-    x86_64|X86_64|amd64|AMD64|x64|X64)
+    x86_64|amd64|x64|x86-64*|*amd64*|*x64*)
+      echo x86_64
+      return 0
+      ;;
+    12)
+      echo arm64
+      return 0
+      ;;
+    9)
       echo x86_64
       return 0
       ;;
@@ -19,17 +29,22 @@ normalize_arch() {
 
 detect_windows_os_arch() {
   if command -v powershell >/dev/null 2>&1; then
-    powershell -NoProfile -Command "[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()" 2>/dev/null || true
+    powershell -NoProfile -Command "(Get-ComputerInfo).OsArchitecture" 2>/dev/null || true
+    powershell -NoProfile -Command "(Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty Architecture)" 2>/dev/null || true
+    reg query 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment' /v PROCESSOR_ARCHITECTURE 2>/dev/null || true
     return 0
   fi
 
   if command -v pwsh >/dev/null 2>&1; then
-    pwsh -NoProfile -Command "[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()" 2>/dev/null || true
+    pwsh -NoProfile -Command "(Get-ComputerInfo).OsArchitecture" 2>/dev/null || true
+    pwsh -NoProfile -Command "(Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty Architecture)" 2>/dev/null || true
+    reg query 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment' /v PROCESSOR_ARCHITECTURE 2>/dev/null || true
     return 0
   fi
 
   if command -v cmd >/dev/null 2>&1; then
     cmd //c "echo %PROCESSOR_ARCHITECTURE% %PROCESSOR_IDENTIFIER%" 2>/dev/null || true
+    reg query 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment' /v PROCESSOR_ARCHITECTURE 2>/dev/null || true
     return 0
   fi
 
@@ -38,8 +53,8 @@ detect_windows_os_arch() {
 
 for candidate in \
   "${TK_WINDOWS_HOST_ARCH:-}" \
-  "${MSYSTEM_CARCH:-}" \
   "$(detect_windows_os_arch)" \
+  "${MSYSTEM_CARCH:-}" \
   "${PROCESSOR_ARCHITEW6432:-}" \
   "${PROCESSOR_ARCHITECTURE:-}" \
   "${PROCESSOR_IDENTIFIER:-}" \
