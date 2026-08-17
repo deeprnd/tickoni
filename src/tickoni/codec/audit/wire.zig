@@ -393,8 +393,9 @@ fn fromWirePayload(record_type: schema.RecordType, payload: Payload) !schema.Aud
 }
 
 fn parseEnumByValue(comptime T: type, value: anytype) error{ UnknownRecordType, UnknownEnumValue }!T {
-    inline for (@typeInfo(T).@"enum".fields) |field| {
-        if (field.value == value) return @field(T, field.name);
+    const e = @typeInfo(T).@"enum";
+    inline for (e.field_names, e.field_values) |name, field_value| {
+        if (field_value == value) return @field(T, name);
     }
     if (T == schema.RecordType) return error.UnknownRecordType;
     return error.UnknownEnumValue;

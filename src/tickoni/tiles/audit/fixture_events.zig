@@ -3,7 +3,7 @@ const schema = @import("types.zig");
 const codec = @import("codec.zig");
 
 fn parseFixedAsciiBytes(comptime N: usize, value: []const u8) ![N]u8 { if (value.len > N) return error.StringTooLong;
-    var out = [_]u8{ 0 }**N;
+    var out: [N]u8 = std.mem.zeroes([N]u8);
     for (value, 0..) |byte, idx| { if (byte < 0x20 or byte > 0x7e) return error.InvalidStringByte;
         out[idx] = byte; }
     return out;

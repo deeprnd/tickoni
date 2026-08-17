@@ -925,10 +925,10 @@ test "build: wrong_theme rejection for requested ticker not in any intent theme"
 
 test "failedScopeDimension returns the first rejected reason code" { var rejected = [_]RejectedCandidate{
         .{
-            .ticker = [_]u8{ 0 }**cat.max_ticker_len,
+            .ticker = std.mem.zeroes([cat.max_ticker_len]u8),
             .ticker_len = 4,
             .reason_code = .wrong_sector,
-            .reason = [_]u8{ 0 }**max_reason_len,
+            .reason = std.mem.zeroes([max_reason_len]u8),
             .reason_len = 0,
         },
     };

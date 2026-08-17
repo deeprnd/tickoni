@@ -101,6 +101,7 @@ test "buildArgv rejects an over-long shmem path" { var prog_name_buf: ProgNameBu
     var shmem_path_buf: [shmem_path_cap]u8 = undefined;
     var argv_buf: [4]?[*:0]u8 = .{ null, null, null, null };
 
-    const too_long = [_]u8{ 'a' }** (shmem_path_cap + 1);
+    var too_long: [shmem_path_cap + 1]u8 = undefined;
+    for (&too_long) |*c| c.* = 'a';
     try std.testing.expectError(error.ShmemPathTooLong, buildArgv(&too_long, &prog_name_buf, &flag_name_buf, &shmem_path_buf, &argv_buf));
 }

@@ -30,8 +30,9 @@ pub fn checkSchemaVersion(version: u16) error{UnknownSchemaVersion}!void {
 }
 
 pub fn parseRecordType(tag: u8) error{UnknownRecordType}!schema.RecordType {
-    inline for (@typeInfo(schema.RecordType).@"enum".fields) |field| {
-        if (field.value == tag) return @field(schema.RecordType, field.name);
+    const e = @typeInfo(schema.RecordType).@"enum";
+    inline for (e.field_names, e.field_values) |name, value| {
+        if (value == tag) return @field(schema.RecordType, name);
     }
     return error.UnknownRecordType;
 }

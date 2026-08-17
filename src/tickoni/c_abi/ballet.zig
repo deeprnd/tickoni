@@ -45,7 +45,7 @@ pub const PbEncoder = extern struct { buf0: ?[*]u8 = null,
     buf1: ?[*]u8 = null,
     cur: ?[*]u8 = null,
     depth: u32 = 0,
-    lp_off: [pb_encoder_depth_max]u32 = [_]u32{ 0 }**pb_encoder_depth_max,
+    lp_off: [pb_encoder_depth_max]u32 = std.mem.zeroes([pb_encoder_depth_max]u32),
 };
 
 pub const PbInbuf = extern struct { cur: ?[*]const u8 = null,

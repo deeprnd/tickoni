@@ -571,7 +571,11 @@ test "T10.15 validate topology rejects CPU id at upper u16 boundary" { // A tile
 test "T10.15 cpu_placement.validate rejects extreme CPU id as malformed" { // This is the runtime-level check that topology.validate()'s static
     // path delegates to. An exclusive CPU id of 65535 exceeds the
     // CpuSet capacity (128 bytes * 8 = 1024 bits), so it's malformed.
-    const cpus = [_]u8{ 0xFF }**128; // CPU 0-1023 available
+    const cpus = blk: {
+        var a: [128]u8 = undefined;
+        for (&a) |*b| b.* = 0xFF;
+        break :blk a;
+    }; // CPU 0-1023 available
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| { if (i == 0) {
             descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 65535 } };

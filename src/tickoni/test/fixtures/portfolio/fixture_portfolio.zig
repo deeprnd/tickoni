@@ -17,7 +17,7 @@ const max_snapshot_open_orders = portfolio.max_snapshot_open_orders;
 const max_ticker_len = portfolio.max_ticker_len;
 
 fn tickerBuf(comptime s: []const u8) [max_ticker_len]u8 { if (s.len > max_ticker_len) @compileError("ticker exceeds max_ticker_len");
-    var buf = [_]u8{ 0 }**max_ticker_len;
+    var buf: [max_ticker_len]u8 = std.mem.zeroes([max_ticker_len]u8);
     for (s, 0..) |byte, i| buf[i] = byte;
     return buf;
 }

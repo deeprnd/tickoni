@@ -187,7 +187,9 @@ test "LaunchSpec readFromFile rejects a bad magic" {
     try std.testing.expectError(error.LaunchSpecBadMagic, LaunchSpec.readFromFile(std.testing.io, tmp.dir, "bad_magic.spec"));
 }
 
-test "LaunchSpec init rejects an over-long shmem path" { const too_long = [_]u8{ 'a' }** (shmem_path_cap + 1);
+test "LaunchSpec init rejects an over-long shmem path" {
+    var too_long: [shmem_path_cap + 1]u8 = undefined;
+    for (&too_long) |*c| c.* = 'a';
     try std.testing.expectError(error.ShmemPathTooLong, LaunchSpec.init(.{ .tile_idx = 0,
         .tile_id = try tile.TileId.parse("tkings"),
         .cpu_placement = .floating,

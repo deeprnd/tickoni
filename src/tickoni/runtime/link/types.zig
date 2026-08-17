@@ -49,7 +49,11 @@ test "WorkspaceName parse and slice round-trip" { const w = try WorkspaceName.pa
     try std.testing.expectEqualStrings("tkpay0", w.slice());
     try std.testing.expect(!w.isEmpty()); }
 
-test "WorkspaceName parse rejects names longer than 32 chars" { try std.testing.expectError(error.WorkspaceNameTooLong, WorkspaceName.parse("a"**33)); }
+test "WorkspaceName parse rejects names longer than 32 chars" {
+    var name: [33]u8 = undefined;
+    for (&name) |*c| c.* = 'a';
+    try std.testing.expectError(error.WorkspaceNameTooLong, WorkspaceName.parse(&name));
+}
 
 test "WorkspaceName default is empty" {
     const w = WorkspaceName{};
