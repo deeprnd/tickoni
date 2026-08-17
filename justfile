@@ -98,23 +98,23 @@ setup-env:
 
 # Linux x86_64 — GCC toolchain
 setup-linux-x86-gcc:
-    bash contrib/setup/linux-x86-gcc.sh
+    bash contrib/setup/linux-x86-essential.sh
 
 # Linux x86_64 — Clang toolchain
 setup-linux-x86-clang:
-    bash contrib/setup/linux-x86-clang.sh
+    bash contrib/setup/linux-x86-ops.sh
 
 # Linux aarch64 — GCC toolchain
 setup-linux-arm-gcc:
-    bash contrib/setup/linux-arm-gcc.sh
+    bash contrib/setup/linux-arm-essential.sh
 
 # macOS x86_64
 setup-macos-x86:
-    SECURITY=off bash contrib/setup/macos-x86.sh
+    SECURITY=off bash contrib/setup/macos-x86-essential.sh
 
 # macOS ARM64
 setup-macos-arm:
-    SECURITY=off bash contrib/setup/macos-arm.sh
+    SECURITY=off bash contrib/setup/macos-arm-essential.sh
 
 # Windows x86_64 — dev mode (includes LLM tooling)
 setup-windows-x86:
@@ -283,7 +283,7 @@ dock +recipe:
     {{ dev_image }} \
     bash -lc 'bash contrib/fd-build-lib.sh {{ fd_tickoni_build }} && just {{ recipe }}'
 
-# Build the Linux dev image once (just + Zig 0.16.0 + build toolchain). Idempotent.
+# Build the Linux dev image once (just + Zig from tool-versions.json + build toolchain). Idempotent.
 [private]
 _dev-image:
     #!/usr/bin/env bash
@@ -292,12 +292,13 @@ _dev-image:
     echo "Building {{ dev_image }} (one-time, a few minutes)…" >&2
     ctx="$(mktemp -d "$HOME/.tickoni-devimg.XXXXXX")"  # under $HOME so colima/nerdctl can see the build context
     trap 'rm -rf "$ctx"' EXIT
+    zig_version="$(python3 -c "import json; print(json.load(open('contrib/setup/tool-versions.json'))['versions']['zig'])")"
     printf '%s\n' \
     'FROM ubuntu:24.04' \
     'ENV DEBIAN_FRONTEND=noninteractive' \
     'RUN apt-get update && apt-get install -y --no-install-recommends build-essential git curl ca-certificates xz-utils pkg-config perl && rm -rf /var/lib/apt/lists/*' \
     'RUN curl -sSfL https://just.systems/install.sh | bash -s -- --to /usr/local/bin' \
-    'RUN curl -sSfL https://ziglang.org/download/0.16.0/zig-aarch64-linux-0.16.0.tar.xz | tar -xJ -C /opt && ln -s /opt/zig-aarch64-linux-0.16.0/zig /usr/local/bin/zig' \
+    "RUN curl -sSfL https://ziglang.org/download/${zig_version}/zig-linux-aarch64-${zig_version}.tar.xz | tar -xJ -C /opt && ln -s /opt/zig-linux-aarch64-${zig_version}/zig /usr/local/bin/zig" \
     > "$ctx/Dockerfile"
     {{ container }} build --platform linux/arm64 -t {{ dev_image }} "$ctx"
 
