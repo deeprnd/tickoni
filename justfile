@@ -66,6 +66,12 @@ os := `uname -s`
 # Detect arch from uname (falls back to "unknown")
 arch := `uname -m`
 
+# Normalised platform/os/arch — used by justfile recipes that need lowercase
+# tokens (linux/mac/windows, x86/arm).
+tk_os      := `bash contrib/platform.sh os`
+tk_arch    := `bash contrib/platform.sh arch`
+tk_platform := `bash contrib/platform.sh platform`
+
 # ── Setup ──────────────────────────────────────────────────────────────────────
 
 # Single entry point — detects platform and routes to the correct setup script
@@ -183,7 +189,7 @@ build-fd:
     arch="$(uname -m)"
     case "$os" in
       Linux)
-        exec bash contrib/fd-build-linux.sh
+        exec bash contrib/fd-build-lib.sh fd-tickoni-fd gcc
         ;;
       Darwin)
         if [[ "$arch" =~ ^(arm64|aarch64)$ ]]; then
@@ -193,10 +199,10 @@ build-fd:
         fi
         ;;
       MINGW*|MSYS*|CYGWIN*)
-        arch="$(bash contrib/detect-windows-arch.sh)"
+        arch="$(bash contrib/platform.sh arch)"
         case "$arch" in
-          arm64) exec just build-fd-windows-arm ;;
-          x86_64) exec just build-fd-windows-x86 ;;
+          arm) exec just build-fd-windows-arm ;;
+          x86) exec just build-fd-windows-x86 ;;
           *) echo "unsupported Windows arch for build-fd: $arch" >&2; exit 1 ;;
         esac
         ;;
@@ -333,9 +339,9 @@ test-unit-fd:
         fi
         ;;
       MINGW*|MSYS*|CYGWIN*)
-        case "$(bash contrib/detect-windows-arch.sh)" in
-          arm64) exec bash -lc 'just build-fd-windows-arm && just test-unit-tk-windows-arm' ;;
-          x86_64) exec bash -lc 'just build-fd-windows-x86 && just test-unit-tk-windows-x86' ;;
+        case "$(bash contrib/platform.sh arch)" in
+          arm) exec bash -lc 'just build-fd-windows-arm && just test-unit-tk-windows-arm' ;;
+          x86) exec bash -lc 'just build-fd-windows-x86 && just test-unit-tk-windows-x86' ;;
           *) echo "unsupported Windows arch for test-unit-fd" >&2; exit 1 ;;
         esac
         ;;
@@ -367,9 +373,9 @@ test-unit-tk:
     set -euo pipefail
     case "$(uname -s)" in
       MINGW*|MSYS*|CYGWIN*)
-        case "$(bash contrib/detect-windows-arch.sh)" in
-          arm64) exec just test-unit-tk-windows-arm ;;
-          x86_64) exec just test-unit-tk-windows-x86 ;;
+        case "$(bash contrib/platform.sh arch)" in
+          arm) exec just test-unit-tk-windows-arm ;;
+          x86) exec just test-unit-tk-windows-x86 ;;
           *) echo "unsupported Windows arch for test-unit-tk" >&2; exit 1 ;;
         esac
         ;;
@@ -404,9 +410,9 @@ test-integration-tk:
     set -euo pipefail
     case "$(uname -s)" in
       MINGW*|MSYS*|CYGWIN*)
-        case "$(bash contrib/detect-windows-arch.sh)" in
-          arm64) exec just test-integration-tk-windows-arm ;;
-          x86_64) exec just test-integration-tk-windows-x86 ;;
+        case "$(bash contrib/platform.sh arch)" in
+          arm) exec just test-integration-tk-windows-arm ;;
+          x86) exec just test-integration-tk-windows-x86 ;;
           *) echo "unsupported Windows arch for test-integration-tk" >&2; exit 1 ;;
         esac
         ;;
