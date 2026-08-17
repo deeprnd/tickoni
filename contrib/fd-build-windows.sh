@@ -10,22 +10,84 @@ cd "$(dirname "$0")/.."
 raw_arch="${1:-$(bash contrib/detect-windows-arch.sh)}"
 cc="${2:-${TK_WINDOWS_CC:-clang}}"
 
+clang_header_for() {
+  local compiler="$1"
+  local target="${2:-x86_64-pc-windows-msvc}"
+  local header
+  header="$("$compiler" --target="$target" -print-file-name=include/x86intrin.h 2>/dev/null || true)"
+  if [[ -n "$header" && -f "$header" ]]; then
+    printf '%s\n' "$header"
+    return 0
+  fi
+  return 1
+}
+
+prefer_llvm_clang() {
+  local requested="$1"
+  local current=""
+  if command -v "$requested" >/dev/null 2>&1; then
+    current="$(command -v "$requested")"
+    if clang_header_for "$current" >/dev/null 2>&1; then
+      printf '%s\n' "$current"
+      return 0
+    fi
+  fi
+
+  local llvm_paths=("/c/Program Files/LLVM/bin")
+  if [[ -n "${LOCALAPPDATA:-}" ]] && command -v cygpath >/dev/null 2>&1; then
+    local local_appdata_unix
+    local_appdata_unix="$(cygpath -u "$LOCALAPPDATA")"
+    for root in "$local_appdata_unix"/Microsoft/WinGet/Packages/LLVM.LLVM_*; do
+      [[ -d "$root" ]] || continue
+      llvm_paths+=("$root" "$root/bin")
+    done
+  fi
+
+  local llvm_path candidate
+  for llvm_path in "${llvm_paths[@]}"; do
+    [[ -d "$llvm_path" ]] || continue
+    candidate="$llvm_path/$requested"
+    if [[ -x "$candidate" ]] && clang_header_for "$candidate" >/dev/null 2>&1; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  if [[ -n "$current" ]]; then
+    printf '%s\n' "$current"
+    return 0
+  fi
+  return 1
+}
+
+if [[ "$cc" == clang* ]]; then
+  current_clang="$(command -v "$cc" 2>/dev/null || true)"
+  if preferred_clang="$(prefer_llvm_clang "$cc")"; then
+    if [[ -n "$current_clang" && "$preferred_clang" != "$current_clang" ]]; then
+      echo "[+] preferring LLVM clang with x86intrin.h: $preferred_clang"
+    fi
+    cc="$preferred_clang"
+  fi
+fi
+
 # Firedancer Makefile passes CC through /usr/bin/sh on MSYS2.
 # Paths with spaces (e.g. /c/Program Files/LLVM/bin/clang) get split.
-# Detect this and create a no-space symlink, then update CC to use it.
+# Detect this and create a no-space alias for the whole LLVM tree so clang's
+# relative ../lib/clang resource-dir lookup (e.g. x86intrin.h) still works.
 if command -v "$cc" >/dev/null 2>&1; then
   cc_abs="$(command -v "$cc")"
   if [[ "$cc_abs" == *" "* ]]; then
-    symlink_dir="/tmp/.tickoni-clang"
-    symlink_bin="${symlink_dir}/clang"
-    if [[ ! -f "$symlink_bin" ]]; then
-      mkdir -p "$symlink_dir"
-      ln -sf "$(dirname "$cc_abs")/clang" "$symlink_bin"
+    llvm_bin_dir="$(dirname "$cc_abs")"
+    llvm_root_dir="$(cd "$llvm_bin_dir/.." && pwd -P)"
+    symlink_root="/tmp/.tickoni-llvm"
+    symlink_bin="${symlink_root}/bin"
+    if [[ ! -e "$symlink_root" ]]; then
+      ln -s "$llvm_root_dir" "$symlink_root"
     fi
-    export PATH="$symlink_dir:$PATH"
+    export PATH="$symlink_bin:$PATH"
     cc="clang"
     export CC="$cc"
-    echo "[+] clang path has spaces, using symlink: $cc_abs -> $cc"
+    echo "[+] clang path has spaces, using LLVM tree alias: $cc_abs -> ${symlink_bin}/clang"
   fi
 fi
 
