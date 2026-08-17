@@ -9,21 +9,21 @@ Tickoni repository.
   <!-- badge:build:end -->
 
   <!-- badge:quality:start -->
-  <img alt="Quality" src="https://img.shields.io/badge/quality-passing-brightgreen?style=flat-square" />
+  <img alt="Quality" src="https://img.shields.io/badge/quality-failing-red?style=flat-square" />
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
-  <img alt="Security" src="https://img.shields.io/badge/security-passing-brightgreen?style=flat-square" />
+  <img alt="Security" src="https://img.shields.io/badge/security-unknown-lightgrey?style=flat-square" />
   <!-- badge:security:end -->
 </p>
 
 <p align="center">
   <!-- badge:unit:start -->
-  <img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-unknown-lightgrey?style=flat-square" />
+  <img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-failing-red?style=flat-square" />
   <!-- badge:unit:end -->
 
   <!-- badge:integration:start -->
-  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-unknown-lightgrey?style=flat-square" />
+  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-failing-red?style=flat-square" />
   <!-- badge:integration:end -->
 
   <!-- badge:system:start -->
