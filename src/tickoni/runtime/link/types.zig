@@ -4,8 +4,7 @@ const std = @import("std");
 /// correctness-bearing link's mcache/dcache/fseq/cnc objects in process
 /// mode. 32 bytes is generous for a Tickoni-chosen name; fd_wksp itself has
 /// no such limit, but topology identifiers stay fixed-capacity like TileId.
-pub const WorkspaceName = struct {
-    bytes: [32]u8 = [_]u8{0} ** 32,
+pub const WorkspaceName = struct { bytes: [32]u8 = std.mem.zeroes([32]u8),
 
     pub fn parse(s: []const u8) error{WorkspaceNameTooLong}!WorkspaceName {
         if (s.len > 32) return error.WorkspaceNameTooLong;
@@ -14,14 +13,10 @@ pub const WorkspaceName = struct {
         return w;
     }
 
-    pub fn slice(self: *const WorkspaceName) []const u8 {
-        const end = std.mem.indexOfScalar(u8, &self.bytes, 0) orelse 32;
-        return self.bytes[0..end];
-    }
+    pub fn slice(self: *const WorkspaceName) []const u8 { const end = std.mem.indexOfScalar(u8, &self.bytes, 0) orelse 32;
+        return self.bytes[0..end]; }
 
-    pub fn isEmpty(self: *const WorkspaceName) bool {
-        return self.slice().len == 0;
-    }
+    pub fn isEmpty(self: *const WorkspaceName) bool { return self.slice().len == 0; }
 };
 
 /// Which substrate backs a channel's payload transport.
@@ -29,8 +24,7 @@ pub const LinkBacking = enum {
     /// Heap-backed in-process ring (dev/test thread-mode lane only).
     heap_dev,
     /// Firedancer Tango mcache/dcache/fseq shared memory (process mode).
-    tango_shm,
-};
+    tango_shm, };
 
 pub const LinkReliability = enum { reliable, lossy };
 
@@ -51,15 +45,11 @@ pub const Channel = struct {
     workspace_name: WorkspaceName = .{},
 };
 
-test "WorkspaceName parse and slice round-trip" {
-    const w = try WorkspaceName.parse("tkpay0");
+test "WorkspaceName parse and slice round-trip" { const w = try WorkspaceName.parse("tkpay0");
     try std.testing.expectEqualStrings("tkpay0", w.slice());
-    try std.testing.expect(!w.isEmpty());
-}
+    try std.testing.expect(!w.isEmpty()); }
 
-test "WorkspaceName parse rejects names longer than 32 chars" {
-    try std.testing.expectError(error.WorkspaceNameTooLong, WorkspaceName.parse("a" ** 33));
-}
+test "WorkspaceName parse rejects names longer than 32 chars" { try std.testing.expectError(error.WorkspaceNameTooLong, WorkspaceName.parse("a"**33)); }
 
 test "WorkspaceName default is empty" {
     const w = WorkspaceName{};

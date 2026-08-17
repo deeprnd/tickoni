@@ -13,32 +13,26 @@ const default_model_id_str = "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL";
 const default_content_str = "{\"thesis_summary\":\"USD 2,000 into AI infrastructure via diversified US-listed large-cap equities and ETFs.\",\"recommended_tickers\":[\"NVDA\",\"AMD\",\"AVGO\",\"MSFT\",\"AMZN\",\"BOTZ\",\"SOXX\"]}";
 const default_finish_reason_str = "stop";
 
-const default_model_id_buf: [fixture_model_id_max]u8 = blk: {
-    var buf = [_]u8{0} ** fixture_model_id_max;
+const default_model_id_buf: [fixture_model_id_max]u8 = blk: { var buf = std.mem.zeroes([fixture_model_id_max]u8);
     for (default_model_id_str, 0..) |c, i| buf[i] = c;
     break :blk buf;
 };
-const default_content_buf: [fixture_content_max]u8 = blk: {
-    var buf = [_]u8{0} ** fixture_content_max;
+const default_content_buf: [fixture_content_max]u8 = blk: { var buf = std.mem.zeroes([fixture_content_max]u8);
     for (default_content_str, 0..) |c, i| buf[i] = c;
     break :blk buf;
 };
-const default_finish_reason_buf: [fixture_finish_reason_max]u8 = blk: {
-    var buf = [_]u8{0} ** fixture_finish_reason_max;
+const default_finish_reason_buf: [fixture_finish_reason_max]u8 = blk: { var buf = std.mem.zeroes([fixture_finish_reason_max]u8);
     for (default_finish_reason_str, 0..) |c, i| buf[i] = c;
     break :blk buf;
 };
 
-const ModelResponseFileWire = struct {
-    model_id: []const u8,
+const ModelResponseFileWire = struct { model_id: []const u8,
     token_usage: schema.TokenUsage,
     latency_ms: u64,
     finish_reason: []const u8,
-    content: std.json.Value,
-};
+    content: std.json.Value, };
 
-pub const FixtureBackend = struct {
-    model_id: [fixture_model_id_max]u8 = default_model_id_buf,
+pub const FixtureBackend = struct { model_id: [fixture_model_id_max]u8 = default_model_id_buf,
     model_id_len: u8 = default_model_id_str.len,
     content: [fixture_content_max]u8 = default_content_buf,
     content_len: u16 = default_content_str.len,
@@ -76,49 +70,38 @@ pub const FixtureBackend = struct {
         return self;
     }
 
-    pub fn call(self: FixtureBackend, allocator: std.mem.Allocator, req: ProviderRequest) !ModelResponse {
-        _ = req;
+    pub fn call(self: FixtureBackend, allocator: std.mem.Allocator, req: ProviderRequest) !ModelResponse { _ = req;
         return .{
             .model_id = try allocator.dupe(u8, self.model_id[0..self.model_id_len]),
             .content = try allocator.dupe(u8, self.content[0..self.content_len]),
             .finish_reason = try allocator.dupe(u8, self.finish_reason[0..self.finish_reason_len]),
             .token_usage = self.token_usage,
-            .latency_ms = self.latency_ms,
-        };
+            .latency_ms = self.latency_ms, };
     }
 
-    pub fn asBackend(self: *FixtureBackend) Backend {
-        return Backend.from(FixtureBackend, true, self);
-    }
+    pub fn asBackend(self: *FixtureBackend) Backend { return Backend.from(FixtureBackend, true, self); }
 };
 
 // Strip thinking-channel prefix emitted by some models (e.g. Gemma-4):
 //   <|channel>thought\n...<channel|>ACTUAL_CONTENT
 // Returns the slice starting after <channel|>, or the original string.
-fn stripThinkingChannel(s: []const u8) []const u8 {
-    const delim = "<channel|>";
+fn stripThinkingChannel(s: []const u8) []const u8 { const delim = "<channel|>";
     if (std.mem.indexOf(u8, s, delim)) |pos| {
-        return s[pos + delim.len ..];
-    }
+        return s[pos + delim.len ..]; }
     return s;
 }
 
 // Strip ```json or ``` fences when they wrap the entire content.
-fn stripMarkdownFence(s: []const u8) []const u8 {
-    const prefixes = [_][]const u8{ "```json\n", "```\n" };
+fn stripMarkdownFence(s: []const u8) []const u8 { const prefixes = [_][]const u8{ "```json\n", "```\n" };
     const suffix = "\n```";
-    for (prefixes) |prefix| {
-        if (std.mem.startsWith(u8, s, prefix) and std.mem.endsWith(u8, s, suffix)) {
-            return s[prefix.len .. s.len - suffix.len];
-        }
+    for (prefixes) |prefix| { if (std.mem.startsWith(u8, s, prefix) and std.mem.endsWith(u8, s, suffix)) {
+            return s[prefix.len .. s.len - suffix.len]; }
     }
     return s;
 }
 
-fn normalizeModelContent(raw: []const u8) []const u8 {
-    const after_channel = std.mem.trim(u8, stripThinkingChannel(raw), " \t\r\n");
-    return stripMarkdownFence(after_channel);
-}
+fn normalizeModelContent(raw: []const u8) []const u8 { const after_channel = std.mem.trim(u8, stripThinkingChannel(raw), " \t\r\n");
+    return stripMarkdownFence(after_channel); }
 
 // ---------------------------------------------------------------------------
 // Replay substitution backend
@@ -144,39 +127,33 @@ fn initModelSip() c_abi.ballet.Siphash13 {
 }
 
 // Hash a ProviderRequest to a stable u64 key for replay table lookup.
-pub fn hashProviderRequest(req: ProviderRequest) u64 {
-    var sip = initModelSip();
+pub fn hashProviderRequest(req: ProviderRequest) u64 { var sip = initModelSip();
     c_abi.ballet.siphashAppend(&sip, req.model_id);
     for (req.messages) |msg| {
         c_abi.ballet.siphashAppend(&sip, msg.role);
-        c_abi.ballet.siphashAppend(&sip, msg.content);
-    }
+        c_abi.ballet.siphashAppend(&sip, msg.content); }
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&req.sampling));
     return c_abi.ballet.siphashFini(&sip);
 }
 
 // Hash a ModelResponse's content, for TkModlResult.response_hash.
-pub fn hashResponseContent(content: []const u8) u64 {
-    var sip = initModelSip();
+pub fn hashResponseContent(content: []const u8) u64 { var sip = initModelSip();
     c_abi.ballet.siphashAppend(&sip, content);
-    return c_abi.ballet.siphashFini(&sip);
-}
+    return c_abi.ballet.siphashFini(&sip); }
 
-pub const ReplayEntry = struct {
-    substitution_id: u64 = 0,
+pub const ReplayEntry = struct { substitution_id: u64 = 0,
     request_hash: u64 = 0,
     response_hash: u64 = 0,
-    model_id: [replay_model_id_max]u8 = [_]u8{0} ** replay_model_id_max,
+    model_id: [replay_model_id_max]u8 = std.mem.zeroes([replay_model_id_max]u8),
     model_id_len: u8 = 0,
-    content: [replay_content_max]u8 = [_]u8{0} ** replay_content_max,
+    content: [replay_content_max]u8 = std.mem.zeroes([replay_content_max]u8),
     content_len: u16 = 0,
-    finish_reason: [replay_finish_reason_max]u8 = [_]u8{0} ** replay_finish_reason_max,
+    finish_reason: [replay_finish_reason_max]u8 = std.mem.zeroes([replay_finish_reason_max]u8),
     finish_reason_len: u8 = 0,
     token_usage: schema.TokenUsage = .{ .prompt_tokens = 0, .completion_tokens = 0, .total_tokens = 0 },
     latency_ms: u64 = 0,
 
-    fn toModelResponse(self: ReplayEntry, allocator: std.mem.Allocator) std.mem.Allocator.Error!ModelResponse {
-        const model_id = try allocator.dupe(u8, self.model_id[0..self.model_id_len]);
+    fn toModelResponse(self: ReplayEntry, allocator: std.mem.Allocator) std.mem.Allocator.Error!ModelResponse { const model_id = try allocator.dupe(u8, self.model_id[0..self.model_id_len]);
         errdefer allocator.free(model_id);
         const content = try allocator.dupe(u8, self.content[0..self.content_len]);
         errdefer allocator.free(content);
@@ -186,60 +163,47 @@ pub const ReplayEntry = struct {
             .content = content,
             .finish_reason = finish_reason,
             .token_usage = self.token_usage,
-            .latency_ms = self.latency_ms,
-        };
+            .latency_ms = self.latency_ms, };
     }
 };
 
 pub const ReplayBackend = struct {
-    entries: [max_replay_entries]ReplayEntry = [_]ReplayEntry{.{}} ** max_replay_entries,
+    entries: [max_replay_entries]ReplayEntry = std.mem.zeroes([max_replay_entries]ReplayEntry),
     entry_count: u8 = 0,
 
     // Called by the orchestrator with the explicit substitution_id from TkModlRequest.
-    pub fn callById(self: ReplayBackend, allocator: std.mem.Allocator, substitution_id: u64) !ModelResponse {
-        for (self.entries[0..self.entry_count]) |entry| {
-            if (entry.substitution_id == substitution_id) return entry.toModelResponse(allocator);
-        }
+    pub fn callById(self: ReplayBackend, allocator: std.mem.Allocator, substitution_id: u64) !ModelResponse { for (self.entries[0..self.entry_count]) |entry| {
+            if (entry.substitution_id == substitution_id) return entry.toModelResponse(allocator); }
         return error.ReplaySubstitutionMissing;
     }
 
     // Called by Backend.call() — looks up by ProviderRequest content hash.
-    pub fn call(self: ReplayBackend, allocator: std.mem.Allocator, req: ProviderRequest) !ModelResponse {
-        const req_hash = hashProviderRequest(req);
+    pub fn call(self: ReplayBackend, allocator: std.mem.Allocator, req: ProviderRequest) !ModelResponse { const req_hash = hashProviderRequest(req);
         for (self.entries[0..self.entry_count]) |entry| {
-            if (entry.request_hash == req_hash) return entry.toModelResponse(allocator);
-        }
+            if (entry.request_hash == req_hash) return entry.toModelResponse(allocator); }
         return error.ReplaySubstitutionMissing;
     }
 
-    pub fn asBackend(self: *ReplayBackend) Backend {
-        return Backend.from(ReplayBackend, true, self);
-    }
+    pub fn asBackend(self: *ReplayBackend) Backend { return Backend.from(ReplayBackend, true, self); }
 };
 
 // Wire types for the OpenAI-compatible chat completions API.
-const WireRequest = struct {
-    model: []const u8,
+const WireRequest = struct { model: []const u8,
     messages: []const schema.Message,
     temperature: f32,
     top_p: f32,
     max_tokens: u32,
     seed: u64,
-    stream: bool,
-};
+    stream: bool, };
 
-const WireChoice = struct {
-    message: struct {
-        content: []const u8,
-    },
+const WireChoice = struct { message: struct {
+        content: []const u8, },
     finish_reason: ?[]const u8 = null,
 };
 
-const WireUsage = struct {
-    prompt_tokens: u32 = 0,
+const WireUsage = struct { prompt_tokens: u32 = 0,
     completion_tokens: u32 = 0,
-    total_tokens: u32 = 0,
-};
+    total_tokens: u32 = 0, };
 
 const WireResponse = struct {
     model: ?[]const u8 = null,
@@ -265,15 +229,13 @@ pub const HttpBackend = struct {
 
         const url = try std.fmt.allocPrint(http_alloc, "{s}/chat/completions", .{self.endpoint});
 
-        const wire_req = WireRequest{
-            .model = req.model_id,
+        const wire_req = WireRequest{ .model = req.model_id,
             .messages = req.messages,
             .temperature = req.sampling.temperature,
             .top_p = req.sampling.top_p,
             .max_tokens = req.sampling.max_output_tokens,
             .seed = req.sampling.seed,
-            .stream = false,
-        };
+            .stream = false, };
 
         const json_body = try std.json.Stringify.valueAlloc(http_alloc, wire_req, .{});
 
@@ -282,24 +244,19 @@ pub const HttpBackend = struct {
 
         var resp_writer: std.Io.Writer.Allocating = .init(http_alloc);
 
-        const fetch_result = client.fetch(.{
-            .location = .{ .url = url },
+        const fetch_result = client.fetch(.{ .location = .{ .url = url },
             .method = .POST,
             .extra_headers = &.{.{ .name = "Content-Type", .value = "application/json" }},
             .payload = json_body,
             .response_writer = &resp_writer.writer,
-        }) catch |err| switch (err) {
-            error.ConnectionRefused, error.NetworkUnreachable, error.HostUnreachable => return error.ServerUnreachable,
-            else => return err,
-        };
+        }) catch |err| switch (err) { error.ConnectionRefused, error.NetworkUnreachable, error.HostUnreachable => return error.ServerUnreachable,
+            else => return err, };
 
         if (fetch_result.status != .ok) return error.HttpStatusError;
 
         const resp_bytes = resp_writer.written();
 
-        const parsed = try std.json.parseFromSlice(WireResponse, http_alloc, resp_bytes, .{
-            .ignore_unknown_fields = true,
-        });
+        const parsed = try std.json.parseFromSlice(WireResponse, http_alloc, resp_bytes, .{ .ignore_unknown_fields = true, });
 
         if (parsed.value.choices.len == 0) return error.EmptyChoices;
 
@@ -313,22 +270,18 @@ pub const HttpBackend = struct {
 
         const finish_reason = try allocator.dupe(u8, choice.finish_reason orelse "unknown");
 
-        return .{
-            .model_id = model_id,
+        return .{ .model_id = model_id,
             .content = content,
             .finish_reason = finish_reason,
             .token_usage = .{
                 .prompt_tokens = parsed.value.usage.prompt_tokens,
                 .completion_tokens = parsed.value.usage.completion_tokens,
-                .total_tokens = parsed.value.usage.total_tokens,
-            },
+                .total_tokens = parsed.value.usage.total_tokens, },
             .latency_ms = 0,
         };
     }
 
-    pub fn asBackend(self: *HttpBackend) Backend {
-        return Backend.from(HttpBackend, false, self);
-    }
+    pub fn asBackend(self: *HttpBackend) Backend { return Backend.from(HttpBackend, false, self); }
 };
 
 /// Type-erased model backend interface (Zig's standard vtable-interface
@@ -338,8 +291,7 @@ pub const HttpBackend = struct {
 /// through the same `Backend.from()` entrypoint (see
 /// src/tickoni/test/mocks/mock_model.zig's asBackend helper) so this module
 /// never names a test-only type.
-pub const Backend = struct {
-    ptr: *anyopaque,
+pub const Backend = struct { ptr: *anyopaque,
     vtable: *const VTable,
 
     pub const VTable = struct {
@@ -347,47 +299,34 @@ pub const Backend = struct {
         callById: *const fn (ptr: *anyopaque, allocator: std.mem.Allocator, substitution_id: u64) anyerror!ModelResponse,
         /// True when no live network calls can occur. Replay must only run
         /// with effect-free backends.
-        effect_free: bool,
-    };
+        effect_free: bool, };
 
     /// Builds a Backend from any type T exposing
     /// `pub fn call(self: T, allocator, req) !ModelResponse`, and optionally
     /// `pub fn callById(self: T, allocator, substitution_id) !ModelResponse`
     /// (types without callById fail closed with error.ReplayBackendRequired).
     /// self must outlive the returned Backend.
-    pub fn from(comptime T: type, comptime effect_free: bool, self: *T) Backend {
-        const Impl = struct {
+    pub fn from(comptime T: type, comptime effect_free: bool, self: *T) Backend { const Impl = struct {
             fn callImpl(ptr: *anyopaque, allocator: std.mem.Allocator, req: ProviderRequest) anyerror!ModelResponse {
                 const s: *T = @ptrCast(@alignCast(ptr));
-                return s.call(allocator, req);
-            }
-            fn callByIdImpl(ptr: *anyopaque, allocator: std.mem.Allocator, substitution_id: u64) anyerror!ModelResponse {
-                if (comptime @hasDecl(T, "callById")) {
+                return s.call(allocator, req); }
+            fn callByIdImpl(ptr: *anyopaque, allocator: std.mem.Allocator, substitution_id: u64) anyerror!ModelResponse { if (comptime @hasDecl(T, "callById")) {
                     const s: *T = @ptrCast(@alignCast(ptr));
-                    return s.callById(allocator, substitution_id);
-                } else {
-                    return error.ReplayBackendRequired;
-                }
+                    return s.callById(allocator, substitution_id); } else { return error.ReplayBackendRequired; }
             }
             const vtable = VTable{ .call = callImpl, .callById = callByIdImpl, .effect_free = effect_free };
         };
         return .{ .ptr = self, .vtable = &Impl.vtable };
     }
 
-    pub fn call(self: Backend, allocator: std.mem.Allocator, req: ProviderRequest) anyerror!ModelResponse {
-        return self.vtable.call(self.ptr, allocator, req);
-    }
+    pub fn call(self: Backend, allocator: std.mem.Allocator, req: ProviderRequest) anyerror!ModelResponse { return self.vtable.call(self.ptr, allocator, req); }
 
     /// Returns true when no live network calls can occur.
-    pub fn isEffectFree(self: Backend) bool {
-        return self.vtable.effect_free;
-    }
+    pub fn isEffectFree(self: Backend) bool { return self.vtable.effect_free; }
 
     /// Replay-path dispatch: looks up a captured response by substitution_id.
     /// Returns error.ReplayBackendRequired when the backend has no callById.
-    pub fn callById(self: Backend, allocator: std.mem.Allocator, substitution_id: u64) anyerror!ModelResponse {
-        return self.vtable.callById(self.ptr, allocator, substitution_id);
-    }
+    pub fn callById(self: Backend, allocator: std.mem.Allocator, substitution_id: u64) anyerror!ModelResponse { return self.vtable.callById(self.ptr, allocator, substitution_id); }
 };
 
 // ---------------------------------------------------------------------------
@@ -411,10 +350,8 @@ test "normalizeModelContent strips thinking channel then fence" {
     try std.testing.expectEqualStrings("{\"k\":\"v\"}", normalizeModelContent(input));
 }
 
-test "normalizeModelContent strips thinking channel plain text" {
-    const input = "<|channel>thought\nsome reasoning<channel|>hello";
-    try std.testing.expectEqualStrings("hello", normalizeModelContent(input));
-}
+test "normalizeModelContent strips thinking channel plain text" { const input = "<|channel>thought\nsome reasoning<channel|>hello";
+    try std.testing.expectEqualStrings("hello", normalizeModelContent(input)); }
 
 test "Backend dispatches through the vtable to whatever implementation is plugged in" {
     const allocator = std.testing.allocator;
@@ -492,49 +429,35 @@ test "FixtureBackend response JSON matches expected tickers and excludes restric
     var parsed = try std.json.parseFromSlice(std.json.Value, allocator, resp.content, .{});
     defer parsed.deinit();
 
-    const root = switch (parsed.value) {
-        .object => |o| o,
-        else => return error.TestUnexpectedResult,
-    };
+    const root = switch (parsed.value) { .object => |o| o,
+        else => return error.TestUnexpectedResult, };
     const summary_v = root.get("thesis_summary") orelse return error.TestUnexpectedResult;
-    const summary = switch (summary_v) {
-        .string => |s| s,
-        else => return error.TestUnexpectedResult,
-    };
+    const summary = switch (summary_v) { .string => |s| s,
+        else => return error.TestUnexpectedResult, };
     try std.testing.expect(summary.len > 0);
 
     const tickers_v = root.get("recommended_tickers") orelse return error.TestUnexpectedResult;
-    const tickers = switch (tickers_v) {
-        .array => |a| a,
-        else => return error.TestUnexpectedResult,
-    };
+    const tickers = switch (tickers_v) { .array => |a| a,
+        else => return error.TestUnexpectedResult, };
 
     const expected = [_][]const u8{ "NVDA", "AMD", "AVGO", "MSFT", "AMZN", "BOTZ", "SOXX" };
-    for (expected) |sym| {
-        var found = false;
+    for (expected) |sym| { var found = false;
         for (tickers.items) |item| {
             switch (item) {
                 .string => |s| {
-                    if (std.mem.eql(u8, s, sym)) found = true;
-                },
+                    if (std.mem.eql(u8, s, sym)) found = true; },
                 else => {},
             }
         }
         try std.testing.expect(found);
     }
 
-    const restricted = [_][]const u8{
-        "SOXL", "SOXS", "TQQQ", "SQQQ", "UPRO", "SPXS",
-        "UVXY", "SVXY", "LABU", "LABD", "FAS",  "FAZ",
-    };
-    for (tickers.items) |item| {
-        const ticker = switch (item) {
+    const restricted = [_][]const u8{ "SOXL", "SOXS", "TQQQ", "SQQQ", "UPRO", "SPXS",
+        "UVXY", "SVXY", "LABU", "LABD", "FAS",  "FAZ", };
+    for (tickers.items) |item| { const ticker = switch (item) {
             .string => |s| s,
-            else => return error.TestUnexpectedResult,
-        };
-        for (restricted) |denied| {
-            try std.testing.expect(!std.mem.eql(u8, ticker, denied));
-        }
+            else => return error.TestUnexpectedResult, };
+        for (restricted) |denied| { try std.testing.expect(!std.mem.eql(u8, ticker, denied)); }
     }
 }
 
@@ -653,7 +576,6 @@ test "hashProviderRequest differs for different model ids" {
     try std.testing.expect(hashProviderRequest(r1) != hashProviderRequest(r2));
 }
 
-test "hashProviderRequest is deterministic" {
-    const req = ProviderRequest{ .model_id = "m", .messages = &.{.{ .role = "user", .content = "hello" }} };
+test "hashProviderRequest is deterministic" { const req = ProviderRequest{ .model_id = "m", .messages = &.{.{ .role = "user", .content = "hello" }} };
     try std.testing.expectEqual(hashProviderRequest(req), hashProviderRequest(req));
 }

@@ -7,25 +7,18 @@ pub const server_read_buffer_len: usize = 8192;
 pub const server_write_buffer_len: usize = 512;
 pub const request_body_read_buffer_len: usize = 1024;
 
-pub const RequestCapture = struct {
-    method: [max_method_len]u8 = [_]u8{0} ** max_method_len,
+pub const RequestCapture = struct { method: [max_method_len]u8 = [_]u8{ 0 }**max_method_len,
     method_len: u8 = 0,
-    path: [max_path_len]u8 = [_]u8{0} ** max_path_len,
+    path: [max_path_len]u8 = [_]u8{ 0 }**max_path_len,
     path_len: u16 = 0,
-    body: [max_body_len]u8 = [_]u8{0} ** max_body_len,
+    body: [max_body_len]u8 = [_]u8{ 0 }**max_body_len,
     body_len: u16 = 0,
 
-    pub fn methodSlice(self: *const RequestCapture) []const u8 {
-        return self.method[0..self.method_len];
-    }
+    pub fn methodSlice(self: *const RequestCapture) []const u8 { return self.method[0..self.method_len]; }
 
-    pub fn pathSlice(self: *const RequestCapture) []const u8 {
-        return self.path[0..self.path_len];
-    }
+    pub fn pathSlice(self: *const RequestCapture) []const u8 { return self.path[0..self.path_len]; }
 
-    pub fn bodySlice(self: *const RequestCapture) []const u8 {
-        return self.body[0..self.body_len];
-    }
+    pub fn bodySlice(self: *const RequestCapture) []const u8 { return self.body[0..self.body_len]; }
 };
 
 pub const TestRuntime = struct {
@@ -37,20 +30,14 @@ pub const TestRuntime = struct {
         };
     }
 
-    pub fn deinit(self: *TestRuntime) void {
-        self.threaded.deinit();
-    }
+    pub fn deinit(self: *TestRuntime) void { self.threaded.deinit(); }
 
-    pub fn io(self: *TestRuntime) std.Io {
-        return self.threaded.io();
-    }
+    pub fn io(self: *TestRuntime) std.Io { return self.threaded.io(); }
 };
 
-pub const ReadRequestError = std.http.Server.ReceiveHeadError || std.http.Server.Request.ExpectContinueError || error{
-    MethodTooLong,
+pub const ReadRequestError = std.http.Server.ReceiveHeadError || std.http.Server.Request.ExpectContinueError || error{ MethodTooLong,
     PathTooLong,
-    BodyTooLarge,
-};
+    BodyTooLarge, };
 
 pub fn captureRequest(request: *std.http.Server.Request) ReadRequestError!RequestCapture {
     var capture = RequestCapture{};
@@ -67,16 +54,13 @@ pub fn captureRequest(request: *std.http.Server.Request) ReadRequestError!Reques
     var request_body_reader_buffer: [request_body_read_buffer_len]u8 = undefined;
     var request_body_reader = try request.readerExpectContinue(&request_body_reader_buffer);
     var body_writer = std.Io.Writer.fixed(&capture.body);
-    _ = request_body_reader.streamRemaining(&body_writer) catch |err| switch (err) {
-        error.WriteFailed => return error.BodyTooLarge,
-        error.ReadFailed => return error.ReadFailed,
-    };
+    _ = request_body_reader.streamRemaining(&body_writer) catch |err| switch (err) { error.WriteFailed => return error.BodyTooLarge,
+        error.ReadFailed => return error.ReadFailed, };
     capture.body_len = @intCast(body_writer.end);
     return capture;
 }
 
-pub fn respondJson(request: *std.http.Server.Request, status: std.http.Status, body: []const u8) !void {
-    try request.respond(body, .{
+pub fn respondJson(request: *std.http.Server.Request, status: std.http.Status, body: []const u8) !void { try request.respond(body, .{
         .status = status,
         .keep_alive = false,
         .extra_headers = &.{
@@ -85,8 +69,7 @@ pub fn respondJson(request: *std.http.Server.Request, status: std.http.Status, b
     });
 }
 
-pub fn respondText(request: *std.http.Server.Request, status: std.http.Status, body: []const u8) !void {
-    try request.respond(body, .{
+pub fn respondText(request: *std.http.Server.Request, status: std.http.Status, body: []const u8) !void { try request.respond(body, .{
         .status = status,
         .keep_alive = false,
         .extra_headers = &.{

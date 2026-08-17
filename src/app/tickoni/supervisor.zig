@@ -32,7 +32,7 @@ pub const ProcessPipelineConfig = struct {
     /// Test-only hook (v2.14.S1.T12 crash isolation): tile i self-exits(1)
     /// after this many heartbeats instead of waiting for a halt signal.
     /// 0 means run normally. Indexed by tile_idx.
-    crash_after_heartbeats: [8]u32 = [_]u32{0} ** 8,
+    crash_after_heartbeats: [8]u32 = std.mem.zeroes([8]u32),
     /// Test-only hook (v2.14.S8.T6 stale-heartbeat proof): the selected
     /// tile blocks forever after stuck_after_messages loop iterations.
     stuck_tile_idx: ?u32 = null,
@@ -55,8 +55,7 @@ pub const ProcessPipelineConfig = struct {
 };
 
 /// Supervisor-owned state for a running v2.14 process-mode pipeline.
-const ProcessState = struct {
-    wksp: *c_abi.wksp.Wksp,
+const ProcessState = struct { wksp: *c_abi.wksp.Wksp,
     /// v2.14.S8.T12: the fd_topob-built topology backing this run's
     /// object layout (mcache/dcache/fseq/metrics/tile/cnc offsets).
     built_topo: rt.topo_build.BuiltTopo,
@@ -80,11 +79,8 @@ const ProcessState = struct {
     /// populated state (e.g. after a failed start).
     fn deinit(self: *ProcessState, io: std.Io, allocator: std.mem.Allocator) void {
         for (&self.children) |*maybe_child| {
-            if (maybe_child.*) |*child| child.kill(io);
-        }
-        for (&self.cncs) |*maybe_cnc| {
-            if (maybe_cnc.*) |cnc| _ = c_abi.cnc.cncLeave(cnc);
-        }
+            if (maybe_child.*) |*child| child.kill(io); }
+        for (&self.cncs) |*maybe_cnc| { if (maybe_cnc.*) |cnc| _ = c_abi.cnc.cncLeave(cnc); }
         self.built_topo.deinit(allocator);
         _ = c_abi.wksp.wkspDetach(self.wksp);
         c_abi.boot.halt();
@@ -93,21 +89,15 @@ const ProcessState = struct {
     }
 };
 
-fn resolvedHeartbeatStaleAfterNs(config: ProcessPipelineConfig) u64 {
-    if (config.heartbeat_stale_after_ns != 0) return config.heartbeat_stale_after_ns;
-    return std.math.mul(u64, config.heartbeat_interval_ns, 5) catch std.math.maxInt(u64);
-}
+fn resolvedHeartbeatStaleAfterNs(config: ProcessPipelineConfig) u64 { if (config.heartbeat_stale_after_ns != 0) return config.heartbeat_stale_after_ns;
+    return std.math.mul(u64, config.heartbeat_interval_ns, 5) catch std.math.maxInt(u64); }
 
-fn resolvedStopGraceNs(config: ProcessPipelineConfig) u64 {
-    const from_heartbeat = std.math.mul(u64, config.heartbeat_interval_ns, 5) catch std.math.maxInt(u64);
-    return @min(@max(from_heartbeat, 500 * std.time.ns_per_ms), 2 * std.time.ns_per_s);
-}
+fn resolvedStopGraceNs(config: ProcessPipelineConfig) u64 { const from_heartbeat = std.math.mul(u64, config.heartbeat_interval_ns, 5) catch std.math.maxInt(u64);
+    return @min(@max(from_heartbeat, 500 * std.time.ns_per_ms), 2 * std.time.ns_per_s); }
 
 /// Bridges a tile_registry.RunFn resolved at runtime into std.Thread.spawn,
 /// whose function argument must be comptime-known.
-fn threadTrampoline(state: *PaymentPipelineState, run_fn: tile_registry.RunFn) void {
-    run_fn(state);
-}
+fn threadTrampoline(state: *PaymentPipelineState, run_fn: tile_registry.RunFn) void { run_fn(state); }
 
 pub const Supervisor = struct {
     allocator: std.mem.Allocator,
@@ -134,12 +124,10 @@ pub const Supervisor = struct {
         try tile_registry.validate(topo);
         const handles = try allocator.alloc(TileHandle, topo.tiles.len);
         for (handles, 0..) |*h, i| h.* = TileHandle.init(@intCast(i));
-        return .{
-            .allocator = allocator,
+        return .{ .allocator = allocator,
             .topo = topo,
             .handles = handles,
-            .pipeline = null,
-        };
+            .pipeline = null, };
     }
 
     /// Callers that used startPaymentPipelineProcess must call stopProcess
@@ -196,8 +184,7 @@ pub const Supervisor = struct {
     /// by Firedancer Tango shared memory (v2.14.S1). Requires
     /// topo.channels to be a tango_shm topology sharing exactly one
     /// workspace (paymentPipelineProcess() builds this shape).
-    pub fn startPaymentPipelineProcess(self: *Supervisor, io: std.Io, config: ProcessPipelineConfig) !void {
-        std.debug.assert(self.process_state == null);
+    pub fn startPaymentPipelineProcess(self: *Supervisor, io: std.Io, config: ProcessPipelineConfig) !void { std.debug.assert(self.process_state == null);
         std.debug.assert(self.topo.tiles.len == 8);
 
         // Fail closed on any tile pinned to a CPU id this process cannot
@@ -219,8 +206,7 @@ pub const Supervisor = struct {
         if (workspace_name_slice.len == 0) return error.MissingWorkspaceName;
         for (self.topo.channels) |ch| {
             if (ch.backing != .tango_shm) return error.ProcessModeRequiresTangoShm;
-            if (!std.mem.eql(u8, ch.workspace_name.slice(), workspace_name_slice)) return error.MultipleWorkspacesNotSupported;
-        }
+            if (!std.mem.eql(u8, ch.workspace_name.slice(), workspace_name_slice)) return error.MultipleWorkspacesNotSupported; }
 
         // Ensure run_dir and its .normal FD_SHMEM_PATH subdirectory exist;
         // fd_wksp_new_named does not create either for us.
@@ -259,9 +245,7 @@ pub const Supervisor = struct {
         // Best-effort cleanup of a stale workspace left behind by a prior
         // crashed or killed supervisor; fd_wksp_new_named uses O_EXCL and
         // would otherwise fail closed forever on the same run_dir/name.
-        if (c_abi.wksp.wkspExistsNamed(workspace_name_z)) {
-            _ = c_abi.wksp.wkspDeleteNamed(workspace_name_z);
-        }
+        if (c_abi.wksp.wkspExistsNamed(workspace_name_z)) { _ = c_abi.wksp.wkspDeleteNamed(workspace_name_z); }
 
         // Size the real allocation off fd_topob_finish's computed
         // footprint/part_max instead of a hand-picked constant, plus a
@@ -284,14 +268,13 @@ pub const Supervisor = struct {
         c_abi.topob.topoWkspNew(built_topo.topo, built_topo.wksp_idx);
 
         const state = try self.allocator.create(ProcessState);
-        state.* = .{
-            .wksp = wksp,
+        state.* = .{ .wksp = wksp,
             .built_topo = built_topo,
             .workspace_name = try self.allocator.dupe(u8, workspace_name_slice),
             .run_dir = try self.allocator.dupe(u8, config.run_dir),
-            .cnc_gaddrs = [_]usize{0} ** 8,
-            .cncs = [_]?*c_abi.cnc.Cnc{null} ** 8,
-            .children = [_]?std.process.Child{null} ** 8,
+            .cnc_gaddrs = std.mem.zeroes([8]usize),
+            .cncs = std.mem.zeroes([8]?*c_abi.cnc.Cnc),
+            .children = std.mem.zeroes([8]?std.process.Child),
             .heartbeat_stale_after_ns = resolvedHeartbeatStaleAfterNs(config),
             .stop_grace_ns = resolvedStopGraceNs(config),
             .placement_report = placement_report,
@@ -299,11 +282,9 @@ pub const Supervisor = struct {
         built_topo_owned_by_state = true;
         self.process_state = state;
         boot_needs_halt = false;
-        errdefer {
-            state.deinit(io, self.allocator);
+        errdefer { state.deinit(io, self.allocator);
             self.allocator.destroy(state);
-            self.process_state = null;
-        }
+            self.process_state = null; }
 
         // Resolve every tile's cnc content (created above by
         // topoWkspNew's cnc .new callback) into the gaddr-based form
@@ -312,11 +293,9 @@ pub const Supervisor = struct {
         // objects get created changed (fd_topob instead of a hand-rolled
         // wkspAlloc); how children join them (LaunchSpec's gaddr fields)
         // is unchanged.
-        for (self.topo.tiles, 0..) |_, i| {
-            const laddr = c_abi.topob.topoObjLaddr(built_topo.topo, built_topo.cnc_obj_id[i]);
+        for (self.topo.tiles, 0..) |_, i| { const laddr = c_abi.topob.topoObjLaddr(built_topo.topo, built_topo.cnc_obj_id[i]);
             state.cnc_gaddrs[i] = c_abi.wksp.wkspGaddr(wksp, laddr);
-            state.cncs[i] = c_abi.cnc.cncJoin(laddr) orelse return error.CncJoinFailed;
-        }
+            state.cncs[i] = c_abi.cnc.cncJoin(laddr) orelse return error.CncJoinFailed; }
 
         // Resolve every channel's mcache/dcache/fseq (created above by
         // topoWkspNew's mcache/dcache/fseq .new callbacks) into the same
@@ -325,15 +304,13 @@ pub const Supervisor = struct {
         var link_handles_buf: [8]rt.link.LinkHandles = undefined;
         std.debug.assert(self.topo.channels.len <= link_handles_buf.len);
         const link_handles = link_handles_buf[0..self.topo.channels.len];
-        for (self.topo.channels, 0..) |ch, i| {
-            const ids = built_topo.link_obj_id[i];
+        for (self.topo.channels, 0..) |ch, i| { const ids = built_topo.link_obj_id[i];
             link_handles[i] = .{
                 .mcache_gaddr = c_abi.wksp.wkspGaddr(wksp, c_abi.topob.topoObjLaddr(built_topo.topo, ids.mcache_obj_id)),
                 .dcache_gaddr = c_abi.wksp.wkspGaddr(wksp, c_abi.topob.topoObjLaddr(built_topo.topo, ids.dcache_obj_id)),
                 .fseq_gaddr = c_abi.wksp.wkspGaddr(wksp, c_abi.topob.topoObjLaddr(built_topo.topo, ids.fseq_obj_id)),
                 .depth = ch.depth,
-                .mtu = ch.mtu,
-            };
+                .mtu = ch.mtu, };
         }
 
         var self_exe_path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -347,17 +324,13 @@ pub const Supervisor = struct {
         // derives this same path from their LaunchSpec's shmemPath().
         const payment_config_path = try std.fmt.allocPrint(self.allocator, "{s}/payment_pipeline.config", .{config.run_dir});
         defer self.allocator.free(payment_config_path);
-        try tiles_mod.process.writeProcessConfig(.{
-            .pipeline = .{
+        try tiles_mod.process.writeProcessConfig(.{ .pipeline = .{
                 .event_count = config.event_count,
                 .policy_limit_cents = config.policy_limit_cents,
                 .inject_duplicate = config.inject_duplicate,
-                .inject_malformed = config.inject_malformed,
-            },
-            .stuck_tile = if (config.stuck_tile_idx) |idx| .{
-                .tile_idx = idx,
-                .after_messages = config.stuck_after_messages,
-            } else null,
+                .inject_malformed = config.inject_malformed, },
+            .stuck_tile = if (config.stuck_tile_idx) |idx| .{ .tile_idx = idx,
+                .after_messages = config.stuck_after_messages, } else null,
         }, io, std.Io.Dir.cwd(), payment_config_path);
 
         // v2.14.S8.T4: every self-exec'd child rebuilds this same topology
@@ -371,8 +344,7 @@ pub const Supervisor = struct {
         const topology_spec = try rt.topology_spec.TopologySpec.fromTopology(self.topo);
         try topology_spec.writeToFile(io, std.Io.Dir.cwd(), topology_spec_path);
 
-        for (self.handles, 0..) |*h, i| {
-            const tile = self.topo.tiles[i];
+        for (self.handles, 0..) |*h, i| { const tile = self.topo.tiles[i];
 
             const spec = try rt.launch_spec.LaunchSpec.init(.{
                 .tile_idx = @intCast(i),
@@ -384,8 +356,7 @@ pub const Supervisor = struct {
                 .heartbeat_interval_ns = config.heartbeat_interval_ns,
                 .crash_after_heartbeats = config.crash_after_heartbeats[i],
                 .channels = self.topo.channels,
-                .link_handles = link_handles,
-            });
+                .link_handles = link_handles, });
             const spec_path = try std.fmt.allocPrint(self.allocator, "{s}/tile_{d}.spec", .{ config.run_dir, i });
             defer self.allocator.free(spec_path);
             try spec.writeToFile(io, std.Io.Dir.cwd(), spec_path);
@@ -398,8 +369,7 @@ pub const Supervisor = struct {
             var env = std.process.Environ.Map.init(self.allocator);
             defer env.deinit();
 
-            const child = try std.process.spawn(io, .{
-                .argv = &.{ self_exe_path, "__tile-run", spec_path },
+            const child = try std.process.spawn(io, .{ .argv = &.{ self_exe_path, "__tile-run", spec_path },
                 .environ_map = &env,
             });
 
@@ -408,53 +378,37 @@ pub const Supervisor = struct {
             h.state = .running;
             state.children[i] = child;
 
-            if (@import("builtin").os.tag == .linux) {
-                switch (tile.cpu_placement) {
+            if (@import("builtin").os.tag == .linux) { switch (tile.cpu_placement) {
                     .exclusive, .shared => |cpu| {
                         var cpu_set: util.cpu.CpuSet = undefined;
                         util.cpu.zero(&cpu_set);
                         util.cpu.set(&cpu_set, cpu);
-                        try util.cpu.setAffinity(@intCast(child.id.?), &cpu_set);
-                    },
+                        try util.cpu.setAffinity(@intCast(child.id.?), &cpu_set); },
                     .floating => {},
                 }
             }
         }
     }
 
-    fn updateHandleForOutcome(self: *Supervisor, i: usize, outcome: util.process_api.ProcessOutcome) void {
-        switch (outcome) {
+    fn updateHandleForOutcome(self: *Supervisor, i: usize, outcome: util.process_api.ProcessOutcome) void { switch (outcome) {
             .exited_ok => {
                 // A clean exit after stopProcess() should be treated as a
                 // normal stop even if refreshProcessHealth() transiently
                 // marked the tile stale before the halt/reap completed.
                 self.handles[i].state = .stopped;
-                self.handles[i].crashed_because = .none;
-            },
-            .exited_code => |code| {
-                if (self.handles[i].state == .stale) {
-                    self.handles[i].crashed_because = .stale;
-                } else {
-                    self.handles[i].state = .crashed;
+                self.handles[i].crashed_because = .none; },
+            .exited_code => |code| { if (self.handles[i].state == .stale) {
+                    self.handles[i].crashed_because = .stale; } else { self.handles[i].state = .crashed;
                     self.handles[i].exit_code = code;
-                    self.handles[i].crashed_because = .exit_code;
-                }
+                    self.handles[i].crashed_because = .exit_code; }
             },
-            .crashed, .force_terminated => {
-                if (self.handles[i].state == .stale) {
-                    self.handles[i].crashed_because = .stale;
-                } else {
-                    self.handles[i].state = .crashed;
-                    self.handles[i].crashed_because = .signal;
-                }
+            .crashed, .force_terminated => { if (self.handles[i].state == .stale) {
+                    self.handles[i].crashed_because = .stale; } else { self.handles[i].state = .crashed;
+                    self.handles[i].crashed_because = .signal; }
             },
-            .stopped, .unknown => {
-                if (self.handles[i].state == .stale) {
-                    self.handles[i].crashed_because = .stale;
-                } else {
-                    self.handles[i].state = .crashed;
-                    self.handles[i].crashed_because = .exit_code;
-                }
+            .stopped, .unknown => { if (self.handles[i].state == .stale) {
+                    self.handles[i].crashed_because = .stale; } else { self.handles[i].state = .crashed;
+                    self.handles[i].crashed_because = .exit_code; }
             },
         }
     }
@@ -465,13 +419,9 @@ pub const Supervisor = struct {
             var child = maybe_child.* orelse continue;
             switch (util.process_api.tryReapNoHang(&child)) {
                 .running => {},
-                .reaped => |term| {
-                    self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, false));
-                    maybe_child.* = null;
-                },
-                .detached => {
-                    maybe_child.* = null;
-                },
+                .reaped => |term| { self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, false));
+                    maybe_child.* = null; },
+                .detached => { maybe_child.* = null; },
                 .failed => {},
             }
         }
@@ -505,8 +455,7 @@ pub const Supervisor = struct {
         const now = util.process.monotonicNanos();
         if (now <= 0) return;
         const now_ns: u64 = @intCast(now);
-        for (state.cncs, 0..) |maybe_cnc, i| {
-            const h = &self.handles[i];
+        for (state.cncs, 0..) |maybe_cnc, i| { const h = &self.handles[i];
             if (h.state != .starting and h.state != .running) continue;
             const cnc = maybe_cnc orelse continue;
             const heartbeat = c_abi.cnc.heartbeatQuery(cnc);
@@ -514,8 +463,7 @@ pub const Supervisor = struct {
             const heartbeat_ns: u64 = @intCast(heartbeat);
             if (now_ns > heartbeat_ns and now_ns - heartbeat_ns > state.heartbeat_stale_after_ns) {
                 h.state = .stale;
-                h.crashed_because = .stale;
-            }
+                h.crashed_because = .stale; }
         }
     }
 
@@ -526,30 +474,25 @@ pub const Supervisor = struct {
     /// layout); this reads them back across the process boundary. Must be called
     /// before stopProcess, which leaves every cnc join and detaches the
     /// workspace.
-    pub const ProcessMetricSnapshot = struct {
-        produced: u64 = 0,
+    pub const ProcessMetricSnapshot = struct { produced: u64 = 0,
         normalized: u64 = 0,
         invalid: u64 = 0,
         duplicates: u64 = 0,
         allowed: u64 = 0,
         denied: u64 = 0,
-        audited: u64 = 0,
-    };
+        audited: u64 = 0, };
 
     /// v2.14.S1.T14 visibility: the CPU placement layout validated at
     /// start time (exclusive/shared/floating counts and whether the
     /// layout is shared-core). Null when no process-mode pipeline has
     /// been started.
-    pub fn processPlacementReport(self: *const Supervisor) ?rt.cpu_placement.PlacementReport {
-        const state = self.process_state orelse return null;
-        return state.placement_report;
-    }
+    pub fn processPlacementReport(self: *const Supervisor) ?rt.cpu_placement.PlacementReport { const state = self.process_state orelse return null;
+        return state.placement_report; }
 
     pub fn snapshotProcessMetrics(self: *const Supervisor) ProcessMetricSnapshot {
         const state = self.process_state orelse return .{};
         var snap = ProcessMetricSnapshot{};
-        for (self.topo.tiles, 0..) |tile, i| {
-            const cnc = state.cncs[i] orelse continue;
+        for (self.topo.tiles, 0..) |tile, i| { const cnc = state.cncs[i] orelse continue;
             const entry = tile_registry.findById(tile.id) orelse continue;
             for (entry.counters) |c| {
                 const v = rt.cnc_counters.appCounterRead(cnc, c.idx);
@@ -560,8 +503,7 @@ pub const Supervisor = struct {
                     .duplicates => snap.duplicates = v,
                     .allowed => snap.allowed = v,
                     .denied => snap.denied = v,
-                    .audited => snap.audited = v,
-                }
+                    .audited => snap.audited = v, }
             }
         }
         return snap;
@@ -578,36 +520,29 @@ pub const Supervisor = struct {
         defer log.exit("supervisor", "stopProcess") catch {};
         const state = self.process_state orelse return;
         self.refreshProcessHealth();
-        const stale_before_stop = blk: {
-            var snapshot: [8]bool = [_]bool{false} ** 8;
+        const stale_before_stop = blk: { var snapshot: [8]bool = std.mem.zeroes([8]bool);
             for (self.handles, 0..) |h, i| snapshot[i] = h.state == .stale;
             break :blk snapshot;
         };
-        const had_stale_before_stop = for (stale_before_stop) |was_stale| {
-            if (was_stale) break true;
-        } else false;
-        for (state.cncs) |maybe_cnc| {
-            if (maybe_cnc) |cnc| c_abi.cnc.signal(cnc, c_abi.cnc.signal_halt);
-        }
+        const had_stale_before_stop = for (stale_before_stop) |was_stale| { if (was_stale) break true; } else false;
+        for (state.cncs) |maybe_cnc| { if (maybe_cnc) |cnc| c_abi.cnc.signal(cnc, c_abi.cnc.signal_halt); }
 
-        if (had_stale_before_stop) {
-            const grace_deadline = util.process.monotonicNanos() + @as(i64, @intCast(state.stop_grace_ns));
+        if (had_stale_before_stop) { const grace_deadline = util.process.monotonicNanos() + @as(i64, @intCast(state.stop_grace_ns));
             while (util.process.monotonicNanos() < grace_deadline) {
                 self.reapExitedChildrenNoHang();
-                util.process.sleepNanos(5 * std.time.ns_per_ms);
-            }
+                util.process.sleepNanos(5 * std.time.ns_per_ms); }
             self.reapExitedChildrenNoHang();
         }
 
-        var forced_termination = [_]bool{false} ** 8;
-        for (stale_before_stop, 0..) |was_stale, i| {
-            if (!was_stale) continue;
+        var forced_termination: [8]bool = undefined;
+        var ci: usize = 0;
+        while (ci < forced_termination.len) : (ci += 1) forced_termination[ci] = false;
+        for (stale_before_stop, 0..) |was_stale, i| { if (!was_stale) continue;
             const maybe_child = &state.children[i];
             const child = maybe_child.* orelse continue;
             const pid = child.id orelse continue;
             util.process_api.forceTerminate(pid);
-            forced_termination[i] = true;
-        }
+            forced_termination[i] = true; }
 
         self.waitProcess(io, &forced_termination);
         state.deinit(io, self.allocator);
@@ -618,25 +553,18 @@ pub const Supervisor = struct {
     /// Join all tile threads without requesting early shutdown.  The Phase 0
     /// pipeline closes links as producers finish, so this waits for a complete
     /// deterministic run unless a tile has already requested stop.
-    pub fn wait(self: *Supervisor) void {
-        self.joinThreads();
-    }
+    pub fn wait(self: *Supervisor) void { self.joinThreads(); }
 
     /// Signal all tiles to stop and join their threads.
-    pub fn stop(self: *Supervisor) void {
-        if (self.pipeline) |state| {
-            state.requestStop();
-        }
+    pub fn stop(self: *Supervisor) void { if (self.pipeline) |state| {
+            state.requestStop(); }
         self.joinThreads();
-        if (self.pipeline) |state| {
-            state.deinit();
+        if (self.pipeline) |state| { state.deinit();
             self.allocator.destroy(state);
-            self.pipeline = null;
-        }
+            self.pipeline = null; }
     }
 
-    fn joinThreads(self: *Supervisor) void {
-        for (self.handles) |*h| {
+    fn joinThreads(self: *Supervisor) void { for (self.handles) |*h| {
             if (h.thread) |thread| {
                 thread.join();
                 h.thread = null;
@@ -645,36 +573,28 @@ pub const Supervisor = struct {
                 if (crashed_tile >= 0 and @as(i32, @intCast(h.tile_idx)) == crashed_tile) {
                     h.state = .crashed;
                     h.exit_code = 1;
-                    h.crashed_because = .exit_code;
-                } else {
-                    h.state = .stopped;
-                }
+                    h.crashed_because = .exit_code; } else { h.state = .stopped; }
             }
         }
     }
 
     /// Returns the current handle slice — a read-only snapshot of tile states.
-    pub fn monitor(self: *const Supervisor) []const TileHandle {
-        return self.handles;
-    }
+    pub fn monitor(self: *const Supervisor) []const TileHandle { return self.handles; }
 };
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
-test "Supervisor initialises all handles as stopped" {
-    const topo = topologies.paymentPipeline();
+test "Supervisor initialises all handles as stopped" { const topo = topologies.paymentPipeline();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
     for (sup.monitor()) |h| {
-        try std.testing.expectEqual(TileState.stopped, h.state);
-    }
+        try std.testing.expectEqual(TileState.stopped, h.state); }
 }
 
-test "Supervisor init fails closed on a structural CPU placement conflict, even in thread mode" {
-    const base = topologies.paymentPipeline();
+test "Supervisor init fails closed on a structural CPU placement conflict, even in thread mode" { const base = topologies.paymentPipeline();
     var conflicting_tiles: [8]rt.topology.TileDescriptor = base.tiles[0..8].*;
     conflicting_tiles[0].cpu_placement = .{ .exclusive = 0 };
     conflicting_tiles[1].cpu_placement = .{ .exclusive = 0 };
@@ -683,8 +603,7 @@ test "Supervisor init fails closed on a structural CPU placement conflict, even 
     try std.testing.expectError(error.CpuPlacementConflict, Supervisor.init(std.testing.allocator, topo));
 }
 
-test "Supervisor starts and stops Phase 0 pipeline without crashes" {
-    const topo = topologies.paymentPipeline();
+test "Supervisor starts and stops Phase 0 pipeline without crashes" { const topo = topologies.paymentPipeline();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
@@ -705,22 +624,17 @@ test "Supervisor starts and stops Phase 0 pipeline without crashes" {
 
     sup.stop();
 
-    for (sup.monitor()) |h| {
-        try std.testing.expectEqual(TileState.stopped, h.state);
-        try std.testing.expect(!h.isAlive());
-    }
+    for (sup.monitor()) |h| { try std.testing.expectEqual(TileState.stopped, h.state);
+        try std.testing.expect(!h.isAlive()); }
 }
 
-test "Supervisor monitor returns correct tile count" {
-    const topo = topologies.paymentPipeline();
+test "Supervisor monitor returns correct tile count" { const topo = topologies.paymentPipeline();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
-    try std.testing.expectEqual(topo.tiles.len, sup.monitor().len);
-}
+    try std.testing.expectEqual(topo.tiles.len, sup.monitor().len); }
 
-test "Supervisor pipeline state is nil after stop" {
-    const topo = topologies.paymentPipeline();
+test "Supervisor pipeline state is nil after stop" { const topo = topologies.paymentPipeline();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
@@ -730,8 +644,7 @@ test "Supervisor pipeline state is nil after stop" {
     try std.testing.expect(sup.pipeline == null);
 }
 
-test "Supervisor marks tkings crashed on sandbox failure" {
-    const topo = topologies.paymentPipeline();
+test "Supervisor marks tkings crashed on sandbox failure" { const topo = topologies.paymentPipeline();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 

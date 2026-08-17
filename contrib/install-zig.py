@@ -12,7 +12,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-DEFAULT_VERSION = "0.16.0"
+DEFAULT_VERSION = "0.17.0-dev.1770+5d7cf3f34"
 DEFAULT_INDEX_URL = "https://ziglang.org/download/index.json"
 DEFAULT_BUILDS_BASE_URL = "https://ziglang.org/builds"
 

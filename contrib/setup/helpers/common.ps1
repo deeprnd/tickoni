@@ -30,7 +30,7 @@ function tool-exists {
 # Universal tools (single version everywhere):
 #   read-tool-version "just"      -> "1.58.0"
 #   read-tool-version "gitleaks"  -> "8.30.1"
-#   read-tool-version "zig"       -> "0.16.0"
+#   read-tool-version "zig"       -> "0.17.0-dev.1770+5d7cf3f34"
 #   read-tool-version "openssl"   -> "3.6.2"
 #
 # Usage: read-tool-version "just"
@@ -217,26 +217,15 @@ function ensure-zig {
         $zigInstallDir = Join-Path $installRoot ("zig-{0}-{1}" -f $Target, $zigVersion)
     }
 
+    # Remove any previously installed zig version before installing the new one
+    if ($zigInstallDir -and (Test-Path $zigInstallDir)) {
+        Remove-Item -Recurse -Force $zigInstallDir
+    }
+
     $zigBin = $null
-    if ($zigInstallDir) {
-        $candidate = Join-Path $zigInstallDir 'zig.exe'
-        if (Test-Path $candidate) {
-            $zigBin = $candidate
-        }
-    }
-
-    if (-not $zigBin) {
-        $legacyCandidate = Join-Path $env:LOCALAPPDATA 'Programs\Zig\zig.exe'
-        if (Test-Path $legacyCandidate) {
-            $zigBin = $legacyCandidate
-            $zigInstallDir = Split-Path $legacyCandidate
-        }
-    }
-
-    if ($zigBin) {
-        log-info "Zig $zigVersion already installed"
-        $env:PATH = $zigInstallDir + ';' + $env:PATH
-        return
+    $legacyCandidate = Join-Path $env:LOCALAPPDATA 'Programs\Zig\zig.exe'
+    if (Test-Path $legacyCandidate) {
+        Remove-Item -Recurse -Force (Split-Path $legacyCandidate)
     }
 
     log-info "Installing Zig $zigVersion..."

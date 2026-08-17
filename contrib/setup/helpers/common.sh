@@ -31,7 +31,7 @@ tool_exists() { command -v "$1" &>/dev/null ; }
 # Universal tools (single version everywhere):
 #   read_tool_version "just"      → "1.58.0"
 #   read_tool_version "gitleaks"  → "8.30.1"
-#   read_tool_version "zig"       → "0.16.0"
+#   read_tool_version "zig"       → "0.17.0-dev.1770+5d7cf3f34"
 #   read_tool_version "openssl"   → "3.6.2"
 #
 # Usage: read_tool_version "just"
@@ -200,10 +200,16 @@ ensure_zig() {
     zig_version="$(read_tool_version "zig")"
     local zig_bin="${HOME}/.local/zig/zig"
 
-    if [ -f "$zig_bin" ] && "${zig_bin}" --version &>/dev/null; then
-        log_info "Zig ${zig_version} already installed"
-        export PATH="${HOME}/.local/zig:${PATH}"
-        return 0
+    # Remove any previously installed zig version before installing the new one
+    for dir in "${HOME}/.local/zig/zig-"*; do
+        if [ -d "$dir" ]; then
+            log_info "Cleaning old zig installation: $dir"
+            rm -rf "$dir"
+        fi
+    done
+    # Also clean legacy install
+    if [ -d "${HOME}/.local/zig/zig" ]; then
+        rm -rf "${HOME}/.local/zig/zig"
     fi
 
     log_info "Installing Zig ${zig_version}..."

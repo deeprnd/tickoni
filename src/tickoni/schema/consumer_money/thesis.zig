@@ -65,9 +65,7 @@ pub const max_target_notional_cents: i64 = 1_000_000_000_000;
 /// Layout: taxonomy_id (max_canonical_id_len bytes) + taxonomy_version (2 bytes LE) + code (max_canonical_id_len bytes).
 pub const classification_ref_stride: usize = cls.max_canonical_id_len + 2 + cls.max_canonical_id_len;
 
-comptime {
-    std.debug.assert(classification_ref_stride == 66);
-}
+comptime { std.debug.assert(classification_ref_stride == 66); }
 
 // Known theme/sector/industry taxonomy values live in classification.zig
 // (the single source of truth shared with catalog.zig — see finding 30 in
@@ -87,12 +85,10 @@ const known_industry_codes = cls.known_industry_codes;
 // for its shared types, so thesis.zig importing catalog.zig back would cycle.
 // Removing this duplicate needs finding 29's catalog-provider injection point
 // (thesis validation would call the provider instead of a hardcoded list).
-const known_tickers = [_][]const u8{
-    "NVDA", "AMD",  "AVGO", "MSFT", "BOTZ", "SOXX",
+const known_tickers = [_][]const u8{ "NVDA", "AMD",  "AVGO", "MSFT", "BOTZ", "SOXX",
     "AMZN", "WCLD", "PANW", "CRWD", "HACK", "CIBR",
     "SPY",  "IVV",  "VOO",  "VTI",  "VYM",  "DVY",
-    "SHV",  "SGOV", "BIL",  "SOXL", "SOXS", "BULZ",
-};
+    "SHV",  "SGOV", "BIL",  "SOXL", "SOXS", "BULZ", };
 
 /// Raw investor thesis as received from the user or provided by a test fixture.
 ///
@@ -100,8 +96,7 @@ const known_tickers = [_][]const u8{
 /// count. Call normalize() to validate and convert to InvestorIntent.
 /// Call computeThesisInputHash() to obtain a stable content hash for dedup
 /// and audit reference.
-pub const ThesisInput = struct {
-    user_text: [max_user_text_len]u8,
+pub const ThesisInput = struct { user_text: [max_user_text_len]u8,
     user_text_len: u16,
     target_notional_cents: i64,
     account_id: u32,
@@ -132,8 +127,7 @@ pub const ThesisInput = struct {
     requested_ticker_count: u8 = 0,
 
     pub fn text(self: *const ThesisInput) []const u8 {
-        return self.user_text[0..self.user_text_len];
-    }
+        return self.user_text[0..self.user_text_len]; }
 };
 
 /// Structured investor intent produced by normalize().
@@ -145,8 +139,7 @@ pub const ThesisInput = struct {
 ///
 /// themes, sectors, and industries are sorted into lexicographic canonical order
 /// so downstream consumers and content hashes are ordering-invariant.
-pub const InvestorIntent = struct {
-    account_id: u32,
+pub const InvestorIntent = struct { account_id: u32,
     /// Sorted canonical theme filter. At least one entry required.
     themes: ThemeIdList,
     /// Sorted sector filter (empty = no sector constraint).
@@ -166,30 +159,24 @@ pub const InvestorIntent = struct {
     max_single_name_pct: u8,
     /// Explicitly requested tickers forwarded from ThesisInput unchanged.
     requested_tickers: [max_requested_tickers][max_ticker_len]u8,
-    requested_ticker_count: u8,
-};
+    requested_ticker_count: u8, };
 
 /// Asset classes always denied in V1.1 regardless of user preference.
 /// Commodity, FX, and crypto are outside the initial mandate.
-pub const denied_asset_classes = cls.assetClassList(.{
-    .commodity,
+pub const denied_asset_classes = cls.assetClassList(.{ .commodity,
     .fx,
-    .crypto,
-});
+    .crypto, });
 
 /// Instrument types always denied in V1.1 regardless of user preference.
 /// Bonds, options, futures, funds, and tokens are represented in the shared
 /// contract but remain outside the initial thesis mandate.
-pub const denied_instrument_types = cls.instrumentTypeList(.{
-    .bond,
+pub const denied_instrument_types = cls.instrumentTypeList(.{ .bond,
     .option,
     .future,
     .fund,
-    .token,
-});
+    .token, });
 
-pub const ThesisError = error{
-    EmptyUserText,
+pub const ThesisError = error{ EmptyUserText,
     UserTextTooLong,
     MissingTargetAmount,
     TargetAmountTooSmall,
@@ -197,12 +184,10 @@ pub const ThesisError = error{
     EmptyThemeFilter,
     NoEligibleAssetClass,
     NoEligibleInstrumentType,
-    MalformedClassification,
-};
+    MalformedClassification, };
 
 /// Stable error codes for ThesisDenialPayload, matching ThesisError variants.
-pub const ThesisErrorCode = enum(u8) {
-    empty_user_text = 0,
+pub const ThesisErrorCode = enum(u8) { empty_user_text = 0,
     user_text_too_long = 1,
     missing_target_amount = 2,
     target_amount_too_small = 3,
@@ -210,31 +195,25 @@ pub const ThesisErrorCode = enum(u8) {
     empty_theme_filter = 5,
     no_eligible_asset_class = 6,
     no_eligible_instrument_type = 7,
-    malformed_classification = 8,
-};
+    malformed_classification = 8, };
 
 /// Audit record payload for a successful thesis input normalization.
 /// Emitted by the thesis normalization tile when normalize() succeeds.
 /// thesis_input_hash is the computeThesisInputHash() result for this input.
-pub const ThesisNormalizationPayload = struct {
-    thesis_input_hash: u64,
+pub const ThesisNormalizationPayload = struct { thesis_input_hash: u64,
     account_id: u32,
     theme_count: u8,
-    target_amount_cents: i64,
-};
+    target_amount_cents: i64, };
 
 /// Audit record payload for a thesis input denial.
 /// Emitted by the thesis normalization tile when normalize() fails.
 /// thesis_input_hash is 0 when user_text_len is unsafe to hash (UserTextTooLong).
-pub const ThesisDenialPayload = struct {
-    thesis_input_hash: u64,
+pub const ThesisDenialPayload = struct { thesis_input_hash: u64,
     account_id: u32,
-    error_code: ThesisErrorCode,
-};
+    error_code: ThesisErrorCode, };
 
 /// Validate a ThesisInput and return a structured InvestorIntent.
-pub fn normalize(input: ThesisInput) ThesisError!InvestorIntent {
-    if (input.user_text_len == 0) return ThesisError.EmptyUserText;
+pub fn normalize(input: ThesisInput) ThesisError!InvestorIntent { if (input.user_text_len == 0) return ThesisError.EmptyUserText;
     if (@as(usize, input.user_text_len) > max_user_text_len) return ThesisError.UserTextTooLong;
     if (input.target_notional_cents <= 0) return ThesisError.MissingTargetAmount;
     if (input.target_notional_cents < min_target_notional_cents) return ThesisError.TargetAmountTooSmall;
@@ -315,10 +294,8 @@ pub fn computeThesisInputHash(input: ThesisInput) u64 {
     for (0..input.instrument_type_prefs.count) |i| c_abi.ballet.siphashAppend(&sip, instrument_type_prefs[i .. i + 1]);
 
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&sorted_themes.count));
-    for (0..sorted_themes.count) |i| {
-        const off = i * cls.max_canonical_id_len;
-        c_abi.ballet.siphashAppend(&sip, themes_flat[off .. off + cls.max_canonical_id_len]);
-    }
+    for (0..sorted_themes.count) |i| { const off = i * cls.max_canonical_id_len;
+        c_abi.ballet.siphashAppend(&sip, themes_flat[off .. off + cls.max_canonical_id_len]); }
     const risk_preference: u8 = @intFromEnum(input.risk_preference);
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&risk_preference));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&input.max_single_name_pct));
@@ -328,21 +305,15 @@ pub fn computeThesisInputHash(input: ThesisInput) u64 {
     for (0..input.instrument_type_exclusions.count) |i| c_abi.ballet.siphashAppend(&sip, instrument_type_exclusions[i .. i + 1]);
 
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&sorted_sectors.count));
-    for (0..sorted_sectors.count) |i| {
-        const off = i * classification_ref_stride;
-        c_abi.ballet.siphashAppend(&sip, sector_flat[off .. off + classification_ref_stride]);
-    }
+    for (0..sorted_sectors.count) |i| { const off = i * classification_ref_stride;
+        c_abi.ballet.siphashAppend(&sip, sector_flat[off .. off + classification_ref_stride]); }
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&sorted_industries.count));
-    for (0..sorted_industries.count) |i| {
-        const off = i * classification_ref_stride;
-        c_abi.ballet.siphashAppend(&sip, industry_flat[off .. off + classification_ref_stride]);
-    }
+    for (0..sorted_industries.count) |i| { const off = i * classification_ref_stride;
+        c_abi.ballet.siphashAppend(&sip, industry_flat[off .. off + classification_ref_stride]); }
 
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&input.requested_ticker_count));
-    for (0..input.requested_ticker_count) |i| {
-        const off = i * max_ticker_len;
-        c_abi.ballet.siphashAppend(&sip, tickers_flat[off .. off + max_ticker_len]);
-    }
+    for (0..input.requested_ticker_count) |i| { const off = i * max_ticker_len;
+        c_abi.ballet.siphashAppend(&sip, tickers_flat[off .. off + max_ticker_len]); }
 
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&input.user_text_len));
     c_abi.ballet.siphashAppend(&sip, input.user_text[0..input.user_text_len]);
@@ -355,68 +326,56 @@ pub fn computeThesisInputHash(input: ThesisInput) u64 {
 // ---------------------------------------------------------------------------
 
 /// Return a copy of a ThemeIdList sorted lexicographically by canonical id bytes.
-fn sortedThemes(list: ThemeIdList) ThemeIdList {
-    var out = list;
+fn sortedThemes(list: ThemeIdList) ThemeIdList { var out = list;
     var i: u8 = 1;
     while (i < out.count) : (i += 1) {
         const key = out.values[i];
         var j: u8 = i;
         while (j > 0 and canonicalIdGt(out.values[j - 1], key)) : (j -= 1) {
-            out.values[j] = out.values[j - 1];
-        }
+            out.values[j] = out.values[j - 1]; }
         out.values[j] = key;
     }
     return out;
 }
 
 /// Return a copy of a ClassificationRefList sorted by (taxonomy_id, taxonomy_version, code).
-fn sortedClassificationRefs(list: ClassificationRefList) ClassificationRefList {
-    var out = list;
+fn sortedClassificationRefs(list: ClassificationRefList) ClassificationRefList { var out = list;
     var i: u8 = 1;
     while (i < out.count) : (i += 1) {
         const key = out.values[i];
         var j: u8 = i;
         while (j > 0 and classificationRefGt(out.values[j - 1], key)) : (j -= 1) {
-            out.values[j] = out.values[j - 1];
-        }
+            out.values[j] = out.values[j - 1]; }
         out.values[j] = key;
     }
     return out;
 }
 
-fn canonicalIdGt(a: CanonicalId, b: CanonicalId) bool {
-    return std.mem.order(u8, a.slice(), b.slice()) == .gt;
-}
+fn canonicalIdGt(a: CanonicalId, b: CanonicalId) bool { return std.mem.order(u8, a.slice(), b.slice()) == .gt; }
 
-fn classificationRefGt(a: ClassificationRef, b: ClassificationRef) bool {
-    const tid = std.mem.order(u8, a.taxonomy_id.slice(), b.taxonomy_id.slice());
+fn classificationRefGt(a: ClassificationRef, b: ClassificationRef) bool { const tid = std.mem.order(u8, a.taxonomy_id.slice(), b.taxonomy_id.slice());
     if (tid != .eq) return tid == .gt;
     if (a.taxonomy_version != b.taxonomy_version) return a.taxonomy_version > b.taxonomy_version;
-    return std.mem.order(u8, a.code.slice(), b.code.slice()) == .gt;
-}
+    return std.mem.order(u8, a.code.slice(), b.code.slice()) == .gt; }
 
 // ---------------------------------------------------------------------------
 // Flat-buffer packers for the C hash function
 // ---------------------------------------------------------------------------
 
-fn packThemes(list: ThemeIdList) [cls.max_theme_ids * cls.max_canonical_id_len]u8 {
-    var buf = std.mem.zeroes([cls.max_theme_ids * cls.max_canonical_id_len]u8);
+fn packThemes(list: ThemeIdList) [cls.max_theme_ids * cls.max_canonical_id_len]u8 { var buf = std.mem.zeroes([cls.max_theme_ids * cls.max_canonical_id_len]u8);
     for (list.values[0..list.count], 0..) |theme_id, i| {
-        @memcpy(buf[i * cls.max_canonical_id_len ..][0..theme_id.len], theme_id.bytes[0..theme_id.len]);
-    }
+        @memcpy(buf[i * cls.max_canonical_id_len ..][0..theme_id.len], theme_id.bytes[0..theme_id.len]); }
     return buf;
 }
 
-fn packClassificationRefs(list: ClassificationRefList) [cls.max_classification_refs * classification_ref_stride]u8 {
-    var buf = std.mem.zeroes([cls.max_classification_refs * classification_ref_stride]u8);
+fn packClassificationRefs(list: ClassificationRefList) [cls.max_classification_refs * classification_ref_stride]u8 { var buf = std.mem.zeroes([cls.max_classification_refs * classification_ref_stride]u8);
     for (list.values[0..list.count], 0..) |ref, i| {
         const base = i * classification_ref_stride;
         @memcpy(buf[base..][0..ref.taxonomy_id.len], ref.taxonomy_id.bytes[0..ref.taxonomy_id.len]);
         const ver: u16 = ref.taxonomy_version;
         buf[base + cls.max_canonical_id_len] = @truncate(ver);
         buf[base + cls.max_canonical_id_len + 1] = @truncate(ver >> 8);
-        @memcpy(buf[base + cls.max_canonical_id_len + 2 ..][0..ref.code.len], ref.code.bytes[0..ref.code.len]);
-    }
+        @memcpy(buf[base + cls.max_canonical_id_len + 2 ..][0..ref.code.len], ref.code.bytes[0..ref.code.len]); }
     return buf;
 }
 
@@ -424,8 +383,7 @@ fn packClassificationRefs(list: ClassificationRefList) [cls.max_classification_r
 // Private normalization helpers
 // ---------------------------------------------------------------------------
 
-fn validateInputClassifications(input: ThesisInput) !void {
-    try input.asset_class_prefs.validate();
+fn validateInputClassifications(input: ThesisInput) !void { try input.asset_class_prefs.validate();
     try input.instrument_type_prefs.validate();
     try input.asset_class_exclusions.validate();
     try input.instrument_type_exclusions.validate();
@@ -435,29 +393,21 @@ fn validateInputClassifications(input: ThesisInput) !void {
     try validateKnownThemes(input.themes);
     try validateKnownSectorFilters(input.sector_filters);
     try validateKnownIndustryFilters(input.industry_filters);
-    try validateRequestedTickers(input);
+    try validateRequestedTickers(input); }
+
+fn validateKnownThemes(themes: ThemeIdList) !void { for (themes.values[0..themes.count]) |theme_id| {
+        if (!isKnownThemeId(theme_id)) return error.UnknownThemeId; }
 }
 
-fn validateKnownThemes(themes: ThemeIdList) !void {
-    for (themes.values[0..themes.count]) |theme_id| {
-        if (!isKnownThemeId(theme_id)) return error.UnknownThemeId;
-    }
+fn validateKnownSectorFilters(sectors: ClassificationRefList) !void { for (sectors.values[0..sectors.count]) |sector| {
+        if (!isKnownSectorRef(sector)) return error.UnknownSectorFilter; }
 }
 
-fn validateKnownSectorFilters(sectors: ClassificationRefList) !void {
-    for (sectors.values[0..sectors.count]) |sector| {
-        if (!isKnownSectorRef(sector)) return error.UnknownSectorFilter;
-    }
+fn validateKnownIndustryFilters(industries: ClassificationRefList) !void { for (industries.values[0..industries.count]) |industry| {
+        if (!isKnownIndustryRef(industry)) return error.UnknownIndustryFilter; }
 }
 
-fn validateKnownIndustryFilters(industries: ClassificationRefList) !void {
-    for (industries.values[0..industries.count]) |industry| {
-        if (!isKnownIndustryRef(industry)) return error.UnknownIndustryFilter;
-    }
-}
-
-fn validateRequestedTickers(input: ThesisInput) !void {
-    if (input.requested_ticker_count > max_requested_tickers) return error.TooManyRequestedTickers;
+fn validateRequestedTickers(input: ThesisInput) !void { if (input.requested_ticker_count > max_requested_tickers) return error.TooManyRequestedTickers;
 
     var i: usize = 0;
     while (i < input.requested_ticker_count) : (i += 1) {
@@ -468,79 +418,57 @@ fn validateRequestedTickers(input: ThesisInput) !void {
         var j: usize = 0;
         while (j < i) : (j += 1) {
             const prior = std.mem.sliceTo(&input.requested_tickers[j], 0);
-            if (std.mem.eql(u8, ticker, prior)) return error.DuplicateRequestedTicker;
-        }
+            if (std.mem.eql(u8, ticker, prior)) return error.DuplicateRequestedTicker; }
     }
 }
 
-fn isKnownThemeId(theme_id: CanonicalId) bool {
-    return cls.hasCanonicalId(&known_theme_ids, theme_id);
-}
+fn isKnownThemeId(theme_id: CanonicalId) bool { return cls.hasCanonicalId(&known_theme_ids, theme_id); }
 
-fn isKnownSectorRef(ref: ClassificationRef) bool {
-    if (!ref.taxonomy_id.eql(sector_taxonomy_id)) return false;
+fn isKnownSectorRef(ref: ClassificationRef) bool { if (!ref.taxonomy_id.eql(sector_taxonomy_id)) return false;
     if (ref.taxonomy_version != sector_taxonomy_version) return false;
-    return cls.hasCanonicalId(&known_sector_codes, ref.code);
-}
+    return cls.hasCanonicalId(&known_sector_codes, ref.code); }
 
-fn isKnownIndustryRef(ref: ClassificationRef) bool {
-    if (!ref.taxonomy_id.eql(industry_taxonomy_id)) return false;
+fn isKnownIndustryRef(ref: ClassificationRef) bool { if (!ref.taxonomy_id.eql(industry_taxonomy_id)) return false;
     if (ref.taxonomy_version != industry_taxonomy_version) return false;
-    return cls.hasCanonicalId(&known_industry_codes, ref.code);
-}
+    return cls.hasCanonicalId(&known_industry_codes, ref.code); }
 
-fn isKnownTicker(ticker: []const u8) bool {
-    for (known_tickers) |known| {
-        if (std.mem.eql(u8, known, ticker)) return true;
-    }
+fn isKnownTicker(ticker: []const u8) bool { for (known_tickers) |known| {
+        if (std.mem.eql(u8, known, ticker)) return true; }
     return false;
 }
 
 fn buildAllowedAssetClasses(input: ThesisInput) !AssetClassList {
     var allowed = AssetClassList{};
-    for (input.asset_class_prefs.values[0..input.asset_class_prefs.count]) |asset_class| {
-        if (denied_asset_classes.has(asset_class)) continue;
+    for (input.asset_class_prefs.values[0..input.asset_class_prefs.count]) |asset_class| { if (denied_asset_classes.has(asset_class)) continue;
         if (input.asset_class_exclusions.has(asset_class)) continue;
-        try allowed.append(asset_class);
-    }
+        try allowed.append(asset_class); }
     return allowed;
 }
 
 fn buildExcludedAssetClasses(input: ThesisInput) !AssetClassList {
     var excluded = AssetClassList{};
-    for (denied_asset_classes.values[0..denied_asset_classes.count]) |asset_class| {
-        try excluded.append(asset_class);
-    }
-    for (input.asset_class_exclusions.values[0..input.asset_class_exclusions.count]) |asset_class| {
-        if (!excluded.has(asset_class)) try excluded.append(asset_class);
-    }
+    for (denied_asset_classes.values[0..denied_asset_classes.count]) |asset_class| { try excluded.append(asset_class); }
+    for (input.asset_class_exclusions.values[0..input.asset_class_exclusions.count]) |asset_class| { if (!excluded.has(asset_class)) try excluded.append(asset_class); }
     return excluded;
 }
 
 fn buildAllowedInstrumentTypes(input: ThesisInput) !InstrumentTypeList {
     var allowed = InstrumentTypeList{};
-    for (input.instrument_type_prefs.values[0..input.instrument_type_prefs.count]) |instrument_type| {
-        if (denied_instrument_types.has(instrument_type)) continue;
+    for (input.instrument_type_prefs.values[0..input.instrument_type_prefs.count]) |instrument_type| { if (denied_instrument_types.has(instrument_type)) continue;
         if (input.instrument_type_exclusions.has(instrument_type)) continue;
-        try allowed.append(instrument_type);
-    }
+        try allowed.append(instrument_type); }
     return allowed;
 }
 
 fn buildExcludedInstrumentTypes(input: ThesisInput) !InstrumentTypeList {
     var excluded = InstrumentTypeList{};
-    for (denied_instrument_types.values[0..denied_instrument_types.count]) |instrument_type| {
-        try excluded.append(instrument_type);
-    }
-    for (input.instrument_type_exclusions.values[0..input.instrument_type_exclusions.count]) |instrument_type| {
-        if (!excluded.has(instrument_type)) try excluded.append(instrument_type);
-    }
+    for (denied_instrument_types.values[0..denied_instrument_types.count]) |instrument_type| { try excluded.append(instrument_type); }
+    for (input.instrument_type_exclusions.values[0..input.instrument_type_exclusions.count]) |instrument_type| { if (!excluded.has(instrument_type)) try excluded.append(instrument_type); }
     return excluded;
 }
 
-fn textBuf(comptime s: []const u8) [max_user_text_len]u8 {
-    if (s.len > max_user_text_len) @compileError("user text exceeds max_user_text_len");
-    var buf = [_]u8{0} ** max_user_text_len;
+fn textBuf(comptime s: []const u8) [max_user_text_len]u8 { if (s.len > max_user_text_len) @compileError("user text exceeds max_user_text_len");
+    var buf = std.mem.zeroes([max_user_text_len]u8);
     for (s, 0..) |byte, i| buf[i] = byte;
     return buf;
 }
@@ -635,8 +563,7 @@ pub const fixtures = struct {
 
     const cash_text =
         "I want USD 10,000 in cash-like US ETFs such as Treasury money market or short-duration bond ETFs.";
-    pub const cash_preservation = ThesisInput{
-        .user_text = textBuf(cash_text),
+    pub const cash_preservation = ThesisInput{ .user_text = textBuf(cash_text),
         .user_text_len = @intCast(cash_text.len),
         .target_notional_cents = 1_000_000,
         .account_id = 1001,
@@ -656,8 +583,7 @@ pub const fixtures = struct {
     /// Proves that ThemeIdList can carry multiple themes for a combined mandate.
     const ai_semi_text =
         "I want USD 2,000 split across AI infrastructure and semiconductor leaders and ETFs.";
-    pub const ai_and_semiconductors = ThesisInput{
-        .user_text = textBuf(ai_semi_text),
+    pub const ai_and_semiconductors = ThesisInput{ .user_text = textBuf(ai_semi_text),
         .user_text_len = @intCast(ai_semi_text.len),
         .target_notional_cents = 200_000,
         .account_id = 1001,
@@ -801,12 +727,9 @@ pub const fixtures = struct {
 // Tests
 // ---------------------------------------------------------------------------
 
-test "schema version matches codec constant" {
-    try std.testing.expectEqual(@as(u16, 3), thesis_schema_version);
-}
+test "schema version matches codec constant" { try std.testing.expectEqual(@as(u16, 3), thesis_schema_version); }
 
-test "thesis proto message contract stays aligned with zig definitions" {
-    const thesis_proto = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, thesis_proto_path, std.testing.allocator, .limited(32 * 1024));
+test "thesis proto message contract stays aligned with zig definitions" { const thesis_proto = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, thesis_proto_path, std.testing.allocator, .limited(32 * 1024));
     defer std.testing.allocator.free(thesis_proto);
 
     const required_lines = [_][]const u8{
@@ -817,15 +740,11 @@ test "thesis proto message contract stays aligned with zig definitions" {
         "ThemeIdList        themes                       = 2;",
         "ClassificationRefList sectors                  = 3;",
         "ClassificationRefList industries               = 4;",
-        "uint32      theme_count         = 3;",
-    };
-    for (required_lines) |line| {
-        try std.testing.expect(std.mem.indexOf(u8, thesis_proto, line) != null);
-    }
+        "uint32      theme_count         = 3;", };
+    for (required_lines) |line| { try std.testing.expect(std.mem.indexOf(u8, thesis_proto, line) != null); }
 }
 
-test "normalize: ai_infrastructure fixture produces valid intent" {
-    const intent = try normalize(fixtures.ai_infrastructure);
+test "normalize: ai_infrastructure fixture produces valid intent" { const intent = try normalize(fixtures.ai_infrastructure);
     try std.testing.expectEqual(@as(u32, 1001), intent.account_id);
     try std.testing.expect(intent.themes.has(CanonicalId.init("ai_infrastructure") catch unreachable));
     try std.testing.expectEqual(@as(u8, 1), intent.themes.count);
@@ -841,46 +760,34 @@ test "normalize: ai_infrastructure fixture produces valid intent" {
     try std.testing.expectEqual(RiskPreference.moderate, intent.risk_preference);
     try std.testing.expectEqual(@as(u8, 30), intent.max_single_name_pct);
     try std.testing.expectEqual(@as(u8, 0), intent.sectors.count);
-    try std.testing.expectEqual(@as(u8, 0), intent.industries.count);
-}
+    try std.testing.expectEqual(@as(u8, 0), intent.industries.count); }
 
-test "normalize: account_id is preserved in InvestorIntent" {
-    var input = fixtures.ai_infrastructure;
+test "normalize: account_id is preserved in InvestorIntent" { var input = fixtures.ai_infrastructure;
     input.account_id = 42;
     const intent = try normalize(input);
-    try std.testing.expectEqual(@as(u32, 42), intent.account_id);
-}
+    try std.testing.expectEqual(@as(u32, 42), intent.account_id); }
 
-test "normalize: all five fixtures produce valid intent" {
-    for ([_]ThesisInput{
+test "normalize: all five fixtures produce valid intent" { for ([_]ThesisInput{
         fixtures.ai_infrastructure,
         fixtures.us_dividends,
         fixtures.cyber_security,
         fixtures.broad_market,
-        fixtures.cash_preservation,
-    }) |fixture| {
-        _ = try normalize(fixture);
-    }
+        fixtures.cash_preservation, }) |fixture| { _ = try normalize(fixture); }
 }
 
-test "normalize: always-denied classes excluded from allowed_asset_classes" {
-    const intent = try normalize(fixtures.ai_infrastructure);
+test "normalize: always-denied classes excluded from allowed_asset_classes" { const intent = try normalize(fixtures.ai_infrastructure);
     try std.testing.expect(!intent.allowed_asset_classes.has(.commodity));
     try std.testing.expect(!intent.allowed_asset_classes.has(.fx));
-    try std.testing.expect(!intent.allowed_asset_classes.has(.crypto));
-}
+    try std.testing.expect(!intent.allowed_asset_classes.has(.crypto)); }
 
-test "normalize: always-denied instrument types excluded from allowed_instrument_types" {
-    const intent = try normalize(fixtures.ai_infrastructure);
+test "normalize: always-denied instrument types excluded from allowed_instrument_types" { const intent = try normalize(fixtures.ai_infrastructure);
     try std.testing.expect(!intent.allowed_instrument_types.has(.bond));
     try std.testing.expect(!intent.allowed_instrument_types.has(.option));
     try std.testing.expect(!intent.allowed_instrument_types.has(.future));
     try std.testing.expect(!intent.allowed_instrument_types.has(.fund));
-    try std.testing.expect(!intent.allowed_instrument_types.has(.token));
-}
+    try std.testing.expect(!intent.allowed_instrument_types.has(.token)); }
 
-test "normalize: always-denied lists present in excluded lists" {
-    const intent = try normalize(fixtures.ai_infrastructure);
+test "normalize: always-denied lists present in excluded lists" { const intent = try normalize(fixtures.ai_infrastructure);
     try std.testing.expect(intent.excluded_asset_classes.has(.commodity));
     try std.testing.expect(intent.excluded_asset_classes.has(.fx));
     try std.testing.expect(intent.excluded_asset_classes.has(.crypto));
@@ -888,11 +795,9 @@ test "normalize: always-denied lists present in excluded lists" {
     try std.testing.expect(intent.excluded_instrument_types.has(.option));
     try std.testing.expect(intent.excluded_instrument_types.has(.future));
     try std.testing.expect(intent.excluded_instrument_types.has(.fund));
-    try std.testing.expect(intent.excluded_instrument_types.has(.token));
-}
+    try std.testing.expect(intent.excluded_instrument_types.has(.token)); }
 
-test "normalize: denied values removed from allowed lists even when user requests them" {
-    var input = fixtures.ai_infrastructure;
+test "normalize: denied values removed from allowed lists even when user requests them" { var input = fixtures.ai_infrastructure;
     input.asset_class_prefs = cls.assetClassList(.{ .equity, .commodity, .crypto });
     input.instrument_type_prefs = cls.instrumentTypeList(.{ .stock, .etf, .option, .future });
     const intent = try normalize(input);
@@ -905,8 +810,7 @@ test "normalize: denied values removed from allowed lists even when user request
     try std.testing.expect(!intent.allowed_instrument_types.has(.future));
 }
 
-test "normalize: explicit exclusions remove otherwise-allowed values and remain in excluded lists" {
-    var input = fixtures.cash_preservation;
+test "normalize: explicit exclusions remove otherwise-allowed values and remain in excluded lists" { var input = fixtures.cash_preservation;
     input.asset_class_exclusions = cls.assetClassList(.{ .commodity, .fx, .crypto, .fixed_income });
     const intent = try normalize(input);
     try std.testing.expect(intent.allowed_asset_classes.has(.cash));
@@ -921,41 +825,29 @@ test "normalize: explicit exclusions remove otherwise-allowed values and remain 
     try std.testing.expect(ai_intent.excluded_instrument_types.has(.stock));
 }
 
-test "normalize: empty user text returns EmptyUserText" {
-    var input = fixtures.ai_infrastructure;
+test "normalize: empty user text returns EmptyUserText" { var input = fixtures.ai_infrastructure;
     input.user_text_len = 0;
-    try std.testing.expectError(ThesisError.EmptyUserText, normalize(input));
-}
+    try std.testing.expectError(ThesisError.EmptyUserText, normalize(input)); }
 
-test "normalize: user_text_len exceeding max returns UserTextTooLong" {
-    var input = fixtures.ai_infrastructure;
+test "normalize: user_text_len exceeding max returns UserTextTooLong" { var input = fixtures.ai_infrastructure;
     input.user_text_len = @intCast(max_user_text_len + 1);
-    try std.testing.expectError(ThesisError.UserTextTooLong, normalize(input));
-}
+    try std.testing.expectError(ThesisError.UserTextTooLong, normalize(input)); }
 
-test "normalize: zero target notional returns MissingTargetAmount" {
-    var input = fixtures.ai_infrastructure;
+test "normalize: zero target notional returns MissingTargetAmount" { var input = fixtures.ai_infrastructure;
     input.target_notional_cents = 0;
-    try std.testing.expectError(ThesisError.MissingTargetAmount, normalize(input));
-}
+    try std.testing.expectError(ThesisError.MissingTargetAmount, normalize(input)); }
 
-test "normalize: negative target notional returns MissingTargetAmount" {
-    var input = fixtures.ai_infrastructure;
+test "normalize: negative target notional returns MissingTargetAmount" { var input = fixtures.ai_infrastructure;
     input.target_notional_cents = -1;
-    try std.testing.expectError(ThesisError.MissingTargetAmount, normalize(input));
-}
+    try std.testing.expectError(ThesisError.MissingTargetAmount, normalize(input)); }
 
-test "normalize: notional below minimum returns TargetAmountTooSmall" {
-    var input = fixtures.ai_infrastructure;
+test "normalize: notional below minimum returns TargetAmountTooSmall" { var input = fixtures.ai_infrastructure;
     input.target_notional_cents = 50;
-    try std.testing.expectError(ThesisError.TargetAmountTooSmall, normalize(input));
-}
+    try std.testing.expectError(ThesisError.TargetAmountTooSmall, normalize(input)); }
 
-test "normalize: notional above maximum returns TargetAmountTooLarge" {
-    var input = fixtures.ai_infrastructure;
+test "normalize: notional above maximum returns TargetAmountTooLarge" { var input = fixtures.ai_infrastructure;
     input.target_notional_cents = max_target_notional_cents + 1;
-    try std.testing.expectError(ThesisError.TargetAmountTooLarge, normalize(input));
-}
+    try std.testing.expectError(ThesisError.TargetAmountTooLarge, normalize(input)); }
 
 test "normalize: empty themes list returns EmptyThemeFilter" {
     var input = fixtures.ai_infrastructure;
@@ -963,25 +855,21 @@ test "normalize: empty themes list returns EmptyThemeFilter" {
     try std.testing.expectError(ThesisError.EmptyThemeFilter, normalize(input));
 }
 
-test "normalize: denied-only asset classes return NoEligibleAssetClass" {
-    var input = fixtures.ai_infrastructure;
+test "normalize: denied-only asset classes return NoEligibleAssetClass" { var input = fixtures.ai_infrastructure;
     input.asset_class_prefs = cls.assetClassList(.{ .commodity, .crypto });
     try std.testing.expectError(ThesisError.NoEligibleAssetClass, normalize(input));
 }
 
-test "normalize: denied-only instrument types return NoEligibleInstrumentType" {
-    var input = fixtures.ai_infrastructure;
+test "normalize: denied-only instrument types return NoEligibleInstrumentType" { var input = fixtures.ai_infrastructure;
     input.instrument_type_prefs = cls.instrumentTypeList(.{ .option, .future });
     try std.testing.expectError(ThesisError.NoEligibleInstrumentType, normalize(input));
 }
 
-test "normalize: duplicate classifications fail closed" {
-    var input = fixtures.ai_infrastructure;
+test "normalize: duplicate classifications fail closed" { var input = fixtures.ai_infrastructure;
     input.asset_class_prefs.count = 2;
     input.asset_class_prefs.values[0] = .equity;
     input.asset_class_prefs.values[1] = .equity;
-    try std.testing.expectError(ThesisError.MalformedClassification, normalize(input));
-}
+    try std.testing.expectError(ThesisError.MalformedClassification, normalize(input)); }
 
 test "normalize: malformed theme id fails closed" {
     var input = fixtures.ai_infrastructure;
@@ -1061,54 +949,42 @@ test "normalize: industry filter with wrong taxonomy id fails closed" {
     try std.testing.expectError(ThesisError.MalformedClassification, normalize(input));
 }
 
-test "normalize: too many requested tickers fails closed" {
-    var input = fixtures.ai_infrastructure;
+test "normalize: too many requested tickers fails closed" { var input = fixtures.ai_infrastructure;
     input.requested_ticker_count = max_requested_tickers + 1;
-    try std.testing.expectError(ThesisError.MalformedClassification, normalize(input));
-}
+    try std.testing.expectError(ThesisError.MalformedClassification, normalize(input)); }
 
-test "normalize: duplicate requested tickers fail closed" {
-    var input = fixtures.ai_infrastructure;
+test "normalize: duplicate requested tickers fail closed" { var input = fixtures.ai_infrastructure;
     input.requested_ticker_count = 2;
     @memset(&input.requested_tickers[0], 0);
     @memset(&input.requested_tickers[1], 0);
     @memcpy(input.requested_tickers[0][0..4], "SOXL");
     @memcpy(input.requested_tickers[1][0..4], "SOXL");
-    try std.testing.expectError(ThesisError.MalformedClassification, normalize(input));
-}
+    try std.testing.expectError(ThesisError.MalformedClassification, normalize(input)); }
 
-test "normalize: unknown requested ticker fails closed" {
-    var input = fixtures.ai_infrastructure;
+test "normalize: unknown requested ticker fails closed" { var input = fixtures.ai_infrastructure;
     input.requested_ticker_count = 1;
     @memset(&input.requested_tickers[0], 0);
     @memcpy(input.requested_tickers[0][0..4], "ZZZZ");
-    try std.testing.expectError(ThesisError.MalformedClassification, normalize(input));
-}
+    try std.testing.expectError(ThesisError.MalformedClassification, normalize(input)); }
 
-test "normalize: cash_preservation fixture keeps fixed income and cash exposure" {
-    const intent = try normalize(fixtures.cash_preservation);
+test "normalize: cash_preservation fixture keeps fixed income and cash exposure" { const intent = try normalize(fixtures.cash_preservation);
     try std.testing.expect(intent.allowed_asset_classes.has(.cash));
     try std.testing.expect(intent.allowed_asset_classes.has(.fixed_income));
     try std.testing.expect(intent.allowed_instrument_types.has(.etf));
     try std.testing.expect(intent.themes.has(CanonicalId.init("cash_like") catch unreachable));
-    try std.testing.expectEqual(RiskPreference.low, intent.risk_preference);
-}
+    try std.testing.expectEqual(RiskPreference.low, intent.risk_preference); }
 
-test "normalize: multi-theme fixture produces correct theme list" {
-    const intent = try normalize(fixtures.ai_and_semiconductors);
+test "normalize: multi-theme fixture produces correct theme list" { const intent = try normalize(fixtures.ai_and_semiconductors);
     try std.testing.expectEqual(@as(u8, 2), intent.themes.count);
     try std.testing.expect(intent.themes.has(CanonicalId.init("ai_infrastructure") catch unreachable));
-    try std.testing.expect(intent.themes.has(CanonicalId.init("semiconductors") catch unreachable));
-}
+    try std.testing.expect(intent.themes.has(CanonicalId.init("semiconductors") catch unreachable)); }
 
-test "normalize: sector-filtered fixture carries sector ref through to intent" {
-    const intent = try normalize(fixtures.ai_infrastructure_it_sector);
+test "normalize: sector-filtered fixture carries sector ref through to intent" { const intent = try normalize(fixtures.ai_infrastructure_it_sector);
     try std.testing.expectEqual(@as(u8, 1), intent.sectors.count);
     try std.testing.expect(intent.sectors.has(
         cls.ClassificationRef.init("gics_sector", 2025, "information_technology") catch unreachable,
     ));
-    try std.testing.expectEqual(@as(u8, 0), intent.industries.count);
-}
+    try std.testing.expectEqual(@as(u8, 0), intent.industries.count); }
 
 test "normalize: themes sorted into canonical order" {
     // Provide themes in reverse alphabetical order; normalize must sort them.
@@ -1136,32 +1012,24 @@ test "normalize: sector filters sorted into canonical order" {
     try std.testing.expectEqualStrings("information_technology", intent.sectors.values[1].code.slice());
 }
 
-test "fixtures: text() length matches user_text_len" {
-    for ([_]ThesisInput{
+test "fixtures: text() length matches user_text_len" { for ([_]ThesisInput{
         fixtures.ai_infrastructure,
         fixtures.us_dividends,
         fixtures.cyber_security,
         fixtures.broad_market,
-        fixtures.cash_preservation,
-    }) |fixture| {
-        try std.testing.expectEqual(@as(usize, fixture.user_text_len), fixture.text().len);
-    }
+        fixtures.cash_preservation, }) |fixture| { try std.testing.expectEqual(@as(usize, fixture.user_text_len), fixture.text().len); }
 }
 
-test "computeThesisInputHash: same input produces same hash" {
-    const h1 = computeThesisInputHash(fixtures.ai_infrastructure);
+test "computeThesisInputHash: same input produces same hash" { const h1 = computeThesisInputHash(fixtures.ai_infrastructure);
     const h2 = computeThesisInputHash(fixtures.ai_infrastructure);
     try std.testing.expectEqual(h1, h2);
-    try std.testing.expect(h1 != 0);
-}
+    try std.testing.expect(h1 != 0); }
 
-test "computeThesisInputHash: different account_id produces different hash" {
-    var other = fixtures.ai_infrastructure;
+test "computeThesisInputHash: different account_id produces different hash" { var other = fixtures.ai_infrastructure;
     other.account_id = 9999;
     try std.testing.expect(
         computeThesisInputHash(fixtures.ai_infrastructure) != computeThesisInputHash(other),
-    );
-}
+    ); }
 
 test "computeThesisInputHash: different themes produce different hashes" {
     var other = fixtures.ai_infrastructure;
@@ -1180,8 +1048,7 @@ test "computeThesisInputHash: different instrument type prefs produce different 
     );
 }
 
-test "computeThesisInputHash: theme ordering does not affect hash" {
-    var unordered = fixtures.ai_and_semiconductors;
+test "computeThesisInputHash: theme ordering does not affect hash" { var unordered = fixtures.ai_and_semiconductors;
     // Swap the two themes so they arrive in reverse order.
     const first = unordered.themes.values[0];
     unordered.themes.values[0] = unordered.themes.values[1];
@@ -1190,8 +1057,7 @@ test "computeThesisInputHash: theme ordering does not affect hash" {
     try std.testing.expectEqual(
         computeThesisInputHash(fixtures.ai_and_semiconductors),
         computeThesisInputHash(unordered),
-    );
-}
+    ); }
 
 test "computeThesisInputHash: sector filter ordering does not affect hash" {
     // Provide sector filters in reverse alphabetical order; normalize must sort them
@@ -1216,76 +1082,58 @@ test "computeThesisInputHash: sector filter ordering does not affect hash" {
     );
 }
 
-test "computeThesisInputHash: sector filter changes hash" {
-    const h_no_sector = computeThesisInputHash(fixtures.ai_infrastructure);
+test "computeThesisInputHash: sector filter changes hash" { const h_no_sector = computeThesisInputHash(fixtures.ai_infrastructure);
     const h_with_sector = computeThesisInputHash(fixtures.ai_infrastructure_it_sector);
-    try std.testing.expect(h_no_sector != h_with_sector);
-}
+    try std.testing.expect(h_no_sector != h_with_sector); }
 
-test "computeThesisInputHash: all five fixtures produce distinct hashes" {
-    const all = [_]ThesisInput{
+test "computeThesisInputHash: all five fixtures produce distinct hashes" { const all = [_]ThesisInput{
         fixtures.ai_infrastructure,
         fixtures.us_dividends,
         fixtures.cyber_security,
         fixtures.broad_market,
-        fixtures.cash_preservation,
-    };
-    for (all, 0..) |a, i| {
-        for (all, 0..) |b, j| {
+        fixtures.cash_preservation, };
+    for (all, 0..) |a, i| { for (all, 0..) |b, j| {
             if (i != j) {
-                try std.testing.expect(computeThesisInputHash(a) != computeThesisInputHash(b));
-            }
+                try std.testing.expect(computeThesisInputHash(a) != computeThesisInputHash(b)); }
         }
     }
 }
 
-test "computeThesisInputHash: unsafe user_text_len returns 0" {
-    var input = fixtures.ai_infrastructure;
+test "computeThesisInputHash: unsafe user_text_len returns 0" { var input = fixtures.ai_infrastructure;
     input.user_text_len = @intCast(max_user_text_len + 1);
-    try std.testing.expectEqual(@as(u64, 0), computeThesisInputHash(input));
-}
+    try std.testing.expectEqual(@as(u64, 0), computeThesisInputHash(input)); }
 
 // ---------------------------------------------------------------------------
 // T6: Denied classification fixtures — expressed but not automatically permitted
 // ---------------------------------------------------------------------------
 
-test "T6: chemicals commodity thesis is denied at normalize (commodity denied)" {
-    try std.testing.expectError(
+test "T6: chemicals commodity thesis is denied at normalize (commodity denied)" { try std.testing.expectError(
         ThesisError.NoEligibleAssetClass,
         normalize(fixtures.chemicals_commodity),
-    );
-}
+    ); }
 
-test "T6: gold commodity thesis is denied at normalize (commodity denied)" {
-    try std.testing.expectError(
+test "T6: gold commodity thesis is denied at normalize (commodity denied)" { try std.testing.expectError(
         ThesisError.NoEligibleAssetClass,
         normalize(fixtures.gold_commodity),
-    );
-}
+    ); }
 
-test "T6: solana crypto thesis is denied at normalize (crypto denied)" {
-    try std.testing.expectError(
+test "T6: solana crypto thesis is denied at normalize (crypto denied)" { try std.testing.expectError(
         ThesisError.NoEligibleAssetClass,
         normalize(fixtures.solana_crypto),
-    );
-}
+    ); }
 
-test "T6: memecoins crypto thesis is denied at normalize (crypto denied)" {
-    try std.testing.expectError(
+test "T6: memecoins crypto thesis is denied at normalize (crypto denied)" { try std.testing.expectError(
         ThesisError.NoEligibleAssetClass,
         normalize(fixtures.memecoins_crypto),
-    );
-}
+    ); }
 
-test "T6: denied classification fixtures can express sector/industry refs without compile error" {
-    // Classification data is well-formed even though policy denies trading authority.
+test "T6: denied classification fixtures can express sector/industry refs without compile error" { // Classification data is well-formed even though policy denies trading authority.
     try std.testing.expect(fixtures.chemicals_commodity.sector_filters.count == 1);
     try std.testing.expect(fixtures.chemicals_commodity.industry_filters.count == 1);
     try std.testing.expect(fixtures.gold_commodity.sector_filters.count == 1);
     try std.testing.expect(fixtures.gold_commodity.industry_filters.count == 1);
     try std.testing.expect(fixtures.solana_crypto.sector_filters.count == 0);
-    try std.testing.expect(fixtures.memecoins_crypto.themes.count == 1);
-}
+    try std.testing.expect(fixtures.memecoins_crypto.themes.count == 1); }
 
 test "T6: classification can be expressed independently from trading authority" {
     // A classification that maps to commodity or crypto is representable in the
