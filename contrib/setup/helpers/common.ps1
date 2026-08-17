@@ -30,7 +30,7 @@ function tool-exists {
 # Universal tools (single version everywhere):
 #   read-tool-version "just"      -> "1.58.0"
 #   read-tool-version "gitleaks"  -> "8.30.1"
-#   read-tool-version "zig"       -> "0.17.0-dev.1770+5d7cf3f34"
+#   read-tool-version "zig"       -> "0.16.0"
 #   read-tool-version "openssl"   -> "3.6.2"
 #
 # Usage: read-tool-version "just"
@@ -154,11 +154,11 @@ function read-zig-version {
 # Returns: windows-x86 or windows-arm
 
 function get-windows-platform-key {
-    $scriptPath = Join-Path $script:SCRIPT_DIR "detect-windows-arch.sh"
-    if (Test-Path $scriptPath) {
-        $arch = bash $scriptPath 2>$null
+    $platformDir = Join-Path $script:SCRIPT_DIR "..\\..\\platform.sh"
+    if (Test-Path $platformDir) {
+        $arch = bash $platformDir arch 2>$null
         if ($LASTEXITCODE -eq 0 -and $arch) {
-            if ($arch -eq "aarch64" -or $arch -eq "arm64") {
+            if ($arch -eq "arm") {
                 return "windows-arm"
             }
             return "windows-x86"
@@ -171,7 +171,8 @@ function get-windows-platform-key {
 }
 
 function get-windows-arch {
-    $arch = bash (Join-Path $script:SCRIPT_DIR "detect-windows-arch.sh") 2>$null
+    $platformDir = Join-Path $script:SCRIPT_DIR "..\\..\\platform.sh"
+    $arch = bash $platformDir arch 2>$null
     if ($LASTEXITCODE -eq 0) { return $arch }
     return "x86_64"
 }
@@ -217,15 +218,26 @@ function ensure-zig {
         $zigInstallDir = Join-Path $installRoot ("zig-{0}-{1}" -f $Target, $zigVersion)
     }
 
-    # Remove any previously installed zig version before installing the new one
-    if ($zigInstallDir -and (Test-Path $zigInstallDir)) {
-        Remove-Item -Recurse -Force $zigInstallDir
+    $zigBin = $null
+    if ($zigInstallDir) {
+        $candidate = Join-Path $zigInstallDir 'zig.exe'
+        if (Test-Path $candidate) {
+            $zigBin = $candidate
+        }
     }
 
-    $zigBin = $null
-    $legacyCandidate = Join-Path $env:LOCALAPPDATA 'Programs\Zig\zig.exe'
-    if (Test-Path $legacyCandidate) {
-        Remove-Item -Recurse -Force (Split-Path $legacyCandidate)
+    if (-not $zigBin) {
+        $legacyCandidate = Join-Path $env:LOCALAPPDATA 'Programs\Zig\zig.exe'
+        if (Test-Path $legacyCandidate) {
+            $zigBin = $legacyCandidate
+            $zigInstallDir = Split-Path $legacyCandidate
+        }
+    }
+
+    if ($zigBin) {
+        log-info "Zig $zigVersion already installed"
+        $env:PATH = $zigInstallDir + ';' + $env:PATH
+        return
     }
 
     log-info "Installing Zig $zigVersion..."

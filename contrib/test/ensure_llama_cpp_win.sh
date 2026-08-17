@@ -296,13 +296,13 @@ for arg in "$@"; do
 done
 
 host_windows_arch=""
-if host_windows_arch="$(bash "${SCRIPT_DIR}/../detect-windows-arch.sh" 2>/dev/null)"; then
+if host_windows_arch="$(bash "${SCRIPT_DIR}/../platform.sh" arch 2>/dev/null)"; then
   :
 else
   host_windows_arch=""
 fi
 host_windows_arm=0
-if [[ "$host_windows_arch" == "arm64" ]]; then
+if [[ "$host_windows_arch" == "arm"* ]]; then
   host_windows_arm=1
 fi
 echo "Windows llama.cpp host detection: windows_arch=${host_windows_arch:-unknown} uname_m=$(uname -m 2>/dev/null || echo unknown)"
