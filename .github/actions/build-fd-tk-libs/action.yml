@@ -1,9 +1,29 @@
 name: Build Firedancer C libs for Tickoni
 description: Build libfd_tango, libfd_util, libfd_ballet, libfd_disco, and libfd_waltz — required by the Zig harness build
 
+inputs:
+  build-profile:
+    description: Optional platform hint for Windows lanes (windows-x86_64 or windows-arm)
+    required: false
+
 runs:
   using: composite
   steps:
-    - name: Build libfd_tango, libfd_util, libfd_ballet, libfd_disco, and libfd_waltz
+    - name: Build libfd_tango, libfd_util, libfd_ballet, libfd_disco, and libfd_waltz (non-Windows)
+      if: runner.os != 'Windows'
       shell: bash
       run: just build-fd-tk-libs
+
+    - name: Build libfd_tango, libfd_util, libfd_ballet, libfd_disco, and libfd_waltz (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $profile = '${{ inputs.build-profile }}'
+        switch ($profile) {
+          'windows-x86_64' { just build-fd-windows-x86; break }
+          'windows-arm'    { just build-fd-windows-arm; break }
+          default {
+            Write-Error "Unsupported or missing build-profile for Windows build-fd-tk-libs action: '$profile'"
+            exit 1
+          }
+        }
