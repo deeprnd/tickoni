@@ -2,12 +2,12 @@ const std = @import("std");
 const schema = @import("types.zig");
 const codec = @import("codec.zig");
 
-/// Convert std.c.environ ([*:0]u8) to a proper slice for Environ.block.
-fn getEnvSlice() []const [*:0]const u8 {
+/// Convert std.c.environ ([*:null]?[*:0]u8) to a proper slice for Environ.block.
+fn getEnvSlice() [:null]const ?[*:0]const u8 {
     const env = std.c.environ;
     var count: usize = 0;
     while (env[count] != null) : (count += 1) {}
-    return env[0..count];
+    return env[0..count :null];
 }
 
 fn parseFixedAsciiBytes(comptime N: usize, value: []const u8) ![N]u8 { if (value.len > N) return error.StringTooLong;
@@ -201,7 +201,7 @@ test "hash chain mutation changes downstream records" { const first = codec.buil
 
 test "binary and wire format pinned" {
     const env = std.process.Environ{ .block = .{ .slice = getEnvSlice() } };
-    if (std.process.getPosix(env, "TK_GEN_FIXTURES") != null) return error.SkipZigTest;
+    if (std.process.Environ.getPosix(env, "TK_GEN_FIXTURES") != null) return error.SkipZigTest;
     const golden = @import("fixture_audit_gen").values;
     for (makeFixtures(), &golden) |event, g| {
         try std.testing.expectEqual(g.expected_hash, event.header.record_hash);
@@ -325,7 +325,7 @@ fn expandPolicyDecisionOutcomeVarint(binary: []const u8, out: []u8) ![]u8 { if (
 /// Use the output to snapshot the current encoding after intentional changes.
 fn writeFixtureFile() !void {
     const path = "src/tickoni/test/fixtures/fixture_audit_gen.zig";
-    const file = try std.fs.cwd().createFile(path, .{ .truncate = true });
+    const file = try std.Io.Dir.createFileAbsolute(std.testing.io, path, .{ .truncate = true });
     defer file.close();
 
     try file.writeAll(
@@ -362,6 +362,6 @@ fn writeFixtureFile() !void {
 
 test "gen audit fixture values" {
     const env = std.process.Environ{ .block = .{ .slice = getEnvSlice() } };
-    if (std.process.getPosix(env, "TK_GEN_FIXTURES") == null) return error.SkipZigTest;
+    if (std.process.Environ.getPosix(env, "TK_GEN_FIXTURES") == null) return error.SkipZigTest;
     try writeFixtureFile();
 }

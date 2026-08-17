@@ -12,6 +12,22 @@ const tkcase = @import("tkcase");
 const tkdisp = @import("tkdisp");
 const tkpoly = @import("tkpoly");
 
+/// Helper to check if an env var is set, using the global environ.
+fn hasEnv(key: []const u8) bool {
+    const env = std.c.environ;
+    var count: usize = 0;
+    while (env[count] != null) : (count += 1) {}
+    for (env[0..count]) |entry| {
+        if (entry) |e| {
+            const kv = std.mem.span(e);
+            if (std.mem.startsWith(u8, kv, key) and kv.len > key.len and kv[key.len] == '=') {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 test "investment_replay_integration: succeeds with fixture substitutions and no live effects" {
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
@@ -237,7 +253,7 @@ test "investment_replay_integration: tamper detection reports first divergent ha
 }
 
 test "gen audit allowed trade jsonl" {
-    if (std.process.EnvInfo.init().get("TK_GEN_FIXTURES") == null) return error.SkipZigTest;
+    if (hasEnv("TK_GEN_FIXTURES") == false) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
     const thesis_id = thesis.computeThesisInputHash(input);
