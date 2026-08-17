@@ -68,51 +68,84 @@ arch := `uname -m`
 
 # ── Setup ──────────────────────────────────────────────────────────────────────
 
-# Single entry point — detects platform and routes to the correct setup script
-# Usage: just setup-env
+# Single entry point — detects platform and routes to essential+ops setup scripts
+# Usage: just setup-env-essential then just setup-env-ops
 # Examples:
-#   just setup-env             — auto-detects (Linux x86_64 → setup-linux-x86-gcc)
-#   just setup-linux-x86-clang — explicit lane
-#   just setup-macos-arm       — macOS ARM64
-# just setup-windows-x86     — Windows x86_64
+#   just setup-env-essential   — installs sudo-required system packages
+#   just setup-env-ops         — installs user-level tools (no sudo)
+#   just setup-env-essential setup-linux-x86-ops  — explicit lanes
+#   just setup-env-essential setup-macos-arm-ops  — macOS ARM64
+#
+# setup-env (convenience alias): runs essential then ops
 setup-env:
+    just setup-env-essential
+    just setup-env-ops
+
+# ── Essential (sudo required) ────────────────────────────────────────────────
+
+setup-env-essential:
     @case "{{ os }}" in \
       Linux) \
         if [ "{{ arch }}" = "aarch64" ]; then \
-          just setup-linux-arm-gcc; \
+          just setup-linux-arm-essential; \
         else \
-          just setup-linux-x86-gcc; \
+          just setup-linux-x86-essential; \
         fi ;; \
       Darwin) \
         if [ "{{ arch }}" = "arm64" ]; then \
-          just setup-macos-arm; \
+          just setup-macos-arm-essential; \
         else \
-          just setup-macos-x86; \
+          just setup-macos-x86-essential; \
         fi ;; \
       *) \
         echo "unsupported OS: {{ os }}" >&2; \
         exit 1 ;; \
     esac
 
-# Linux x86_64 — GCC toolchain
-setup-linux-x86-gcc:
-    bash contrib/setup/linux-x86-gcc.sh
+setup-linux-x86-essential:
+    bash contrib/setup/linux-x86-essential.sh
 
-# Linux x86_64 — Clang toolchain
-setup-linux-x86-clang:
-    bash contrib/setup/linux-x86-clang.sh
+setup-linux-arm-essential:
+    bash contrib/setup/linux-arm-essential.sh
 
-# Linux aarch64 — GCC toolchain
-setup-linux-arm-gcc:
-    bash contrib/setup/linux-arm-gcc.sh
+setup-macos-x86-essential:
+    SECURITY=off bash contrib/setup/macos-x86-essential.sh
 
-# macOS x86_64
-setup-macos-x86:
-    SECURITY=off bash contrib/setup/macos-x86.sh
+setup-macos-arm-essential:
+    SECURITY=off bash contrib/setup/macos-arm-essential.sh
 
-# macOS ARM64
-setup-macos-arm:
-    SECURITY=off bash contrib/setup/macos-arm.sh
+# ── Ops (no sudo required) ───────────────────────────────────────────────────
+
+setup-env-ops:
+    @case "{{ os }}" in \
+      Linux) \
+        if [ "{{ arch }}" = "aarch64" ]; then \
+          just setup-linux-arm-ops; \
+        else \
+          just setup-linux-x86-ops; \
+        fi ;; \
+      Darwin) \
+        if [ "{{ arch }}" = "arm64" ]; then \
+          just setup-macos-arm-ops; \
+        else \
+          just setup-macos-x86-ops; \
+        fi ;; \
+      *) \
+        echo "unsupported OS: {{ os }}" >&2; \
+        exit 1 ;; \
+    esac
+
+setup-linux-x86-ops:
+    bash contrib/setup/linux-x86-ops.sh
+
+setup-linux-arm-ops:
+    bash contrib/setup/linux-arm-ops.sh
+
+setup-macos-x86-ops:
+    SECURITY=off bash contrib/setup/macos-x86-ops.sh
+
+setup-macos-arm-ops:
+    SECURITY=off bash contrib/setup/macos-arm-ops.sh
 
 # Windows x86_64 — dev mode (includes LLM tooling)
 setup-windows-x86:

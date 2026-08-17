@@ -270,6 +270,8 @@ ensure_gitleaks() {
 }
 
 # Install kcpy from source (SimonKagstrom/kcpy)
+# Returns 1 (graceful skip) if the repo is unavailable — not all hosts
+# have internet access to GitHub, and the repo is optional for coverage.
 ensure_kcpy() {
     if tool_exists kcpy; then
         log_info "kcpy already installed"
@@ -277,15 +279,29 @@ ensure_kcpy() {
     fi
 
     log_info "Building kcpy from source..."
+    local kcpy_rc=0
     (
+        set +e  # Don't abort on clone/build failure — repo may be unavailable
         cd "$(mktemp -d)"
-        git clone --depth 1 https://github.com/SimonKagstrom/kcpy.git .
+        if ! git clone --depth 1 https://github.com/SimonKagstrom/kcpy.git . 2>/dev/null; then
+            log_warn "kcpy: SimonKagstrom/kcpy repo unavailable — skipping"
+            return 1
+        fi
         mkdir build && cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release
-        make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || (log_error "Cannot detect CPU count"; exit 1))"
+        cmake .. -DCMAKE_BUILD_TYPE=Release 2>/dev/null || { log_warn "kcpy cmake failed"; return 1; }
+        if ! make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)" 2>/dev/null; then
+            log_warn "kcpy build failed — skipping"
+            return 1
+        fi
         sudo make install || sudo cp kcpy /usr/local/bin/kcpy
-    )
-    log_info "kcpy built and installed"
+        return 0
+    ) || kcpy_rc=$?
+
+    if [ $kcpy_rc -eq 0 ]; then
+        log_info "kcpy built and installed"
+    else
+        return 1
+    fi
 }
 
 # Install shellcheck (latest from system package manager)
