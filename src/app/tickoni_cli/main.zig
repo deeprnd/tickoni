@@ -9,7 +9,7 @@ pub fn main(init: std.process.Init) !void {
     defer arena.deinit();
     const gpa = arena.allocator();
 
-    const parsed = cli.parse(gpa, init);
+    const parsed = try cli.parse(gpa, init);
 
     if (parsed.help) {
         try cli.printHelp(init.io, gpa);

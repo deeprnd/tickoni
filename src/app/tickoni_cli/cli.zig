@@ -26,7 +26,7 @@ pub const Parser = struct {
 
 /// Parse args and return a Parser with resolved flags/values.
 /// `init` is std.process.Init from main's entry point.
-pub fn parse(gpa: std.mem.Allocator, init: std.process.Init) Parser {
+pub fn parse(gpa: std.mem.Allocator, init: std.process.Init) !Parser {
     var result = Parser{};
     var pos_start: usize = 0;
 
@@ -38,7 +38,7 @@ pub fn parse(gpa: std.mem.Allocator, init: std.process.Init) Parser {
     while (true) {
         const entry = raw_it.next() orelse break;
         if (entry.len > 0) {
-        try args_buf.append(gpa, entry);
+            try args_buf.append(gpa, entry);
         }
     }
     const args = try args_buf.toOwnedSlice(gpa);
