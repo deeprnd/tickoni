@@ -284,7 +284,7 @@ dock +recipe:
     {{ dev_image }} \
     bash -lc 'bash contrib/fd-build-lib.sh {{ fd_tickoni_build }} && just {{ recipe }}'
 
-# Build the Linux dev image once (just + Zig 0.16.0 + build toolchain). Idempotent.
+# Build the Linux dev image once (just + Zig 0.17 + build toolchain). Idempotent.
 [private]
 _dev-image:
     #!/usr/bin/env bash
@@ -424,7 +424,7 @@ test-unit-tk-windows-x86:
 
 # Windows ARM64 unit test: build FD libs for Windows ARM64, then run Zig tests.
 # contrib/zigw.sh prefers an x86_64 Windows Zig install on Windows ARM when
-# available because native Zig 0.16.0 is unstable on this lane.
+# available because native Zig 0.17.0-dev is unstable on this lane.
 test-unit-tk-windows-arm:
     mkdir -p build
     bash -lc 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
@@ -440,7 +440,7 @@ test-integration-tk-windows-x86:
 
 # Windows ARM64 integration test: build FD libs for Windows ARM64, then run Zig integration tests.
 # contrib/zigw.sh prefers an x86_64 Windows Zig install on Windows ARM when
-# available because native Zig 0.16.0 is unstable on this lane.
+# available because native Zig 0.17.0-dev is unstable on this lane.
 test-integration-tk-windows-arm:
     mkdir -p build
     just build-fd-windows-arm > build/fd-windows-arm.log 2>&1
