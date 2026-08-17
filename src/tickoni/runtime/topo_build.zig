@@ -36,7 +36,7 @@ pub const concrete_workspace_name_cap: usize = 64;
 pub fn concreteWorkspaceName(buf: []u8, workspace_name: []const u8) ![:0]const u8 {
     const printed = try std.fmt.bufPrint(buf[0 .. buf.len - 1], "{s}_{s}.wksp", .{ app_name, workspace_name });
     buf[printed.len] = 0;
-    return @ptrCast(printed[0..printed.len :0]);
+    return @ptrCast(buf[0..printed.len :0]);
 }
 
 /// fd_topo_t's real alignment isn't knowable from Zig (opaque type) but is
