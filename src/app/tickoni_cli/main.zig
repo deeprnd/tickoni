@@ -35,10 +35,11 @@ pub fn main(init: std.process.Init) !void {
     } else if (std.mem.eql(u8, command, "doctor")) {
         try doctorMain(gpa, init.io, parsed);
     } else {
-        try std.Io.File.stderr().writer(init.io, undefined).writeAll(
-            "error: unknown command '{}'. Use 'tickoni --help' for usage.\n",
-            .{command},
-        );
+        var stderr_buf: [512]u8 = undefined;
+        var writer = std.Io.File.stderr().writer(init.io, &stderr_buf);
+        try writer.interface.print(
+            "error: unknown command '{s}'. Use 'tickoni --help' for usage.\n",
+            .{command});
         return error.UnknownCommand;
     }
 }
@@ -101,8 +102,10 @@ fn demoMain(gpa: std.mem.Allocator, io: std.Io, parsed: cli.Parser) !void {
         }
         try stdout_writer.flush();
     } else {
-        try std.Io.File.stderr().writeAll(io, std.Io.File.writeOptions{},
-            "error: unknown demo subcommand '{}'. Use 'tickoni demo --help'.\n",
+        var stderr_buf: [512]u8 = undefined;
+        var writer = std.Io.File.stderr().writer(io, &stderr_buf);
+        try writer.interface.print(
+            "error: unknown demo subcommand '{s}'. Use 'tickoni demo --help'.\n",
             .{subcommand});
         return error.UnknownDemoSubcommand;
     }

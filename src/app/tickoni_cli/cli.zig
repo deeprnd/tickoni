@@ -63,8 +63,9 @@ pub fn parse(gpa: std.mem.Allocator, init: std.process.Init) !Parser {
         if (std.mem.startsWith(u8, arg, "--")) {
             const rest = arg[2..];
             const eq = std.mem.indexOfScalar(u8, rest, '=');
-            const key = if (eq != null) rest[0..eq] else rest;
-            const value = if (eq != null) rest[eq + 1 ..] else "";
+            const eq_idx = eq orelse rest.len;
+            const key = rest[0..eq_idx];
+            const value = if (eq_idx == rest.len) "" else rest[eq_idx + 1 ..];
 
             if (std.mem.eql(u8, key, "json")) {
                 result.flags.json = true;
