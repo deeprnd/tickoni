@@ -86,18 +86,18 @@ Tickoni now uses one repo-owned Zig entry point depending on context:
 
 ```
 
-CI uses `contrib/setup/install-zig.py`, which downloads an official prebuilt Zig release archive for the host platform and installs it into a persistent prefix. This is the only Zig installation path for both CI and local developer machines.
+CI uses `contrib/setup/helpers/install-zig.py`, which downloads an official prebuilt Zig release archive for the host platform and installs it into a persistent prefix. This is the only Zig installation path for both CI and local developer machines.
 
 Policy rules:
 
 1. Do not use `mlugg/setup-zig`, `winget install zig`, or other third-party Zig installers in Tickoni CI.
-2. All GitHub-hosted OS families (Windows, macOS, Linux) must call the same repo-owned CI installer script: `contrib/setup/install-zig.py`.
+2. All GitHub-hosted OS families (Windows, macOS, Linux) must call the same repo-owned CI installer script: `contrib/setup/helpers/install-zig.py`.
 3. The upstream source of truth is the official Zig documentation and the official Zig download index.
 4. Windows ARM must use the official GNU Zig release archive, not a Winget-managed Zig package.
 
-Local developer machines use `contrib/setup/install-zig.py` (same as CI), not `install-zig-bootstrap.py` which has been removed.
+Local developer machines use `contrib/setup/helpers/install-zig.py` (same as CI), not `install-zig-bootstrap.py` which was removed.
 
-CI usage is centralized in `.github/actions/setup-public-gh-runner/action.yml`, which invokes `contrib/setup/install-zig.py` for Windows and POSIX runners.
+CI usage is centralized in `.github/actions/setup-public-gh-runner/action.yml`, which invokes `contrib/setup/helpers/install-zig.py` for Windows and POSIX runners.
 
 ---
 

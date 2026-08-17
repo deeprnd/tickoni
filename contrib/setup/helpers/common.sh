@@ -195,30 +195,70 @@ get_platform_key() {
 # ── Tool installers ───────────────────────────────────────────────────────────
 
 # Install Zig via install-zig.py (uses versions.zig from tool-versions.json)
+# Captures install-zig.py's own [install] line so we never guess the path.
+# Auto-appends PATH to .bashrc/.zshrc so no manual copy-paste is needed.
 ensure_zig() {
     local zig_version
     zig_version="$(read_tool_version "zig")"
-    local zig_bin="${HOME}/.local/zig/zig"
 
-    # Remove any previously installed zig version before installing the new one
-    for dir in "${HOME}/.local/zig/zig-"*; do
-        if [ -d "$dir" ]; then
-            log_info "Cleaning old zig installation: $dir"
-            rm -rf "$dir"
-        fi
+    # Derive cleanup prefix from get_platform_key() so we only remove matching dirs.
+    local platform_key cleanup_prefix
+    platform_key="$(get_platform_key)"
+    case "$platform_key" in
+        linux-x86)  cleanup_prefix="zig-x86_64-linux-" ;;
+        linux-arm)  cleanup_prefix="zig-aarch64-linux-" ;;
+        macos-x86)  cleanup_prefix="zig-x86_64-macos-" ;;
+        macos-arm)  cleanup_prefix="zig-aarch64-macos-" ;;
+        *)          log_error "Unsupported platform key: ${platform_key}" ; exit 1 ;;
+    esac
+
+    # Remove any previously installed zig version before installing the new one.
+    for dir in "${HOME}/.local/${cleanup_prefix}"*; do
+        [ -d "$dir" ] || continue
+        log_info "Cleaning old zig installation: $dir"
+        rm -rf "$dir"
     done
-    # Also clean legacy install
-    if [ -d "${HOME}/.local/zig/zig" ]; then
-        rm -rf "${HOME}/.local/zig/zig"
-    fi
 
-    log_info "Installing Zig ${zig_version}..."
-    python3 "${SCRIPT_DIR}/helpers/install-zig.py" \
+    # Capture install-zig.py's full output to derive the actual install dir.
+    local install_output
+    install_output="$(python3 "${SCRIPT_DIR}/install-zig.py" \
         --version "${zig_version}" \
         --install-root "${HOME}/.local" \
-        --cache-root "${HOME}/.cache"
-    export PATH="${HOME}/.local/zig:${PATH}"
-    log_info "Zig installed to ${HOME}/.local/zig"
+        --cache-root "${HOME}/.cache" 2>&1)"
+    log_info "$install_output"
+
+    # Parse install_dir from the [install] line.
+    local install_dir
+    install_dir="$(echo "$install_output" | sed -n 's/^\[install\] .* -> \(.*\)$/\1/p')"
+    if [ -z "$install_dir" ]; then
+        log_error "Could not derive install_dir from install-zig.py output"
+        exit 1
+    fi
+
+    # Export in current shell.
+    export PATH="${install_dir}:${PATH}"
+    log_info "Zig installed to ${install_dir}"
+
+    # Persist PATH to shell rc file (.bashrc or .zshrc) — like rustup does.
+    local rc_file
+    case "$(basename "${SHELL:-}")" in
+        bash) rc_file="${HOME}/.bashrc" ;;
+        zsh)  rc_file="${HOME}/.zshrc" ;;
+    esac
+    if [ -z "${rc_file:-}" ] && [ -f "${HOME}/.bashrc" ]; then
+        rc_file="${HOME}/.bashrc"
+    elif [ -z "${rc_file:-}" ] && [ -f "${HOME}/.zshrc" ]; then
+        rc_file="${HOME}/.zshrc"
+    fi
+    if [ -n "${rc_file:-}" ] && [ -f "$rc_file" ]; then
+        local marker="# Hermes setup: Zig PATH for ${install_dir}"
+        if ! grep -qF "$marker" "$rc_file" 2>/dev/null; then
+            printf '\n%s\nexport PATH="%s:${PATH}"\n' "$marker" "$install_dir" >> "$rc_file"
+            log_info "Added Zig PATH export to ${rc_file}"
+        else
+            log_info "Zig PATH already present in ${rc_file}"
+        fi
+    fi
 }
 
 # Install gitleaks (pinned version from tool-versions.json)

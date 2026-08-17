@@ -3,7 +3,7 @@
 # This is the openssl-3.6.2 build from deps.sh, extracted as a standalone
 # helper so our setup scripts don't need deps.sh at all.
 #
-# Usage: bash contrib/setup/install-openssl.sh [--prefix PATH]
+# Usage: bash contrib/setup/helpers/install-openssl.sh [--prefix PATH]
 # Defaults to PREFIX=./opt (matching Firedancer's default OPT=.)
 set -euo pipefail
 

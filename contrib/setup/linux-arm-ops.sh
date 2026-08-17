@@ -13,7 +13,7 @@ ensure_zig
 
 # 2. OpenSSL — build from source into ./opt (no sudo)
 if [ ! -f "./opt/lib/libssl.a" ]; then
-    bash "${SCRIPT_DIR}/install-openssl.sh"
+    bash "${SCRIPT_DIR}/helpers/install-openssl.sh"
 else
     log_info "OpenSSL 3.6.2 already installed in ./opt/"
 fi

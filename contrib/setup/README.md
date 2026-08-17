@@ -52,7 +52,7 @@ contrib/setup/
     common.sh             # Shared POSIX functions
     common.ps1            # Shared Windows PowerShell functions
     install-zig.py        # Official Zig binary installer wrapper
-    detect-windows-arch.sh# Windows arch normalization
+    install-openssl.sh    # OpenSSL 3.6.2 build from source (deps.sh logic)
 ```
 
 ## What Each Script Installs
@@ -64,7 +64,7 @@ Every lane script installs:
 - **just, gitleaks** — from `contrib/setup/tool-versions.json`
 - **Build tools** — make, git, cmake
 - **OpenSSL** — from `contrib/setup/tool-versions.json`; built from source via
-  `install-openssl.sh` (deps.sh logic) into `./opt/` so the Firedancer build
+  `helpers/install-openssl.sh` (deps.sh logic) into `./opt/` so the Firedancer build
   finds it at `./opt/lib/libssl.a`
 - **Quality tools** — gitleaks, shellcheck, pre-commit
 - **Optional** — kcov (coverage builds), buf (protobuf)

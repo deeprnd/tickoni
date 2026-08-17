@@ -314,7 +314,7 @@ if (-not ((Test-Path $opensslStaticLib) -or (Test-Path $opensslArchive))) {
     }
     if (Test-Path $gitBash) {
         log-info "Building OpenSSL 3.6.2 via Git Bash (MSVC target)..."
-        $openssl_script = Join-Path $repoRoot 'contrib/setup/install-openssl.sh'
+        $openssl_script = Join-Path $repoRoot 'contrib/setup/helpers/install-openssl.sh'
         $openssl_posix = & cygpath -u $openssl_script
         $opensslProc = Start-Process -FilePath $gitBash -ArgumentList @('-lc', "cd '$($repoRoot -replace '\\','/')' && FD_WINDOWS_ARCH=arm64 bash '$openssl_posix'") -Wait -NoNewWindow -PassThru
         if ($opensslProc.ExitCode -ne 0) {
