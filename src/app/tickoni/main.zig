@@ -110,7 +110,7 @@ pub fn main(init: std.process.Init) !void {
             try File.writeStreamingAll(File.stderr(), init.io, "start-process requires <run-dir>\n");
             std.process.exit(1);
         };
-        try cmdStartProcess(init, topologies.paymentPipelineProcess(), run_dir);
+        try cmdStartProcess(init, topologies.paymentPipelineProcess(), run_dir, verbose);
     } else if (std.mem.eql(u8, cmd, "status")) {
         log.debug("main", "main", "status command received") catch {};
         try cmdStatus(init.io, topologies.paymentPipeline());
@@ -236,7 +236,7 @@ fn cmdStart(init: std.process.Init, topo: rt.topology.Topology) !void {
 /// v2.14.S1: run the payment pipeline as one OS process per tile connected
 /// by Tango shared memory instead of in-process threads. run_dir holds the
 /// per-tile launch specs and the FD_SHMEM_PATH workspace backing.
-fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: []const u8) !void {
+fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: []const u8, verbose: bool) !void {
     const log = logger.get();
     try log.enter("cmdStartProcess", "init");
     defer log.exit("cmdStartProcess", "done") catch {};
@@ -248,7 +248,7 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
     var buf: [256]u8 = undefined;
     const proc_msg = try std.fmt.bufPrint(&buf, "starting process-mode pipeline: run_dir={s}", .{run_dir});
     log.debug("main", "cmdStartProcess", proc_msg) catch {};
-    const process_config = ProcessPipelineConfig{ .run_dir = run_dir };
+    const process_config = ProcessPipelineConfig{ .run_dir = run_dir, .verbose = verbose };
     try sup.startPaymentPipelineProcess(init.io, process_config);
     log.debug("main", "cmdStartProcess", "process-mode pipeline started, monitoring tiles") catch {};
 

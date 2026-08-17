@@ -33,6 +33,7 @@ const topo_build = @import("topo_build.zig");
 const tile_mod = @import("tile.zig");
 const link_mod = @import("link.zig");
 const boot = @import("boot.zig");
+const logger = @import("logger.zig");
 
 pub const WorkFn = *const fn (
     io: std.Io,
@@ -68,7 +69,8 @@ export fn tk_tile_privileged_init(topo: *anyopaque, tile: *anyopaque) callconv(.
     const topo_typed: *c_abi.topob.Topo = @ptrCast(topo);
     const laddr = c_abi.topob.topoObjLaddr(topo_typed, g_ctx.cnc_obj_id);
     g_ctx.cnc = c_abi.cnc.cncJoin(laddr) orelse {
-        std.debug.print("tile_process: fd_cnc_join failed\n", .{});
+        const log = logger.get();
+        log.err("tile_process", "tk_tile_privileged_init", "fd_cnc_join failed") catch {};
         std.process.exit(1);
     };
     c_abi.cnc.heartbeat(g_ctx.cnc, util.process.monotonicNanos());
@@ -102,12 +104,16 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
     _ = tile;
     const topo_typed: *c_abi.topob.Topo = @ptrCast(topo);
     const wksp = c_abi.topob.topoWkspPtr(topo_typed, g_ctx.wksp_idx) orelse {
-        std.debug.print("tile_process: workspace not joined\n", .{});
+        const log = logger.get();
+        log.err("tile_process", "tk_tile_run", "workspace not joined") catch {};
         std.process.exit(1);
     };
 
     g_ctx.work(g_ctx.io, wksp, g_ctx.spec, g_ctx.cnc, g_ctx.allocator) catch |err| {
-        std.debug.print("tile_process: work failed for tile {d} ({s}): {t}\n", .{ g_ctx.spec.tile_idx, g_ctx.spec.tile_id.slice(), err });
+        const log = logger.get();
+        var msg_buf: [256]u8 = undefined;
+        const msg = std.fmt.bufPrint(&msg_buf, "work failed for tile {d} ({s}): {t}", .{ g_ctx.spec.tile_idx, g_ctx.spec.tile_id.slice(), err }) catch "work failed";
+        log.err("tile_process", "tk_tile_run", msg) catch {};
         std.process.exit(1);
     };
 
