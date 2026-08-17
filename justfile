@@ -59,42 +59,38 @@ help:
     @just --list
 
 # ── Platform Detection ────────────────────────────────────────────────────────
+# All recipes use {{ os }} and {{ arch }} from here — never call uname directly.
 
-# Detect OS from uname (falls back to "unknown")
-os := `uname -s`
+# Detect OS/arch via platform.sh (single source of truth).
+# Returns lowercase: linux/mac/windows and x86/arm.
+os := `bash contrib/platform.sh os`
 
-# Detect arch from uname (falls back to "unknown")
-arch := `uname -m`
+# Detect arch from platform.sh (falls back to "unknown")
+arch := `bash contrib/platform.sh arch`
 
-# Normalised platform/os/arch — used by justfile recipes that need lowercase
-# tokens (linux/mac/windows, x86/arm).
-tk_os      := `bash contrib/platform.sh os`
-tk_arch    := `bash contrib/platform.sh arch`
+# Aliases for backward compatibility with any internal shell code still
+# referencing the old variable names (e.g. contrib/fd-build-lib.sh callers).
+tk_os := `bash contrib/platform.sh os`
+tk_arch := `bash contrib/platform.sh arch`
 tk_platform := `bash contrib/platform.sh platform`
 
-# ── Setup ──────────────────────────────────────────────────────────────────────
-
-# Single entry point — detects platform and routes to the correct setup script
-# Usage: just setup-env
-# Examples:
-#   just setup-env             — auto-detects (Linux x86_64 → setup-linux-x86-gcc)
-#   just setup-linux-x86-clang — explicit lane
-#   just setup-macos-arm       — macOS ARM64
-# just setup-windows-x86     — Windows x86_64
+# Auto-detect host platform/arch and route to the correct setup recipe.
 setup-env:
     @case "{{ os }}" in \
-      Linux) \
-        if [ "{{ arch }}" = "aarch64" ]; then \
+      linux) \
+        if [ "{{ arch }}" = "arm" ]; then \
           just setup-linux-arm-gcc; \
         else \
           just setup-linux-x86-gcc; \
         fi ;; \
-      Darwin) \
-        if [ "{{ arch }}" = "arm64" ]; then \
+      macos) \
+        if [ "{{ arch }}" = "arm" ]; then \
           just setup-macos-arm; \
         else \
           just setup-macos-x86; \
         fi ;; \
+      windows) \
+        just setup-windows-x86 ;; \
       *) \
         echo "unsupported OS: {{ os }}" >&2; \
         exit 1 ;; \
@@ -185,29 +181,26 @@ build-fd-tk-libs: build-fd
 build-fd:
     #!/usr/bin/env bash
     set -euo pipefail
-    os="$(uname -s)"
-    arch="$(uname -m)"
-    case "$os" in
-      Linux)
+    case "{{ os }}" in
+      linux)
         exec bash contrib/fd-build-lib.sh fd-tickoni-fd gcc
         ;;
-      Darwin)
-        if [[ "$arch" =~ ^(arm64|aarch64)$ ]]; then
+      macos)
+        if [ "{{ arch }}" = "arm" ]; then
           exec just build-fd-macos-arm
         else
           exec just build-fd-macos-x86_64
         fi
         ;;
-      MINGW*|MSYS*|CYGWIN*)
-        arch="$(bash contrib/platform.sh arch)"
-        case "$arch" in
+      windows)
+        case "{{ arch }}" in
           arm) exec just build-fd-windows-arm ;;
           x86) exec just build-fd-windows-x86 ;;
-          *) echo "unsupported Windows arch for build-fd: $arch" >&2; exit 1 ;;
+          *) echo "unsupported Windows arch for build-fd: {{ arch }}" >&2; exit 1 ;;
         esac
         ;;
       *)
-        echo "unsupported host OS for build-fd: $os" >&2
+        echo "unsupported host OS for build-fd: {{ os }}" >&2
         exit 1
         ;;
     esac
@@ -274,7 +267,7 @@ clean-all:
 dock +recipe:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [ "$(uname)" != "Darwin" ]; then exec just {{ recipe }}; fi
+    if [ "{{ os }}" != "macos" ]; then exec just {{ recipe }}; fi
     if [ -z "{{ container }}" ]; then
     echo "No container runtime found (checked docker, podman, nerdctl, colima)." >&2
     exit 1
@@ -327,26 +320,24 @@ test-all:
 test-unit-fd:
     #!/usr/bin/env bash
     set -euo pipefail
-    os="$(uname -s)"
-    case "$os" in
-      Linux) ;;
-      Darwin)
-        arch="$(uname -m)"
-        if [[ "$arch" =~ ^(arm64|aarch64)$ ]]; then
+    case "{{ os }}" in
+      linux) ;;
+      macos)
+        if [ "{{ arch }}" = "arm" ]; then
           exec bash -lc 'just build-fd-macos-arm && just test-unit-tk'
         else
           exec bash -lc 'just build-fd-macos-x86_64 && just test-unit-tk'
         fi
         ;;
-      MINGW*|MSYS*|CYGWIN*)
-        case "$(bash contrib/platform.sh arch)" in
+      windows)
+        case "{{ arch }}" in
           arm) exec bash -lc 'just build-fd-windows-arm && just test-unit-tk-windows-arm' ;;
           x86) exec bash -lc 'just build-fd-windows-x86 && just test-unit-tk-windows-x86' ;;
           *) echo "unsupported Windows arch for test-unit-fd" >&2; exit 1 ;;
         esac
         ;;
       *)
-        echo "unsupported host OS for test-unit-fd: $os" >&2
+        echo "unsupported host OS for test-unit-fd: {{ os }}" >&2
         exit 1
         ;;
     esac
@@ -371,9 +362,9 @@ test-unit-fd:
 test-unit-tk:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "$(uname -s)" in
-      MINGW*|MSYS*|CYGWIN*)
-        case "$(bash contrib/platform.sh arch)" in
+    case "{{ os }}" in
+      windows)
+        case "{{ arch }}" in
           arm) exec just test-unit-tk-windows-arm ;;
           x86) exec just test-unit-tk-windows-x86 ;;
           *) echo "unsupported Windows arch for test-unit-tk" >&2; exit 1 ;;
@@ -408,9 +399,9 @@ test-integration-fd:
 test-integration-tk:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "$(uname -s)" in
-      MINGW*|MSYS*|CYGWIN*)
-        case "$(bash contrib/platform.sh arch)" in
+    case "{{ os }}" in
+      windows)
+        case "{{ arch }}" in
           arm) exec just test-integration-tk-windows-arm ;;
           x86) exec just test-integration-tk-windows-x86 ;;
           *) echo "unsupported Windows arch for test-integration-tk" >&2; exit 1 ;;
@@ -499,14 +490,13 @@ infra-ensure-llamacpp:
     bash contrib/test/ensure_llama_cpp.sh
     fi
 
-# ── Infrastructure: ensure llama.cpp and model (Windows) ────────────────────
-
-# Build llama.cpp for Windows (CPU only; CUDA not available on CI runners).
 infra-ensure-llamacpp-win:
     bash contrib/test/ensure_llama_cpp_win.sh
 
 # Run llama-server.exe for Windows live system tests.
 infra-run-llamacpp-win:
+    #!/usr/bin/env bash
+    set -euo pipefail
     source contrib/test/llama_cpp_env.sh
     llama_dir="$(tk_resolve_llama_cpp_dir)"
     backend=cpu

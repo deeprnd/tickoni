@@ -4,20 +4,17 @@ set -euo pipefail
 zig_cmd="${ZIG:-zig}"
 using_windows_arm_x64_zig=0
 
+# Detect Windows ARM via platform.sh (single source of truth for OS/arch).
 is_windows_msys=0
-uname_s="$(uname -s)"
-case "$uname_s" in
+case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*) is_windows_msys=1 ;;
 esac
 
 is_windows_arm=0
 if [[ "$is_windows_msys" -eq 1 ]]; then
-  case "$uname_s" in
-    *ARM64*) is_windows_arm=1 ;;
-  esac
-  case "${PROCESSOR_ARCHITEW6432:-${PROCESSOR_ARCHITECTURE:-}}" in
-    ARM64|arm64|AARCH64|aarch64) is_windows_arm=1 ;;
-  esac
+  if [[ "$(bash "$(dirname "${BASH_SOURCE[0]}")/platform.sh" arch 2>/dev/null || echo unknown)" == "arm" ]]; then
+    is_windows_arm=1
+  fi
 fi
 
 if [[ "$is_windows_arm" -eq 1 && -n "${LOCALAPPDATA:-}" ]]; then
