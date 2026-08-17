@@ -1,13 +1,25 @@
 const demo = @import("investment_demo");
 const std = @import("std");
 
+/// Helper to read an env var from the global environment using
+/// std.c.environ, which is the only way in Zig 0.17 without Init.
+fn getEnv(name: []const u8) ?[]const u8 {
+    const env = std.c.environ;
+    var count: usize = 0;
+    while (env[count] != null) : (count += 1) {}
+    for (env[0..count]) |entry| {
+        const kv = std.mem.span(entry);
+        if (std.mem.startsWith(u8, kv, name) and kv.len > name.len and kv[name.len] == '=') {
+            return kv[name.len + 1 ..];
+        }
+    }
+    return null;
+}
+
 test "system demo live: real tkmodl, allowed, blocked, restricted, replay proof" {
     const allocator = std.testing.allocator;
-    const test_env = std.process.Environ.Map{};
-    const model_id = try demo.envOrDefault(allocator, &test_env, "TK_LLM_MODEL_ID", demo.default_model_id);
-    defer allocator.free(model_id);
-    const endpoint = try demo.envOrDefault(allocator, &test_env, "TK_LLM_ENDPOINT", demo.default_endpoint);
-    defer allocator.free(endpoint);
+    const model_id = (getEnv("TK_LLM_MODEL_ID") orelse demo.default_model_id);
+    const endpoint = (getEnv("TK_LLM_ENDPOINT") orelse demo.default_endpoint);
 
     // Default to fixture-backed (deterministic, no llama.cpp required).
     // Set TK_LIVE_TEST=1 to force live mode for manual CI debugging.
@@ -16,8 +28,7 @@ test "system demo live: real tkmodl, allowed, blocked, restricted, replay proof"
         .model_id = model_id,
         .use_fixture = true,
     };
-    if (std.process.getEnvVarOwned(allocator, "TK_LIVE_TEST")) |v| {
-        defer allocator.free(v);
+    if (getEnv("TK_LIVE_TEST")) |v| {
         if (std.mem.eql(u8, v, "1")) {
             live_config.use_fixture = false;
         }
