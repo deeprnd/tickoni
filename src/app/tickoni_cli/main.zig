@@ -29,7 +29,7 @@ pub fn main(init: std.process.Init) !void {
     const command = parsed.positionals[0];
 
     if (std.mem.eql(u8, command, "demo")) {
-        try demoMain(gpa, init.io, parsed);
+        try demoMain(gpa, init.io, init, parsed);
     } else if (std.mem.eql(u8, command, "version")) {
         try printVersion(init.io, gpa);
     } else if (std.mem.eql(u8, command, "doctor")) {
@@ -62,7 +62,7 @@ fn doctorMain(gpa: std.mem.Allocator, io: std.Io, parsed: cli.Parser) !void {
     try std.Io.File.writeStreamingAll(std.Io.File.stdout(), io, writer.buffered());
 }
 
-fn demoMain(gpa: std.mem.Allocator, io: std.Io, parsed: cli.Parser) !void {
+fn demoMain(gpa: std.mem.Allocator, io: std.Io, init: std.process.Init, parsed: cli.Parser) !void {
     if (parsed.positionals.len < 2) {
         try cli.printHelpForCommand(io, gpa, "demo");
         return;
@@ -77,13 +77,13 @@ fn demoMain(gpa: std.mem.Allocator, io: std.Io, parsed: cli.Parser) !void {
         const endpoint = if (parsed.values.endpoint) |value|
             value
         else
-            try demo.envOrDefault(gpa, "TK_LLM_ENDPOINT", demo.default_endpoint);
+            try demo.envOrDefault(gpa, init.environ_map, "TK_LLM_ENDPOINT", demo.default_endpoint);
         defer gpa.free(endpoint);
 
         const model_id = if (parsed.values.model) |value|
             value
         else
-            try demo.envOrDefault(gpa, "TK_LLM_MODEL_ID", demo.default_model_id);
+            try demo.envOrDefault(gpa, init.environ_map, "TK_LLM_MODEL_ID", demo.default_model_id);
         defer gpa.free(model_id);
 
         var report = try demo.runCliDemo(gpa, io, .{
