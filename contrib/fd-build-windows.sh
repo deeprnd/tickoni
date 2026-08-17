@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-raw_arch="${1:-$(bash contrib/detect-windows-arch.sh)}"
+raw_arch="$(bash contrib/platform.sh arch)"
 cc="${2:-${TK_WINDOWS_CC:-clang}}"
 
 clang_header_for() {
@@ -116,10 +116,10 @@ if ! command -v "$cc" >/dev/null 2>&1; then
 fi
 
 case "$raw_arch" in
-  x86_64|amd64)
+  x86|amd64|x86_64)
     fd_windows_arch="x86_64"
     ;;
-  aarch64|arm64)
+  arm|aarch64|arm64)
     fd_windows_arch="arm64"
     ;;
   *)

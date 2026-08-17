@@ -154,7 +154,7 @@ function read-zig-version {
 # Returns: windows-x86 or windows-arm
 
 function get-windows-platform-key {
-    $platformDir = Join-Path $script:SCRIPT_DIR "..\platform.sh"
+    $platformDir = Join-Path $script:SCRIPT_DIR "..\\..\\platform.sh"
     if (Test-Path $platformDir) {
         $arch = bash $platformDir arch 2>$null
         if ($LASTEXITCODE -eq 0 -and $arch) {
@@ -171,7 +171,7 @@ function get-windows-platform-key {
 }
 
 function get-windows-arch {
-    $platformDir = Join-Path $script:SCRIPT_DIR "..\platform.sh"
+    $platformDir = Join-Path $script:SCRIPT_DIR "..\\..\\platform.sh"
     $arch = bash $platformDir arch 2>$null
     if ($LASTEXITCODE -eq 0) { return $arch }
     return "x86_64"

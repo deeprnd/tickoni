@@ -21,7 +21,7 @@ case "$backend" in
     ;;
 esac
 
-host_windows_arch="$(bash "${SCRIPT_DIR}/../detect-windows-arch.sh" 2>/dev/null || echo unknown)"
+host_windows_arch="$(bash "${SCRIPT_DIR}/../platform.sh" arch 2>/dev/null || echo unknown)"
 llama_dir="$(tk_resolve_llama_cpp_dir)"
 server_bin="${llama_dir}/llama-server.exe"
 model_dir="${TK_HF_MODEL_DIR:-$HOME/work/models/gemma/gemma-4-E2B-it-qat-GGUF}"
