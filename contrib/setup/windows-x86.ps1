@@ -158,7 +158,7 @@ ensure-zig
 log-info "Installing Visual Studio Build Tools..."
 Install-Package "vs-build-tools"
 
-# -- 6. OpenSSL 3.6.2 - build from source via Git Bash (native MSVC target)
+# -- 6. OpenSSL 3.x - build from source via Git Bash (native MSVC target)
 # Git for Windows includes: bash, perl (Strawberry), make.
 # VS Build Tools provides: cl.exe, nmake.
 # OpenSSL 3.x supports msvc-x86_64 target natively - no MinGW-w64.
@@ -178,7 +178,7 @@ if (-not ((Test-Path $opensslStaticLib) -or (Test-Path $opensslArchive))) {
         $gitBash = "${env:ProgramFiles(x86)}\Git\usr\bin\bash.exe"
     }
     if (Test-Path $gitBash) {
-        log-info "Building OpenSSL 3.6.2 via Git Bash (MSVC target)..."
+        log-info "Building OpenSSL 3.x via Git Bash (MSVC target)..."
         $openssl_script = Join-Path $repoRoot 'contrib/setup/install-openssl.sh'
         $openssl_posix = & cygpath -u $openssl_script
         $opensslProc = Start-Process -FilePath $gitBash -ArgumentList @('-lc', "cd '$($repoRoot -replace '\\','/')' && FD_WINDOWS_ARCH=x86_64 bash '$openssl_posix'") -Wait -NoNewWindow -PassThru
@@ -187,12 +187,12 @@ if (-not ((Test-Path $opensslStaticLib) -or (Test-Path $opensslArchive))) {
             exit $opensslProc.ExitCode
         }
     } else {
-        log-error "Git Bash not found - OpenSSL 3.6.2 cannot be built"
+        log-error "Git Bash not found - OpenSSL 3.x cannot be built"
         log-error "Install Git for Windows and rerun setup"
         exit 1
     }
 } else {
-    log-info "OpenSSL 3.6.2 already installed in ./opt/"
+    log-info "OpenSSL 3.x already installed in ./opt/"
 }
 
 # -- 7. LLM tooling (optional) ------------------------------------------------
