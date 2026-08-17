@@ -298,7 +298,7 @@ _dev-image:
     'ENV DEBIAN_FRONTEND=noninteractive' \
     'RUN apt-get update && apt-get install -y --no-install-recommends build-essential git curl ca-certificates xz-utils pkg-config perl && rm -rf /var/lib/apt/lists/*' \
     'RUN curl -sSfL https://just.systems/install.sh | bash -s -- --to /usr/local/bin' \
-    'RUN curl -sSfL https://ziglang.org/download/0.16.0/zig-aarch64-linux-0.16.0.tar.xz | tar -xJ -C /opt && ln -s /opt/zig-aarch64-linux-0.16.0/zig /usr/local/bin/zig' \
+    'RUN curl -sSfL https://ziglang.org/download/0.17.0-dev.1770+5d7cf3f34/zig-aarch64-linux-0.17.0-dev.1770+5d7cf3f34.tar.xz | tar -xJ -C /opt && ln -s /opt/zig-aarch64-linux-0.17.0-dev.1770+5d7cf3f34/zig /usr/local/bin/zig' \
     > "$ctx/Dockerfile"
     {{ container }} build --platform linux/arm64 -t {{ dev_image }} "$ctx"
 

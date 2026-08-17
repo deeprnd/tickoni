@@ -37,7 +37,7 @@ inputs:
   zig-version:
     description: Official Zig release version or channel key from index.json
     required: false
-    default: '0.16.0'
+    default: '0.17.0-dev.1770+5d7cf3f34'
 
 runs:
   using: composite
