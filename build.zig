@@ -428,9 +428,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(exe);
 
     const run_exe = b.addRunArtifact(exe);
-    if (@hasField(std.Build, "args")) {
-        if (b.args) |argv| run_exe.addArgs(argv);
-    }
+    if (b.args) |argv| run_exe.addArgs(argv);
     const run_step = b.step("run", "Run tickoni-supervisor");
     run_step.dependOn(&run_exe.step);
 
@@ -1889,9 +1887,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(cli_exe);
 
     const run_cli = b.addRunArtifact(cli_exe);
-    if (@hasField(std.Build, "args")) {
-        if (b.args) |argv| run_cli.addArgs(argv);
-    }
+    if (b.args) |argv| run_cli.addArgs(argv);
     const run_cli_step = b.step("run-cli", "Run tickoni demo CLI");
     run_cli_step.dependOn(&run_cli.step);
 
