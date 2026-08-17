@@ -203,13 +203,15 @@ function resolve-python-command {
 
 # -- Tool installers -----------------------------------------------------------
 
-# Install Zig via install-zig.py (uses versions.zig from tool-versions.json)
+# Install Zig via install-zig.py (uses versions.zig from tool-versions.json).
+# Keep the install root aligned with install-zig.py's Windows default and with
+# contrib/zigw.sh's Windows ARM x86_64-Zig discovery path.
 function ensure-zig {
     param([string]$Target)
 
     $zigVersion = read-zig-version
 
-    $installRoot = Join-Path $env:LOCALAPPDATA 'Programs'
+    $installRoot = Join-Path $env:LOCALAPPDATA 'Programs\Zig'
     $zigInstallDir = $null
     if ($Target) {
         $zigInstallDir = Join-Path $installRoot ("zig-{0}-{1}" -f $Target, $zigVersion)
