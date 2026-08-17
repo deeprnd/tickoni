@@ -28,6 +28,12 @@ function Add-PathEntry {
     if ($entries -notcontains $PathEntry) {
         $env:PATH = "$PathEntry;$env:PATH"
     }
+
+    if ($env:GITHUB_PATH) {
+        if (-not (Test-Path $env:GITHUB_PATH) -or -not (Select-String -Path $env:GITHUB_PATH -SimpleMatch -Quiet -Pattern $PathEntry)) {
+            Add-Content -Path $env:GITHUB_PATH -Value $PathEntry
+        }
+    }
 }
 
 function Add-WindowsSetupPaths {
@@ -72,6 +78,10 @@ function Install-PreCommit {
 }
 
 Add-WindowsSetupPaths
+
+if ($env:GITHUB_ENV -and $env:PROCESSOR_ARCHITECTURE) {
+    Add-Content -Path $env:GITHUB_ENV -Value "TK_WINDOWS_HOST_ARCH=$($env:PROCESSOR_ARCHITECTURE)"
+}
 
 # -- 0. Winget (only package manager - auto-install if missing) ----------------
 if (Get-Command winget -ErrorAction SilentlyContinue) {
