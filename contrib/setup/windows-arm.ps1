@@ -31,6 +31,12 @@ function Add-PathEntry {
     if ($entries -notcontains $PathEntry) {
         $env:PATH = "$PathEntry;$env:PATH"
     }
+
+    if ($env:GITHUB_PATH) {
+        if (-not (Test-Path $env:GITHUB_PATH) -or -not (Select-String -Path $env:GITHUB_PATH -SimpleMatch -Quiet -Pattern $PathEntry)) {
+            Add-Content -Path $env:GITHUB_PATH -Value $PathEntry
+        }
+    }
 }
 
 function Add-WindowsSetupPaths {
@@ -75,6 +81,10 @@ function Install-PreCommit {
 }
 
 Add-WindowsSetupPaths
+
+if ($env:GITHUB_ENV -and $env:PROCESSOR_ARCHITECTURE) {
+    Add-Content -Path $env:GITHUB_ENV -Value "TK_WINDOWS_HOST_ARCH=$($env:PROCESSOR_ARCHITECTURE)"
+}
 
 function Install-WinGet {
     # Primary: MSIX installer (works on Win11 ARM64 without PackageManagement)
