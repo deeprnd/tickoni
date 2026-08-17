@@ -215,8 +215,10 @@ ensure_zig() {
     done
 
     # Capture install-zig.py's full output to derive the actual install dir.
+    # Use the helpers directory directly — lane scripts may overwrite
+    # SCRIPT_DIR after sourcing common.sh, breaking this call.
     local install_output
-    install_output="$(python3 "${SCRIPT_DIR}/install-zig.py" \
+    install_output="$(python3 "${SCRIPT_DIR%/helpers}/helpers/install-zig.py" \
         --version "${zig_version}" \
         --install-root "${HOME}/.local" \
         --cache-root "${HOME}/.cache" 2>&1)"
