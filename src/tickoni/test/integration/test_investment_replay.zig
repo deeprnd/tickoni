@@ -237,7 +237,7 @@ test "investment_replay_integration: tamper detection reports first divergent ha
 }
 
 test "gen audit allowed trade jsonl" {
-    if (std.c.getenv("TK_GEN_FIXTURES") == null) return error.SkipZigTest;
+    if (std.process.EnvInfo.init().get("TK_GEN_FIXTURES") == null) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
     const thesis_id = thesis.computeThesisInputHash(input);
@@ -278,15 +278,14 @@ test "gen audit allowed trade jsonl" {
     );
 
     const path = "src/tickoni/test/fixtures/investment/scenarios/fixture_audit_allowed_2000.jsonl";
-    const f = std.c.fopen(path, "w") orelse return error.FileOpenFailed;
-    defer _ = std.c.fclose(f);
+    const file = try std.fs.cwd().createFile(path, .{ .truncate = true });
+    defer file.close();
 
-    var line_buf: [4096]u8 = undefined;
     for (chain.events) |event| {
+        var line_buf: [4096]u8 = undefined;
         var w = std.Io.Writer.fixed(&line_buf);
         try audit.formatJsonLine(event, &w);
-        const written = w.buffered();
-        _ = std.c.fwrite(written.ptr, 1, written.len, f);
+        try file.writeAll(w.buffered());
     }
 }
 

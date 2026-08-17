@@ -192,9 +192,7 @@ pub fn envOrDefault(
     name: []const u8,
     fallback: []const u8,
 ) ![]u8 {
-    const name_z = try allocator.dupeSentinel(u8, name, 0);
-    defer allocator.free(name_z);
-    if (std.c.getenv(name_z)) |val| return allocator.dupe(u8, std.mem.span(val));
+    if (std.process.getEnvVarOwned(allocator, name)) |owned| return owned;
     return allocator.dupe(u8, fallback);
 }
 

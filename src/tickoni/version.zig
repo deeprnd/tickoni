@@ -16,8 +16,9 @@ pub const build_version_pre: []const u8 = build_opts.BUILD_VERSION_PRE;
 pub const build_git_sha: []const u8 = build_opts.BUILD_GIT_SHA;
 pub const build_id: []const u8 = build_opts.BUILD_ID;
 
-/// Semver release string (no prerelease on stable releases).
-/// Writes to the caller's buffer and returns the resulting string.
+/// Format the semver release string into the caller-provided `buf`.
+/// The returned slice points into `buf` — the caller owns `buf` and
+/// must keep it alive for as long as the returned slice is used.
 pub fn semver(buf: []u8) ![]const u8 {
     if (buf.len < 16) return error.NoSpace;
     if (build_version_major == 0 and build_version_minor == 0 and build_version_patch == 0) {

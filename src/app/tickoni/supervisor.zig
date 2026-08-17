@@ -90,10 +90,14 @@ const ProcessState = struct { wksp: *c_abi.wksp.Wksp,
 };
 
 fn resolvedHeartbeatStaleAfterNs(config: ProcessPipelineConfig) u64 { if (config.heartbeat_stale_after_ns != 0) return config.heartbeat_stale_after_ns;
-    return std.math.mul(u64, config.heartbeat_interval_ns, 5) catch std.math.maxInt(u64); }
+    return resolvedHeartbeatIntervalNs(config, 5); }
 
-fn resolvedStopGraceNs(config: ProcessPipelineConfig) u64 { const from_heartbeat = std.math.mul(u64, config.heartbeat_interval_ns, 5) catch std.math.maxInt(u64);
+fn resolvedStopGraceNs(config: ProcessPipelineConfig) u64 { const from_heartbeat = resolvedHeartbeatIntervalNs(config, 5);
     return @min(@max(from_heartbeat, 500 * std.time.ns_per_ms), 2 * std.time.ns_per_s); }
+
+fn resolvedHeartbeatIntervalNs(config: ProcessPipelineConfig, multiplier: u64) u64 {
+    return std.math.mul(u64, config.heartbeat_interval_ns, multiplier) catch std.math.maxInt(u64);
+}
 
 /// Bridges a tile_registry.RunFn resolved at runtime into std.Thread.spawn,
 /// whose function argument must be comptime-known.

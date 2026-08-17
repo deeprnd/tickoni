@@ -15,11 +15,10 @@ test "system demo live: real tkmodl, allowed, blocked, restricted, replay proof"
         .model_id = model_id,
         .use_fixture = true,
     };
-    if (std.c.getenv("TK_LIVE_TEST")) |v| {
-        const val = std.mem.span(v);
-        if (!std.mem.eql(u8, val, "1")) {
-            if (val.len > 0) {
-                std.debug.print("=== WARNING: TK_LIVE_TEST has unexpected value '{s}', staying in fixture mode ===\n", .{val});
+    if (std.process.EnvInfo.init().get("TK_LIVE_TEST")) |v| {
+        if (!std.mem.eql(u8, v, "1")) {
+            if (v.len > 0) {
+                std.debug.print("=== WARNING: TK_LIVE_TEST has unexpected value '{s}', staying in fixture mode ===\n", .{v});
             }
         } else {
             live_config.use_fixture = false;
