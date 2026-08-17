@@ -92,17 +92,17 @@ setup-env:
 
 # Linux x86_64 — GCC toolchain
 setup-linux-x86-gcc:
-    bash contrib/setup/linux-x86-essential.sh
+    TOOLCHAIN=gcc bash contrib/setup/linux-x86-essential.sh
     bash contrib/setup/linux-x86-ops.sh
 
 # Linux x86_64 — Clang toolchain
 setup-linux-x86-clang:
-    bash contrib/setup/linux-x86-essential.sh
+    TOOLCHAIN=clang bash contrib/setup/linux-x86-essential.sh
     bash contrib/setup/linux-x86-ops.sh
 
 # Linux aarch64 — GCC toolchain
 setup-linux-arm-gcc:
-    bash contrib/setup/linux-arm-essential.sh
+    TOOLCHAIN=gcc bash contrib/setup/linux-arm-essential.sh
     bash contrib/setup/linux-arm-ops.sh
 
 # macOS x86_64

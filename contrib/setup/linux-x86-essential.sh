@@ -8,26 +8,43 @@ SCRIPT_DIR="${REPO_ROOT}/contrib/setup"
 
 log_info "Linux x86_64 essential setup starting..."
 
-# 1. Read GCC version from JSON (fail if missing)
+# 1. Determine toolchain and read version (default: gcc)
+TOOLCHAIN="${TOOLCHAIN:-gcc}"
 platform_key="$(get_platform_key)"
-gcc_version="$(read_compiler_version gcc "$platform_key")"
-log_info "GCC version from tool-versions.json: ${gcc_version}"
+compiler_version="$(read_compiler_version "${TOOLCHAIN}" "$platform_key")"
+log_info "Toolchain: ${TOOLCHAIN}, version from tool-versions.json: ${compiler_version}"
 
 # 2. OS packages (needs sudo)
-log_info "Installing system packages (gcc-${gcc_version}, make, build-essential, git)..."
-sudo apt-get update -qq
-sudo apt-get install -y --no-install-recommends \
-    "gcc-${gcc_version}" "g++-${gcc_version}" make git curl ca-certificates \
-    cmake pkg-config libssl-dev zstd
+case "${TOOLCHAIN}" in
+    gcc)
+        log_info "Installing system packages (gcc-${compiler_version}, make, build-essential, git)..."
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends \
+            "gcc-${compiler_version}" "g++-${compiler_version}" make git curl ca-certificates \
+            cmake pkg-config libssl-dev zstd
+        export CC="gcc-${compiler_version}" CXX="g++-${compiler_version}"
+        ;;
+    clang)
+        log_info "Installing system packages (clang-${compiler_version}, make, build-essential, git)..."
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends \
+            "clang-${compiler_version}" make git curl ca-certificates \
+            cmake pkg-config libssl-dev zstd
+        export CC="clang-${compiler_version}" CXX="clang++"
+        ;;
+    *)
+        log_error "Unsupported toolchain: ${TOOLCHAIN} (expected gcc or clang)"
+        exit 1
+        ;;
+esac
 
-# 3. GCC version check
-if gcc-${gcc_version} --version &>/dev/null; then
-    log_info "gcc-${gcc_version}: $(gcc-${gcc_version} --version | head -1)"
+# 3. Compiler version check
+if ${CC} --version &>/dev/null; then
+    log_info "${CC}: $(${CC} --version | head -1)"
 else
-    log_error "gcc-${gcc_version} not found after install"
+    log_error "${CC} not found after install"
     exit 1
 fi
-export CC="gcc-${gcc_version}" CXX="g++-${gcc_version}"
 
 # 4. just (needs sudo for /usr/local/bin on Linux)
 ensure_just

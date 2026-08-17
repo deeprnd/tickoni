@@ -18,13 +18,21 @@ set -euo pipefail
 
 tk_normalize_arch() {
   local raw="${1:-}"
-  case "${raw,,}" in
-    arm64|aarch64|arm64-bit*|arm\ 64-bit*|*arm64*) echo "arm"; return 0 ;;
-    x86_64|amd64|x64|x86-64*|*amd64*|*x64*)       echo "x86"; return 0 ;;
-    12)                                            echo "arm"; return 0 ;;
-    9)                                             echo "x86"; return 0 ;;
-    *)                                             return 1 ;;
-  esac
+  local normalized
+  normalized="$(case "${raw,,}" in
+    arm64|aarch64|arm64-bit*|arm\ 64-bit*|*arm64*) echo "arm" ;;
+    x86_64|amd64|x64|x86-64*|*amd64*|*x64*)       echo "x86" ;;
+    12)                                            echo "arm" ;;
+    9)                                             echo "x86" ;;
+    *)                                             echo "unrecognized" ;;
+  esac)"
+  if [[ "$normalized" != "unrecognized" ]]; then
+    echo "$normalized"
+    return 0
+  fi
+  echo "warning: unrecognized arch '${raw}', defaulting to x86" >&2
+  echo "x86"
+  return 0
 }
 
 tk_os() {
@@ -43,7 +51,8 @@ tk_os() {
       AMD64|x86) echo "windows"; return 0 ;;
     esac
   fi
-  echo "linux"  # conservative fallback
+  echo "error: unrecognized OS '$uname_s' — supported: Linux, Darwin, Windows" >&2
+  return 1
 }
 
 tk_arch() {

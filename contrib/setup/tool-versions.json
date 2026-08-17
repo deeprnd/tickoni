@@ -13,6 +13,7 @@
     },
     "clang": {
       "linux-x86": "18",
+      "linux-arm": "18",
       "windows-x86": "18",
       "windows-arm": "18"
     },
