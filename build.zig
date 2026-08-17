@@ -2249,7 +2249,6 @@ fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) void 
             "src/tickoni/c_abi/shim/wksp.c",
             "src/tickoni/c_abi/shim/sandbox.c",
             "src/tickoni/c_abi/shim/os.c",
-            "src/util/fd_version.c",
         },
         .flags = shimCFlagsFor(target_info),
     });
