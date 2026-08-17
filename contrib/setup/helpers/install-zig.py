@@ -14,6 +14,7 @@ from pathlib import Path
 
 DEFAULT_VERSION = "0.16.0"
 DEFAULT_INDEX_URL = "https://ziglang.org/download/index.json"
+DEFAULT_BUILDS_BASE_URL = "https://ziglang.org/builds"
 
 
 def eprint(*args):
@@ -115,10 +116,29 @@ def load_index(index_url):
         return json.load(response)
 
 
+def dev_build_archive_url(version, target):
+    ext = ".zip" if target.endswith("-windows") else ".tar.xz"
+    return f"{DEFAULT_BUILDS_BASE_URL}/zig-{target}-{version}{ext}"
+
+
+def url_exists(url):
+    req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "tickoni-zig-installer"})
+    try:
+        with urllib.request.urlopen(req):
+            return True
+    except Exception:
+        return False
+
+
 def select_release(index, version, target):
     version_entry = index.get(version)
     if version_entry is None:
-        raise SystemExit(f"Zig version '{version}' was not found in {DEFAULT_INDEX_URL}")
+        dev_url = dev_build_archive_url(version, target)
+        if url_exists(dev_url):
+            return dev_url, None
+        raise SystemExit(
+            f"Zig version '{version}' was not found in {DEFAULT_INDEX_URL} and no dev build was found at {dev_url}"
+        )
     target_entry = version_entry.get(target)
     if target_entry is None:
         raise SystemExit(f"Zig version '{version}' has no prebuilt archive for target '{target}'")
@@ -141,6 +161,9 @@ def download_archive(url, dest, dry_run=False):
 
 
 def verify_sha256(path, expected, dry_run=False):
+    if not expected:
+        print(f"[verify] no sha256 published in index.json for {path.name}; skipping sha256 verification")
+        return
     print(f"[verify] sha256 {path} == {expected}")
     if dry_run:
         return

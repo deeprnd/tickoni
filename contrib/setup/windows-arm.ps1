@@ -4,7 +4,9 @@
 #   .\windows-arm.ps1 -NoLLM       # skip LLM tooling (llama.cpp build)
 #   .\windows-arm.ps1 -Security -NoLLM  # install gitleaks, skip LLM
 # Package manager: winget ONLY. If winget is missing, auto-install it.
-# Note: Zig uses native aarch64-windows prebuilt binary
+# Note: Tickoni Windows ARM CI prefers the x86_64 Zig 0.16 prebuilt.
+# contrib/zigw.sh auto-selects it on ARM64 because the native aarch64 Zig lane
+# has been unstable for Tickoni's Windows unit/system jobs.
 # Note: OpenSSL uses native MSVC target (msvc-arm64), no MinGW-w64/MSYS2 needed.
 
 param([switch]$Security, [switch]$NoLLM)
@@ -272,10 +274,10 @@ if ($llvmPath) {
     log-info "LLVM added to PATH: $llvmPath"
 }
 
-# -- 4. Zig (native aarch64-windows) -----------------------------------------
-log-info "Installing Zig (aarch64-windows native)..."
-ensure-zig "aarch64-windows"
-log-info "Zig installed (aarch64-windows native)"
+# -- 4. Zig (preferred x86_64-windows on ARM64) ------------------------------
+log-info "Installing Zig (x86_64-windows preferred on ARM64)..."
+ensure-zig "x86_64-windows"
+log-info "Zig installed (x86_64-windows preferred on ARM64)"
 
 # -- 5. MSVC build tools ------------------------------------------------------
 log-info "Installing Visual Studio Build Tools..."
@@ -334,4 +336,4 @@ foreach ($tool in @("clang", "zig", "just", "cl")) {
     $ver = (Get-Command $tool -ErrorAction SilentlyContinue).Version
     if ($ver) { log-info "  ${tool}: $ver" }
 }
-log-info "NOTE: Zig uses native aarch64-windows binary"
+log-info "NOTE: Zig uses the preferred x86_64-windows binary on ARM64 so contrib/zigw.sh matches CI parity expectations"
