@@ -16,12 +16,9 @@ test "system demo live: real tkmodl, allowed, blocked, restricted, replay proof"
         .model_id = model_id,
         .use_fixture = true,
     };
-    if (std.process.EnvInfo.init().get("TK_LIVE_TEST")) |v| {
-        if (!std.mem.eql(u8, v, "1")) {
-            if (v.len > 0) {
-                std.debug.print("=== WARNING: TK_LIVE_TEST has unexpected value '{s}', staying in fixture mode ===\n", .{v});
-            }
-        } else {
+    if (std.process.getEnvVarOwned(allocator, "TK_LIVE_TEST")) |v| {
+        defer allocator.free(v);
+        if (std.mem.eql(u8, v, "1")) {
             live_config.use_fixture = false;
         }
     }
