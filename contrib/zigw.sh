@@ -4,17 +4,19 @@ set -euo pipefail
 zig_cmd="${ZIG:-zig}"
 using_windows_arm_x64_zig=0
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
 # Detect Windows ARM via platform.sh (single source of truth for OS/arch).
-is_windows_msys=0
-case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*) is_windows_msys=1 ;;
-esac
+source "${SCRIPT_DIR}/platform.sh"
+
+is_windows=0
+if [[ "$(tk_os)" == "windows" ]]; then
+  is_windows=1
+fi
 
 is_windows_arm=0
-if [[ "$is_windows_msys" -eq 1 ]]; then
-  if [[ "$(bash "$(dirname "${BASH_SOURCE[0]}")/platform.sh" arch 2>/dev/null || echo unknown)" == "arm" ]]; then
-    is_windows_arm=1
-  fi
+if [[ "$is_windows" -eq 1 && "$(tk_arch)" == "arm" ]]; then
+  is_windows_arm=1
 fi
 
 if [[ "$is_windows_arm" -eq 1 && -n "${LOCALAPPDATA:-}" ]]; then

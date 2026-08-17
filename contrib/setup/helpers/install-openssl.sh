@@ -10,6 +10,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 
+# ── Platform detection ────────────────────────────────────────────────────────
+# Single source of truth for OS/arch — used by callers that need it.
+source "${SCRIPT_DIR}/../../platform.sh"
+
 PREFIX="${REPO_ROOT}/opt"
 
 while [[ $# -gt 0 ]]; do
@@ -357,12 +361,11 @@ EOF
 }
 
 # ── Dispatch ─────────────────────────────────────────────────────────────────
-OS="$(uname -s)"
-case "${OS}" in
-  Linux)     build_linux     ;;
-  Darwin)    build_macos     ;;
-  MINGW*|MSYS*|CYGWIN*) build_windows ;;
-  *) echo "[!] Unsupported OS ${OS}" >&2; exit 1 ;;
+case "$(tk_os)" in
+  linux)     build_linux     ;;
+  macos)     build_macos     ;;
+  windows)   build_windows   ;;
+  *) echo "[!] Unsupported OS $(tk_os)" >&2; exit 1 ;;
 esac
 
 # Remove cmake and pkgconfig files so we don't accidentally depend on them

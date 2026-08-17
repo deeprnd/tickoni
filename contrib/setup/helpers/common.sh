@@ -19,6 +19,10 @@ SCRIPT_DIR="$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
 TOOL_VERSIONS="${REPO_ROOT}/contrib/setup/tool-versions.json"
 
+# ── Platform detection ────────────────────────────────────────────────────────
+# Single source of truth for OS/arch — used by callers that need it.
+source "${SCRIPT_DIR}/../../platform.sh"
+
 log_info()  { printf '[setup] %s\n' "$*" ; }
 log_warn()  { printf '[setup] WARN: %s\n' "$*" >&2 ; }
 log_error() { printf '[setup] ERROR: %s\n' "$*" >&2 ; }
@@ -165,28 +169,19 @@ read_zig_version() {
 # ── Platform detection ────────────────────────────────────────────────────────
 # Returns: linux-x86, linux-arm, macos-x86, macos-arm, windows-x86, windows-arm
 get_platform_key() {
-    local os
-    os="$(uname -s | tr '[:upper:]' '[:lower:]')"
-    local arch
-    arch="$(uname -m)"
+    local os arch
+    os="$(tk_os)"
+    arch="$(tk_arch)"
 
-    case "$os" in
-        linux)
-            case "$arch" in
-                x86_64) echo "linux-x86" ;;
-                aarch64|arm64) echo "linux-arm" ;;
-                *) log_error "Unknown Linux architecture: $arch"; exit 1 ;;
-            esac
-            ;;
-        darwin)
-            case "$arch" in
-                x86_64) echo "macos-x86" ;;
-                arm64) echo "macos-arm" ;;
-                *) log_error "Unknown macOS architecture: $arch"; exit 1 ;;
-            esac
-            ;;
+    case "${os}-${arch}" in
+        linux-x86)    echo "linux-x86" ;;
+        linux-arm)    echo "linux-arm" ;;
+        macos-x86)    echo "macos-x86" ;;
+        macos-arm)    echo "macos-arm" ;;
+        windows-x86)  echo "windows-x86" ;;
+        windows-arm)  echo "windows-arm" ;;
         *)
-            log_error "Unsupported OS: $os ($arch)"
+            log_error "Unsupported platform: ${os}-${arch}"
             exit 1
             ;;
     esac
