@@ -18,7 +18,8 @@ Environment overrides:
 
 Defaults:
   TK_LLAMA_CPP_DIR unset: auto-detects `~/work/models/llama.cpp`
-  first, then `~/work/git/llama.cpp`
+  first, then `~/work/git/llama.cpp`; fresh clones default to
+  `~/work/models/llama.cpp` on POSIX and `~/work/git/llama.cpp` on Windows
   TK_HF_MODEL_DIR=$HOME/work/models/gemma/gemma-4-E2B-it-qat-GGUF
   TK_HF_MODEL_FILE=gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf
 USAGE
@@ -34,12 +35,17 @@ llama_dir="$(tk_resolve_llama_cpp_dir)"
 model_dir="${TK_HF_MODEL_DIR:-$HOME/work/models/gemma/gemma-4-E2B-it-qat-GGUF}"
 model_file="${TK_HF_MODEL_FILE:-gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf}"
 
+server_name="llama-server"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) server_name="llama-server.exe" ;;
+esac
+
 case "$model_dir" in
   "~")    model_dir="$HOME" ;;
   "~/"*)  model_dir="$HOME/${model_dir:2}" ;;
 esac
 
-server_bin="${llama_dir}/llama-server"
+server_bin="${llama_dir}/${server_name}"
 model_path="${model_dir}/${model_file}"
 
 if [[ ! -x "$server_bin" ]]; then

@@ -11,11 +11,16 @@ source "${SCRIPT_DIR}/llama_cpp_env.sh"
 # llama.cpp binary was compiled with CUDA support.
 llama_dir="$(tk_resolve_llama_cpp_dir)"
 
+server_name="llama-server"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) server_name="llama-server.exe" ;;
+esac
+
 backend=cpu
 if command -v nvidia-smi >/dev/null 2>&1; then
   gpu_count="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l || echo 0)"
   if (( gpu_count > 0 )); then
-    if ldd "${llama_dir}/llama-server" 2>/dev/null | grep -qi 'cuda\|cublas'; then
+    if ldd "${llama_dir}/${server_name}" 2>/dev/null | grep -qi 'cuda\|cublas'; then
       backend=gpu
     else
       echo "note: GPU detected but llama.cpp binary has no CUDA support; using cpu"

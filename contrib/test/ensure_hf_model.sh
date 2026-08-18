@@ -104,6 +104,14 @@ case "$model_dir" in
     ;;
 esac
 
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    if command -v cygpath >/dev/null 2>&1; then
+      model_dir="$(cygpath -m "$model_dir")"
+    fi
+    ;;
+esac
+
 model_path="${model_dir}/${model_file}"
 
 if [[ -s "$model_path" ]]; then

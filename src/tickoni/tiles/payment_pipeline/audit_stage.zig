@@ -23,7 +23,7 @@ pub fn runAudit(state: *PaymentPipelineState) void {
         state.audit.append(.{
             .source_offset = msg.raw.source_offset,
             .event_hash = msg.event_hash,
-            .decision = @enumFromInt(@intCast(@intFromEnum(msg.decision))),
+            .decision = @enumFromInt(@intFromEnum(msg.decision)),
             .tile_id = msg.decided_by,
         }) catch {
             state.crashed_tile.store(4, .release);
