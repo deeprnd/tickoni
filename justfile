@@ -86,6 +86,12 @@ setup-env:
         echo "unsupported OS: {{ os }}" >&2; \
         exit 1 ;; \
     esac
+    just setup-git
+
+# Activate tracked git hooks (commit-msg strips anthropic AI co-authors)
+setup-git:
+    git config core.hooksPath .githooks
+    chmod +x .githooks/commit-msg
 
 # Linux x86_64 — GCC toolchain
 setup-linux-x86-gcc:
