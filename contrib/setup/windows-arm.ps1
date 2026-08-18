@@ -191,6 +191,7 @@ function Install-Package {
 
 # -- 1. Core packages ---------------------------------------------------------
 log-info "Installing core packages..."
+Install-Package "git"
 Install-Package "cmake"
 Install-Package "ninja"
 Install-Package "zstd"
@@ -198,6 +199,32 @@ Install-Package "python"
 Install-Package "shellcheck"
 Install-Package "pre-commit"
 Install-Package "buf"
+
+# -- 1c. pkg-config (required by Zig Windows cross-compilation) ---------------
+# Git for Windows ships pkg-config.BAT via Strawberry Perl. Add Git's bin dirs
+# to PATH early so Zig can find it.
+Add-WindowsSetupPaths
+$gitRoot = if (Test-Path 'C:\Program Files\Git') {
+    'C:\Program Files\Git'
+} elseif (Test-Path 'C:\Program Files (x86)\Git') {
+    'C:\Program Files (x86)\Git'
+} else {
+    $null
+}
+if ($gitRoot) {
+    # Git has multiple bin dirs depending on the setup (MSYS2 UCRT, MINGW, etc.)
+    foreach ($sub in @('usr\bin', 'bin')) {
+        $dir = Join-Path $gitRoot $sub
+        if (Test-Path $dir) { Add-PathEntry $dir }
+    }
+    # Also add the Strawberry Perl bin if it exists
+    $perlDir = Join-Path $gitRoot 'mingw64\perl\bin'
+    if (Test-Path $perlDir) { Add-PathEntry $perlDir }
+    log-info "Git bin dirs added to PATH for pkg-config.BAT"
+} else {
+    log-error "Git for Windows not found - pkg-config.BAT will be missing from PATH"
+    log-error "Zig Windows builds will fail without pkg-config"
+}
 
 # -- 1b. Security tools (opt-in via -Security flag) --------------------------
 if ($Security) {

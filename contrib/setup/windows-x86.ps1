@@ -130,6 +130,23 @@ Install-Package "shellcheck"
 Install-Package "pre-commit"
 Install-Package "buf"
 
+# -- 1c. pkg-config (required by Zig Windows cross-compilation) ---------------
+# Git for Windows provides pkg-config.BAT in its bin directories. Add them early.
+$gitBinDir = if (Test-Path 'C:\Program Files\Git\usr\bin') {
+    'C:\Program Files\Git\usr\bin'
+} elseif (Test-Path 'C:\Program Files (x86)\Git\usr\bin') {
+    'C:\Program Files (x86)\Git\usr\bin'
+} else {
+    $null
+}
+if ($gitBinDir) {
+    Add-PathEntry $gitBinDir
+    log-info "Git bin added to PATH for pkg-config.BAT"
+} elseif (-not (Get-Command pkg-config -ErrorAction SilentlyContinue)) {
+    log-error "Git for Windows not found and pkg-config not available"
+    log-error "Zig Windows builds will fail without pkg-config"
+}
+
 # -- 1b. Security tools (opt-in via -Security flag) --------------------------
 if ($Security) {
     ensure-gitleaks

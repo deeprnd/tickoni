@@ -2287,22 +2287,24 @@ fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) void 
 
 fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8, libs: []const []const u8) void {
     step.root_module.addLibraryPath(b.path(fd_lib_dir));
-    for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
     if (step.root_module.resolved_target.?.result.os.tag == .windows) {
         // COFF static linking is less forgiving about archive-member discovery
         // across deep/transitive and same-archive dependencies. Repeat the
         // closure so later unresolveds can pull additional members from the
         // same Firedancer archives.
+        // Windows doesn't have pkg-config — use link_lib_cpp instead of
+        // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config on
+        // a Linux host doing cross-compilation.
+        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
         for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
         // Windows prebuilt FD libs (from CI) reference libuuid.a.
         // contrib/fd-build-windows.sh post-build step compiles
         // libuuid_stub.c and archives it as libuuid.a so the library lookup
         // succeeds. Do NOT add libuuid_stub.c as a raw C source file here —
         // that would create duplicate symbols with the .a archive.
-        // Windows doesn't have pkg-config, so use link_lib_cpp instead of
-        // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
         step.root_module.link_lib_cpp = true;
     } else {
+        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
         step.root_module.linkSystemLibrary("stdc++", .{});
     }
 }
