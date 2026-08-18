@@ -115,7 +115,7 @@ test "investment_blocked_limits_integration: oversized trade replay and audit re
     try std.testing.expectEqual(audit.PolicyOutcome.deny, audit_chain.events[4].payload.policy_decision.outcome);
     try std.testing.expectEqual(audit.PolicyOutcome.deny, audit_chain.events[9].payload.limit_check.outcome);
     try std.testing.expectEqual(
-        @as(u32, @intFromEnum(trade_ticket.BlockedReasonCode.per_order_notional_exceeded)),
+        @as(u32, @backingInt(trade_ticket.BlockedReasonCode.per_order_notional_exceeded)),
         audit_chain.events[10].payload.denial.reason_code,
     );
     try std.testing.expectEqual(@as(i64, 250_000), audit_chain.events[9].payload.limit_check.limit);
