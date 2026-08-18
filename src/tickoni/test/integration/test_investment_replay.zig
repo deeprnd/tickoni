@@ -294,14 +294,18 @@ test "gen audit allowed trade jsonl" {
     );
 
     const path = "src/tickoni/test/fixtures/investment/scenarios/fixture_audit_allowed_2000.jsonl";
-    const file = try std.fs.cwd().createFile(path, .{ .truncate = true });
-    defer file.close();
+    const file = try std.Io.Dir.cwd().createFile(std.testing.io, path, .{ .truncate = true });
+    defer std.Io.File.close(file, std.testing.io);
+
+    var write_buf: [4096]u8 = undefined;
+    var w = std.Io.File.Writer.init(file, std.testing.io, &write_buf);
+    defer w.interface.flush() catch {};
 
     for (chain.events) |event| {
         var line_buf: [4096]u8 = undefined;
-        var w = std.Io.Writer.fixed(&line_buf);
-        try audit.formatJsonLine(event, &w);
-        try file.writeAll(w.buffered());
+        var lw = std.Io.Writer.fixed(&line_buf);
+        try audit.formatJsonLine(event, &lw);
+        try w.interface.writeAll(lw.buffered());
     }
 }
 

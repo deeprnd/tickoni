@@ -2,7 +2,8 @@ const std = @import("std");
 const cpu_placement = @import("cpu_placement.zig");
 
 /// Six-character runtime ID for a tile (matches the fd_topo char name[7] constraint).
-pub const TileId = struct { bytes: [6]u8 = std.mem.zeroes([6]u8),
+pub const TileId = struct {
+    bytes: [6]u8 = std.mem.zeroes([6]u8),
 
     pub fn parse(s: []const u8) error{TileIdTooLong}!TileId {
         if (s.len > 6) return error.TileIdTooLong;
@@ -11,21 +12,28 @@ pub const TileId = struct { bytes: [6]u8 = std.mem.zeroes([6]u8),
         return id;
     }
 
-    pub fn slice(self: *const TileId) []const u8 { const end = std.mem.indexOfScalar(u8, &self.bytes, 0) orelse 6;
-        return self.bytes[0..end]; }
+    pub fn slice(self: *const TileId) []const u8 {
+        const end = std.mem.indexOfScalar(u8, &self.bytes, 0) orelse 6;
+        return self.bytes[0..end];
+    }
 
-    pub fn eql(self: TileId, other: TileId) bool { return std.mem.eql(u8, &self.bytes, &other.bytes); }
+    pub fn eql(self: TileId, other: TileId) bool {
+        return std.mem.eql(u8, &self.bytes, &other.bytes);
+    }
 };
 
 /// Static description of one tile in a topology.
-pub const TileDescriptor = struct { id: TileId,
+pub const TileDescriptor = struct {
+    id: TileId,
     /// Human-readable name used in logs and diagnostics.
     name: []const u8,
     /// Defaults to floating: existing thread-mode topologies do not pin
     /// CPUs. Process-mode topologies set this explicitly.
-    cpu_placement: cpu_placement.CpuPlacement = .floating, };
+    cpu_placement: cpu_placement.CpuPlacement = .floating,
+};
 
-pub const TileState = enum { stopped,
+pub const TileState = enum {
+    stopped,
     starting,
     running,
     stopping,
@@ -33,12 +41,14 @@ pub const TileState = enum { stopped,
     /// within the supervisor's stale threshold.
     stale,
     /// Tile exited with a non-zero status; topology is unhealthy.
-    crashed, };
+    crashed,
+};
 
 /// Identifies why a tile transitioned to .crashed, for supervisor
 /// diagnostics and crash/health-isolation tests. Every retained value must
 /// be producible by an implemented supervisor monitoring path.
-pub const CrashReason = enum { none,
+pub const CrashReason = enum {
+    none,
     /// Process exited with a non-zero status (or thread-mode equivalent).
     exit_code,
     /// Supervisor observed a non-advancing heartbeat past the configured
@@ -48,10 +58,12 @@ pub const CrashReason = enum { none,
     /// only. Distinct from exit_code because the tile never got to exit
     /// on its own terms — a forced-kill/OOM-style death rather than a
     /// self-detected failure.
-    signal, };
+    signal,
+};
 
 /// Runtime handle for one tile managed by the supervisor.
-pub const TileHandle = struct { tile_idx: u32,
+pub const TileHandle = struct {
+    tile_idx: u32,
     state: TileState,
     /// Non-null when the tile runs as an in-process thread (test/dev mode).
     thread: ?std.Thread,
@@ -70,45 +82,65 @@ pub const TileHandle = struct { tile_idx: u32,
         return .{ .tile_idx = idx, .state = .stopped, .thread = null, .exit_code = 0 };
     }
 
-    pub fn isAlive(self: TileHandle) bool { return switch (self.state) {
+    pub fn isAlive(self: TileHandle) bool {
+        return switch (self.state) {
             .starting, .running, .stopping, .stale => true,
-            .stopped, .crashed => false, };
+            .stopped, .crashed => false,
+        };
     }
 };
 
-test "TileId parse valid 6-char name" { const id = try TileId.parse("tkings");
-    try std.testing.expectEqualStrings("tkings", id.slice()); }
+test "TileId parse valid 6-char name" {
+    const id = try TileId.parse("tkings");
+    try std.testing.expectEqualStrings("tkings", id.slice());
+}
 
-test "TileId parse short name" { const id = try TileId.parse("tk");
-    try std.testing.expectEqualStrings("tk", id.slice()); }
+test "TileId parse short name" {
+    const id = try TileId.parse("tk");
+    try std.testing.expectEqualStrings("tk", id.slice());
+}
 
-test "TileId parse rejects names longer than 6 chars" { try std.testing.expectError(error.TileIdTooLong, TileId.parse("toolong7")); }
+test "TileId parse rejects names longer than 6 chars" {
+    try std.testing.expectError(error.TileIdTooLong, TileId.parse("toolong7"));
+}
 
-test "TileId equality" { const a = try TileId.parse("tknorm");
+test "TileId equality" {
+    const a = try TileId.parse("tknorm");
     const b = try TileId.parse("tknorm");
     const c = try TileId.parse("tkdedu");
     try std.testing.expect(a.eql(b));
-    try std.testing.expect(!a.eql(c)); }
+    try std.testing.expect(!a.eql(c));
+}
 
-test "TileHandle initialises in stopped state" { const h = TileHandle.init(0);
+test "TileHandle initialises in stopped state" {
+    const h = TileHandle.init(0);
     try std.testing.expectEqual(TileState.stopped, h.state);
     try std.testing.expectEqual(@as(u32, 0), h.tile_idx);
-    try std.testing.expect(!h.isAlive()); }
+    try std.testing.expect(!h.isAlive());
+}
 
-test "TileHandle isAlive is true for running" { var h = TileHandle.init(1);
+test "TileHandle isAlive is true for running" {
+    var h = TileHandle.init(1);
     h.state = .running;
-    try std.testing.expect(h.isAlive()); }
+    try std.testing.expect(h.isAlive());
+}
 
-test "TileHandle isAlive is true for starting and stopping" { var h = TileHandle.init(2);
+test "TileHandle isAlive is true for starting and stopping" {
+    var h = TileHandle.init(2);
     h.state = .starting;
     try std.testing.expect(h.isAlive());
     h.state = .stopping;
-    try std.testing.expect(h.isAlive()); }
+    try std.testing.expect(h.isAlive());
+}
 
-test "TileHandle isAlive is true for stale" { var h = TileHandle.init(4);
+test "TileHandle isAlive is true for stale" {
+    var h = TileHandle.init(4);
     h.state = .stale;
-    try std.testing.expect(h.isAlive()); }
+    try std.testing.expect(h.isAlive());
+}
 
-test "TileHandle isAlive is false for crashed" { var h = TileHandle.init(3);
+test "TileHandle isAlive is false for crashed" {
+    var h = TileHandle.init(3);
     h.state = .crashed;
-    try std.testing.expect(!h.isAlive()); }
+    try std.testing.expect(!h.isAlive());
+}

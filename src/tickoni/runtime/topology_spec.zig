@@ -41,21 +41,27 @@ pub const TopologySpec = struct {
     channel_mtu: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
     workspace_name: link.WorkspaceName = .{},
 
-    pub fn fromTopology(topo: topology.Topology) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec { if (topo.tiles.len > max_tiles) return error.TooManyTiles;
+    pub fn fromTopology(topo: topology.Topology) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec {
+        if (topo.tiles.len > max_tiles) return error.TooManyTiles;
         if (topo.channels.len > max_channels) return error.TooManyChannels;
 
         var spec = TopologySpec{
             .tile_cnt = @intCast(topo.tiles.len),
-            .channel_cnt = @intCast(topo.channels.len), };
-        for (topo.tiles, 0..) |t, i| { spec.tile_id[i] = t.id;
-            spec.tile_cpu_placement[i] = t.cpu_placement; }
-        for (topo.channels, 0..) |ch, i| { spec.channel_src_idx[i] = ch.src_idx;
+            .channel_cnt = @intCast(topo.channels.len),
+        };
+        for (topo.tiles, 0..) |t, i| {
+            spec.tile_id[i] = t.id;
+            spec.tile_cpu_placement[i] = t.cpu_placement;
+        }
+        for (topo.channels, 0..) |ch, i| {
+            spec.channel_src_idx[i] = ch.src_idx;
             spec.channel_dst_idx[i] = ch.dst_idx;
             spec.channel_depth[i] = ch.depth;
             spec.channel_mtu[i] = ch.mtu;
             if (i == 0) {
                 if (ch.workspace_name.isEmpty()) return error.MissingWorkspaceName;
-                spec.workspace_name = ch.workspace_name; }
+                spec.workspace_name = ch.workspace_name;
+            }
         }
         return spec;
     }
@@ -63,21 +69,25 @@ pub const TopologySpec = struct {
     /// Writes into caller-provided fixed buffers (no allocation).
     /// TileDescriptor.name is diagnostics-only and not part of the wire
     /// format — reconstructed here as the same string as id.slice().
-    pub fn toTopology(self: *const TopologySpec, tiles_buf: []tile.TileDescriptor, channels_buf: []link.Channel) topology.Topology { std.debug.assert(tiles_buf.len >= self.tile_cnt);
+    pub fn toTopology(self: *const TopologySpec, tiles_buf: []tile.TileDescriptor, channels_buf: []link.Channel) topology.Topology {
+        std.debug.assert(tiles_buf.len >= self.tile_cnt);
         std.debug.assert(channels_buf.len >= self.channel_cnt);
         for (0..self.tile_cnt) |i| {
             tiles_buf[i] = .{
                 .id = self.tile_id[i],
                 .name = self.tile_id[i].slice(),
-                .cpu_placement = self.tile_cpu_placement[i], };
+                .cpu_placement = self.tile_cpu_placement[i],
+            };
         }
-        for (0..self.channel_cnt) |i| { channels_buf[i] = .{
+        for (0..self.channel_cnt) |i| {
+            channels_buf[i] = .{
                 .src_idx = self.channel_src_idx[i],
                 .dst_idx = self.channel_dst_idx[i],
                 .depth = self.channel_depth[i],
                 .mtu = self.channel_mtu[i],
                 .backing = .tango_shm,
-                .workspace_name = self.workspace_name, };
+                .workspace_name = self.workspace_name,
+            };
         }
         return .{ .tiles = tiles_buf[0..self.tile_cnt], .channels = channels_buf[0..self.channel_cnt] };
     }
@@ -110,11 +120,13 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const tiles = [_]tile.TileDescriptor{ .{ .id = try tile.TileId.parse("tkings"), .name = "tkings", .cpu_placement = .{ .exclusive = 0 } },
+    const tiles = [_]tile.TileDescriptor{
+        .{ .id = try tile.TileId.parse("tkings"), .name = "tkings", .cpu_placement = .{ .exclusive = 0 } },
         .{ .id = try tile.TileId.parse("tknorm"), .name = "tknorm", .cpu_placement = .{ .shared = 1 } },
         .{ .id = try tile.TileId.parse("tkdedu"), .name = "tkdedu" },
     };
-    const channels = [_]link.Channel{ .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = try link.WorkspaceName.parse("tkpay0") },
+    const channels = [_]link.Channel{
+        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = try link.WorkspaceName.parse("tkpay0") },
         .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = try link.WorkspaceName.parse("tkpay0") },
     };
     const topo = topology.Topology{ .tiles = &tiles, .channels = &channels };
@@ -162,7 +174,8 @@ test "TopologySpec readFromFile rejects a bad magic" {
     try std.testing.expectError(error.TopologySpecBadMagic, TopologySpec.readFromFile(std.testing.io, tmp.dir, "bad_magic.spec"));
 }
 
-test "TopologySpec fromTopology fails closed on too many tiles" { var tiles: [max_tiles + 1]tile.TileDescriptor = undefined;
+test "TopologySpec fromTopology fails closed on too many tiles" {
+    var tiles: [max_tiles + 1]tile.TileDescriptor = undefined;
     for (&tiles) |*t| t.* = .{ .id = tile.TileId.parse("tkfoo") catch unreachable, .name = "t", .cpu_placement = .floating };
     const topo = topology.Topology{ .tiles = &tiles, .channels = &.{} };
     try std.testing.expectError(error.TooManyTiles, TopologySpec.fromTopology(topo));

@@ -79,7 +79,8 @@ pub const LaunchSpec = struct {
         /// last one.
         channels: []const link.Channel = &.{},
         link_handles: []const link.LinkHandles = &.{},
-    }) error{ ShmemPathTooLong, TooManyInLinks, TooManyOutLinks }!LaunchSpec { if (fields.shmem_path.len > shmem_path_cap) return error.ShmemPathTooLong;
+    }) error{ ShmemPathTooLong, TooManyInLinks, TooManyOutLinks }!LaunchSpec {
+        if (fields.shmem_path.len > shmem_path_cap) return error.ShmemPathTooLong;
         var spec = LaunchSpec{
             .tile_idx = fields.tile_idx,
             .tile_id = fields.tile_id,
@@ -88,24 +89,35 @@ pub const LaunchSpec = struct {
             .cnc_gaddr = fields.cnc_gaddr,
             .shmem_path_len = @intCast(fields.shmem_path.len),
             .heartbeat_interval_ns = fields.heartbeat_interval_ns,
-            .crash_after_heartbeats = fields.crash_after_heartbeats, };
+            .crash_after_heartbeats = fields.crash_after_heartbeats,
+        };
         @memcpy(spec.shmem_path_buf[0..fields.shmem_path.len], fields.shmem_path);
-        for (fields.channels, fields.link_handles) |ch, lh| { if (ch.dst_idx == fields.tile_idx) {
+        for (fields.channels, fields.link_handles) |ch, lh| {
+            if (ch.dst_idx == fields.tile_idx) {
                 if (spec.in_cnt >= max_links_per_tile) return error.TooManyInLinks;
                 spec.in_links[spec.in_cnt] = lh;
-                spec.in_cnt += 1; }
-            if (ch.src_idx == fields.tile_idx) { if (spec.out_cnt >= max_links_per_tile) return error.TooManyOutLinks;
+                spec.in_cnt += 1;
+            }
+            if (ch.src_idx == fields.tile_idx) {
+                if (spec.out_cnt >= max_links_per_tile) return error.TooManyOutLinks;
                 spec.out_links[spec.out_cnt] = lh;
-                spec.out_cnt += 1; }
+                spec.out_cnt += 1;
+            }
         }
         return spec;
     }
 
-    pub fn inLinks(self: *const LaunchSpec) []const link.LinkHandles { return self.in_links[0..self.in_cnt]; }
+    pub fn inLinks(self: *const LaunchSpec) []const link.LinkHandles {
+        return self.in_links[0..self.in_cnt];
+    }
 
-    pub fn outLinks(self: *const LaunchSpec) []const link.LinkHandles { return self.out_links[0..self.out_cnt]; }
+    pub fn outLinks(self: *const LaunchSpec) []const link.LinkHandles {
+        return self.out_links[0..self.out_cnt];
+    }
 
-    pub fn shmemPath(self: *const LaunchSpec) []const u8 { return self.shmem_path_buf[0..self.shmem_path_len]; }
+    pub fn shmemPath(self: *const LaunchSpec) []const u8 {
+        return self.shmem_path_buf[0..self.shmem_path_len];
+    }
 
     pub fn writeToFile(self: *const LaunchSpec, io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !void {
         var file = try dir.createFile(io, sub_path, .{});
@@ -135,7 +147,8 @@ test "LaunchSpec round-trips through a file" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const spec = try LaunchSpec.init(.{ .tile_idx = 3,
+    const spec = try LaunchSpec.init(.{
+        .tile_idx = 3,
         .tile_id = try tile.TileId.parse("tkpoly"),
         .cpu_placement = .{ .exclusive = 2 },
         .workspace_name = try link.WorkspaceName.parse("tkpay0"),
@@ -174,13 +187,15 @@ test "LaunchSpec readFromFile rejects a bad magic" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    var spec = try LaunchSpec.init(.{ .tile_idx = 0,
+    var spec = try LaunchSpec.init(.{
+        .tile_idx = 0,
         .tile_id = try tile.TileId.parse("tkings"),
         .cpu_placement = .floating,
         .workspace_name = try link.WorkspaceName.parse("tkpay0"),
         .cnc_gaddr = 0,
         .shmem_path = "/tmp",
-        .heartbeat_interval_ns = 1, });
+        .heartbeat_interval_ns = 1,
+    });
     spec.magic_field = 0xdeadbeef;
     try spec.writeToFile(std.testing.io, tmp.dir, "bad_magic.spec");
 
@@ -190,24 +205,29 @@ test "LaunchSpec readFromFile rejects a bad magic" {
 test "LaunchSpec init rejects an over-long shmem path" {
     var too_long: [shmem_path_cap + 1]u8 = undefined;
     for (&too_long) |*c| c.* = 'a';
-    try std.testing.expectError(error.ShmemPathTooLong, LaunchSpec.init(.{ .tile_idx = 0,
+    try std.testing.expectError(error.ShmemPathTooLong, LaunchSpec.init(.{
+        .tile_idx = 0,
         .tile_id = try tile.TileId.parse("tkings"),
         .cpu_placement = .floating,
         .workspace_name = try link.WorkspaceName.parse("tkpay0"),
         .cnc_gaddr = 0,
         .shmem_path = &too_long,
-        .heartbeat_interval_ns = 1, }));
+        .heartbeat_interval_ns = 1,
+    }));
 }
 
-test "LaunchSpec init keeps every matching inbound channel, not just the last (fan-in)" { const channels = [_]link.Channel{
+test "LaunchSpec init keeps every matching inbound channel, not just the last (fan-in)" {
+    const channels = [_]link.Channel{
         .{ .src_idx = 0, .dst_idx = 2, .depth = 64, .mtu = 128 },
         .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 128 },
     };
-    const handles = [_]link.LinkHandles{ .{ .mcache_gaddr = 111, .dcache_gaddr = 0, .fseq_gaddr = 0, .depth = 64, .mtu = 128 },
+    const handles = [_]link.LinkHandles{
+        .{ .mcache_gaddr = 111, .dcache_gaddr = 0, .fseq_gaddr = 0, .depth = 64, .mtu = 128 },
         .{ .mcache_gaddr = 222, .dcache_gaddr = 0, .fseq_gaddr = 0, .depth = 64, .mtu = 128 },
     };
 
-    const spec = try LaunchSpec.init(.{ .tile_idx = 2,
+    const spec = try LaunchSpec.init(.{
+        .tile_idx = 2,
         .tile_id = try tile.TileId.parse("tkaudt"),
         .cpu_placement = .floating,
         .workspace_name = try link.WorkspaceName.parse("tkpay0"),
@@ -215,7 +235,8 @@ test "LaunchSpec init keeps every matching inbound channel, not just the last (f
         .shmem_path = "/tmp",
         .heartbeat_interval_ns = 1,
         .channels = &channels,
-        .link_handles = &handles, });
+        .link_handles = &handles,
+    });
 
     try std.testing.expectEqual(@as(u8, 2), spec.in_cnt);
     try std.testing.expectEqual(@as(usize, 111), spec.inLinks()[0].mcache_gaddr);
@@ -223,15 +244,18 @@ test "LaunchSpec init keeps every matching inbound channel, not just the last (f
     try std.testing.expectEqual(@as(u8, 0), spec.out_cnt);
 }
 
-test "LaunchSpec init keeps every matching outbound channel (fan-out)" { const channels = [_]link.Channel{
+test "LaunchSpec init keeps every matching outbound channel (fan-out)" {
+    const channels = [_]link.Channel{
         .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 },
         .{ .src_idx = 0, .dst_idx = 2, .depth = 64, .mtu = 128 },
     };
-    const handles = [_]link.LinkHandles{ .{ .mcache_gaddr = 333, .dcache_gaddr = 0, .fseq_gaddr = 0, .depth = 64, .mtu = 128 },
+    const handles = [_]link.LinkHandles{
+        .{ .mcache_gaddr = 333, .dcache_gaddr = 0, .fseq_gaddr = 0, .depth = 64, .mtu = 128 },
         .{ .mcache_gaddr = 444, .dcache_gaddr = 0, .fseq_gaddr = 0, .depth = 64, .mtu = 128 },
     };
 
-    const spec = try LaunchSpec.init(.{ .tile_idx = 0,
+    const spec = try LaunchSpec.init(.{
+        .tile_idx = 0,
         .tile_id = try tile.TileId.parse("tkings"),
         .cpu_placement = .floating,
         .workspace_name = try link.WorkspaceName.parse("tkpay0"),
@@ -239,7 +263,8 @@ test "LaunchSpec init keeps every matching outbound channel (fan-out)" { const c
         .shmem_path = "/tmp",
         .heartbeat_interval_ns = 1,
         .channels = &channels,
-        .link_handles = &handles, });
+        .link_handles = &handles,
+    });
 
     try std.testing.expectEqual(@as(u8, 2), spec.out_cnt);
     try std.testing.expectEqual(@as(usize, 333), spec.outLinks()[0].mcache_gaddr);
@@ -247,14 +272,16 @@ test "LaunchSpec init keeps every matching outbound channel (fan-out)" { const c
     try std.testing.expectEqual(@as(u8, 0), spec.in_cnt);
 }
 
-test "LaunchSpec init fails closed when inbound links exceed max_links_per_tile" { var channels: [max_links_per_tile + 1]link.Channel = undefined;
+test "LaunchSpec init fails closed when inbound links exceed max_links_per_tile" {
+    var channels: [max_links_per_tile + 1]link.Channel = undefined;
     var handles: [max_links_per_tile + 1]link.LinkHandles = undefined;
     for (&channels, &handles, 0..) |*ch, *lh, i| {
         ch.* = .{ .src_idx = @intCast(i + 10), .dst_idx = 5, .depth = 64, .mtu = 128 };
         lh.* = .{ .mcache_gaddr = i + 1, .dcache_gaddr = 0, .fseq_gaddr = 0, .depth = 64, .mtu = 128 };
     }
 
-    try std.testing.expectError(error.TooManyInLinks, LaunchSpec.init(.{ .tile_idx = 5,
+    try std.testing.expectError(error.TooManyInLinks, LaunchSpec.init(.{
+        .tile_idx = 5,
         .tile_id = try tile.TileId.parse("tkaudt"),
         .cpu_placement = .floating,
         .workspace_name = try link.WorkspaceName.parse("tkpay0"),
@@ -262,5 +289,6 @@ test "LaunchSpec init fails closed when inbound links exceed max_links_per_tile"
         .shmem_path = "/tmp",
         .heartbeat_interval_ns = 1,
         .channels = &channels,
-        .link_handles = &handles, }));
+        .link_handles = &handles,
+    }));
 }

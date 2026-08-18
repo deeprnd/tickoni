@@ -1,12 +1,16 @@
 const std = @import("std");
 
-pub const SamplingParams = struct { temperature: f32 = 0,
+pub const SamplingParams = struct {
+    temperature: f32 = 0,
     top_p: f32 = 1.0,
     max_output_tokens: u32 = 512,
-    seed: u64 = 42, };
+    seed: u64 = 42,
+};
 
-pub const Message = struct { role: []const u8,
-    content: []const u8, };
+pub const Message = struct {
+    role: []const u8,
+    content: []const u8,
+};
 
 pub const ProviderRequest = struct {
     model_id: []const u8,
@@ -17,8 +21,10 @@ pub const ProviderRequest = struct {
     capability_envelope_id: []const u8 = "",
 };
 
-pub const ReplayMode = enum(u8) { live,
-    replay, };
+pub const ReplayMode = enum(u8) {
+    live,
+    replay,
+};
 
 pub const TkModlRequest = struct {
     request_id: u64 = 0,
@@ -45,7 +51,8 @@ pub const TkModlRequest = struct {
 
 pub const max_allowed_model_ids: usize = 16;
 
-pub const TkModlConfig = struct { allowed_model_ids: [max_allowed_model_ids][]const u8 = undefined,
+pub const TkModlConfig = struct {
+    allowed_model_ids: [max_allowed_model_ids][]const u8 = undefined,
     allowed_model_id_count: u8 = 0,
     live_provider_enabled: bool = false,
     hard_max_context_tokens: u32 = 0,
@@ -56,7 +63,8 @@ pub const TkModlConfig = struct { allowed_model_ids: [max_allowed_model_ids][]co
     provider_endpoint: [256]u8 = std.mem.zeroes([256]u8),
 };
 
-pub const TkModlDecision = union(enum) { allow_live,
+pub const TkModlDecision = union(enum) {
+    allow_live,
     allow_replay,
     deny_missing_scope: []const u8,
     deny_model_not_allowed,
@@ -65,14 +73,18 @@ pub const TkModlDecision = union(enum) { allow_live,
     deny_output_limit,
     deny_retry_limit,
     deny_live_provider_disabled,
-    deny_replay_substitution_missing, };
+    deny_replay_substitution_missing,
+};
 
-pub const TokenUsage = struct { prompt_tokens: u32,
+pub const TokenUsage = struct {
+    prompt_tokens: u32,
     completion_tokens: u32,
-    total_tokens: u32, };
+    total_tokens: u32,
+};
 
 // Caller owns all slice fields; call deinit(allocator) when done.
-pub const ModelResponse = struct { model_id: []const u8,
+pub const ModelResponse = struct {
+    model_id: []const u8,
     content: []const u8,
     finish_reason: []const u8,
     token_usage: TokenUsage,
@@ -81,7 +93,8 @@ pub const ModelResponse = struct { model_id: []const u8,
     pub fn deinit(self: ModelResponse, allocator: std.mem.Allocator) void {
         allocator.free(self.model_id);
         allocator.free(self.content);
-        allocator.free(self.finish_reason); }
+        allocator.free(self.finish_reason);
+    }
 };
 
 test "TkModlRequest required fields compile and replay_mode defaults to live" {
@@ -95,7 +108,8 @@ test "TkModlRequest required fields compile and replay_mode defaults to live" {
     try std.testing.expectEqual(@as(u32, 512), req.max_output_tokens);
 }
 
-test "ModelResponse deinit frees all fields" { const allocator = std.testing.allocator;
+test "ModelResponse deinit frees all fields" {
+    const allocator = std.testing.allocator;
     const resp = ModelResponse{
         .model_id = try allocator.dupe(u8, "test-model"),
         .content = try allocator.dupe(u8, "hello"),

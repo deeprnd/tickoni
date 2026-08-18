@@ -34,7 +34,8 @@ fn buildArgv(
     flag_name_buf: *FlagNameBuf,
     shmem_path_buf: *[shmem_path_cap]u8,
     argv_buf: *[4]?[*:0]u8,
-) error{ShmemPathTooLong}!c_int { prog_name_buf.* = "tickoni-tile".*;
+) error{ShmemPathTooLong}!c_int {
+    prog_name_buf.* = "tickoni-tile".*;
     argv_buf[0] = prog_name_buf;
     argv_buf[1] = null;
 
@@ -48,12 +49,14 @@ fn buildArgv(
     argv_buf[1] = flag_name_buf;
     argv_buf[2] = path_z.ptr;
     argv_buf[3] = null;
-    return 3; }
+    return 3;
+}
 
 /// Boots fd_util's substrate with a synthetic argv (see buildArgv). Must be
 /// paired with c_abi.boot.halt(). Not thread-safe to call concurrently with
 /// itself; call once per process at startup.
-pub fn bootWithSyntheticArgv(shmem_path: ?[]const u8) error{ShmemPathTooLong}!void { var prog_name_buf: ProgNameBuf = undefined;
+pub fn bootWithSyntheticArgv(shmem_path: ?[]const u8) error{ShmemPathTooLong}!void {
+    var prog_name_buf: ProgNameBuf = undefined;
     var flag_name_buf: FlagNameBuf = undefined;
     var shmem_path_buf: [shmem_path_cap]u8 = undefined;
     var argv_buf: [4]?[*:0]u8 = .{ null, null, null, null };
@@ -69,7 +72,8 @@ pub fn bootWithSyntheticArgv(shmem_path: ?[]const u8) error{ShmemPathTooLong}!vo
 // not run in the offline unit lane.
 // ---------------------------------------------------------------------------
 
-test "buildArgv without a shmem path is a valid single-element argv" { var prog_name_buf: ProgNameBuf = undefined;
+test "buildArgv without a shmem path is a valid single-element argv" {
+    var prog_name_buf: ProgNameBuf = undefined;
     var flag_name_buf: FlagNameBuf = undefined;
     var shmem_path_buf: [shmem_path_cap]u8 = undefined;
     var argv_buf: [4]?[*:0]u8 = .{ null, null, null, null };
@@ -81,7 +85,8 @@ test "buildArgv without a shmem path is a valid single-element argv" { var prog_
     try std.testing.expectEqualStrings("tickoni-tile", &prog_name_buf);
 }
 
-test "buildArgv with a shmem path produces a 3-element argv" { var prog_name_buf: ProgNameBuf = undefined;
+test "buildArgv with a shmem path produces a 3-element argv" {
+    var prog_name_buf: ProgNameBuf = undefined;
     var flag_name_buf: FlagNameBuf = undefined;
     var shmem_path_buf: [shmem_path_cap]u8 = undefined;
     var argv_buf: [4]?[*:0]u8 = .{ null, null, null, null };
@@ -96,7 +101,8 @@ test "buildArgv with a shmem path produces a 3-element argv" { var prog_name_buf
     try std.testing.expectEqual(@as(?[*:0]u8, null), argv_buf[3]);
 }
 
-test "buildArgv rejects an over-long shmem path" { var prog_name_buf: ProgNameBuf = undefined;
+test "buildArgv rejects an over-long shmem path" {
+    var prog_name_buf: ProgNameBuf = undefined;
     var flag_name_buf: FlagNameBuf = undefined;
     var shmem_path_buf: [shmem_path_cap]u8 = undefined;
     var argv_buf: [4]?[*:0]u8 = .{ null, null, null, null };
