@@ -219,7 +219,7 @@ ensure_zig() {
     # SCRIPT_DIR after sourcing common.sh, breaking this call.
     local install_output
     install_output="$(python3 "${SCRIPT_DIR%/helpers}/helpers/install-zig.py" \
-        --version "${zig_version}" \
+        "${zig_version}" \
         --install-root "${HOME}/.local" \
         --cache-root "${HOME}/.cache" 2>&1)"
     log_info "$install_output"

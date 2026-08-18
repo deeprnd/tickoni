@@ -241,7 +241,7 @@ function ensure-zig {
     }
 
     log-info "Installing Zig $zigVersion..."
-    $zigArgs = @("--version", $zigVersion, "--install-root", $installRoot, "--cache-root", (Join-Path $env:LOCALAPPDATA "zig"), "--user-path")
+    $zigArgs = @($zigVersion, "--install-root", $installRoot, "--cache-root", (Join-Path $env:LOCALAPPDATA "zig"), "--user-path")
     if ($Target) {
         $zigArgs += @("--target", $Target)
     }
