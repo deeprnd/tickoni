@@ -8,9 +8,10 @@ fn getEnv(name: []const u8) ?[]const u8 {
     var count: usize = 0;
     while (env[count] != null) : (count += 1) {}
     for (env[0..count]) |entry| {
-        const kv = std.mem.span(entry);
-        if (std.mem.startsWith(u8, kv, name) and kv.len > name.len and kv[name.len] == '=') {
-            return kv[name.len + 1 ..];
+        const kv = entry orelse continue;
+        const span = std.mem.span(kv);
+        if (std.mem.startsWith(u8, span, name) and span.len > name.len and span[name.len] == '=') {
+            return span[name.len + 1 ..];
         }
     }
     return null;
