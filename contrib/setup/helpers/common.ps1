@@ -30,7 +30,7 @@ function tool-exists {
 # Universal tools (single version everywhere):
 #   read-tool-version "just"      -> "1.58.0"
 #   read-tool-version "gitleaks"  -> "8.30.1"
-#   read-tool-version "zig"       -> "0.16.0"
+#   read-tool-version "zig"       -> "0.17.0-dev.1770+5d7cf3f34"
 #   read-tool-version "openssl"   -> "3.6.2"
 #
 # Usage: read-tool-version "just"

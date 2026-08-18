@@ -4,7 +4,7 @@
 #   .\windows-arm.ps1 -NoLLM       # skip LLM tooling (llama.cpp build)
 #   .\windows-arm.ps1 -Security -NoLLM  # install gitleaks, skip LLM
 # Package manager: winget ONLY. If winget is missing, auto-install it.
-# Note: Tickoni Windows ARM CI prefers the x86_64 Zig 0.16 prebuilt.
+# Note: Tickoni Windows ARM CI prefers the x86_64 Zig 0.17 prebuilt.
 # contrib/zigw.sh auto-selects it on ARM64 because the native aarch64 Zig lane
 # has been unstable for Tickoni's Windows unit/system jobs.
 # Note: OpenSSL uses native MSVC target (msvc-arm64), no MinGW-w64/MSYS2 needed.

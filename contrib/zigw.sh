@@ -20,16 +20,40 @@ if [[ "$is_windows" -eq 1 && "$(tk_arch)" == "arm" ]]; then
 fi
 
 if [[ "$is_windows_arm" -eq 1 && -n "${LOCALAPPDATA:-}" ]]; then
-  zig_root="$LOCALAPPDATA"
-  if command -v cygpath >/dev/null 2>&1; then
-    zig_root="$(cygpath -u "$zig_root")"
+  # Prefer the exact version pinned in tool-versions.json so local runs
+  # match CI (both use x86_64 Windows Zig on ARM64).
+  local_zig_version=""
+  if [[ -f "${SCRIPT_DIR}/setup/tool-versions.json" ]]; then
+    # Extract the zig version from tool-versions.json.
+    local_zig_version="$(python3 -c "import json; print(json.load(open('${SCRIPT_DIR}/setup/tool-versions.json'))['versions']['zig'])" 2>/dev/null || echo "")"
   fi
-  zig_root="${zig_root}/Programs/Zig"
-  if [[ -d "$zig_root" ]]; then
-    candidate="$(find "$zig_root" -maxdepth 2 -type f -path '*/zig-x86_64-windows-*/zig.exe' | sort | tail -n 1)"
-    if [[ -n "$candidate" ]]; then
+
+  if [[ -n "$local_zig_version" ]]; then
+    zig_root="${LOCALAPPDATA}/Programs/Zig"
+    candidate="${zig_root}/zig-x86_64-windows-${local_zig_version}/zig.exe"
+    if [[ -f "$candidate" ]]; then
       zig_cmd="$candidate"
       using_windows_arm_x64_zig=1
+    fi
+  fi
+
+  # Fallback to the previous scan behaviour when the pinned version
+  # isn't installed yet (e.g. developer machine hasn't upgraded yet).
+  # TODO: remove this fallback scan path entirely once install-zig.py is
+  # the single authority for Zig installation across all lanes (CI + local).
+  # See contrib/setup/helpers/install-zig.py.
+  if [[ -z "$local_zig_version" || "$using_windows_arm_x64_zig" -ne 1 ]]; then
+    zig_root="$LOCALAPPDATA"
+    if command -v cygpath >/dev/null 2>&1; then
+      zig_root="$(cygpath -u "$zig_root")"
+    fi
+    zig_root="${zig_root}/Programs/Zig"
+    if [[ -d "$zig_root" ]]; then
+      candidate="$(find "$zig_root" -maxdepth 2 -type f -path '*/zig-x86_64-windows-*/zig.exe' | sort | tail -n 1)"
+      if [[ -n "$candidate" ]]; then
+        zig_cmd="$candidate"
+        using_windows_arm_x64_zig=1
+      fi
     fi
   fi
 fi
