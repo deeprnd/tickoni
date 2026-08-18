@@ -562,6 +562,30 @@ pub fn build(b: *std.Build) void {
             .{ .name = "trade_ticket", .module = trade_ticket_mod },
         },
     });
+    // Dedicated test instance of investment_demo_mod so that linkTickoniCodec
+    // adds ballet.c only to the test binary's root module — not to the shared
+    // investment_demo_mod which is also imported by system test binaries
+    // (portfolio_cash_demo_test, test_investment_demo_live_test, etc.).
+    const investment_demo_test_mod = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/test/demo/investment/mod.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "adapter", .module = adapter_int_mod },
+            .{ .name = "basket", .module = basket_mod },
+            .{ .name = "cards", .module = cards_mod },
+            .{ .name = "drift", .module = drift_mod },
+            .{ .name = "impact", .module = impact_mod },
+            .{ .name = "investment_support", .module = investment_support_int_mod },
+            .{ .name = "model", .module = model_int_mod },
+            .{ .name = "portfolio", .module = portfolio_mod },
+            .{ .name = "replay", .module = replay_int_mod },
+            .{ .name = "thesis", .module = thesis_mod },
+            .{ .name = "tkpoly", .module = tkpoly_int_mod },
+            .{ .name = "tool", .module = tool_int_mod },
+            .{ .name = "trade_ticket", .module = trade_ticket_mod },
+        },
+    });
     const investment_demo_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/test/demo/investment/mod.zig"),
         .target = target,
@@ -637,7 +661,7 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(c_compile_check_step);
 
     if (build_tests) {
-        const investment_demo_test = b.addTest(.{ .root_module = investment_demo_mod });
+        const investment_demo_test = b.addTest(.{ .root_module = investment_demo_test_mod });
 
         // ---------------------------------------------------------------------------
         // Test step — offline Tickoni unit tests only.
