@@ -88,7 +88,7 @@ fn buildReplayEvent(
         seq,
         raw.source_offset,
         event_hash,
-        @fromBackingInt(@intCast(@backingInt(decision))),
+        @enumFromInt(@intCast(@intFromEnum(decision))),
         decided_by,
         prev_hash,
     );

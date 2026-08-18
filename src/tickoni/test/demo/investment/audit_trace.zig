@@ -260,7 +260,7 @@ pub fn buildAllowedTradeChain(
         .proposal = .{
             .proposal_type = parseFixedAsciiBytes(32, payment_update_proposal_type),
             .proposal_hash = payment_update_hash,
-            .approval_state = @backingInt(drift_contract.payment_proposal_update.approval_state),
+            .approval_state = @intFromEnum(drift_contract.payment_proposal_update.approval_state),
         },
     });
     prev_hash = events[13].header.record_hash;
@@ -411,7 +411,7 @@ pub fn buildOversizedTradeBlockedChain(
     events[10] = audit.buildEvent(header(10, "tkpoly", thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .denial = .{
             .action_class = parseFixedAsciiBytes(32, "trading_order.place"),
-            .reason_code = @backingInt(blocked_reason.code),
+            .reason_code = @intFromEnum(blocked_reason.code),
             .failed_scope_dim = parseFixedAsciiBytes(32, blocked_reason.failed_scope_dim.label()),
             .catalog_schema_version = proposed_basket.catalog_schema_version,
             .taxonomy_id = std.mem.zeroes([32]u8),
@@ -503,7 +503,7 @@ pub fn buildRestrictedInstrumentBlockedChain(
     events[5] = audit.buildEvent(header(5, "tkpoly", thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .denial = .{
             .action_class = parseFixedAsciiBytes(32, proposal_type),
-            .reason_code = @backingInt(basket.RejectionReason.restricted_instrument),
+            .reason_code = @intFromEnum(basket.RejectionReason.restricted_instrument),
             .failed_scope_dim = parseFixedAsciiBytes(32, "restricted_instrument"),
             .catalog_schema_version = proposed_basket.catalog_schema_version,
             .taxonomy_id = std.mem.zeroes([32]u8),
