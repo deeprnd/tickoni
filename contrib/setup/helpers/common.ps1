@@ -202,6 +202,49 @@ function resolve-python-command {
     return $null
 }
 
+function download-file {
+    param(
+        [Parameter(Mandatory = $true)][string]$Uri,
+        [Parameter(Mandatory = $true)][string]$OutFile,
+        [int]$MaxAttempts = 4
+    )
+
+    $attempt = 1
+    $curl = Get-Command 'curl.exe' -ErrorAction SilentlyContinue
+
+    while ($attempt -le $MaxAttempts) {
+        try {
+            if (Test-Path $OutFile) {
+                Remove-Item $OutFile -Force -ErrorAction SilentlyContinue
+            }
+
+            if ($curl) {
+                & $curl.Source '--fail' '--silent' '--show-error' '--location' '--retry' '5' '--retry-delay' '2' '--retry-all-errors' '--output' $OutFile $Uri
+                if ($LASTEXITCODE -eq 0 -and (Test-Path $OutFile) -and ((Get-Item $OutFile).Length -gt 0)) {
+                    return
+                }
+
+                throw "curl.exe exited with code $LASTEXITCODE"
+            }
+
+            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing -ErrorAction Stop
+            if ((Test-Path $OutFile) -and ((Get-Item $OutFile).Length -gt 0)) {
+                return
+            }
+
+            throw 'download completed without creating a non-empty file'
+        } catch {
+            if ($attempt -ge $MaxAttempts) {
+                throw
+            }
+
+            log-warn "Download attempt ${attempt}/${MaxAttempts} failed for ${Uri}: $($_.Exception.Message)"
+            Start-Sleep -Seconds ([Math]::Min(2 * $attempt, 10))
+            $attempt += 1
+        }
+    }
+}
+
 # -- Tool installers -----------------------------------------------------------
 
 # Install Zig via install-zig.py (uses versions.zig from tool-versions.json).
@@ -297,9 +340,9 @@ function ensure-gitleaks {
     Remove-Item $tmpDir
     New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
 
-    Invoke-WebRequest `\
+    download-file `\
         -Uri "https://github.com/gitleaks/gitleaks/releases/download/v${gitleaksVersion}/${asset}" `\
-        -OutFile (Join-Path $tmpDir "gitleaks.zip") -UseBasicParsing
+        -OutFile (Join-Path $tmpDir "gitleaks.zip")
 
     Expand-Archive -Path (Join-Path $tmpDir "gitleaks.zip") -DestinationPath $tmpDir -Force
     $gitleaksBin = Join-Path $tmpDir "gitleaks.exe"
@@ -359,7 +402,7 @@ function ensure-just {
 
     $url = "https://github.com/casey/just/releases/download/${justVersion}/${asset}"
     $zip = Join-Path $env:TEMP "just.zip"
-    Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+    download-file -Uri $url -OutFile $zip
 
     Expand-Archive -Path $zip -DestinationPath $env:TEMP\just-extract -Force
     $justExe = Get-ChildItem -Path $env:TEMP\just-extract -Filter "just.exe" -Recurse | Select-Object -First 1
