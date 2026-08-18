@@ -418,6 +418,12 @@ cmake_args=(
   -S "$llama_dir_native"
   -DCMAKE_BUILD_TYPE=Release
   -DGGML_NATIVE=OFF
+  -DCMAKE_BUILD_TYPE=Release
+  -DLLAMA_BUILD_TESTS=OFF
+  -DLLAMA_BUILD_TOOLS=OFF
+  -DLLAMA_BUILD_SERVER=ON
+  -DLLAMA_BUILD_APP=OFF
+  -DLLAMA_BUILD_EXAMPLES=OFF
 )
 
 if [[ "$force_x64_toolchain" -eq 1 ]]; then
@@ -438,6 +444,12 @@ set(CMAKE_MT "${windows_sdk_mt_native}")
 EOF
   cmake_args=(
     -G Ninja
+    -DCMAKE_BUILD_TYPE=Release
+    -DLLAMA_BUILD_TESTS=OFF
+    -DLLAMA_BUILD_TOOLS=OFF
+    -DLLAMA_BUILD_SERVER=ON
+    -DLLAMA_BUILD_APP=OFF
+    -DLLAMA_BUILD_EXAMPLES=OFF
     -DCMAKE_TOOLCHAIN_FILE=$toolchain_file_native
     -DCMAKE_MAKE_PROGRAM=$ninja_bin_native
     -DCMAKE_C_COMPILER=cl
@@ -453,6 +465,12 @@ elif [[ "$cc" == "cl" ]]; then
   prepare_windows_sdk_tool_aliases "${llama_build_dir}"
   cmake_args=(
     -G Ninja
+    -DCMAKE_BUILD_TYPE=Release
+    -DLLAMA_BUILD_TESTS=OFF
+    -DLLAMA_BUILD_TOOLS=OFF
+    -DLLAMA_BUILD_SERVER=ON
+    -DLLAMA_BUILD_APP=OFF
+    -DLLAMA_BUILD_EXAMPLES=OFF
     -DCMAKE_C_COMPILER=cl
     -DCMAKE_CXX_COMPILER=cl
     "-DCMAKE_RC_COMPILER=${windows_sdk_rc_native}"
@@ -468,6 +486,12 @@ else
   esac
   cmake_args=(
     -G Ninja
+    -DCMAKE_BUILD_TYPE=Release
+    -DLLAMA_BUILD_TESTS=OFF
+    -DLLAMA_BUILD_TOOLS=OFF
+    -DLLAMA_BUILD_SERVER=ON
+    -DLLAMA_BUILD_APP=OFF
+    -DLLAMA_BUILD_EXAMPLES=OFF
     -DCMAKE_C_COMPILER="$cc"
     -DCMAKE_CXX_COMPILER="$cxx"
     "-DHOST_CXX_COMPILER=${host_cxx_compiler_native}"
@@ -488,7 +512,7 @@ else
   cmake "${cmake_args[@]}" \
     -DGGML_BLAS=OFF
 fi
-cmake --build "${llama_build_dir_native}" --config Release -j 4
+cmake --build "${llama_build_dir_native}" --target llama-server --config Release -j 4
 
 echo "copying llama-server.exe to ${llama_dir}"
 cp "${llama_dir}/build/bin/llama-server.exe" "${llama_dir}/"
