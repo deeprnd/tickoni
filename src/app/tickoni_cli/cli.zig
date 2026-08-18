@@ -34,7 +34,8 @@ pub fn parse(gpa: std.mem.Allocator, init: std.process.Init) !Parser {
     var args_buf = array_list.Aligned([]const u8, null).initCapacity(gpa, 32) catch return result;
     defer args_buf.deinit(gpa);
 
-    var raw_it = std.process.Args.iterate(init.minimal.args);
+    var raw_it = try std.process.Args.iterateAllocator(init.minimal.args, gpa);
+    defer raw_it.deinit();
     while (true) {
         const entry = raw_it.next() orelse break;
         if (entry.len > 0) {
