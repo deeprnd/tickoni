@@ -306,36 +306,36 @@ ensure_gitleaks() {
     log_info "gitleaks ${version} installed"
 }
 
-# Install kcpy from source (SimonKagstrom/kcpy)
+# Install kcov from source (SimonKagstrom/kcov)
 # Returns 1 (graceful skip) if the repo is unavailable — not all hosts
 # have internet access to GitHub, and the repo is optional for coverage.
-ensure_kcpy() {
-    if tool_exists kcpy; then
-        log_info "kcpy already installed"
+ensure_kcov() {
+    if tool_exists kcov; then
+        log_info "kcov already installed"
         return 0
     fi
 
-    log_info "Building kcpy from source..."
-    local kcpy_rc=0
+    log_info "Building kcov from source..."
+    local kcov_rc=0
     (
         set +e  # Don't abort on clone/build failure — repo may be unavailable
         cd "$(mktemp -d)"
-        if ! git clone --depth 1 https://github.com/SimonKagstrom/kcpy.git . 2>/dev/null; then
-            log_warn "kcpy: SimonKagstrom/kcpy repo unavailable — skipping"
+        if ! git clone --depth 1 https://github.com/SimonKagstrom/kcov.git . 2>/dev/null; then
+            log_warn "kcov: SimonKagstrom/kcov repo unavailable — skipping"
             return 1
         fi
         mkdir build && cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release 2>/dev/null || { log_warn "kcpy cmake failed"; return 1; }
+        cmake .. -DCMAKE_BUILD_TYPE=Release 2>/dev/null || { log_warn "kcov cmake failed"; return 1; }
         if ! make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)" 2>/dev/null; then
-            log_warn "kcpy build failed — skipping"
+            log_warn "kcov build failed — skipping"
             return 1
         fi
-        sudo make install || sudo cp kcpy /usr/local/bin/kcpy
+        sudo make install || sudo cp kcov /usr/local/bin/kcov
         return 0
-    ) || kcpy_rc=$?
+    ) || kcov_rc=$?
 
-    if [ $kcpy_rc -eq 0 ]; then
-        log_info "kcpy built and installed"
+    if [ $kcov_rc -eq 0 ]; then
+        log_info "kcov built and installed"
     else
         return 1
     fi
@@ -436,7 +436,7 @@ ensure_just() {
 
 # Print summary of what was installed
 print_install_summary() {
-    local tools=("zig" "gcc" "clang" "make" "just" "gitleaks" "kcpy" "shellcheck" "pre-commit" "buf")
+    local tools=("zig" "gcc" "clang" "make" "just" "gitleaks" "kcov" "shellcheck" "pre-commit" "buf")
     log_info "Installed tools:"
     for tool in "${tools[@]}"; do
         if tool_exists "$tool"; then

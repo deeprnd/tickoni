@@ -38,7 +38,7 @@ ensure_precommit || log_warn "pre-commit not available"
 ensure_buf || log_warn "buf not available"
 
 # 7. Coverage tool (optional, brew on macOS)
-ensure_kcpy || log_warn "kcov not available — coverage builds will be skipped"
+ensure_kcov || log_warn "kcov not available — coverage builds will be skipped"
 
 # 8. OpenSSL — build from source into ./opt (no sudo)
 if [ ! -f "./opt/lib/libssl.a" ]; then

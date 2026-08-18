@@ -60,7 +60,7 @@ ensure_precommit || log_warn "pre-commit not available"
 ensure_buf || log_warn "buf not available"
 
 # 7. Coverage tool (optional, needs sudo on Linux)
-ensure_kcpy || log_warn "kcpy not available — coverage builds will be skipped"
+ensure_kcov || log_warn "kcov not available — coverage builds will be skipped"
 
 print_install_summary
 
