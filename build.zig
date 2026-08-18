@@ -1788,7 +1788,13 @@ pub fn build(b: *std.Build) void {
         replay_integration_test.root_module.addLibraryPath(b.path(fd_lib_dir));
         replay_integration_test.root_module.linkSystemLibrary("fd_util", .{});
         replay_integration_test.root_module.linkSystemLibrary("fd_ballet", .{});
-        replay_integration_test.root_module.linkSystemLibrary("stdc++", .{});
+        // Windows doesn't have pkg-config, so use link_lib_cpp instead of
+        // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
+        if (target.result.os.tag == .windows) {
+            replay_integration_test.root_module.link_lib_cpp = true;
+        } else {
+            replay_integration_test.root_module.linkSystemLibrary("stdc++", .{});
+        }
         integration_step.dependOn(&b.addRunArtifact(replay_integration_test).step);
 
         const decision_cards_integration_test = b.addTest(.{
@@ -1805,7 +1811,13 @@ pub fn build(b: *std.Build) void {
         decision_cards_integration_test.root_module.addLibraryPath(b.path(fd_lib_dir));
         decision_cards_integration_test.root_module.linkSystemLibrary("fd_util", .{});
         decision_cards_integration_test.root_module.linkSystemLibrary("fd_ballet", .{});
-        decision_cards_integration_test.root_module.linkSystemLibrary("stdc++", .{});
+        // Windows doesn't have pkg-config, so use link_lib_cpp instead of
+        // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
+        if (target.result.os.tag == .windows) {
+            decision_cards_integration_test.root_module.link_lib_cpp = true;
+        } else {
+            decision_cards_integration_test.root_module.linkSystemLibrary("stdc++", .{});
+        }
         integration_step.dependOn(&b.addRunArtifact(decision_cards_integration_test).step);
 
         // System step — every root under src/tickoni/test/system, run with
@@ -1826,7 +1838,13 @@ pub fn build(b: *std.Build) void {
         system_test.root_module.addLibraryPath(b.path(fd_lib_dir));
         system_test.root_module.linkSystemLibrary("fd_util", .{});
         system_test.root_module.linkSystemLibrary("fd_ballet", .{});
-        system_test.root_module.linkSystemLibrary("stdc++", .{});
+        // Windows doesn't have pkg-config, so use link_lib_cpp instead of
+        // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
+        if (target.result.os.tag == .windows) {
+            system_test.root_module.link_lib_cpp = true;
+        } else {
+            system_test.root_module.linkSystemLibrary("stdc++", .{});
+        }
         system_step.dependOn(&b.addRunArtifact(system_test).step);
 
         // V1.3.S4: combined portfolio/cash demo. Fixture-backed and deterministic
@@ -1850,7 +1868,13 @@ pub fn build(b: *std.Build) void {
         portfolio_cash_demo_test.root_module.addLibraryPath(b.path(fd_lib_dir));
         portfolio_cash_demo_test.root_module.linkSystemLibrary("fd_util", .{});
         portfolio_cash_demo_test.root_module.linkSystemLibrary("fd_ballet", .{});
-        portfolio_cash_demo_test.root_module.linkSystemLibrary("stdc++", .{});
+        // Windows doesn't have pkg-config, so use link_lib_cpp instead of
+        // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
+        if (target.result.os.tag == .windows) {
+            portfolio_cash_demo_test.root_module.link_lib_cpp = true;
+        } else {
+            portfolio_cash_demo_test.root_module.linkSystemLibrary("stdc++", .{});
+        }
         system_step.dependOn(&b.addRunArtifact(portfolio_cash_demo_test).step);
 
         // Compatibility alias for the old live-model smoke command.
@@ -2237,7 +2261,9 @@ fn linkTickoniFiredancer(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_di
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{fd_lib_dir}) });
-        step.root_module.linkSystemLibrary("stdc++", .{});
+        // Windows doesn't have pkg-config, so use link_lib_cpp instead of
+        // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
+        step.root_module.link_lib_cpp = true;
         return;
     }
     linkTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_tango", "fd_util" });
@@ -2273,8 +2299,12 @@ fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_l
         // libuuid_stub.c and archives it as libuuid.a so the library lookup
         // succeeds. Do NOT add libuuid_stub.c as a raw C source file here —
         // that would create duplicate symbols with the .a archive.
+        // Windows doesn't have pkg-config, so use link_lib_cpp instead of
+        // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
+        step.root_module.link_lib_cpp = true;
+    } else {
+        step.root_module.linkSystemLibrary("stdc++", .{});
     }
-    step.root_module.linkSystemLibrary("stdc++", .{});
 }
 
 /// Links shim/topo_run.c (the fd_topo_run_tile adapter, v2.14.S8.T3) and
@@ -2423,7 +2453,9 @@ fn linkTickoniCodec(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{fd_lib_dir}) });
-        step.root_module.linkSystemLibrary("stdc++", .{});
+        // Windows doesn't have pkg-config, so use link_lib_cpp instead of
+        // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
+        step.root_module.link_lib_cpp = true;
         return;
     }
     linkTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_ballet", "fd_util" });
