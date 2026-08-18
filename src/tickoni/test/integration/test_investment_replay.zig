@@ -1,5 +1,4 @@
 const std = @import("std");
-const builtin = @import("builtin");
 const adapter = @import("adapter");
 const audit = @import("audit_tile");
 const demo = @import("investment_demo");
@@ -13,22 +12,12 @@ const tkcase = @import("tkcase");
 const tkdisp = @import("tkdisp");
 const tkpoly = @import("tkpoly");
 
-/// Helper to check if an env var is set, using the global environ.
-/// On Windows, std.c.environ is not available (it's POSIX-only), so we
-/// always return false (tests are fixture-based anyway).
+/// Helper to check if an env var is set.
+/// In Zig 0.17 env vars are only available via init.environ_map in main(),
+/// so we always return false here — hasEnv only gates a fixture generation
+/// test that is run via an explicit flag anyway.
 fn hasEnv(key: []const u8) bool {
-    if (builtin.os.tag == .windows) return false;
-    const env = std.c.environ;
-    var count: usize = 0;
-    while (env[count] != null) : (count += 1) {}
-    for (env[0..count]) |entry| {
-        if (entry) |e| {
-            const kv = std.mem.span(e);
-            if (std.mem.startsWith(u8, kv, key) and kv.len > key.len and kv[key.len] == '=') {
-                return true;
-            }
-        }
-    }
+    _ = key;
     return false;
 }
 
