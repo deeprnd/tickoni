@@ -33,7 +33,7 @@ const topo_build = @import("topo_build.zig");
 const tile_mod = @import("tile.zig");
 const link_mod = @import("link.zig");
 const boot = @import("boot.zig");
-const logger = @import("logger.zig");
+const logger = @import("logger");
 
 pub const WorkFn = *const fn (
     io: std.Io,

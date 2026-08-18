@@ -36,6 +36,14 @@ pub fn build(b: *std.Build) void {
             .{ .name = "c_abi", .module = c_abi_mod },
         },
     });
+    const logger_mod = b.addModule("logger", .{
+        .root_source_file = b.path("src/tickoni/logger.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "util", .module = util_mod },
+        },
+    });
     const runtime_mod = b.addModule("runtime", .{
         .root_source_file = b.path("src/tickoni/runtime/mod.zig"),
         .target = target,
@@ -43,6 +51,7 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "c_abi", .module = c_abi_mod },
             .{ .name = "util", .module = util_mod },
+            .{ .name = "logger", .module = logger_mod },
         },
     });
     // Concrete Tickoni product topologies (src/app/tickoni/topologies.zig),
@@ -215,14 +224,6 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "diagnostic", .module = demo_diagnostic_mod },
             .{ .name = "runner", .module = demo_runner_mod },
-        },
-    });
-    const logger_mod = b.addModule("logger", .{
-        .root_source_file = b.path("src/tickoni/logger.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "util", .module = util_mod },
         },
     });
 

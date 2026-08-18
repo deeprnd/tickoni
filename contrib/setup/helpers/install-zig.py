@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""Install a prebuilt official Zig release for local development or CI.
+
+The --version argument is REQUIRED.  There is no default version.
+If the index JSON is missing, malformed, or a version is absent from it,
+the script FAILS with a non-zero exit code rather than falling back to
+anything.
+"""
 import argparse
 import hashlib
 import json
@@ -12,9 +19,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-DEFAULT_VERSION = "0.17.0-dev.1770+5d7cf3f34"
-DEFAULT_INDEX_URL = "https://ziglang.org/download/index.json"
-DEFAULT_BUILDS_BASE_URL = "https://ziglang.org/builds"
+ZIG_INDEX_URL = "https://ziglang.org/download/index.json"
+ZIG_BUILDS_BASE_URL = "https://ziglang.org/builds"
 
 
 def eprint(*args):
@@ -118,7 +124,7 @@ def load_index(index_url):
 
 def dev_build_archive_url(version, target):
     ext = ".zip" if target.endswith("-windows") else ".tar.xz"
-    return f"{DEFAULT_BUILDS_BASE_URL}/zig-{target}-{version}{ext}"
+    return f"{ZIG_BUILDS_BASE_URL}/zig-{target}-{version}{ext}"
 
 
 def url_exists(url):
@@ -137,7 +143,7 @@ def select_release(index, version, target):
         if url_exists(dev_url):
             return dev_url, None
         raise SystemExit(
-            f"Zig version '{version}' was not found in {DEFAULT_INDEX_URL} and no dev build was found at {dev_url}"
+            f"Zig version '{version}' was not found in {ZIG_INDEX_URL} and no dev build was found at {dev_url}"
         )
     target_entry = version_entry.get(target)
     if target_entry is None:
@@ -253,8 +259,8 @@ def print_posix_activation(path_value):
 
 def main():
     parser = argparse.ArgumentParser(description="Install a prebuilt official Zig release for local development or CI.")
-    parser.add_argument("--version", default=DEFAULT_VERSION, help=f"Zig release version or channel key from index.json (default: {DEFAULT_VERSION})")
-    parser.add_argument("--index-url", default=DEFAULT_INDEX_URL, help="Zig download index JSON URL")
+    parser.add_argument("version", help="Zig release version or channel key from index.json (REQUIRED)")
+    parser.add_argument("--index-url", default=ZIG_INDEX_URL, help="Zig download index JSON URL")
     parser.add_argument("--target", help="prebuilt Zig target key (default: inferred from host)")
     parser.add_argument("--install-root", type=Path, default=default_install_root(), help="root directory that will receive zig-<target>-<version>")
     parser.add_argument("--cache-root", type=Path, default=default_cache_root(), help="cache/work directory for downloaded Zig archives")
