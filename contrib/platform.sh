@@ -18,8 +18,11 @@ set -euo pipefail
 
 tk_normalize_arch() {
   local raw="${1:-}"
+  local lower
+  # bash 3.2 compatible lowercase (macOS ships bash 3.2, not 4+)
+  lower="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
   local normalized
-  normalized="$(case "${raw,,}" in
+  normalized="$(case "$lower" in
     arm64|aarch64|arm64-bit*|arm\ 64-bit*|*arm64*) echo "arm" ;;
     x86_64|amd64|x64|x86-64*|*amd64*|*x64*)       echo "x86" ;;
     12)                                            echo "arm" ;;
