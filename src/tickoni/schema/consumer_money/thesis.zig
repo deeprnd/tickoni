@@ -307,7 +307,7 @@ pub fn computeThesisInputHash(input: ThesisInput) u64 {
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&ver));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&input.account_id));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&input.target_notional_cents));
-    const market_scope: u8 = @backingInt(input.market_scope);
+    const market_scope: u8 = @intFromEnum(input.market_scope);
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&market_scope));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&input.asset_class_prefs.count));
     for (0..input.asset_class_prefs.count) |i| c_abi.ballet.siphashAppend(&sip, asset_class_prefs[i .. i + 1]);
@@ -319,7 +319,7 @@ pub fn computeThesisInputHash(input: ThesisInput) u64 {
         const off = i * cls.max_canonical_id_len;
         c_abi.ballet.siphashAppend(&sip, themes_flat[off .. off + cls.max_canonical_id_len]);
     }
-    const risk_preference: u8 = @backingInt(input.risk_preference);
+    const risk_preference: u8 = @intFromEnum(input.risk_preference);
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&risk_preference));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&input.max_single_name_pct));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&input.asset_class_exclusions.count));

@@ -171,7 +171,7 @@ pub fn toWireEvent(event: schema.AuditEvent) Event {
             .release_digest = event.header.release_digest,
             .demo_manifest_id = event.header.demo_manifest_id,
         },
-        .record_type = @backingInt(std.meta.activeTag(event.payload)),
+        .record_type = @intFromEnum(std.meta.activeTag(event.payload)),
         .payload = toWirePayload(event.payload),
     };
 }
@@ -219,7 +219,7 @@ fn toWirePayload(payload: schema.AuditEvent.Payload) Payload {
             .canonical_event_type = p.canonical_event_type,
         } },
         .policy_decision => |p| .{ .policy_decision = .{
-            .outcome = @backingInt(p.outcome),
+            .outcome = @intFromEnum(p.outcome),
             .rule_id = p.rule_id,
             .failed_scope_dim = p.failed_scope_dim,
             .source_event_hash = p.source_event_hash,
@@ -253,13 +253,13 @@ fn toWirePayload(payload: schema.AuditEvent.Payload) Payload {
         .destination_check => |p| .{ .destination_check = .{
             .destination_type = p.destination_type,
             .allowlist_version = p.allowlist_version,
-            .outcome = @backingInt(p.outcome),
+            .outcome = @intFromEnum(p.outcome),
         } },
         .limit_check => |p| .{ .limit_check = .{
-            .limit_type = @backingInt(p.limit_type),
+            .limit_type = @intFromEnum(p.limit_type),
             .value = p.value,
             .limit = p.limit,
-            .outcome = @backingInt(p.outcome),
+            .outcome = @intFromEnum(p.outcome),
         } },
         .approval_required => |p| .{ .approval_required = .{
             .action_class = p.action_class,

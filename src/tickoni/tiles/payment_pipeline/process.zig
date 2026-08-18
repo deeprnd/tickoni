@@ -250,7 +250,7 @@ pub fn runAuditProcess(
         audit_log.append(.{
             .source_offset = msg.raw.source_offset,
             .event_hash = msg.event_hash,
-            .decision = @fromBackingInt(@intCast(@backingInt(msg.decision))),
+            .decision = @enumFromInt(@intFromEnum(msg.decision)),
             .tile_id = msg.decided_by,
         }) catch break;
         audited += 1;
