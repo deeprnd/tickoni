@@ -1791,7 +1791,7 @@ pub fn build(b: *std.Build) void {
         // Windows doesn't have pkg-config, so use link_lib_cpp instead of
         // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
         if (target.result.os.tag == .windows) {
-            replay_integration_test.root_module.link_lib_cpp = true;
+            replay_integration_test.root_module.link_libcpp = true;
         } else {
             replay_integration_test.root_module.linkSystemLibrary("stdc++", .{});
         }
@@ -1814,7 +1814,7 @@ pub fn build(b: *std.Build) void {
         // Windows doesn't have pkg-config, so use link_lib_cpp instead of
         // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
         if (target.result.os.tag == .windows) {
-            decision_cards_integration_test.root_module.link_lib_cpp = true;
+            decision_cards_integration_test.root_module.link_libcpp = true;
         } else {
             decision_cards_integration_test.root_module.linkSystemLibrary("stdc++", .{});
         }
@@ -1841,7 +1841,7 @@ pub fn build(b: *std.Build) void {
         // Windows doesn't have pkg-config, so use link_lib_cpp instead of
         // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
         if (target.result.os.tag == .windows) {
-            system_test.root_module.link_lib_cpp = true;
+            system_test.root_module.link_libcpp = true;
         } else {
             system_test.root_module.linkSystemLibrary("stdc++", .{});
         }
@@ -1871,7 +1871,7 @@ pub fn build(b: *std.Build) void {
         // Windows doesn't have pkg-config, so use link_lib_cpp instead of
         // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
         if (target.result.os.tag == .windows) {
-            portfolio_cash_demo_test.root_module.link_lib_cpp = true;
+            portfolio_cash_demo_test.root_module.link_libcpp = true;
         } else {
             portfolio_cash_demo_test.root_module.linkSystemLibrary("stdc++", .{});
         }
@@ -2261,9 +2261,9 @@ fn linkTickoniFiredancer(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_di
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{fd_lib_dir}) });
-        // Windows doesn't have pkg-config, so use link_lib_cpp instead of
+        // Windows doesn't have pkg-config, so use link_libcpp instead of
         // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
-        step.root_module.link_lib_cpp = true;
+        step.root_module.link_libcpp = true;
         return;
     }
     linkTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_tango", "fd_util" });
@@ -2292,7 +2292,7 @@ fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_l
         // across deep/transitive and same-archive dependencies. Repeat the
         // closure so later unresolveds can pull additional members from the
         // same Firedancer archives.
-        // Windows doesn't have pkg-config — use link_lib_cpp instead of
+        // Windows doesn't have pkg-config — use link_libcpp instead of
         // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config on
         // a Linux host doing cross-compilation.
         for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
@@ -2302,7 +2302,7 @@ fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_l
         // libuuid_stub.c and archives it as libuuid.a so the library lookup
         // succeeds. Do NOT add libuuid_stub.c as a raw C source file here —
         // that would create duplicate symbols with the .a archive.
-        step.root_module.link_lib_cpp = true;
+        step.root_module.link_libcpp = true;
     } else {
         for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
         step.root_module.linkSystemLibrary("stdc++", .{});
@@ -2455,9 +2455,9 @@ fn linkTickoniCodec(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{fd_lib_dir}) });
-        // Windows doesn't have pkg-config, so use link_lib_cpp instead of
+        // Windows doesn't have pkg-config, so use link_libcpp instead of
         // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
-        step.root_module.link_lib_cpp = true;
+        step.root_module.link_libcpp = true;
         return;
     }
     linkTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_ballet", "fd_util" });
