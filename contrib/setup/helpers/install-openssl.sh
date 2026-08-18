@@ -8,7 +8,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
 
 # ── Platform detection ────────────────────────────────────────────────────────
 # Single source of truth for OS/arch — used by callers that need it.
@@ -135,8 +135,10 @@ build_macos() {
   echo "[openssl] Building OpenSSL 3.6.2 for macOS"
 
   # OpenSSL 3.6.2 needs flex and gettext; brew's gettext conflicts with
-  # Firedancer's bundled libgettext. Install gettext, build OpenSSL, then
-  # remove gettext so the build system doesn't pick it up.
+  # Firedancer's bundled libgettext, so it's hidden from PATH during the
+  # build below (not uninstalled — `brew uninstall` would tear out
+  # libintl.dylib from under every other installed formula linked against
+  # it, e.g. Homebrew's own git).
   brew install flex gettext 2>/dev/null || true
 
   local src_dir="${PREFIX}/git/openssl"
@@ -200,9 +202,6 @@ build_macos() {
       fi
     done
   fi
-
-  # Clean up brew-installed gettext (Firedancer bundles its own)
-  brew uninstall --ignore-dependencies gettext 2>/dev/null || true
 
   echo "[openssl] Installed to ${PREFIX}"
 }

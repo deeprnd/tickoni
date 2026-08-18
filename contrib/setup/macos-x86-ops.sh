@@ -16,6 +16,12 @@ if ! command -v brew &>/dev/null; then
 fi
 
 # 2. Core packages (brew, no sudo)
+# GitHub-hosted macOS runners ship with unrelated third-party taps
+# (e.g. aws/tap) pre-tapped but untrusted. Homebrew's tap trust gate
+# then blocks/warns on every `brew install`, even for unrelated
+# homebrew/core formulae. We don't need those taps' formulae, so skip
+# the trust check rather than mutate the runner's shared tap state.
+export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
 log_info "Installing Homebrew packages (gcc, make, git, cmake)..."
 brew install \
     gcc make git cmake pkg-config \
