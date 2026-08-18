@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const adapter = @import("adapter");
 const audit = @import("audit_tile");
 const demo = @import("investment_demo");
@@ -13,7 +14,10 @@ const tkdisp = @import("tkdisp");
 const tkpoly = @import("tkpoly");
 
 /// Helper to check if an env var is set, using the global environ.
+/// On Windows, std.c.environ is not available (it's POSIX-only), so we
+/// always return false (tests are fixture-based anyway).
 fn hasEnv(key: []const u8) bool {
+    if (builtin.os.tag == .windows) return false;
     const env = std.c.environ;
     var count: usize = 0;
     while (env[count] != null) : (count += 1) {}

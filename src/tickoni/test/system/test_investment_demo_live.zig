@@ -1,9 +1,12 @@
 const demo = @import("investment_demo");
 const std = @import("std");
+const builtin = @import("builtin");
 
-/// Helper to read an env var from the global environment using
-/// std.c.environ, which is the only way in Zig 0.17 without Init.
+/// Helper to read an env var from the global environment.
+/// On Windows, std.c.environ is not available (it's POSIX-only), so we
+/// return null and rely on the caller's default values.
 fn getEnv(name: []const u8) ?[]const u8 {
+    if (builtin.os.tag == .windows) return null;
     const env = std.c.environ;
     var count: usize = 0;
     while (env[count] != null) : (count += 1) {}
