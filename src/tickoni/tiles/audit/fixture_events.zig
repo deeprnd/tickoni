@@ -212,7 +212,7 @@ test "hash chain mutation changes downstream records" {
 }
 
 test "binary and wire format pinned" {
-    if (std.process.EnvInfo.init().get("TK_GEN_FIXTURES") != null) return error.SkipZigTest;
+    if (std.c.getenv("TK_GEN_FIXTURES") != null) return error.SkipZigTest;
     const golden = @import("fixture_audit_gen").values;
     for (makeFixtures(), &golden) |event, g| {
         try std.testing.expectEqual(g.expected_hash, event.header.record_hash);
@@ -399,6 +399,6 @@ fn writeFixtureFile() !void {
 }
 
 test "gen audit fixture values" {
-    if (std.process.EnvInfo.init().get("TK_GEN_FIXTURES") == null) return error.SkipZigTest;
+    if (std.c.getenv("TK_GEN_FIXTURES") == null) return error.SkipZigTest;
     try writeFixtureFile();
 }
