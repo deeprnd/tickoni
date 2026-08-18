@@ -5,6 +5,9 @@ The --version argument is REQUIRED.  There is no default version.
 If the index JSON is missing, malformed, or a version is absent from it,
 the script FAILS with a non-zero exit code rather than falling back to
 anything.
+
+Downloads are verified with SHA256 (from index.json) and minisign
+signature (from ziglang.org/builds/*.minisig) where available.
 """
 import argparse
 import hashlib
@@ -12,6 +15,7 @@ import json
 import os
 import platform
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -22,9 +26,15 @@ from pathlib import Path
 ZIG_INDEX_URL = "https://ziglang.org/download/index.json"
 ZIG_BUILDS_BASE_URL = "https://ziglang.org/builds"
 
+# Zig minisign public key — copied from ziglang.org/download/
+ZIG_MINISIGN_PUBKEY = "RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
+
 
 def eprint(*args):
     print(*args, file=sys.stderr)
+
+
+# ── Platform detection ────────────────────────────────────────────────────────
 
 
 def detect_windows_native_machine():
@@ -96,6 +106,9 @@ def detect_target(system_name=None, machine_name=None):
     raise SystemExit(f"unsupported operating system for Zig release target inference: {system_name}")
 
 
+# ── Install paths ────────────────────────────────────────────────────────────
+
+
 def default_install_root():
     if os.name == "nt":
         local = os.environ.get("LOCALAPPDATA")
@@ -115,6 +128,9 @@ def default_cache_root():
     if xdg:
         return Path(xdg) / "zig"
     return Path.home() / ".cache" / "zig"
+
+
+# ── Index / release resolution ───────────────────────────────────────────────
 
 
 def load_index(index_url):
@@ -157,6 +173,9 @@ def select_release(index, version, target):
     return archive_url, shasum
 
 
+# ── Download ──────────────────────────────────────────────────────────────────
+
+
 def download_archive(url, dest, dry_run=False):
     print(f"[download] {url} -> {dest}")
     if dry_run:
@@ -164,6 +183,25 @@ def download_archive(url, dest, dry_run=False):
     dest.parent.mkdir(parents=True, exist_ok=True)
     with urllib.request.urlopen(url) as response, open(dest, "wb") as out:
         shutil.copyfileobj(response, out)
+
+
+def download_minisig(archive_url, dest, dry_run=False):
+    """Download the .minisig signature file next to the archive."""
+    sig_url = f"{archive_url}.minisig"
+    print(f"[download] {sig_url} -> {dest}")
+    if dry_run:
+        return False
+    sig_exists = url_exists(sig_url)
+    if not sig_exists:
+        print(f"[verify] no .minisig found at {sig_url}; signature verification unavailable")
+        return False
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with urllib.request.urlopen(sig_url) as response, open(dest, "wb") as out:
+        shutil.copyfileobj(response, out)
+    return True
+
+
+# ── Verification ──────────────────────────────────────────────────────────────
 
 
 def verify_sha256(path, expected, dry_run=False):
@@ -180,6 +218,65 @@ def verify_sha256(path, expected, dry_run=False):
     actual = digest.hexdigest()
     if actual.lower() != expected.lower():
         raise SystemExit(f"sha256 mismatch for {path}: expected {expected}, got {actual}")
+
+
+def _which(cmd):
+    """Check if a command exists on PATH."""
+    return shutil.which(cmd) is not None
+
+
+def _find_minisign():
+    """Find minisign binary (minisign-verify on OpenBSD, minisig on Ubuntu, minisign elsewhere)."""
+    for name in ("minisign-verify", "minisig", "minisign"):
+        if _which(name):
+            return name
+    return None
+
+
+def _ensure_minisign_installed(dry_run=False):
+    """Install minisign via apt on Debian/Ubuntu if not present. Returns True if usable after."""
+    if _find_minisign():
+        return True
+    if dry_run:
+        print("[minisign] binary not found, dry-run — skipping install")
+        return False
+    print("[minisign] minisign not found on PATH — attempting to install")
+    # Debian/Ubuntu: apt install minisign
+    if shutil.which("apt") and os.getuid() == 0:
+        subprocess.run(["apt-get", "update", "-qq"], check=True)
+        result = subprocess.run(["apt-get", "install", "-y", "-qq", "minisign"], capture_output=True, text=True)
+        if result.returncode == 0 and _find_minisign():
+            print("[minisign] installed via apt")
+            return True
+    print("[minisign] could not install minisign automatically — signature verification will be skipped")
+    return False
+
+
+def verify_minisig(archive_path, sig_path, dry_run=False):
+    """Verify archive using minisign. Fails on verification error, warns if unavailable."""
+    if dry_run:
+        print(f"[verify] minisig {archive_path} (dry-run)")
+        return
+    minisign_bin = _find_minisign()
+    if not minisign_bin:
+        if not _ensure_minisign_installed(dry_run=False):
+            print(f"[verify] minisign verification SKIPPED (no minisign binary available)")
+            return
+        minisign_bin = _find_minisign()
+        if not minisign_bin:
+            print(f"[verify] minisign verification SKIPPED (still not found after install attempt)")
+            return
+
+    print(f"[verify] minisig {archive_path} ...")
+    cmd = [minisign_bin, "-Vm", "-z", str(archive_path), "-p", ZIG_MINISIGN_PUBKEY]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        eprint(result.stderr.strip())
+        raise SystemExit(f"minisig verification FAILED for {archive_path}")
+    print("[verify] minisig OK")
+
+
+# ── Extract ───────────────────────────────────────────────────────────────────
 
 
 def extract_archive(archive_path, dest_dir, dry_run=False):
@@ -199,6 +296,9 @@ def extract_archive(archive_path, dest_dir, dry_run=False):
             tf.extractall(dest_dir)
         return
     raise SystemExit(f"unsupported Zig archive format: {archive_path.name}")
+
+
+# ── Install ───────────────────────────────────────────────────────────────────
 
 
 def resolve_source_dir(extract_root, dry_run=False, archive_stem=None):
@@ -257,6 +357,9 @@ def print_posix_activation(path_value):
     print(f'  export PATH="{path_value}:$PATH"')
 
 
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+
 def main():
     parser = argparse.ArgumentParser(description="Install a prebuilt official Zig release for local development or CI.")
     parser.add_argument("version", help="Zig release version or channel key from index.json (REQUIRED)")
@@ -274,11 +377,20 @@ def main():
 
     archive_name = archive_url.rsplit("/", 1)[-1]
     archive_path = args.cache_root / "archives" / archive_name
+    sig_path = args.cache_root / "archives" / f"{archive_name}.minisig"
     extract_root = args.cache_root / "extract" / f"{args.version}-{target}"
     archive_stem = archive_name.removesuffix(".tar.xz").removesuffix(".zip")
 
     download_archive(archive_url, archive_path, dry_run=args.dry_run)
     verify_sha256(archive_path, shasum, dry_run=args.dry_run)
+
+    # Minisign verification (download sig and verify)
+    has_sig = download_minisig(archive_url, sig_path, dry_run=args.dry_run)
+    if has_sig:
+        verify_minisig(archive_path, sig_path, dry_run=args.dry_run)
+    else:
+        print(f"[verify] minisig SKIPPED (no .minisig available for {archive_name})")
+
     extract_archive(archive_path, extract_root, dry_run=args.dry_run)
 
     source_dir = resolve_source_dir(extract_root, dry_run=args.dry_run, archive_stem=archive_stem)
