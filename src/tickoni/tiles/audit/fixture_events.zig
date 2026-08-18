@@ -2,8 +2,6 @@ const std = @import("std");
 const schema = @import("types.zig");
 const codec = @import("codec.zig");
 
-
-
 fn parseFixedAsciiBytes(comptime N: usize, value: []const u8) ![N]u8 {
     if (value.len > N) return error.StringTooLong;
     var out: [N]u8 = std.mem.zeroes([N]u8);
