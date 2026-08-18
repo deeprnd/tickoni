@@ -83,8 +83,10 @@ chmod +x .githooks/commit-msg
 ```
 
 This configures `core.hooksPath` to `.githooks` so the tracked `commit-msg`
-hook can strip and reject `Co-Authored-By: Claude` trailers before a commit is
-created.
+hook silently strips `Co-Authored-By` trailers containing
+`noreply@anthropic.com` (e.g. Claude Sonnet 5, Claude Opus, etc.) before a
+commit is created. Human co-authors and non-anthropic AI trailers are left
+unchanged.
 
 ## Build
 
