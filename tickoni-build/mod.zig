@@ -12,15 +12,15 @@ pub const Modules = modules.Modules;
 pub const TestModules = test_modules.TestModules;
 
 /// Create all modules and test modules in one call.
-pub fn allModules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, fd_lib_dir: []const u8) struct {
+pub fn allModules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, lib_dir: []const u8) struct {
     modules: Modules,
     test_modules: test_modules.TestModules,
-    fd_lib_dir: []const u8,
+    lib_dir: []const u8,
 } {
     const m = modules.modules(b, target, optimize);
     return .{
         .modules = m,
         .test_modules = test_modules.create(b, target, optimize, m),
-        .fd_lib_dir = fd_lib_dir,
+        .lib_dir = lib_dir,
     };
 }
