@@ -73,7 +73,6 @@ pub fn buildTileDomains(
     optimize: std.builtin.OptimizeMode,
     common_domains: domain.CommonDomains,
     firedancer_domains: DomainMap,
-    lib_dir: []const u8,
 ) struct {
     audit: *std.Build.Module,
     policy: *std.Build.Module,
@@ -100,7 +99,7 @@ pub fn buildAllDomains(
 ) AllDomains {
     const firedancer = buildFiredancerShimDomains(b, target, optimize, lib_dir);
     const common_domains = buildCommonDomains(b, target, optimize);
-    const tile_domains = buildTileDomains(b, target, optimize, common_domains, firedancer, lib_dir);
+    const tile_domains = buildTileDomains(b, target, optimize, common_domains, firedancer);
     return .{
         .firedancer = firedancer,
         .common = common_domains,

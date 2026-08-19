@@ -277,7 +277,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, integration_step, process_demo_parity_test, fd_lib_dir);
+    _ = helpers.addPlainTestRun(b, integration_step, process_demo_parity_test, lib_dir);
 
     // Test 7: process_topology_test
     const process_topology_test = b.addTest(.{
@@ -292,7 +292,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, integration_step, process_topology_test, fd_lib_dir);
+    _ = helpers.addPlainTestRun(b, integration_step, process_topology_test, lib_dir);
 
     // Test 8: process_topology_linux_test
     const process_topology_linux_test = b.addTest(.{
@@ -309,7 +309,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, integration_step, process_topology_linux_test, fd_lib_dir);
+    _ = helpers.addPlainTestRun(b, integration_step, process_topology_linux_test, lib_dir);
 
     // Test 9: process_pipeline_test
     const process_pipeline_test = b.addTest(.{
@@ -326,7 +326,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, integration_step, process_pipeline_test, fd_lib_dir);
+    _ = helpers.addPlainTestRun(b, integration_step, process_pipeline_test, lib_dir);
 
     // Test 10: process_cpu_placement_test
     const process_cpu_placement_test = b.addTest(.{
@@ -343,7 +343,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, integration_step, process_cpu_placement_test, fd_lib_dir);
+    _ = helpers.addPlainTestRun(b, integration_step, process_cpu_placement_test, lib_dir);
 
     // Test 11: process_cpu_placement_linux_test
     const process_cpu_placement_linux_test = b.addTest(.{
@@ -360,7 +360,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, integration_step, process_cpu_placement_linux_test, fd_lib_dir);
+    _ = helpers.addPlainTestRun(b, integration_step, process_cpu_placement_linux_test, lib_dir);
 
     // Test 12: test_investment_allowed_trade
     const test_investment_allowed_trade = b.addTest(.{

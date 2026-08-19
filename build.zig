@@ -30,7 +30,7 @@ fn makeModule(b: *std.Build, root: []const u8, imports: []const std.Build.Module
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const lib_dir = b.option([]const u8, "lib-dir", "Firedancer library dir (default: build/native/gcc/lib)") orelse "build/native/gcc/lib";
+    const lib_dir = b.option([]const u8, "fd-lib-dir", "Firedancer library dir") orelse "build/fd-tickoni-fd/lib";
     // Get all modules in one call
     const all = mod.allModules(b, target, optimize, lib_dir);
     const m = all.modules;

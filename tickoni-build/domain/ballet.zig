@@ -14,7 +14,7 @@ pub fn buildDomain(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     lib_dir: []const u8,
-) FiredancerShimDomain {
+) domain.FiredancerShimDomain {
     // Determine which files to compile based on target OS
     const shim_files = getShimFiles(target.result);
 
