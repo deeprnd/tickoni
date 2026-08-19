@@ -160,7 +160,6 @@ pub const BuildRegistry = struct {
     }
 
     fn buildCBuilder(
-        self: *BuildRegistry,
         dc: config.DomainConfig,
         b: *std.Build,
         lib_dir: []const u8,

@@ -6,11 +6,10 @@
 /// Run harness unit tests:
 ///   zig build test
 ///
-/// Install Zig test binaries for kcov coverage:
+/// Install coverage test binaries:
 ///   zig build cov
 ///
-/// Reuses: build/lib/ (C shim helpers), build/mod/ (module declarations),
-///         build/test/ (unit/integration/system/cov specs).
+/// Compressed to ~80 lines via the BuildRegistry.
 const std = @import("std");
 const lib = @import("tickoni-build/lib.zig");
 const mod = @import("tickoni-build/mod.zig");
@@ -18,7 +17,7 @@ const unit_specs = @import("tickoni-build/test/unit_specs.zig");
 const integration_specs = @import("tickoni-build/test/integration_specs.zig");
 const system_specs = @import("tickoni-build/test/system_specs.zig");
 const cov_specs = @import("tickoni-build/test/cov_specs.zig");
-const registry = @import("tickoni-build/test/registry.zig");
+const reg = @import("tickoni-build/test/registry.zig");
 
 /// Create a module with imports, used by test spec helpers.
 fn makeModule(b: *std.Build, root: []const u8, imports: []const std.Build.Module.Import, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module {
@@ -70,8 +69,8 @@ pub fn build(b: *std.Build) void {
     } else {
         lib.codec.addTickoniCodecShim(b, exe);
         lib.firedancer_shims.addTickoniFiredancerShims(b, exe);
-        lib.topo_run.addTickoniTopoRunShims(b, exe);
-        lib.tile_run.addTickoniTileRunShim(b, exe);
+        lib.topo_run.linkTickoniTopoRun(b, exe, lib_dir);
+        lib.tile_run.linkTickoniTileRun(b, exe, lib_dir);
     }
     lib.firedancer_shims.linkTickoniFiredancer(b, exe, lib_dir);
     b.installArtifact(exe);
@@ -104,7 +103,7 @@ pub fn build(b: *std.Build) void {
         const cov_step = b.step("cov", "Install test binaries for kcov coverage");
         const specs = cov_specs.covSpecs(b, m, tm, null, target);
         for (specs) |spec| {
-            registry.registerTestLane(b, cov_step, spec, optimize, target);
+            reg.registerTestLane(b, cov_step, spec, optimize, target);
         }
     }
 }
