@@ -12,7 +12,7 @@ pub fn registerUnitSpecs(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     step: *std.Build.Step,
-    fd_lib_dir: []const u8,
+    lib_dir: []const u8,
 ) void {
     const c_abi_mod = modules.c_abi;
     const util_mod = modules.util;

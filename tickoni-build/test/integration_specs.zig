@@ -23,7 +23,7 @@ pub fn registerIntegrationSpecs(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     integration_step: *std.Build.Step,
-    fd_lib_dir: []const u8,
+    lib_dir: []const u8,
 ) void {
 
     // Create test-integration modules that are specific to integration tests.
@@ -260,7 +260,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, integration_step, link_bounds_test, fd_lib_dir);
+    _ = helpers.addPlainTestRun(b, integration_step, link_bounds_test, lib_dir);
 
     // Test 6: process_demo_parity_test
     const process_demo_parity_test = b.addTest(.{

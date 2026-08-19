@@ -16,10 +16,10 @@ pub fn registerSystemSpecs(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     system_step: *std.Build.Step,
-    fd_lib_dir: []const u8,
+    lib_dir: []const u8,
 ) void {
     _ = _test_modules;
-    _ = fd_lib_dir;
+    _ = lib_dir;
 
     // Create system-level modules (investment_demo, investment_support)
     const adapter_int_mod = b.createModule(.{
