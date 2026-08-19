@@ -6,7 +6,7 @@
 const std = @import("std");
 const shims = @import("../lib/shims.zig");
 const codec = @import("../lib/codec.zig");
-const firedancer = @import("../lib/firedancer.zig");
+const firedancer_shims = @import("../lib/firedancer_shims.zig");
 const topo_run = @import("../lib/topo_run.zig");
 const tile_run = @import("../lib/tile_run.zig");
 
@@ -62,7 +62,7 @@ const test_bin = b.addTest(.{
         codec.linkTickoniCodec(b, test_bin, spec.linkage.fd_lib_dir);
     }
     if (spec.linkage.needs_firedancer) {
-        firedancer.linkTickoniFiredancer(b, test_bin, spec.linkage.fd_lib_dir);
+        firedancer_shims.linkTickoniFiredancer(b, test_bin, spec.linkage.fd_lib_dir);
     }
     if (spec.linkage.needs_topo_run) {
         topo_run.linkTickoniTopoRun(b, test_bin, spec.linkage.fd_lib_dir);

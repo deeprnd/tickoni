@@ -5,7 +5,7 @@
 
 const std = @import("std");
 const shims = @import("shims.zig");
-const firedancer = @import("firedancer.zig");
+const firedancer_deps = @import("firedancer_deps.zig");
 
 /// Compile shim/ballet.c (Firedancer siphash/protobuf/JSON primitives)
 /// and link it into the compile step.

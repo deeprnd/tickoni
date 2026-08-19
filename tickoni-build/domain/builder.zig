@@ -38,14 +38,6 @@ pub const Loader = struct {
     }
 
     pub fn deinit(self: *Loader) void {
-        var iter = self.map.iterator();
-        while (iter.next()) |entry| {
-            const result = entry.value_ptr.*;
-            if (result.archive) |a| {
-                a.root_module.deinit();
-                // Don't free the archive — it's owned by b
-            }
-        }
         self.map.deinit();
         self.loading.deinit();
     }
@@ -62,8 +54,8 @@ pub const Loader = struct {
         if (self.loading.get(dc.name)) |_| {
             std.debug.panic("Circular dependency detected: {s}", .{dc.name});
         }
-        try self.loading.put(dc.name, true);
-        defer self.loading.remove(dc.name);
+        self.loading.putAssumeCapacity(dc.name, true);
+        defer { _ = self.loading.remove(dc.name); }
 
         // Check if already built
         if (self.map.contains(dc.name)) return;
@@ -107,11 +99,19 @@ pub const Loader = struct {
             }
         }
 
+        var object_deps_buf: [16]c_builder.ObjectDep = undefined;
+        var od_count: usize = 0;
+        for (dc.object_deps) |od| {
+            object_deps_buf[od_count] = .{ .path = od.path };
+            od_count += 1;
+        }
+        const object_deps: []const c_builder.ObjectDep = object_deps_buf[0..od_count];
+
         const config = c_builder.Config{
             .archive_name = dc.archive_name orelse dc.name,
             .c_sources = dc.c_sources,
             .platform_sources = std.StringArrayHashMapUnmanaged([]const []const u8){},
-            .object_deps = dc.object_deps,
+            .object_deps = object_deps,
             .c_flags = dc.c_flags,
             .lib_dir = self.lib_dir,
         };
@@ -125,7 +125,7 @@ pub const Loader = struct {
 
     fn buildZigModule(self: *Loader, dc: generated.DomainConfig) base.DomainResult {
         // Build dependency modules first
-        var imports: [16]std.Build.Module.Import = undefined;
+        var imports: [64]std.Build.Module.Import = undefined;
         var count: usize = 0;
         for (dc.dependencies) |dep_name| {
             if (self.map.get(dep_name)) |dep_result| {
@@ -141,7 +141,7 @@ pub const Loader = struct {
             .root_source_file = self.b.path(dc.root_source.?),
             .target = self.target,
             .optimize = self.optimize,
-            .imports = if (count > 0) &imports[0..count].* else &[_]std.Build.Module.Import{},
+            .imports = imports[0..count],
         });
 
         return .{
@@ -152,7 +152,7 @@ pub const Loader = struct {
 
     fn buildComposite(self: *Loader, dc: generated.DomainConfig) base.DomainResult {
         // Build dependency modules first
-        var imports: [16]std.Build.Module.Import = undefined;
+        var imports: [64]std.Build.Module.Import = undefined;
         var count: usize = 0;
         for (dc.dependencies) |dep_name| {
             if (self.map.get(dep_name)) |dep_result| {
@@ -168,7 +168,7 @@ pub const Loader = struct {
             .root_source_file = self.b.path(dc.root_source.?),
             .target = self.target,
             .optimize = self.optimize,
-            .imports = if (count > 0) &imports[0..count].* else &[_]std.Build.Module.Import{},
+            .imports = imports[0..count],
         });
 
         return .{

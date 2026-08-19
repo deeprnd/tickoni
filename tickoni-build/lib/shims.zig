@@ -1,6 +1,7 @@
 /// C shim compilation helpers for the Firedancer/Tickoni shim layer.
 ///
-/// Contains: shimCFlagsFor(), shim_c_files array, arch/os/abi/triple helpers.
+/// Contains: shimCFlagsFor(), shim_c_files array, arch/os/abi/triple helpers,
+/// addWindowsFdManifestFixups(), linkTickoniSystemLibraries().
 
 const std = @import("std");
 
@@ -110,5 +111,41 @@ pub fn checkShimCompilation(b: *std.Build, check_step: *std.Build.Step, target: 
             ),
         });
         check_step.dependOn(&c_check.step);
+    }
+}
+
+/// Read and apply Windows FD manifest fixups for Zig linkage.
+pub fn addWindowsFdManifestFixups(b: *std.Build, step: *std.Build.Step.Compile, manifest_path: []const u8) void {
+    if (step.root_module.resolved_target.?.result.os.tag != .windows) return;
+    var threaded = std.Threaded.init_single_threaded;
+    const manifest = std.Io.Dir.cwd().readFileAlloc(
+        threaded.io(),
+        manifest_path,
+        b.allocator,
+        .limited(1024 * 1024),
+    ) catch @panic("missing Windows FD Zig link manifest; run just build-fd first");
+    defer b.allocator.free(manifest);
+    var lines = std.mem.splitScalar(u8, manifest, '\n');
+    while (lines.next()) |line| {
+        const trimmed = std.mem.trim(u8, line, " \t\r");
+        if (trimmed.len == 0) continue;
+        step.root_module.addObjectFile(.{ .cwd_relative = trimmed });
+    }
+}
+
+/// Link system libraries (libc++/pkg-config). Shared across codec, firedancer, etc.
+pub fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, lib_dir: []const u8, libs: []const []const u8) void {
+    step.root_module.addLibraryPath(b.path(lib_dir));
+    if (step.root_module.resolved_target.?.result.os.tag == .windows) {
+        // COFF static linking is less forgiving about archive-member discovery
+        // across deep/transitive and same-archive dependencies. Repeat the
+        // closure so later unresolveds can pull additional members from the
+        // same Firedancer archives.
+        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
+        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
+        step.root_module.link_libcpp = true;
+    } else {
+        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
+        step.root_module.linkSystemLibrary("stdc++", .{});
     }
 }

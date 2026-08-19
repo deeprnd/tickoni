@@ -14,9 +14,7 @@ pub const DomainMap = std.StringHashMap(DomainResult);
 
 /// Initialize an empty domain map.
 pub fn initDomainMap(allocator: std.mem.Allocator) !DomainMap {
-    var map = try DomainMap.init(allocator);
-    errdefer map.deinit();
-    return map;
+    return DomainMap.init(allocator);
 }
 
 /// Get a domain's result by name.

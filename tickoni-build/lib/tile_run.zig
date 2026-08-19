@@ -4,7 +4,6 @@
 
 const std = @import("std");
 const shims = @import("shims.zig");
-const firedancer = @import("firedancer.zig");
 
 /// Links shim/tile_run.c (v2.14.S8.T4's fd_topo_run_tile_t wiring).
 /// Deliberately separate from linkTickoniTopoRun: this file's static
@@ -18,7 +17,7 @@ const firedancer = @import("firedancer.zig");
 /// linkTickoniFiredancer and linkTickoniTopoRun.
 pub fn linkTickoniTileRun(b: *std.Build, step: *std.Build.Step.Compile, lib_dir: []const u8) void {
     addTickoniTileRunShim(b, step);
-    firedancer.linkTickoniSystemLibraries(b, step, lib_dir, &.{ "fd_disco", "fd_ballet", "fd_waltz" });
+    shims.linkTickoniSystemLibraries(b, step, lib_dir, &.{ "fd_disco", "fd_ballet", "fd_waltz" });
 }
 
 /// Compiles tile_run.c shim file.

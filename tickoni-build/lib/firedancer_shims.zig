@@ -1,47 +1,14 @@
-/// Firedancer linkage helpers for the Tickoni runtime.
+/// Firedancer shim helpers for the Tickoni build system.
 ///
-/// Contains: linkTickoniFiredancer(), addTickoniFiredancerShims(),
-/// addTickoniSystemLibraries(), addTickoniShimLibrary(),
-/// addTickoniSupervisorShimLibrary(), addWindowsFdManifestFixups().
+/// Contains: addTickoniShimLibrary(), addTickoniSupervisorShimLibrary(),
+/// addTickoniFiredancerShims(), linkTickoniFiredancer().
+///
+/// These compile Tickoni shim C code that wraps Firedancer subsystems.
+/// C source paths come from build_config.json domains.
+/// Archive linking uses firedancer_deps or config-driven paths.
 
 const std = @import("std");
 const shims = @import("shims.zig");
-
-/// Read and apply Windows FD manifest fixups for Zig linkage.
-pub fn addWindowsFdManifestFixups(b: *std.Build, step: *std.Build.Step.Compile, manifest_path: []const u8) void {
-    if (step.root_module.resolved_target.?.result.os.tag != .windows) return;
-    var threaded = std.Io.Threaded.init_single_threaded;
-    const manifest = std.Io.Dir.cwd().readFileAlloc(
-        threaded.io(),
-        manifest_path,
-        b.allocator,
-        .limited(1024 * 1024),
-    ) catch @panic("missing Windows FD Zig link manifest; run just build-fd first");
-    defer b.allocator.free(manifest);
-    var lines = std.mem.splitScalar(u8, manifest, '\n');
-    while (lines.next()) |line| {
-        const trimmed = std.mem.trim(u8, line, " \t\r");
-        if (trimmed.len == 0) continue;
-        step.root_module.addObjectFile(.{ .cwd_relative = trimmed });
-    }
-}
-
-/// Link system libraries (libc++/pkg-config). Shared across codec, firedancer, etc.
-pub fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, lib_dir: []const u8, libs: []const []const u8) void {
-    step.root_module.addLibraryPath(b.path(lib_dir));
-    if (step.root_module.resolved_target.?.result.os.tag == .windows) {
-        // COFF static linking is less forgiving about archive-member discovery
-        // across deep/transitive and same-archive dependencies. Repeat the
-        // closure so later unresolveds can pull additional members from the
-        // same Firedancer archives.
-        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
-        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
-        step.root_module.link_libcpp = true;
-    } else {
-        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
-        step.root_module.linkSystemLibrary("stdc++", .{});
-    }
-}
 
 /// Create a static library archive from C shim source files.
 pub fn addTickoniShimLibrary(
@@ -113,7 +80,11 @@ pub fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) v
 }
 
 /// Links the Firedancer substrate used by Tickoni runtime wrappers.
-pub fn linkTickoniFiredancer(b: *std.Build, step: *std.Build.Step.Compile, lib_dir: []const u8) void {
+pub fn linkTickoniFiredancer(
+    b: *std.Build,
+    step: *std.Build.Step.Compile,
+    lib_dir: []const u8,
+) void {
     addTickoniFiredancerShims(b, step);
     if (step.root_module.resolved_target.?.result.os.tag == .windows) {
         step.root_module.addLibraryPath(b.path(lib_dir));
@@ -123,5 +94,5 @@ pub fn linkTickoniFiredancer(b: *std.Build, step: *std.Build.Step.Compile, lib_d
         step.root_module.link_libcpp = true;
         return;
     }
-    linkTickoniSystemLibraries(b, step, lib_dir, &.{ "fd_tango", "fd_util" });
+    shims.linkTickoniSystemLibraries(b, step, lib_dir, &.{ "fd_tango", "fd_util" });
 }
