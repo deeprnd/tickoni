@@ -459,7 +459,6 @@ fi
 patch_llama_ui_embed_cpp "$llama_dir"
 patch_llama_ui_cmake_for_old_windows_gxx "$llama_dir"
 mkdir -p "${llama_build_dir}"
-host_cxx_compiler_native="$(prepare_windows_host_cxx_compiler "${llama_build_dir}")"
 
 # Build args
 cmake_args=(
@@ -478,6 +477,7 @@ cmake_args=(
 if [[ "$force_x64_toolchain" -eq 1 ]]; then
   rm -rf "${llama_build_dir}"
   mkdir -p "${llama_build_dir}"
+  host_cxx_compiler_native="$(prepare_windows_host_cxx_compiler "${llama_build_dir}")"
   prepare_windows_sdk_tool_aliases "${llama_build_dir}"
   toolchain_file="$(cd "${llama_build_dir}" && pwd)/tickoni-windows-arm-x64-toolchain.cmake"
   ninja_bin="$(command -v ninja)"
@@ -511,6 +511,7 @@ EOF
   echo "generated forced-x64 toolchain file: ${toolchain_file}"
 elif [[ "$cc" == "cl" ]]; then
   mkdir -p "${llama_build_dir}"
+  host_cxx_compiler_native="$(prepare_windows_host_cxx_compiler "${llama_build_dir}")"
   prepare_windows_sdk_tool_aliases "${llama_build_dir}"
   cmake_args=(
     -G Ninja
@@ -528,6 +529,7 @@ elif [[ "$cc" == "cl" ]]; then
     "${cmake_args[@]}"
   )
 else
+  host_cxx_compiler_native="$(prepare_windows_host_cxx_compiler "${llama_build_dir}")"
   case "$cc" in
     *clang) cxx="${cc%clang}clang++" ;;
     *gcc)   cxx="${cc%gcc}g++" ;;
