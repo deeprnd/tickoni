@@ -30,7 +30,7 @@ fn makeModule(b: *std.Build, root: []const u8, imports: []const std.Build.Module
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const lib_dir = b.option([]const u8, "fd-lib-dir", "Firedancer library dir") orelse "build/fd-tickoni-fd/lib";
+    const lib_dir = b.option([]const u8, "fd-lib-dir", "Firedancer library dir (required — see justfile build-tk)") orelse @compileError("fd-lib-dir is required. Run via 'just build-tk' or 'zig build -Dfd-lib-dir=<path>'.");
     // Get all modules in one call
     const all = mod.allModules(b, target, optimize, lib_dir);
     const m = all.modules;
