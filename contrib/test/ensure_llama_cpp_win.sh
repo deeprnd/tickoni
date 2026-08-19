@@ -243,13 +243,22 @@ prepend_path_once() {
   esac
 }
 
-find_windows_host_clangxx() {
+find_windows_host_cxx() {
   local candidate local_appdata_unix root
 
   if [[ -n "${TK_WINDOWS_HOST_CXX:-}" && -x "${TK_WINDOWS_HOST_CXX}" ]]; then
     printf '%s\n' "$TK_WINDOWS_HOST_CXX"
     return 0
   fi
+
+  for candidate in \
+    "/c/mingw64/bin/g++.exe" \
+    "/c/Strawberry/c/bin/g++.exe"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
 
   for candidate in \
     "/c/Program Files/LLVM/bin/clang++.exe" \
@@ -280,7 +289,7 @@ prepare_windows_host_cxx_compiler() {
   local build_dir="$1"
   local host_cxx host_cxx_version host_cxx_major wrapper_path host_cxx_native host_cxx_dir host_cxx_dir_native extra_link_flags
 
-  host_cxx="$(find_windows_host_clangxx || true)"
+  host_cxx="$(find_windows_host_cxx || true)"
   if [[ -z "$host_cxx" ]]; then
     host_cxx="$(command -v g++ || command -v clang++ || true)"
   fi

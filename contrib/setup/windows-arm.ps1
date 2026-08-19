@@ -382,8 +382,12 @@ if ($clangCmd) {
 if ($llvmPath) {
     Add-PathEntry $llvmPath
     log-info "LLVM added to PATH: $llvmPath"
+    $mingwHostCxx = 'C:\mingw64\bin\g++.exe'
     $clangxxPath = Join-Path $llvmPath 'clang++.exe'
-    if (Test-Path $clangxxPath) {
+    if (Test-Path $mingwHostCxx) {
+        Set-SharedEnvironmentVariable -Name 'TK_WINDOWS_HOST_CXX' -Value $mingwHostCxx
+        log-info "Windows host C++ compiler pinned for llama.cpp UI helper: $mingwHostCxx"
+    } elseif (Test-Path $clangxxPath) {
         Set-SharedEnvironmentVariable -Name 'TK_WINDOWS_HOST_CXX' -Value $clangxxPath
         log-info "Windows host C++ compiler pinned for llama.cpp UI helper: $clangxxPath"
     }
