@@ -31,20 +31,9 @@ pub fn create(
     const portfolio_mod = main.portfolio;
     const trade_ticket_mod = main.trade_ticket;
     const fixture_portfolio_mod = main.fixture_portfolio;
-    const thesis_mod = main.thesis;
 
-    // Trade ticket
-    const trade_ticket = b.createModule(.{
-        .root_source_file = b.path("src/tickoni/schema/consumer_money/trade_ticket.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "basket", .module = basket_mod },
-            .{ .name = "portfolio", .module = portfolio_mod },
-            .{ .name = "fixture_portfolio", .module = fixture_portfolio_mod },
-            .{ .name = "thesis", .module = thesis_mod },
-        },
-    });
+    // Trade ticket (reuse from main modules — do NOT create duplicate with same root file)
+    const trade_ticket = main.trade_ticket;
 
     // Adapter messages
     const adapter_messages = b.createModule(.{

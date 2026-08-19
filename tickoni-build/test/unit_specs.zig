@@ -42,7 +42,6 @@ pub fn registerUnitSpecs(
     _ = modules.fixture_audit_gen;
     const model_messages_mod = modules.model_messages;
     const mock_model_mod = modules.mock_model;
-    const adapter_messages_mod = modules.adapter_messages;
     const mock_adapter_mod = modules.mock_adapter;
 
     // Remove: investment tests (investment/ dir doesn't exist)
@@ -379,23 +378,23 @@ pub fn registerUnitSpecs(
             .{ .name = "mock_model", .module = mock_model_mod },
             .{ .name = "basket", .module = basket_mod },
             .{ .name = "portfolio", .module = portfolio_mod },
+            .{ .name = "c_abi", .module = c_abi_mod },
             .{ .name = "trade_ticket", .module = trade_ticket_mod },
         },
     });
     const model_test = b.addTest(.{ .root_module = model_test_mod });
     _ = helpers.addPlainTestRun(b, step, model_test, lib_dir);
 
-    // Adapter test (independent tile)
+    // Adapter test (depends on model_test_mod — model/backend.zig uses c_abi.ballet)
     const adapter_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/tiles/adapter/mod.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "adapter_messages", .module = adapter_messages_mod },
-            .{ .name = "mock_adapter", .module = mock_adapter_mod },
-            .{ .name = "basket", .module = basket_mod },
-            .{ .name = "portfolio", .module = portfolio_mod },
+            .{ .name = "model", .module = model_test_mod },
             .{ .name = "trade_ticket", .module = trade_ticket_mod },
+            .{ .name = "portfolio", .module = portfolio_mod },
+            .{ .name = "c_abi", .module = c_abi_mod },
         },
     });
     const adapter_test = b.addTest(.{ .root_module = adapter_test_mod });
