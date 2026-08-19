@@ -15,12 +15,14 @@ const disco = @import("disco.zig");
 const common = @import("common.zig");
 const tiles = @import("tiles.zig");
 
+/// Map from domain ID to built domain.
+pub const DomainMap = domain.DomainMap;
+
 /// Result of building all domains.
 pub const AllDomains = struct {
     /// Firedancer shim domains (compiled C + linked Firedancer .a)
-    ballet: domain.BalletDomains,
-    flamenco: domain.FlamencoDomains,
-    disco: domain.DiscoDomains,
+    /// Stored in a map keyed by FiredancerShimDomainId enum.
+    firedancer: DomainMap,
     /// Common domains (pure Zig)
     common: domain.CommonDomains,
     /// Tile domains (composed from common + Firedancer shim)
@@ -39,25 +41,19 @@ pub const AllDomains = struct {
     },
 };
 
-/// Build all Firedancer shim domains in the correct order.
-/// Each domain is compiled from Tickoni shim C and linked against
-/// pre-built Firedancer .a archives.
+/// Build all Firedancer shim domains.
+/// Returns a DomainMap keyed by FiredancerShimDomainId enum.
 pub fn buildFiredancerShimDomains(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
-    fd_lib_dir: []const u8,
-) struct {
-    ballet: domain.BalletDomains,
-    flamenco: domain.FlamencoDomains,
-    disco: domain.DiscoDomains,
-} {
-    const result = .{
-        .ballet = ballet.buildDomains(b, target, optimize, fd_lib_dir),
-        .flamenco = flamenco.buildDomains(b, target, optimize, fd_lib_dir),
-        .disco = disco.buildDomains(b, target, optimize, fd_lib_dir),
-    };
-    return result;
+    lib_dir: []const u8,
+) DomainMap {
+    return DomainMap.init(.{
+        .ballet = ballet.buildDomain(b, target, optimize, lib_dir),
+        .flamenco = flamenco.buildDomain(b, target, optimize, lib_dir),
+        .disco = disco.buildDomain(b, target, optimize, lib_dir),
+    });
 }
 
 /// Build all common (pure Zig) domains.
@@ -76,11 +72,8 @@ pub fn buildTileDomains(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     common_domains: domain.CommonDomains,
-    firedancer: struct {
-        ballet: domain.BalletDomains,
-        flamenco: domain.FlamencoDomains,
-        disco: domain.DiscoDomains,
-    },
+    firedancer_domains: DomainMap,
+    lib_dir: []const u8,
 ) struct {
     audit: *std.Build.Module,
     policy: *std.Build.Module,
@@ -94,7 +87,7 @@ pub fn buildTileDomains(
     replay: *std.Build.Module,
     payment: *std.Build.Module,
 } {
-    return tiles.buildTileDomains(b, target, optimize, common_domains, firedancer);
+    return tiles.buildTileDomains(b, target, optimize, common_domains, firedancer_domains);
 }
 
 /// Build all domains and return the complete result.
@@ -103,15 +96,13 @@ pub fn buildAllDomains(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
-    fd_lib_dir: []const u8,
+    lib_dir: []const u8,
 ) AllDomains {
-    const firedancer = buildFiredancerShimDomains(b, target, optimize, fd_lib_dir);
+    const firedancer = buildFiredancerShimDomains(b, target, optimize, lib_dir);
     const common_domains = buildCommonDomains(b, target, optimize);
-    const tile_domains = buildTileDomains(b, target, optimize, common_domains, firedancer);
+    const tile_domains = buildTileDomains(b, target, optimize, common_domains, firedancer, lib_dir);
     return .{
-        .ballet = firedancer.ballet,
-        .flamenco = firedancer.flamenco,
-        .disco = firedancer.disco,
+        .firedancer = firedancer,
         .common = common_domains,
         .tiles = tile_domains,
     };

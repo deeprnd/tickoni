@@ -9,12 +9,12 @@ const shims = @import("../lib/shims.zig");
 const domain = @import("domain.zig");
 
 /// Build the flamenco domain.
-pub fn buildDomains(
+pub fn buildDomain(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
-    fd_lib_dir: []const u8,
-) domain.FlamencoDomains {
+    lib_dir: []const u8,
+) domain.FiredancerShimDomain {
     const shim_files = &.{
         "src/tickoni/c_abi/shim/tango.c",
         "src/tickoni/c_abi/shim/util.c",
@@ -22,8 +22,8 @@ pub fn buildDomains(
         "src/tickoni/c_abi/shim/sandbox.c",
         "src/tickoni/c_abi/shim/os.c",
     };
-    const fd_libs = &.{ "tango", "util" };
 
+    // Create the module with Tickoni shim C
     const mod = b.createModule(.{
         .target = target,
         .optimize = optimize,
@@ -35,17 +35,20 @@ pub fn buildDomains(
         .flags = shims.shimCFlagsFor(target.result),
     });
 
+    // Create the static archive
     const archive = b.addLibrary(.{
         .name = "libtickoni_flamenco",
         .root_module = mod,
     });
 
-    archive.root_module.addLibraryPath(b.path(fd_lib_dir));
-    for (fd_libs) |lib| {
-        archive.root_module.addObjectFile(.{
-            .cwd_relative = b.fmt("{s}/libfd_{s}.a", .{ fd_lib_dir, lib }),
-        });
-    }
+    // Link pre-built Firedancer archives for fd_* symbols
+    archive.root_module.addLibraryPath(b.path(lib_dir));
+    archive.root_module.addObjectFile(.{
+        .cwd_relative = b.fmt("{s}/libfd_tango.a", .{lib_dir}),
+    });
+    archive.root_module.addObjectFile(.{
+        .cwd_relative = b.fmt("{s}/libfd_util.a", .{lib_dir}),
+    });
 
     return .{
         .archive = archive,

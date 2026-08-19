@@ -7,6 +7,8 @@
 const std = @import("std");
 const domain = @import("domain.zig");
 
+pub const DomainMap = domain.DomainMap;
+
 /// Tile domain definition — source file and domain dependencies.
 pub const TileDef = struct {
     name: []const u8,
@@ -99,11 +101,7 @@ pub fn buildTileDomains(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     common: domain.CommonDomains,
-    firedancer: struct {
-        ballet: domain.BalletDomains,
-        flamenco: domain.FlamencoDomains,
-        disco: domain.DiscoDomains,
-    },
+    firedancer: DomainMap,
 ) struct {
     audit: *std.Build.Module,
     policy: *std.Build.Module,
@@ -155,15 +153,11 @@ pub fn buildTileDomains(
             import_count += 1;
         }
 
-        // Add Firedancer shim domain imports
+        // Add Firedancer shim domain imports using the enum map
         for (tile.firedancer_dep_names) |dep_name| {
-            if (std.mem.eql(u8, dep_name, "ballet")) {
-                imports[import_count] = .{ .name = dep_name, .module = firedancer.ballet.module };
-            } else if (std.mem.eql(u8, dep_name, "flamenco")) {
-                imports[import_count] = .{ .name = dep_name, .module = firedancer.flamenco.module };
-            } else if (std.mem.eql(u8, dep_name, "disco")) {
-                imports[import_count] = .{ .name = dep_name, .module = firedancer.disco.module };
-            }
+            // Convert string dep name to enum ID
+            const dep_id = firedancerShimDomainIdFromName(dep_name) orelse unreachable;
+            imports[import_count] = .{ .name = dep_name, .module = firedancer.get(dep_id).module };
             import_count += 1;
         }
 
@@ -175,34 +169,47 @@ pub fn buildTileDomains(
             .imports = &imports[0..import_count].*,
         });
 
-        // Assign to the correct field
-        switch (tile.name) {
-            "audit" => tiles.audit = tile_mod,
-            "policy" => tiles.policy = tile_mod,
-            "model" => tiles.model = tile_mod,
-            "adapter" => tiles.adapter = tile_mod,
-            "topology" => tiles.topology = tile_mod,
-            "case" => tiles.case = tile_mod,
-            "disp" => tiles.disp = tile_mod,
-            "agent" => tiles.agent = tile_mod,
-            "tool" => tiles.tool = tile_mod,
-            "replay" => tiles.replay = tile_mod,
-            "payment" => tiles.payment = tile_mod,
-            else => {},
+        // Assign to the correct field (if-else blocks, not statements)
+        if (std.mem.eql(u8, tile.name, "audit")) {
+            tiles.audit = tile_mod;
+        } else if (std.mem.eql(u8, tile.name, "policy")) {
+            tiles.policy = tile_mod;
+        } else if (std.mem.eql(u8, tile.name, "model")) {
+            tiles.model = tile_mod;
+        } else if (std.mem.eql(u8, tile.name, "adapter")) {
+            tiles.adapter = tile_mod;
+        } else if (std.mem.eql(u8, tile.name, "topology")) {
+            tiles.topology = tile_mod;
+        } else if (std.mem.eql(u8, tile.name, "case")) {
+            tiles.case = tile_mod;
+        } else if (std.mem.eql(u8, tile.name, "disp")) {
+            tiles.disp = tile_mod;
+        } else if (std.mem.eql(u8, tile.name, "agent")) {
+            tiles.agent = tile_mod;
+        } else if (std.mem.eql(u8, tile.name, "tool")) {
+            tiles.tool = tile_mod;
+        } else if (std.mem.eql(u8, tile.name, "replay")) {
+            tiles.replay = tile_mod;
+        } else if (std.mem.eql(u8, tile.name, "payment")) {
+            tiles.payment = tile_mod;
         }
     }
 
     return tiles;
 }
 
+/// Convert a string domain name to a FiredancerShimDomainId enum.
+fn firedancerShimDomainIdFromName(name: []const u8) ?domain.FiredancerShimDomainId {
+    if (std.mem.eql(u8, name, "ballet")) return .ballet;
+    if (std.mem.eql(u8, name, "flamenco")) return .flamenco;
+    if (std.mem.eql(u8, name, "disco")) return .disco;
+    return null;
+}
+
 /// Build the import name struct by building all common + Firedancer modules.
 fn buildImportNames(
     common: domain.CommonDomains,
-    firedancer: struct {
-        ballet: domain.BalletDomains,
-        flamenco: domain.FlamencoDomains,
-        disco: domain.DiscoDomains,
-    },
+    firedancer: DomainMap,
 ) struct {
     c_abi: *std.Build.Module,
     util: *std.Build.Module,
@@ -217,8 +224,8 @@ fn buildImportNames(
         .util = common.util,
         .logger = common.util, // logger imports util, same module for now
         .runtime = common.util, // runtime imports util, same module for now
-        .ballet = firedancer.ballet.module,
-        .flamenco = firedancer.flamenco.module,
-        .disco = firedancer.disco.module,
+        .ballet = firedancer.get(.ballet).module,
+        .flamenco = firedancer.get(.flamenco).module,
+        .disco = firedancer.get(.disco).module,
     };
 }

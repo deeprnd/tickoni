@@ -25,7 +25,7 @@ fn addTestWithModule(
         disco: *std.Build.Module,
     },
     extra_imports: []const std.Build.Module.Import,
-    fd_lib_dir: []const u8,
+    lib_dir: []const u8,
 ) void {
     // Build a combined import list
     var all_imports = b.allocator.alloc(std.Build.Module.Import, extra_imports.len + 3) catch @panic("OOM");

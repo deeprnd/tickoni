@@ -10,14 +10,14 @@ const shims = @import("../lib/shims.zig");
 const domain = @import("domain.zig");
 
 /// Build the disco domain.
-pub fn buildDomains(
+pub fn buildDomain(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
-    fd_lib_dir: []const u8,
-) domain.DiscoDomains {
+    lib_dir: []const u8,
+) domain.FiredancerShimDomain {
     const shim_files = getShimFiles(target.result);
-    const fd_libs = &.{ "disco" };
+    const fd_libs = [_][]const u8{ "disco" };
 
     const mod = b.createModule(.{
         .target = target,
@@ -35,10 +35,10 @@ pub fn buildDomains(
         .root_module = mod,
     });
 
-    archive.root_module.addLibraryPath(b.path(fd_lib_dir));
+    archive.root_module.addLibraryPath(b.path(lib_dir));
     for (fd_libs) |lib| {
         archive.root_module.addObjectFile(.{
-            .cwd_relative = b.fmt("{s}/libfd_{s}.a", .{ fd_lib_dir, lib }),
+            .cwd_relative = b.fmt("{s}/libfd_{s}.a", .{ lib_dir, lib }),
         });
     }
 

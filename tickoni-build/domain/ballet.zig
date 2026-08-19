@@ -9,15 +9,14 @@ const shims = @import("../lib/shims.zig");
 const domain = @import("domain.zig");
 
 /// Build the ballet domain.
-pub fn buildDomains(
+pub fn buildDomain(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
-    fd_lib_dir: []const u8,
-) domain.BalletDomains {
+    lib_dir: []const u8,
+) FiredancerShimDomain {
     // Determine which files to compile based on target OS
-    const shim_files = getShimFiles(b, target.result);
-    const fd_libs = getFdLibs();
+    const shim_files = getShimFiles(target.result);
 
     // Create the module with Tickoni shim C
     const mod = b.createModule(.{
@@ -38,12 +37,13 @@ pub fn buildDomains(
     });
 
     // Link pre-built Firedancer archives for fd_* symbols
-    archive.root_module.addLibraryPath(b.path(fd_lib_dir));
-    for (fd_libs) |lib| {
-        archive.root_module.addObjectFile(.{
-            .cwd_relative = b.fmt("{s}/libfd_{s}.a", .{ fd_lib_dir, lib }),
-        });
-    }
+    archive.root_module.addLibraryPath(b.path(lib_dir));
+    archive.root_module.addObjectFile(.{
+        .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{lib_dir}),
+    });
+    archive.root_module.addObjectFile(.{
+        .cwd_relative = b.fmt("{s}/libfd_util.a", .{lib_dir}),
+    });
 
     return .{
         .archive = archive,
@@ -52,22 +52,14 @@ pub fn buildDomains(
 }
 
 /// Get the shim C files for the ballet domain.
-fn getShimFiles(b: *std.Build, target: std.Target) []const []const u8 {
+fn getShimFiles(target: std.Target) []const []const u8 {
     // ballet.c always included
-    var files = b.allocator.alloc([]const u8, 2) catch @panic("OOM");
-    files[0] = "src/tickoni/c_abi/shim/ballet.c";
-    // libuuid_stub.c is only needed on Windows
     if (target.os.tag == .windows) {
-        files[1] = "src/tickoni/c_abi/shim/libuuid_stub.c";
+        return &.{
+            "src/tickoni/c_abi/shim/ballet.c",
+            "src/tickoni/c_abi/shim/libuuid_stub.c",
+        };
     } else {
-        // For non-Windows, use a placeholder — we'll just use the 2-element
-        // array but only compile ballet.c (libuuid_stub.c is Windows-only)
-        files[1] = "";
+        return &.{"src/tickoni/c_abi/shim/ballet.c"};
     }
-    return files;
-}
-
-/// Get the Firedancer libraries to link for the ballet domain.
-fn getFdLibs() []const []const u8 {
-    return &.{ "ballet", "util" };
 }
