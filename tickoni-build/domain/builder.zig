@@ -1,108 +1,183 @@
-/// Domain builder for the Tickoni build system.
+/// Module loader — reads config and builds domains.
 ///
-/// Builds all domains in dependency order:
-/// 1. Firedancer shim domains (compile Tickoni shim C, link Firedancer .a)
-/// 2. Common domains (pure Zig modules)
-/// 3. Tile domains (compose common + Firedancer shim domains)
+/// No hardcoded domain names. Reads from build_config.json and builds
+/// whatever domains are defined, resolving dependencies recursively.
 
 const std = @import("std");
-const builtin = @import("builtin");
-const shims = @import("../lib/shims.zig");
+const base = @import("../strategy/base.zig");
+const c_builder = @import("../strategy/c_builder.zig");
+const zig_mod = @import("../strategy/zig_module.zig");
+const composite = @import("../strategy/composite.zig");
 const domain = @import("domain.zig");
-const ballet = @import("ballet.zig");
-const flamenco = @import("flamenco.zig");
-const disco = @import("disco.zig");
-const common = @import("common.zig");
-const tiles = @import("tiles.zig");
+const generated = @import("../generated/config.zig");
 
-/// Map from domain ID to built domain.
-pub const DomainMap = domain.DomainMap;
+/// Loader state — builds all domains from config.
+pub const Loader = struct {
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    lib_dir: []const u8,
+    map: domain.DomainMap,
+    loading: std.StringHashMap(bool),
 
-/// Result of building all domains.
-pub const AllDomains = struct {
-    /// Firedancer shim domains (compiled C + linked Firedancer .a)
-    /// Stored in a map keyed by FiredancerShimDomainId enum.
-    firedancer: DomainMap,
-    /// Common domains (pure Zig)
-    common: domain.CommonDomains,
-    /// Tile domains (composed from common + Firedancer shim)
-    tiles: struct {
-        audit: *std.Build.Module,
-        policy: *std.Build.Module,
-        model: *std.Build.Module,
-        adapter: *std.Build.Module,
-        topology: *std.Build.Module,
-        case: *std.Build.Module,
-        disp: *std.Build.Module,
-        agent: *std.Build.Module,
-        tool: *std.Build.Module,
-        replay: *std.Build.Module,
-        payment: *std.Build.Module,
-    },
+    pub fn init(
+        allocator: std.mem.Allocator,
+        b: *std.Build,
+        target: std.Build.ResolvedTarget,
+        optimize: std.builtin.OptimizeMode,
+        lib_dir: []const u8,
+    ) Loader {
+        return .{
+            .b = b,
+            .target = target,
+            .optimize = optimize,
+            .lib_dir = lib_dir,
+            .map = domain.initDomainMap(allocator) catch @panic("OOM"),
+            .loading = std.StringHashMap(bool).init(allocator),
+        };
+    }
+
+    pub fn deinit(self: *Loader) void {
+        var iter = self.map.iterator();
+        while (iter.next()) |entry| {
+            const result = entry.value_ptr.*;
+            if (result.archive) |a| {
+                a.root_module.deinit();
+                // Don't free the archive — it's owned by b
+            }
+        }
+        self.map.deinit();
+        self.loading.deinit();
+    }
+
+    /// Build all domains from config. Dependencies are resolved recursively.
+    pub fn loadAll(self: *Loader) !void {
+        for (generated.domain_configs) |dc| {
+            try self.loadDomain(dc);
+        }
+    }
+
+    fn loadDomain(self: *Loader, dc: generated.DomainConfig) !void {
+        // Check for cycles
+        if (self.loading.get(dc.name)) |_| {
+            std.debug.panic("Circular dependency detected: {s}", .{dc.name});
+        }
+        try self.loading.put(dc.name, true);
+        defer self.loading.remove(dc.name);
+
+        // Check if already built
+        if (self.map.contains(dc.name)) return;
+
+        // Resolve dependencies first
+        for (dc.dependencies) |dep_name| {
+            const dep = generated.getDomainByName(dep_name) orelse {
+                std.debug.panic("Domain '{s}' depends on unknown domain '{s}'", .{ dc.name, dep_name });
+            };
+            try self.loadDomain(dep);
+        }
+
+        // Build this domain
+        const result = try self.buildDomain(dc);
+        try self.map.put(dc.name, result);
+    }
+
+    fn buildDomain(self: *Loader, dc: generated.DomainConfig) !base.DomainResult {
+        return switch (std.meta.stringToEnum(base.Strategy, dc.strategy) orelse {
+            std.debug.panic("Unknown strategy: {s}", .{dc.strategy});
+        }) {
+            .c_builder => self.buildCBuilder(dc),
+            .zig_module => self.buildZigModule(dc),
+            .composite => self.buildComposite(dc),
+        };
+    }
+
+    fn buildCBuilder(self: *Loader, dc: generated.DomainConfig) base.DomainResult {
+        // Find dependencies that produced archives
+        var archive_imports: [16]std.Build.Module.Import = undefined;
+        var count: usize = 0;
+        for (dc.dependencies) |dep_name| {
+            if (self.map.get(dep_name)) |dep_result| {
+                if (dep_result.archive) |a| {
+                    archive_imports[count] = .{
+                        .name = dep_name,
+                        .module = a.root_module,
+                    };
+                    count += 1;
+                }
+            }
+        }
+
+        const config = c_builder.Config{
+            .archive_name = dc.archive_name orelse dc.name,
+            .c_sources = dc.c_sources,
+            .platform_sources = std.StringArrayHashMapUnmanaged([]const []const u8){},
+            .object_deps = dc.object_deps,
+            .c_flags = dc.c_flags,
+            .lib_dir = self.lib_dir,
+        };
+
+        const result = c_builder.build(self.b, self.target, self.optimize, config);
+        return .{
+            .archive = result.archive,
+            .module = result.module,
+        };
+    }
+
+    fn buildZigModule(self: *Loader, dc: generated.DomainConfig) base.DomainResult {
+        // Build dependency modules first
+        var imports: [16]std.Build.Module.Import = undefined;
+        var count: usize = 0;
+        for (dc.dependencies) |dep_name| {
+            if (self.map.get(dep_name)) |dep_result| {
+                imports[count] = .{
+                    .name = dep_name,
+                    .module = dep_result.module,
+                };
+                count += 1;
+            }
+        }
+
+        const mod = self.b.createModule(.{
+            .root_source_file = self.b.path(dc.root_source.?),
+            .target = self.target,
+            .optimize = self.optimize,
+            .imports = if (count > 0) &imports[0..count].* else &[_]std.Build.Module.Import{},
+        });
+
+        return .{
+            .archive = null,
+            .module = mod,
+        };
+    }
+
+    fn buildComposite(self: *Loader, dc: generated.DomainConfig) base.DomainResult {
+        // Build dependency modules first
+        var imports: [16]std.Build.Module.Import = undefined;
+        var count: usize = 0;
+        for (dc.dependencies) |dep_name| {
+            if (self.map.get(dep_name)) |dep_result| {
+                imports[count] = .{
+                    .name = dep_name,
+                    .module = dep_result.module,
+                };
+                count += 1;
+            }
+        }
+
+        const mod = self.b.createModule(.{
+            .root_source_file = self.b.path(dc.root_source.?),
+            .target = self.target,
+            .optimize = self.optimize,
+            .imports = if (count > 0) &imports[0..count].* else &[_]std.Build.Module.Import{},
+        });
+
+        return .{
+            .archive = null,
+            .module = mod,
+        };
+    }
+
+    pub fn get(self: *Loader, name: []const u8) ?domain.DomainResult {
+        return self.map.get(name);
+    }
 };
-
-/// Build all Firedancer shim domains.
-/// Returns a DomainMap keyed by FiredancerShimDomainId enum.
-pub fn buildFiredancerShimDomains(
-    b: *std.Build,
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-    lib_dir: []const u8,
-) DomainMap {
-    return DomainMap.init(.{
-        .ballet = ballet.buildDomain(b, target, optimize, lib_dir),
-        .flamenco = flamenco.buildDomain(b, target, optimize, lib_dir),
-        .disco = disco.buildDomain(b, target, optimize, lib_dir),
-    });
-}
-
-/// Build all common (pure Zig) domains.
-pub fn buildCommonDomains(
-    b: *std.Build,
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-) domain.CommonDomains {
-    return common.buildDomains(b, target, optimize);
-}
-
-/// Build all tile domains.
-/// Tiles compose common + Firedancer shim domains.
-pub fn buildTileDomains(
-    b: *std.Build,
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-    common_domains: domain.CommonDomains,
-    firedancer_domains: DomainMap,
-) struct {
-    audit: *std.Build.Module,
-    policy: *std.Build.Module,
-    model: *std.Build.Module,
-    adapter: *std.Build.Module,
-    topology: *std.Build.Module,
-    case: *std.Build.Module,
-    disp: *std.Build.Module,
-    agent: *std.Build.Module,
-    tool: *std.Build.Module,
-    replay: *std.Build.Module,
-    payment: *std.Build.Module,
-} {
-    return tiles.buildTileDomains(b, target, optimize, common_domains, firedancer_domains);
-}
-
-/// Build all domains and return the complete result.
-/// This is the main entry point called from build.zig.
-pub fn buildAllDomains(
-    b: *std.Build,
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-    lib_dir: []const u8,
-) AllDomains {
-    const firedancer = buildFiredancerShimDomains(b, target, optimize, lib_dir);
-    const common_domains = buildCommonDomains(b, target, optimize);
-    const tile_domains = buildTileDomains(b, target, optimize, common_domains, firedancer);
-    return .{
-        .firedancer = firedancer,
-        .common = common_domains,
-        .tiles = tile_domains,
-    };
-}
