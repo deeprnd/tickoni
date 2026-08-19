@@ -1,0 +1,7 @@
+# date     2026-08-14 18:33:16 +0300
+# source   vicgenin@dev3:/home/vicgenin/work/git/tickoni
+# machine  tickoni_fd
+# extras   lz4 blst zstd
+# branch.oid b08693a46c19cafa8350a8dd2fa1d217cc360fbd
+# branch.head platform-detection
+1 .M N... 100644 100644 100644 f36b497f25de5f83f46f2b99efe7597f08de25c1 f36b497f25de5f83f46f2b99efe7597f08de25c1 doc/strategy/roadmap/epics/v3.35.md

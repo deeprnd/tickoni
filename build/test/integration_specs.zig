@@ -6,6 +6,7 @@
 const std = @import("std");
 const Registry = @import("registry.zig");
 const helpers = @import("helpers.zig");
+const codec = @import("../lib/codec.zig");
 
 /// ModuleImport is a reference to a module by name for integration test imports.
 pub const ModuleImport = struct {
@@ -23,6 +24,7 @@ pub fn registerIntegrationSpecs(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     integration_step: *std.Build.Step,
+    fd_lib_dir: []const u8,
 ) void {
 
     // Create test-integration modules that are specific to integration tests.
@@ -259,6 +261,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
+    codec.linkTickoniCodec(b, link_bounds_test, fd_lib_dir);
     integration_step.dependOn(&b.addRunArtifact(link_bounds_test).step);
 
     // Test 6: process_demo_parity_test
@@ -271,11 +274,12 @@ pub fn registerIntegrationSpecs(
                 .{ .name = "runtime", .module = modules.runtime },
                 .{ .name = "c_abi", .module = modules.c_abi },
                 .{ .name = "util", .module = modules.util },
-                .{ .name = "supervisor", .module = modules.supervisor_named },
+                .{ .name = "supervisor", .module = modules.supervisor },
                 .{ .name = "topologies", .module = modules.topologies_named },
             },
         }),
     });
+    codec.linkTickoniCodec(b, process_demo_parity_test, fd_lib_dir);
     integration_step.dependOn(&b.addRunArtifact(process_demo_parity_test).step);
 
     // Test 7: process_topology_test
@@ -291,6 +295,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
+    codec.linkTickoniCodec(b, process_topology_test, fd_lib_dir);
     integration_step.dependOn(&b.addRunArtifact(process_topology_test).step);
 
     // Test 8: process_topology_linux_test
@@ -303,9 +308,12 @@ pub fn registerIntegrationSpecs(
                 .{ .name = "runtime", .module = modules.runtime },
                 .{ .name = "c_abi", .module = modules.c_abi },
                 .{ .name = "util", .module = modules.util },
+                .{ .name = "supervisor", .module = modules.supervisor },
+                .{ .name = "topologies", .module = modules.topologies_named },
             },
         }),
     });
+    codec.linkTickoniCodec(b, process_topology_linux_test, fd_lib_dir);
     integration_step.dependOn(&b.addRunArtifact(process_topology_linux_test).step);
 
     // Test 9: process_pipeline_test
@@ -318,9 +326,12 @@ pub fn registerIntegrationSpecs(
                 .{ .name = "runtime", .module = modules.runtime },
                 .{ .name = "c_abi", .module = modules.c_abi },
                 .{ .name = "util", .module = modules.util },
+                .{ .name = "supervisor", .module = modules.supervisor },
+                .{ .name = "topologies", .module = modules.topologies_named },
             },
         }),
     });
+    codec.linkTickoniCodec(b, process_pipeline_test, fd_lib_dir);
     integration_step.dependOn(&b.addRunArtifact(process_pipeline_test).step);
 
     // Test 10: process_cpu_placement_test
@@ -333,9 +344,12 @@ pub fn registerIntegrationSpecs(
                 .{ .name = "runtime", .module = modules.runtime },
                 .{ .name = "c_abi", .module = modules.c_abi },
                 .{ .name = "util", .module = modules.util },
+                .{ .name = "supervisor", .module = modules.supervisor },
+                .{ .name = "topologies", .module = modules.topologies_named },
             },
         }),
     });
+    codec.linkTickoniCodec(b, process_cpu_placement_test, fd_lib_dir);
     integration_step.dependOn(&b.addRunArtifact(process_cpu_placement_test).step);
 
     // Test 11: process_cpu_placement_linux_test
@@ -348,9 +362,12 @@ pub fn registerIntegrationSpecs(
                 .{ .name = "runtime", .module = modules.runtime },
                 .{ .name = "c_abi", .module = modules.c_abi },
                 .{ .name = "util", .module = modules.util },
+                .{ .name = "supervisor", .module = modules.supervisor },
+                .{ .name = "topologies", .module = modules.topologies_named },
             },
         }),
     });
+    codec.linkTickoniCodec(b, process_cpu_placement_linux_test, fd_lib_dir);
     integration_step.dependOn(&b.addRunArtifact(process_cpu_placement_linux_test).step);
 
     // Test 12: test_investment_allowed_trade

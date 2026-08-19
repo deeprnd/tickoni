@@ -6,6 +6,7 @@
 const std = @import("std");
 const Registry = @import("registry.zig");
 const helpers = @import("helpers.zig");
+const codec = @import("../lib/codec.zig");
 
 /// Register system test lanes using module references.
 pub fn registerSystemSpecs(
@@ -15,8 +16,10 @@ pub fn registerSystemSpecs(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     system_step: *std.Build.Step,
+    fd_lib_dir: []const u8,
 ) void {
     _ = _test_modules;
+    _ = fd_lib_dir;
 
     // Create system-level modules (investment_demo, investment_support)
     const adapter_int_mod = b.createModule(.{

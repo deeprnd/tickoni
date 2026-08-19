@@ -1,5 +1,4 @@
-/// Entry point for @import("build/lib.zig").
-/// Exports shim, codec, firedancer, topo_run, tile_run helpers.
+/// Re-export entry point for all build/lib/ modules.
 
 pub const shims = @import("lib/shims.zig");
 pub const codec = @import("lib/codec.zig");

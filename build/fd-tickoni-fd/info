@@ -1,0 +1,39 @@
+# date     2026-08-19 14:42:10 +0300
+# source   vicgenin@dev3:/home/vicgenin/work/git/tickoni
+# machine  tickoni_fd
+# extras   
+# branch.oid ec9312c4389f13b9718d22ac0501f735e7438411
+# branch.head story/build-improvements
+1 .M N... 100644 100644 100644 679f9a320069c07a395bd9c24e52cc3fd3c88177 679f9a320069c07a395bd9c24e52cc3fd3c88177 build.zig
+1 .M N... 100644 100644 100644 c613979549a1e87b70b010938c9fd37e46dd40ee c613979549a1e87b70b010938c9fd37e46dd40ee build/lib.zig
+1 .M N... 100644 100644 100644 7c928e195ec0878cb0c69fbcc3cebfef0059f0d8 7c928e195ec0878cb0c69fbcc3cebfef0059f0d8 build/lib/codec.zig
+1 .M N... 100644 100644 100644 ff1610c17ece0dd0f53f60af57da835c5c5e8116 ff1610c17ece0dd0f53f60af57da835c5c5e8116 build/lib/firedancer.zig
+1 .M N... 100644 100644 100644 5b5abe1108f712817682a8ac231489c9eadc9546 5b5abe1108f712817682a8ac231489c9eadc9546 build/lib/shims.zig
+1 .M N... 100644 100644 100644 73b580f11ab06d14b1c092397d746b723b598e16 73b580f11ab06d14b1c092397d746b723b598e16 build/lib/tile_run.zig
+1 .M N... 100644 100644 100644 d379ecee00124ae86e2b119e43356e900cf3e493 d379ecee00124ae86e2b119e43356e900cf3e493 build/lib/topo_run.zig
+1 .M N... 100644 100644 100644 d649b8e08835585228ac02b38447f742ec55dc3d d649b8e08835585228ac02b38447f742ec55dc3d build/mod.zig
+1 .M N... 100644 100644 100644 5b01b7ebb6e29def4707ee680e348970d4823441 5b01b7ebb6e29def4707ee680e348970d4823441 build/mod/modules.zig
+1 .M N... 100644 100644 100644 967d02d4e0c740e1299f1f15523ef9fc262e1cde 967d02d4e0c740e1299f1f15523ef9fc262e1cde build/mod/test_modules.zig
+1 .D N... 100644 100644 000000 df0d810d6bbc44e776d94389d619217d58e07253 df0d810d6bbc44e776d94389d619217d58e07253 build/test.zig
+1 .M N... 100644 100644 100644 a144c14341a06a4918ff5dc384a73705c3cafb56 a144c14341a06a4918ff5dc384a73705c3cafb56 build/test/cov_specs.zig
+1 .M N... 100644 100644 100644 29223866827211fa6225c5500fe517cb4854d9fc 29223866827211fa6225c5500fe517cb4854d9fc build/test/integration_specs.zig
+1 .M N... 100644 100644 100644 809476d78cc2dd565b527801788ad4aaec720378 809476d78cc2dd565b527801788ad4aaec720378 build/test/registry.zig
+? test_fs
+? test_fs2
+? test_fs4
+? test_fs5
+? test_fs_dir
+? test_fs_dir2
+? test_io
+? test_io2
+? test_std_fs
+? test_std_fs2
+? test_std_fs_read
+? test_tuple
+? test_tuple2
+? test_tuple3
+? test_tuple4
+? test_underscore
+? test_underscore2
+? test_zig_fs
+? test_zig_io

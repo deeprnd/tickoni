@@ -1,0 +1,62 @@
+{
+  "fixture_id": "replay_capsule_ai_infra",
+  "schema": "tickoni.replay_capsule",
+  "capsule_id": "replay_capsule_ai_infra",
+  "run_id": "run_ai_infra_demo_0001",
+  "schema_version": 1,
+  "policy_version": "v1",
+  "catalog_schema_version": 2,
+  "taxonomy_version": 2025,
+  "thesis_input_hash": "thesis_hash_allowed_2000",
+  "normalized_intent_hash": "intent_hash_allowed_2000",
+  "basket_id": "basket_ai_infra_2000",
+  "ticket_id": "ticket_ai_infra_2000_market",
+  "proposal_hash": "proposal_hash_ticket_ai_infra_2000_market",
+  "audit_chain_hash": "audit_chain_hash_allowed_2000",
+  "expected_basket_id": 4467280193722107233,
+  "expected_proposal_hash": 3521237380946101352,
+  "expected_rebalance_hash": 9465165425748974606,
+  "expected_payment_update_hash": 16939924567544668299,
+  "model_substitutions": [
+    {
+      "request_hash": 1475570507200268938,
+      "response_hash": 15458815352652251377,
+      "fixture_file": "fixture_model_response_gemma4.json"
+    }
+  ],
+  "adapter_substitutions": [
+    {
+      "adapter_id": "paper_broker_demo",
+      "operation": "quote_snapshot",
+      "request_hash": 4467280193722107233,
+      "response_hash": 860111845445016088,
+      "fixture_file": "fixture_quotes.json"
+    },
+    {
+      "adapter_id": "paper_broker_demo",
+      "operation": "portfolio_snapshot",
+      "request_hash": 4926100256168663183,
+      "response_hash": 6368737480873085244,
+      "fixture_file": "fixture_account_ops.json"
+    },
+    {
+      "adapter_id": "paper_broker_demo",
+      "operation": "paper_order",
+      "request_hash": 3521237380946101352,
+      "response_hash": 17843365948759987569,
+      "fixture_file": "fixture_paper_execution_allowed_2000.json"
+    }
+  ],
+  "replay_assertions": {
+    "no_live_model_call": true,
+    "no_live_adapter_call": true,
+    "no_paper_fill_emitted": true,
+    "basket_id_matches": "basket_ai_infra_2000",
+    "ticket_id_matches": "ticket_ai_infra_2000_market",
+    "proposal_hash_matches": "proposal_hash_ticket_ai_infra_2000_market",
+    "affordability_outcome_matches": "allow",
+    "policy_outcome_matches": "allow",
+    "rebalance_requires_user_action": true,
+    "payment_update_requires_user_action": true
+  }
+}

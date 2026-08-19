@@ -1,0 +1,32 @@
+[
+  {
+    "diagnostic": {
+      "code": "policy_denied",
+      "expected": "per_order_notional",
+      "field": "failed_scope_dim",
+      "found": "per_order_notional",
+      "message": "per-order notional guardrail denied the oversized trade"
+    },
+    "scenario": "oversized_blocked"
+  },
+  {
+    "diagnostic": {
+      "code": "restricted_instrument",
+      "expected": "US-listed large-cap equities and ETFs without restricted instruments",
+      "field": "requested_symbols",
+      "found": "SOXL",
+      "message": "restricted leveraged ETF request was denied"
+    },
+    "scenario": "restricted_instrument"
+  },
+  {
+    "diagnostic": {
+      "code": "tampered_replay_artifact",
+      "expected": "src/tickoni/test/fixtures/investment/scenarios/fixture_replay_capsule.json",
+      "field": "replay_capsule_path",
+      "found": "src/tickoni/test/fixtures/investment/scenarios/fixture_replay_capsule_tampered_paper_fill.json",
+      "message": "replay capsule fixture was tampered and must fail closed"
+    },
+    "scenario": "tampered_replay"
+  }
+]

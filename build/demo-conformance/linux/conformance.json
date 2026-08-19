@@ -1,0 +1,143 @@
+{
+  "comparison": {
+    "all_match": true,
+    "baseline_runtime_tier": "linux_full",
+    "scenarios": [
+      {
+        "matches": true,
+        "mismatch_count": 0,
+        "scenario": "allowed"
+      },
+      {
+        "matches": true,
+        "mismatch_count": 0,
+        "scenario": "oversized_blocked"
+      },
+      {
+        "matches": true,
+        "mismatch_count": 0,
+        "scenario": "restricted_instrument"
+      },
+      {
+        "matches": true,
+        "mismatch_count": 0,
+        "scenario": "tampered_replay"
+      }
+    ],
+    "target_isolation_tier": "full",
+    "target_runtime_tier": "linux_full"
+  },
+  "preflight": "passed",
+  "suite": [
+    {
+      "audit_jsonl_path": "src/tickoni/test/fixtures/investment/scenarios/fixture_audit_allowed_2000.jsonl",
+      "audit_jsonl_sha256": "e73ddcd62170c940c6a1224ad44b2c2200875992ac5a7d42eb221cc611ddf64c",
+      "blocked_diagnostic": null,
+      "external_effects_disabled": true,
+      "fixture_set_id": "investment_sample",
+      "isolation_tier": "full",
+      "manifest_id": "demo.investment.v1",
+      "manifest_version": "1.0.0",
+      "normalized_event_hash": "896087dc424674fcddd22e8202fa9505c26084814c1664778a2dc9dc92dd01f6",
+      "policy_outcome": "allow",
+      "proposal_hash": "81bc0274f88bb6763261f044b17303954fce1e38d4284e82fdd83e3130e6d3dc",
+      "replay_capsule_path": "src/tickoni/test/fixtures/investment/scenarios/fixture_replay_capsule.json",
+      "replay_capsule_sha256": "8888978f7d05cb8be82d5f7a439c1db3f02d9b341dd0d2278d0c17e7708e2559",
+      "replay_result": {
+        "divergence_count": 0,
+        "first_divergent_seq": null,
+        "replay_match": true
+      },
+      "runtime_tier": "linux_full",
+      "scenario": "allowed",
+      "tickoni_version": "0.1.0-dev"
+    },
+    {
+      "audit_jsonl_path": "",
+      "audit_jsonl_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blocked_diagnostic": {
+        "code": "policy_denied",
+        "expected": "per_order_notional",
+        "field": "failed_scope_dim",
+        "found": "per_order_notional",
+        "message": "per-order notional guardrail denied the oversized trade"
+      },
+      "external_effects_disabled": true,
+      "fixture_set_id": "investment_sample",
+      "isolation_tier": "full",
+      "manifest_id": "demo.investment.v1",
+      "manifest_version": "1.0.0",
+      "normalized_event_hash": "1f6670ff7a724133b5bfdac4bc8705bea35f761c44d00ecce56122d6c6ec8f64",
+      "policy_outcome": "deny",
+      "proposal_hash": "ae0ed592856e9453769e39b3d914013adc618dc55970b3298288d18adf056fe4",
+      "replay_capsule_path": "src/tickoni/test/fixtures/investment/scenarios/fixture_replay_capsule_oversized_25000.json",
+      "replay_capsule_sha256": "180725c17540582ebfc337ce7f3e186126baa3c176348eeb086d6a5f36d19012",
+      "replay_result": {
+        "divergence_count": 0,
+        "first_divergent_seq": null,
+        "replay_match": true
+      },
+      "runtime_tier": "linux_full",
+      "scenario": "oversized_blocked",
+      "tickoni_version": "0.1.0-dev"
+    },
+    {
+      "audit_jsonl_path": "",
+      "audit_jsonl_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blocked_diagnostic": {
+        "code": "restricted_instrument",
+        "expected": "US-listed large-cap equities and ETFs without restricted instruments",
+        "field": "requested_symbols",
+        "found": "SOXL",
+        "message": "restricted leveraged ETF request was denied"
+      },
+      "external_effects_disabled": true,
+      "fixture_set_id": "investment_sample",
+      "isolation_tier": "full",
+      "manifest_id": "demo.investment.v1",
+      "manifest_version": "1.0.0",
+      "normalized_event_hash": "b5bc9a864caefeaa89928933eae079fb770464db42a333100b191f141171754d",
+      "policy_outcome": "deny",
+      "proposal_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "replay_capsule_path": "src/tickoni/test/fixtures/investment/scenarios/fixture_replay_capsule_restricted_soxl.json",
+      "replay_capsule_sha256": "60b3fcfb27d0f069b12587bdedaeda17aa4828aec13a0b5d90e55767cb4fefe6",
+      "replay_result": {
+        "divergence_count": 0,
+        "first_divergent_seq": null,
+        "replay_match": true
+      },
+      "runtime_tier": "linux_full",
+      "scenario": "restricted_instrument",
+      "tickoni_version": "0.1.0-dev"
+    },
+    {
+      "audit_jsonl_path": "src/tickoni/test/fixtures/investment/scenarios/fixture_audit_allowed_2000.jsonl",
+      "audit_jsonl_sha256": "e73ddcd62170c940c6a1224ad44b2c2200875992ac5a7d42eb221cc611ddf64c",
+      "blocked_diagnostic": {
+        "code": "tampered_replay_artifact",
+        "expected": "src/tickoni/test/fixtures/investment/scenarios/fixture_replay_capsule.json",
+        "field": "replay_capsule_path",
+        "found": "src/tickoni/test/fixtures/investment/scenarios/fixture_replay_capsule_tampered_paper_fill.json",
+        "message": "replay capsule fixture was tampered and must fail closed"
+      },
+      "external_effects_disabled": true,
+      "fixture_set_id": "investment_sample",
+      "isolation_tier": "full",
+      "manifest_id": "demo.investment.v1",
+      "manifest_version": "1.0.0",
+      "normalized_event_hash": "aafb79ccc732ea9506d7c9213287736be0d4f7d59a7fa1f0316d7e244e0265fb",
+      "policy_outcome": "allow",
+      "proposal_hash": "81bc0274f88bb6763261f044b17303954fce1e38d4284e82fdd83e3130e6d3dc",
+      "replay_capsule_path": "src/tickoni/test/fixtures/investment/scenarios/fixture_replay_capsule_tampered_paper_fill.json",
+      "replay_capsule_sha256": "91306d317a74f369f571ec85609df5485776898e89d7a1f82824e7149f21d0b3",
+      "replay_result": {
+        "divergence_count": 1,
+        "first_divergent_seq": 9,
+        "replay_match": false
+      },
+      "runtime_tier": "linux_full",
+      "scenario": "tampered_replay",
+      "tickoni_version": "0.1.0-dev"
+    }
+  ]
+}

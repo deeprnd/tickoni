@@ -5,7 +5,6 @@
 const std = @import("std");
 const shims = @import("shims.zig");
 const firedancer = @import("firedancer.zig");
-const codec = @import("codec.zig");
 
 /// Links shim/topo_run.c (the fd_topo_run_tile adapter, v2.14.S8.T3) and
 /// shim/topob.c (the fd_topob topology builder, v2.14.S8.T12) — the two
@@ -17,9 +16,10 @@ const codec = @import("codec.zig");
 /// src/disco/topo/Local.mk's own test_topob unit test.
 pub fn linkTickoniTopoRun(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8) void {
     addTickoniTopoRunShims(b, step);
-    codec.linkTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_disco", "fd_ballet", "fd_waltz" });
+    firedancer.linkTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_disco", "fd_ballet", "fd_waltz" });
 }
 
+/// Compiles topo_run.c, topob.c, and the platform-specific topo_run shim file.
 pub fn addTickoniTopoRunShims(b: *std.Build, step: *std.Build.Step.Compile) void {
     step.root_module.link_libc = true;
     step.root_module.addIncludePath(b.path("src"));

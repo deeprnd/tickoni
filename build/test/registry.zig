@@ -36,29 +36,45 @@ pub const TestSpec = struct {
     action: Action,
 };
 
-/// Register a single test lane using the given spec.
+// Register a single test lane using the given spec.
 pub fn registerTestLane(
-    b: *std.Build,
-    step: *std.Build.Step,
-    spec: TestSpec,
-    optimize: std.builtin.OptimizeMode,
-    target: std.Build.ResolvedTarget,
+b: *std.Build,
+step: *std.Build.Step,
+spec: TestSpec,
+optimize: std.builtin.OptimizeMode,
+target: std.Build.ResolvedTarget,
 ) void {
-    const test_bin = b.addTest(.{
-        .name = spec.name,
-        .root_source_file = b.path(spec.source_file),
-        .target = target,
-        .optimize = optimize,
-        .imports = spec.imports,
-    });
+const root_mod = b.createModule(.{
+    .root_source_file = b.path(spec.source_file),
+    .target = target,
+    .optimize = optimize,
+    .imports = spec.imports,
+});
+const test_bin = b.addTest(.{
+    .name = spec.name,
+    .root_module = root_mod,
+});
 
     // Apply linkage requirements
     test_bin.root_module.link_libc = spec.linkage.needs_libc;
 
+    if (spec.linkage.needs_codec) {
+        codec.linkTickoniCodec(b, test_bin, spec.linkage.fd_lib_dir);
+    }
+    if (spec.linkage.needs_firedancer) {
+        firedancer.linkTickoniFiredancer(b, test_bin, spec.linkage.fd_lib_dir);
+    }
+    if (spec.linkage.needs_topo_run) {
+        topo_run.linkTickoniTopoRun(b, test_bin, spec.linkage.fd_lib_dir);
+    }
+    if (spec.linkage.needs_tile_run) {
+        tile_run.linkTickoniTileRun(b, test_bin, spec.linkage.fd_lib_dir);
+    }
+
     if (spec.action == .cov) {
         // Install to zig-out/cov/ for kcov
         const install = b.addInstallArtifact(test_bin, .{});
-        install.dest_dir = .{ .override = .prefix, .custom = "cov" };
+        install.dest_dir = .{ .custom = "cov" };
         step.dependOn(&install.step);
     } else if (spec.action == .run or spec.action == .cov) {
         // Run the test

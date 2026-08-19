@@ -1,0 +1,28 @@
+{
+  "all_match": true,
+  "baseline_runtime_tier": "linux_full",
+  "scenarios": [
+    {
+      "matches": true,
+      "mismatch_count": 0,
+      "scenario": "allowed"
+    },
+    {
+      "matches": true,
+      "mismatch_count": 0,
+      "scenario": "oversized_blocked"
+    },
+    {
+      "matches": true,
+      "mismatch_count": 0,
+      "scenario": "restricted_instrument"
+    },
+    {
+      "matches": true,
+      "mismatch_count": 0,
+      "scenario": "tampered_replay"
+    }
+  ],
+  "target_isolation_tier": "full",
+  "target_runtime_tier": "linux_full"
+}

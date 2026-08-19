@@ -1,0 +1,356 @@
+build/fd-tickoni-fd/obj/disco/bundle/fd_bundle_auth.o \
+ build/fd-tickoni-fd/obj/disco/bundle/fd_bundle_auth.S \
+ build/fd-tickoni-fd/obj/disco/bundle/fd_bundle_auth.i \
+ build/fd-tickoni-fd/obj/disco/bundle/fd_bundle_auth.d: \
+ src/disco/bundle/fd_bundle_auth.c /usr/include/stdc-predef.h \
+ src/disco/bundle/fd_bundle_auth.h \
+ src/disco/bundle/../../waltz/grpc/fd_grpc_client.h \
+ src/disco/bundle/../../waltz/grpc/fd_grpc_codec.h \
+ src/disco/bundle/../../waltz/grpc/../h2/fd_h2_base.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/fd_bits.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/../sanitize/fd_sanitize.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/../sanitize/fd_asan.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/../sanitize/../fd_util_base.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stdalign.h \
+ /usr/include/string.h \
+ /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
+ /usr/include/features.h /usr/include/features-time64.h \
+ /usr/include/x86_64-linux-gnu/bits/wordsize.h \
+ /usr/include/x86_64-linux-gnu/bits/timesize.h \
+ /usr/include/x86_64-linux-gnu/sys/cdefs.h \
+ /usr/include/x86_64-linux-gnu/bits/long-double.h \
+ /usr/include/x86_64-linux-gnu/gnu/stubs.h \
+ /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h \
+ /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
+ /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h \
+ /usr/include/limits.h /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/local_lim.h \
+ /usr/include/linux/limits.h \
+ /usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h \
+ /usr/include/x86_64-linux-gnu/bits/pthread_stack_min.h \
+ /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/xopen_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/float.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/../sanitize/fd_msan.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/../sanitize/fd_tsa.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/fd_bits_find_lsb.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/fd_bits_find_msb.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/fd_bits_tg.h \
+ src/disco/bundle/../../waltz/grpc/../h2/fd_h2_hdr_match.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/fd_siphash13.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../fd_ballet_base.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/fd_util.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/fd_version.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/fd_util_base.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/rng/fd_rng.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/rng/../bits/fd_bits.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/spad/fd_spad.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/spad/../bits/fd_bits.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/fd_alloc.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/fd_wksp.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/fd_tpool.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/fd_scratch.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/fd_tile.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/fd_shmem.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/fd_log.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../env/fd_env.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../env/../cstr/fd_cstr.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../env/../cstr/../bits/fd_bits.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../io/fd_io.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../io/../bits/fd_bits.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/fd_map_reduce.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../checkpt/fd_checkpt.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../checkpt/../log/fd_log.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/sandbox/fd_sandbox.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/sandbox/../fd_util_base.h \
+ /usr/include/linux/filter.h /usr/include/linux/types.h \
+ /usr/include/x86_64-linux-gnu/asm/types.h \
+ /usr/include/asm-generic/types.h /usr/include/asm-generic/int-ll64.h \
+ /usr/include/x86_64-linux-gnu/asm/bitsperlong.h \
+ /usr/include/asm-generic/bitsperlong.h /usr/include/linux/posix_types.h \
+ /usr/include/linux/stddef.h \
+ /usr/include/x86_64-linux-gnu/asm/posix_types.h \
+ /usr/include/x86_64-linux-gnu/asm/posix_types_64.h \
+ /usr/include/asm-generic/posix_types.h /usr/include/linux/bpf_common.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/bits/fd_sat.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/bits/fd_bits.h \
+ src/disco/bundle/../../waltz/grpc/../h2/fd_hpack.h \
+ src/disco/bundle/../../waltz/grpc/../h2/fd_h2_base.h \
+ src/disco/bundle/../../waltz/grpc/../h2/../../util/tmpl/fd_map.c \
+ src/disco/bundle/../../waltz/grpc/../h2/../../util/tmpl/../bits/fd_bits.h \
+ src/disco/bundle/../../waltz/grpc/../../third_party/nanopb/pb_firedancer.h \
+ src/disco/bundle/../../waltz/grpc/../../third_party/nanopb/pb.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
+ /usr/include/x86_64-linux-gnu/bits/types.h \
+ /usr/include/x86_64-linux-gnu/bits/typesizes.h \
+ /usr/include/x86_64-linux-gnu/bits/time64.h \
+ /usr/include/x86_64-linux-gnu/bits/wchar.h \
+ /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
+ /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
+ /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stdbool.h /usr/include/stdlib.h \
+ /usr/include/x86_64-linux-gnu/bits/waitflags.h \
+ /usr/include/x86_64-linux-gnu/bits/waitstatus.h \
+ /usr/include/x86_64-linux-gnu/bits/floatn.h \
+ /usr/include/x86_64-linux-gnu/bits/floatn-common.h \
+ /usr/include/x86_64-linux-gnu/sys/types.h \
+ /usr/include/x86_64-linux-gnu/bits/types/clock_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/clockid_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/time_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/timer_t.h \
+ /usr/include/x86_64-linux-gnu/bits/pthreadtypes.h \
+ /usr/include/x86_64-linux-gnu/bits/thread-shared-types.h \
+ /usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h \
+ /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h \
+ /usr/include/x86_64-linux-gnu/bits/struct_mutex.h \
+ /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h \
+ /usr/include/x86_64-linux-gnu/bits/stdlib-bsearch.h \
+ /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
+ /usr/include/x86_64-linux-gnu/bits/stdlib.h \
+ src/disco/bundle/../../waltz/grpc/../../third_party/nanopb/../../util/fd_util.h \
+ opt/include/openssl/types.h opt/include/openssl/e_os2.h \
+ opt/include/openssl/macros.h opt/include/openssl/opensslconf.h \
+ opt/include/openssl/configuration.h opt/include/openssl/opensslv.h \
+ /usr/include/inttypes.h opt/include/openssl/safestack.h \
+ opt/include/openssl/stack.h \
+ src/disco/bundle/../../disco/keyguard/fd_keyguard_client.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/fd_tango_base.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/../util/fd_util.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/smmintrin.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/tmmintrin.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/pmmintrin.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/emmintrin.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/xmmintrin.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/mmintrin.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/mm_malloc.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/mwaitintrin.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/popcntintrin.h \
+ src/disco/bundle/proto/auth.pb.h \
+ src/disco/bundle/proto/../../../third_party/nanopb/pb_firedancer.h \
+ src/disco/bundle/proto/timestamp.pb.h \
+ src/disco/bundle/../../ballet/base58/fd_base58.h \
+ src/disco/bundle/../../ballet/base58/../fd_ballet_base.h \
+ src/disco/bundle/../../third_party/nanopb/pb_decode.h \
+ src/disco/bundle/../../third_party/nanopb/pb_firedancer.h \
+ src/disco/bundle/../../disco/keyguard/fd_keyguard.h \
+ src/disco/bundle/../../disco/keyguard/../fd_disco_base.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/fd_tango.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/tempo/fd_tempo.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/tempo/../fd_tango_base.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/cnc/fd_cnc.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/cnc/../fd_tango_base.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/fseq/fd_fseq.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/fseq/../fd_tango_base.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/fctl/fd_fctl.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/fctl/../fd_tango_base.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/mcache/fd_mcache.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/mcache/../fd_tango_base.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/dcache/fd_dcache.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/dcache/../fd_tango_base.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/tcache/fd_tcache.h \
+ src/disco/bundle/../../disco/keyguard/../../tango/tcache/../fd_tango_base.h \
+ src/disco/bundle/../../disco/keyguard/../../ballet/shred/fd_shred.h \
+ src/disco/bundle/../../disco/keyguard/../../ballet/shred/../bmtree/fd_bmtree.h \
+ src/disco/bundle/../../disco/keyguard/../../ballet/shred/../bmtree/../../util/fd_util_base.h \
+ src/disco/bundle/../../disco/keyguard/../../ballet/shred/../fd_ballet.h \
+ src/disco/bundle/../../disco/keyguard/../../ballet/shred/../ed25519/fd_ed25519.h \
+ src/disco/bundle/../../disco/keyguard/../../ballet/shred/../ed25519/../sha512/fd_sha512.h \
+ src/disco/bundle/../../disco/keyguard/../../ballet/shred/../ed25519/../sha512/../fd_ballet_base.h \
+ src/disco/bundle/../../disco/keyguard/../../ballet/shred/../shred/fd_shred.h \
+ src/disco/bundle/../../disco/keyguard/../../ballet/shred/../bmtree/fd_bmtree.h \
+ src/disco/bundle/../../disco/keyguard/../../ballet/shred/../blake3/fd_blake3.h \
+ src/disco/bundle/../../disco/keyguard/../../ballet/shred/../blake3/../fd_ballet_base.h \
+ src/disco/bundle/../../disco/keyguard/../../ballet/txn/fd_txn.h \
+ src/disco/bundle/../../disco/keyguard/../../ballet/txn/../fd_ballet_base.h \
+ src/disco/bundle/../../disco/keyguard/../../ballet/txn/../ed25519/fd_ed25519.h \
+ src/disco/bundle/../../disco/keyguard/../../flamenco/fd_flamenco_base.h \
+ src/disco/bundle/../../disco/keyguard/../../flamenco/../ballet/base58/fd_base58.h \
+ src/disco/bundle/../../disco/keyguard/../../util/wksp/fd_wksp_private.h \
+ src/disco/bundle/../../disco/keyguard/../../util/wksp/fd_wksp.h
+/usr/include/stdc-predef.h:
+src/disco/bundle/fd_bundle_auth.h:
+src/disco/bundle/../../waltz/grpc/fd_grpc_client.h:
+src/disco/bundle/../../waltz/grpc/fd_grpc_codec.h:
+src/disco/bundle/../../waltz/grpc/../h2/fd_h2_base.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/fd_bits.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/../sanitize/fd_sanitize.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/../sanitize/fd_asan.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/../sanitize/../fd_util_base.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/stdalign.h:
+/usr/include/string.h:
+/usr/include/x86_64-linux-gnu/bits/libc-header-start.h:
+/usr/include/features.h:
+/usr/include/features-time64.h:
+/usr/include/x86_64-linux-gnu/bits/wordsize.h:
+/usr/include/x86_64-linux-gnu/bits/timesize.h:
+/usr/include/x86_64-linux-gnu/sys/cdefs.h:
+/usr/include/x86_64-linux-gnu/bits/long-double.h:
+/usr/include/x86_64-linux-gnu/gnu/stubs.h:
+/usr/include/x86_64-linux-gnu/gnu/stubs-64.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h:
+/usr/include/x86_64-linux-gnu/bits/types/locale_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/__locale_t.h:
+/usr/include/x86_64-linux-gnu/bits/string_fortified.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h:
+/usr/include/limits.h:
+/usr/include/x86_64-linux-gnu/bits/posix1_lim.h:
+/usr/include/x86_64-linux-gnu/bits/local_lim.h:
+/usr/include/linux/limits.h:
+/usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h:
+/usr/include/x86_64-linux-gnu/bits/pthread_stack_min.h:
+/usr/include/x86_64-linux-gnu/bits/posix2_lim.h:
+/usr/include/x86_64-linux-gnu/bits/xopen_lim.h:
+/usr/include/x86_64-linux-gnu/bits/uio_lim.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/float.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/../sanitize/fd_msan.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/../sanitize/fd_tsa.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/fd_bits_find_lsb.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/fd_bits_find_msb.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../util/bits/fd_bits_tg.h:
+src/disco/bundle/../../waltz/grpc/../h2/fd_h2_hdr_match.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/fd_siphash13.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../fd_ballet_base.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/fd_util.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/fd_version.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/fd_util_base.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/rng/fd_rng.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/rng/../bits/fd_bits.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/spad/fd_spad.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/spad/../bits/fd_bits.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/fd_alloc.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/fd_wksp.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/fd_tpool.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/fd_scratch.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/fd_tile.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/fd_shmem.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/fd_log.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../env/fd_env.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../env/../cstr/fd_cstr.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../env/../cstr/../bits/fd_bits.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../io/fd_io.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../io/../bits/fd_bits.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../tpool/fd_map_reduce.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../checkpt/fd_checkpt.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/alloc/../wksp/../checkpt/../log/fd_log.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/sandbox/fd_sandbox.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/sandbox/../fd_util_base.h:
+/usr/include/linux/filter.h:
+/usr/include/linux/types.h:
+/usr/include/x86_64-linux-gnu/asm/types.h:
+/usr/include/asm-generic/types.h:
+/usr/include/asm-generic/int-ll64.h:
+/usr/include/x86_64-linux-gnu/asm/bitsperlong.h:
+/usr/include/asm-generic/bitsperlong.h:
+/usr/include/linux/posix_types.h:
+/usr/include/linux/stddef.h:
+/usr/include/x86_64-linux-gnu/asm/posix_types.h:
+/usr/include/x86_64-linux-gnu/asm/posix_types_64.h:
+/usr/include/asm-generic/posix_types.h:
+/usr/include/linux/bpf_common.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/bits/fd_sat.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../ballet/siphash13/../../util/bits/fd_bits.h:
+src/disco/bundle/../../waltz/grpc/../h2/fd_hpack.h:
+src/disco/bundle/../../waltz/grpc/../h2/fd_h2_base.h:
+src/disco/bundle/../../waltz/grpc/../h2/../../util/tmpl/fd_map.c:
+src/disco/bundle/../../waltz/grpc/../h2/../../util/tmpl/../bits/fd_bits.h:
+src/disco/bundle/../../waltz/grpc/../../third_party/nanopb/pb_firedancer.h:
+src/disco/bundle/../../waltz/grpc/../../third_party/nanopb/pb.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h:
+/usr/include/stdint.h:
+/usr/include/x86_64-linux-gnu/bits/types.h:
+/usr/include/x86_64-linux-gnu/bits/typesizes.h:
+/usr/include/x86_64-linux-gnu/bits/time64.h:
+/usr/include/x86_64-linux-gnu/bits/wchar.h:
+/usr/include/x86_64-linux-gnu/bits/stdint-intn.h:
+/usr/include/x86_64-linux-gnu/bits/stdint-uintn.h:
+/usr/include/x86_64-linux-gnu/bits/stdint-least.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/stdbool.h:
+/usr/include/stdlib.h:
+/usr/include/x86_64-linux-gnu/bits/waitflags.h:
+/usr/include/x86_64-linux-gnu/bits/waitstatus.h:
+/usr/include/x86_64-linux-gnu/bits/floatn.h:
+/usr/include/x86_64-linux-gnu/bits/floatn-common.h:
+/usr/include/x86_64-linux-gnu/sys/types.h:
+/usr/include/x86_64-linux-gnu/bits/types/clock_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/clockid_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/time_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/timer_t.h:
+/usr/include/x86_64-linux-gnu/bits/pthreadtypes.h:
+/usr/include/x86_64-linux-gnu/bits/thread-shared-types.h:
+/usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h:
+/usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h:
+/usr/include/x86_64-linux-gnu/bits/struct_mutex.h:
+/usr/include/x86_64-linux-gnu/bits/struct_rwlock.h:
+/usr/include/x86_64-linux-gnu/bits/stdlib-bsearch.h:
+/usr/include/x86_64-linux-gnu/bits/stdlib-float.h:
+/usr/include/x86_64-linux-gnu/bits/stdlib.h:
+src/disco/bundle/../../waltz/grpc/../../third_party/nanopb/../../util/fd_util.h:
+opt/include/openssl/types.h:
+opt/include/openssl/e_os2.h:
+opt/include/openssl/macros.h:
+opt/include/openssl/opensslconf.h:
+opt/include/openssl/configuration.h:
+opt/include/openssl/opensslv.h:
+/usr/include/inttypes.h:
+opt/include/openssl/safestack.h:
+opt/include/openssl/stack.h:
+src/disco/bundle/../../disco/keyguard/fd_keyguard_client.h:
+src/disco/bundle/../../disco/keyguard/../../tango/fd_tango_base.h:
+src/disco/bundle/../../disco/keyguard/../../tango/../util/fd_util.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/smmintrin.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/tmmintrin.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/pmmintrin.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/emmintrin.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/xmmintrin.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/mmintrin.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/mm_malloc.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/mwaitintrin.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/popcntintrin.h:
+src/disco/bundle/proto/auth.pb.h:
+src/disco/bundle/proto/../../../third_party/nanopb/pb_firedancer.h:
+src/disco/bundle/proto/timestamp.pb.h:
+src/disco/bundle/../../ballet/base58/fd_base58.h:
+src/disco/bundle/../../ballet/base58/../fd_ballet_base.h:
+src/disco/bundle/../../third_party/nanopb/pb_decode.h:
+src/disco/bundle/../../third_party/nanopb/pb_firedancer.h:
+src/disco/bundle/../../disco/keyguard/fd_keyguard.h:
+src/disco/bundle/../../disco/keyguard/../fd_disco_base.h:
+src/disco/bundle/../../disco/keyguard/../../tango/fd_tango.h:
+src/disco/bundle/../../disco/keyguard/../../tango/tempo/fd_tempo.h:
+src/disco/bundle/../../disco/keyguard/../../tango/tempo/../fd_tango_base.h:
+src/disco/bundle/../../disco/keyguard/../../tango/cnc/fd_cnc.h:
+src/disco/bundle/../../disco/keyguard/../../tango/cnc/../fd_tango_base.h:
+src/disco/bundle/../../disco/keyguard/../../tango/fseq/fd_fseq.h:
+src/disco/bundle/../../disco/keyguard/../../tango/fseq/../fd_tango_base.h:
+src/disco/bundle/../../disco/keyguard/../../tango/fctl/fd_fctl.h:
+src/disco/bundle/../../disco/keyguard/../../tango/fctl/../fd_tango_base.h:
+src/disco/bundle/../../disco/keyguard/../../tango/mcache/fd_mcache.h:
+src/disco/bundle/../../disco/keyguard/../../tango/mcache/../fd_tango_base.h:
+src/disco/bundle/../../disco/keyguard/../../tango/dcache/fd_dcache.h:
+src/disco/bundle/../../disco/keyguard/../../tango/dcache/../fd_tango_base.h:
+src/disco/bundle/../../disco/keyguard/../../tango/tcache/fd_tcache.h:
+src/disco/bundle/../../disco/keyguard/../../tango/tcache/../fd_tango_base.h:
+src/disco/bundle/../../disco/keyguard/../../ballet/shred/fd_shred.h:
+src/disco/bundle/../../disco/keyguard/../../ballet/shred/../bmtree/fd_bmtree.h:
+src/disco/bundle/../../disco/keyguard/../../ballet/shred/../bmtree/../../util/fd_util_base.h:
+src/disco/bundle/../../disco/keyguard/../../ballet/shred/../fd_ballet.h:
+src/disco/bundle/../../disco/keyguard/../../ballet/shred/../ed25519/fd_ed25519.h:
+src/disco/bundle/../../disco/keyguard/../../ballet/shred/../ed25519/../sha512/fd_sha512.h:
+src/disco/bundle/../../disco/keyguard/../../ballet/shred/../ed25519/../sha512/../fd_ballet_base.h:
+src/disco/bundle/../../disco/keyguard/../../ballet/shred/../shred/fd_shred.h:
+src/disco/bundle/../../disco/keyguard/../../ballet/shred/../bmtree/fd_bmtree.h:
+src/disco/bundle/../../disco/keyguard/../../ballet/shred/../blake3/fd_blake3.h:
+src/disco/bundle/../../disco/keyguard/../../ballet/shred/../blake3/../fd_ballet_base.h:
+src/disco/bundle/../../disco/keyguard/../../ballet/txn/fd_txn.h:
+src/disco/bundle/../../disco/keyguard/../../ballet/txn/../fd_ballet_base.h:
+src/disco/bundle/../../disco/keyguard/../../ballet/txn/../ed25519/fd_ed25519.h:
+src/disco/bundle/../../disco/keyguard/../../flamenco/fd_flamenco_base.h:
+src/disco/bundle/../../disco/keyguard/../../flamenco/../ballet/base58/fd_base58.h:
+src/disco/bundle/../../disco/keyguard/../../util/wksp/fd_wksp_private.h:
+src/disco/bundle/../../disco/keyguard/../../util/wksp/fd_wksp.h:

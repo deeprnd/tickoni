@@ -1,0 +1,386 @@
+build/fd-clang/obj/disco/topo/fd_cpu_topo_platform_linux.o \
+  build/fd-clang/obj/disco/topo/fd_cpu_topo_platform_linux.S \
+  build/fd-clang/obj/disco/topo/fd_cpu_topo_platform_linux.i \
+  build/fd-clang/obj/disco/topo/fd_cpu_topo_platform_linux.d: \
+  src/disco/topo/fd_cpu_topo_platform_linux.c \
+  src/disco/topo/fd_cpu_topo.h src/disco/topo/../fd_disco_base.h \
+  src/disco/topo/../../tango/fd_tango.h \
+  src/disco/topo/../../tango/tempo/fd_tempo.h \
+  src/disco/topo/../../tango/tempo/../fd_tango_base.h \
+  src/disco/topo/../../tango/tempo/../../util/fd_util.h \
+  src/disco/topo/../../tango/tempo/../../util/fd_version.h \
+  src/disco/topo/../../tango/tempo/../../util/fd_util_base.h \
+  /usr/lib/llvm-18/lib/clang/18/include/stdalign.h /usr/include/string.h \
+  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
+  /usr/include/features.h /usr/include/features-time64.h \
+  /usr/include/x86_64-linux-gnu/bits/wordsize.h \
+  /usr/include/x86_64-linux-gnu/bits/timesize.h \
+  /usr/include/stdc-predef.h /usr/include/x86_64-linux-gnu/sys/cdefs.h \
+  /usr/include/x86_64-linux-gnu/bits/long-double.h \
+  /usr/include/x86_64-linux-gnu/gnu/stubs.h \
+  /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
+  /usr/lib/llvm-18/lib/clang/18/include/stddef.h \
+  /usr/lib/llvm-18/lib/clang/18/include/__stddef_size_t.h \
+  /usr/lib/llvm-18/lib/clang/18/include/__stddef_null.h \
+  /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
+  /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
+  /usr/lib/llvm-18/lib/clang/18/include/limits.h /usr/include/limits.h \
+  /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
+  /usr/include/x86_64-linux-gnu/bits/local_lim.h \
+  /usr/include/linux/limits.h \
+  /usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h \
+  /usr/include/x86_64-linux-gnu/bits/pthread_stack_min.h \
+  /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
+  /usr/include/x86_64-linux-gnu/bits/xopen_lim.h \
+  /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
+  /usr/lib/llvm-18/lib/clang/18/include/float.h \
+  src/disco/topo/../../tango/tempo/../../util/rng/fd_rng.h \
+  src/disco/topo/../../tango/tempo/../../util/rng/../bits/fd_bits.h \
+  src/disco/topo/../../tango/tempo/../../util/rng/../bits/../sanitize/fd_sanitize.h \
+  src/disco/topo/../../tango/tempo/../../util/rng/../bits/../sanitize/fd_asan.h \
+  src/disco/topo/../../tango/tempo/../../util/rng/../bits/../sanitize/../fd_util_base.h \
+  src/disco/topo/../../tango/tempo/../../util/rng/../bits/../sanitize/fd_msan.h \
+  src/disco/topo/../../tango/tempo/../../util/rng/../bits/../sanitize/fd_tsa.h \
+  src/disco/topo/../../tango/tempo/../../util/rng/../bits/fd_bits_find_lsb.h \
+  src/disco/topo/../../tango/tempo/../../util/rng/../bits/fd_bits_find_msb.h \
+  src/disco/topo/../../tango/tempo/../../util/rng/../bits/fd_bits_tg.h \
+  src/disco/topo/../../tango/tempo/../../util/spad/fd_spad.h \
+  src/disco/topo/../../tango/tempo/../../util/spad/../bits/fd_bits.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/fd_alloc.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/fd_wksp.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/fd_tpool.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/fd_scratch.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/fd_tile.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/fd_shmem.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/fd_log.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../env/fd_env.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../env/../cstr/fd_cstr.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../env/../cstr/../bits/fd_bits.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../io/fd_io.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../io/../bits/fd_bits.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/fd_map_reduce.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../checkpt/fd_checkpt.h \
+  src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../checkpt/../log/fd_log.h \
+  src/disco/topo/../../tango/tempo/../../util/sandbox/fd_sandbox.h \
+  src/disco/topo/../../tango/tempo/../../util/sandbox/../fd_util_base.h \
+  /usr/include/linux/filter.h /usr/include/linux/types.h \
+  /usr/include/x86_64-linux-gnu/asm/types.h \
+  /usr/include/asm-generic/types.h /usr/include/asm-generic/int-ll64.h \
+  /usr/include/x86_64-linux-gnu/asm/bitsperlong.h \
+  /usr/include/asm-generic/bitsperlong.h \
+  /usr/include/linux/posix_types.h /usr/include/linux/stddef.h \
+  /usr/include/x86_64-linux-gnu/asm/posix_types.h \
+  /usr/include/x86_64-linux-gnu/asm/posix_types_64.h \
+  /usr/include/asm-generic/posix_types.h /usr/include/linux/bpf_common.h \
+  src/disco/topo/../../tango/tempo/../../util/bits/fd_sat.h \
+  src/disco/topo/../../tango/tempo/../../util/bits/fd_bits.h \
+  /usr/lib/llvm-18/lib/clang/18/include/smmintrin.h \
+  /usr/lib/llvm-18/lib/clang/18/include/tmmintrin.h \
+  /usr/lib/llvm-18/lib/clang/18/include/pmmintrin.h \
+  /usr/lib/llvm-18/lib/clang/18/include/emmintrin.h \
+  /usr/lib/llvm-18/lib/clang/18/include/xmmintrin.h \
+  /usr/lib/llvm-18/lib/clang/18/include/mmintrin.h \
+  /usr/lib/llvm-18/lib/clang/18/include/mm_malloc.h \
+  /usr/include/stdlib.h \
+  /usr/lib/llvm-18/lib/clang/18/include/__stddef_wchar_t.h \
+  /usr/include/x86_64-linux-gnu/bits/waitflags.h \
+  /usr/include/x86_64-linux-gnu/bits/waitstatus.h \
+  /usr/include/x86_64-linux-gnu/bits/floatn.h \
+  /usr/include/x86_64-linux-gnu/bits/floatn-common.h \
+  /usr/include/x86_64-linux-gnu/sys/types.h \
+  /usr/include/x86_64-linux-gnu/bits/types.h \
+  /usr/include/x86_64-linux-gnu/bits/typesizes.h \
+  /usr/include/x86_64-linux-gnu/bits/time64.h \
+  /usr/include/x86_64-linux-gnu/bits/types/clock_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/clockid_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/time_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/timer_t.h \
+  /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
+  /usr/include/x86_64-linux-gnu/bits/pthreadtypes.h \
+  /usr/include/x86_64-linux-gnu/bits/thread-shared-types.h \
+  /usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h \
+  /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h \
+  /usr/include/x86_64-linux-gnu/bits/struct_mutex.h \
+  /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h \
+  /usr/include/x86_64-linux-gnu/bits/stdlib-bsearch.h \
+  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
+  /usr/include/x86_64-linux-gnu/bits/stdlib.h \
+  /usr/lib/llvm-18/lib/clang/18/include/popcntintrin.h \
+  /usr/lib/llvm-18/lib/clang/18/include/crc32intrin.h \
+  src/disco/topo/../../tango/cnc/fd_cnc.h \
+  src/disco/topo/../../tango/cnc/../fd_tango_base.h \
+  src/disco/topo/../../tango/fseq/fd_fseq.h \
+  src/disco/topo/../../tango/fseq/../fd_tango_base.h \
+  src/disco/topo/../../tango/fctl/fd_fctl.h \
+  src/disco/topo/../../tango/fctl/../fd_tango_base.h \
+  src/disco/topo/../../tango/mcache/fd_mcache.h \
+  src/disco/topo/../../tango/mcache/../fd_tango_base.h \
+  src/disco/topo/../../tango/dcache/fd_dcache.h \
+  src/disco/topo/../../tango/dcache/../fd_tango_base.h \
+  src/disco/topo/../../tango/tcache/fd_tcache.h \
+  src/disco/topo/../../tango/tcache/../fd_tango_base.h \
+  src/disco/topo/../../ballet/shred/fd_shred.h \
+  src/disco/topo/../../ballet/shred/../bmtree/fd_bmtree.h \
+  src/disco/topo/../../ballet/shred/../bmtree/../../util/fd_util_base.h \
+  src/disco/topo/../../ballet/shred/../fd_ballet.h \
+  src/disco/topo/../../ballet/shred/../ed25519/fd_ed25519.h \
+  src/disco/topo/../../ballet/shred/../ed25519/../sha512/fd_sha512.h \
+  src/disco/topo/../../ballet/shred/../ed25519/../sha512/../fd_ballet_base.h \
+  src/disco/topo/../../ballet/shred/../ed25519/../sha512/../../util/fd_util.h \
+  src/disco/topo/../../ballet/shred/../shred/fd_shred.h \
+  src/disco/topo/../../ballet/shred/../blake3/fd_blake3.h \
+  src/disco/topo/../../ballet/shred/../blake3/../fd_ballet_base.h \
+  src/disco/topo/../../ballet/txn/fd_txn.h \
+  src/disco/topo/../../ballet/txn/../fd_ballet_base.h \
+  src/disco/topo/../../ballet/txn/../ed25519/fd_ed25519.h \
+  src/disco/topo/../../flamenco/fd_flamenco_base.h \
+  src/disco/topo/../../flamenco/../ballet/base58/fd_base58.h \
+  src/disco/topo/../../flamenco/../ballet/base58/../fd_ballet_base.h \
+  src/disco/topo/../../util/wksp/fd_wksp_private.h \
+  src/disco/topo/../../util/wksp/fd_wksp.h \
+  src/disco/topo/../../util/tile/fd_tile.h \
+  src/disco/topo/../../util/shmem/fd_shmem_private.h \
+  src/disco/topo/../../util/shmem/fd_shmem.h /usr/include/pthread.h \
+  /usr/include/sched.h \
+  /usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h \
+  /usr/include/x86_64-linux-gnu/bits/endian.h \
+  /usr/include/x86_64-linux-gnu/bits/endianness.h \
+  /usr/include/x86_64-linux-gnu/bits/sched.h \
+  /usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h \
+  /usr/include/x86_64-linux-gnu/bits/cpu-set.h /usr/include/time.h \
+  /usr/include/x86_64-linux-gnu/bits/time.h \
+  /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
+  /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
+  /usr/include/x86_64-linux-gnu/bits/setjmp.h \
+  /usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h \
+  src/disco/topo/../../util/tile/fd_tile_private.h \
+  src/disco/topo/../../util/tile/../tmpl/fd_set.c \
+  src/disco/topo/../../util/tile/../tmpl/../bits/fd_bits.h \
+  /usr/include/errno.h /usr/include/x86_64-linux-gnu/bits/errno.h \
+  /usr/include/linux/errno.h /usr/include/x86_64-linux-gnu/asm/errno.h \
+  /usr/include/asm-generic/errno.h /usr/include/asm-generic/errno-base.h \
+  /usr/include/unistd.h /usr/include/x86_64-linux-gnu/bits/posix_opt.h \
+  /usr/include/x86_64-linux-gnu/bits/environments.h \
+  /usr/include/x86_64-linux-gnu/bits/confname.h \
+  /usr/include/x86_64-linux-gnu/bits/getopt_posix.h \
+  /usr/include/x86_64-linux-gnu/bits/getopt_core.h \
+  /usr/include/x86_64-linux-gnu/bits/unistd.h \
+  /usr/include/x86_64-linux-gnu/bits/unistd-decl.h \
+  /usr/include/x86_64-linux-gnu/bits/unistd_ext.h /usr/include/fcntl.h \
+  /usr/include/x86_64-linux-gnu/bits/fcntl.h \
+  /usr/include/x86_64-linux-gnu/bits/fcntl-linux.h \
+  /usr/include/x86_64-linux-gnu/bits/stat.h \
+  /usr/include/x86_64-linux-gnu/bits/struct_stat.h /usr/include/stdio.h \
+  /usr/lib/llvm-18/lib/clang/18/include/stdarg.h \
+  /usr/lib/llvm-18/lib/clang/18/include/__stdarg___gnuc_va_list.h \
+  /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/__FILE.h \
+  /usr/include/x86_64-linux-gnu/bits/types/FILE.h \
+  /usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h \
+  /usr/include/x86_64-linux-gnu/bits/stdio_lim.h \
+  /usr/include/x86_64-linux-gnu/bits/stdio2-decl.h \
+  /usr/include/x86_64-linux-gnu/bits/stdio.h \
+  /usr/include/x86_64-linux-gnu/bits/stdio2.h
+src/disco/topo/fd_cpu_topo.h:
+src/disco/topo/../fd_disco_base.h:
+src/disco/topo/../../tango/fd_tango.h:
+src/disco/topo/../../tango/tempo/fd_tempo.h:
+src/disco/topo/../../tango/tempo/../fd_tango_base.h:
+src/disco/topo/../../tango/tempo/../../util/fd_util.h:
+src/disco/topo/../../tango/tempo/../../util/fd_version.h:
+src/disco/topo/../../tango/tempo/../../util/fd_util_base.h:
+/usr/lib/llvm-18/lib/clang/18/include/stdalign.h:
+/usr/include/string.h:
+/usr/include/x86_64-linux-gnu/bits/libc-header-start.h:
+/usr/include/features.h:
+/usr/include/features-time64.h:
+/usr/include/x86_64-linux-gnu/bits/wordsize.h:
+/usr/include/x86_64-linux-gnu/bits/timesize.h:
+/usr/include/stdc-predef.h:
+/usr/include/x86_64-linux-gnu/sys/cdefs.h:
+/usr/include/x86_64-linux-gnu/bits/long-double.h:
+/usr/include/x86_64-linux-gnu/gnu/stubs.h:
+/usr/include/x86_64-linux-gnu/gnu/stubs-64.h:
+/usr/lib/llvm-18/lib/clang/18/include/stddef.h:
+/usr/lib/llvm-18/lib/clang/18/include/__stddef_size_t.h:
+/usr/lib/llvm-18/lib/clang/18/include/__stddef_null.h:
+/usr/include/x86_64-linux-gnu/bits/types/locale_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/__locale_t.h:
+/usr/include/x86_64-linux-gnu/bits/string_fortified.h:
+/usr/lib/llvm-18/lib/clang/18/include/limits.h:
+/usr/include/limits.h:
+/usr/include/x86_64-linux-gnu/bits/posix1_lim.h:
+/usr/include/x86_64-linux-gnu/bits/local_lim.h:
+/usr/include/linux/limits.h:
+/usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h:
+/usr/include/x86_64-linux-gnu/bits/pthread_stack_min.h:
+/usr/include/x86_64-linux-gnu/bits/posix2_lim.h:
+/usr/include/x86_64-linux-gnu/bits/xopen_lim.h:
+/usr/include/x86_64-linux-gnu/bits/uio_lim.h:
+/usr/lib/llvm-18/lib/clang/18/include/float.h:
+src/disco/topo/../../tango/tempo/../../util/rng/fd_rng.h:
+src/disco/topo/../../tango/tempo/../../util/rng/../bits/fd_bits.h:
+src/disco/topo/../../tango/tempo/../../util/rng/../bits/../sanitize/fd_sanitize.h:
+src/disco/topo/../../tango/tempo/../../util/rng/../bits/../sanitize/fd_asan.h:
+src/disco/topo/../../tango/tempo/../../util/rng/../bits/../sanitize/../fd_util_base.h:
+src/disco/topo/../../tango/tempo/../../util/rng/../bits/../sanitize/fd_msan.h:
+src/disco/topo/../../tango/tempo/../../util/rng/../bits/../sanitize/fd_tsa.h:
+src/disco/topo/../../tango/tempo/../../util/rng/../bits/fd_bits_find_lsb.h:
+src/disco/topo/../../tango/tempo/../../util/rng/../bits/fd_bits_find_msb.h:
+src/disco/topo/../../tango/tempo/../../util/rng/../bits/fd_bits_tg.h:
+src/disco/topo/../../tango/tempo/../../util/spad/fd_spad.h:
+src/disco/topo/../../tango/tempo/../../util/spad/../bits/fd_bits.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/fd_alloc.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/fd_wksp.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/fd_tpool.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/fd_scratch.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/fd_tile.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/fd_shmem.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/fd_log.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../env/fd_env.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../env/../cstr/fd_cstr.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../env/../cstr/../bits/fd_bits.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../io/fd_io.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/../scratch/../tile/../shmem/../log/../io/../bits/fd_bits.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../tpool/fd_map_reduce.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../checkpt/fd_checkpt.h:
+src/disco/topo/../../tango/tempo/../../util/alloc/../wksp/../checkpt/../log/fd_log.h:
+src/disco/topo/../../tango/tempo/../../util/sandbox/fd_sandbox.h:
+src/disco/topo/../../tango/tempo/../../util/sandbox/../fd_util_base.h:
+/usr/include/linux/filter.h:
+/usr/include/linux/types.h:
+/usr/include/x86_64-linux-gnu/asm/types.h:
+/usr/include/asm-generic/types.h:
+/usr/include/asm-generic/int-ll64.h:
+/usr/include/x86_64-linux-gnu/asm/bitsperlong.h:
+/usr/include/asm-generic/bitsperlong.h:
+/usr/include/linux/posix_types.h:
+/usr/include/linux/stddef.h:
+/usr/include/x86_64-linux-gnu/asm/posix_types.h:
+/usr/include/x86_64-linux-gnu/asm/posix_types_64.h:
+/usr/include/asm-generic/posix_types.h:
+/usr/include/linux/bpf_common.h:
+src/disco/topo/../../tango/tempo/../../util/bits/fd_sat.h:
+src/disco/topo/../../tango/tempo/../../util/bits/fd_bits.h:
+/usr/lib/llvm-18/lib/clang/18/include/smmintrin.h:
+/usr/lib/llvm-18/lib/clang/18/include/tmmintrin.h:
+/usr/lib/llvm-18/lib/clang/18/include/pmmintrin.h:
+/usr/lib/llvm-18/lib/clang/18/include/emmintrin.h:
+/usr/lib/llvm-18/lib/clang/18/include/xmmintrin.h:
+/usr/lib/llvm-18/lib/clang/18/include/mmintrin.h:
+/usr/lib/llvm-18/lib/clang/18/include/mm_malloc.h:
+/usr/include/stdlib.h:
+/usr/lib/llvm-18/lib/clang/18/include/__stddef_wchar_t.h:
+/usr/include/x86_64-linux-gnu/bits/waitflags.h:
+/usr/include/x86_64-linux-gnu/bits/waitstatus.h:
+/usr/include/x86_64-linux-gnu/bits/floatn.h:
+/usr/include/x86_64-linux-gnu/bits/floatn-common.h:
+/usr/include/x86_64-linux-gnu/sys/types.h:
+/usr/include/x86_64-linux-gnu/bits/types.h:
+/usr/include/x86_64-linux-gnu/bits/typesizes.h:
+/usr/include/x86_64-linux-gnu/bits/time64.h:
+/usr/include/x86_64-linux-gnu/bits/types/clock_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/clockid_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/time_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/timer_t.h:
+/usr/include/x86_64-linux-gnu/bits/stdint-intn.h:
+/usr/include/x86_64-linux-gnu/bits/pthreadtypes.h:
+/usr/include/x86_64-linux-gnu/bits/thread-shared-types.h:
+/usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h:
+/usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h:
+/usr/include/x86_64-linux-gnu/bits/struct_mutex.h:
+/usr/include/x86_64-linux-gnu/bits/struct_rwlock.h:
+/usr/include/x86_64-linux-gnu/bits/stdlib-bsearch.h:
+/usr/include/x86_64-linux-gnu/bits/stdlib-float.h:
+/usr/include/x86_64-linux-gnu/bits/stdlib.h:
+/usr/lib/llvm-18/lib/clang/18/include/popcntintrin.h:
+/usr/lib/llvm-18/lib/clang/18/include/crc32intrin.h:
+src/disco/topo/../../tango/cnc/fd_cnc.h:
+src/disco/topo/../../tango/cnc/../fd_tango_base.h:
+src/disco/topo/../../tango/fseq/fd_fseq.h:
+src/disco/topo/../../tango/fseq/../fd_tango_base.h:
+src/disco/topo/../../tango/fctl/fd_fctl.h:
+src/disco/topo/../../tango/fctl/../fd_tango_base.h:
+src/disco/topo/../../tango/mcache/fd_mcache.h:
+src/disco/topo/../../tango/mcache/../fd_tango_base.h:
+src/disco/topo/../../tango/dcache/fd_dcache.h:
+src/disco/topo/../../tango/dcache/../fd_tango_base.h:
+src/disco/topo/../../tango/tcache/fd_tcache.h:
+src/disco/topo/../../tango/tcache/../fd_tango_base.h:
+src/disco/topo/../../ballet/shred/fd_shred.h:
+src/disco/topo/../../ballet/shred/../bmtree/fd_bmtree.h:
+src/disco/topo/../../ballet/shred/../bmtree/../../util/fd_util_base.h:
+src/disco/topo/../../ballet/shred/../fd_ballet.h:
+src/disco/topo/../../ballet/shred/../ed25519/fd_ed25519.h:
+src/disco/topo/../../ballet/shred/../ed25519/../sha512/fd_sha512.h:
+src/disco/topo/../../ballet/shred/../ed25519/../sha512/../fd_ballet_base.h:
+src/disco/topo/../../ballet/shred/../ed25519/../sha512/../../util/fd_util.h:
+src/disco/topo/../../ballet/shred/../shred/fd_shred.h:
+src/disco/topo/../../ballet/shred/../blake3/fd_blake3.h:
+src/disco/topo/../../ballet/shred/../blake3/../fd_ballet_base.h:
+src/disco/topo/../../ballet/txn/fd_txn.h:
+src/disco/topo/../../ballet/txn/../fd_ballet_base.h:
+src/disco/topo/../../ballet/txn/../ed25519/fd_ed25519.h:
+src/disco/topo/../../flamenco/fd_flamenco_base.h:
+src/disco/topo/../../flamenco/../ballet/base58/fd_base58.h:
+src/disco/topo/../../flamenco/../ballet/base58/../fd_ballet_base.h:
+src/disco/topo/../../util/wksp/fd_wksp_private.h:
+src/disco/topo/../../util/wksp/fd_wksp.h:
+src/disco/topo/../../util/tile/fd_tile.h:
+src/disco/topo/../../util/shmem/fd_shmem_private.h:
+src/disco/topo/../../util/shmem/fd_shmem.h:
+/usr/include/pthread.h:
+/usr/include/sched.h:
+/usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h:
+/usr/include/x86_64-linux-gnu/bits/endian.h:
+/usr/include/x86_64-linux-gnu/bits/endianness.h:
+/usr/include/x86_64-linux-gnu/bits/sched.h:
+/usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h:
+/usr/include/x86_64-linux-gnu/bits/cpu-set.h:
+/usr/include/time.h:
+/usr/include/x86_64-linux-gnu/bits/time.h:
+/usr/include/x86_64-linux-gnu/bits/types/struct_tm.h:
+/usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h:
+/usr/include/x86_64-linux-gnu/bits/setjmp.h:
+/usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h:
+src/disco/topo/../../util/tile/fd_tile_private.h:
+src/disco/topo/../../util/tile/../tmpl/fd_set.c:
+src/disco/topo/../../util/tile/../tmpl/../bits/fd_bits.h:
+/usr/include/errno.h:
+/usr/include/x86_64-linux-gnu/bits/errno.h:
+/usr/include/linux/errno.h:
+/usr/include/x86_64-linux-gnu/asm/errno.h:
+/usr/include/asm-generic/errno.h:
+/usr/include/asm-generic/errno-base.h:
+/usr/include/unistd.h:
+/usr/include/x86_64-linux-gnu/bits/posix_opt.h:
+/usr/include/x86_64-linux-gnu/bits/environments.h:
+/usr/include/x86_64-linux-gnu/bits/confname.h:
+/usr/include/x86_64-linux-gnu/bits/getopt_posix.h:
+/usr/include/x86_64-linux-gnu/bits/getopt_core.h:
+/usr/include/x86_64-linux-gnu/bits/unistd.h:
+/usr/include/x86_64-linux-gnu/bits/unistd-decl.h:
+/usr/include/x86_64-linux-gnu/bits/unistd_ext.h:
+/usr/include/fcntl.h:
+/usr/include/x86_64-linux-gnu/bits/fcntl.h:
+/usr/include/x86_64-linux-gnu/bits/fcntl-linux.h:
+/usr/include/x86_64-linux-gnu/bits/stat.h:
+/usr/include/x86_64-linux-gnu/bits/struct_stat.h:
+/usr/include/stdio.h:
+/usr/lib/llvm-18/lib/clang/18/include/stdarg.h:
+/usr/lib/llvm-18/lib/clang/18/include/__stdarg___gnuc_va_list.h:
+/usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h:
+/usr/include/x86_64-linux-gnu/bits/types/__FILE.h:
+/usr/include/x86_64-linux-gnu/bits/types/FILE.h:
+/usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h:
+/usr/include/x86_64-linux-gnu/bits/stdio_lim.h:
+/usr/include/x86_64-linux-gnu/bits/stdio2-decl.h:
+/usr/include/x86_64-linux-gnu/bits/stdio.h:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:

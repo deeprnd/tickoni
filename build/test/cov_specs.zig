@@ -12,7 +12,7 @@ pub fn covSpecs(
     b: *std.Build,
     modules: @import("../mod.zig").Modules,
     _test_modules: @import("../mod.zig").TestModules,
-    _build_options: *std.Build.Module,
+    _build_options: ?std.Build.Module,
     target: std.Build.ResolvedTarget,
 ) []const Registry.TestSpec {
     _ = _test_modules;
