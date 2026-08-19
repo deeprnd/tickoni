@@ -6,7 +6,6 @@
 const std = @import("std");
 const Registry = @import("registry.zig");
 const helpers = @import("helpers.zig");
-const codec = @import("../lib/codec.zig");
 
 /// ModuleImport is a reference to a module by name for integration test imports.
 pub const ModuleImport = struct {
@@ -60,7 +59,7 @@ pub fn registerIntegrationSpecs(
 
     // Investment support integration module (test) - must come before investment_demo_mod
     const investment_support_int_mod = b.createModule(.{
-        .root_source_file = b.path("src/tickoni/demo/investment/support.zig"),
+        .root_source_file = b.path("src/tickoni/test/demo/investment/support.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
@@ -73,7 +72,7 @@ pub fn registerIntegrationSpecs(
 
     // Investment demo module
     const investment_demo_mod = b.createModule(.{
-        .root_source_file = b.path("src/tickoni/demo/investment/mod.zig"),
+        .root_source_file = b.path("src/tickoni/test/demo/investment/mod.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
@@ -83,7 +82,7 @@ pub fn registerIntegrationSpecs(
 
     // Investment audit integration module (test)
     const investment_audit_int_mod = b.createModule(.{
-        .root_source_file = b.path("src/tickoni/demo/investment/audit.zig"),
+        .root_source_file = b.path("src/tickoni/test/demo/investment/audit_trace.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
@@ -261,8 +260,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    codec.linkTickoniCodec(b, link_bounds_test, fd_lib_dir);
-    integration_step.dependOn(&b.addRunArtifact(link_bounds_test).step);
+    _ = helpers.addPlainTestRun(b, integration_step, link_bounds_test, fd_lib_dir);
 
     // Test 6: process_demo_parity_test
     const process_demo_parity_test = b.addTest(.{
@@ -279,8 +277,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    codec.linkTickoniCodec(b, process_demo_parity_test, fd_lib_dir);
-    integration_step.dependOn(&b.addRunArtifact(process_demo_parity_test).step);
+    _ = helpers.addPlainTestRun(b, integration_step, process_demo_parity_test, fd_lib_dir);
 
     // Test 7: process_topology_test
     const process_topology_test = b.addTest(.{
@@ -295,8 +292,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    codec.linkTickoniCodec(b, process_topology_test, fd_lib_dir);
-    integration_step.dependOn(&b.addRunArtifact(process_topology_test).step);
+    _ = helpers.addPlainTestRun(b, integration_step, process_topology_test, fd_lib_dir);
 
     // Test 8: process_topology_linux_test
     const process_topology_linux_test = b.addTest(.{
@@ -313,8 +309,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    codec.linkTickoniCodec(b, process_topology_linux_test, fd_lib_dir);
-    integration_step.dependOn(&b.addRunArtifact(process_topology_linux_test).step);
+    _ = helpers.addPlainTestRun(b, integration_step, process_topology_linux_test, fd_lib_dir);
 
     // Test 9: process_pipeline_test
     const process_pipeline_test = b.addTest(.{
@@ -331,8 +326,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    codec.linkTickoniCodec(b, process_pipeline_test, fd_lib_dir);
-    integration_step.dependOn(&b.addRunArtifact(process_pipeline_test).step);
+    _ = helpers.addPlainTestRun(b, integration_step, process_pipeline_test, fd_lib_dir);
 
     // Test 10: process_cpu_placement_test
     const process_cpu_placement_test = b.addTest(.{
@@ -349,8 +343,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    codec.linkTickoniCodec(b, process_cpu_placement_test, fd_lib_dir);
-    integration_step.dependOn(&b.addRunArtifact(process_cpu_placement_test).step);
+    _ = helpers.addPlainTestRun(b, integration_step, process_cpu_placement_test, fd_lib_dir);
 
     // Test 11: process_cpu_placement_linux_test
     const process_cpu_placement_linux_test = b.addTest(.{
@@ -367,8 +360,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    codec.linkTickoniCodec(b, process_cpu_placement_linux_test, fd_lib_dir);
-    integration_step.dependOn(&b.addRunArtifact(process_cpu_placement_linux_test).step);
+    _ = helpers.addPlainTestRun(b, integration_step, process_cpu_placement_linux_test, fd_lib_dir);
 
     // Test 12: test_investment_allowed_trade
     const test_investment_allowed_trade = b.addTest(.{
