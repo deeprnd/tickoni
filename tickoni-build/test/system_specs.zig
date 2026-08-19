@@ -1,12 +1,11 @@
 /// System test specs for the Tickoni build system.
 ///
 /// Lists system test binaries with their module imports and linkage flags.
-/// Mirrors the inline system test definitions from the original build.zig.
+/// System tests link against Firedancer/Tickoni C libraries via the test_system group.
 
 const std = @import("std");
-const Registry = @import("registry.zig");
 const helpers = @import("helpers.zig");
-const codec = @import("../lib/codec.zig");
+const config = @import("../generated/config.zig");
 
 /// Register system test lanes using module references.
 pub fn registerSystemSpecs(
@@ -19,15 +18,14 @@ pub fn registerSystemSpecs(
     lib_dir: []const u8,
 ) void {
     _ = _test_modules;
-    _ = lib_dir;
 
-    // Create system-level modules (investment_demo, investment_support)
+    // System-level modules (investment_demo, investment_support)
     const adapter_int_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/tiles/adapter/mod.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "adapter_messages", .module = modules.mock_adapter },
+            .{ .name = "mock_adapter", .module = modules.mock_adapter },
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "portfolio", .module = modules.portfolio },
         },
@@ -38,7 +36,7 @@ pub fn registerSystemSpecs(
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "model_messages", .module = modules.mock_model },
+            .{ .name = "mock_model", .module = modules.mock_model },
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "portfolio", .module = modules.portfolio },
         },
@@ -76,7 +74,7 @@ pub fn registerSystemSpecs(
             },
         }),
     });
-    system_step.dependOn(&b.addRunArtifact(system_test).step);
+    _ = helpers.addPlainTestRun(b, system_step, system_test, lib_dir);
 
     // System Test 2: test_portfolio_cash_demo
     const portfolio_cash_demo_test = b.addTest(.{
@@ -90,5 +88,5 @@ pub fn registerSystemSpecs(
             },
         }),
     });
-    system_step.dependOn(&b.addRunArtifact(portfolio_cash_demo_test).step);
+    _ = helpers.addPlainTestRun(b, system_step, portfolio_cash_demo_test, lib_dir);
 }

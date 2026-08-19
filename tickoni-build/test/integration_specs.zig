@@ -54,6 +54,7 @@ pub fn registerIntegrationSpecs(
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "portfolio", .module = modules.portfolio },
             .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
+            .{ .name = "model", .module = model_int_mod },
         },
     });
 
@@ -67,6 +68,7 @@ pub fn registerIntegrationSpecs(
             .{ .name = "model", .module = model_int_mod },
             .{ .name = "portfolio", .module = modules.portfolio },
             .{ .name = "basket", .module = modules.basket },
+            .{ .name = "thesis", .module = modules.thesis },
         },
     });
 
