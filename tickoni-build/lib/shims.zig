@@ -117,9 +117,10 @@ pub fn checkShimCompilation(b: *std.Build, check_step: *std.Build.Step, target: 
 /// Read and apply Windows FD manifest fixups for Zig linkage.
 pub fn addWindowsFdManifestFixups(b: *std.Build, step: *std.Build.Step.Compile, manifest_path: []const u8) void {
     if (step.root_module.resolved_target.?.result.os.tag != .windows) return;
-    var threaded = std.Threaded.init_single_threaded;
+    var io_threaded = std.Io.Threaded.init_single_threaded;
+    const io = io_threaded.io();
     const manifest = std.Io.Dir.cwd().readFileAlloc(
-        threaded.io(),
+        io,
         manifest_path,
         b.allocator,
         .limited(1024 * 1024),
@@ -148,4 +149,15 @@ pub fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, 
         for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
         step.root_module.linkSystemLibrary("stdc++", .{});
     }
+}
+
+/// Link a system library group (from config.zig) against a compile step.
+pub fn linkSystemLibGroup(b: *std.Build, step: *std.Build.Step.Compile, lib_dir: []const u8, grp: anytype) void {
+    step.root_module.addLibraryPath(b.path(lib_dir));
+    for (grp.object_deps) |dep| {
+        step.root_module.addObjectFile(.{
+            .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, dep.path }),
+        });
+    }
+    if (grp.needs_libcpp) step.root_module.link_libcpp = true;
 }

@@ -1,112 +1,132 @@
-/// Helper functions for test execution in the Tickoni build system.
+/// Helper functions for building and linking Tickoni test binaries.
 ///
-/// Uses the module loader to build domains from config and link
-/// their archives into test binaries.
+/// Contains: compileTickoniTest(), linkTestDeps(), linkTestSystemLibs(),
+/// setupTestBuild(), setupTickoniTest().
+/// Archive names come from config.zig, not hardcoded in Zig code.
 
 const std = @import("std");
-const builder = @import("../domain/builder.zig");
-const domain = @import("../domain/domain.zig");
+const config = @import("../generated/config.zig");
+const shims = @import("../lib/shims.zig");
 
-/// Builder state for test execution. Uses the generic module loader.
-pub const TestBuilder = struct {
+/// Compile the given Zig source file as a test binary.
+/// Returns the build step for the compiled test executable.
+pub fn compileTickoniTest(
     b: *std.Build,
-    allocator: std.mem.Allocator,
+    name: []const u8,
+    src_path: []const u8,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
-    lib_dir: []const u8,
-    loader: builder.Loader,
+    link_test_deps: bool,
+    link_system_libs: bool,
+    system_lib_group: ?[]const u8,
+    deps: []const std.Build.Module,
+) *std.Build.Step.Compile {
+    const test_bin = b.addTest(.{
+        .name = name,
+        .root_source_file = b.path(src_path),
+        .target = target,
+        .optimize = optimize,
+    });
 
-    pub fn init(
-        b: *std.Build,
-        allocator: std.mem.Allocator,
-        target: std.Build.ResolvedTarget,
-        optimize: std.builtin.OptimizeMode,
-        lib_dir: []const u8,
-    ) TestBuilder {
-        var loader = builder.Loader.init(allocator, b, target, optimize, lib_dir);
-        loader.loadAll() catch @panic("Failed to load domains from config");
-        return .{
-            .b = b,
-            .allocator = allocator,
-            .target = target,
-            .optimize = optimize,
-            .lib_dir = lib_dir,
-            .loader = loader,
-        };
+    // Add module dependencies
+    for (deps) |dep| {
+        test_bin.root_module.addImport(dep.tag, dep);
     }
 
-    pub fn deinit(self: *TestBuilder) void {
-        self.loader.deinit();
+    // Link Firedancer test system libraries if requested
+    if (link_test_deps) {
+        linkTestDeps(test_bin, b, optimize);
     }
 
-    /// Link a domain's archive into a test executable.
-    pub fn linkDomain(self: *TestBuilder, test_exe: *std.Build.Step.Compile, name: []const u8) !void {
-        if (self.loader.get(name)) |result| {
-            if (result.archive) |a| {
-                test_exe.root_module.addObjectFile(.{
-                    .generated = .{
-                        .index = a.getEmittedBin().generated.index,
-                    },
-                });
-            }
-        }
+    // Link system libraries (from config) if requested
+    if (link_system_libs and system_lib_group != null) {
+        const grp = config.getSystemLibByName(system_lib_group.?) orelse
+            @panic("system_lib group not found in config");
+        linkTestSystemLibs(test_bin, grp);
     }
 
-    /// Link all required domain archives into a test executable.
-    pub fn linkAll(self: *TestBuilder, test_exe: *std.Build.Step.Compile) !void {
-        test_exe.root_module.link_libc = true;
-        
-        // Link domain archives from config
-        for (generated.domain_configs) |dc| {
-            if (std.mem.eql(u8, dc.strategy, "c_builder")) {
-                try self.linkDomain(test_exe, dc.name);
-            }
-        }
-
-        // Link Firedancer system libraries
-        test_exe.root_module.addLibraryPath(self.b.path(self.lib_dir));
-        test_exe.root_module.addObjectFile(.{ .cwd_relative = self.b.fmt("{s}/libfd_ballet.a", .{self.lib_dir}) });
-        test_exe.root_module.addObjectFile(.{ .cwd_relative = self.b.fmt("{s}/libfd_util.a", .{self.lib_dir}) });
-        test_exe.root_module.addObjectFile(.{ .cwd_relative = self.b.fmt("{s}/libfd_tango.a", .{self.lib_dir}) });
-        test_exe.root_module.addObjectFile(.{ .cwd_relative = self.b.fmt("{s}/libfd_disco.a", .{self.lib_dir}) });
-
-        if (test_exe.root_module.resolved_target.?.result.os.tag == .windows) {
-            test_exe.root_module.addObjectFile(.{ .cwd_relative = self.b.fmt("{s}/libuuid.a", .{self.lib_dir}) });
-            test_exe.root_module.link_libcpp = true;
-        }
-    }
-};
-
-const generated = @import("../generated/config.zig");
-
-pub fn addPlainTestRun(
-    b: *std.Build,
-    step: *std.Build.Step,
-    test_exe: *std.Build.Step.Compile,
-    lib_dir: []const u8,
-) *std.Build.Step.Run {
-    var tb = TestBuilder.init(
-        b,
-        b.allocator,
-        test_exe.root_module.resolved_target.?,
-        test_exe.root_module.optimize orelse .Debug,
-        lib_dir,
-    );
-    defer tb.deinit();
-    tb.linkAll(test_exe) catch @panic("Failed to link domains");
-    const run = b.addRunArtifact(test_exe);
-    step.dependOn(&run.step);
-    return run;
+    return test_bin;
 }
 
-pub fn runTestsCmd(
+/// Compile the given Zig source file as a test binary with all Tickoni deps.
+pub fn setupTickoniTest(
     b: *std.Build,
-    step: *std.Build.Step,
-    test_exe: *std.Build.Step.Compile,
-    env: ?std.Build.EnvMap,
-    lib_dir: []const u8,
+    name: []const u8,
+    src_path: []const u8,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    deps: []const std.Build.Module,
+    system_lib_group: []const u8,
+) *std.Build.Step.Compile {
+    return compileTickoniTest(
+        b,
+        name,
+        src_path,
+        target,
+        optimize,
+        true,  // link_test_deps
+        true,  // link_system_libs
+        system_lib_group,
+        deps,
+    );
+}
+
+/// Setup a basic build step for a test binary without any deps.
+pub fn setupTestBuild(
+    b: *std.Build,
+    name: []const u8,
+    src_path: []const u8,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Step.Compile {
+    return b.addTest(.{
+        .name = name,
+        .root_source_file = b.path(src_path),
+        .target = target,
+        .optimize = optimize,
+    });
+}
+
+/// Link Firedancer library dependencies to a test step.
+pub fn linkTestDeps(step: *std.Build.Step.Compile, b: *std.Build, optimize: std.builtin.OptimizeMode) void {
+    const target = step.root_module.resolved_target orelse
+        @panic("test step must have a resolved target");
+
+    // Create a shared module for ballet.c
+    const codec_mod = @import("../lib/codec.zig").createTickoniCodecModule(b, target, optimize);
+    step.root_module.addImport("codec", codec_mod);
+    step.root_module.link_libcpp = true;
+}
+
+/// Link a system library group (from config) to a test step.
+pub fn linkTestSystemLibs(step: *std.Build.Step.Compile, grp: config.SystemLib) void {
+    // We need the lib_dir to link, so we look it up from the step's build options
+    // For now, use the config-provided archive names directly
+    const b = step.step.build_root orelse @panic("missing build root");
+    const lib_dir = b.graph.search_paths.lookup("fd-lib-dir") orelse
+        @panic("fd-lib-dir not set; use -Dfd-lib-dir=/path/to/lib");
+
+    step.root_module.addLibraryPath(b.path(lib_dir));
+
+    if (grp.needs_libcpp) step.root_module.link_libcpp = true;
+
+    for (grp.object_deps) |dep| {
+        step.root_module.addObjectFile(.{
+            .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, dep.path }),
+        });
+    }
+}
+
+/// Create a run step that executes a test binary.
+/// Returns the run step for dependency chaining.
+pub fn addPlainTestRun(
+    b: *std.Build,
+    parent_step: *std.Build.Step,
+    test_bin: *std.Build.Step.Compile,
+    _lib_dir: []const u8,
 ) *std.Build.Step.Run {
-    const run = addPlainTestRun(b, step, test_exe, lib_dir);
-    if (env) |e| run.step.addEnvMap(e);
+    _ = _lib_dir;
+    const run = b.addRunArtifact(test_bin);
+    parent_step.dependOn(&run.step);
     return run;
 }

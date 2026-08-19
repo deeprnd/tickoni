@@ -65,15 +65,15 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{ .name = "tickoni-supervisor", .root_module = main_mod });
     if (target.result.os.tag == .windows) {
-        exe.root_module.linkLibrary(lib.firedancer.addTickoniSupervisorShimLibrary(b, target, optimize));
-        lib.firedancer.addWindowsFdManifestFixups(b, exe, b.fmt("{s}/fd_windows_zig_supervisor_link.txt", .{lib_dir}));
+        exe.root_module.linkLibrary(lib.firedancer_shims.addTickoniSupervisorShimLibrary(b, target, optimize));
+        lib.firedancer_shims.addWindowsFdManifestFixups(b, exe, b.fmt("{s}/fd_windows_zig_supervisor_link.txt", .{lib_dir}));
     } else {
         lib.codec.addTickoniCodecShim(b, exe);
-        lib.firedancer.addTickoniFiredancerShims(b, exe);
+        lib.firedancer_shims.addTickoniFiredancerShims(b, exe);
         lib.topo_run.addTickoniTopoRunShims(b, exe);
         lib.tile_run.addTickoniTileRunShim(b, exe);
     }
-    lib.firedancer.linkTickoniSystemLibraries(b, exe, lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
+    lib.firedancer_shims.linkTickoniFiredancer(b, exe, lib_dir);
     b.installArtifact(exe);
 
     const run_exe = b.addRunArtifact(exe);

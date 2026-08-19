@@ -9,7 +9,65 @@ pub const ObjectDep = struct {
     path: []const u8,
 };
 
-/// Domain configuration entry — mirrors build_config.json domains array.
+/// System library group — Firedancer .a archives and linking flags.
+pub const SystemLib = struct {
+    name: []const u8,
+    object_deps: []const ObjectDep = &.{},
+    needs_libcpp: bool = false,
+};
+
+/// System library groups from JSON.
+pub const system_libs: []const SystemLib = &.{
+    SystemLib{
+        .name = "codec",
+        .object_deps = &.{
+            .{ .path = "libfd_ballet.a" },
+            .{ .path = "libfd_util.a" },
+            .{ .path = "libuuid.a" },
+        },
+        .needs_libcpp = true,
+    },
+    SystemLib{
+        .name = "fd_tango",
+        .object_deps = &.{
+            .{ .path = "libfd_tango.a" },
+            .{ .path = "libfd_util.a" },
+            .{ .path = "libuuid.a" },
+        },
+        .needs_libcpp = true,
+    },
+    SystemLib{
+        .name = "topo_run",
+        .object_deps = &.{
+            .{ .path = "libfd_disco.a" },
+            .{ .path = "libfd_ballet.a" },
+            .{ .path = "libfd_waltz.a" },
+        },
+        .needs_libcpp = false,
+    },
+    SystemLib{
+        .name = "tile_run",
+        .object_deps = &.{
+            .{ .path = "libfd_disco.a" },
+            .{ .path = "libfd_ballet.a" },
+            .{ .path = "libfd_waltz.a" },
+        },
+        .needs_libcpp = false,
+    },
+    SystemLib{
+        .name = "test_system",
+        .object_deps = &.{
+            .{ .path = "libfd_ballet.a" },
+            .{ .path = "libfd_util.a" },
+            .{ .path = "libfd_tango.a" },
+            .{ .path = "libfd_disco.a" },
+            .{ .path = "libuuid.a" },
+        },
+        .needs_libcpp = true,
+    },
+};
+
+/// All domain configs from JSON. Paths are relative to lib_dir.
 pub const DomainConfig = struct {
     name: []const u8,
     strategy: []const u8,
@@ -297,6 +355,14 @@ pub const domain_configs: []const DomainConfig = &.{
 pub fn getDomainByName(name: []const u8) ?DomainConfig {
     for (domain_configs) |dc| {
         if (std.mem.eql(u8, dc.name, name)) return dc;
+    }
+    return null;
+}
+
+/// Get a system library group by name. Returns null if not found.
+pub fn getSystemLibByName(name: []const u8) ?SystemLib {
+    for (system_libs) |sl| {
+        if (std.mem.eql(u8, sl.name, name)) return sl;
     }
     return null;
 }

@@ -1,22 +1,23 @@
 /// Firedancer shim helpers for the Tickoni build system.
 ///
 /// Contains: addTickoniShimLibrary(), addTickoniSupervisorShimLibrary(),
-/// addTickoniFiredancerShims(), linkTickoniFiredancer().
-///
-/// These compile Tickoni shim C code that wraps Firedancer subsystems.
-/// C source paths come from build_config.json domains.
-/// Archive linking uses firedancer_deps or config-driven paths.
+/// addTickoniFiredancerShims(), linkTickoniFiredancer(),
+/// addWindowsFdManifestFixups().
+/// Archive names come from config.zig, not hardcoded in Zig code.
 
 const std = @import("std");
 const shims = @import("shims.zig");
+const config = @import("../generated/config.zig");
 
-/// Create a static library archive from C shim source files.
+// Re-export manifest fixups from shims.zig
+pub const addWindowsFdManifestFixups = shims.addWindowsFdManifestFixups;
+
+/// Compile shim/tango.c + shim/wksp.c + shim/os.c + shim/sandbox.c
+/// into a static archive (Windows-only; Linux links these via linkTickoniFiredancer).
 pub fn addTickoniShimLibrary(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
-    name: []const u8,
-    files: []const []const u8,
 ) *std.Build.Step.Compile {
     const mod = b.createModule(.{
         .target = target,
@@ -25,74 +26,104 @@ pub fn addTickoniShimLibrary(
     });
     mod.addIncludePath(b.path("src"));
     mod.addCSourceFiles(.{
-        .files = files,
+        .files = &.{
+            "src/tickoni/c_abi/shim/tango.c",
+            "src/tickoni/c_abi/shim/wksp.c",
+            "src/tickoni/c_abi/shim/sandbox.c",
+            "src/tickoni/c_abi/shim/os.c",
+        },
         .flags = shims.shimCFlagsFor(target.result),
     });
-    if (target.result.os.tag == .windows) {
-        mod.addCSourceFiles(.{
-            .files = &.{"src/tickoni/c_abi/shim/windows_crt.c"},
-            .flags = shims.shimCFlagsFor(target.result),
-        });
-    }
     return b.addLibrary(.{
-        .name = name,
+        .name = "tickoni_shim",
         .linkage = .static,
         .root_module = mod,
     });
 }
 
-/// Create the supervisor shim library (used on Windows only).
+/// Compile shim/tango.c + shim/wksp.c + shim/os.c + shim/sandbox.c +
+/// shim/util.c + shim/topo_run.c + shim/topob.c + shim/tile_run.c into a
+/// static archive (Windows-only; Linux links these via linkTickoniFiredancer).
 pub fn addTickoniSupervisorShimLibrary(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
 ) *std.Build.Step.Compile {
-    return addTickoniShimLibrary(b, target, optimize, "tickoni-supervisor-shims", &.{
-        "src/tickoni/c_abi/shim/ballet.c",
-        "src/tickoni/c_abi/shim/tango.c",
-        "src/tickoni/c_abi/shim/util.c",
-        "src/tickoni/c_abi/shim/wksp.c",
-        "src/tickoni/c_abi/shim/sandbox.c",
-        "src/tickoni/c_abi/shim/os.c",
-        "src/tickoni/c_abi/shim/topo_run.c",
-        "src/tickoni/c_abi/shim/topo_run_platform_windows.c",
-        "src/tickoni/c_abi/shim/topob.c",
-        "src/tickoni/c_abi/shim/tile_run.c",
+    const mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    mod.addIncludePath(b.path("src"));
+    mod.addCSourceFiles(.{
+        .files = &.{
+            "src/tickoni/c_abi/shim/tango.c",
+            "src/tickoni/c_abi/shim/wksp.c",
+            "src/tickoni/c_abi/shim/sandbox.c",
+            "src/tickoni/c_abi/shim/os.c",
+            "src/tickoni/c_abi/shim/util.c",
+            "src/tickoni/c_abi/shim/topo_run.c",
+            "src/tickoni/c_abi/shim/topob.c",
+            "src/tickoni/c_abi/shim/tile_run.c",
+        },
+        .flags = shims.shimCFlagsFor(target.result),
+    });
+    return b.addLibrary(.{
+        .name = "tickoni_supervisor_shim",
+        .linkage = .static,
+        .root_module = mod,
     });
 }
 
-/// Compiles the Firedancer substrate shim files (tango, util, wksp, sandbox, os)
-/// and links them into the compile step.
+/// Add all Firedancer shim C files for a compile step (Linux path).
 pub fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) void {
     step.root_module.link_libc = true;
     step.root_module.addIncludePath(b.path("src"));
     const target_info = step.root_module.resolved_target.?.result;
+
     step.root_module.addCSourceFiles(.{
         .files = &.{
             "src/tickoni/c_abi/shim/tango.c",
-            "src/tickoni/c_abi/shim/util.c",
             "src/tickoni/c_abi/shim/wksp.c",
             "src/tickoni/c_abi/shim/sandbox.c",
             "src/tickoni/c_abi/shim/os.c",
+            "src/tickoni/c_abi/shim/util.c",
         },
         .flags = shims.shimCFlagsFor(target_info),
     });
 }
 
-/// Links the Firedancer substrate used by Tickoni runtime wrappers.
+/// Link Firedancer substrate libraries against a compile step.
+///
+/// On Windows: use the shim library for tk_* symbols, then link
+/// libfd_tango.a, libfd_util.a, libuuid.a.
+/// On Linux: link libfd_tango.a + libfd_util.a + libuuid.a
+/// (which already contain the tk_* symbols from shim/*.c).
 pub fn linkTickoniFiredancer(
     b: *std.Build,
     step: *std.Build.Step.Compile,
     lib_dir: []const u8,
 ) void {
-    addTickoniFiredancerShims(b, step);
-    if (step.root_module.resolved_target.?.result.os.tag == .windows) {
-        step.root_module.addLibraryPath(b.path(lib_dir));
-        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{lib_dir}) });
-        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{lib_dir}) });
-        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{lib_dir}) });
-        step.root_module.link_libcpp = true;
-        return;
+    // On Linux, add shim files first (they provide tk_* symbols)
+    if (step.root_module.resolved_target.?.result.os.tag != .windows) {
+        addTickoniFiredancerShims(b, step);
     }
-    shims.linkTickoniSystemLibraries(b, step, lib_dir, &.{ "fd_tango", "fd_util" });
+
+    step.root_module.addLibraryPath(b.path(lib_dir));
+
+    // Archive names come from config (fd_tango system_lib group)
+    const fd_tango_lib = config.getSystemLibByName("fd_tango") orelse @panic("fd_tango system_lib not found in config");
+    for (fd_tango_lib.object_deps) |dep| {
+        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, dep.path }) });
+    }
+
+    // On Linux, ballet/util are provided by domain-level object deps.
+    // On Windows, link them explicitly (the shim library doesn't include them).
+    if (step.root_module.resolved_target.?.result.os.tag == .windows) {
+        const codec_lib = config.getSystemLibByName("codec") orelse @panic("codec system_lib not found in config");
+        for (codec_lib.object_deps) |dep| {
+            step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, dep.path }) });
+        }
+        step.root_module.link_libcpp = true;
+    }
 }

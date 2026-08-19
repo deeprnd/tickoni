@@ -2,10 +2,11 @@
 ///
 /// Contains: linkTickoniCodec(), addTickoniCodecShimLibrary(),
 /// addTickoniCodecShim(), addWindowsFdManifestFixups().
+/// Archive names come from config, not hardcoded in Zig code.
 
 const std = @import("std");
 const shims = @import("shims.zig");
-const firedancer_deps = @import("firedancer_deps.zig");
+const config = @import("../generated/config.zig");
 
 /// Compile shim/ballet.c (Firedancer siphash/protobuf/JSON primitives)
 /// and link it into the compile step.
@@ -87,10 +88,13 @@ pub fn linkTickoniCodec(
 ) void {
     addTickoniCodecShim(b, step);
     step.root_module.addLibraryPath(b.path(lib_dir));
-    step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{lib_dir}) });
-    step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{lib_dir}) });
+
+    // Archive names come from config (codec system_lib group)
+    const codec_lib = config.getSystemLibByName("codec") orelse @panic("codec system_lib not found in config");
+    for (codec_lib.object_deps) |dep| {
+        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, dep.path }) });
+    }
     if (step.root_module.resolved_target.?.result.os.tag == .windows) {
-        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{lib_dir}) });
         step.root_module.link_libcpp = true;
         return;
     }

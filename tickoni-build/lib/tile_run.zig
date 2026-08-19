@@ -4,6 +4,7 @@
 
 const std = @import("std");
 const shims = @import("shims.zig");
+const config = @import("../generated/config.zig");
 
 /// Links shim/tile_run.c (v2.14.S8.T4's fd_topo_run_tile_t wiring).
 /// Deliberately separate from linkTickoniTopoRun: this file's static
@@ -17,7 +18,11 @@ const shims = @import("shims.zig");
 /// linkTickoniFiredancer and linkTickoniTopoRun.
 pub fn linkTickoniTileRun(b: *std.Build, step: *std.Build.Step.Compile, lib_dir: []const u8) void {
     addTickoniTileRunShim(b, step);
-    shims.linkTickoniSystemLibraries(b, step, lib_dir, &.{ "fd_disco", "fd_ballet", "fd_waltz" });
+    
+    // System libs come from config (tile_run group)
+    const grp = config.getSystemLibByName("tile_run") orelse
+        @panic("tile_run system_lib not found in config");
+    shims.linkSystemLibGroup(b, step, lib_dir, grp);
 }
 
 /// Compiles tile_run.c shim file.
