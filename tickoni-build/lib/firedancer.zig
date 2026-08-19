@@ -27,8 +27,8 @@ pub fn addWindowsFdManifestFixups(b: *std.Build, step: *std.Build.Step.Compile, 
 }
 
 /// Link system libraries (libc++/pkg-config). Shared across codec, firedancer, etc.
-pub fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8, libs: []const []const u8) void {
-    step.root_module.addLibraryPath(b.path(fd_lib_dir));
+pub fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, lib_dir: []const u8, libs: []const []const u8) void {
+    step.root_module.addLibraryPath(b.path(lib_dir));
     if (step.root_module.resolved_target.?.result.os.tag == .windows) {
         // COFF static linking is less forgiving about archive-member discovery
         // across deep/transitive and same-archive dependencies. Repeat the
@@ -113,15 +113,15 @@ pub fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) v
 }
 
 /// Links the Firedancer substrate used by Tickoni runtime wrappers.
-pub fn linkTickoniFiredancer(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8) void {
+pub fn linkTickoniFiredancer(b: *std.Build, step: *std.Build.Step.Compile, lib_dir: []const u8) void {
     addTickoniFiredancerShims(b, step);
     if (step.root_module.resolved_target.?.result.os.tag == .windows) {
-        step.root_module.addLibraryPath(b.path(fd_lib_dir));
-        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
-        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
-        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{fd_lib_dir}) });
+        step.root_module.addLibraryPath(b.path(lib_dir));
+        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{lib_dir}) });
+        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{lib_dir}) });
+        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{lib_dir}) });
         step.root_module.link_libcpp = true;
         return;
     }
-    linkTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_tango", "fd_util" });
+    linkTickoniSystemLibraries(b, step, lib_dir, &.{ "fd_tango", "fd_util" });
 }

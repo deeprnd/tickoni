@@ -16,9 +16,9 @@ const firedancer = @import("firedancer.zig");
 /// tile_process.zig and would fail to link if this were folded into
 /// linkTickoniTopoRun instead. Callers must also call
 /// linkTickoniFiredancer and linkTickoniTopoRun.
-pub fn linkTickoniTileRun(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8) void {
+pub fn linkTickoniTileRun(b: *std.Build, step: *std.Build.Step.Compile, lib_dir: []const u8) void {
     addTickoniTileRunShim(b, step);
-    firedancer.linkTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_disco", "fd_ballet", "fd_waltz" });
+    firedancer.linkTickoniSystemLibraries(b, step, lib_dir, &.{ "fd_disco", "fd_ballet", "fd_waltz" });
 }
 
 /// Compiles tile_run.c shim file.

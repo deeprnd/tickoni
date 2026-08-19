@@ -14,9 +14,9 @@ const firedancer = @import("firedancer.zig");
 /// their callees (fd_metrics, fd_event_report, both compiled into
 /// fd_disco) need, following the same link set as
 /// src/disco/topo/Local.mk's own test_topob unit test.
-pub fn linkTickoniTopoRun(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8) void {
+pub fn linkTickoniTopoRun(b: *std.Build, step: *std.Build.Step.Compile, lib_dir: []const u8) void {
     addTickoniTopoRunShims(b, step);
-    firedancer.linkTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_disco", "fd_ballet", "fd_waltz" });
+    firedancer.linkTickoniSystemLibraries(b, step, lib_dir, &.{ "fd_disco", "fd_ballet", "fd_waltz" });
 }
 
 /// Compiles topo_run.c, topob.c, and the platform-specific topo_run shim file.
