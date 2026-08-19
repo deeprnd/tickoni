@@ -47,7 +47,38 @@ def generate():
     lines.append('    path: []const u8,')
     lines.append('};')
     lines.append('')
-    lines.append('/// Domain configuration entry — mirrors build_config.json domains array.')
+    lines.append('/// System library group — Firedancer .a archives and linking flags.')
+    lines.append('pub const SystemLib = struct {')
+    lines.append('    name: []const u8,')
+    lines.append('    object_deps: []const ObjectDep = &.{},')
+    lines.append('    needs_libcpp: bool = false,')
+    lines.append('};')
+    lines.append('')
+    lines.append('/// System library groups from JSON.')
+    lines.append('pub const system_libs: []const SystemLib = &.{')
+    
+    for group in data.get("system_libs", []):
+        name = group["name"]
+        deps = group.get("object_deps", [])
+        needs_libcpp = group.get("needs_libcpp", False)
+        
+        # Strip lib_dir prefix - keep just filename
+        cleaned_deps = []
+        for dep in deps:
+            dep_path = strip_lib_dir_prefix(dep["path"])
+            cleaned_deps.append(dep_path)
+        
+        lines.append(f'    SystemLib{{')
+        lines.append(f'        .name = \"{name}\",')
+        lines.append(f'        .object_deps = &.{{')
+        for dep_path in cleaned_deps:
+            lines.append(f'            .{{ .path = \"{dep_path}\" }},')
+        lines.append(f'        }},')
+        lines.append(f'        .needs_libcpp = {str(needs_libcpp).lower()},')
+        lines.append(f'    }},')
+    lines.append('};')
+    lines.append('')
+    lines.append('/// All domain configs from JSON. Paths are relative to lib_dir.')
     lines.append('pub const DomainConfig = struct {')
     lines.append('    name: []const u8,')
     lines.append('    strategy: []const u8,')
@@ -122,6 +153,16 @@ def generate():
     lines.append('pub fn getDomainByName(name: []const u8) ?DomainConfig {')
     lines.append('    for (domain_configs) |dc| {')
     lines.append('        if (std.mem.eql(u8, dc.name, name)) return dc;')
+    lines.append('    }')
+    lines.append('    return null;')
+    lines.append('}')
+    lines.append('')
+    
+    # Generate system_lib lookup function
+    lines.append('/// Get system lib config by name. Returns null if not found.')
+    lines.append('pub fn getSystemLibByName(name: []const u8) ?SystemLib {')
+    lines.append('    for (system_libs) |sl| {')
+    lines.append('        if (std.mem.eql(u8, sl.name, name)) return sl;')
     lines.append('    }')
     lines.append('    return null;')
     lines.append('}')

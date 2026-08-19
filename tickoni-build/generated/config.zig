@@ -23,7 +23,6 @@ pub const system_libs: []const SystemLib = &.{
         .object_deps = &.{
             .{ .path = "libfd_ballet.a" },
             .{ .path = "libfd_util.a" },
-            .{ .path = "libuuid.a" },
         },
         .needs_libcpp = true,
     },
@@ -32,7 +31,6 @@ pub const system_libs: []const SystemLib = &.{
         .object_deps = &.{
             .{ .path = "libfd_tango.a" },
             .{ .path = "libfd_util.a" },
-            .{ .path = "libuuid.a" },
         },
         .needs_libcpp = true,
     },
@@ -61,7 +59,6 @@ pub const system_libs: []const SystemLib = &.{
             .{ .path = "libfd_util.a" },
             .{ .path = "libfd_tango.a" },
             .{ .path = "libfd_disco.a" },
-            .{ .path = "libuuid.a" },
         },
         .needs_libcpp = true,
     },
@@ -359,7 +356,7 @@ pub fn getDomainByName(name: []const u8) ?DomainConfig {
     return null;
 }
 
-/// Get a system library group by name. Returns null if not found.
+/// Get system lib config by name. Returns null if not found.
 pub fn getSystemLibByName(name: []const u8) ?SystemLib {
     for (system_libs) |sl| {
         if (std.mem.eql(u8, sl.name, name)) return sl;

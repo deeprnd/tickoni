@@ -95,20 +95,15 @@ pub fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) v
 
 /// Link Firedancer substrate libraries against a compile step.
 ///
-/// On Windows: use the shim library for tk_* symbols, then link
-/// libfd_tango.a, libfd_util.a, libuuid.a.
-/// On Linux: link libfd_tango.a + libfd_util.a + libuuid.a
-/// (which already contain the tk_* symbols from shim/*.c).
+/// On Linux: shim files are added separately via addTickoniFiredancerShims()
+/// (called by build.zig) to avoid double-compilation. This function
+/// only links FD archive objects.
+/// On Windows: shim library is linked via addTickoniSupervisorShimLibrary().
 pub fn linkTickoniFiredancer(
     b: *std.Build,
     step: *std.Build.Step.Compile,
     lib_dir: []const u8,
 ) void {
-    // On Linux, add shim files first (they provide tk_* symbols)
-    if (step.root_module.resolved_target.?.result.os.tag != .windows) {
-        addTickoniFiredancerShims(b, step);
-    }
-
     step.root_module.addLibraryPath(b.path(lib_dir));
 
     // Archive names come from config (fd_tango system_lib group)
@@ -117,8 +112,7 @@ pub fn linkTickoniFiredancer(
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, dep.path }) });
     }
 
-    // On Linux, ballet/util are provided by domain-level object deps.
-    // On Windows, link them explicitly (the shim library doesn't include them).
+    // On Windows, link ballet/util explicitly (the shim library doesn't include them).
     if (step.root_module.resolved_target.?.result.os.tag == .windows) {
         const codec_lib = config.getSystemLibByName("codec") orelse @panic("codec system_lib not found in config");
         for (codec_lib.object_deps) |dep| {
