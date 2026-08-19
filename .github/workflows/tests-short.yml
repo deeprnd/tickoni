@@ -59,7 +59,7 @@ jobs:
     name: Harness Unit Tests / macOS 15 (x86_64)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -115,7 +115,7 @@ jobs:
     name: Harness Unit Tests / macOS 26 (x86_64)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-26
+    runs-on: macos-26-intel
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -215,7 +215,7 @@ jobs:
     name: Demo Conformance / macOS 15 (x86_64)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -271,7 +271,7 @@ jobs:
     name: Demo Conformance / macOS 26 (x86_64)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-26
+    runs-on: macos-26-intel
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -362,7 +362,7 @@ jobs:
     name: Demo Conformance / macOS 15 (x86_64)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -436,7 +436,7 @@ jobs:
     name: Demo Conformance / macOS 26 (x86_64)
     needs: detect-changes
     if: needs.detect-changes.outputs.run == 'true'
-    runs-on: macos-26
+    runs-on: macos-26-intel
     timeout-minutes: 30
     steps:
       - name: Checkout

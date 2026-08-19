@@ -246,10 +246,12 @@ test "runInvestmentAgent blocks oversized trade and skips paper execution" {
 
 test "runRestrictedInstrumentDenialAgent has no model or adapter boundary" {
     const fn_info = @typeInfo(@TypeOf(runRestrictedInstrumentDenialAgent)).@"fn";
-    inline for (fn_info.params) |param| {
-        try std.testing.expect(param.type != *adapter.Backend);
-        try std.testing.expect(param.type != std.mem.Allocator);
-        try std.testing.expect(param.type != *model.Backend);
+    inline for (fn_info.param_types) |param| {
+        if (param) |pt| {
+            try std.testing.expect(pt != *adapter.Backend);
+            try std.testing.expect(pt != std.mem.Allocator);
+            try std.testing.expect(pt != *model.Backend);
+        }
     }
     const work_item = disp.dispatchInvestmentRun(88, 2001, 200_000);
     const result = try runRestrictedInstrumentDenialAgent(work_item);

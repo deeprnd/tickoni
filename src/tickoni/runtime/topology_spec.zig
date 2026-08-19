@@ -27,13 +27,18 @@ pub const TopologySpec = struct {
     magic_field: u32 = magic,
     version_field: u16 = version,
     tile_cnt: u8,
-    tile_id: [max_tiles]tile.TileId = [_]tile.TileId{.{}} ** max_tiles,
-    tile_cpu_placement: [max_tiles]cpu_placement.CpuPlacement = [_]cpu_placement.CpuPlacement{.floating} ** max_tiles,
+    tile_id: [max_tiles]tile.TileId = std.mem.zeroes([max_tiles]tile.TileId),
+    tile_cpu_placement: [max_tiles]cpu_placement.CpuPlacement = blk: {
+        var buf: [max_tiles]cpu_placement.CpuPlacement = undefined;
+        var i: usize = 0;
+        while (i < buf.len) : (i += 1) buf[i] = .floating;
+        break :blk buf;
+    },
     channel_cnt: u8,
-    channel_src_idx: [max_channels]u32 = [_]u32{0} ** max_channels,
-    channel_dst_idx: [max_channels]u32 = [_]u32{0} ** max_channels,
-    channel_depth: [max_channels]u32 = [_]u32{0} ** max_channels,
-    channel_mtu: [max_channels]u32 = [_]u32{0} ** max_channels,
+    channel_src_idx: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
+    channel_dst_idx: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
+    channel_depth: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
+    channel_mtu: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
     workspace_name: link.WorkspaceName = .{},
 
     pub fn fromTopology(topo: topology.Topology) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec {

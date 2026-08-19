@@ -26,7 +26,7 @@ pub fn appCounterWrite(cnc: *c_abi.cnc.Cnc, idx: usize, value: u64) void {
 }
 
 test "appCounterRead/Write round-trip within a fake cnc-shaped buffer" {
-    var buf: [256]u8 align(128) = [_]u8{0} ** 256;
+    var buf: [256]u8 align(128) = std.mem.zeroes([256]u8);
     const cnc: *c_abi.cnc.Cnc = @ptrCast(&buf);
     appCounterWrite(cnc, 0, 42);
     appCounterWrite(cnc, 7, 100);

@@ -7,14 +7,9 @@ tmp_file="$(mktemp)"
 trap 'rm -f "$tmp_file"' EXIT
 
 awk '
-  BEGIN {
-    IGNORECASE = 1
-  }
-
-  /^[[:space:]]*Co-Authored-By:[[:space:]]*Claude([[:space:]]*<[^>]+>)?[[:space:]]*$/ {
+  /^[[:space:]]*Co-Authored-By:[[:space:]]+.+noreply@anthropic\.com[[:space:]]*>?[[:space:]]*$/ {
     next
   }
-
   {
     print
   }
@@ -22,9 +17,4 @@ awk '
 
 if ! cmp -s "$tmp_file" "$msg_file"; then
   cp "$tmp_file" "$msg_file"
-fi
-
-if grep -Eiq '^[[:space:]]*Co-Authored-By:[[:space:]]*Claude([[:space:]]|<|$)' "$msg_file"; then
-  printf '%s\n' "commit rejected: remove 'Co-Authored-By: Claude' from the commit message" >&2
-  exit 1
 fi

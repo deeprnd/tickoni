@@ -6,7 +6,7 @@ const trade_ticket = @import("trade_ticket");
 const schema = @import("adapter_messages");
 
 fn tickerBuf(comptime s: []const u8) [portfolio.max_ticker_len]u8 {
-    var buf = [_]u8{0} ** portfolio.max_ticker_len;
+    var buf = std.mem.zeroes([portfolio.max_ticker_len]u8);
     for (s, 0..) |byte, i| buf[i] = byte;
     return buf;
 }
@@ -28,8 +28,7 @@ const default_quotes: [basket.max_basket_instruments]trade_ticket.Quote = blk: {
     break :blk arr;
 };
 
-pub const QuoteLoader = struct {
-    // Inline storage allows initFromDir to populate without heap allocation.
+pub const QuoteLoader = struct { // Inline storage allows initFromDir to populate without heap allocation.
     quotes: [basket.max_basket_instruments]trade_ticket.Quote = default_quotes,
     quote_count: u8 = fixture_quotes.len,
     as_of_ns: u64 = 1_765_792_800_000_000_000,

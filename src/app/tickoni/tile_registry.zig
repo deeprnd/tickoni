@@ -475,8 +475,7 @@ test "validate rejects mismatched process callback for tiles with pipeline role"
 // and placement mode should fail closed. These are structural checks that
 // the topology.validate() and cpu_placement.validate() functions already
 // enforce; this test verifies the error surface is correct.
-test "validate rejects topology with empty tile id" {
-    // Overwrite tile 0 with empty id (TileId with empty slice).
+test "validate rejects topology with empty tile id" { // Overwrite tile 0 with empty id (TileId with empty slice).
     const empty_id = try rt.tile.TileId.parse("");
     var descriptors = descriptorsFromRegistry();
     descriptors[0].id = empty_id;
@@ -488,8 +487,7 @@ test "validate rejects topology with empty tile id" {
     try std.testing.expect(empty_id.slice().len == 0);
 }
 
-test "validate topology rejects duplicate CPU exclusive placement" {
-    // Two tiles with the same exclusive CPU id should fail topo.validate().
+test "validate topology rejects duplicate CPU exclusive placement" { // Two tiles with the same exclusive CPU id should fail topo.validate().
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| {
         descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 0 } };
@@ -499,8 +497,7 @@ test "validate topology rejects duplicate CPU exclusive placement" {
     try std.testing.expectError(error.CpuPlacementConflict, topo.validate());
 }
 
-test "validate topology rejects shared placement without explicit shared mode" {
-    // Shared-core placement must use .shared, not .exclusive, for duplicate CPUs.
+test "validate topology rejects shared placement without explicit shared mode" { // Shared-core placement must use .shared, not .exclusive, for duplicate CPUs.
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| {
         descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 0 } };
@@ -513,8 +510,7 @@ test "validate topology rejects shared placement without explicit shared mode" {
 // T10.16: adapter-manifest validation tests — the harness adapter should
 // reject tile configurations whose link count or topology references do
 // not match what the harness expects.
-test "validate rejects link id not present in topology channels" {
-    // If a tile's in_link_id[] or out_link_id[] references a link that
+test "validate rejects link id not present in topology channels" { // If a tile's in_link_id[] or out_link_id[] references a link that
     // doesn't exist in the topology channels, validate(topo) should fail.
     // Currently, validate() checks in_cnt/out_cnt match — but it doesn't
     // verify individual link ids. This test documents that the cardinality
@@ -531,8 +527,7 @@ test "validate rejects link id not present in topology channels" {
     try std.testing.expectEqual(entry.out_cnt, out_cnt);
 }
 
-test "validate rejects empty link arrays for tiles that require links" {
-    // tkings must have exactly 1 output link; topology with 0 outputs should fail.
+test "validate rejects empty link arrays for tiles that require links" { // tkings must have exactly 1 output link; topology with 0 outputs should fail.
     var descriptors = descriptorsFromRegistry();
     // Provide channels but give tkings (index 0) 0 outgoing links by
     // starting channels at index 1 instead of index 0.
@@ -545,8 +540,7 @@ test "validate rejects empty link arrays for tiles that require links" {
     try std.testing.expectError(error.LinkCardinalityMismatch, validate(topo));
 }
 
-test "validate accepts tiles with zero links when registry expects zero" {
-    // tkrepl, tkmetr, tkdiag have in_cnt == 0 and out_cnt == 0 — a
+test "validate accepts tiles with zero links when registry expects zero" { // tkrepl, tkmetr, tkdiag have in_cnt == 0 and out_cnt == 0 — a
     // topology with 0 channels should still validate for these tiles.
     const entry = findById(try rt.tile.TileId.parse("tkrepl")).?;
     try std.testing.expectEqual(@as(u8, 0), entry.in_cnt);
@@ -562,8 +556,7 @@ test "validate accepts tiles with zero links when registry expects zero" {
 // dedicated duplicate-id test the story calls out (distinct from the
 // RegisteredTileMissingFromTopology test above that catches the same
 // scenario indirectly).
-test "T10.12 validate rejects topology with duplicate tile ids" {
-    // Create a topology where two tiles share the same TileId.
+test "T10.12 validate rejects topology with duplicate tile ids" { // Create a topology where two tiles share the same TileId.
     var descriptors = descriptorsFromRegistry();
     // Overwrite index 2 (tkdedu) with the same id as index 0 (tkings).
     descriptors[2].id = descriptors[0].id;
@@ -578,8 +571,7 @@ test "T10.12 validate rejects topology with duplicate tile ids" {
 // This is the "standalone" test the story calls out (the existing
 // "unregistered tile" test above uses a non-existent tile id; this one
 // uses a valid registry tile id placed in the wrong tile's slot).
-test "T10.12 validate rejects topology tile not in registry" {
-    // Replace the first tile's id with tknorm's id (index 0 becomes a
+test "T10.12 validate rejects topology tile not in registry" { // Replace the first tile's id with tknorm's id (index 0 becomes a
     // duplicate of index 1). This proves that every topology tile id
     // must map to a unique registry entry — the bijection is enforced.
     var descriptors = descriptorsFromRegistry();
@@ -592,8 +584,7 @@ test "T10.12 validate rejects topology tile not in registry" {
 
 // T10.12: explicit test for registry entry with no matching topology tile.
 // A registry entry whose tile id is absent from the topology must be rejected.
-test "T10.12 validate rejects registry entry with no matching topology tile" {
-    // Build a topology with only 7 of the 8 registered tiles (remove tkmetr).
+test "T10.12 validate rejects registry entry with no matching topology tile" { // Build a topology with only 7 of the 8 registered tiles (remove tkmetr).
     var descriptors: [7]rt.tile.TileDescriptor = undefined;
     for (entries[0..7], 0..) |e, i| descriptors[i] = .{ .id = e.id, .name = "t" };
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &.{} };
@@ -605,8 +596,7 @@ test "T10.12 validate rejects registry entry with no matching topology tile" {
 // checks cardinality (counts), not individual link ids. This test documents
 // that the cardinality check is the gate and that extending it to link ids
 // would require explicit per-link verification in validate().
-test "validate checks cardinality not individual link ids (documents gap for future work)" {
-    // Create a topology where tkings (index 0) has out_cnt == 1, and the
+test "validate checks cardinality not individual link ids (documents gap for future work)" { // Create a topology where tkings (index 0) has out_cnt == 1, and the
     // topology has exactly one channel with src_idx == 0, but the channel
     // points to a tile index that doesn't match any registry entry.
     var descriptors = descriptorsFromRegistry();
@@ -620,8 +610,7 @@ test "validate checks cardinality not individual link ids (documents gap for fut
 
 // T10.15: explicit malformed provider-config test — invalid CPU id format
 // (value too large for u16 overflow test) at the topology level.
-test "T10.15 validate topology rejects CPU id at upper u16 boundary" {
-    // A tile with cpu_placement.exclusive == 65535 (max u16) should fail
+test "T10.15 validate topology rejects CPU id at upper u16 boundary" { // A tile with cpu_placement.exclusive == 65535 (max u16) should fail
     // topology.validate()'s static check or cpu_placement.validate()'s
     // boundary check. topo.validate() calls validateStatic which doesn't
     // check range — but cpu_placement.validate() does via CpuIdMalformed.
@@ -645,11 +634,14 @@ test "T10.15 validate topology rejects CPU id at upper u16 boundary" {
     try topo.validate(); // static check passes
 }
 
-test "T10.15 cpu_placement.validate rejects extreme CPU id as malformed" {
-    // This is the runtime-level check that topology.validate()'s static
+test "T10.15 cpu_placement.validate rejects extreme CPU id as malformed" { // This is the runtime-level check that topology.validate()'s static
     // path delegates to. An exclusive CPU id of 65535 exceeds the
     // CpuSet capacity (128 bytes * 8 = 1024 bits), so it's malformed.
-    const cpus = [_]u8{0xFF} ** 128; // CPU 0-1023 available
+    const cpus = blk: {
+        var a: [128]u8 = undefined;
+        for (&a) |*b| b.* = 0xFF;
+        break :blk a;
+    }; // CPU 0-1023 available
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| {
         if (i == 0) {
@@ -666,8 +658,7 @@ test "T10.15 cpu_placement.validate rejects extreme CPU id as malformed" {
 // topology validator requires a non-empty workspace_name when backing ==
 // .tango_shm, and channel validation happens in topology.validate() which
 // the registry validate() delegates to via Supervisor.init().
-test "T10.15 validate rejects tango_shm channel with empty workspace name" {
-    // Build a topology with a tango_shm channel that has no workspace name.
+test "T10.15 validate rejects tango_shm channel with empty workspace name" { // Build a topology with a tango_shm channel that has no workspace name.
     var descriptors = descriptorsFromRegistry();
     var channels = channelsFromRegistry();
     channels[0].backing = .tango_shm;
@@ -706,8 +697,7 @@ test "T10.15 validate rejects exclusive and shared colliding on same CPU" {
 
 // T10.15: invalid placement mode at runtime — CPU id not in available set
 // should be rejected by cpu_placement.validate() with CpuUnavailable.
-test "T10.15 cpu_placement.validate rejects CPU id not in available set" {
-    // Simulate a host with only CPU 0 available (single-bit CpuSet).
+test "T10.15 cpu_placement.validate rejects CPU id not in available set" { // Simulate a host with only CPU 0 available (single-bit CpuSet).
     var cpus: rt.cpu_placement.CpuSet = undefined;
     @memset(&cpus, 0);
     cpus[0] = 1; // only CPU 0

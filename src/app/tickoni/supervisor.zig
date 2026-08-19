@@ -32,7 +32,7 @@ pub const ProcessPipelineConfig = struct {
     /// Test-only hook (v2.14.S1.T12 crash isolation): tile i self-exits(1)
     /// after this many heartbeats instead of waiting for a halt signal.
     /// 0 means run normally. Indexed by tile_idx.
-    crash_after_heartbeats: [8]u32 = [_]u32{0} ** 8,
+    crash_after_heartbeats: [8]u32 = std.mem.zeroes([8]u32),
     /// Test-only hook (v2.14.S8.T6 stale-heartbeat proof): the selected
     /// tile blocks forever after stuck_after_messages loop iterations.
     stuck_tile_idx: ?u32 = null,
@@ -52,6 +52,9 @@ pub const ProcessPipelineConfig = struct {
     /// test runner and every `__tile-run` re-exec would fail with
     /// "unrecognized command line argument".
     tile_exe_path: ?[]const u8 = null,
+    /// When true, passes --verbose to child tile processes so their
+    /// structured logger emits debug-level messages for troubleshooting.
+    verbose: bool = false,
 };
 
 /// Supervisor-owned state for a running v2.14 process-mode pipeline.
@@ -95,12 +98,16 @@ const ProcessState = struct {
 
 fn resolvedHeartbeatStaleAfterNs(config: ProcessPipelineConfig) u64 {
     if (config.heartbeat_stale_after_ns != 0) return config.heartbeat_stale_after_ns;
-    return std.math.mul(u64, config.heartbeat_interval_ns, 5) catch std.math.maxInt(u64);
+    return resolvedHeartbeatIntervalNs(config, 5);
 }
 
 fn resolvedStopGraceNs(config: ProcessPipelineConfig) u64 {
-    const from_heartbeat = std.math.mul(u64, config.heartbeat_interval_ns, 5) catch std.math.maxInt(u64);
+    const from_heartbeat = resolvedHeartbeatIntervalNs(config, 5);
     return @min(@max(from_heartbeat, 500 * std.time.ns_per_ms), 2 * std.time.ns_per_s);
+}
+
+fn resolvedHeartbeatIntervalNs(config: ProcessPipelineConfig, multiplier: u64) u64 {
+    return std.math.mul(u64, config.heartbeat_interval_ns, multiplier) catch std.math.maxInt(u64);
 }
 
 /// Bridges a tile_registry.RunFn resolved at runtime into std.Thread.spawn,
@@ -289,9 +296,9 @@ pub const Supervisor = struct {
             .built_topo = built_topo,
             .workspace_name = try self.allocator.dupe(u8, workspace_name_slice),
             .run_dir = try self.allocator.dupe(u8, config.run_dir),
-            .cnc_gaddrs = [_]usize{0} ** 8,
-            .cncs = [_]?*c_abi.cnc.Cnc{null} ** 8,
-            .children = [_]?std.process.Child{null} ** 8,
+            .cnc_gaddrs = std.mem.zeroes([8]usize),
+            .cncs = std.mem.zeroes([8]?*c_abi.cnc.Cnc),
+            .children = std.mem.zeroes([8]?std.process.Child),
             .heartbeat_stale_after_ns = resolvedHeartbeatStaleAfterNs(config),
             .stop_grace_ns = resolvedStopGraceNs(config),
             .placement_report = placement_report,
@@ -398,8 +405,17 @@ pub const Supervisor = struct {
             var env = std.process.Environ.Map.init(self.allocator);
             defer env.deinit();
 
+            var argv_buf: [4][]const u8 = undefined;
+            var argv_count: usize = 3;
+            argv_buf[0] = self_exe_path;
+            argv_buf[1] = "__tile-run";
+            argv_buf[2] = spec_path;
+            if (config.verbose) {
+                argv_buf[3] = "--verbose";
+                argv_count = 4;
+            }
             const child = try std.process.spawn(io, .{
-                .argv = &.{ self_exe_path, "__tile-run", spec_path },
+                .argv = argv_buf[0..argv_count],
                 .environ_map = &env,
             });
 
@@ -579,7 +595,7 @@ pub const Supervisor = struct {
         const state = self.process_state orelse return;
         self.refreshProcessHealth();
         const stale_before_stop = blk: {
-            var snapshot: [8]bool = [_]bool{false} ** 8;
+            var snapshot: [8]bool = std.mem.zeroes([8]bool);
             for (self.handles, 0..) |h, i| snapshot[i] = h.state == .stale;
             break :blk snapshot;
         };
@@ -599,7 +615,9 @@ pub const Supervisor = struct {
             self.reapExitedChildrenNoHang();
         }
 
-        var forced_termination = [_]bool{false} ** 8;
+        var forced_termination: [8]bool = undefined;
+        var ci: usize = 0;
+        while (ci < forced_termination.len) : (ci += 1) forced_termination[ci] = false;
         for (stale_before_stop, 0..) |was_stale, i| {
             if (!was_stale) continue;
             const maybe_child = &state.children[i];

@@ -47,7 +47,7 @@ test "link_bounds: publish larger than the link's mtu fails closed instead of ov
 
     var stop_flag = std.atomic.Value(bool).init(false);
     var backpressure_waits = std.atomic.Value(u64).init(0);
-    const oversized_payload = [_]u8{0} ** 16; // mtu is 8
+    const oversized_payload = std.mem.zeroes([16]u8); // mtu is 8
 
     try std.testing.expectError(
         error.PayloadTooLarge,

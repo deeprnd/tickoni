@@ -48,7 +48,7 @@ const replay_capsule_id = "replay_capsule_ai_infra";
 
 fn parseFixedAsciiBytes(comptime N: usize, value: []const u8) [N]u8 {
     if (value.len > N) @panic("fixed ASCII field too long");
-    var out = [_]u8{0} ** N;
+    var out = std.mem.zeroes([N]u8);
     for (value, 0..) |byte, idx| {
         if (byte < 0x20 or byte > 0x7e) @panic("non-ASCII byte in fixed field");
         out[idx] = byte;
@@ -163,9 +163,9 @@ pub fn buildAllowedTradeChain(
             .failed_scope_dim = parseFixedAsciiBytes(32, if (ticket.policy_outcome == .allow) "" else "per_order_notional"),
             .source_event_hash = normalized_hash,
             .catalog_schema_version = proposed_basket.catalog_schema_version,
-            .taxonomy_id = [_]u8{0} ** 32,
+            .taxonomy_id = std.mem.zeroes([32]u8),
             .taxonomy_version = 0,
-            .classification_code = [_]u8{0} ** 32,
+            .classification_code = std.mem.zeroes([32]u8),
         },
     });
     prev_hash = events[4].header.record_hash;
@@ -231,9 +231,9 @@ pub fn buildAllowedTradeChain(
             .failed_scope_dim = parseFixedAsciiBytes(32, firstPaymentScopeDim(&drift_contract.payment_drift)),
             .source_event_hash = payment_update_hash,
             .catalog_schema_version = 0,
-            .taxonomy_id = [_]u8{0} ** 32,
+            .taxonomy_id = std.mem.zeroes([32]u8),
             .taxonomy_version = 0,
-            .classification_code = [_]u8{0} ** 32,
+            .classification_code = std.mem.zeroes([32]u8),
         },
     });
     prev_hash = events[10].header.record_hash;
@@ -260,7 +260,7 @@ pub fn buildAllowedTradeChain(
         .proposal = .{
             .proposal_type = parseFixedAsciiBytes(32, payment_update_proposal_type),
             .proposal_hash = payment_update_hash,
-            .approval_state = @intFromEnum(drift_contract.payment_proposal_update.approval_state),
+            .approval_state = @backingInt(drift_contract.payment_proposal_update.approval_state),
         },
     });
     prev_hash = events[13].header.record_hash;
@@ -347,9 +347,9 @@ pub fn buildOversizedTradeBlockedChain(
             .failed_scope_dim = parseFixedAsciiBytes(32, blocked_reason.failed_scope_dim.label()),
             .source_event_hash = normalized_hash,
             .catalog_schema_version = proposed_basket.catalog_schema_version,
-            .taxonomy_id = [_]u8{0} ** 32,
+            .taxonomy_id = std.mem.zeroes([32]u8),
             .taxonomy_version = 0,
-            .classification_code = [_]u8{0} ** 32,
+            .classification_code = std.mem.zeroes([32]u8),
         },
     });
     prev_hash = events[4].header.record_hash;
@@ -411,12 +411,12 @@ pub fn buildOversizedTradeBlockedChain(
     events[10] = audit.buildEvent(header(10, "tkpoly", thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .denial = .{
             .action_class = parseFixedAsciiBytes(32, "trading_order.place"),
-            .reason_code = @intFromEnum(blocked_reason.code),
+            .reason_code = @backingInt(blocked_reason.code),
             .failed_scope_dim = parseFixedAsciiBytes(32, blocked_reason.failed_scope_dim.label()),
             .catalog_schema_version = proposed_basket.catalog_schema_version,
-            .taxonomy_id = [_]u8{0} ** 32,
+            .taxonomy_id = std.mem.zeroes([32]u8),
             .taxonomy_version = 0,
-            .classification_code = [_]u8{0} ** 32,
+            .classification_code = std.mem.zeroes([32]u8),
         },
     });
     prev_hash = events[10].header.record_hash;
@@ -490,9 +490,9 @@ pub fn buildRestrictedInstrumentBlockedChain(
             .failed_scope_dim = parseFixedAsciiBytes(32, "restricted_instrument"),
             .source_event_hash = normalized_hash,
             .catalog_schema_version = proposed_basket.catalog_schema_version,
-            .taxonomy_id = [_]u8{0} ** 32,
+            .taxonomy_id = std.mem.zeroes([32]u8),
             .taxonomy_version = 0,
-            .classification_code = [_]u8{0} ** 32,
+            .classification_code = std.mem.zeroes([32]u8),
         },
     });
     prev_hash = events[4].header.record_hash;
@@ -503,12 +503,12 @@ pub fn buildRestrictedInstrumentBlockedChain(
     events[5] = audit.buildEvent(header(5, "tkpoly", thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .denial = .{
             .action_class = parseFixedAsciiBytes(32, proposal_type),
-            .reason_code = @intFromEnum(basket.RejectionReason.restricted_instrument),
+            .reason_code = @backingInt(basket.RejectionReason.restricted_instrument),
             .failed_scope_dim = parseFixedAsciiBytes(32, "restricted_instrument"),
             .catalog_schema_version = proposed_basket.catalog_schema_version,
-            .taxonomy_id = [_]u8{0} ** 32,
+            .taxonomy_id = std.mem.zeroes([32]u8),
             .taxonomy_version = 0,
-            .classification_code = [_]u8{0} ** 32,
+            .classification_code = std.mem.zeroes([32]u8),
         },
     });
     prev_hash = events[5].header.record_hash;

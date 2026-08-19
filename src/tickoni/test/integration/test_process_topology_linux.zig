@@ -188,7 +188,7 @@ test "process_topology_linux: a self-exiting tile is reported crashed via exit_c
     defer sup.deinit();
 
     const tkrepl_idx = 5;
-    var crash_after_heartbeats = [_]u32{0} ** 8;
+    var crash_after_heartbeats = std.mem.zeroes([8]u32);
     crash_after_heartbeats[tkrepl_idx] = 1;
 
     const event_count: u64 = 16;

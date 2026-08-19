@@ -33,7 +33,7 @@ pub const Logger = struct {
 
     /// Write an entry to stderr.
     pub fn write(self: *Logger, level: Level, module: []const u8, func: []const u8, message: []const u8) !void {
-        if (@intFromEnum(level) > @intFromEnum(self.level)) return;
+        if (@backingInt(level) > @backingInt(self.level)) return;
 
         // Monotonic nanosecond timestamp via os.c shim (cross-platform)
         const ts: i64 = util.os_api.monotonicNanos();
@@ -104,7 +104,7 @@ pub fn isVerbose() bool {
 
 test "Logger.write debug respects level" {
     var log = Logger{};
-    try std.testing.expect(@intFromEnum(log.level) == @intFromEnum(Level.err));
+    try std.testing.expect(@backingInt(log.level) == @backingInt(Level.err));
     // Should not write debug at err level
     try log.write(.debug, "test", "func", "msg");
 }
@@ -113,7 +113,7 @@ test "Logger.enableVerbose sets debug level" {
     var log = Logger{};
     log.level = .err;
     log.enableVerbose();
-    try std.testing.expect(@intFromEnum(log.level) == @intFromEnum(Level.debug));
+    try std.testing.expect(@backingInt(log.level) == @backingInt(Level.debug));
 }
 
 test "Logger.isVerbose" {

@@ -3,7 +3,7 @@ const cpu_placement = @import("cpu_placement.zig");
 
 /// Six-character runtime ID for a tile (matches the fd_topo char name[7] constraint).
 pub const TileId = struct {
-    bytes: [6]u8 = [_]u8{0} ** 6,
+    bytes: [6]u8 = std.mem.zeroes([6]u8),
 
     pub fn parse(s: []const u8) error{TileIdTooLong}!TileId {
         if (s.len > 6) return error.TileIdTooLong;

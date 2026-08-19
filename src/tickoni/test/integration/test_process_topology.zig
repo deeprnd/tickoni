@@ -171,7 +171,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
     defer sup.deinit();
 
     const tkrepl_idx = 5;
-    var crash_after_heartbeats = [_]u32{0} ** 8;
+    var crash_after_heartbeats = std.mem.zeroes([8]u32);
     crash_after_heartbeats[tkrepl_idx] = 1;
     try std.testing.expectEqualStrings("tkrepl", topo.tiles[tkrepl_idx].id.slice());
 

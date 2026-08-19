@@ -52,10 +52,10 @@ pub const LaunchSpec = struct {
     /// correctness link, e.g. tkings has no input and tkaudt has no output
     /// in the current 5-stage core chain.
     in_cnt: u8 = 0,
-    in_links: [max_links_per_tile]link.LinkHandles = [_]link.LinkHandles{.{}} ** max_links_per_tile,
+    in_links: [max_links_per_tile]link.LinkHandles = std.mem.zeroes([max_links_per_tile]link.LinkHandles),
     out_cnt: u8 = 0,
-    out_links: [max_links_per_tile]link.LinkHandles = [_]link.LinkHandles{.{}} ** max_links_per_tile,
-    shmem_path_buf: [shmem_path_cap]u8 = [_]u8{0} ** shmem_path_cap,
+    out_links: [max_links_per_tile]link.LinkHandles = std.mem.zeroes([max_links_per_tile]link.LinkHandles),
+    shmem_path_buf: [shmem_path_cap]u8 = std.mem.zeroes([shmem_path_cap]u8),
     shmem_path_len: u16,
     heartbeat_interval_ns: u64,
     /// Test-only hook (v2.14.S1.T12 crash isolation): if > 0, the tile
@@ -203,7 +203,8 @@ test "LaunchSpec readFromFile rejects a bad magic" {
 }
 
 test "LaunchSpec init rejects an over-long shmem path" {
-    const too_long = [_]u8{'a'} ** (shmem_path_cap + 1);
+    var too_long: [shmem_path_cap + 1]u8 = undefined;
+    for (&too_long) |*c| c.* = 'a';
     try std.testing.expectError(error.ShmemPathTooLong, LaunchSpec.init(.{
         .tile_idx = 0,
         .tile_id = try tile.TileId.parse("tkings"),

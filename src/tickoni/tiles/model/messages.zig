@@ -60,7 +60,7 @@ pub const TkModlConfig = struct {
     hard_max_retry_count: u8 = 0,
     hard_timeout_ms: u32 = 0,
     per_run_token_budget: u32 = 0,
-    provider_endpoint: [256]u8 = [_]u8{0} ** 256,
+    provider_endpoint: [256]u8 = std.mem.zeroes([256]u8),
 };
 
 pub const TkModlDecision = union(enum) {

@@ -8,11 +8,11 @@ pub const server_write_buffer_len: usize = 512;
 pub const request_body_read_buffer_len: usize = 1024;
 
 pub const RequestCapture = struct {
-    method: [max_method_len]u8 = [_]u8{0} ** max_method_len,
+    method: [max_method_len]u8 = std.mem.zeroes([max_method_len]u8),
     method_len: u8 = 0,
-    path: [max_path_len]u8 = [_]u8{0} ** max_path_len,
+    path: [max_path_len]u8 = std.mem.zeroes([max_path_len]u8),
     path_len: u16 = 0,
-    body: [max_body_len]u8 = [_]u8{0} ** max_body_len,
+    body: [max_body_len]u8 = std.mem.zeroes([max_body_len]u8),
     body_len: u16 = 0,
 
     pub fn methodSlice(self: *const RequestCapture) []const u8 {

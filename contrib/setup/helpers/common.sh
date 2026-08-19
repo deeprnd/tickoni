@@ -19,6 +19,10 @@ SCRIPT_DIR="$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
 TOOL_VERSIONS="${REPO_ROOT}/contrib/setup/tool-versions.json"
 
+# ── Platform detection ────────────────────────────────────────────────────────
+# Single source of truth for OS/arch — used by callers that need it.
+source "${SCRIPT_DIR}/../../platform.sh"
+
 log_info()  { printf '[setup] %s\n' "$*" ; }
 log_warn()  { printf '[setup] WARN: %s\n' "$*" >&2 ; }
 log_error() { printf '[setup] ERROR: %s\n' "$*" >&2 ; }
@@ -31,7 +35,7 @@ tool_exists() { command -v "$1" &>/dev/null ; }
 # Universal tools (single version everywhere):
 #   read_tool_version "just"      → "1.58.0"
 #   read_tool_version "gitleaks"  → "8.30.1"
-#   read_tool_version "zig"       → "0.16.0"
+#   read_tool_version "zig"       → "0.17.0-dev.1770+5d7cf3f34"
 #   read_tool_version "openssl"   → "3.6.2"
 #
 # Usage: read_tool_version "just"
@@ -165,28 +169,19 @@ read_zig_version() {
 # ── Platform detection ────────────────────────────────────────────────────────
 # Returns: linux-x86, linux-arm, macos-x86, macos-arm, windows-x86, windows-arm
 get_platform_key() {
-    local os
-    os="$(uname -s | tr '[:upper:]' '[:lower:]')"
-    local arch
-    arch="$(uname -m)"
+    local os arch
+    os="$(tk_os)"
+    arch="$(tk_arch)"
 
-    case "$os" in
-        linux)
-            case "$arch" in
-                x86_64) echo "linux-x86" ;;
-                aarch64|arm64) echo "linux-arm" ;;
-                *) log_error "Unknown Linux architecture: $arch"; exit 1 ;;
-            esac
-            ;;
-        darwin)
-            case "$arch" in
-                x86_64) echo "macos-x86" ;;
-                arm64) echo "macos-arm" ;;
-                *) log_error "Unknown macOS architecture: $arch"; exit 1 ;;
-            esac
-            ;;
+    case "${os}-${arch}" in
+        linux-x86)    echo "linux-x86" ;;
+        linux-arm)    echo "linux-arm" ;;
+        macos-x86)    echo "macos-x86" ;;
+        macos-arm)    echo "macos-arm" ;;
+        windows-x86)  echo "windows-x86" ;;
+        windows-arm)  echo "windows-arm" ;;
         *)
-            log_error "Unsupported OS: $os ($arch)"
+            log_error "Unsupported platform: ${os}-${arch}"
             exit 1
             ;;
     esac
@@ -195,24 +190,72 @@ get_platform_key() {
 # ── Tool installers ───────────────────────────────────────────────────────────
 
 # Install Zig via install-zig.py (uses versions.zig from tool-versions.json)
+# Captures install-zig.py's own [install] line so we never guess the path.
+# Auto-appends PATH to .bashrc/.zshrc so no manual copy-paste is needed.
 ensure_zig() {
     local zig_version
     zig_version="$(read_tool_version "zig")"
-    local zig_bin="${HOME}/.local/zig/zig"
 
-    if [ -f "$zig_bin" ] && "${zig_bin}" --version &>/dev/null; then
-        log_info "Zig ${zig_version} already installed"
-        export PATH="${HOME}/.local/zig:${PATH}"
-        return 0
+    # Derive cleanup prefix from get_platform_key() so we only remove matching dirs.
+    local platform_key cleanup_prefix
+    platform_key="$(get_platform_key)"
+    case "$platform_key" in
+        linux-x86)  cleanup_prefix="zig-x86_64-linux-" ;;
+        linux-arm)  cleanup_prefix="zig-aarch64-linux-" ;;
+        macos-x86)  cleanup_prefix="zig-x86_64-macos-" ;;
+        macos-arm)  cleanup_prefix="zig-aarch64-macos-" ;;
+        *)          log_error "Unsupported platform key: ${platform_key}" ; exit 1 ;;
+    esac
+
+    # Remove any previously installed zig version before installing the new one.
+    for dir in "${HOME}/.local/${cleanup_prefix}"*; do
+        [ -d "$dir" ] || continue
+        log_info "Cleaning old zig installation: $dir"
+        rm -rf "$dir"
+    done
+
+    # Capture install-zig.py's full output to derive the actual install dir.
+    # Use the helpers directory directly — lane scripts may overwrite
+    # SCRIPT_DIR after sourcing common.sh, breaking this call.
+    local install_output
+    install_output="$(python3 "${SCRIPT_DIR%/helpers}/helpers/install-zig.py" \
+        "${zig_version}" \
+        --install-root "${HOME}/.local" \
+        --cache-root "${HOME}/.cache" 2>&1)"
+    log_info "$install_output"
+
+    # Parse install_dir from the [install] line.
+    local install_dir
+    install_dir="$(echo "$install_output" | sed -n 's/^\[install\] .* -> \(.*\)$/\1/p')"
+    if [ -z "$install_dir" ]; then
+        log_error "Could not derive install_dir from install-zig.py output"
+        exit 1
     fi
 
-    log_info "Installing Zig ${zig_version}..."
-    python3 "${SCRIPT_DIR}/helpers/install-zig.py" \
-        --version "${zig_version}" \
-        --install-root "${HOME}/.local" \
-        --cache-root "${HOME}/.cache"
-    export PATH="${HOME}/.local/zig:${PATH}"
-    log_info "Zig installed to ${HOME}/.local/zig"
+    # Export in current shell.
+    export PATH="${install_dir}:${PATH}"
+    log_info "Zig installed to ${install_dir}"
+
+    # Persist PATH to shell rc file (.bashrc or .zshrc) — like rustup does.
+    local rc_file
+    case "$(basename "${SHELL:-}")" in
+        bash) rc_file="${HOME}/.bashrc" ;;
+        zsh)  rc_file="${HOME}/.zshrc" ;;
+    esac
+    if [ -z "${rc_file:-}" ] && [ -f "${HOME}/.bashrc" ]; then
+        rc_file="${HOME}/.bashrc"
+    elif [ -z "${rc_file:-}" ] && [ -f "${HOME}/.zshrc" ]; then
+        rc_file="${HOME}/.zshrc"
+    fi
+    if [ -n "${rc_file:-}" ] && [ -f "$rc_file" ]; then
+        local marker="# Hermes setup: Zig PATH for ${install_dir}"
+        if ! grep -qF "$marker" "$rc_file" 2>/dev/null; then
+            printf '\n%s\nexport PATH="%s:${PATH}"\n' "$marker" "$install_dir" >> "$rc_file"
+            log_info "Added Zig PATH export to ${rc_file}"
+        else
+            log_info "Zig PATH already present in ${rc_file}"
+        fi
+    fi
 }
 
 # Install gitleaks (pinned version from tool-versions.json)
@@ -263,23 +306,39 @@ ensure_gitleaks() {
     log_info "gitleaks ${version} installed"
 }
 
-# Install kcpy from source (SimonKagstrom/kcpy)
-ensure_kcpy() {
-    if tool_exists kcpy; then
-        log_info "kcpy already installed"
+# Install kcov from source (SimonKagstrom/kcov)
+# Returns 1 (graceful skip) if the repo is unavailable — not all hosts
+# have internet access to GitHub, and the repo is optional for coverage.
+ensure_kcov() {
+    if tool_exists kcov; then
+        log_info "kcov already installed"
         return 0
     fi
 
-    log_info "Building kcpy from source..."
+    log_info "Building kcov from source..."
+    local kcov_rc=0
     (
+        set +e  # Don't abort on clone/build failure — repo may be unavailable
         cd "$(mktemp -d)"
-        git clone --depth 1 https://github.com/SimonKagstrom/kcpy.git .
+        if ! git clone --depth 1 https://github.com/SimonKagstrom/kcov.git . 2>/dev/null; then
+            log_warn "kcov: SimonKagstrom/kcov repo unavailable — skipping"
+            return 1
+        fi
         mkdir build && cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release
-        make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || (log_error "Cannot detect CPU count"; exit 1))"
-        sudo make install || sudo cp kcpy /usr/local/bin/kcpy
-    )
-    log_info "kcpy built and installed"
+        cmake .. -DCMAKE_BUILD_TYPE=Release 2>/dev/null || { log_warn "kcov cmake failed"; return 1; }
+        if ! make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)" 2>/dev/null; then
+            log_warn "kcov build failed — skipping"
+            return 1
+        fi
+        sudo make install || sudo cp kcov /usr/local/bin/kcov
+        return 0
+    ) || kcov_rc=$?
+
+    if [ $kcov_rc -eq 0 ]; then
+        log_info "kcov built and installed"
+    else
+        return 1
+    fi
 }
 
 # Install shellcheck (latest from system package manager)
@@ -377,7 +436,7 @@ ensure_just() {
 
 # Print summary of what was installed
 print_install_summary() {
-    local tools=("zig" "gcc" "clang" "make" "just" "gitleaks" "kcpy" "shellcheck" "pre-commit" "buf")
+    local tools=("zig" "gcc" "clang" "make" "just" "gitleaks" "kcov" "shellcheck" "pre-commit" "buf")
     log_info "Installed tools:"
     for tool in "${tools[@]}"; do
         if tool_exists "$tool"; then

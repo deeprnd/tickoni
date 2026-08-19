@@ -14,7 +14,7 @@
      myset_t myset_full   ( void           ); // return ~{}
      myset_t myset_full_if( int c          ); // return c ? ~{} : {}
      myset_t myset_ele    ( ulong i        ); // return { i }          // Assumes 0<=i<max
-     myset_t myset_ele_if ( int c, ulong i ); // return c ? { i } : {} // Assumes 0<=i<max
+     myset_t myset_ele_if( int c, ulong i ); // return c ? { i } : {} // Assumes 0<=i<max
 
      // Index operations
      ulong myset_max  ( void      ); // return the maximum number of elements that can be held by the set,

@@ -189,12 +189,11 @@ pub fn allocAllowedTradeInterfaceJson(
 
 pub fn envOrDefault(
     allocator: std.mem.Allocator,
+    environ_map: *const std.process.Environ.Map,
     name: []const u8,
     fallback: []const u8,
 ) ![]u8 {
-    const name_z = try allocator.dupeZ(u8, name);
-    defer allocator.free(name_z);
-    if (std.c.getenv(name_z)) |val| return allocator.dupe(u8, std.mem.span(val));
+    if (environ_map.get(name)) |owned| return allocator.dupe(u8, owned);
     return allocator.dupe(u8, fallback);
 }
 

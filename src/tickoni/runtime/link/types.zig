@@ -5,7 +5,7 @@ const std = @import("std");
 /// mode. 32 bytes is generous for a Tickoni-chosen name; fd_wksp itself has
 /// no such limit, but topology identifiers stay fixed-capacity like TileId.
 pub const WorkspaceName = struct {
-    bytes: [32]u8 = [_]u8{0} ** 32,
+    bytes: [32]u8 = std.mem.zeroes([32]u8),
 
     pub fn parse(s: []const u8) error{WorkspaceNameTooLong}!WorkspaceName {
         if (s.len > 32) return error.WorkspaceNameTooLong;
@@ -58,7 +58,9 @@ test "WorkspaceName parse and slice round-trip" {
 }
 
 test "WorkspaceName parse rejects names longer than 32 chars" {
-    try std.testing.expectError(error.WorkspaceNameTooLong, WorkspaceName.parse("a" ** 33));
+    var name: [33]u8 = undefined;
+    for (&name) |*c| c.* = 'a';
+    try std.testing.expectError(error.WorkspaceNameTooLong, WorkspaceName.parse(&name));
 }
 
 test "WorkspaceName default is empty" {

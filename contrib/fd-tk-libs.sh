@@ -6,6 +6,11 @@
 # FD_TK_LIB_*_SRCS array and its .a name to FD_TK_LIBS or FD_TK_LIBS_EXTRA.
 # All justfile recipes, quality.sh, and security.sh pick up the change.
 
+# ── Platform detection ────────────────────────────────────────────────────────
+# Single source of truth for OS/arch — used by callers that need it.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/platform.sh"
+
 # ── Source dirs ────────────────────────────────────────────────────────────────
 # The 5-tree core (tango, util, ballet, disco, waltz) + cjson + s2n-bignum.
 FD_TK_LIB_SRCS=( src/tango src/util src/ballet src/disco src/waltz \
@@ -44,11 +49,11 @@ FD_TK_LIBS_EXTRA=( libfd_blst.a libfd_zstd.a libfd_lz4.a )
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 fd_host_os() {
-  case "$(uname -s)" in
-    Darwin) echo "macOS" ;;
-    Linux) echo "Linux" ;;
-    MINGW*|MSYS*|CYGWIN*) echo "Windows" ;;
-    *) echo "unknown" ;;
+  case "$(tk_os)" in
+    linux)   echo "Linux" ;;
+    macos)   echo "macOS" ;;
+    windows) echo "Windows" ;;
+    *)       echo "unknown" ;;
   esac
 }
 

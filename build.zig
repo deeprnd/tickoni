@@ -36,6 +36,14 @@ pub fn build(b: *std.Build) void {
             .{ .name = "c_abi", .module = c_abi_mod },
         },
     });
+    const logger_mod = b.addModule("logger", .{
+        .root_source_file = b.path("src/tickoni/logger.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "util", .module = util_mod },
+        },
+    });
     const runtime_mod = b.addModule("runtime", .{
         .root_source_file = b.path("src/tickoni/runtime/mod.zig"),
         .target = target,
@@ -43,6 +51,7 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "c_abi", .module = c_abi_mod },
             .{ .name = "util", .module = util_mod },
+            .{ .name = "logger", .module = logger_mod },
         },
     });
     // Concrete Tickoni product topologies (src/app/tickoni/topologies.zig),
@@ -215,14 +224,6 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "diagnostic", .module = demo_diagnostic_mod },
             .{ .name = "runner", .module = demo_runner_mod },
-        },
-    });
-    const logger_mod = b.addModule("logger", .{
-        .root_source_file = b.path("src/tickoni/logger.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "util", .module = util_mod },
         },
     });
 
@@ -428,7 +429,9 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(exe);
 
     const run_exe = b.addRunArtifact(exe);
-    if (b.args) |argv| run_exe.addArgs(argv);
+    if (@hasField(std.Build, "args")) {
+        if (b.args) |argv| run_exe.addArgs(argv);
+    }
     const run_step = b.step("run", "Run tickoni-supervisor");
     run_step.dependOn(&run_exe.step);
 
@@ -559,6 +562,30 @@ pub fn build(b: *std.Build) void {
             .{ .name = "trade_ticket", .module = trade_ticket_mod },
         },
     });
+    // Dedicated test instance of investment_demo_mod so that linkTickoniCodec
+    // adds ballet.c only to the test binary's root module — not to the shared
+    // investment_demo_mod which is also imported by system test binaries
+    // (portfolio_cash_demo_test, test_investment_demo_live_test, etc.).
+    const investment_demo_test_mod = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/test/demo/investment/mod.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "adapter", .module = adapter_int_mod },
+            .{ .name = "basket", .module = basket_mod },
+            .{ .name = "cards", .module = cards_mod },
+            .{ .name = "drift", .module = drift_mod },
+            .{ .name = "impact", .module = impact_mod },
+            .{ .name = "investment_support", .module = investment_support_int_mod },
+            .{ .name = "model", .module = model_int_mod },
+            .{ .name = "portfolio", .module = portfolio_mod },
+            .{ .name = "replay", .module = replay_int_mod },
+            .{ .name = "thesis", .module = thesis_mod },
+            .{ .name = "tkpoly", .module = tkpoly_int_mod },
+            .{ .name = "tool", .module = tool_int_mod },
+            .{ .name = "trade_ticket", .module = trade_ticket_mod },
+        },
+    });
     const investment_demo_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/test/demo/investment/mod.zig"),
         .target = target,
@@ -634,7 +661,7 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(c_compile_check_step);
 
     if (build_tests) {
-        const investment_demo_test = b.addTest(.{ .root_module = investment_demo_mod });
+        const investment_demo_test = b.addTest(.{ .root_module = investment_demo_test_mod });
 
         // ---------------------------------------------------------------------------
         // Test step — offline Tickoni unit tests only.
@@ -1782,10 +1809,10 @@ pub fn build(b: *std.Build) void {
                 },
             }),
         });
-        replay_integration_test.root_module.addLibraryPath(b.path(fd_lib_dir));
-        replay_integration_test.root_module.linkSystemLibrary("fd_util", .{});
-        replay_integration_test.root_module.linkSystemLibrary("fd_ballet", .{});
-        replay_integration_test.root_module.linkSystemLibrary("stdc++", .{});
+        // Imported modules do not propagate their root-module link settings to
+        // this test binary. Reuse the codec seam directly so Windows links the
+        // concrete archives instead of invoking pkg-config for fd_ballet/fd_util.
+        linkTickoniCodec(b, replay_integration_test, fd_lib_dir);
         integration_step.dependOn(&b.addRunArtifact(replay_integration_test).step);
 
         const decision_cards_integration_test = b.addTest(.{
@@ -1799,10 +1826,7 @@ pub fn build(b: *std.Build) void {
                 },
             }),
         });
-        decision_cards_integration_test.root_module.addLibraryPath(b.path(fd_lib_dir));
-        decision_cards_integration_test.root_module.linkSystemLibrary("fd_util", .{});
-        decision_cards_integration_test.root_module.linkSystemLibrary("fd_ballet", .{});
-        decision_cards_integration_test.root_module.linkSystemLibrary("stdc++", .{});
+        linkTickoniCodec(b, decision_cards_integration_test, fd_lib_dir);
         integration_step.dependOn(&b.addRunArtifact(decision_cards_integration_test).step);
 
         // System step — every root under src/tickoni/test/system, run with
@@ -1820,10 +1844,7 @@ pub fn build(b: *std.Build) void {
                 },
             }),
         });
-        system_test.root_module.addLibraryPath(b.path(fd_lib_dir));
-        system_test.root_module.linkSystemLibrary("fd_util", .{});
-        system_test.root_module.linkSystemLibrary("fd_ballet", .{});
-        system_test.root_module.linkSystemLibrary("stdc++", .{});
+        linkTickoniCodec(b, system_test, fd_lib_dir);
         system_step.dependOn(&b.addRunArtifact(system_test).step);
 
         // V1.3.S4: combined portfolio/cash demo. Fixture-backed and deterministic
@@ -1841,13 +1862,9 @@ pub fn build(b: *std.Build) void {
                 },
             }),
         });
-        // investment_demo_mod already carries the thesis_hash/audit_pb C sources
-        // from linkTickoniCodec above; only add the library path here to avoid
-        // linking those C sources twice into this binary.
-        portfolio_cash_demo_test.root_module.addLibraryPath(b.path(fd_lib_dir));
-        portfolio_cash_demo_test.root_module.linkSystemLibrary("fd_util", .{});
-        portfolio_cash_demo_test.root_module.linkSystemLibrary("fd_ballet", .{});
-        portfolio_cash_demo_test.root_module.linkSystemLibrary("stdc++", .{});
+        // Imported modules do not carry their root-module C/link settings into
+        // this test binary, so wire the codec seam explicitly here too.
+        linkTickoniCodec(b, portfolio_cash_demo_test, fd_lib_dir);
         system_step.dependOn(&b.addRunArtifact(portfolio_cash_demo_test).step);
 
         // Compatibility alias for the old live-model smoke command.
@@ -1887,7 +1904,9 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(cli_exe);
 
     const run_cli = b.addRunArtifact(cli_exe);
-    if (b.args) |argv| run_cli.addArgs(argv);
+    if (@hasField(std.Build, "args")) {
+        if (b.args) |argv| run_cli.addArgs(argv);
+    }
     const run_cli_step = b.step("run-cli", "Run tickoni demo CLI");
     run_cli_step.dependOn(&run_cli.step);
 
@@ -2232,7 +2251,9 @@ fn linkTickoniFiredancer(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_di
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{fd_lib_dir}) });
-        step.root_module.linkSystemLibrary("stdc++", .{});
+        // Windows doesn't have pkg-config, so use link_libcpp instead of
+        // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
+        step.root_module.link_libcpp = true;
         return;
     }
     linkTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_tango", "fd_util" });
@@ -2256,20 +2277,26 @@ fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) void 
 
 fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8, libs: []const []const u8) void {
     step.root_module.addLibraryPath(b.path(fd_lib_dir));
-    for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
     if (step.root_module.resolved_target.?.result.os.tag == .windows) {
         // COFF static linking is less forgiving about archive-member discovery
         // across deep/transitive and same-archive dependencies. Repeat the
         // closure so later unresolveds can pull additional members from the
         // same Firedancer archives.
+        // Windows doesn't have pkg-config — use link_libcpp instead of
+        // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config on
+        // a Linux host doing cross-compilation.
+        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
         for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
         // Windows prebuilt FD libs (from CI) reference libuuid.a.
         // contrib/fd-build-windows.sh post-build step compiles
         // libuuid_stub.c and archives it as libuuid.a so the library lookup
         // succeeds. Do NOT add libuuid_stub.c as a raw C source file here —
         // that would create duplicate symbols with the .a archive.
+        step.root_module.link_libcpp = true;
+    } else {
+        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
+        step.root_module.linkSystemLibrary("stdc++", .{});
     }
-    step.root_module.linkSystemLibrary("stdc++", .{});
 }
 
 /// Links shim/topo_run.c (the fd_topo_run_tile adapter, v2.14.S8.T3) and
@@ -2418,7 +2445,9 @@ fn linkTickoniCodec(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{fd_lib_dir}) });
-        step.root_module.linkSystemLibrary("stdc++", .{});
+        // Windows doesn't have pkg-config, so use link_libcpp instead of
+        // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
+        step.root_module.link_libcpp = true;
         return;
     }
     linkTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_ballet", "fd_util" });

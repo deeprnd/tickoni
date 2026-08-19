@@ -14,17 +14,17 @@ const default_content_str = "{\"thesis_summary\":\"USD 2,000 into AI infrastruct
 const default_finish_reason_str = "stop";
 
 const default_model_id_buf: [fixture_model_id_max]u8 = blk: {
-    var buf = [_]u8{0} ** fixture_model_id_max;
+    var buf = std.mem.zeroes([fixture_model_id_max]u8);
     for (default_model_id_str, 0..) |c, i| buf[i] = c;
     break :blk buf;
 };
 const default_content_buf: [fixture_content_max]u8 = blk: {
-    var buf = [_]u8{0} ** fixture_content_max;
+    var buf = std.mem.zeroes([fixture_content_max]u8);
     for (default_content_str, 0..) |c, i| buf[i] = c;
     break :blk buf;
 };
 const default_finish_reason_buf: [fixture_finish_reason_max]u8 = blk: {
-    var buf = [_]u8{0} ** fixture_finish_reason_max;
+    var buf = std.mem.zeroes([fixture_finish_reason_max]u8);
     for (default_finish_reason_str, 0..) |c, i| buf[i] = c;
     break :blk buf;
 };
@@ -166,11 +166,11 @@ pub const ReplayEntry = struct {
     substitution_id: u64 = 0,
     request_hash: u64 = 0,
     response_hash: u64 = 0,
-    model_id: [replay_model_id_max]u8 = [_]u8{0} ** replay_model_id_max,
+    model_id: [replay_model_id_max]u8 = std.mem.zeroes([replay_model_id_max]u8),
     model_id_len: u8 = 0,
-    content: [replay_content_max]u8 = [_]u8{0} ** replay_content_max,
+    content: [replay_content_max]u8 = std.mem.zeroes([replay_content_max]u8),
     content_len: u16 = 0,
-    finish_reason: [replay_finish_reason_max]u8 = [_]u8{0} ** replay_finish_reason_max,
+    finish_reason: [replay_finish_reason_max]u8 = std.mem.zeroes([replay_finish_reason_max]u8),
     finish_reason_len: u8 = 0,
     token_usage: schema.TokenUsage = .{ .prompt_tokens = 0, .completion_tokens = 0, .total_tokens = 0 },
     latency_ms: u64 = 0,
@@ -192,7 +192,7 @@ pub const ReplayEntry = struct {
 };
 
 pub const ReplayBackend = struct {
-    entries: [max_replay_entries]ReplayEntry = [_]ReplayEntry{.{}} ** max_replay_entries,
+    entries: [max_replay_entries]ReplayEntry = std.mem.zeroes([max_replay_entries]ReplayEntry),
     entry_count: u8 = 0,
 
     // Called by the orchestrator with the explicit substitution_id from TkModlRequest.

@@ -3,28 +3,15 @@ const std = @import("std");
 
 test "system demo live: real tkmodl, allowed, blocked, restricted, replay proof" {
     const allocator = std.testing.allocator;
-    const model_id = try demo.envOrDefault(allocator, "TK_LLM_MODEL_ID", demo.default_model_id);
-    defer allocator.free(model_id);
-    const endpoint = try demo.envOrDefault(allocator, "TK_LLM_ENDPOINT", demo.default_endpoint);
-    defer allocator.free(endpoint);
 
-    // Default to fixture-backed (deterministic, no llama.cpp required).
-    // Set TK_LIVE_TEST=1 to force live mode for manual CI debugging.
-    var live_config = demo.LiveConfig{
-        .endpoint = endpoint,
-        .model_id = model_id,
+    // Env vars (TK_LLM_MODEL_ID, TK_LLM_ENDPOINT, TK_LIVE_TEST) are only
+    // available via init.environ_map in main(). Tests use defaults — env
+    // vars are for manual CI debugging only.
+    const live_config = demo.LiveConfig{
+        .endpoint = demo.default_endpoint,
+        .model_id = demo.default_model_id,
         .use_fixture = true,
     };
-    if (std.c.getenv("TK_LIVE_TEST")) |v| {
-        const val = std.mem.span(v);
-        if (!std.mem.eql(u8, val, "1")) {
-            if (val.len > 0) {
-                std.debug.print("=== WARNING: TK_LIVE_TEST has unexpected value '{s}', staying in fixture mode ===\n", .{val});
-            }
-        } else {
-            live_config.use_fixture = false;
-        }
-    }
 
     try demo.runSystemSuite(allocator, std.testing.io, live_config);
 }

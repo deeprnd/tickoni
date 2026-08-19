@@ -237,7 +237,7 @@ pub fn findHolding(
 
 fn tickerBuf(comptime s: []const u8) [max_ticker_len]u8 {
     if (s.len > max_ticker_len) @compileError("ticker exceeds max_ticker_len");
-    var buf = [_]u8{0} ** max_ticker_len;
+    var buf: [max_ticker_len]u8 = std.mem.zeroes([max_ticker_len]u8);
     for (s, 0..) |byte, i| buf[i] = byte;
     return buf;
 }
@@ -384,15 +384,13 @@ test "portfolio_schema_version is 1" {
 
 // --- Acceptance: sufficient cash → allow (T4) ---
 
-test "checkAffordability: cash_rich affords AI thesis notional" {
-    // AI infrastructure thesis target: USD 2,000 = 200,000 cents.
+test "checkAffordability: cash_rich affords AI thesis notional" { // AI infrastructure thesis target: USD 2,000 = 200,000 cents.
     const result = checkAffordability(&fixtures.cash_rich, 200_000);
     try std.testing.expectEqual(AffordabilityOutcome.allow, result.outcome);
     try std.testing.expectEqual(@as(i64, 200_000), result.requested_notional_cents);
 }
 
-test "checkAffordability: cash_rich max_affordable is min(cash, buying_power, daily, monthly)" {
-    // min(5_000_000, 5_000_000, 2_500_000, 10_000_000) = 2_500_000
+test "checkAffordability: cash_rich max_affordable is min(cash, buying_power, daily, monthly)" { // min(5_000_000, 5_000_000, 2_500_000, 10_000_000) = 2_500_000
     const result = checkAffordability(&fixtures.cash_rich, 200_000);
     try std.testing.expectEqual(@as(i64, 2_500_000), result.max_affordable_cents);
     try std.testing.expectEqual(@as(i64, 5_000_000), result.cash_available_cents);
@@ -401,8 +399,7 @@ test "checkAffordability: cash_rich max_affordable is min(cash, buying_power, da
     try std.testing.expectEqual(@as(i64, 10_000_000), result.remaining_monthly_notional_cents);
 }
 
-test "checkAffordability: technology_heavy affords USD 2,000 basket" {
-    // buying_power = 900_000 (USD 9,000); USD 2,000 < USD 9,000 → allow.
+test "checkAffordability: technology_heavy affords USD 2,000 basket" { // buying_power = 900_000 (USD 9,000); USD 2,000 < USD 9,000 → allow.
     const result = checkAffordability(&fixtures.technology_heavy, 200_000);
     try std.testing.expectEqual(AffordabilityOutcome.allow, result.outcome);
 }
@@ -414,8 +411,7 @@ test "checkAffordability: diversified affords USD 2,000 basket" {
 
 // --- Acceptance: insufficient cash → deny (T4) ---
 
-test "checkAffordability: low_cash denied for USD 200 request" {
-    // buying_power = 15_000 (USD 150) < 20_000 (USD 200).
+test "checkAffordability: low_cash denied for USD 200 request" { // buying_power = 15_000 (USD 150) < 20_000 (USD 200).
     const result = checkAffordability(&fixtures.low_cash, 20_000);
     try std.testing.expectEqual(AffordabilityOutcome.deny_insufficient_buying_power, result.outcome);
 }
@@ -475,8 +471,7 @@ test "checkAffordability: day limit exhausted denies any positive request" {
     try std.testing.expectEqual(@as(i64, 0), result.max_affordable_cents);
 }
 
-test "checkAffordability: day limit exceeded by large request" {
-    // cash_rich day limit is USD 25,000 = 2_500_000 cents; request USD 30,000.
+test "checkAffordability: day limit exceeded by large request" { // cash_rich day limit is USD 25,000 = 2_500_000 cents; request USD 30,000.
     const result = checkAffordability(&fixtures.cash_rich, 3_000_000);
     try std.testing.expectEqual(AffordabilityOutcome.deny_day_limit_exceeded, result.outcome);
     // max_affordable = min(5_000_000, 5_000_000, 2_500_000, 10_000_000) = 2_500_000
@@ -501,8 +496,7 @@ test "checkAffordability: month limit exhausted denies any positive request" {
     try std.testing.expectEqual(@as(i64, 0), result.max_affordable_cents);
 }
 
-test "checkAffordability: month limit binding when day limit is not" {
-    // Set day_limit high but month_limit low so month is the binding constraint.
+test "checkAffordability: month limit binding when day limit is not" { // Set day_limit high but month_limit low so month is the binding constraint.
     var a = fixtures.cash_rich;
     a.day_notional_limit_cents = 50_000_000; // USD 500,000/day
     a.month_notional_limit_cents = 300_000; // USD 3,000/month
@@ -528,8 +522,7 @@ test "checkAffordability: restricted_account denied due to open-order limit" {
     try std.testing.expectEqual(AffordabilityOutcome.deny_open_order_limit, result.outcome);
 }
 
-test "checkAffordability: open-order limit check fires before buying-power check" {
-    // Arrange an account with sufficient cash but no open-order slot.
+test "checkAffordability: open-order limit check fires before buying-power check" { // Arrange an account with sufficient cash but no open-order slot.
     var a = fixtures.cash_rich;
     a.open_order_count = 8;
     a.max_open_order_count = 8;
@@ -569,8 +562,7 @@ test "checkBasketAffordability: rejects account mismatch" {
     );
 }
 
-test "checkAffordability: open-order limit not triggered when max_open_order_count is 0" {
-    // max_open_order_count == 0 means no slot check; even with open_order_count > 0.
+test "checkAffordability: open-order limit not triggered when max_open_order_count is 0" { // max_open_order_count == 0 means no slot check; even with open_order_count > 0.
     var a = fixtures.cash_rich;
     a.open_order_count = 255;
     a.max_open_order_count = 0;

@@ -234,31 +234,89 @@ PY
   echo "patched llama UI CMake host compiler link flags for old Windows g++: ${ui_cmake}"
 }
 
+prepend_path_once() {
+  local entry="$1"
+  [[ -n "$entry" && -d "$entry" ]] || return 0
+  case ":$PATH:" in
+    *":$entry:"*) ;;
+    *) PATH="$entry:$PATH" ;;
+  esac
+}
+
+find_windows_host_cxx() {
+  local candidate local_appdata_unix root
+
+  if [[ -n "${TK_WINDOWS_HOST_CXX:-}" && -x "${TK_WINDOWS_HOST_CXX}" ]]; then
+    printf '%s\n' "$TK_WINDOWS_HOST_CXX"
+    return 0
+  fi
+
+  for candidate in \
+    "/c/mingw64/bin/g++.exe" \
+    "/c/Strawberry/c/bin/g++.exe"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  for candidate in \
+    "/c/Program Files/LLVM/bin/clang++.exe" \
+    "/c/Program Files/LLVM/bin/clang++.cmd"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  if [[ -n "${LOCALAPPDATA:-}" ]] && command -v cygpath >/dev/null 2>&1; then
+    local_appdata_unix="$(cygpath -u "$LOCALAPPDATA")"
+    for root in "$local_appdata_unix"/Microsoft/WinGet/Packages/LLVM.LLVM_*; do
+      [[ -d "$root" ]] || continue
+      for candidate in "$root"/bin/clang++.exe "$root"/clang++.exe; do
+        if [[ -x "$candidate" ]]; then
+          printf '%s\n' "$candidate"
+          return 0
+        fi
+      done
+    done
+  fi
+
+  return 1
+}
+
 prepare_windows_host_cxx_compiler() {
   local build_dir="$1"
-  local host_cxx host_cxx_version host_cxx_major wrapper_path host_cxx_native
+  local host_cxx host_cxx_version host_cxx_major wrapper_path host_cxx_native host_cxx_dir host_cxx_dir_native extra_link_flags
 
-  host_cxx="$(command -v g++ || command -v clang++ || true)"
+  host_cxx="$(find_windows_host_cxx || true)"
+  if [[ -z "$host_cxx" ]]; then
+    host_cxx="$(command -v g++ || command -v clang++ || true)"
+  fi
   if [[ -z "$host_cxx" ]]; then
     return 0
   fi
 
+  host_cxx_dir="$(dirname "$host_cxx")"
+  prepend_path_once "$host_cxx_dir"
   host_cxx_native="$(cygpath -w "$host_cxx")"
+  host_cxx_dir_native="$(cygpath -w "$host_cxx_dir")"
   host_cxx_version="$($host_cxx -dumpfullversion -dumpversion 2>/dev/null | head -n 1 || true)"
   host_cxx_major="${host_cxx_version%%.*}"
+  extra_link_flags=""
 
   if [[ "${TK_WINDOWS_HOST_CXX_FORCE_STDCXXFS:-0}" == "1" ]] || [[ "$(basename "$host_cxx")" == "g++.exe" && "$host_cxx_major" =~ ^[0-9]+$ && "$host_cxx_major" -lt 9 ]]; then
-    wrapper_path="$build_dir/host-cxx.cmd"
-    cat > "$wrapper_path" <<EOF
-@echo off
-"${host_cxx_native}" %* -lstdc++fs
-EOF
-    echo "using Windows host C++ wrapper for filesystem link compatibility: ${wrapper_path} -> ${host_cxx} (${host_cxx_version:-unknown})" >&2
-    cygpath -w "$wrapper_path"
-    return 0
+    extra_link_flags=" -lstdc++fs"
   fi
 
-  printf '%s\n' "$host_cxx_native"
+  wrapper_path="$build_dir/host-cxx.cmd"
+  cat > "$wrapper_path" <<EOF
+@echo off
+set "PATH=${host_cxx_dir_native};%PATH%"
+"${host_cxx_native}" %*${extra_link_flags}
+EOF
+  echo "using Windows host C++ wrapper for consistent llama.cpp UI helper toolchain/runtime: ${wrapper_path} -> ${host_cxx} (${host_cxx_version:-unknown})" >&2
+  cygpath -w "$wrapper_path"
 }
 
 usage() {
@@ -410,7 +468,6 @@ fi
 patch_llama_ui_embed_cpp "$llama_dir"
 patch_llama_ui_cmake_for_old_windows_gxx "$llama_dir"
 mkdir -p "${llama_build_dir}"
-host_cxx_compiler_native="$(prepare_windows_host_cxx_compiler "${llama_build_dir}")"
 
 # Build args
 cmake_args=(
@@ -418,11 +475,18 @@ cmake_args=(
   -S "$llama_dir_native"
   -DCMAKE_BUILD_TYPE=Release
   -DGGML_NATIVE=OFF
+  -DCMAKE_BUILD_TYPE=Release
+  -DLLAMA_BUILD_TESTS=OFF
+  -DLLAMA_BUILD_TOOLS=ON
+  -DLLAMA_BUILD_SERVER=ON
+  -DLLAMA_BUILD_APP=OFF
+  -DLLAMA_BUILD_EXAMPLES=OFF
 )
 
 if [[ "$force_x64_toolchain" -eq 1 ]]; then
   rm -rf "${llama_build_dir}"
   mkdir -p "${llama_build_dir}"
+  host_cxx_compiler_native="$(prepare_windows_host_cxx_compiler "${llama_build_dir}")"
   prepare_windows_sdk_tool_aliases "${llama_build_dir}"
   toolchain_file="$(cd "${llama_build_dir}" && pwd)/tickoni-windows-arm-x64-toolchain.cmake"
   ninja_bin="$(command -v ninja)"
@@ -438,6 +502,12 @@ set(CMAKE_MT "${windows_sdk_mt_native}")
 EOF
   cmake_args=(
     -G Ninja
+    -DCMAKE_BUILD_TYPE=Release
+    -DLLAMA_BUILD_TESTS=OFF
+    -DLLAMA_BUILD_TOOLS=ON
+    -DLLAMA_BUILD_SERVER=ON
+    -DLLAMA_BUILD_APP=OFF
+    -DLLAMA_BUILD_EXAMPLES=OFF
     -DCMAKE_TOOLCHAIN_FILE=$toolchain_file_native
     -DCMAKE_MAKE_PROGRAM=$ninja_bin_native
     -DCMAKE_C_COMPILER=cl
@@ -450,9 +520,16 @@ EOF
   echo "generated forced-x64 toolchain file: ${toolchain_file}"
 elif [[ "$cc" == "cl" ]]; then
   mkdir -p "${llama_build_dir}"
+  host_cxx_compiler_native="$(prepare_windows_host_cxx_compiler "${llama_build_dir}")"
   prepare_windows_sdk_tool_aliases "${llama_build_dir}"
   cmake_args=(
     -G Ninja
+    -DCMAKE_BUILD_TYPE=Release
+    -DLLAMA_BUILD_TESTS=OFF
+    -DLLAMA_BUILD_TOOLS=ON
+    -DLLAMA_BUILD_SERVER=ON
+    -DLLAMA_BUILD_APP=OFF
+    -DLLAMA_BUILD_EXAMPLES=OFF
     -DCMAKE_C_COMPILER=cl
     -DCMAKE_CXX_COMPILER=cl
     "-DCMAKE_RC_COMPILER=${windows_sdk_rc_native}"
@@ -461,6 +538,7 @@ elif [[ "$cc" == "cl" ]]; then
     "${cmake_args[@]}"
   )
 else
+  host_cxx_compiler_native="$(prepare_windows_host_cxx_compiler "${llama_build_dir}")"
   case "$cc" in
     *clang) cxx="${cc%clang}clang++" ;;
     *gcc)   cxx="${cc%gcc}g++" ;;
@@ -468,6 +546,12 @@ else
   esac
   cmake_args=(
     -G Ninja
+    -DCMAKE_BUILD_TYPE=Release
+    -DLLAMA_BUILD_TESTS=OFF
+    -DLLAMA_BUILD_TOOLS=ON
+    -DLLAMA_BUILD_SERVER=ON
+    -DLLAMA_BUILD_APP=OFF
+    -DLLAMA_BUILD_EXAMPLES=OFF
     -DCMAKE_C_COMPILER="$cc"
     -DCMAKE_CXX_COMPILER="$cxx"
     "-DHOST_CXX_COMPILER=${host_cxx_compiler_native}"
@@ -488,7 +572,7 @@ else
   cmake "${cmake_args[@]}" \
     -DGGML_BLAS=OFF
 fi
-cmake --build "${llama_build_dir_native}" --config Release -j 4
+cmake --build "${llama_build_dir_native}" --target llama-server --config Release -j 4
 
 echo "copying llama-server.exe to ${llama_dir}"
 cp "${llama_dir}/build/bin/llama-server.exe" "${llama_dir}/"

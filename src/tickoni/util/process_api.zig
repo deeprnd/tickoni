@@ -40,7 +40,7 @@ pub fn tryReapNoHang(child: *std.process.Child) PollResult {
 
     var status: c_int = 0;
     while (true) {
-        const rc = std.posix.system.waitpid(pid, &status, std.c.W.NOHANG);
+        const rc = std.posix.system.waitpid(pid, &status, std.posix.W.NOHANG);
         switch (std.posix.errno(rc)) {
             .SUCCESS => {
                 if (rc == 0) return .running;

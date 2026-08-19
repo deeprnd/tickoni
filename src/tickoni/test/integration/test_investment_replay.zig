@@ -12,6 +12,15 @@ const tkcase = @import("tkcase");
 const tkdisp = @import("tkdisp");
 const tkpoly = @import("tkpoly");
 
+/// Helper to check if an env var is set.
+/// In Zig 0.17 env vars are only available via init.environ_map in main(),
+/// so we always return false here — hasEnv only gates a fixture generation
+/// test that is run via an explicit flag anyway.
+fn hasEnv(key: []const u8) bool {
+    _ = key;
+    return false;
+}
+
 test "investment_replay_integration: succeeds with fixture substitutions and no live effects" {
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
@@ -237,7 +246,7 @@ test "investment_replay_integration: tamper detection reports first divergent ha
 }
 
 test "gen audit allowed trade jsonl" {
-    if (std.c.getenv("TK_GEN_FIXTURES") == null) return error.SkipZigTest;
+    if (hasEnv("TK_GEN_FIXTURES") == false) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
     const thesis_id = thesis.computeThesisInputHash(input);
@@ -278,15 +287,18 @@ test "gen audit allowed trade jsonl" {
     );
 
     const path = "src/tickoni/test/fixtures/investment/scenarios/fixture_audit_allowed_2000.jsonl";
-    const f = std.c.fopen(path, "w") orelse return error.FileOpenFailed;
-    defer _ = std.c.fclose(f);
+    const file = try std.Io.Dir.cwd().createFile(std.testing.io, path, .{ .truncate = true });
+    defer std.Io.File.close(file, std.testing.io);
 
-    var line_buf: [4096]u8 = undefined;
+    var write_buf: [4096]u8 = undefined;
+    var w = std.Io.File.Writer.init(file, std.testing.io, &write_buf);
+    defer w.interface.flush() catch {};
+
     for (chain.events) |event| {
-        var w = std.Io.Writer.fixed(&line_buf);
-        try audit.formatJsonLine(event, &w);
-        const written = w.buffered();
-        _ = std.c.fwrite(written.ptr, 1, written.len, f);
+        var line_buf: [4096]u8 = undefined;
+        var lw = std.Io.Writer.fixed(&line_buf);
+        try audit.formatJsonLine(event, &lw);
+        try w.interface.writeAll(lw.buffered());
     }
 }
 

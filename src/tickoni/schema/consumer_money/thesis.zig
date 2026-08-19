@@ -307,7 +307,7 @@ pub fn computeThesisInputHash(input: ThesisInput) u64 {
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&ver));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&input.account_id));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&input.target_notional_cents));
-    const market_scope: u8 = @intFromEnum(input.market_scope);
+    const market_scope: u8 = @backingInt(input.market_scope);
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&market_scope));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&input.asset_class_prefs.count));
     for (0..input.asset_class_prefs.count) |i| c_abi.ballet.siphashAppend(&sip, asset_class_prefs[i .. i + 1]);
@@ -319,7 +319,7 @@ pub fn computeThesisInputHash(input: ThesisInput) u64 {
         const off = i * cls.max_canonical_id_len;
         c_abi.ballet.siphashAppend(&sip, themes_flat[off .. off + cls.max_canonical_id_len]);
     }
-    const risk_preference: u8 = @intFromEnum(input.risk_preference);
+    const risk_preference: u8 = @backingInt(input.risk_preference);
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&risk_preference));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&input.max_single_name_pct));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&input.asset_class_exclusions.count));
@@ -540,7 +540,7 @@ fn buildExcludedInstrumentTypes(input: ThesisInput) !InstrumentTypeList {
 
 fn textBuf(comptime s: []const u8) [max_user_text_len]u8 {
     if (s.len > max_user_text_len) @compileError("user text exceeds max_user_text_len");
-    var buf = [_]u8{0} ** max_user_text_len;
+    var buf = std.mem.zeroes([max_user_text_len]u8);
     for (s, 0..) |byte, i| buf[i] = byte;
     return buf;
 }
@@ -1277,8 +1277,7 @@ test "T6: memecoins crypto thesis is denied at normalize (crypto denied)" {
     );
 }
 
-test "T6: denied classification fixtures can express sector/industry refs without compile error" {
-    // Classification data is well-formed even though policy denies trading authority.
+test "T6: denied classification fixtures can express sector/industry refs without compile error" { // Classification data is well-formed even though policy denies trading authority.
     try std.testing.expect(fixtures.chemicals_commodity.sector_filters.count == 1);
     try std.testing.expect(fixtures.chemicals_commodity.industry_filters.count == 1);
     try std.testing.expect(fixtures.gold_commodity.sector_filters.count == 1);

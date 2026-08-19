@@ -174,8 +174,17 @@ jobs:
         run: just build-fd-windows-x86
 
       - name: Run Zig build
-        shell: bash
-        run: bash contrib/ci-run-build-tk.sh
+        shell: pwsh
+        run: |
+          $gitBashCandidates = @(
+            (Join-Path $Env:ProgramFiles 'Git\bin\bash.exe'),
+            (Join-Path $Env:ProgramFiles 'Git\usr\bin\bash.exe')
+          )
+          $gitBash = $gitBashCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $gitBash) {
+            throw 'Git Bash not found on PATH candidates; refusing to fall back to WSL bash.exe'
+          }
+          & $gitBash "$Env:GITHUB_WORKSPACE/contrib/ci-run-build-tk.sh"
 
   # ── Windows: ARM64 ──────────────────────────────────────────────────────────
   build-tk-windows-arm:
@@ -196,5 +205,14 @@ jobs:
         run: just build-fd-windows-arm
 
       - name: Run Zig build
-        shell: bash
-        run: bash contrib/ci-run-build-tk.sh
+        shell: pwsh
+        run: |
+          $gitBashCandidates = @(
+            (Join-Path $Env:ProgramFiles 'Git\bin\bash.exe'),
+            (Join-Path $Env:ProgramFiles 'Git\usr\bin\bash.exe')
+          )
+          $gitBash = $gitBashCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $gitBash) {
+            throw 'Git Bash not found on PATH candidates; refusing to fall back to WSL bash.exe'
+          }
+          & $gitBash "$Env:GITHUB_WORKSPACE/contrib/ci-run-build-tk.sh"

@@ -21,7 +21,7 @@ pub const Result = struct {
             .name = name,
             .status = status,
             .message_len = 0,
-            .message_storage = [_]u8{0} ** 128,
+            .message_storage = std.mem.zeroes([128]u8),
         };
         const len = @min(text.len, result.message_storage.len);
         @memcpy(result.message_storage[0..len], text[0..len]);

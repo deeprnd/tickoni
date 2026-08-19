@@ -18,13 +18,26 @@ set -euo pipefail
 
 tk_normalize_arch() {
   local raw="${1:-}"
-  case "${raw,,}" in
-    arm64|aarch64|arm64-bit*|arm\ 64-bit*|*arm64*) echo "arm"; return 0 ;;
-    x86_64|amd64|x64|x86-64*|*amd64*|*x64*)       echo "x86"; return 0 ;;
-    12)                                            echo "arm"; return 0 ;;
-    9)                                             echo "x86"; return 0 ;;
-    *)                                             return 1 ;;
+  [[ -z "$raw" ]] && return 1
+  local lower
+  # bash 3.2 compatible lowercase (macOS ships bash 3.2, not 4+)
+  lower="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
+  # bash 3.2's command-substitution parser mis-tokenizes a `case` statement
+  # written directly inside $(...) (the `)` closing each pattern confuses its
+  # paren matching), so the case assigns $normalized directly instead.
+  local normalized
+  case "$lower" in
+    arm64|aarch64|arm64-bit*|*"arm 64-bit"*|*arm64*) normalized="arm" ;;
+    x86_64|amd64|x64|x86-64*|*amd64*|*x64*)          normalized="x86" ;;
+    12)                                               normalized="arm" ;;
+    9)                                                normalized="x86" ;;
+    *)                                                normalized="unrecognized" ;;
   esac
+  if [[ "$normalized" != "unrecognized" ]]; then
+    echo "$normalized"
+    return 0
+  fi
+  return 1
 }
 
 tk_os() {
@@ -43,7 +56,8 @@ tk_os() {
       AMD64|x86) echo "windows"; return 0 ;;
     esac
   fi
-  echo "linux"  # conservative fallback
+  echo "error: unrecognized OS '$uname_s' — supported: Linux, Darwin, Windows" >&2
+  return 1
 }
 
 tk_arch() {

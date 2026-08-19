@@ -130,6 +130,23 @@ Install-Package "shellcheck"
 Install-Package "pre-commit"
 Install-Package "buf"
 
+# -- 1c. pkg-config (required by Zig Windows cross-compilation) ---------------
+# Git for Windows provides pkg-config.BAT in its bin directories. Add them early.
+$gitBinDir = if (Test-Path 'C:\Program Files\Git\usr\bin') {
+    'C:\Program Files\Git\usr\bin'
+} elseif (Test-Path 'C:\Program Files (x86)\Git\usr\bin') {
+    'C:\Program Files (x86)\Git\usr\bin'
+} else {
+    $null
+}
+if ($gitBinDir) {
+    Add-PathEntry $gitBinDir
+    log-info "Git bin added to PATH for pkg-config.BAT"
+} elseif (-not (Get-Command pkg-config -ErrorAction SilentlyContinue)) {
+    log-error "Git for Windows not found and pkg-config not available"
+    log-error "Zig Windows builds will fail without pkg-config"
+}
+
 # -- 1b. Security tools (opt-in via -Security flag) --------------------------
 if ($Security) {
     ensure-gitleaks
@@ -189,7 +206,7 @@ if (-not ((Test-Path $opensslStaticLib) -or (Test-Path $opensslArchive))) {
     }
     if (Test-Path $gitBash) {
         log-info "Building OpenSSL 3.6.2 via Git Bash (MSVC target)..."
-        $openssl_script = Join-Path $repoRoot 'contrib/setup/install-openssl.sh'
+        $openssl_script = Join-Path $repoRoot 'contrib/setup/helpers/install-openssl.sh'
         $openssl_posix = & cygpath -u $openssl_script
         $opensslProc = Start-Process -FilePath $gitBash -ArgumentList @('-lc', "cd '$($repoRoot -replace '\\','/')' && FD_WINDOWS_ARCH=x86_64 bash '$openssl_posix'") -Wait -NoNewWindow -PassThru
         if ($opensslProc.ExitCode -ne 0) {

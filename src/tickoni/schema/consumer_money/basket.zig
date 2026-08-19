@@ -217,8 +217,8 @@ pub fn failedScopeDimension(rejected_candidates: []const RejectedCandidate) Reje
 pub fn computeBasketHash(basket: *const Basket) u64 {
     var ticker_data: [max_basket_instruments * cat.max_ticker_len]u8 =
         std.mem.zeroes([max_basket_instruments * cat.max_ticker_len]u8);
-    var weight_bps_arr: [max_basket_instruments]u32 = [_]u32{0} ** max_basket_instruments;
-    var alloc_cents_arr: [max_basket_instruments]i64 = [_]i64{0} ** max_basket_instruments;
+    var weight_bps_arr: [max_basket_instruments]u32 = std.mem.zeroes([max_basket_instruments]u32);
+    var alloc_cents_arr: [max_basket_instruments]i64 = std.mem.zeroes([max_basket_instruments]i64);
     for (0..basket.instrument_count) |i| {
         const off = i * cat.max_ticker_len;
         @memcpy(ticker_data[off..][0..cat.max_ticker_len], &basket.instruments[i].ticker);
@@ -286,7 +286,7 @@ pub fn buildFromScreening(
     if (n == 0) return BasketError.NoEligibleInstruments;
 
     // Phase 2 – compute initial weights (T4).
-    var weights: [max_basket_instruments]u32 = [_]u32{0} ** max_basket_instruments;
+    var weights: [max_basket_instruments]u32 = std.mem.zeroes([max_basket_instruments]u32);
     const etf_preferred = intent.allowed_instrument_types.has(.etf) and
         intent.allowed_instrument_types.has(.stock);
     initialWeights(candidates[0..n], etf_preferred, weights[0..n]);
@@ -315,8 +315,7 @@ pub fn buildFromScreening(
 
     basket.instrument_count = @intCast(n);
     var total_alloc: i64 = 0;
-    for (0..n) |i| {
-        // Zero-allocation invariant: with min_target_notional_cents=100, cap_bp≥100,
+    for (0..n) |i| { // Zero-allocation invariant: with min_target_notional_cents=100, cap_bp≥100,
         // alloc = 100 * 100 / 10000 = 1 cent minimum.  Zero is unreachable given
         // the current validation bounds.
         const alloc: i64 = @divTrunc(
@@ -331,12 +330,10 @@ pub fn buildFromScreening(
         basket.instruments[i].allocation_cents = alloc;
         total_alloc += alloc;
     }
-    if (!cap_limited) {
-        // Rounding remainder to instrument 0 so total == target (T acceptance).
+    if (!cap_limited) { // Rounding remainder to instrument 0 so total == target (T acceptance).
         basket.instruments[0].allocation_cents += intent.target_amount_cents - total_alloc;
         basket.total_allocated_cents = intent.target_amount_cents;
-    } else {
-        // Cap prevented full allocation; total_alloc < target is correct.
+    } else { // Cap prevented full allocation; total_alloc < target is correct.
         basket.total_allocated_cents = total_alloc;
     }
 
@@ -727,8 +724,7 @@ test "build: SOXL and BULZ appear in rejected, not in instruments" {
     try std.testing.expect(found_bulz);
 }
 
-test "build: no instrument exceeds max_single_name_pct (non-binding cap)" {
-    // 4 broad-market ETFs at equal weight = 25% each; 40% cap is not binding.
+test "build: no instrument exceeds max_single_name_pct (non-binding cap)" { // 4 broad-market ETFs at equal weight = 25% each; 40% cap is not binding.
     var input = thesis.fixtures.broad_market;
     input.max_single_name_pct = 40;
     const intent = try thesis.normalize(input);
@@ -754,8 +750,7 @@ test "build: cap is enforced when all instruments exceed it (binding cap)" {
     const basket = try build(intent, thesis.computeThesisInputHash(input));
 
     const cap_bp: u32 = @as(u32, input.max_single_name_pct) * pct_to_bp;
-    for (basket.instruments[0..basket.instrument_count]) |inst| {
-        // weight_bp is recomputed from actual cents (which include a per-instrument
+    for (basket.instruments[0..basket.instrument_count]) |inst| { // weight_bp is recomputed from actual cents (which include a per-instrument
         // rounding remainder of at most 1 cent); allow 1 bp of rounding drift.
         try std.testing.expect(inst.weight_bp <= cap_bp + 1);
     }
@@ -764,8 +759,7 @@ test "build: cap is enforced when all instruments exceed it (binding cap)" {
     try std.testing.expect(basket.total_allocated_cents > 0);
 }
 
-test "build: ETF instruments receive higher allocation than equities when etf_preferred" {
-    // intent allows both equity and ETF → ETF preference.
+test "build: ETF instruments receive higher allocation than equities when etf_preferred" { // intent allows both equity and ETF → ETF preference.
     const input = thesis.fixtures.ai_infrastructure;
     const hash = thesis.computeThesisInputHash(input);
     const intent = try thesis.normalize(input);
@@ -785,8 +779,7 @@ test "build: ETF instruments receive higher allocation than equities when etf_pr
             eq_count += 1;
         }
     }
-    if (etf_count > 0 and eq_count > 0) {
-        // Average ETF allocation > average equity allocation.
+    if (etf_count > 0 and eq_count > 0) { // Average ETF allocation > average equity allocation.
         const avg_etf = @divFloor(etf_alloc, @as(i64, @intCast(etf_count)));
         const avg_eq = @divFloor(eq_alloc, @as(i64, @intCast(eq_count)));
         try std.testing.expect(avg_etf > avg_eq);
@@ -993,8 +986,7 @@ test "build: deterministic — same intent produces identical basket and basket_
     }
 }
 
-test "build: multi-theme union produces superset of single-theme baskets" {
-    // ai_and_semiconductors targets both ai_infrastructure and semiconductors.
+test "build: multi-theme union produces superset of single-theme baskets" { // ai_and_semiconductors targets both ai_infrastructure and semiconductors.
     // Its basket must contain at least as many instruments as either single-theme basket.
     const combined_intent = try thesis.normalize(thesis.fixtures.ai_and_semiconductors);
     const combined = try build(combined_intent, 0);
@@ -1005,8 +997,7 @@ test "build: multi-theme union produces superset of single-theme baskets" {
     try std.testing.expect(combined.instrument_count >= ai_basket.instrument_count);
 }
 
-test "build: sector filter rejects instruments outside the specified sector" {
-    // ai_infrastructure_it_sector: only information_technology sector allowed.
+test "build: sector filter rejects instruments outside the specified sector" { // ai_infrastructure_it_sector: only information_technology sector allowed.
     // Cloud instruments like WCLD (cloud only, not IT sector) should be rejected
     // while IT-sector instruments like NVDA, AMD remain eligible.
     const intent = try thesis.normalize(thesis.fixtures.ai_infrastructure_it_sector);
@@ -1066,8 +1057,7 @@ test "build: sector/industry distinction — sector filter does not imply indust
     try std.testing.expect(b.instrument_count >= 2);
 }
 
-test "build: wrong_theme rejection for requested ticker not in any intent theme" {
-    // Request WCLD which has theme=cloud, but the intent only covers broad_market.
+test "build: wrong_theme rejection for requested ticker not in any intent theme" { // Request WCLD which has theme=cloud, but the intent only covers broad_market.
     // WCLD is not in the broad_market theme so it gets wrong_theme rejection.
     var input = thesis.fixtures.broad_market;
     const wcld = "WCLD";
@@ -1090,10 +1080,10 @@ test "build: wrong_theme rejection for requested ticker not in any intent theme"
 test "failedScopeDimension returns the first rejected reason code" {
     var rejected = [_]RejectedCandidate{
         .{
-            .ticker = [_]u8{0} ** cat.max_ticker_len,
+            .ticker = std.mem.zeroes([cat.max_ticker_len]u8),
             .ticker_len = 4,
             .reason_code = .wrong_sector,
-            .reason = [_]u8{0} ** max_reason_len,
+            .reason = std.mem.zeroes([max_reason_len]u8),
             .reason_len = 0,
         },
     };
