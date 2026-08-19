@@ -30,9 +30,9 @@ fn makeModule(b: *std.Build, root: []const u8, imports: []const std.Build.Module
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const fd_lib_dir = b.option([]const u8, "fd-lib-dir", "Firedancer lib dir (default: build/native/gcc/lib)") orelse "build/native/gcc/lib";
+    const lib_dir = b.option([]const u8, "lib-dir", "Firedancer library dir (default: build/native/gcc/lib)") orelse "build/native/gcc/lib";
     // Get all modules in one call
-    const all = mod.allModules(b, target, optimize, fd_lib_dir);
+    const all = mod.allModules(b, target, optimize, lib_dir);
     const m = all.modules;
     const tm = all.test_modules;
 
@@ -63,14 +63,14 @@ pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{ .name = "tickoni-supervisor", .root_module = main_mod });
     if (target.result.os.tag == .windows) {
         exe.root_module.linkLibrary(lib.firedancer.addTickoniSupervisorShimLibrary(b, target, optimize));
-        lib.firedancer.addWindowsFdManifestFixups(b, exe, b.fmt("{s}/fd_windows_zig_supervisor_link.txt", .{fd_lib_dir}));
+        lib.firedancer.addWindowsFdManifestFixups(b, exe, b.fmt("{s}/fd_windows_zig_supervisor_link.txt", .{lib_dir}));
     } else {
         lib.codec.addTickoniCodecShim(b, exe);
         lib.firedancer.addTickoniFiredancerShims(b, exe);
         lib.topo_run.addTickoniTopoRunShims(b, exe);
         lib.tile_run.addTickoniTileRunShim(b, exe);
     }
-    lib.firedancer.linkTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
+    lib.firedancer.linkTickoniSystemLibraries(b, exe, lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
     b.installArtifact(exe);
 
     const run_exe = b.addRunArtifact(exe);
@@ -89,13 +89,13 @@ pub fn build(b: *std.Build) void {
         const test_step = b.step("test", "Run all Tickoni tests");
 
         // Unit tests
-        unit_specs.registerUnitSpecs(b, m, target, optimize, test_step, fd_lib_dir);
+        unit_specs.registerUnitSpecs(b, m, target, optimize, test_step, lib_dir);
 
         // Integration tests
-        integration_specs.registerIntegrationSpecs(b, m, tm, target, optimize, test_step, fd_lib_dir);
+        integration_specs.registerIntegrationSpecs(b, m, tm, target, optimize, test_step, lib_dir);
 
         // System tests
-        system_specs.registerSystemSpecs(b, m, tm, target, optimize, test_step, fd_lib_dir);
+        system_specs.registerSystemSpecs(b, m, tm, target, optimize, test_step, lib_dir);
 
         // Coverage tests
         const cov_step = b.step("cov", "Install test binaries for kcov coverage");
