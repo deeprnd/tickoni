@@ -3,21 +3,18 @@
   "domains": [
     {
       "name": "ballet",
-      "strategy": "c_shim",
+      "strategy": "c_builder",
       "archive_name": "libtickoni_ballet",
       "c_sources": ["src/tickoni/c_abi/shim/ballet.c"],
-      "platform_shims": {
-        "windows": ["src/tickoni/c_abi/shim/libuuid_stub.c"]
-      },
       "object_deps": [
-        { "type": "cwd_relative", "path": "build/fd-tickoni-fd/lib/libfd_ballet.a" },
-        { "type": "cwd_relative", "path": "build/fd-tickoni-fd/lib/libfd_util.a" }
+        { "path": "build/fd-tickoni-fd/lib/libfd_ballet.a" },
+        { "path": "build/fd-tickoni-fd/lib/libfd_util.a" }
       ],
       "c_flags": ["-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1"]
     },
     {
       "name": "flamenco",
-      "strategy": "c_shim",
+      "strategy": "c_builder",
       "archive_name": "libtickoni_flamenco",
       "c_sources": [
         "src/tickoni/c_abi/shim/tango.c",
@@ -27,30 +24,22 @@
         "src/tickoni/c_abi/shim/os.c"
       ],
       "object_deps": [
-        { "type": "cwd_relative", "path": "build/fd-tickoni-fd/lib/libfd_tango.a" },
-        { "type": "cwd_relative", "path": "build/fd-tickoni-fd/lib/libfd_util.a" }
+        { "path": "build/fd-tickoni-fd/lib/libfd_tango.a" },
+        { "path": "build/fd-tickoni-fd/lib/libfd_util.a" }
       ],
       "c_flags": ["-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1"]
     },
     {
       "name": "disco",
-      "strategy": "c_shim",
+      "strategy": "c_builder",
       "archive_name": "libtickoni_disco",
       "c_sources": [
         "src/tickoni/c_abi/shim/topo_run.c",
         "src/tickoni/c_abi/shim/topob.c",
         "src/tickoni/c_abi/shim/tile_run.c"
       ],
-      "platform_shims": {
-        "linux": ["src/tickoni/c_abi/shim/topo_run_platform_linux.c"],
-        "macos": ["src/tickoni/c_abi/shim/topo_run_platform_macos.c"],
-        "windows": [
-          "src/tickoni/c_abi/shim/topo_run_platform_windows.c",
-          "src/tickoni/c_abi/shim/windows_crt.c"
-        ]
-      },
       "object_deps": [
-        { "type": "cwd_relative", "path": "build/fd-tickoni-fd/lib/libfd_disco.a" }
+        { "path": "build/fd-tickoni-fd/lib/libfd_disco.a" }
       ],
       "c_flags": ["-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1"]
     },
