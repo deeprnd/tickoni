@@ -12,13 +12,13 @@
 /// Reuses: build/lib/ (C shim helpers), build/mod/ (module declarations),
 ///         build/test/ (unit/integration/system/cov specs).
 const std = @import("std");
-const lib = @import("build/lib.zig");
-const mod = @import("build/mod.zig");
-const unit_specs = @import("build/test/unit_specs.zig");
-const integration_specs = @import("build/test/integration_specs.zig");
-const system_specs = @import("build/test/system_specs.zig");
-const cov_specs = @import("build/test/cov_specs.zig");
-const registry = @import("build/test/registry.zig");
+const lib = @import("tickoni-build/lib.zig");
+const mod = @import("tickoni-build/mod.zig");
+const unit_specs = @import("tickoni-build/test/unit_specs.zig");
+const integration_specs = @import("tickoni-build/test/integration_specs.zig");
+const system_specs = @import("tickoni-build/test/system_specs.zig");
+const cov_specs = @import("tickoni-build/test/cov_specs.zig");
+const registry = @import("tickoni-build/test/registry.zig");
 
 /// Create a module with imports, used by test spec helpers.
 fn makeModule(b: *std.Build, root: []const u8, imports: []const std.Build.Module.Import, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module {
