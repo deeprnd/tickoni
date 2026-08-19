@@ -234,31 +234,80 @@ PY
   echo "patched llama UI CMake host compiler link flags for old Windows g++: ${ui_cmake}"
 }
 
+prepend_path_once() {
+  local entry="$1"
+  [[ -n "$entry" && -d "$entry" ]] || return 0
+  case ":$PATH:" in
+    *":$entry:"*) ;;
+    *) PATH="$entry:$PATH" ;;
+  esac
+}
+
+find_windows_host_clangxx() {
+  local candidate local_appdata_unix root
+
+  if [[ -n "${TK_WINDOWS_HOST_CXX:-}" && -x "${TK_WINDOWS_HOST_CXX}" ]]; then
+    printf '%s\n' "$TK_WINDOWS_HOST_CXX"
+    return 0
+  fi
+
+  for candidate in \
+    "/c/Program Files/LLVM/bin/clang++.exe" \
+    "/c/Program Files/LLVM/bin/clang++.cmd"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  if [[ -n "${LOCALAPPDATA:-}" ]] && command -v cygpath >/dev/null 2>&1; then
+    local_appdata_unix="$(cygpath -u "$LOCALAPPDATA")"
+    for root in "$local_appdata_unix"/Microsoft/WinGet/Packages/LLVM.LLVM_*; do
+      [[ -d "$root" ]] || continue
+      for candidate in "$root"/bin/clang++.exe "$root"/clang++.exe; do
+        if [[ -x "$candidate" ]]; then
+          printf '%s\n' "$candidate"
+          return 0
+        fi
+      done
+    done
+  fi
+
+  return 1
+}
+
 prepare_windows_host_cxx_compiler() {
   local build_dir="$1"
-  local host_cxx host_cxx_version host_cxx_major wrapper_path host_cxx_native
+  local host_cxx host_cxx_version host_cxx_major wrapper_path host_cxx_native host_cxx_dir host_cxx_dir_native extra_link_flags
 
-  host_cxx="$(command -v g++ || command -v clang++ || true)"
+  host_cxx="$(find_windows_host_clangxx || true)"
+  if [[ -z "$host_cxx" ]]; then
+    host_cxx="$(command -v g++ || command -v clang++ || true)"
+  fi
   if [[ -z "$host_cxx" ]]; then
     return 0
   fi
 
+  host_cxx_dir="$(dirname "$host_cxx")"
+  prepend_path_once "$host_cxx_dir"
   host_cxx_native="$(cygpath -w "$host_cxx")"
+  host_cxx_dir_native="$(cygpath -w "$host_cxx_dir")"
   host_cxx_version="$($host_cxx -dumpfullversion -dumpversion 2>/dev/null | head -n 1 || true)"
   host_cxx_major="${host_cxx_version%%.*}"
+  extra_link_flags=""
 
   if [[ "${TK_WINDOWS_HOST_CXX_FORCE_STDCXXFS:-0}" == "1" ]] || [[ "$(basename "$host_cxx")" == "g++.exe" && "$host_cxx_major" =~ ^[0-9]+$ && "$host_cxx_major" -lt 9 ]]; then
-    wrapper_path="$build_dir/host-cxx.cmd"
-    cat > "$wrapper_path" <<EOF
-@echo off
-"${host_cxx_native}" %* -lstdc++fs
-EOF
-    echo "using Windows host C++ wrapper for filesystem link compatibility: ${wrapper_path} -> ${host_cxx} (${host_cxx_version:-unknown})" >&2
-    cygpath -w "$wrapper_path"
-    return 0
+    extra_link_flags=" -lstdc++fs"
   fi
 
-  printf '%s\n' "$host_cxx_native"
+  wrapper_path="$build_dir/host-cxx.cmd"
+  cat > "$wrapper_path" <<EOF
+@echo off
+set "PATH=${host_cxx_dir_native};%PATH%"
+"${host_cxx_native}" %*${extra_link_flags}
+EOF
+  echo "using Windows host C++ wrapper for consistent llama.cpp UI helper toolchain/runtime: ${wrapper_path} -> ${host_cxx} (${host_cxx_version:-unknown})" >&2
+  cygpath -w "$wrapper_path"
 }
 
 usage() {

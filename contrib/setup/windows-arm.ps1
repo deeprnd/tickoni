@@ -39,6 +39,43 @@ function Add-PathEntry {
     }
 }
 
+function Set-SharedEnvironmentVariable {
+    param(
+        [string]$Name,
+        [string]$Value
+    )
+
+    if (-not $Name -or -not $Value) {
+        return
+    }
+
+    Set-Item -Path "Env:$Name" -Value $Value
+    if ($env:GITHUB_ENV) {
+        Add-Content -Path $env:GITHUB_ENV -Value "${Name}=${Value}"
+    }
+}
+
+function Write-CmdShim {
+    param(
+        [string]$ShimDir,
+        [string]$Name,
+        [string]$TargetPath
+    )
+
+    if (-not $ShimDir -or -not $Name -or -not $TargetPath) {
+        return $null
+    }
+
+    New-Item -ItemType Directory -Force -Path $ShimDir | Out-Null
+    $shimPath = Join-Path $ShimDir ("${Name}.cmd")
+    @(
+        '@echo off'
+        'setlocal'
+        ('"{0}" %*' -f $TargetPath)
+    ) | Set-Content -Path $shimPath -Encoding ASCII
+    return $shimPath
+}
+
 function Add-WindowsSetupPaths {
     Add-PathEntry (Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps')
     Add-PathEntry 'C:\Program Files\LLVM\bin'
@@ -202,8 +239,9 @@ Install-Package "buf"
 
 # -- 1c. pkg-config (required by Zig Windows cross-compilation) ---------------
 # Windows ARM runners may resolve pkg-config through either Git for Windows or a
-# standalone Strawberry Perl install. Add both explicit roots so later bash/Zig
-# steps see the same command via GITHUB_PATH that this setup step sees.
+# standalone Strawberry Perl install. Export a dedicated shim dir instead of
+# the full Strawberry Perl bin dir so later steps can find pkg-config without
+# polluting PATH for unrelated host-tool execution.
 Add-WindowsSetupPaths
 $gitRoot = if (Test-Path 'C:\Program Files\Git') {
     'C:\Program Files\Git'
@@ -228,19 +266,34 @@ if ($gitRoot) {
     log-warn "Git for Windows not found while configuring pkg-config PATH"
 }
 
-$strawberryPerlBin = if (Test-Path 'C:\Strawberry\perl\bin') {
-    'C:\Strawberry\perl\bin'
-} else {
-    $null
-}
-if ($strawberryPerlBin) {
-    Add-PathEntry $strawberryPerlBin
-    log-info "Strawberry Perl bin added to PATH for pkg-config.BAT"
+$pkgConfigSource = $null
+$gitPkgConfig = Get-Command pkg-config -ErrorAction SilentlyContinue
+if ($gitPkgConfig) {
+    $pkgConfigSource = $gitPkgConfig.Source
 }
 
-$pkgConfigCmd = Get-Command pkg-config -ErrorAction SilentlyContinue
-if ($pkgConfigCmd) {
-    log-info "pkg-config resolved to: $($pkgConfigCmd.Source)"
+if (-not $pkgConfigSource) {
+    foreach ($candidate in @(
+        'C:\Strawberry\perl\bin\pkg-config.bat',
+        'C:\Strawberry\perl\bin\pkg-config.cmd',
+        'C:\Strawberry\perl\bin\pkg-config'
+    )) {
+        if (Test-Path $candidate) {
+            $pkgConfigSource = $candidate
+            break
+        }
+    }
+}
+
+if ($pkgConfigSource) {
+    $shimDir = Join-Path $repoRoot 'build\windows-arm-bootstrap-bin'
+    $pkgConfigShim = Write-CmdShim -ShimDir $shimDir -Name 'pkg-config' -TargetPath $pkgConfigSource
+    if ($pkgConfigShim) {
+        Add-PathEntry $shimDir
+        Set-SharedEnvironmentVariable -Name 'TK_WINDOWS_PKG_CONFIG' -Value $pkgConfigSource
+        Set-SharedEnvironmentVariable -Name 'TK_WINDOWS_PKG_CONFIG_SHIM' -Value $pkgConfigShim
+        log-info "pkg-config shim added to PATH: $pkgConfigShim -> $pkgConfigSource"
+    }
 } else {
     log-error "pkg-config.BAT not found after PATH setup"
     log-error "Zig Windows builds will fail without pkg-config"
@@ -329,6 +382,11 @@ if ($clangCmd) {
 if ($llvmPath) {
     Add-PathEntry $llvmPath
     log-info "LLVM added to PATH: $llvmPath"
+    $clangxxPath = Join-Path $llvmPath 'clang++.exe'
+    if (Test-Path $clangxxPath) {
+        Set-SharedEnvironmentVariable -Name 'TK_WINDOWS_HOST_CXX' -Value $clangxxPath
+        log-info "Windows host C++ compiler pinned for llama.cpp UI helper: $clangxxPath"
+    }
 }
 
 # -- 4. Zig (native aarch64-windows on ARM64) --------------------------------
