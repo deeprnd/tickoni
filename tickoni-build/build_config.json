@@ -1,0 +1,128 @@
+{
+  "version": "1",
+  "domains": [
+    {
+      "name": "ballet",
+      "strategy": "c_shim",
+      "archive_name": "libtickoni_ballet",
+      "c_sources": ["src/tickoni/c_abi/shim/ballet.c"],
+      "platform_shims": {
+        "windows": ["src/tickoni/c_abi/shim/libuuid_stub.c"]
+      },
+      "object_deps": [
+        { "type": "cwd_relative", "path": "build/fd-tickoni-fd/lib/libfd_ballet.a" },
+        { "type": "cwd_relative", "path": "build/fd-tickoni-fd/lib/libfd_util.a" }
+      ],
+      "c_flags": ["-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1"]
+    },
+    {
+      "name": "flamenco",
+      "strategy": "c_shim",
+      "archive_name": "libtickoni_flamenco",
+      "c_sources": [
+        "src/tickoni/c_abi/shim/tango.c",
+        "src/tickoni/c_abi/shim/util.c",
+        "src/tickoni/c_abi/shim/wksp.c",
+        "src/tickoni/c_abi/shim/sandbox.c",
+        "src/tickoni/c_abi/shim/os.c"
+      ],
+      "object_deps": [
+        { "type": "cwd_relative", "path": "build/fd-tickoni-fd/lib/libfd_tango.a" },
+        { "type": "cwd_relative", "path": "build/fd-tickoni-fd/lib/libfd_util.a" }
+      ],
+      "c_flags": ["-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1"]
+    },
+    {
+      "name": "disco",
+      "strategy": "c_shim",
+      "archive_name": "libtickoni_disco",
+      "c_sources": [
+        "src/tickoni/c_abi/shim/topo_run.c",
+        "src/tickoni/c_abi/shim/topob.c",
+        "src/tickoni/c_abi/shim/tile_run.c"
+      ],
+      "platform_shims": {
+        "linux": ["src/tickoni/c_abi/shim/topo_run_platform_linux.c"],
+        "macos": ["src/tickoni/c_abi/shim/topo_run_platform_macos.c"],
+        "windows": [
+          "src/tickoni/c_abi/shim/topo_run_platform_windows.c",
+          "src/tickoni/c_abi/shim/windows_crt.c"
+        ]
+      },
+      "object_deps": [
+        { "type": "cwd_relative", "path": "build/fd-tickoni-fd/lib/libfd_disco.a" }
+      ],
+      "c_flags": ["-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1"]
+    },
+    {
+      "name": "c_abi",
+      "strategy": "zig_module",
+      "root_source": "src/tickoni/c_abi/c_abi.zig"
+    },
+    {
+      "name": "util",
+      "strategy": "zig_module",
+      "root_source": "src/tickoni/util/util.zig"
+    },
+    {
+      "name": "audit",
+      "strategy": "composite",
+      "root_source": "src/tickoni/tiles/audit/mod.zig",
+      "dependencies": ["c_abi", "util", "ballet"]
+    },
+    {
+      "name": "policy",
+      "strategy": "composite",
+      "root_source": "src/tickoni/tiles/policy/mod.zig",
+      "dependencies": ["c_abi", "util", "ballet"]
+    },
+    {
+      "name": "model",
+      "strategy": "composite",
+      "root_source": "src/tickoni/tiles/model/mod.zig",
+      "dependencies": ["c_abi", "util", "ballet"]
+    },
+    {
+      "name": "adapter",
+      "strategy": "composite",
+      "root_source": "src/tickoni/tiles/adapter/mod.zig",
+      "dependencies": ["c_abi", "util", "ballet", "flamenco"]
+    },
+    {
+      "name": "case",
+      "strategy": "composite",
+      "root_source": "src/tickoni/tiles/case/mod.zig",
+      "dependencies": ["c_abi", "util", "ballet"]
+    },
+    {
+      "name": "disp",
+      "strategy": "composite",
+      "root_source": "src/tickoni/tiles/disp/mod.zig",
+      "dependencies": ["c_abi", "util", "ballet"]
+    },
+    {
+      "name": "agent",
+      "strategy": "composite",
+      "root_source": "src/tickoni/tiles/agent/mod.zig",
+      "dependencies": ["c_abi", "util", "ballet"]
+    },
+    {
+      "name": "tool",
+      "strategy": "composite",
+      "root_source": "src/tickoni/tiles/tool/mod.zig",
+      "dependencies": ["c_abi", "util", "ballet"]
+    },
+    {
+      "name": "replay",
+      "strategy": "composite",
+      "root_source": "src/tickoni/tiles/replay/mod.zig",
+      "dependencies": ["c_abi", "util", "ballet"]
+    },
+    {
+      "name": "payment",
+      "strategy": "composite",
+      "root_source": "src/tickoni/tiles/payment_pipeline/mod.zig",
+      "dependencies": ["c_abi", "util", "ballet", "flamenco"]
+    }
+  ]
+}
