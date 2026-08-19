@@ -202,7 +202,8 @@ Install-Package "buf"
 
 # -- 1c. pkg-config (required by Zig Windows cross-compilation) ---------------
 # Git for Windows ships pkg-config.BAT via Strawberry Perl. Add Git's bin dirs
-# to PATH early so Zig can find it.
+# to PATH early so Zig can find it. On ARM64 Git uses the MSYS2 UCRT mingw64
+# tree (mingw64/usr/bin), not the top-level usr/bin.
 Add-WindowsSetupPaths
 $gitRoot = if (Test-Path 'C:\Program Files\Git') {
     'C:\Program Files\Git'
@@ -212,14 +213,16 @@ $gitRoot = if (Test-Path 'C:\Program Files\Git') {
     $null
 }
 if ($gitRoot) {
-    # Git has multiple bin dirs depending on the setup (MSYS2 UCRT, MINGW, etc.)
+    # Top-level bin dirs (x86_64 Git layout)
     foreach ($sub in @('usr\bin', 'bin')) {
         $dir = Join-Path $gitRoot $sub
         if (Test-Path $dir) { Add-PathEntry $dir }
     }
-    # Also add the Strawberry Perl bin if it exists
-    $perlDir = Join-Path $gitRoot 'mingw64\perl\bin'
-    if (Test-Path $perlDir) { Add-PathEntry $perlDir }
+    # ARM64 Git layout: MSYS2 UCRT mingw64 tree
+    foreach ($sub in @('mingw64\usr\bin', 'mingw64\bin', 'mingw64\perl\bin')) {
+        $dir = Join-Path $gitRoot $sub
+        if (Test-Path $dir) { Add-PathEntry $dir }
+    }
     log-info "Git bin dirs added to PATH for pkg-config.BAT"
 } else {
     log-error "Git for Windows not found - pkg-config.BAT will be missing from PATH"
