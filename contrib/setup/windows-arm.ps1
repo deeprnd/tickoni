@@ -4,9 +4,9 @@
 #   .\windows-arm.ps1 -NoLLM       # skip LLM tooling (llama.cpp build)
 #   .\windows-arm.ps1 -Security -NoLLM  # install gitleaks, skip LLM
 # Package manager: winget ONLY. If winget is missing, auto-install it.
-# Note: Tickoni Windows ARM CI prefers the x86_64 Zig 0.17 prebuilt.
-# contrib/zigw.sh auto-selects it on ARM64 because the native aarch64 Zig lane
-# has been unstable for Tickoni's Windows unit/system jobs.
+# Note: Tickoni Windows ARM CI now uses the native aarch64-windows Zig 0.17
+# toolchain. The old x86_64-on-ARM workaround was only for Zig 0.16 instability
+# and should not be reintroduced silently.
 # Note: OpenSSL uses native MSVC target (msvc-arm64), no MinGW-w64/MSYS2 needed.
 
 param([switch]$Security, [switch]$NoLLM)
@@ -201,9 +201,9 @@ Install-Package "pre-commit"
 Install-Package "buf"
 
 # -- 1c. pkg-config (required by Zig Windows cross-compilation) ---------------
-# Git for Windows ships pkg-config.BAT via Strawberry Perl. Add Git's bin dirs
-# to PATH early so Zig can find it. On ARM64 Git uses the MSYS2 UCRT mingw64
-# tree (mingw64/usr/bin), not the top-level usr/bin.
+# Windows ARM runners may resolve pkg-config through either Git for Windows or a
+# standalone Strawberry Perl install. Add both explicit roots so later bash/Zig
+# steps see the same command via GITHUB_PATH that this setup step sees.
 Add-WindowsSetupPaths
 $gitRoot = if (Test-Path 'C:\Program Files\Git') {
     'C:\Program Files\Git'
@@ -225,7 +225,24 @@ if ($gitRoot) {
     }
     log-info "Git bin dirs added to PATH for pkg-config.BAT"
 } else {
-    log-error "Git for Windows not found - pkg-config.BAT will be missing from PATH"
+    log-warn "Git for Windows not found while configuring pkg-config PATH"
+}
+
+$strawberryPerlBin = if (Test-Path 'C:\Strawberry\perl\bin') {
+    'C:\Strawberry\perl\bin'
+} else {
+    $null
+}
+if ($strawberryPerlBin) {
+    Add-PathEntry $strawberryPerlBin
+    log-info "Strawberry Perl bin added to PATH for pkg-config.BAT"
+}
+
+$pkgConfigCmd = Get-Command pkg-config -ErrorAction SilentlyContinue
+if ($pkgConfigCmd) {
+    log-info "pkg-config resolved to: $($pkgConfigCmd.Source)"
+} else {
+    log-error "pkg-config.BAT not found after PATH setup"
     log-error "Zig Windows builds will fail without pkg-config"
 }
 
@@ -314,10 +331,10 @@ if ($llvmPath) {
     log-info "LLVM added to PATH: $llvmPath"
 }
 
-# -- 4. Zig (preferred x86_64-windows on ARM64) ------------------------------
-log-info "Installing Zig (x86_64-windows preferred on ARM64)..."
-ensure-zig "x86_64-windows"
-log-info "Zig installed (x86_64-windows preferred on ARM64)"
+# -- 4. Zig (native aarch64-windows on ARM64) --------------------------------
+log-info "Installing Zig (native aarch64-windows on ARM64)..."
+ensure-zig "aarch64-windows"
+log-info "Zig installed (native aarch64-windows on ARM64)"
 
 # -- 5. MSVC build tools ------------------------------------------------------
 log-info "Installing Visual Studio Build Tools..."
@@ -376,4 +393,4 @@ foreach ($tool in @("clang", "zig", "just", "cl")) {
     $ver = (Get-Command $tool -ErrorAction SilentlyContinue).Version
     if ($ver) { log-info "  ${tool}: $ver" }
 }
-log-info "NOTE: Zig uses the preferred x86_64-windows binary on ARM64 so contrib/zigw.sh matches CI parity expectations"
+log-info "NOTE: Zig uses the native aarch64-windows binary on ARM64 so contrib/zigw.sh matches the current CI/local 0.17 path"
