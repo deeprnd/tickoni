@@ -80,7 +80,6 @@ Quality attributes affected:
 - Module declarations (c_abi, util, logger, etc.) can be moved to separate files and imported
 - Each test binary must still compile as a standalone `std.Build.Step.Compile`
 - Coverage lane specs can be derived from unit lane specs with a different action enum
-- Zig 0.17 migration (v2.10-s2) may introduce new build system features that could affect the final design
 
 ## Considered Options
 
