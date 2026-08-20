@@ -55,6 +55,7 @@ pub fn registerIntegrationSpecs(
             .{ .name = "portfolio", .module = modules.portfolio },
             .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
             .{ .name = "model", .module = model_int_mod },
+            .{ .name = "thesis", .module = modules.thesis },
         },
     });
 
