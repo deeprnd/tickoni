@@ -197,7 +197,43 @@ pub const BuildRegistry = struct {
         optimize: std.builtin.OptimizeMode,
         lib_dir: []const u8,
     ) Domain {
-        _ = self; // c_builder strategy doesn't use registry state
+        _ = self;
+
+        // Collect platform-specific C sources
+        var platform_sources: [8][]const u8 = undefined;
+        var platform_count: usize = 0;
+        if (dc.platform_shims) |shims| {
+            const os_key = switch (target.result.os.tag) {
+                .linux => "linux",
+                .macos => "macos",
+                .windows => "windows",
+                else => "",
+            };
+            for (shims) |shim| {
+                if (std.mem.eql(u8, shim.platform, os_key)) {
+                    for (shim.files) |f| {
+                        if (platform_count < platform_sources.len) {
+                            platform_sources[platform_count] = f;
+                            platform_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Allocate combined source list
+        var all_c_sources = b.allocator.alloc([]const u8, dc.c_sources.len + platform_count) catch
+            @panic("OOM allocating C sources");
+        var idx: usize = 0;
+        for (dc.c_sources) |s| {
+            all_c_sources[idx] = s;
+            idx += 1;
+        }
+        for (0..platform_count) |i| {
+            all_c_sources[idx] = platform_sources[i];
+            idx += 1;
+        }
+
         const mod = b.createModule(.{
             .target = target,
             .optimize = optimize,
@@ -205,7 +241,7 @@ pub const BuildRegistry = struct {
         });
         mod.addIncludePath(b.path("src"));
         mod.addCSourceFiles(.{
-            .files = dc.c_sources,
+            .files = all_c_sources,
             .flags = dc.c_flags,
         });
 
@@ -215,12 +251,8 @@ pub const BuildRegistry = struct {
         });
 
         archive.root_module.addLibraryPath(b.path(lib_dir));
-        for (dc.object_deps) |od| {
-            // For .a files, add as library path + link via -l flag
-            // rather than addObjectFile (which treats .a as single object)
-            archive.root_module.addLibraryPath(b.path(lib_dir));
-            archive.root_module.linkLibCFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, od.path }) });
-        }
+
+        b.allocator.free(all_c_sources);
 
         return .{
             .name = dc.name,

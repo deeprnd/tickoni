@@ -74,6 +74,13 @@ pub const DomainConfig = struct {
     dependencies: []const []const u8 = &.{},
     root_source: ?[]const u8 = null,
     c_flags: []const []const u8 = &.{},
+    platform_shims: ?[]const PlatformShim = null,
+};
+
+/// A single platform shim entry.
+pub const PlatformShim = struct {
+    platform: []const u8,
+    files: []const []const u8,
 };
 
 /// All domain configs from JSON. Paths are relative to lib_dir.
@@ -98,6 +105,7 @@ pub const domain_configs: []const DomainConfig = &.{
             "-U__LZCNT__",
             "-DFD_HAS_HOSTED=1",
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "flamenco",
@@ -123,6 +131,7 @@ pub const domain_configs: []const DomainConfig = &.{
             "-U__LZCNT__",
             "-DFD_HAS_HOSTED=1",
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "disco",
@@ -147,6 +156,18 @@ pub const domain_configs: []const DomainConfig = &.{
             "-U__LZCNT__",
             "-DFD_HAS_HOSTED=1",
         },
+        .platform_shims = &.{
+            .{ .platform = "linux", .files = &.{
+                "src/tickoni/c_abi/shim/topo_run_platform_linux.c",
+            } },
+            .{ .platform = "macos", .files = &.{
+                "src/tickoni/c_abi/shim/topo_run_platform_macos.c",
+            } },
+            .{ .platform = "windows", .files = &.{
+                "src/tickoni/c_abi/shim/topo_run_platform_windows.c",
+                "src/tickoni/c_abi/shim/windows_crt.c",
+            } },
+        },
     },
     DomainConfig{
         .name = "c_abi",
@@ -161,6 +182,7 @@ pub const domain_configs: []const DomainConfig = &.{
         .root_source = "src/tickoni/c_abi/c_abi.zig",
         .c_flags = &.{
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "util",
@@ -175,6 +197,7 @@ pub const domain_configs: []const DomainConfig = &.{
         .root_source = "src/tickoni/util/util.zig",
         .c_flags = &.{
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "audit",
@@ -192,6 +215,7 @@ pub const domain_configs: []const DomainConfig = &.{
         .root_source = "src/tickoni/tiles/audit/mod.zig",
         .c_flags = &.{
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "policy",
@@ -209,6 +233,7 @@ pub const domain_configs: []const DomainConfig = &.{
         .root_source = "src/tickoni/tiles/policy/mod.zig",
         .c_flags = &.{
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "model",
@@ -226,6 +251,7 @@ pub const domain_configs: []const DomainConfig = &.{
         .root_source = "src/tickoni/tiles/model/mod.zig",
         .c_flags = &.{
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "adapter",
@@ -244,6 +270,7 @@ pub const domain_configs: []const DomainConfig = &.{
         .root_source = "src/tickoni/tiles/adapter/mod.zig",
         .c_flags = &.{
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "case",
@@ -261,6 +288,7 @@ pub const domain_configs: []const DomainConfig = &.{
         .root_source = "src/tickoni/tiles/case/mod.zig",
         .c_flags = &.{
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "disp",
@@ -278,6 +306,7 @@ pub const domain_configs: []const DomainConfig = &.{
         .root_source = "src/tickoni/tiles/disp/mod.zig",
         .c_flags = &.{
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "agent",
@@ -295,6 +324,7 @@ pub const domain_configs: []const DomainConfig = &.{
         .root_source = "src/tickoni/tiles/agent/mod.zig",
         .c_flags = &.{
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "tool",
@@ -312,6 +342,7 @@ pub const domain_configs: []const DomainConfig = &.{
         .root_source = "src/tickoni/tiles/tool/mod.zig",
         .c_flags = &.{
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "replay",
@@ -329,6 +360,7 @@ pub const domain_configs: []const DomainConfig = &.{
         .root_source = "src/tickoni/tiles/replay/mod.zig",
         .c_flags = &.{
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "payment",
@@ -347,6 +379,7 @@ pub const domain_configs: []const DomainConfig = &.{
         .root_source = "src/tickoni/tiles/payment_pipeline/mod.zig",
         .c_flags = &.{
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "adapter_messages",
@@ -361,6 +394,7 @@ pub const domain_configs: []const DomainConfig = &.{
         .root_source = "src/tickoni/tiles/adapter/messages.zig",
         .c_flags = &.{
         },
+        .platform_shims = null,
     },
     DomainConfig{
         .name = "thesis",
@@ -375,6 +409,7 @@ pub const domain_configs: []const DomainConfig = &.{
         .root_source = "src/tickoni/schema/consumer_money/thesis.zig",
         .c_flags = &.{
         },
+        .platform_shims = null,
     },
 };
 

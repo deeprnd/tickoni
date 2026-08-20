@@ -139,24 +139,28 @@ pub fn build(b: *std.Build) void {
         }
     } else {
         // Linux: link shim C files and Firedancer archives via BuildRegistry domains
-        // BuildRegistry domains (ballet, flamenco, disco) already compile and link
-        // the shim C files + Firedancer archives. We only need to add the
-        // platform-specific shim and link the archives.
+        // BuildRegistry domains (ballet, flamenco, disco) compile shim C files only.
+        // Firedancer .a archives are linked at exe level for symbol resolution.
+        // Domain archives provide tk_* symbols; Firedancer .a provides fd_* symbols.
 
-        // Link Firedancer archives from BuildRegistry domains
+        // Domain archives (shim C compiled into .a)
         // Order matters: linker resolves symbols left-to-right.
-        // disco needs ballet+flamenco symbols (fd_topo_*, fd_pod_query), so it goes first.
         if (disco_domain.archive) |arch| {
             exe.root_module.addObjectFile(arch.getEmittedBin());
         }
-        // ballet -> libtickoni_ballet.a -> links libfd_ballet.a + libfd_util.a
         if (ballet_domain.archive) |arch| {
             exe.root_module.addObjectFile(arch.getEmittedBin());
         }
-        // flamenco -> libtickoni_flamenco.a -> links libfd_tango.a + libfd_util.a
         if (flamenco_domain.archive) |arch| {
             exe.root_module.addObjectFile(arch.getEmittedBin());
         }
+
+        // Firedancer .a archives (fd_* symbols)
+        // Must be linked after domain archives for symbol resolution
+        exe.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, "libfd_tango.a" }) });
+        exe.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, "libfd_util.a" }) });
+        exe.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, "libfd_ballet.a" }) });
+        exe.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, "libfd_disco.a" }) });
     }
 
     b.installArtifact(exe);

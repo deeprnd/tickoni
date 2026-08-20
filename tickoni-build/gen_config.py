@@ -21,6 +21,20 @@ def strip_lib_dir_prefix(path, lib_dir_prefix="build/fd-tickoni-fd/lib/"):
     # If path doesn't match expected prefix, just return the basename
     return Path(path).name
 
+def generate_platform_shims_zig(platform_shims):
+    """Build platform_shims Zig struct array (without trailing comma)."""
+    if not platform_shims:
+        return "        .platform_shims = null"
+    
+    result = "        .platform_shims = &.{\n"
+    for platform, files in platform_shims.items():
+        result += "            .{ .platform = \"" + platform + "\", .files = &.{\n"
+        for shim in files:
+            result += "                \"" + shim + "\",\n"
+        result += "            } },\n"
+    result += "        }"
+    return result
+
 def generate():
     script_dir = Path(__file__).parent
     config_path = script_dir / "build_config.json"
@@ -68,14 +82,14 @@ def generate():
             dep_path = strip_lib_dir_prefix(dep["path"])
             cleaned_deps.append(dep_path)
         
-        lines.append(f'    SystemLib{{')
-        lines.append(f'        .name = \"{name}\",')
-        lines.append(f'        .object_deps = &.{{')
+        lines.append('    SystemLib{')
+        lines.append('        .name = "' + name + '",')
+        lines.append('        .object_deps = &.{')
         for dep_path in cleaned_deps:
-            lines.append(f'            .{{ .path = \"{dep_path}\" }},')
-        lines.append(f'        }},')
-        lines.append(f'        .needs_libcpp = {str(needs_libcpp).lower()},')
-        lines.append(f'    }},')
+            lines.append('            .{ .path = "' + dep_path + '" },')
+        lines.append('        },')
+        lines.append('        .needs_libcpp = ' + str(needs_libcpp).lower() + ',')
+        lines.append('    },')
     lines.append('};')
     lines.append('')
     lines.append('/// All domain configs from JSON. Paths are relative to lib_dir.')
@@ -88,6 +102,7 @@ def generate():
     lines.append('    dependencies: []const []const u8 = &.{},')
     lines.append('    root_source: ?[]const u8 = null,')
     lines.append('    c_flags: []const []const u8 = &.{},')
+    lines.append('    platform_shims: ?std.StringArrayHashMapUnmanaged([]const []const u8) = null,')
     lines.append('};')
     lines.append('')
     lines.append('/// All domain configs from JSON. Paths are relative to lib_dir.')
@@ -102,48 +117,53 @@ def generate():
         dependencies = domain.get("dependencies", [])
         root_source = domain.get("root_source", None)
         c_flags = domain.get("c_flags", [])
-        
+        platform_shims = domain.get("platform_shims", {})
+
         # Strip lib_dir prefix from paths - keep only filename
         cleaned_deps = []
         for dep in deps:
             dep_path = strip_lib_dir_prefix(dep["path"])
             cleaned_deps.append(dep_path)
-        
-        lines.append(f'    DomainConfig{{')
-        lines.append(f'        .name = "{name}",')
-        lines.append(f'        .strategy = "{strategy}",')
-        
+
+        platform_shims_str = generate_platform_shims_zig(platform_shims)
+
+        lines.append('    DomainConfig{')
+        lines.append('        .name = "' + name + '",')
+        lines.append('        .strategy = "' + strategy + '",')
+
         if archive_name:
-            lines.append(f'        .archive_name = "{archive_name}",')
+            lines.append('        .archive_name = "' + archive_name + '",')
         else:
-            lines.append(f'        .archive_name = null,')
-        
-        lines.append(f'        .c_sources = &.{{')
+            lines.append('        .archive_name = null,')
+
+        lines.append('        .c_sources = &.{')
         for src in c_sources:
-            lines.append(f'            "{src}",')
-        lines.append(f'        }},')
-        
-        lines.append(f'        .object_deps = &.{{')
+            lines.append('            "' + src + '",')
+        lines.append('        },')
+
+        lines.append('        .object_deps = &.{')
         for dep_path in cleaned_deps:
-            lines.append(f'            .{{ .path = "{dep_path}" }},')
-        lines.append(f'        }},')
-        
-        lines.append(f'        .dependencies = &.{{')
+            lines.append('            .{ .path = "' + dep_path + '" },')
+        lines.append('        },')
+
+        lines.append('        .dependencies = &.{')
         for dep in dependencies:
-            lines.append(f'            "{dep}",')
-        lines.append(f'        }},')
-        
+            lines.append('            "' + dep + '",')
+        lines.append('        },')
+
         if root_source:
-            lines.append(f'        .root_source = "{root_source}",')
+            lines.append('        .root_source = "' + root_source + '",')
         else:
-            lines.append(f'        .root_source = null,')
-        
-        lines.append(f'        .c_flags = &.{{')
+            lines.append('        .root_source = null,')
+
+        lines.append('        .c_flags = &.{')
         for flag in c_flags:
-            lines.append(f'            "{flag}",')
-        lines.append(f'        }},')
-        
-        lines.append(f'    }},')
+            lines.append('            "' + flag + '",')
+        lines.append('        },')
+
+        lines.append(platform_shims_str + ',')
+
+        lines.append('    },')
     
     lines.append('};')
     lines.append('')
@@ -171,7 +191,7 @@ def generate():
     with open(output_path, "w") as f:
         f.write("\n".join(lines))
     
-    print(f"Generated {output_path}")
+    print("Generated " + str(output_path))
 
 if __name__ == "__main__":
     generate()

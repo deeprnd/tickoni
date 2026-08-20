@@ -56,11 +56,11 @@ pub fn build(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
     });
 
     // Link object file dependencies (pre-built .a archives)
-    archive.root_module.addLibraryPath(b.path(config.lib_dir));
-    for (config.object_deps) |dep| {
-        const full_path = b.fmt("{s}/{s}", .{ config.lib_dir, dep.path });
-        archive.root_module.addObjectFile(.{ .cwd_relative = full_path });
-    }
+    // NOTE: addObjectFile on a Library step doesn't resolve symbols.
+    // We store the paths here and link them at the exe level instead.
+    // The domain archives are self-contained; exe resolves Firedancer symbols.
+    _ = config.lib_dir;
+    _ = config.object_deps;
 
     b.allocator.free(all_c_sources);
 

@@ -69,6 +69,18 @@
         "-U__LZCNT__",
         "-DFD_HAS_HOSTED=1"
       ],
+      "platform_shims": {
+        "linux": [
+          "src/tickoni/c_abi/shim/topo_run_platform_linux.c"
+        ],
+        "macos": [
+          "src/tickoni/c_abi/shim/topo_run_platform_macos.c"
+        ],
+        "windows": [
+          "src/tickoni/c_abi/shim/topo_run_platform_windows.c",
+          "src/tickoni/c_abi/shim/windows_crt.c"
+        ]
+      },
       "dependencies": [
         "ballet",
         "flamenco"
