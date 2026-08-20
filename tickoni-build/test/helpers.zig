@@ -85,9 +85,29 @@ pub fn setupTestBuild(
 }
 
 /// Link Firedancer library dependencies to a test step.
-/// Uses BuildRegistry domains instead of deleted lib/codec.zig.
+/// Links C shim archives (ballet, flamenco, disco) and Firedancer .a files.
 pub fn linkTestDeps(step: *std.Build.Step.Compile) void {
     step.root_module.link_libcpp = true;
+}
+
+/// Link Firedancer library dependencies to a test step.
+/// Links C shim archives (ballet, flamenco, disco) and Firedancer .a files.
+pub fn linkTestDepsFull(step: *std.Build.Step.Compile, lib_dir: []const u8) void {
+    step.root_module.link_libcpp = true;
+    const b = step.step.build_root orelse @panic("missing build root");
+    step.root_module.addLibraryPath(b.path(lib_dir));
+
+    // Link C shim archives (shim C compiled into .a)
+    // Order matters: linker resolves symbols left-to-right.
+    step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, "libtickoni_disco.a" }) });
+    step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, "libtickoni_ballet.a" }) });
+    step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, "libtickoni_flamenco.a" }) });
+
+    // Link Firedancer .a archives (fd_* symbols)
+    step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, "libfd_tango.a" }) });
+    step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, "libfd_util.a" }) });
+    step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, "libfd_ballet.a" }) });
+    step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, "libfd_disco.a" }) });
 }
 
 /// Link a system library group (from config) to a test step.
@@ -109,14 +129,14 @@ pub fn linkTestSystemLibs(step: *std.Build.Step.Compile, grp: config.SystemLib) 
 }
 
 /// Create a run step that executes a test binary.
-/// Returns the run step for dependency chaining.
+/// Links C shim archives and Firedancer .a files to the test binary.
 pub fn addPlainTestRun(
     b: *std.Build,
     parent_step: *std.Build.Step,
     test_bin: *std.Build.Step.Compile,
-    _lib_dir: []const u8,
+    lib_dir: []const u8,
 ) *std.Build.Step.Run {
-    _ = _lib_dir;
+    linkTestDepsFull(test_bin, lib_dir);
     const run = b.addRunArtifact(test_bin);
     parent_step.dependOn(&run.step);
     return run;

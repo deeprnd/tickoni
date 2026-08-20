@@ -51,6 +51,7 @@ pub fn registerSystemSpecs(
             .{ .name = "model", .module = model_int_mod },
             .{ .name = "portfolio", .module = modules.portfolio },
             .{ .name = "basket", .module = modules.basket },
+            .{ .name = "thesis", .module = modules.thesis },
         },
     });
 
