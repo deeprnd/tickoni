@@ -134,7 +134,8 @@
         "c_abi",
         "util",
         "ballet",
-        "flamenco"
+        "flamenco",
+        "adapter_messages"
       ]
     },
     {
@@ -535,7 +536,22 @@
     {
       "name": "test_investment_demo_live",
       "source": "src/tickoni/test/system/test_investment_demo_live.zig",
-      "type": "zig_module"
+      "type": "zig_module",
+      "dependencies": [
+        "adapter",
+        "basket",
+        "cards",
+        "drift",
+        "impact",
+        "investment_support",
+        "model",
+        "portfolio",
+        "replay",
+        "thesis",
+        "tkpoly",
+        "tool",
+        "trade_ticket"
+      ]
     },
     {
       "name": "test_portfolio_cash_demo",
@@ -545,17 +561,47 @@
     {
       "name": "test_investment_support",
       "source": "src/tickoni/test/demo/investment/support.zig",
-      "type": "zig_module"
+      "type": "zig_module",
+      "dependencies": [
+        "thesis",
+        "basket",
+        "trade_ticket"
+      ]
     },
     {
       "name": "test_investment_mod",
       "source": "src/tickoni/test/demo/investment/mod.zig",
-      "type": "zig_module"
+      "type": "zig_module",
+      "dependencies": [
+        "adapter",
+        "basket",
+        "cards",
+        "drift",
+        "impact",
+        "investment_support",
+        "model",
+        "portfolio",
+        "replay",
+        "thesis",
+        "tkpoly",
+        "tool",
+        "trade_ticket"
+      ]
     },
     {
       "name": "test_investment_audit_trace",
       "source": "src/tickoni/test/demo/investment/audit_trace.zig",
-      "type": "zig_module"
+      "type": "zig_module",
+      "dependencies": [
+        "audit_tile",
+        "basket",
+        "drift",
+        "model",
+        "portfolio",
+        "replay",
+        "thesis",
+        "trade_ticket"
+      ]
     }
   ]
 }

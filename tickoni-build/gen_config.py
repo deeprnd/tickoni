@@ -35,6 +35,10 @@ def generate_platform_shims_zig(platform_shims):
     result += "        }"
     return result
 
+def generate_platform_shim_type():
+    """Return the Zig type for platform_shims."""
+    return '[]const PlatformShim'
+
 def generate():
     script_dir = Path(__file__).parent
     config_path = script_dir / "build_config.json"
@@ -90,6 +94,12 @@ def generate():
         lines.append('        },')
         lines.append('        .needs_libcpp = ' + str(needs_libcpp).lower() + ',')
         lines.append('    },')
+    lines.append('};')
+    lines.append('')
+    lines.append('/// A single platform shim entry.')
+    lines.append('pub const PlatformShim = struct {')
+    lines.append('    platform: []const u8,')
+    lines.append('    files: []const []const u8,')
     lines.append('};')
     lines.append('')
     lines.append('/// All domain configs from JSON. Paths are relative to lib_dir.')

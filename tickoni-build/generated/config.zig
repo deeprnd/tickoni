@@ -64,6 +64,12 @@ pub const system_libs: []const SystemLib = &.{
     },
 };
 
+/// A single platform shim entry.
+pub const PlatformShim = struct {
+    platform: []const u8,
+    files: []const []const u8,
+};
+
 /// All domain configs from JSON. Paths are relative to lib_dir.
 pub const DomainConfig = struct {
     name: []const u8,
@@ -74,13 +80,7 @@ pub const DomainConfig = struct {
     dependencies: []const []const u8 = &.{},
     root_source: ?[]const u8 = null,
     c_flags: []const []const u8 = &.{},
-    platform_shims: ?[]const PlatformShim = null,
-};
-
-/// A single platform shim entry.
-pub const PlatformShim = struct {
-    platform: []const u8,
-    files: []const []const u8,
+    platform_shims: ?std.StringArrayHashMapUnmanaged([]const []const u8) = null,
 };
 
 /// All domain configs from JSON. Paths are relative to lib_dir.
@@ -266,6 +266,7 @@ pub const domain_configs: []const DomainConfig = &.{
             "util",
             "ballet",
             "flamenco",
+            "adapter_messages",
         },
         .root_source = "src/tickoni/tiles/adapter/mod.zig",
         .c_flags = &.{
