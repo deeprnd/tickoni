@@ -13,6 +13,7 @@ pub fn registerUnitSpecs(
     optimize: std.builtin.OptimizeMode,
     step: *std.Build.Step,
     lib_dir: []const u8,
+    shim_archives: []const *std.Build.Step.Compile,
 ) void {
     const c_abi_mod = modules.c_abi;
     const util_mod = modules.util;
@@ -59,7 +60,7 @@ pub fn registerUnitSpecs(
         },
     });
     const version_test = b.addTest(.{ .root_module = version_test_mod });
-    _ = helpers.addPlainTestRun(b, step, version_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, version_test, lib_dir, shim_archives);
 
     // Doctor tests
     const doctor_checks_test_mod = b.createModule(.{
@@ -68,7 +69,7 @@ pub fn registerUnitSpecs(
         .optimize = optimize,
     });
     const doctor_checks_test = b.addTest(.{ .root_module = doctor_checks_test_mod });
-    _ = helpers.addPlainTestRun(b, step, doctor_checks_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, doctor_checks_test, lib_dir, shim_archives);
 
     const doctor_output_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/doctor/output.zig"),
@@ -80,7 +81,7 @@ pub fn registerUnitSpecs(
         },
     });
     const doctor_output_test = b.addTest(.{ .root_module = doctor_output_test_mod });
-    _ = helpers.addPlainTestRun(b, step, doctor_output_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, doctor_output_test, lib_dir, shim_archives);
 
     // Demo tests
     const demo_manifest_test_mod = b.createModule(.{
@@ -89,7 +90,7 @@ pub fn registerUnitSpecs(
         .optimize = optimize,
     });
     const demo_manifest_test = b.addTest(.{ .root_module = demo_manifest_test_mod });
-    _ = helpers.addPlainTestRun(b, step, demo_manifest_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, demo_manifest_test, lib_dir, shim_archives);
 
     const demo_preflight_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/demo/preflight.zig"),
@@ -102,11 +103,11 @@ pub fn registerUnitSpecs(
         },
     });
     const demo_preflight_test = b.addTest(.{ .root_module = demo_preflight_test_mod });
-    _ = helpers.addPlainTestRun(b, step, demo_preflight_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, demo_preflight_test, lib_dir, shim_archives);
 
     // Demo diagnostic test - demo_diagnostic_mod is already a module ref from modules
     const demo_diagnostic_test = b.addTest(.{ .root_module = demo_diagnostic_mod });
-    _ = helpers.addPlainTestRun(b, step, demo_diagnostic_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, demo_diagnostic_test, lib_dir, shim_archives);
 
     const demo_conformance_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/demo/conformance.zig"),
@@ -117,7 +118,7 @@ pub fn registerUnitSpecs(
         },
     });
     const demo_conformance_test = b.addTest(.{ .root_module = demo_conformance_test_mod });
-    _ = helpers.addPlainTestRun(b, step, demo_conformance_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, demo_conformance_test, lib_dir, shim_archives);
 
     const demo_comparator_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/demo/comparator.zig"),
@@ -128,7 +129,7 @@ pub fn registerUnitSpecs(
         },
     });
     const demo_comparator_test = b.addTest(.{ .root_module = demo_comparator_test_mod });
-    _ = helpers.addPlainTestRun(b, step, demo_comparator_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, demo_comparator_test, lib_dir, shim_archives);
 
     const demo_runner_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/demo/runner.zig"),
@@ -140,7 +141,7 @@ pub fn registerUnitSpecs(
         },
     });
     const demo_runner_test = b.addTest(.{ .root_module = demo_runner_test_mod });
-    _ = helpers.addPlainTestRun(b, step, demo_runner_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, demo_runner_test, lib_dir, shim_archives);
 
     const demo_substitution_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/demo/substitution.zig"),
@@ -152,7 +153,7 @@ pub fn registerUnitSpecs(
         },
     });
     const demo_substitution_test = b.addTest(.{ .root_module = demo_substitution_test_mod });
-    _ = helpers.addPlainTestRun(b, step, demo_substitution_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, demo_substitution_test, lib_dir, shim_archives);
 
     // Thesis and catalog tests
     const thesis_codec_test_mod = b.createModule(.{
@@ -165,7 +166,7 @@ pub fn registerUnitSpecs(
         },
     });
     const thesis_codec_test = b.addTest(.{ .root_module = thesis_codec_test_mod });
-    _ = helpers.addPlainTestRun(b, step, thesis_codec_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, thesis_codec_test, lib_dir, shim_archives);
 
     const thesis_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/schema/consumer_money/thesis.zig"),
@@ -177,7 +178,7 @@ pub fn registerUnitSpecs(
         },
     });
     const thesis_test = b.addTest(.{ .root_module = thesis_test_mod });
-    _ = helpers.addPlainTestRun(b, step, thesis_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, thesis_test, lib_dir, shim_archives);
 
     const catalog_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/schema/consumer_money/catalog.zig"),
@@ -190,7 +191,7 @@ pub fn registerUnitSpecs(
         },
     });
     const catalog_test = b.addTest(.{ .root_module = catalog_test_mod });
-    _ = helpers.addPlainTestRun(b, step, catalog_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, catalog_test, lib_dir, shim_archives);
 
     const catalog_schema_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/schema/consumer_money/catalog_schema.zig"),
@@ -201,7 +202,7 @@ pub fn registerUnitSpecs(
         },
     });
     const catalog_schema_test = b.addTest(.{ .root_module = catalog_schema_test_mod });
-    _ = helpers.addPlainTestRun(b, step, catalog_schema_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, catalog_schema_test, lib_dir, shim_archives);
 
     const basket_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/schema/consumer_money/basket.zig"),
@@ -214,7 +215,7 @@ pub fn registerUnitSpecs(
         },
     });
     const basket_test = b.addTest(.{ .root_module = basket_test_mod });
-    _ = helpers.addPlainTestRun(b, step, basket_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, basket_test, lib_dir, shim_archives);
 
     const portfolio_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/schema/portfolio/portfolio.zig"),
@@ -225,7 +226,7 @@ pub fn registerUnitSpecs(
         },
     });
     const portfolio_test = b.addTest(.{ .root_module = portfolio_test_mod });
-    _ = helpers.addPlainTestRun(b, step, portfolio_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, portfolio_test, lib_dir, shim_archives);
 
     const fixture_portfolio_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/test/fixtures/portfolio/fixture_portfolio.zig"),
@@ -237,14 +238,14 @@ pub fn registerUnitSpecs(
         },
     });
     const fixture_portfolio_test = b.addTest(.{ .root_module = fixture_portfolio_test_mod });
-    _ = helpers.addPlainTestRun(b, step, fixture_portfolio_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, fixture_portfolio_test, lib_dir, shim_archives);
 
     // Mock model test
     const model_messages_test = b.addTest(.{ .root_module = model_messages_mod });
-    _ = helpers.addPlainTestRun(b, step, model_messages_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, model_messages_test, lib_dir, shim_archives);
 
     const mock_model_test = b.addTest(.{ .root_module = mock_model_mod });
-    _ = helpers.addPlainTestRun(b, step, mock_model_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, mock_model_test, lib_dir, shim_archives);
 
     // Remove: link tests (src/tickoni/test/unit/ dir doesn't exist)
     // Remove: boot test (src/tickoni/test/unit/test_boot.zig doesn't exist)
@@ -263,7 +264,7 @@ pub fn registerUnitSpecs(
         },
     });
     const cnc_counters_test = b.addTest(.{ .root_module = cnc_counters_test_mod });
-    _ = helpers.addPlainTestRun(b, step, cnc_counters_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, cnc_counters_test, lib_dir, shim_archives);
 
     const cpu_placement_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/runtime/cpu_placement.zig"),
@@ -274,7 +275,7 @@ pub fn registerUnitSpecs(
         },
     });
     const cpu_placement_test = b.addTest(.{ .root_module = cpu_placement_test_mod });
-    _ = helpers.addPlainTestRun(b, step, cpu_placement_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, cpu_placement_test, lib_dir, shim_archives);
 
     // Trade ticket tests
     const trade_ticket_test_mod = b.createModule(.{
@@ -289,7 +290,7 @@ pub fn registerUnitSpecs(
         },
     });
     const trade_ticket_test = b.addTest(.{ .root_module = trade_ticket_test_mod });
-    _ = helpers.addPlainTestRun(b, step, trade_ticket_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, trade_ticket_test, lib_dir, shim_archives);
 
     const impact_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/schema/consumer_money/impact.zig"),
@@ -301,7 +302,7 @@ pub fn registerUnitSpecs(
         },
     });
     const impact_test = b.addTest(.{ .root_module = impact_test_mod });
-    _ = helpers.addPlainTestRun(b, step, impact_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, impact_test, lib_dir, shim_archives);
 
     const cards_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/schema/consumer_money/cards.zig"),
@@ -313,7 +314,7 @@ pub fn registerUnitSpecs(
         },
     });
     const cards_test = b.addTest(.{ .root_module = cards_test_mod });
-    _ = helpers.addPlainTestRun(b, step, cards_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, cards_test, lib_dir, shim_archives);
 
     const drift_test_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/schema/consumer_money/drift.zig"),
@@ -326,7 +327,7 @@ pub fn registerUnitSpecs(
         },
     });
     const drift_test = b.addTest(.{ .root_module = drift_test_mod });
-    _ = helpers.addPlainTestRun(b, step, drift_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, drift_test, lib_dir, shim_archives);
 
     // Remove: allowed/denied trade fixture tests (files don't exist)
 
@@ -351,7 +352,7 @@ pub fn registerUnitSpecs(
         },
     });
     const policy_test = b.addTest(.{ .root_module = policy_test_mod });
-    _ = helpers.addPlainTestRun(b, step, policy_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, policy_test, lib_dir, shim_archives);
 
     // Disp test (independent tile)
     const disp_test_mod = b.createModule(.{
@@ -366,7 +367,7 @@ pub fn registerUnitSpecs(
         },
     });
     const disp_test = b.addTest(.{ .root_module = disp_test_mod });
-    _ = helpers.addPlainTestRun(b, step, disp_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, disp_test, lib_dir, shim_archives);
 
     // Model test (independent tile)
     const model_test_mod = b.createModule(.{
@@ -383,7 +384,7 @@ pub fn registerUnitSpecs(
         },
     });
     const model_test = b.addTest(.{ .root_module = model_test_mod });
-    _ = helpers.addPlainTestRun(b, step, model_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, model_test, lib_dir, shim_archives);
 
     // Adapter test (depends on model_test_mod — model/backend.zig uses c_abi.ballet)
     const adapter_test_mod = b.createModule(.{
@@ -398,10 +399,10 @@ pub fn registerUnitSpecs(
         },
     });
     const adapter_test = b.addTest(.{ .root_module = adapter_test_mod });
-    _ = helpers.addPlainTestRun(b, step, adapter_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, adapter_test, lib_dir, shim_archives);
 
     const mock_adapter_test = b.addTest(.{ .root_module = mock_adapter_mod });
-    _ = helpers.addPlainTestRun(b, step, mock_adapter_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, mock_adapter_test, lib_dir, shim_archives);
 
     // Tool test (depends on adapter_test_mod)
     const tool_test_mod = b.createModule(.{
@@ -420,7 +421,7 @@ pub fn registerUnitSpecs(
         },
     });
     const tool_test = b.addTest(.{ .root_module = tool_test_mod });
-    _ = helpers.addPlainTestRun(b, step, tool_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, tool_test, lib_dir, shim_archives);
 
     // Case test (independent tile, no cross-tile imports)
     const case_test_mod = b.createModule(.{
@@ -435,7 +436,7 @@ pub fn registerUnitSpecs(
         },
     });
     const case_test = b.addTest(.{ .root_module = case_test_mod });
-    _ = helpers.addPlainTestRun(b, step, case_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, case_test, lib_dir, shim_archives);
 
     // Agent test (depends on adapter_test_mod, disp_test_mod, model_test_mod, policy_test_mod, tool_test_mod)
     const agent_test_mod = b.createModule(.{
@@ -460,7 +461,7 @@ pub fn registerUnitSpecs(
         },
     });
     const agent_test = b.addTest(.{ .root_module = agent_test_mod });
-    _ = helpers.addPlainTestRun(b, step, agent_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, agent_test, lib_dir, shim_archives);
 
     // Audit test (independent tile, no cross-tile imports)
     const audit_test_mod = b.createModule(.{
@@ -476,7 +477,7 @@ pub fn registerUnitSpecs(
         },
     });
     const audit_test = b.addTest(.{ .root_module = audit_test_mod });
-    _ = helpers.addPlainTestRun(b, step, audit_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, audit_test, lib_dir, shim_archives);
 
     // Remove: ingest/normalize/dedup tiles (mod.zig doesn't exist)
 
@@ -500,5 +501,5 @@ pub fn registerUnitSpecs(
         },
     });
     const replay_test = b.addTest(.{ .root_module = replay_test_mod });
-    _ = helpers.addPlainTestRun(b, step, replay_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, step, replay_test, lib_dir, shim_archives);
 }

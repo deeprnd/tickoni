@@ -181,13 +181,25 @@ pub fn build(b: *std.Build) void {
         const test_step = b.step("test", "Run all Tickoni tests");
 
         // Unit tests
-        unit_specs.registerUnitSpecs(b, m, target, optimize, test_step, lib_dir);
+        unit_specs.registerUnitSpecs(b, m, target, optimize, test_step, lib_dir, &.{
+            ballet_domain.archive orelse @panic("ballet archive missing"),
+            flamenco_domain.archive orelse @panic("flamenco archive missing"),
+            disco_domain.archive orelse @panic("disco archive missing"),
+        });
 
         // Integration tests
-        integration_specs.registerIntegrationSpecs(b, m, tm, target, optimize, test_step, lib_dir);
+        integration_specs.registerIntegrationSpecs(b, m, tm, target, optimize, test_step, lib_dir, &.{
+            ballet_domain.archive orelse @panic("ballet archive missing"),
+            flamenco_domain.archive orelse @panic("flamenco archive missing"),
+            disco_domain.archive orelse @panic("disco archive missing"),
+        });
 
         // System tests
-        system_specs.registerSystemSpecs(b, m, tm, target, optimize, test_step, lib_dir);
+        system_specs.registerSystemSpecs(b, m, tm, target, optimize, test_step, lib_dir, &.{
+            ballet_domain.archive orelse @panic("ballet archive missing"),
+            flamenco_domain.archive orelse @panic("flamenco archive missing"),
+            disco_domain.archive orelse @panic("disco archive missing"),
+        });
 
         // Coverage tests
         const cov_step = b.step("cov", "Install test binaries for kcov coverage");

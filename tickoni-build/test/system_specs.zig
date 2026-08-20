@@ -16,21 +16,12 @@ pub fn registerSystemSpecs(
     optimize: std.builtin.OptimizeMode,
     system_step: *std.Build.Step,
     lib_dir: []const u8,
+    shim_archives: []const *std.Build.Step.Compile,
 ) void {
     _ = _test_modules;
 
     // System-level modules (investment_demo, investment_support)
-    const adapter_int_mod = b.createModule(.{
-        .root_source_file = b.path("src/tickoni/tiles/adapter/mod.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "mock_adapter", .module = modules.mock_adapter },
-            .{ .name = "basket", .module = modules.basket },
-            .{ .name = "portfolio", .module = modules.portfolio },
-        },
-    });
-
+    // model_int_mod must be declared before adapter_int_mod
     const model_int_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/tiles/model/mod.zig"),
         .target = target,
@@ -39,6 +30,20 @@ pub fn registerSystemSpecs(
             .{ .name = "mock_model", .module = modules.mock_model },
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "portfolio", .module = modules.portfolio },
+        },
+    });
+
+    const adapter_int_mod = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/tiles/adapter/mod.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "adapter_messages", .module = modules.adapter_messages },
+            .{ .name = "mock_adapter", .module = modules.mock_adapter },
+            .{ .name = "basket", .module = modules.basket },
+            .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "model", .module = model_int_mod },
+            .{ .name = "thesis", .module = modules.thesis },
         },
     });
 
@@ -75,7 +80,7 @@ pub fn registerSystemSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, system_step, system_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, system_step, system_test, lib_dir, shim_archives);
 
     // System Test 2: test_portfolio_cash_demo
     const portfolio_cash_demo_test = b.addTest(.{
@@ -89,5 +94,5 @@ pub fn registerSystemSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, system_step, portfolio_cash_demo_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, system_step, portfolio_cash_demo_test, lib_dir, shim_archives);
 }

@@ -24,6 +24,7 @@ pub fn registerIntegrationSpecs(
     optimize: std.builtin.OptimizeMode,
     integration_step: *std.Build.Step,
     lib_dir: []const u8,
+    shim_archives: []const *std.Build.Step.Compile,
 ) void {
 
     // Create test-integration modules that are specific to integration tests.
@@ -43,6 +44,45 @@ pub fn registerIntegrationSpecs(
         },
     });
 
+    // TKpolicy integration module (test) - must come before replay_int_mod
+    const tkpoly_int_mod = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/tiles/policy/mod.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "capability", .module = modules.capability },
+            .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "basket", .module = modules.basket },
+        },
+    });
+
+    // Replay integration module (test) - must come before investment_demo_mod
+    const replay_int_mod = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/tiles/replay/mod.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "adapter", .module = adapter_int_mod },
+            .{ .name = "basket", .module = modules.basket },
+            .{ .name = "model", .module = model_int_mod },
+            .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "tkpoly", .module = tkpoly_int_mod },
+            .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
+        },
+    });
+
+    // Tool integration module (test)
+    const tool_int_mod = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/tiles/tool/mod.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "adapter", .module = adapter_int_mod },
+            .{ .name = "basket", .module = modules.basket },
+            .{ .name = "portfolio", .module = modules.portfolio },
+        },
+    });
+
     // Adapter integration module (test)
     const adapter_int_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/tiles/adapter/mod.zig"),
@@ -53,6 +93,7 @@ pub fn registerIntegrationSpecs(
             .{ .name = "mock_adapter", .module = test_modules.mock_adapter },
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "fixture_portfolio", .module = modules.fixture_portfolio },
             .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
             .{ .name = "model", .module = model_int_mod },
             .{ .name = "thesis", .module = modules.thesis },
@@ -80,51 +121,24 @@ pub fn registerIntegrationSpecs(
         .optimize = optimize,
         .imports = &.{
             .{ .name = "investment_support", .module = investment_support_int_mod },
+            .{ .name = "adapter", .module = adapter_int_mod },
+            .{ .name = "basket", .module = modules.basket },
+            .{ .name = "cards", .module = modules.cards },
+            .{ .name = "drift", .module = modules.drift },
+            .{ .name = "impact", .module = modules.impact },
+            .{ .name = "model", .module = model_int_mod },
+            .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "replay", .module = replay_int_mod },
+            .{ .name = "thesis", .module = modules.thesis },
+            .{ .name = "tkpoly", .module = tkpoly_int_mod },
+            .{ .name = "tool", .module = tool_int_mod },
+            .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
         },
     });
 
     // Investment audit integration module (test)
     const investment_audit_int_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/test/demo/investment/audit_trace.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "adapter", .module = adapter_int_mod },
-            .{ .name = "basket", .module = modules.basket },
-            .{ .name = "portfolio", .module = modules.portfolio },
-        },
-    });
-
-    // TKpolicy integration module (test) - must come before replay_int_mod
-    const tkpoly_int_mod = b.createModule(.{
-        .root_source_file = b.path("src/tickoni/tiles/policy/mod.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "capability", .module = modules.capability },
-            .{ .name = "portfolio", .module = modules.portfolio },
-            .{ .name = "basket", .module = modules.basket },
-        },
-    });
-
-    // Replay integration module (test)
-    const replay_int_mod = b.createModule(.{
-        .root_source_file = b.path("src/tickoni/tiles/replay/mod.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "adapter", .module = adapter_int_mod },
-            .{ .name = "basket", .module = modules.basket },
-            .{ .name = "model", .module = model_int_mod },
-            .{ .name = "portfolio", .module = modules.portfolio },
-            .{ .name = "tkpoly", .module = tkpoly_int_mod },
-            .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
-        },
-    });
-
-    // Tool integration module (test)
-    const tool_int_mod = b.createModule(.{
-        .root_source_file = b.path("src/tickoni/tiles/tool/mod.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
@@ -263,7 +277,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, integration_step, link_bounds_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, integration_step, link_bounds_test, lib_dir, shim_archives);
 
     // Test 6: process_demo_parity_test
     const process_demo_parity_test = b.addTest(.{
@@ -280,7 +294,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, integration_step, process_demo_parity_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, integration_step, process_demo_parity_test, lib_dir, shim_archives);
 
     // Test 7: process_topology_test
     const process_topology_test = b.addTest(.{
@@ -297,7 +311,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, integration_step, process_topology_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, integration_step, process_topology_test, lib_dir, shim_archives);
 
     // Test 8: process_topology_linux_test
     const process_topology_linux_test = b.addTest(.{
@@ -314,7 +328,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, integration_step, process_topology_linux_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, integration_step, process_topology_linux_test, lib_dir, shim_archives);
 
     // Test 9: process_pipeline_test
     const process_pipeline_test = b.addTest(.{
@@ -331,7 +345,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, integration_step, process_pipeline_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, integration_step, process_pipeline_test, lib_dir, shim_archives);
 
     // Test 10: process_cpu_placement_test
     const process_cpu_placement_test = b.addTest(.{
@@ -348,7 +362,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, integration_step, process_cpu_placement_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, integration_step, process_cpu_placement_test, lib_dir, shim_archives);
 
     // Test 11: process_cpu_placement_linux_test
     const process_cpu_placement_linux_test = b.addTest(.{
@@ -365,7 +379,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    _ = helpers.addPlainTestRun(b, integration_step, process_cpu_placement_linux_test, lib_dir);
+    _ = helpers.addPlainTestRun(b, integration_step, process_cpu_placement_linux_test, lib_dir, shim_archives);
 
     // Test 12: test_investment_allowed_trade
     const test_investment_allowed_trade = b.addTest(.{
