@@ -56,18 +56,20 @@ pub fn registerIntegrationSpecs(
         },
     });
 
-    // Replay integration module (test) - must come before investment_demo_mod
-    const replay_int_mod = b.createModule(.{
-        .root_source_file = b.path("src/tickoni/tiles/replay/mod.zig"),
+    // Adapter integration module (test) — must come before replay/tool/integration modules
+    const adapter_int_mod = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/tiles/adapter/mod.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "adapter", .module = adapter_int_mod },
+            .{ .name = "adapter_messages", .module = test_modules.adapter_messages },
+            .{ .name = "mock_adapter", .module = test_modules.mock_adapter },
             .{ .name = "basket", .module = modules.basket },
-            .{ .name = "model", .module = model_int_mod },
             .{ .name = "portfolio", .module = modules.portfolio },
-            .{ .name = "tkpoly", .module = tkpoly_int_mod },
+            .{ .name = "fixture_portfolio", .module = modules.fixture_portfolio },
             .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
+            .{ .name = "model", .module = model_int_mod },
+            .{ .name = "thesis", .module = modules.thesis },
         },
     });
 
@@ -83,20 +85,18 @@ pub fn registerIntegrationSpecs(
         },
     });
 
-    // Adapter integration module (test)
-    const adapter_int_mod = b.createModule(.{
-        .root_source_file = b.path("src/tickoni/tiles/adapter/mod.zig"),
+    // Replay integration module (test) - must come before investment_demo_mod
+    const replay_int_mod = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/tiles/replay/mod.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "adapter_messages", .module = test_modules.adapter_messages },
-            .{ .name = "mock_adapter", .module = test_modules.mock_adapter },
+            .{ .name = "adapter", .module = adapter_int_mod },
             .{ .name = "basket", .module = modules.basket },
-            .{ .name = "portfolio", .module = modules.portfolio },
-            .{ .name = "fixture_portfolio", .module = modules.fixture_portfolio },
-            .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
             .{ .name = "model", .module = model_int_mod },
-            .{ .name = "thesis", .module = modules.thesis },
+            .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "tkpoly", .module = tkpoly_int_mod },
+            .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
         },
     });
 

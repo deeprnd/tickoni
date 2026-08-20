@@ -80,7 +80,7 @@ pub const DomainConfig = struct {
     dependencies: []const []const u8 = &.{},
     root_source: ?[]const u8 = null,
     c_flags: []const []const u8 = &.{},
-    platform_shims: ?std.StringArrayHashMapUnmanaged([]const []const u8) = null,
+    platform_shims: ?[]const PlatformShim = null,
 };
 
 /// All domain configs from JSON. Paths are relative to lib_dir.

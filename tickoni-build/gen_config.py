@@ -112,7 +112,7 @@ def generate():
     lines.append('    dependencies: []const []const u8 = &.{},')
     lines.append('    root_source: ?[]const u8 = null,')
     lines.append('    c_flags: []const []const u8 = &.{},')
-    lines.append('    platform_shims: ?std.StringArrayHashMapUnmanaged([]const []const u8) = null,')
+    lines.append('    platform_shims: ?[]const PlatformShim = null,')
     lines.append('};')
     lines.append('')
     lines.append('/// All domain configs from JSON. Paths are relative to lib_dir.')
