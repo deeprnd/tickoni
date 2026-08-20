@@ -290,6 +290,8 @@ pub fn registerIntegrationSpecs(
             .optimize = optimize,
             .imports = &.{
                 .{ .name = "runtime", .module = modules.runtime },
+                .{ .name = "supervisor", .module = modules.supervisor },
+                .{ .name = "topologies", .module = modules.topologies_named },
                 .{ .name = "c_abi", .module = modules.c_abi },
                 .{ .name = "util", .module = modules.util },
             },
