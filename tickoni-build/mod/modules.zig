@@ -539,6 +539,7 @@ pub fn testTileModules(b: *std.Build, target: std.Build.ResolvedTarget, optimize
             .{ .name = "basket", .module = mod.basket },
             .{ .name = "portfolio", .module = mod.portfolio },
             .{ .name = "fixture_portfolio", .module = mod.fixture_portfolio },
+            .{ .name = "thesis", .module = mod.thesis },
             .{ .name = "trade_ticket", .module = mod.trade_ticket },
         },
     });
@@ -561,6 +562,7 @@ pub fn testTileModules(b: *std.Build, target: std.Build.ResolvedTarget, optimize
         .optimize = optimize,
         .imports = &.{
             .{ .name = "adapter", .module = adapter_int },
+            .{ .name = "adapter_messages", .module = mod.adapter_messages },
             .{ .name = "mock_adapter", .module = mod.mock_adapter },
             .{ .name = "basket", .module = mod.basket },
             .{ .name = "disp", .module = disp_int },

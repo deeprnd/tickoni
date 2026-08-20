@@ -392,6 +392,9 @@ pub fn registerUnitSpecs(
         .target = target,
         .optimize = optimize,
         .imports = &.{
+            .{ .name = "adapter_messages", .module = modules.adapter_messages },
+            .{ .name = "basket", .module = basket_mod },
+            .{ .name = "fixture_portfolio", .module = fixture_portfolio_mod },
             .{ .name = "model", .module = model_test_mod },
             .{ .name = "trade_ticket", .module = trade_ticket_mod },
             .{ .name = "portfolio", .module = portfolio_mod },
@@ -445,6 +448,7 @@ pub fn registerUnitSpecs(
         .optimize = optimize,
         .imports = &.{
             .{ .name = "adapter", .module = adapter_test_mod },
+            .{ .name = "adapter_messages", .module = modules.adapter_messages },
             .{ .name = "basket", .module = basket_mod },
             .{ .name = "capability", .module = modules.capability },
             .{ .name = "disp", .module = disp_test_mod },

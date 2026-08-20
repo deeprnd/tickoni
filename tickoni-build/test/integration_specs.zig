@@ -53,6 +53,7 @@ pub fn registerIntegrationSpecs(
             .{ .name = "capability", .module = modules.capability },
             .{ .name = "portfolio", .module = modules.portfolio },
             .{ .name = "basket", .module = modules.basket },
+            .{ .name = "thesis", .module = modules.thesis },
         },
     });
 

@@ -10,6 +10,7 @@ const portfolio = @import("portfolio");
 const tkpoly = @import("tkpoly");
 const tool = @import("tool");
 const trade_ticket = @import("trade_ticket");
+const adapter_messages = @import("adapter_messages");
 
 const investment_model_id = "fixture.ai_infra";
 const investment_actor_role = capability.investment_actor_role;
