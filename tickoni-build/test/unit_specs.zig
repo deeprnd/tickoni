@@ -414,6 +414,7 @@ pub fn registerUnitSpecs(
         .optimize = optimize,
         .imports = &.{
             .{ .name = "adapter", .module = adapter_test_mod },
+            .{ .name = "adapter_messages", .module = modules.adapter_messages },
             .{ .name = "basket", .module = basket_mod },
             .{ .name = "demo_manifest", .module = demo_manifest_test_mod },
             .{ .name = "fixture_portfolio", .module = fixture_portfolio_mod },
