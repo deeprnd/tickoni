@@ -1,7 +1,6 @@
 /// Helper functions for building and linking Tickoni test binaries.
 ///
-/// Contains: compileTickoniTest(), linkTestDeps(), linkTestSystemLibs(),
-/// setupTestBuild(), setupTickoniTest().
+/// Contains: compileTickoniTest(), linkTestDeps(), addPlainTestRun().
 /// Archive names come from config.zig, not hardcoded in Zig code.
 
 const std = @import("std");
