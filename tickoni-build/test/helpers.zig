@@ -133,13 +133,34 @@ pub fn linkTestSystemLibs(step: *std.Build.Step.Compile, grp: config.SystemLib) 
 
 /// Create a run step that executes a test binary.
 /// Links C shim archives and Firedancer .a files to the test binary.
+///
+/// shim_archives: *std.Build.Step.Compile objects whose getEmittedBin()
+/// provides LazyPaths for the domain archives (ballet, flamenco, disco).
+/// If empty slice, no shim archives are linked.
 pub fn addPlainTestRun(
     b: *std.Build,
     parent_step: *std.Build.Step,
     test_bin: *std.Build.Step.Compile,
     lib_dir: []const u8,
+    shim_archives: []const *std.Build.Step.Compile,
 ) *std.Build.Step.Run {
-    linkTestDepsFull(b, test_bin, lib_dir);
+    // Link C shim archives — getEmittedBin() creates build deps for compilation
+    for (shim_archives) |arch| {
+        test_bin.root_module.addObjectFile(arch.getEmittedBin());
+    }
+
+    // Link Firedancer pre-built .a archives (these exist on disk)
+    const fd_archives: [4][]const u8 = .{
+        "libfd_tango.a",
+        "libfd_util.a",
+        "libfd_ballet.a",
+        "libfd_disco.a",
+    };
+    for (fd_archives) |fd_lib| {
+        test_bin.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, fd_lib }) });
+    }
+    test_bin.root_module.link_libcpp = true;
+
     const run = b.addRunArtifact(test_bin);
     parent_step.dependOn(&run.step);
     return run;
