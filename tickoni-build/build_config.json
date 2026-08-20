@@ -10,10 +10,10 @@
       ],
       "object_deps": [
         {
-          "path": "build/fd-tickoni-fd/lib/libfd_ballet.a"
+          "path": "libfd_ballet.a"
         },
         {
-          "path": "build/fd-tickoni-fd/lib/libfd_util.a"
+          "path": "libfd_util.a"
         }
       ],
       "c_flags": [
@@ -36,10 +36,10 @@
       ],
       "object_deps": [
         {
-          "path": "build/fd-tickoni-fd/lib/libfd_tango.a"
+          "path": "libfd_tango.a"
         },
         {
-          "path": "build/fd-tickoni-fd/lib/libfd_util.a"
+          "path": "libfd_util.a"
         }
       ],
       "c_flags": [
@@ -60,7 +60,7 @@
       ],
       "object_deps": [
         {
-          "path": "build/fd-tickoni-fd/lib/libfd_disco.a"
+          "path": "libfd_disco.a"
         }
       ],
       "c_flags": [
@@ -68,6 +68,10 @@
         "-U__BMI2__",
         "-U__LZCNT__",
         "-DFD_HAS_HOSTED=1"
+      ],
+      "dependencies": [
+        "ballet",
+        "flamenco"
       ]
     },
     {
@@ -181,6 +185,16 @@
         "ballet",
         "flamenco"
       ]
+    },
+    {
+      "name": "adapter_messages",
+      "strategy": "zig_module",
+      "root_source": "src/tickoni/tiles/adapter/messages.zig"
+    },
+    {
+      "name": "thesis",
+      "strategy": "zig_module",
+      "root_source": "src/tickoni/schema/consumer_money/thesis.zig"
     }
   ],
   "system_libs": [

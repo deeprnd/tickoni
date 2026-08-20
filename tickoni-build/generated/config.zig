@@ -137,6 +137,8 @@ pub const domain_configs: []const DomainConfig = &.{
             .{ .path = "libfd_disco.a" },
         },
         .dependencies = &.{
+            "ballet",
+            "flamenco",
         },
         .root_source = null,
         .c_flags = &.{
@@ -343,6 +345,34 @@ pub const domain_configs: []const DomainConfig = &.{
             "flamenco",
         },
         .root_source = "src/tickoni/tiles/payment_pipeline/mod.zig",
+        .c_flags = &.{
+        },
+    },
+    DomainConfig{
+        .name = "adapter_messages",
+        .strategy = "zig_module",
+        .archive_name = null,
+        .c_sources = &.{
+        },
+        .object_deps = &.{
+        },
+        .dependencies = &.{
+        },
+        .root_source = "src/tickoni/tiles/adapter/messages.zig",
+        .c_flags = &.{
+        },
+    },
+    DomainConfig{
+        .name = "thesis",
+        .strategy = "zig_module",
+        .archive_name = null,
+        .c_sources = &.{
+        },
+        .object_deps = &.{
+        },
+        .dependencies = &.{
+        },
+        .root_source = "src/tickoni/schema/consumer_money/thesis.zig",
         .c_flags = &.{
         },
     },
