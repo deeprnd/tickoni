@@ -6,15 +6,16 @@
 ///   - `init()`: Build all domains from config via strategy dispatch
 ///   - `get(name)`: Return Domain by name
 ///   - `dependentDomains(name)`: Transitive dependency graph
+///   - `allArchivePaths(name)`: All transitive .a archive paths
 ///
 /// The registry owns the allocator for domain names. Users must call
 /// `deinit()` when done.
 
 const std = @import("std");
-const base = @import("strategy/base.zig");
-const c_builder = @import("strategy/c_builder.zig");
-const zig_mod = @import("strategy/zig_module.zig");
-const composite = @import("strategy/composite.zig");
+const base = @import("./strategy/base.zig");
+const c_builder = @import("./strategy/c_builder.zig");
+const zig_mod = @import("./strategy/zig_module.zig");
+const composite = @import("./strategy/composite.zig");
 const config = @import("../generated/config.zig");
 const Domain = @import("domain.zig").Domain;
 
@@ -113,6 +114,35 @@ pub const BuildRegistry = struct {
         }
     }
 
+    /// Get all transitive archive names for a domain (including itself).
+    /// Only c_builder domains produce archives.
+    pub fn allArchiveNames(
+        self: *const BuildRegistry,
+        name: []const u8,
+        seen: *std.StringHashMap(void),
+        result: *std.ArrayList([]const u8),
+    ) !void {
+        if (seen.get(name)) |_| return;
+        seen.putAssumeCapacity(name, {});
+
+        // Get the domain
+        if (self.get(name)) |domain| {
+            if (domain.archive != null) {
+                // Extract archive name from the archive step
+                const archive_name = domain.archive.?.name;
+                result.append(self.allocator.dupe(u8, archive_name) catch @panic("OOM")) catch
+                    @panic("OOM");
+            }
+        }
+
+        // Recurse into direct dependencies
+        if (self.deps.get(name)) |direct_deps| {
+            for (direct_deps) |dep| {
+                try self.allArchiveNames(dep, seen, result);
+            }
+        }
+    }
+
     fn buildDomain(
         self: *BuildRegistry,
         dc: config.DomainConfig,
@@ -153,20 +183,24 @@ pub const BuildRegistry = struct {
         return switch (std.meta.stringToEnum(base.Strategy, dc.strategy) orelse {
             std.debug.panic("Unknown strategy: {s}", .{dc.strategy});
         }) {
-            .c_builder => self.buildCBuilder(dc, b, lib_dir),
+            .c_builder => self.buildCBuilder(dc, b, target, optimize, lib_dir),
             .zig_module => self.buildZigModule(dc, b, target, optimize),
             .composite => self.buildComposite(dc, b, target, optimize),
         };
     }
 
     fn buildCBuilder(
+        self: *BuildRegistry,
         dc: config.DomainConfig,
         b: *std.Build,
+        target: std.Build.ResolvedTarget,
+        optimize: std.builtin.OptimizeMode,
         lib_dir: []const u8,
     ) Domain {
+        _ = self; // c_builder strategy doesn't use registry state
         const mod = b.createModule(.{
-            .target = b.standardTargetOptions(.{}).result,
-            .optimize = b.standardOptimizeOption(.{}),
+            .target = target,
+            .optimize = optimize,
             .link_libc = true,
         });
         mod.addIncludePath(b.path("src"));
@@ -182,9 +216,10 @@ pub const BuildRegistry = struct {
 
         archive.root_module.addLibraryPath(b.path(lib_dir));
         for (dc.object_deps) |od| {
-            archive.root_module.addObjectFile(.{
-                .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, od.path }),
-            });
+            // For .a files, add as library path + link via -l flag
+            // rather than addObjectFile (which treats .a as single object)
+            archive.root_module.addLibraryPath(b.path(lib_dir));
+            archive.root_module.linkLibCFile(.{ .cwd_relative = b.fmt("{s}/{s}", .{ lib_dir, od.path }) });
         }
 
         return .{

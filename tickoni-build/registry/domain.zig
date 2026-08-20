@@ -7,7 +7,7 @@
 ///   - strategy: how it was built (c_builder, zig_module, composite)
 
 const std = @import("std");
-const base = @import("../strategy/base.zig");
+const base = @import("./strategy/base.zig");
 
 /// A single domain result with its name, optional archive, module, and strategy.
 pub const Domain = struct {
