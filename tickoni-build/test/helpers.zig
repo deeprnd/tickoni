@@ -92,9 +92,12 @@ pub fn linkTestDeps(step: *std.Build.Step.Compile) void {
 
 /// Link Firedancer library dependencies to a test step.
 /// Links C shim archives (ballet, flamenco, disco) and Firedancer .a files.
-pub fn linkTestDepsFull(step: *std.Build.Step.Compile, lib_dir: []const u8) void {
+pub fn linkTestDepsFull(
+    b: *std.Build,
+    step: *std.Build.Step.Compile,
+    lib_dir: []const u8,
+) void {
     step.root_module.link_libcpp = true;
-    const b = step.step.build_root orelse @panic("missing build root");
     step.root_module.addLibraryPath(b.path(lib_dir));
 
     // Link C shim archives (shim C compiled into .a)
@@ -136,7 +139,7 @@ pub fn addPlainTestRun(
     test_bin: *std.Build.Step.Compile,
     lib_dir: []const u8,
 ) *std.Build.Step.Run {
-    linkTestDepsFull(test_bin, lib_dir);
+    linkTestDepsFull(b, test_bin, lib_dir);
     const run = b.addRunArtifact(test_bin);
     parent_step.dependOn(&run.step);
     return run;
