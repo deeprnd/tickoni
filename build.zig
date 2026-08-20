@@ -9,22 +9,15 @@
 /// Install coverage test binaries:
 ///   zig build cov
 ///
-/// Compressed to ~80 lines via the BuildRegistry.
+/// Compressed to ~30 lines via the BuildRegistry.
 const std = @import("std");
-const lib = @import("tickoni-build/lib.zig");
 const mod = @import("tickoni-build/mod.zig");
 const unit_specs = @import("tickoni-build/test/unit_specs.zig");
 const integration_specs = @import("tickoni-build/test/integration_specs.zig");
 const system_specs = @import("tickoni-build/test/system_specs.zig");
 const cov_specs = @import("tickoni-build/test/cov_specs.zig");
 const reg = @import("tickoni-build/test/registry.zig");
-
-/// Create a module with imports, used by test spec helpers.
-fn makeModule(b: *std.Build, root: []const u8, imports: []const std.Build.Module.Import, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module {
-    const m = b.createModule(.{ .root_source_file = b.path(root), .target = target, .optimize = optimize });
-    if (imports.len > 0) m.addImports(imports);
-    return m;
-}
+const Registry = @import("tickoni-build/registry/registry.zig");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -33,7 +26,17 @@ pub fn build(b: *std.Build) void {
         if (b.option([]const u8, "fd-lib-dir", "Firedancer library dir (required — see justfile build-tk)")) |val| break :blk val;
         std.debug.panic("fd-lib-dir is required. Run via 'just build-tk' or 'zig build -Dfd-lib-dir=<path>'.", .{});
     };
-    // Get all modules in one call
+
+    // Build all domains from JSON config via BuildRegistry
+    var registry = Registry.BuildRegistry.init(b.allocator, b, target, optimize, lib_dir);
+    defer registry.deinit();
+
+    // Get BuildRegistry domains for linking
+    const ballet_domain = registry.get("ballet") orelse @panic("ballet domain not found");
+    const flamenco_domain = registry.get("flamenco") orelse @panic("flamenco domain not found");
+    const disco_domain = registry.get("disco") orelse @panic("disco domain not found");
+
+    // Get all modules from mod.zig (legacy Zig module system)
     const all = mod.allModules(b, target, optimize, lib_dir);
     const m = all.modules;
     const tm = all.test_modules;
@@ -63,16 +66,99 @@ pub fn build(b: *std.Build) void {
     });
 
     const exe = b.addExecutable(.{ .name = "tickoni-supervisor", .root_module = main_mod });
+
+    // Link domain archives via BuildRegistry
+    exe.root_module.link_libc = true;
+    exe.root_module.addLibraryPath(b.path(lib_dir));
+
+    // On Linux: link shim C files and Firedancer archives
     if (target.result.os.tag == .windows) {
-        exe.root_module.linkLibrary(lib.firedancer_shims.addTickoniSupervisorShimLibrary(b, target, optimize));
-        lib.firedancer_shims.addWindowsFdManifestFixups(b, exe, b.fmt("{s}/fd_windows_zig_supervisor_link.txt", .{lib_dir}));
+        // Windows: compile shim libraries and link
+        const shim_mod = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        });
+        shim_mod.addIncludePath(b.path("src"));
+        shim_mod.addCSourceFiles(.{
+            .files = &.{
+                "src/tickoni/c_abi/shim/tango.c",
+                "src/tickoni/c_abi/shim/wksp.c",
+                "src/tickoni/c_abi/shim/sandbox.c",
+                "src/tickoni/c_abi/shim/os.c",
+                "src/tickoni/c_abi/shim/util.c",
+                "src/tickoni/c_abi/shim/topo_run.c",
+                "src/tickoni/c_abi/shim/topob.c",
+                "src/tickoni/c_abi/shim/tile_run.c",
+            },
+            .flags = &.{
+                "-std=c17",
+                "-U__BMI2__",
+                "-U__LZCNT__",
+                "-DFD_HAS_HOSTED=1",
+                "-DFD_HAS_WINDOWS=1",
+                "-D_CRT_SECURE_NO_WARNINGS",
+                "-DFD_IO_STYLE=1",
+                "-DFD_LOG_STYLE=1",
+                "-DFD_HAS_THREADS=1",
+                "-DFD_HAS_ATOMIC=1",
+                "-DFD_HAS_X86=1",
+                "-DFD_HAS_SSE=1",
+                "-DFD_HAS_AVX=1",
+                "-DFD_HAS_AVX2=1",
+                "-DFD_HAS_AESNI=1",
+                "-DFD_IS_X86_64=1",
+                "-DFD_HAS_INT128=0",
+                "-DFD_HAS_DOUBLE=1",
+                "-DFD_HAS_ALLOCA=1",
+                "-Wno-format",
+                "-Wno-format-extra-args",
+            },
+        });
+        exe.root_module.linkLibrary(b.addLibrary(.{
+            .name = "tickoni_supervisor_shim",
+            .linkage = .static,
+            .root_module = shim_mod,
+        }));
+
+        // Read Windows manifest fixups
+        var io_threaded = std.Io.Threaded.init_single_threaded;
+        const io = io_threaded.io();
+        const manifest = std.Io.Dir.cwd().readFileAlloc(
+            io,
+            b.fmt("{s}/fd_windows_zig_supervisor_link.txt", .{lib_dir}),
+            b.allocator,
+            .limited(1024 * 1024),
+        ) catch @panic("missing Windows FD Zig link manifest");
+        defer b.allocator.free(manifest);
+        var lines = std.mem.splitScalar(u8, manifest, '\n');
+        while (lines.next()) |line| {
+            const trimmed = std.mem.trim(u8, line, " \t\r");
+            if (trimmed.len == 0) continue;
+            exe.root_module.addObjectFile(.{ .cwd_relative = trimmed });
+        }
     } else {
-        lib.codec.addTickoniCodecShim(b, exe);
-        lib.firedancer_shims.addTickoniFiredancerShims(b, exe);
-        lib.topo_run.linkTickoniTopoRun(b, exe, lib_dir);
-        lib.tile_run.linkTickoniTileRun(b, exe, lib_dir);
+        // Linux: link shim C files and Firedancer archives via BuildRegistry domains
+        // BuildRegistry domains (ballet, flamenco, disco) already compile and link
+        // the shim C files + Firedancer archives. We only need to add the
+        // platform-specific shim and link the archives.
+
+        // Link Firedancer archives from BuildRegistry domains
+        // Order matters: linker resolves symbols left-to-right.
+        // disco needs ballet+flamenco symbols (fd_topo_*, fd_pod_query), so it goes first.
+        if (disco_domain.archive) |arch| {
+            exe.root_module.addObjectFile(arch.getEmittedBin());
+        }
+        // ballet -> libtickoni_ballet.a -> links libfd_ballet.a + libfd_util.a
+        if (ballet_domain.archive) |arch| {
+            exe.root_module.addObjectFile(arch.getEmittedBin());
+        }
+        // flamenco -> libtickoni_flamenco.a -> links libfd_tango.a + libfd_util.a
+        if (flamenco_domain.archive) |arch| {
+            exe.root_module.addObjectFile(arch.getEmittedBin());
+        }
     }
-    lib.firedancer_shims.linkTickoniFiredancer(b, exe, lib_dir);
+
     b.installArtifact(exe);
 
     const run_exe = b.addRunArtifact(exe);
