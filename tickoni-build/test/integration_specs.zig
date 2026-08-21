@@ -38,6 +38,7 @@ pub fn registerIntegrationSpecs(
         .imports = &.{
             .{ .name = "model_messages", .module = test_modules.model_messages },
             .{ .name = "mock_model", .module = test_modules.mock_model },
+            .{ .name = "c_abi", .module = modules.c_abi },
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "portfolio", .module = modules.portfolio },
             .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
@@ -54,6 +55,7 @@ pub fn registerIntegrationSpecs(
             .{ .name = "portfolio", .module = modules.portfolio },
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "thesis", .module = modules.thesis },
+            .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
         },
     });
 
@@ -83,6 +85,7 @@ pub fn registerIntegrationSpecs(
             .{ .name = "adapter", .module = adapter_int_mod },
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
         },
     });
 
@@ -178,6 +181,8 @@ pub fn registerIntegrationSpecs(
         .optimize = optimize,
         .imports = &.{
             .{ .name = "adapter", .module = adapter_int_mod },
+            .{ .name = "capability", .module = modules.capability },
+            .{ .name = "basket", .module = modules.basket },
             .{ .name = "model", .module = model_int_mod },
             .{ .name = "case", .module = case_int_mod },
             .{ .name = "disp", .module = disp_int_mod },
@@ -395,6 +400,7 @@ pub fn registerIntegrationSpecs(
                 .{ .name = "model", .module = model_int_mod },
                 .{ .name = "portfolio", .module = modules.portfolio },
                 .{ .name = "basket", .module = modules.basket },
+                .{ .name = "thesis", .module = modules.thesis },
             },
         }),
     });
@@ -413,6 +419,7 @@ pub fn registerIntegrationSpecs(
                 .{ .name = "model", .module = model_int_mod },
                 .{ .name = "portfolio", .module = modules.portfolio },
                 .{ .name = "basket", .module = modules.basket },
+                .{ .name = "thesis", .module = modules.thesis },
             },
         }),
     });
@@ -431,6 +438,7 @@ pub fn registerIntegrationSpecs(
                 .{ .name = "model", .module = model_int_mod },
                 .{ .name = "portfolio", .module = modules.portfolio },
                 .{ .name = "basket", .module = modules.basket },
+                .{ .name = "thesis", .module = modules.thesis },
                 .{ .name = "tkpoly", .module = tkpoly_int_mod },
             },
         }),
