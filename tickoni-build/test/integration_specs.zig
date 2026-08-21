@@ -152,6 +152,7 @@ pub fn registerIntegrationSpecs(
         .optimize = optimize,
         .imports = &.{
             .{ .name = "adapter", .module = adapter_int_mod },
+            .{ .name = "model", .module = model_int_mod },
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "portfolio", .module = modules.portfolio },
             .{ .name = "thesis", .module = modules.thesis },
@@ -481,6 +482,9 @@ pub fn registerIntegrationSpecs(
                 .{ .name = "basket", .module = modules.basket },
                 .{ .name = "thesis", .module = modules.thesis },
                 .{ .name = "tkpoly", .module = tkpoly_int_mod },
+                .{ .name = "tkcase", .module = case_int_mod },
+                .{ .name = "tkdisp", .module = disp_int_mod },
+                .{ .name = "tkagnt", .module = agent_int_mod },
                 .{ .name = "replay", .module = replay_int_mod },
                 .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
             },
