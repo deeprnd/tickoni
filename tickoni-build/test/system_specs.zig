@@ -28,8 +28,11 @@ pub fn registerSystemSpecs(
         .optimize = optimize,
         .imports = &.{
             .{ .name = "mock_model", .module = modules.mock_model },
+            .{ .name = "model_messages", .module = modules.model_messages },
+            .{ .name = "c_abi", .module = modules.c_abi },
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "trade_ticket", .module = modules.trade_ticket },
         },
     });
 
@@ -42,6 +45,7 @@ pub fn registerSystemSpecs(
             .{ .name = "mock_adapter", .module = modules.mock_adapter },
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "fixture_portfolio", .module = modules.fixture_portfolio },
             .{ .name = "model", .module = model_int_mod },
             .{ .name = "thesis", .module = modules.thesis },
         },
@@ -60,6 +64,19 @@ pub fn registerSystemSpecs(
         },
     });
 
+    // Reusable replay module for system tests (inline, since replay is not in Modules struct)
+    const replay_mod = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/tiles/replay/mod.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "adapter", .module = adapter_int_mod },
+            .{ .name = "basket", .module = modules.basket },
+            .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "trade_ticket", .module = modules.trade_ticket },
+        },
+    });
+
     const investment_demo_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/test/demo/investment/mod.zig"),
         .target = target,
@@ -73,6 +90,7 @@ pub fn registerSystemSpecs(
             .{ .name = "investment_support", .module = investment_support_int_mod },
             .{ .name = "model", .module = model_int_mod },
             .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "replay", .module = replay_mod },
             .{ .name = "thesis", .module = modules.thesis },
             .{ .name = "trade_ticket", .module = modules.trade_ticket },
         },
