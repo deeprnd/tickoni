@@ -65,7 +65,16 @@ pub fn registerSystemSpecs(
         .target = target,
         .optimize = optimize,
         .imports = &.{
+            .{ .name = "adapter", .module = adapter_int_mod },
+            .{ .name = "basket", .module = modules.basket },
+            .{ .name = "cards", .module = modules.cards },
+            .{ .name = "drift", .module = modules.drift },
+            .{ .name = "impact", .module = modules.impact },
             .{ .name = "investment_support", .module = investment_support_int_mod },
+            .{ .name = "model", .module = model_int_mod },
+            .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "thesis", .module = modules.thesis },
+            .{ .name = "trade_ticket", .module = modules.trade_ticket },
         },
     });
 

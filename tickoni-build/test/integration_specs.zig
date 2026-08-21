@@ -97,6 +97,8 @@ pub fn registerIntegrationSpecs(
         .imports = &.{
             .{ .name = "adapter", .module = adapter_int_mod },
             .{ .name = "basket", .module = modules.basket },
+            .{ .name = "c_abi", .module = modules.c_abi },
+            .{ .name = "drift", .module = modules.drift },
             .{ .name = "model", .module = model_int_mod },
             .{ .name = "portfolio", .module = modules.portfolio },
             .{ .name = "tkpoly", .module = tkpoly_int_mod },
@@ -401,6 +403,10 @@ pub fn registerIntegrationSpecs(
                 .{ .name = "portfolio", .module = modules.portfolio },
                 .{ .name = "basket", .module = modules.basket },
                 .{ .name = "thesis", .module = modules.thesis },
+                .{ .name = "tkpoly", .module = tkpoly_int_mod },
+                .{ .name = "tkcase", .module = case_int_mod },
+                .{ .name = "tkdisp", .module = disp_int_mod },
+                .{ .name = "tkagnt", .module = agent_int_mod },
             },
         }),
     });
@@ -420,6 +426,10 @@ pub fn registerIntegrationSpecs(
                 .{ .name = "portfolio", .module = modules.portfolio },
                 .{ .name = "basket", .module = modules.basket },
                 .{ .name = "thesis", .module = modules.thesis },
+                .{ .name = "tkpoly", .module = tkpoly_int_mod },
+                .{ .name = "tkcase", .module = case_int_mod },
+                .{ .name = "tkdisp", .module = disp_int_mod },
+                .{ .name = "tkagnt", .module = agent_int_mod },
             },
         }),
     });

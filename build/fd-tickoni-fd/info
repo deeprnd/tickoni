@@ -1,15 +1,14 @@
-# date     2026-08-19 19:40:16 +0300
+# date     2026-08-20 20:14:25 +0300
 # source   vicgenin@dev3:/home/vicgenin/work/git/tickoni
 # machine  tickoni_fd
 # extras   
-# branch.oid f967229824d668359102bd43cec0cd11b4579f6a
+# branch.oid 17f2425a9dbba0b988c4675d87cf55e47b3e4767
 # branch.head story/build-improvements
-1 .M N... 100644 100644 100644 8522626a5e7f1c64760c452fbc878f8ec1b95f59 8522626a5e7f1c64760c452fbc878f8ec1b95f59 build/fd-tickoni-fd/info
+1 .M N... 100644 100644 100644 9d54290bf62c32b3c088d64ce9e977b1f3d8e7fb 9d54290bf62c32b3c088d64ce9e977b1f3d8e7fb build/fd-tickoni-fd/info
 1 .D N... 100644 100644 000000 b47961fac9558e5d94d7b0b8dc54ceb981931bf7 b47961fac9558e5d94d7b0b8dc54ceb981931bf7 build/fd-tickoni-fd/lib/libfd_ballet.a
 1 .D N... 100644 100644 000000 844f97a1922eacf23e09c91bca757ffaea2b47bb 844f97a1922eacf23e09c91bca757ffaea2b47bb build/fd-tickoni-fd/lib/libfd_disco.a
 1 .D N... 100644 100644 000000 db01a53ff5fbbb4be3eef15492125f837c437b9b db01a53ff5fbbb4be3eef15492125f837c437b9b build/fd-tickoni-fd/lib/libfd_tango.a
-1 .D N... 100644 100644 000000 25699a57388a4bc2d0e20fad25864ab64dfcb960 25699a57388a4bc2d0e20fad25864ab64dfcb960 build/fd-tickoni-fd/lib/libfd_util.a
-1 .M N... 100644 100644 100644 766b56b690c674d50cf37b36b75692139515e078 766b56b690c674d50cf37b36b75692139515e078 build/fd-tickoni-fd/lib/libfd_waltz.a
+1 .D N... 100644 100644 000000 91249db8fcfaf775edc6b2c7c9314d639e517ae2 91249db8fcfaf775edc6b2c7c9314d639e517ae2 build/fd-tickoni-fd/lib/libfd_util.a
 1 .D N... 100644 100644 000000 f05697e064165f7e7dd5db141d6d8a03710aea0a f05697e064165f7e7dd5db141d6d8a03710aea0a build/fd-tickoni-fd/obj/ballet/aes/fd_aes_base_aesni.o
 1 .D N... 100644 100644 000000 90583f14cef047d47130b5f57880d1194d05d7e9 90583f14cef047d47130b5f57880d1194d05d7e9 build/fd-tickoni-fd/obj/ballet/aes/fd_aes_base_ref.d
 1 .D N... 100644 100644 000000 e3ad572875acc2cd7ef584b37fa0d2281abd4720 e3ad572875acc2cd7ef584b37fa0d2281abd4720 build/fd-tickoni-fd/obj/ballet/aes/fd_aes_base_ref.o
@@ -370,7 +369,7 @@
 1 .D N... 100644 100644 000000 97a7d02d0ef73246e630b6f476b220787cf76432 97a7d02d0ef73246e630b6f476b220787cf76432 build/fd-tickoni-fd/obj/util/archive/fd_ar.o
 1 .D N... 100644 100644 000000 4ca8e16b7da3057ea59592ffa9074592aaf7e6ab 4ca8e16b7da3057ea59592ffa9074592aaf7e6ab build/fd-tickoni-fd/obj/util/bits/fd_bits.d
 1 .D N... 100644 100644 000000 6a185cd0620193bcbad7c4f61a702aa512862950 6a185cd0620193bcbad7c4f61a702aa512862950 build/fd-tickoni-fd/obj/util/bits/fd_bits.o
-1 .M N... 100644 100644 100644 ee607e0efd7092cbcf49493670770a39a5bc3b8d ee607e0efd7092cbcf49493670770a39a5bc3b8d build/fd-tickoni-fd/obj/util/fd_version.o
+1 .M N... 100644 100644 100644 3d48ac491107b09991267d93d16a8fdccd3f73e0 3d48ac491107b09991267d93d16a8fdccd3f73e0 build/fd-tickoni-fd/obj/util/fd_version.o
 1 .D N... 100644 100644 000000 b707c6cd52c3a4a36eb2962823cc545ae5d09b7e b707c6cd52c3a4a36eb2962823cc545ae5d09b7e build/fd-tickoni-fd/obj/util/io_uring/fd_io_uring.d
 1 .D N... 100644 100644 000000 40f55e9f7db68c8fdad263bab93fcc1fee0c9808 40f55e9f7db68c8fdad263bab93fcc1fee0c9808 build/fd-tickoni-fd/obj/util/io_uring/fd_io_uring.o
 1 .D N... 100644 100644 000000 45b223f02b1d0844f5782495c7c0462a191ecede 45b223f02b1d0844f5782495c7c0462a191ecede build/fd-tickoni-fd/obj/util/io_uring/fd_io_uring_setup.d
@@ -378,7 +377,7 @@
 1 .D N... 100644 100644 000000 9b3032cf6d78090c6c855cddd4bb40a5edf7d30e 9b3032cf6d78090c6c855cddd4bb40a5edf7d30e build/fd-tickoni-fd/obj/util/log/fd_backtrace.d
 1 .D N... 100644 100644 000000 902206c675502b9629d155210afb8d9be2e7fd80 902206c675502b9629d155210afb8d9be2e7fd80 build/fd-tickoni-fd/obj/util/log/fd_backtrace.o
 1 .D N... 100644 100644 000000 8410c4a9a98911956b0642e16616a9502513a02f 8410c4a9a98911956b0642e16616a9502513a02f build/fd-tickoni-fd/obj/util/log/fd_log.d
-1 .D N... 100644 100644 000000 feddbbf36affd385c66b5468462c7541f7241b06 feddbbf36affd385c66b5468462c7541f7241b06 build/fd-tickoni-fd/obj/util/log/fd_log.o
+1 .D N... 100644 100644 000000 9317d3ef51876a4a8ebd069ee475dc18cabf8f31 9317d3ef51876a4a8ebd069ee475dc18cabf8f31 build/fd-tickoni-fd/obj/util/log/fd_log.o
 1 .D N... 100644 100644 000000 68954862a1d3a4452bf186606ca925db54a006c1 68954862a1d3a4452bf186606ca925db54a006c1 build/fd-tickoni-fd/obj/util/math/fd_stat.d
 1 .D N... 100644 100644 000000 b0b3fb4d8e3705ba9ac4b745f5a2bb8d9806e5ae b0b3fb4d8e3705ba9ac4b745f5a2bb8d9806e5ae build/fd-tickoni-fd/obj/util/math/fd_stat.o
 1 .D N... 100644 100644 000000 2efd468eee4a50b180ba2c2582790855f2da0b04 2efd468eee4a50b180ba2c2582790855f2da0b04 build/fd-tickoni-fd/obj/util/net/fd_eth.d
@@ -399,6 +398,8 @@
 1 .D N... 100644 100644 000000 165f13a599616e8860026cdf8426b9d8d6a81759 165f13a599616e8860026cdf8426b9d8d6a81759 build/fd-tickoni-fd/obj/util/racesan/fd_racesan_async.o
 1 .D N... 100644 100644 000000 9e2bf99454291bd6231036ffbfe8d026e68b24af 9e2bf99454291bd6231036ffbfe8d026e68b24af build/fd-tickoni-fd/obj/util/racesan/fd_racesan_weave.d
 1 .D N... 100644 100644 000000 cae9cbb5faf7ba259ca4b40b1a77f04714c6ef88 cae9cbb5faf7ba259ca4b40b1a77f04714c6ef88 build/fd-tickoni-fd/obj/util/racesan/fd_racesan_weave.o
+1 .D N... 100644 100644 000000 5ac68013e5a8e9bd8dc5b98f9e604b5d14299d31 5ac68013e5a8e9bd8dc5b98f9e604b5d14299d31 build/fd-tickoni-fd/obj/util/sandbox/fd_sandbox.d
+1 .D N... 100644 100644 000000 d57a6416316a1077ca53a9643226085cebd12ca0 d57a6416316a1077ca53a9643226085cebd12ca0 build/fd-tickoni-fd/obj/util/sandbox/fd_sandbox.o
 1 .D N... 100644 100644 000000 e0b0609b0964f4de2973045214765857799b8396 e0b0609b0964f4de2973045214765857799b8396 build/fd-tickoni-fd/obj/util/sanitize/fd_hfuzz_metrics_stubs.d
 1 .D N... 100644 100644 000000 e609f25bcdf1739a4dd4c452d0834ae2d7017dd1 e609f25bcdf1739a4dd4c452d0834ae2d7017dd1 build/fd-tickoni-fd/obj/util/sanitize/fd_hfuzz_metrics_stubs.o
 1 .D N... 100644 100644 000000 e44a0d8f8e0cb7251a586c52f710ca32605c592b e44a0d8f8e0cb7251a586c52f710ca32605c592b build/fd-tickoni-fd/obj/util/shmem/fd_numa_linux.d
@@ -407,47 +408,11 @@
 1 .D N... 100644 100644 000000 5f9b3d77dd09f7407ccbf787f63cbf7f017aac91 5f9b3d77dd09f7407ccbf787f63cbf7f017aac91 build/fd-tickoni-fd/obj/util/shmem/fd_shmem_admin.o
 1 .D N... 100644 100644 000000 2a70ecd0118cf4e4826fdde1f2ecb63e61aaacf6 2a70ecd0118cf4e4826fdde1f2ecb63e61aaacf6 build/fd-tickoni-fd/obj/util/shmem/fd_shmem_user.d
 1 .D N... 100644 100644 000000 dc75a0932b6886658fda3c9889d3f3ba9e83e54c dc75a0932b6886658fda3c9889d3f3ba9e83e54c build/fd-tickoni-fd/obj/util/shmem/fd_shmem_user.o
-1 .M N... 100644 100644 100644 36b8c9830729dd0b92848e8e99fb5dc3f124da0f 36b8c9830729dd0b92848e8e99fb5dc3f124da0f build/fd-tickoni-fd/obj/util/tile/fd_tile_threads_platform_macos.d
-1 .M N... 100644 100644 100644 287a1d025e3710a5454822a0c6c9b90ffb1d94b4 287a1d025e3710a5454822a0c6c9b90ffb1d94b4 build/fd-tickoni-fd/obj/util/tile/fd_tile_threads_platform_macos.o
-1 .D N... 100644 100644 000000 d832837daf1f1de8a26d0cdbf180f7d4d2a29de9 d832837daf1f1de8a26d0cdbf180f7d4d2a29de9 build/lib.zig
-1 .D N... 100644 100644 000000 b990cac6ad56c40f78fc7262ca877d66b682557f b990cac6ad56c40f78fc7262ca877d66b682557f build/lib/codec.zig
-1 .D N... 100644 100644 000000 8dc9820691fa4a791d563020a42786b7bc23f563 8dc9820691fa4a791d563020a42786b7bc23f563 build/lib/firedancer.zig
-1 .D N... 100644 100644 000000 23ce860e36762e83c8afdfd24cd042b772753287 23ce860e36762e83c8afdfd24cd042b772753287 build/lib/shims.zig
-1 .D N... 100644 100644 000000 eb1b4b2b0858e7901dc537ae4dbe5d5054240ccf eb1b4b2b0858e7901dc537ae4dbe5d5054240ccf build/lib/tile_run.zig
-1 .D N... 100644 100644 000000 e26ad0cbfe36debeddc007d1079051fdfa218a6b e26ad0cbfe36debeddc007d1079051fdfa218a6b build/lib/topo_run.zig
-1 .D N... 100644 100644 000000 f2a3fb1a2aed3ab8852830ddb631c55efe48218a f2a3fb1a2aed3ab8852830ddb631c55efe48218a build/mod.zig
-1 .D N... 100644 100644 000000 d01eb1e75f698def34b72690b05a1f5573f4863d d01eb1e75f698def34b72690b05a1f5573f4863d build/mod/modules.zig
-1 .D N... 100644 100644 000000 9320d7fdd667c90341850bbc37186e0bf17251e1 9320d7fdd667c90341850bbc37186e0bf17251e1 build/mod/test_modules.zig
-1 .D N... 100644 100644 000000 49fd7c75d54c3600faab8a84638bfc480b9837d5 49fd7c75d54c3600faab8a84638bfc480b9837d5 build/test/cov_specs.zig
-1 .D N... 100644 100644 000000 3be636608116216c7ab6f300682225f52838496a 3be636608116216c7ab6f300682225f52838496a build/test/helpers.zig
-1 .D N... 100644 100644 000000 585f84f65b544769dcef6133d49fcf7bb639a862 585f84f65b544769dcef6133d49fcf7bb639a862 build/test/integration_specs.zig
-1 .D N... 100644 100644 000000 a622bff66eea930cc7be086b5e9404287196e0ac a622bff66eea930cc7be086b5e9404287196e0ac build/test/registry.zig
-1 .D N... 100644 100644 000000 955f3b54a2b0a5a72c19893c7618dc7079298d3e 955f3b54a2b0a5a72c19893c7618dc7079298d3e build/test/system_specs.zig
-1 .D N... 100644 100644 000000 a2781d61d1fb8c6e1a8d2f19f829da12daceb413 a2781d61d1fb8c6e1a8d2f19f829da12daceb413 build/test/unit_specs.zig
+1 .D N... 100644 100644 000000 d0eca4250f9e1ef8b59739cf11d601a9f1471503 d0eca4250f9e1ef8b59739cf11d601a9f1471503 build/fd-tickoni-fd/obj/util/tile/fd_tile_threads_platform_linux.d
+1 .D N... 100644 100644 000000 d2ce1ef23a4e6f85afefe25c4f37b305e1ada815 d2ce1ef23a4e6f85afefe25c4f37b305e1ada815 build/fd-tickoni-fd/obj/util/tile/fd_tile_threads_platform_linux.o
+1 .D N... 100644 100644 000000 36b8c9830729dd0b92848e8e99fb5dc3f124da0f 36b8c9830729dd0b92848e8e99fb5dc3f124da0f build/fd-tickoni-fd/obj/util/tile/fd_tile_threads_platform_macos.d
+1 .D N... 100644 100644 000000 287a1d025e3710a5454822a0c6c9b90ffb1d94b4 287a1d025e3710a5454822a0c6c9b90ffb1d94b4 build/fd-tickoni-fd/obj/util/tile/fd_tile_threads_platform_macos.o
 1 .M N... 100644 100644 100644 d568cbb21137c21117d05c78e71d7d7a314aaaea d568cbb21137c21117d05c78e71d7d7a314aaaea doc/execution/testing-tickoni.md
-1 .M N... 100644 100644 100644 830b58790e92b4c6fbdf18e4c6a064ea7ef7894b 830b58790e92b4c6fbdf18e4c6a064ea7ef7894b tickoni-build/domain/ballet.zig
-1 .M N... 100644 100644 100644 19f547fb13316a504a5eebe992ea2b66cdf73566 19f547fb13316a504a5eebe992ea2b66cdf73566 tickoni-build/domain/builder.zig
-1 .M N... 100644 100644 100644 c0efb02de86a5b5905f309b02dda2d995209e4a3 c0efb02de86a5b5905f309b02dda2d995209e4a3 tickoni-build/domain/disco.zig
-1 .M N... 100644 100644 100644 48480ab71d301a562cea65dbd60104e9616e8c7e 48480ab71d301a562cea65dbd60104e9616e8c7e tickoni-build/domain/domain.zig
-1 .M N... 100644 100644 100644 1d6c8931e156eac0a72a8b0c73db350b29bc5105 1d6c8931e156eac0a72a8b0c73db350b29bc5105 tickoni-build/domain/flamenco.zig
-1 .M N... 100644 100644 100644 ce9b2f40c4aacf88f2690aa6b3972560377e8cf3 ce9b2f40c4aacf88f2690aa6b3972560377e8cf3 tickoni-build/domain/tiles.zig
-1 .M N... 100644 100644 100644 3be636608116216c7ab6f300682225f52838496a 3be636608116216c7ab6f300682225f52838496a tickoni-build/test/helpers.zig
-? test_fs
-? test_fs2
-? test_fs4
-? test_fs5
-? test_fs_dir
-? test_fs_dir2
-? test_io
-? test_io2
-? test_std_fs
-? test_std_fs2
-? test_std_fs_read
-? test_tuple
-? test_tuple2
-? test_tuple3
-? test_tuple4
-? test_underscore
-? test_underscore2
-? test_zig_fs
-? test_zig_io
+1 .M N... 100644 100644 100644 3d66442845867aeb017582b766ac2d5abafe65ef 3d66442845867aeb017582b766ac2d5abafe65ef tickoni-build/gen_config.py
+1 .M N... 100644 100644 100644 8ace5647c9331248e3b2bceed1e2b27947c1ad1f 8ace5647c9331248e3b2bceed1e2b27947c1ad1f tickoni-build/generated/config.zig
+1 .M N... 100644 100644 100644 c6b69d0c347c0a27f11dc6c1a1e0e46b19858da2 c6b69d0c347c0a27f11dc6c1a1e0e46b19858da2 tickoni-build/test/integration_specs.zig
