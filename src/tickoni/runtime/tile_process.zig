@@ -117,10 +117,10 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
         std.process.exit(1);
     };
 
-    var hb: u32 = 0;
+    var hb: u64 = 0;
     while (true) {
-        hb = std.math.wrappingAdd(hb, 1);
-        if (g_ctx.spec.crash_after_heartbeats > 0 and hb >= g_ctx.spec.crash_after_heartbeats) {
+        hb += 1;
+        if (g_ctx.spec.crash_after_heartbeats > 0 and hb >= @as(u64, g_ctx.spec.crash_after_heartbeats)) {
             // Test-only crash-isolation hook (v2.14.S1.T12): exit without
             // a clean cnc transition, simulating an unexpected tile failure.
             std.process.exit(1);
