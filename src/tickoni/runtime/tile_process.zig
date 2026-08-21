@@ -117,17 +117,10 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
         std.process.exit(1);
     };
 
+    var hb: u32 = 0;
     while (true) {
-        // Crash check before the halt check: privileged_init above may
-        // have left an already-arrived HALT in place rather than
-        // clobbering it (see that function's doc comment), so a tile
-        // armed with crash_after_heartbeats must still get to evaluate
-        // it on this first iteration instead of exiting via the halt
-        // branch below without ever running its own crash hook — the
-        // crash-isolation tests deliberately configure crash_after_heartbeats=1
-        // specifically to fire on the very first iteration.
-        g_ctx.heartbeats += 1;
-        if (g_ctx.spec.crash_after_heartbeats > 0 and g_ctx.heartbeats >= g_ctx.spec.crash_after_heartbeats) {
+        hb = std.math.wrappingAdd(hb, 1);
+        if (g_ctx.spec.crash_after_heartbeats > 0 and hb >= g_ctx.spec.crash_after_heartbeats) {
             // Test-only crash-isolation hook (v2.14.S1.T12): exit without
             // a clean cnc transition, simulating an unexpected tile failure.
             std.process.exit(1);
