@@ -178,24 +178,25 @@ pub fn build(b: *std.Build) void {
     // Test step (gated behind -Dtest=true)
     const build_tests = b.option(bool, "test", "Compile and run Tickoni test binaries") orelse false;
     if (build_tests) {
-        const test_step = b.step("test", "Run all Tickoni tests");
-
         // Unit tests
-        unit_specs.registerUnitSpecs(b, m, target, optimize, test_step, lib_dir, &.{
+        const unit_step = b.step("test-unit", "Run Tickoni unit tests");
+        unit_specs.registerUnitSpecs(b, m, target, optimize, unit_step, lib_dir, &.{
             ballet_domain.archive orelse @panic("ballet archive missing"),
             flamenco_domain.archive orelse @panic("flamenco archive missing"),
             disco_domain.archive orelse @panic("disco archive missing"),
         });
 
         // Integration tests
-        integration_specs.registerIntegrationSpecs(b, m, tm, target, optimize, test_step, lib_dir, &.{
+        const integration_step = b.step("test-integration", "Run Tickoni integration tests");
+        integration_specs.registerIntegrationSpecs(b, m, tm, target, optimize, integration_step, lib_dir, &.{
             ballet_domain.archive orelse @panic("ballet archive missing"),
             flamenco_domain.archive orelse @panic("flamenco archive missing"),
             disco_domain.archive orelse @panic("disco archive missing"),
         });
 
         // System tests
-        system_specs.registerSystemSpecs(b, m, tm, target, optimize, test_step, lib_dir, &.{
+        const system_step = b.step("test-system", "Run Tickoni system tests");
+        system_specs.registerSystemSpecs(b, m, tm, target, optimize, system_step, lib_dir, &.{
             ballet_domain.archive orelse @panic("ballet archive missing"),
             flamenco_domain.archive orelse @panic("flamenco archive missing"),
             disco_domain.archive orelse @panic("disco archive missing"),

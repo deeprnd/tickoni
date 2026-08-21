@@ -329,14 +329,13 @@ test-unit-tk:
         esac
         ;;
     esac
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test --summary all
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-unit
 
 # Print computed hash and wire bytes for every audit fixture event, and emit audit JSONL.
 # Use the output to understand or snapshot the current encoding after intentional changes.
 gen-audit-fixtures:
-    TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true test 2>&1
-    TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true integration-test 2>&1
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-unit 2>&1
+    TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true test-integration 2>&1
 
 test-unit-all:
     {{ python }} contrib/readme/run-badged-command.py unit bash -c "just test-unit-tk && just test-unit-fd"
@@ -366,7 +365,7 @@ test-integration-tk:
         esac
         ;;
     esac
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-integration
 
 # ── Windows-specific test recipes ────────────────────────────────────────────
 
@@ -374,8 +373,7 @@ test-integration-tk:
 test-unit-tk-windows-x86:
     mkdir -p build
     bash -lc 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-unit
 
 # Windows ARM64 unit test: build FD libs for Windows ARM64, then run Zig tests.
 # contrib/zigw.sh prefers an x86_64 Windows Zig install on Windows ARM when
@@ -384,14 +382,13 @@ test-unit-tk-windows-arm:
     mkdir -p build
     bash -lc 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
     rm -rf .zig-cache
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-unit
 
 # Windows x86_64 integration test: build FD libs for Windows x86_64, then run Zig integration tests.
 test-integration-tk-windows-x86:
     mkdir -p build
     just build-fd-windows-x86 > build/fd-windows-x86.log 2>&1
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-integration
 
 # Windows ARM64 integration test: build FD libs for Windows ARM64, then run Zig integration tests.
 # contrib/zigw.sh prefers an x86_64 Windows Zig install on Windows ARM when
@@ -399,7 +396,7 @@ test-integration-tk-windows-x86:
 test-integration-tk-windows-arm:
     mkdir -p build
     just build-fd-windows-arm > build/fd-windows-arm.log 2>&1
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-integration
 
 # Deterministic offline investment conformance suite — fixture-backed, no llama.cpp required.
 test-demo-tk:
