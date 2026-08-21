@@ -427,6 +427,7 @@ pub fn registerIntegrationSpecs(
             .imports = &.{
                 .{ .name = "investment_demo", .module = investment_demo_mod },
                 .{ .name = "investment_support", .module = investment_support_int_mod },
+                .{ .name = "investment_audit", .module = investment_audit_int_mod },
                 .{ .name = "adapter", .module = adapter_int_mod },
                 .{ .name = "model", .module = model_int_mod },
                 .{ .name = "portfolio", .module = modules.portfolio },
