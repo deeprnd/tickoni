@@ -119,6 +119,7 @@ pub fn registerIntegrationSpecs(
             .{ .name = "portfolio", .module = modules.portfolio },
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "thesis", .module = modules.thesis },
+            .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
         },
     });
 
@@ -154,6 +155,7 @@ pub fn registerIntegrationSpecs(
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "portfolio", .module = modules.portfolio },
             .{ .name = "thesis", .module = modules.thesis },
+            .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
         },
     });
 
@@ -434,6 +436,8 @@ pub fn registerIntegrationSpecs(
                 .{ .name = "tkcase", .module = case_int_mod },
                 .{ .name = "tkdisp", .module = disp_int_mod },
                 .{ .name = "tkagnt", .module = agent_int_mod },
+                .{ .name = "replay", .module = replay_int_mod },
+                .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
             },
         }),
     });
@@ -455,6 +459,7 @@ pub fn registerIntegrationSpecs(
                 .{ .name = "thesis", .module = modules.thesis },
                 .{ .name = "tkpoly", .module = tkpoly_int_mod },
                 .{ .name = "tool", .module = tool_int_mod },
+                .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
             },
         }),
     });
@@ -475,6 +480,8 @@ pub fn registerIntegrationSpecs(
                 .{ .name = "basket", .module = modules.basket },
                 .{ .name = "thesis", .module = modules.thesis },
                 .{ .name = "tkpoly", .module = tkpoly_int_mod },
+                .{ .name = "replay", .module = replay_int_mod },
+                .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
             },
         }),
     });

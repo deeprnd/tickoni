@@ -61,6 +61,7 @@ pub fn registerSystemSpecs(
             .{ .name = "portfolio", .module = modules.portfolio },
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "thesis", .module = modules.thesis },
+            .{ .name = "trade_ticket", .module = modules.trade_ticket },
         },
     });
 
@@ -73,6 +74,33 @@ pub fn registerSystemSpecs(
             .{ .name = "adapter", .module = adapter_int_mod },
             .{ .name = "basket", .module = modules.basket },
             .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "trade_ticket", .module = modules.trade_ticket },
+        },
+    });
+
+    // Inline tkpoly module for investment_demo (policy tile module used in demo)
+    const tkpoly_int = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/tiles/policy/mod.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "basket", .module = modules.basket },
+            .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "thesis", .module = modules.thesis },
+            .{ .name = "trade_ticket", .module = modules.trade_ticket },
+        },
+    });
+
+    // Inline tool module for investment_demo (tool broker module used in demo)
+    const tool_int = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/tiles/tool/mod.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "adapter", .module = adapter_int_mod },
+            .{ .name = "basket", .module = modules.basket },
+            .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "fixture_portfolio", .module = modules.fixture_portfolio },
             .{ .name = "trade_ticket", .module = modules.trade_ticket },
         },
     });
@@ -92,6 +120,8 @@ pub fn registerSystemSpecs(
             .{ .name = "portfolio", .module = modules.portfolio },
             .{ .name = "replay", .module = replay_mod },
             .{ .name = "thesis", .module = modules.thesis },
+            .{ .name = "tkpoly", .module = tkpoly_int },
+            .{ .name = "tool", .module = tool_int },
             .{ .name = "trade_ticket", .module = modules.trade_ticket },
         },
     });
