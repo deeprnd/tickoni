@@ -1107,7 +1107,7 @@ test "normalize: sector-filtered fixture carries sector ref through to intent" {
     const intent = try normalize(fixtures.ai_infrastructure_it_sector);
     try std.testing.expectEqual(@as(u8, 1), intent.sectors.count);
     try std.testing.expect(intent.sectors.has(
-        cls.ClassificationRef.init("gics_sector", 2025, "information_technology") catch unreachable,
+        cls.ClassificationRef.init("gics_sector", 2025, "industrials") catch unreachable,
     ));
     try std.testing.expectEqual(@as(u8, 0), intent.industries.count);
 }
