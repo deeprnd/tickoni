@@ -1,8 +1,0 @@
-build/fd-clang/obj/ballet/siphash13/fd_siphash13.o
-build/fd-clang/obj/ballet/pb/fd_pb_tokenize.o
-build/fd-clang/obj/third_party/cjson/cJSON.o
-build/fd-clang/obj/util/log/fd_log.o
-build/fd-clang/obj/util/env/fd_env.o
-build/fd-clang/obj/util/cstr/fd_cstr.o
-build/fd-clang/obj/util/alloc/fd_alloc.o
-build/fd-clang/obj/util/wksp/fd_wksp_admin.o
