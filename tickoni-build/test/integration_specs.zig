@@ -152,9 +152,12 @@ pub fn registerIntegrationSpecs(
         .optimize = optimize,
         .imports = &.{
             .{ .name = "adapter", .module = adapter_int_mod },
+            .{ .name = "audit_tile", .module = modules.audit_tile },
             .{ .name = "model", .module = model_int_mod },
             .{ .name = "basket", .module = modules.basket },
+            .{ .name = "drift", .module = modules.drift },
             .{ .name = "portfolio", .module = modules.portfolio },
+            .{ .name = "replay", .module = replay_int_mod },
             .{ .name = "thesis", .module = modules.thesis },
             .{ .name = "trade_ticket", .module = test_modules.trade_ticket },
         },
@@ -474,6 +477,7 @@ pub fn registerIntegrationSpecs(
             .target = target,
             .optimize = optimize,
             .imports = &.{
+                .{ .name = "investment_audit", .module = investment_audit_int_mod },
                 .{ .name = "investment_demo", .module = investment_demo_mod },
                 .{ .name = "investment_support", .module = investment_support_int_mod },
                 .{ .name = "adapter", .module = adapter_int_mod },
