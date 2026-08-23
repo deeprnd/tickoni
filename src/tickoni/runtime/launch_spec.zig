@@ -62,6 +62,10 @@ pub const LaunchSpec = struct {
     /// self-exits(1) after this many heartbeats instead of waiting for
     /// SIGTERM. 0 means run normally until signaled.
     crash_after_heartbeats: u32,
+    /// Per-run offset for kind_id values (link/tile). Passed from supervisor
+    /// via LaunchSpec so the child process rebuilds the same topology as the
+    /// parent — the supervisor's empty environ_map drops the old env-var path.
+    kind_id_offset: u32 = 0,
 
     pub fn init(fields: struct {
         tile_idx: u32,
@@ -72,6 +76,10 @@ pub const LaunchSpec = struct {
         shmem_path: []const u8,
         heartbeat_interval_ns: u64,
         crash_after_heartbeats: u32 = 0,
+        /// Per-run offset for kind_id values (link/tile). Must match the
+        /// value used by topo_build.build() so parent and child get
+        /// identical topology.
+        kind_id_offset: u32 = 0,
         /// Topology channels and their resolved shared-memory handles
         /// (parallel arrays, same index in both). Bucketed here into
         /// in_links/out_links by matching tile_idx against each channel's
@@ -90,6 +98,7 @@ pub const LaunchSpec = struct {
             .shmem_path_len = @intCast(fields.shmem_path.len),
             .heartbeat_interval_ns = fields.heartbeat_interval_ns,
             .crash_after_heartbeats = fields.crash_after_heartbeats,
+            .kind_id_offset = fields.kind_id_offset,
         };
         @memcpy(spec.shmem_path_buf[0..fields.shmem_path.len], fields.shmem_path);
         for (fields.channels, fields.link_handles) |ch, lh| {

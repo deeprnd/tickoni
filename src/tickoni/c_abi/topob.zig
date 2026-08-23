@@ -63,6 +63,7 @@ extern fn tk_topo_wksp_set_ptr(topo: *Topo, wksp_idx: usize, wksp_ptr: *wksp_mod
 extern fn tk_topo_wksp_footprint(topo: *Topo, wksp_idx: usize) usize;
 extern fn tk_topo_wksp_part_max(topo: *Topo, wksp_idx: usize) usize;
 extern fn tk_topob_auto_layout(topo: *Topo, cpu_idx: [*]const usize) void;
+extern fn tk_topob_set_kind_id_offset(offset: usize) void;
 
 // ---------------------------------------------------------------------------
 // Public Zig wrappers.
@@ -201,4 +202,8 @@ pub fn topoWkspPartMax(topo: *Topo, wksp_idx: usize) usize {
 
 pub fn topobAutoLayout(topo: *Topo, cpu_idx: [*]const usize) void {
     tk_topob_auto_layout(topo, cpu_idx);
+}
+
+pub fn topobSetKindIdOffset(offset: u32) void {
+    tk_topob_set_kind_id_offset(offset);
 }

@@ -284,7 +284,7 @@ pub const Supervisor = struct {
         // hard-require huge/gigantic pages, which v2.14.S1 rejected for
         // Tickoni; see topob.zig's topoWkspSetPtr doc comment ("finding
         // 3") for the reused-layout-math/own-memory hybrid this drives.
-        var built_topo = try rt.topo_build.build(self.allocator, modified_topo, full_workspace_name);
+        var built_topo = try rt.topo_build.build(self.allocator, modified_topo, full_workspace_name, 0);
         var built_topo_owned_by_state = false;
         errdefer if (!built_topo_owned_by_state) built_topo.deinit(self.allocator);
 
@@ -427,6 +427,7 @@ pub const Supervisor = struct {
                 .shmem_path = config.run_dir,
                 .heartbeat_interval_ns = config.heartbeat_interval_ns,
                 .crash_after_heartbeats = config.crash_after_heartbeats[i],
+                .kind_id_offset = built_topo.kind_id_offset,
                 .channels = channels_copy,
                 .link_handles = link_handles,
             });
