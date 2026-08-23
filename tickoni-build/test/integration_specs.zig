@@ -232,7 +232,7 @@ pub fn registerIntegrationSpecs(
             .optimize = optimize,
             .imports = &.{
                 .{ .name = "adapter", .module = adapter_int_mod },
-                .{ .name = "audit_tile", .module = modules.tiles },
+                .{ .name = "audit_tile", .module = modules.audit_tile },
                 .{ .name = "basket", .module = modules.basket },
                 .{ .name = "investment_demo", .module = investment_demo_mod },
                 .{ .name = "investment_audit", .module = investment_audit_int_mod },
@@ -429,6 +429,8 @@ pub fn registerIntegrationSpecs(
             .target = target,
             .optimize = optimize,
             .imports = &.{
+                .{ .name = "adapter", .module = adapter_int_mod },
+                .{ .name = "audit_tile", .module = modules.audit_tile },
                 .{ .name = "investment_demo", .module = investment_demo_mod },
                 .{ .name = "investment_support", .module = investment_support_int_mod },
                 .{ .name = "investment_audit", .module = investment_audit_int_mod },
@@ -477,6 +479,8 @@ pub fn registerIntegrationSpecs(
             .target = target,
             .optimize = optimize,
             .imports = &.{
+                .{ .name = "adapter", .module = adapter_int_mod },
+                .{ .name = "audit_tile", .module = modules.audit_tile },
                 .{ .name = "investment_audit", .module = investment_audit_int_mod },
                 .{ .name = "investment_demo", .module = investment_demo_mod },
                 .{ .name = "investment_support", .module = investment_support_int_mod },
