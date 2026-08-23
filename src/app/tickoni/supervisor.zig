@@ -82,8 +82,12 @@ const ProcessState = struct {
     /// workspace, and frees owned buffers. Safe to call with a partially
     /// populated state (e.g. after a failed start).
     fn deinit(self: *ProcessState, io: std.Io, allocator: std.mem.Allocator) void {
+        _ = io;
         for (&self.children) |*maybe_child| {
-            if (maybe_child.*) |*child| child.kill(io);
+            if (maybe_child.*) |*child| {
+                const pid = child.id orelse continue;
+                util.process_api.forceTerminate(pid);
+            }
         }
         for (&self.cncs) |*maybe_cnc| {
             if (maybe_cnc.*) |cnc| _ = c_abi.cnc.cncLeave(cnc);
@@ -494,22 +498,68 @@ pub const Supervisor = struct {
     }
 
     pub fn waitProcess(self: *Supervisor, io: std.Io, forced_termination: ?[]const bool) void {
+        _ = io;
         const log = logger.get();
         log.enter("supervisor", "waitProcess") catch {};
         defer log.exit("supervisor", "waitProcess") catch {};
         const state = self.process_state orelse return;
-        for (&state.children, 0..) |*maybe_child, i| {
-            var child = maybe_child.* orelse continue;
-            const term = child.wait(io) catch {
-                log.err("supervisor", "waitProcess", "wait failed for child tile") catch {};
-                self.handles[i].state = .crashed;
-                self.handles[i].crashed_because = .exit_code;
-                maybe_child.* = null;
-                continue;
-            };
-            const was_forced = if (forced_termination) |forced| forced[i] else false;
-            self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, was_forced));
-            maybe_child.* = null;
+
+        // Bounded wait loop: tryReapNoHang with a timeout so a stuck child
+        // never blocks indefinitely.  If a tile has already been SIGKILL'd
+        // the kernel may need a moment to reap the zombie; if it never exits
+        // we escalate to SIGKILL ourselves.
+        const deadline = util.process.monotonicNanos() + @as(i64, @intCast(state.stop_grace_ns));
+        while (util.process.monotonicNanos() < deadline) {
+            var any_remaining = false;
+            for (&state.children, 0..) |*maybe_child, i| {
+                var child = maybe_child.* orelse continue;
+                switch (util.process_api.tryReapNoHang(&child)) {
+                    .running => {
+                        any_remaining = true;
+                    },
+                    .reaped => |term| {
+                        const was_forced = if (forced_termination) |f| f[i] else false;
+                        self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, was_forced));
+                        maybe_child.* = null;
+                    },
+                    .detached => {
+                        maybe_child.* = null;
+                    },
+                    .failed => {},
+                }
+            }
+            if (!any_remaining) break;
+            util.process.sleepNanos(5 * std.time.ns_per_ms);
+        }
+
+        // Force-kill any children that still have not exited after the grace
+        // period, then reap them (they should exit instantly).
+        {
+            var still_forced: [8]bool = undefined;
+            var fi: usize = 0;
+            while (fi < still_forced.len) : (fi += 1) still_forced[fi] = false;
+            for (&state.children, 0..) |*maybe_child, i| {
+                if (maybe_child.* == null) continue;
+                const child = maybe_child.*.?;
+                util.process_api.forceTerminate(child.id.?);
+                still_forced[i] = true;
+            }
+            // Give the kernel a moment to reap the force-killed zombies.
+            util.process.sleepNanos(5 * std.time.ns_per_ms);
+            for (&state.children, 0..) |*maybe_child, i| {
+                var child = maybe_child.* orelse continue;
+                switch (util.process_api.tryReapNoHang(&child)) {
+                    .reaped => |term| {
+                        self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, true));
+                        maybe_child.* = null;
+                    },
+                    .detached => {
+                        maybe_child.* = null;
+                    },
+                    .running => {},
+                    .failed => {},
+                }
+            }
         }
     }
 

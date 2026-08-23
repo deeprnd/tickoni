@@ -75,7 +75,6 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) 
 }
 
 test "process_demo_parity: floating, shared-core, and exclusive-core CPU placement all reach identical pipeline metrics" {
-    std.testing.skip("known bug — process tests hang/fail reliably, skipping until fixed");
     var tmp_floating = std.testing.tmpDir(.{});
     defer tmp_floating.cleanup();
     var floating_path_buf: [std.fs.max_path_bytes]u8 = undefined;

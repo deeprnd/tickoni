@@ -17,7 +17,6 @@ const topologies = @import("topologies");
 const Supervisor = supervisor_mod.Supervisor;
 
 test "process_pipeline_integration: process-mode payment pipeline matches expected decision counts" {
-    std.testing.skip("known bug — process tests hang/fail reliably, skipping until fixed");
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
