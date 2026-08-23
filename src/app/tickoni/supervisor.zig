@@ -226,12 +226,45 @@ pub const Supervisor = struct {
         var boot_needs_halt = true;
         errdefer if (boot_needs_halt) c_abi.boot.halt();
 
-        const workspace_name_slice = self.topo.channels[0].workspace_name.slice();
-        if (workspace_name_slice.len == 0) return error.MissingWorkspaceName;
+        // Generate a PID-suffixed workspace name so parallel test runs
+        // (each forked as a separate OS process) do not collide on the
+        // same Tango shared-memory region.  Linux PIDs fit in 6 digits;
+        // macOS uses 32-bit PIDs but in practice stay under 6 digits.
+        // The suffix is appended as a dash-delimited token so the base
+        // name is still human-readable when debugging.
+        const base_workspace_name = self.topo.channels[0].workspace_name.slice();
+        if (base_workspace_name.len == 0) return error.MissingWorkspaceName;
         for (self.topo.channels) |ch| {
             if (ch.backing != .tango_shm) return error.ProcessModeRequiresTangoShm;
-            if (!std.mem.eql(u8, ch.workspace_name.slice(), workspace_name_slice)) return error.MultipleWorkspacesNotSupported;
+            if (!std.mem.eql(u8, ch.workspace_name.slice(), base_workspace_name)) return error.MultipleWorkspacesNotSupported;
         }
+
+        // Create a copy of the channels array with PID-suffixed workspace
+        // names.  Child tiles read topology.spec and tile_N.spec; they must
+        // see the same workspace name that the parent uses to create the
+        // shared region, otherwise the child would join a different region
+        // (or collide with another test's region).
+        const my_pid = c_abi.sandbox.getpid();
+        var pid_buf: [8]u8 = undefined;
+        const pid_str = std.fmt.bufPrint(&pid_buf, "{d}", .{my_pid}) catch "0";
+        var full_wname_buf: [64]u8 = undefined;
+        const full_workspace_name = try std.fmt.bufPrint(&full_wname_buf, "{s}-{s}", .{ base_workspace_name, pid_str });
+
+        // Copy channels and update workspace_name for every tango_shm link.
+        const channels_copy = try self.allocator.alloc(rt.link.Channel, self.topo.channels.len);
+        defer self.allocator.free(channels_copy);
+        for (self.topo.channels, 0..) |ch, i| {
+            var copy = ch;
+            if (ch.backing == .tango_shm) {
+                copy.workspace_name = try rt.link.WorkspaceName.parse(full_workspace_name);
+            }
+            channels_copy[i] = copy;
+        }
+
+        const modified_topo = Topology{
+            .tiles = self.topo.tiles,
+            .channels = channels_copy,
+        };
 
         // Ensure run_dir and its .normal FD_SHMEM_PATH subdirectory exist;
         // fd_wksp_new_named does not create either for us.
@@ -251,7 +284,7 @@ pub const Supervisor = struct {
         // hard-require huge/gigantic pages, which v2.14.S1 rejected for
         // Tickoni; see topob.zig's topoWkspSetPtr doc comment ("finding
         // 3") for the reused-layout-math/own-memory hybrid this drives.
-        var built_topo = try rt.topo_build.build(self.allocator, self.topo, workspace_name_slice);
+        var built_topo = try rt.topo_build.build(self.allocator, modified_topo, full_workspace_name);
         var built_topo_owned_by_state = false;
         errdefer if (!built_topo_owned_by_state) built_topo.deinit(self.allocator);
 
@@ -266,7 +299,7 @@ pub const Supervisor = struct {
         // with no prefix/suffix of its own, so both sides resolve to the
         // same named region as long as the string matches.
         var workspace_name_z_buf: [rt.topo_build.concrete_workspace_name_cap]u8 = undefined;
-        const workspace_name_z = try rt.topo_build.concreteWorkspaceName(&workspace_name_z_buf, workspace_name_slice);
+        const workspace_name_z = try rt.topo_build.concreteWorkspaceName(&workspace_name_z_buf, full_workspace_name);
         // Best-effort cleanup of a stale workspace left behind by a prior
         // crashed or killed supervisor; fd_wksp_new_named uses O_EXCL and
         // would otherwise fail closed forever on the same run_dir/name.
@@ -298,7 +331,7 @@ pub const Supervisor = struct {
         state.* = .{
             .wksp = wksp,
             .built_topo = built_topo,
-            .workspace_name = try self.allocator.dupe(u8, workspace_name_slice),
+            .workspace_name = try self.allocator.dupe(u8, full_workspace_name),
             .run_dir = try self.allocator.dupe(u8, config.run_dir),
             .cnc_gaddrs = std.mem.zeroes([8]usize),
             .cncs = std.mem.zeroes([8]?*c_abi.cnc.Cnc),
@@ -379,7 +412,7 @@ pub const Supervisor = struct {
         // config (see topology_spec.zig's module doc, "finding 5").
         const topology_spec_path = try std.fmt.allocPrint(self.allocator, "{s}/topology.spec", .{config.run_dir});
         defer self.allocator.free(topology_spec_path);
-        const topology_spec = try rt.topology_spec.TopologySpec.fromTopology(self.topo);
+        const topology_spec = try rt.topology_spec.TopologySpec.fromTopology(modified_topo);
         try topology_spec.writeToFile(io, std.Io.Dir.cwd(), topology_spec_path);
 
         for (self.handles, 0..) |*h, i| {
@@ -389,12 +422,12 @@ pub const Supervisor = struct {
                 .tile_idx = @intCast(i),
                 .tile_id = tile.id,
                 .cpu_placement = tile.cpu_placement,
-                .workspace_name = self.topo.channels[0].workspace_name,
+                .workspace_name = channels_copy[0].workspace_name,
                 .cnc_gaddr = state.cnc_gaddrs[i],
                 .shmem_path = config.run_dir,
                 .heartbeat_interval_ns = config.heartbeat_interval_ns,
                 .crash_after_heartbeats = config.crash_after_heartbeats[i],
-                .channels = self.topo.channels,
+                .channels = channels_copy,
                 .link_handles = link_handles,
             });
             const spec_path = try std.fmt.allocPrint(self.allocator, "{s}/tile_{d}.spec", .{ config.run_dir, i });
