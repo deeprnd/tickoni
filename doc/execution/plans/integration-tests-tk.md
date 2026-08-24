@@ -6,7 +6,7 @@ All integration test binaries wired into `just test-integration-tk` (Zig `zig bu
 |----------|---------|--------|
 | model_tile_http_test | UNSKIPPED | PASS |
 | replay_integration_test | UNSKIPPED | PASS |
-| decision_cards_integration_test | SKIP | FAIL |
+| decision_cards_integration_test | UNSKIPPED | PASS |
 | mock_servers_test | SKIP | FAIL |
 | link_bounds_test | SKIP | FAIL |
 | process_demo_parity_test | SKIP | FAIL |
