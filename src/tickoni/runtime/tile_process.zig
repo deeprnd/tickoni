@@ -184,7 +184,10 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     // workspace is created by the supervisor and exists at the concrete
     // name "tickoni_<name>.wksp".
     var wksp_name_z_buf: [topo_build.concrete_workspace_name_cap]u8 = undefined;
-    const wksp_name_z = topo_build.concreteWorkspaceName(&wksp_name_z_buf, spec.workspace_name.slice());
+    const wksp_name_z = topo_build.concreteWorkspaceName(&wksp_name_z_buf, spec.workspace_name.slice()) catch |err| {
+        std.debug.print("tile_process: failed to build workspace name for tile {d}: {t}\n", .{ spec.tile_idx, err });
+        return 1;
+    };
     const wksp = c_abi.wksp.wkspAttach(wksp_name_z) orelse {
         std.debug.print("tile_process: failed to attach to workspace {s} for tile {d}\n", .{ wksp_name_z, spec.tile_idx });
         return 1;
