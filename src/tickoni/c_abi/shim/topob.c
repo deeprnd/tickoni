@@ -414,3 +414,14 @@ void *
 tk_topo_tile_ptr( void * topo, ulong tile_id ) {
   return &((fd_topo_t *)topo)->tiles[ tile_id ];
 }
+
+/* Forward declaration — defined in fd_topob.c as a Tickoni-owned
+   replacement for the old env-var path.  The header is upstream
+   Firedancer and this function is Tickoni-specific, so we declare
+   it extern here rather than modifying the header. */
+extern void fd_topob_set_kind_id_offset( ulong offset );
+
+void
+tk_topob_set_kind_id_offset( ulong offset ) {
+  fd_topob_set_kind_id_offset( offset );
+}

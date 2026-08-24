@@ -9,6 +9,13 @@
 #include "../../util/tmpl/fd_set.c"
 
 #include <ctype.h>
+#include <stdlib.h>
+
+/* Global offset added to all kind_id values, enabling each run to produce
+   distinct process/thread names (tkings:42 vs tkings:17).  Read once in
+   fd_topob_new() from the FD_TOPO_KIND_ID_OFFSET environment variable;
+   defaults to 0 for backward compatibility. */
+static ulong kind_id_offset = 0UL;
 
 fd_topo_t *
 fd_topob_new( void * mem,
@@ -43,6 +50,11 @@ fd_topob_new( void * mem,
   topo->blocklist_cores_cnt = 0;
 
   return topo;
+}
+
+void
+fd_topob_set_kind_id_offset( ulong offset ) {
+  kind_id_offset = offset;
 }
 
 fd_topo_wksp_t *
@@ -109,7 +121,7 @@ fd_topob_link( fd_topo_t *  topo,
   if( FD_UNLIKELY( strlen( link_name )>=sizeof(topo->links[ topo->link_cnt ].name ) ) ) FD_LOG_ERR(( "link name too long: %s", link_name ));
   if( FD_UNLIKELY( topo->link_cnt>=FD_TOPO_MAX_LINKS ) ) FD_LOG_ERR(( "too many links" ));
 
-  ulong kind_id = 0UL;
+  ulong kind_id = kind_id_offset;
   for( ulong i=0UL; i<topo->link_cnt; i++ ) {
     if( !strcmp( topo->links[ i ].name, link_name ) ) kind_id++;
   }
@@ -166,7 +178,7 @@ fd_topob_tile( fd_topo_t *    topo,
   if( FD_UNLIKELY( strlen( tile_name )>=sizeof(topo->tiles[ topo->tile_cnt ].name ) ) ) FD_LOG_ERR(( "tile name too long: %s", tile_name ));
   if( FD_UNLIKELY( topo->tile_cnt>=FD_TOPO_MAX_TILES ) ) FD_LOG_ERR(( "too many tiles %lu", topo->tile_cnt ));
 
-  ulong kind_id = 0UL;
+  ulong kind_id = kind_id_offset;
   for( ulong i=0UL; i<topo->tile_cnt; i++ ) {
     if( !strcmp( topo->tiles[ i ].name, tile_name ) ) kind_id++;
   }

@@ -673,10 +673,12 @@ pub const fixtures = struct {
         .instrument_type_exclusions = default_instrument_exclusions,
     };
 
-    /// Sector-filtered fixture: AI infrastructure restricted to information technology sector.
-    const it_sector_ref = cls.classificationRef("gics_sector", 2025, "information_technology");
+    /// Sector-filtered fixture: AI infrastructure restricted to industrials sector.
+    /// Only BOTZ (robotics_and_ai) has industrials alongside information_technology,
+    /// so all other ai_infrastructure instruments get wrong_sector rejected.
+    const it_sector_ref = cls.classificationRef("gics_sector", 2025, "industrials");
     const ai_it_text =
-        "I want USD 2,000 in AI infrastructure, information technology sector only.";
+        "I want USD 2,000 in AI infrastructure, industrials sector only.";
     pub const ai_infrastructure_it_sector = ThesisInput{
         .user_text = textBuf(ai_it_text),
         .user_text_len = @intCast(ai_it_text.len),
@@ -1105,7 +1107,7 @@ test "normalize: sector-filtered fixture carries sector ref through to intent" {
     const intent = try normalize(fixtures.ai_infrastructure_it_sector);
     try std.testing.expectEqual(@as(u8, 1), intent.sectors.count);
     try std.testing.expect(intent.sectors.has(
-        cls.ClassificationRef.init("gics_sector", 2025, "information_technology") catch unreachable,
+        cls.ClassificationRef.init("gics_sector", 2025, "industrials") catch unreachable,
     ));
     try std.testing.expectEqual(@as(u8, 0), intent.industries.count);
 }

@@ -1,0 +1,212 @@
+name: Tests / Integration
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-slim
+    outputs:
+      run: ${{ steps.detect.outputs.run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/detect-changes
+        id: detect
+        with:
+          paths: '^(src/(app/tickoni|tickoni)/|build\.zig(\.zon)?$|justfile$|contrib/quality\.sh$|contrib/security\.sh$|contrib/test/(run_cli_demo_tests\.sh|export_demo_conformance_bundle\.py|compare_demo_conformance\.py)$|contrib/readme/coverage_report\.py$|\.github/actions/|\.github/workflows/tests-integration\.yml$)'
+
+  # ── Harness Integration Tests: Linux ───────────────────────────────────────
+  integration-tests-linux:
+    name: Harness Integration Tests / Linux
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup public GitHub runner
+        uses: ./.github/actions/setup-public-gh-runner
+        with:
+          zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          security: 'false'
+
+      - uses: ./.github/actions/build-fd-tk-libs
+
+      - name: Run integration tests
+        run: just test-integration-tk
+
+  # ── Harness Integration Tests: macOS 15 (x86_64) ───────────────────────────
+  integration-tests-macos-15-x86_64:
+    name: Harness Integration Tests / macOS 15 (x86_64)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run == 'true'
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup public GitHub runner
+        uses: ./.github/actions/setup-public-gh-runner
+        with:
+          zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          security: 'false'
+
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-x86_64
+
+      - name: Run integration tests
+        run: just test-integration-tk
+
+  # ── Harness Integration Tests: macOS 15 (ARM) ──────────────────────────────
+  integration-tests-macos-15-arm:
+    name: Harness Integration Tests / macOS 15 (ARM)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run == 'true'
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup public GitHub runner
+        uses: ./.github/actions/setup-public-gh-runner
+        with:
+          zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          security: 'false'
+
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-arm
+
+      - name: Run integration tests
+        run: just test-integration-tk
+
+  # ── Harness Integration Tests: macOS 26 (x86_64) ───────────────────────────
+  integration-tests-macos-26-x86_64:
+    name: Harness Integration Tests / macOS 26 (x86_64)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run == 'true'
+    runs-on: macos-26-intel
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup public GitHub runner
+        uses: ./.github/actions/setup-public-gh-runner
+        with:
+          zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          security: 'false'
+
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-x86_64
+
+      - name: Run integration tests
+        run: just test-integration-tk
+
+  # ── Harness Integration Tests: macOS 26 (ARM) ──────────────────────────────
+  integration-tests-macos-26-arm:
+    name: Harness Integration Tests / macOS 26 (ARM)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run == 'true'
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup public GitHub runner
+        uses: ./.github/actions/setup-public-gh-runner
+        with:
+          zig: 'true'
+          kcov: 'false'
+          fd-deps: 'false'
+          security: 'false'
+
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: macos-arm
+
+      - name: Run integration tests
+        run: just test-integration-tk
+
+  # ── Harness Integration Tests: Windows x86_64 ──────────────────────────────
+  integration-tests-windows-x86_64:
+    name: Harness Integration Tests / Windows x86_64
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run == 'true'
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Windows deps
+        shell: pwsh
+        run: |
+          & "$Env:GITHUB_WORKSPACE\contrib\setup\windows-x86.ps1" -NoLLM -NoSecurity
+
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: windows-x86_64
+
+      - name: Run integration tests
+        run: just test-integration-tk-windows-x86
+
+  # ── Harness Integration Tests: Windows ARM ─────────────────────────────────
+  integration-tests-windows-arm:
+    name: Harness Integration Tests / Windows ARM
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run == 'true'
+    runs-on: windows-11-vs2026-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Windows deps
+        shell: pwsh
+        run: |
+          & "$Env:GITHUB_WORKSPACE\contrib\setup\windows-arm.ps1" -NoLLM -NoSecurity
+
+      - uses: ./.github/actions/build-fd-tk-libs
+        with:
+          build-profile: windows-arm
+
+      - name: Run integration tests
+        run: just test-integration-tk-windows-arm

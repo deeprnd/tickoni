@@ -42,22 +42,13 @@ pub fn concreteWorkspaceName(buf: []u8, workspace_name: []const u8) ![:0]const u
     return @ptrCast(buf[0..printed.len :0]);
 }
 
-/// fd_topo_t's real alignment isn't knowable from Zig (opaque type) but is
-/// small in practice (char-array/ulong/union-of-ulongs fields only) — 128
-/// is a safe, generous bound matching this codebase's existing Tango
-/// alignment convention (e.g. cnc_align). Checked against the real
-/// runtime value in build() below; fails closed if Firedancer's actual
-/// alignment ever exceeds this.
+/// Firedancer's fd_topo_t real alignment — see module doc.
 const topo_alloc_align: std.mem.Alignment = .fromByteUnits(128);
 
-/// ULONG_MAX sentinel Firedancer uses for "no CPU pinned" (see
-/// src/disco/topo/fd_topo_run.c's `tile->cpu_idx<65535UL` floating check).
+/// ULONG_MAX sentinel Firedancer uses for "no CPU pinned".
 const cpu_idx_floating: usize = std.math.maxInt(usize);
 
-/// mcache/dcache/fseq object ids for one channel — fseq is a per-(tile,
-/// in-link) object in fd_topob's model, not per-link, but Phase 0's
-/// linear chain has exactly one consumer per channel, so this is still a
-/// clean 1:1 mapping from Topology.channels' index.
+/// mcache/dcache/fseq object ids for one channel.
 pub const LinkObjIds = struct {
     mcache_obj_id: usize,
     dcache_obj_id: usize,
@@ -72,6 +63,10 @@ pub const BuiltTopo = struct {
     cnc_obj_id: []usize,
     /// Per-channel object ids, indexed the same as Topology.channels.
     link_obj_id: []LinkObjIds,
+    /// kind_id offset used during this build, for pass-through to child
+    /// processes via LaunchSpec (the env-var path is unreliable because the
+    /// supervisor's spawn environ_map is empty).
+    kind_id_offset: u32,
 
     pub fn deinit(self: *BuiltTopo, allocator: std.mem.Allocator) void {
         allocator.free(self.cnc_obj_id);
@@ -104,6 +99,7 @@ pub fn build(
     allocator: std.mem.Allocator,
     topo_desc: topology.Topology,
     workspace_name: []const u8,
+    kind_id_offset: u32,
 ) !BuiltTopo {
     std.debug.assert(c_abi.topob.topoAlignof() <= topo_alloc_align.toByteUnits());
 
@@ -116,6 +112,14 @@ pub fn build(
     if (topo_build_debug) std.debug.print("topo_build.build: allocated buf ptr={x} len={d}\n", .{ @intFromPtr(buf.ptr), buf.len });
 
     var app_name_buf: [64]u8 = undefined;
+
+    // Pass kind_id_offset to the C topology builder via a setter function
+    // instead of an environment variable.  The old env-var path is broken
+    // because the supervisor spawns children with an empty environ_map, so
+    // the variable is lost on exec.
+    c_abi.topob.topobSetKindIdOffset(kind_id_offset);
+    if (topo_build_debug) std.debug.print("topo_build.build: kind_id_offset={d}\n", .{kind_id_offset});
+
     if (topo_build_debug) std.debug.print("topo_build.build: passing to topobNew ptr={x}\n", .{@intFromPtr(buf.ptr)});
     const topo = c_abi.topob.topobNew(buf.ptr, toZ(&app_name_buf, app_name)) orelse return error.TopobNewFailed;
 
@@ -180,6 +184,7 @@ pub fn build(
         .wksp_idx = wksp_idx,
         .cnc_obj_id = cnc_obj_id,
         .link_obj_id = link_obj_id,
+        .kind_id_offset = kind_id_offset,
     };
 }
 
@@ -210,7 +215,7 @@ test "build produces a topology for the linear Phase 0 chain" {
     };
     const topo_desc = topology.Topology{ .tiles = &tiles, .channels = &channels };
 
-    var built = try build(std.testing.allocator, topo_desc, "tkpay0");
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 0);
     defer built.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(usize, 5), built.cnc_obj_id.len);

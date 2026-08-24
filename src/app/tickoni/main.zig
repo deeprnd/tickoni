@@ -5,7 +5,7 @@ const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const util = @import("util");
 const supervisor_mod = @import("supervisor.zig");
-const Supervisor = supervisor_mod.Supervisor;
+pub const Supervisor = supervisor_mod.Supervisor;
 const ProcessPipelineConfig = supervisor_mod.ProcessPipelineConfig;
 const tile_main = @import("tile_main.zig");
 const topologies = @import("topologies");
@@ -65,8 +65,14 @@ pub fn main(init: std.process.Init) !void {
 
     if (verbose) log.debug("main", "main", "verbose mode enabled") catch {};
 
+    // Skip --verbose if it's the first arg (user put it before the command)
+    var arg_start: usize = 0;
+    if (arg_count > 0 and std.mem.eql(u8, args[0], "--verbose")) {
+        arg_start = 1;
+    }
+
     // First arg is the command
-    const cmd = if (arg_count > 0) args[0] else {
+    const cmd = if (arg_count > arg_start) args[arg_start] else {
         try File.writeStreamingAll(File.stderr(), init.io, usage);
         std.process.exit(1);
     };
@@ -106,7 +112,7 @@ pub fn main(init: std.process.Init) !void {
         try cmdStart(init, topologies.paymentPipeline());
     } else if (std.mem.eql(u8, cmd, "start-process")) {
         log.debug("main", "main", "start-process command received") catch {};
-        const run_dir = it.next() orelse {
+        const run_dir = if (arg_count > arg_start + 1) args[arg_start + 1] else {
             try File.writeStreamingAll(File.stderr(), init.io, "start-process requires <run-dir>\n");
             std.process.exit(1);
         };
