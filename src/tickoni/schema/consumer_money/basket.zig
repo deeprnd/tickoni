@@ -534,10 +534,10 @@ fn isInCandidates(candidates: []*const cat.InstrumentEntry, entry: *const cat.In
 }
 
 fn sectorAllowed(entry: *const cat.InstrumentEntry, sectors: thesis.ClassificationRefList) bool {
-    for (sectors.values[0..sectors.count]) |sector| {
-        if (entry.sectors.has(sector)) return true;
+    for (entry.sectors.values[0..entry.sectors.count]) |entry_sector| {
+        if (!sectors.has(entry_sector)) return false;
     }
-    return false;
+    return true;
 }
 
 fn industryAllowed(entry: *const cat.InstrumentEntry, industries: thesis.ClassificationRefList) bool {
