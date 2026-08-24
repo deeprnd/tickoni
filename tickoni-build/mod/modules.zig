@@ -421,7 +421,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
     });
 
     const supervisor = b.addModule("supervisor", .{
-        .root_source_file = b.path("src/app/tickoni/main.zig"),
+        .root_source_file = b.path("src/app/tickoni/supervisor.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
