@@ -458,7 +458,13 @@ pub const Supervisor = struct {
             },
             .crashed, .force_terminated => {
                 if (self.handles[i].state == .stale) {
-                    self.handles[i].crashed_because = .stale;
+                    // Tile was stale when stopProcess() began — the crash/force
+                    // termination is a consequence of the shutdown sequence (tile
+                    // stopped heartbeating while waiting for the halt signal), not
+                    // a real crash. Treat it as a clean stop, matching the
+                    // .exited_ok path's intent.
+                    self.handles[i].state = .stopped;
+                    self.handles[i].crashed_because = .none;
                 } else {
                     self.handles[i].state = .crashed;
                     self.handles[i].crashed_because = .signal;

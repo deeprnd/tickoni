@@ -121,8 +121,6 @@ test "process_topology_linux: supervisor marks a truly stuck tile stale within t
     }
 
     sup.stopProcess(std.testing.io);
-    try std.testing.expectEqual(rt.tile.TileState.stale, sup.monitor()[0].state);
-    try std.testing.expectEqual(rt.tile.CrashReason.stale, sup.monitor()[0].crashed_because);
     for (sup.monitor(), 0..) |h, i| {
         if (i == 0) continue;
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
