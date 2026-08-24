@@ -48,7 +48,20 @@ void tk_sleep_nanos( uint64_t ns ) {
 
 int tk_self_exe_path( char * buf, size_t buf_len ) {
   ssize_t n = readlink( "/proc/self/exe", buf, buf_len - 1 );
-  if( n<0 ) return -1;
+  if( n<0 ) {
+    /* Container environments may not expose /proc/self/exe; fall back to
+     * dladdr() to find the main executable path from the dynamic linker. */
+    struct dl_info info;
+    if( dladdr( (void *)tk_self_exe_path, &info ) && info.dli_fname ) {
+      n = (ssize_t)strlen( info.dli_fname );
+      if( (size_t)n < buf_len ) {
+        memcpy( buf, info.dli_fname, (size_t)n );
+        buf[ n ] = '\0';
+        return n;
+      }
+    }
+    return -1;
+  }
   buf[ n ] = '\0';
   return (int)n;
 }
