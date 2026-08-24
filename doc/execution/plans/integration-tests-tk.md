@@ -4,8 +4,8 @@ All integration test binaries wired into `just test-integration-tk` (Zig `zig bu
 
 | testname | skipped | passed |
 |----------|---------|--------|
-| model_tile_http_test | SKIP | FAIL |
-| replay_integration_test | SKIP | FAIL |
+| model_tile_http_test | UNSKIPPED | PASS |
+| replay_integration_test | UNSKIPPED | PASS |
 | decision_cards_integration_test | SKIP | FAIL |
 | mock_servers_test | SKIP | FAIL |
 | link_bounds_test | SKIP | FAIL |

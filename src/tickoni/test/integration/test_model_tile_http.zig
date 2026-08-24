@@ -88,7 +88,6 @@ fn withMockBackend(
 }
 
 test "model tile http: hello round-trip via mock server" {
-    if (true) return error.SkipZigTest;
     try withMockBackend(std.testing.allocator, struct {
         fn run(allocator: std.mem.Allocator, backend: *model.Backend, server: *openai_mock.Server) !void {
             const req = model.ProviderRequest{
@@ -110,7 +109,6 @@ test "model tile http: hello round-trip via mock server" {
 }
 
 test "model tile http: thesis returns valid structured content from mock server" {
-    if (true) return error.SkipZigTest;
     try withMockBackend(std.testing.allocator, struct {
         fn run(allocator: std.mem.Allocator, backend: *model.Backend, server: *openai_mock.Server) !void {
             const req = makeAiInfraRequest(mock_model_id);
@@ -171,7 +169,6 @@ test "model tile http: thesis returns valid structured content from mock server"
 }
 
 test "model tile http: two sequential calls both succeed against mock server" {
-    if (true) return error.SkipZigTest;
     try withMockBackend(std.testing.allocator, struct {
         fn run(allocator: std.mem.Allocator, backend: *model.Backend, server: *openai_mock.Server) !void {
             const req = makeAiInfraRequest(mock_model_id);
@@ -188,7 +185,6 @@ test "model tile http: two sequential calls both succeed against mock server" {
 }
 
 test "model tile http: wrong endpoint fails closed with HttpStatusError" {
-    if (true) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     var runtime = http_support.TestRuntime.init();
     defer runtime.deinit();
