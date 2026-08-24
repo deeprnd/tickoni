@@ -1,0 +1,1903 @@
+ just build-tk && just test-unit-tk && just test-integration-tk
+ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dfd-lib-dir=build/fd-tickoni-fd/lib
+TK_OS=linux
+TK_ARCH=x86
+TK_PLATFORM=linux-x86
+TK_OS=linux
+TK_ARCH=x86
+TK_PLATFORM=linux-x86
+Build Summary: 82/82 steps succeeded
+test success
+├─ check-c-compile success
+│  ├─ run sh success 135ms
+│  ├─ run sh success 70ms
+│  ├─ run sh success 75ms
+│  ├─ run sh success 100ms
+│  ├─ run sh success 185ms
+│  ├─ run sh success 693ms
+│  ├─ run sh success 174ms
+│  ├─ run sh success 105ms
+│  └─ run sh success 107ms
+├─ compile test debug native success 612ms MaxRSS:142M
+├─ compile test debug native success 830ms MaxRSS:143M
+├─ compile test debug native success 698ms MaxRSS:142M
+├─ compile test debug native success 647ms MaxRSS:142M
+├─ compile test debug native success 482ms MaxRSS:138M
+├─ compile test debug native success 770ms MaxRSS:142M
+├─ compile test debug native success 524ms MaxRSS:143M
+├─ compile test debug native success 662ms MaxRSS:142M
+├─ compile test debug native success 875ms MaxRSS:139M
+├─ compile test debug native success 769ms MaxRSS:180M
+├─ compile test debug native success 577ms MaxRSS:164M
+├─ compile test debug native success 709ms MaxRSS:139M
+├─ compile test debug native success 735ms MaxRSS:167M
+├─ compile test debug native success 795ms MaxRSS:168M
+├─ compile test debug native success 646ms MaxRSS:168M
+├─ compile test debug native success 884ms MaxRSS:167M
+├─ compile test debug native success 825ms MaxRSS:167M
+├─ compile test debug native success 875ms MaxRSS:141M
+├─ compile test debug native success 607ms MaxRSS:141M
+├─ compile test debug native success 801ms MaxRSS:179M
+├─ compile test debug native success 1s MaxRSS:184M
+├─ compile test debug native success 503ms MaxRSS:143M
+├─ compile test debug native success 503ms MaxRSS:141M
+├─ compile test debug native success 661ms MaxRSS:139M
+│  └─ options cached
+├─ compile test debug native success 573ms MaxRSS:141M
+├─ compile test debug native success 588ms MaxRSS:142M
+├─ compile test debug native success 775ms MaxRSS:146M
+├─ compile test debug native success 553ms MaxRSS:144M
+├─ compile test debug native success 541ms MaxRSS:140M
+├─ compile test debug native success 740ms MaxRSS:144M
+├─ compile test debug native success 738ms MaxRSS:142M
+├─ compile test debug native success 781ms MaxRSS:142M
+├─ compile test debug native success 482ms MaxRSS:141M
+├─ compile test debug native success 848ms MaxRSS:179M
+├─ compile test debug native success 670ms MaxRSS:178M
+├─ compile test debug native success 710ms MaxRSS:177M
+├─ compile test debug native success 621ms MaxRSS:178M
+├─ compile test debug native success 915ms MaxRSS:185M
+├─ compile test debug native success 761ms MaxRSS:179M
+├─ compile test debug native success 891ms MaxRSS:179M
+├─ compile test debug native success 858ms MaxRSS:147M
+├─ compile test debug native success 670ms MaxRSS:141M
+├─ compile test debug native success 634ms MaxRSS:143M
+├─ compile test debug native success 716ms MaxRSS:143M
+├─ compile test debug native success 791ms MaxRSS:140M
+├─ compile test debug native success 901ms MaxRSS:170M
+├─ compile test debug native success 621ms MaxRSS:142M
+├─ compile test debug native success 700ms MaxRSS:142M
+├─ compile test debug native success 523ms MaxRSS:144M
+├─ compile test debug native success 883ms MaxRSS:213M
+├─ compile test debug native success 967ms MaxRSS:215M
+├─ compile test debug native success 1s MaxRSS:216M
+├─ compile test debug native success 2s MaxRSS:241M
+├─ compile test debug native success 618ms MaxRSS:149M
+├─ compile test debug native success 426ms MaxRSS:145M
+├─ compile test debug native success 710ms MaxRSS:181M
+├─ compile test debug native success 999ms MaxRSS:185M
+├─ compile test debug native success 1s MaxRSS:185M
+├─ compile test debug native success 1s MaxRSS:183M
+├─ compile test debug native success 1s MaxRSS:180M
+├─ compile test debug native success 871ms MaxRSS:185M
+├─ compile test debug native success 872ms MaxRSS:145M
+├─ compile test debug native success 913ms MaxRSS:181M
+├─ compile test debug native success 2s MaxRSS:250M
+├─ compile test debug native success 1s MaxRSS:191M
+├─ compile test debug native success 1s MaxRSS:187M
+├─ compile test debug native success 757ms MaxRSS:142M
+├─ compile test debug native success 796ms MaxRSS:145M
+├─ compile test debug native success 753ms MaxRSS:110M
+└─ compile test debug native success 1s MaxRSS:144M
+
+TK_OS=linux
+TK_ARCH=x86
+TK_PLATFORM=linux-x86
+Finding test binaries...
+Found 68 test binaries, running sequentially...
+  2e7245807a6b7c8c8bd12586782d4e3e... All 28 tests passed.
+OK
+  f699a2f0afa51e2dcbb10ad820e3f5bd... All 16 tests passed.
+OK
+  3ca04b9fd97b5ce5c2b440297de0032f... All 2 tests passed.
+OK
+  47440c4648de816a2de9f47922e90956... All 0 tests passed.
+OK
+  1758d005a3b6c1f02d73277a494b91e8... All 12 tests passed.
+OK
+  1eafc4650d08ba8377e6b0fa970564e5... All 1 tests passed.
+OK
+  f16d91d8b995cfb2d2c0b5e2b60cc18b... All 1 tests passed.
+OK
+  977826f2cba3c55f603030bf481fa0b9... All 4 tests passed.
+OK
+  58b8cafbe00d343b6ccfba7b154239c2... All 5 tests passed.
+OK
+  b1db575c6f95c7f3b861549e7a37791c... All 4 tests passed.
+OK
+  f56153ca6048e46d992008ffb6dba2f0... All 5 tests passed.
+OK
+  04abfacf144243f5d41c5cb72fd7d63a... All 0 tests passed.
+OK
+  0014100f06abd0b19679de9ec758738e... All 3 tests passed.
+OK
+  f456aa833723d469fcab3c718dc07570... All 2 tests passed.
+OK
+  a4972be5fc87fe65621d06d6fa6ca548... All 2 tests passed.
+OK
+  8d4c1c7ae07fae82d2ba4205b1ba7f15... All 3 tests passed.
+OK
+  49725648fb506e52b4fda30c581b7769... All 3 tests passed.
+OK
+  9db45da51b67d5911fdcbef35c45133f... All 1 tests passed.
+OK
+  b9cfd70d1de4e7f51dcf0973c2ae4942... All 0 tests passed.
+OK
+  3a490f2908f6e0358430160949ea023d... 4/11 fixture_events.test.binary and wire format pinned...SKIP
+11/11 fixture_events.test.gen audit fixture values...SKIP
+9 passed; 2 skipped; 0 failed.
+OK
+  6b6c55a6e23e9d79f0e1227f2d521dfd... 13374890716011 ERR [tknorm] runNormalize: malformed event at offset
+13374890852695 ERR [tkings] runIngest: sandbox failure triggered at offset
+All 15 tests passed.
+OK
+  d21aa22c78c8868527a126b385d1d410... All 3 tests passed.
+OK
+  fd80825ffaa7b7fd9c4f83742584274a... All 1 tests passed.
+OK
+  6b64aef6df105adc3e884ecc5dcce0ec... All 11 tests passed.
+OK
+  859d61a3e5b5ecd7af5a25295108c646... All 5 tests passed.
+OK
+  c71a57eb47f9f575abac099b62d9341e... All 7 tests passed.
+OK
+  94405b1172b50c68a39f76f131ecad4e... All 21 tests passed.
+OK
+  f14cceac9d0ed02d1c56cd0a4ecfb22b... All 12 tests passed.
+OK
+  b8c87d7aaf5820872391e853911531e8... All 2 tests passed.
+OK
+  4ff86c61018f911bbca0474689a4badb... All 2 tests passed.
+OK
+  400d2fd1f5e30d22209b254e3dd7175d... All 2 tests passed.
+OK
+  a90e4c3ba5286f3640e25c3241255831... All 2 tests passed.
+OK
+  835369a7e58c9d224bd37dd2b680f8a1... All 3 tests passed.
+OK
+  5744c43f26835e6d9272c6ce2513663f... All 3 tests passed.
+OK
+  bc7d13576d9e563fdae10ba349c85c54... All 52 tests passed.
+OK
+  82205e481236b04438e08ccb1c281048... All 23 tests passed.
+OK
+  159e9a059309367ec0d7c6222b9fcf67... All 1 tests passed.
+OK
+  6838e63fc31cc70e0674d2f89626b76b... All 30 tests passed.
+OK
+  c17cbd28870362e43b624deca508665a... All 36 tests passed.
+OK
+  b0c7c0c3c7eb794e256b42cef8c61ba2... All 34 tests passed.
+OK
+  0a3f6c9d0500fde98a07fdb01d9d75e1... All 2 tests passed.
+OK
+  688f7ce4389dec96c2b93b911a7e5e25... All 6 tests passed.
+OK
+  85f98d2402483bf2e6fca080c0440b69... All 1 tests passed.
+OK
+  50ed9bd06335fc4319e892c5ffd1bc13... All 3 tests passed.
+OK
+  f8cb0bd20fdac74218ef86d80d89563a... All 3 tests passed.
+OK
+  d9c179616096f764f1c6d348b109be92... All 1 tests passed.
+OK
+  5c3a4cadd51fb882ac32a690156c7019... All 16 tests passed.
+OK
+  b637af702fa83baa80c9f5718357c063... All 27 tests passed.
+OK
+  0673783f0c58d715093384290577ea51... All 32 tests passed.
+OK
+  78b1b3020bdd19deca779f70b51887e3... All 1 tests passed.
+OK
+  0640247cd50cccddf28d362f2918de9d... All 0 tests passed.
+OK
+  95dfa3c27826e805745d3e4535973689... NOTICE  08-24 13:20:02.082785 76904  f0   0    topob.c(246): tk_topob_new: mem=0x70f86e42b000 app_name=tickoni
+WARNING 08-24 13:20:02.082910 76904  f0   0    fd_topob.c(23): fd_topob_new: mem=0x70f86e42b000 app_name=tickoni
+WARNING 08-24 13:20:02.082913 76904  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x70f86e42b000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:02.085481 76904  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+DEBUG   08-24 13:20:02.085493 76904  f0   0    topob.c(248): tk_topob_new: result=0x70f86e42b000
+All 30 tests passed.
+OK
+  94d8a6a130e2ad59152174cbbb13b86a... All 52 tests passed.
+OK
+  5bbd1a6b22c42764ad554a0a9f8597ba... All 14 tests passed.
+OK
+  b9b28b3c4067ef5c9e9fafeaba8e67bd... All 2 tests passed.
+OK
+  5295bed1033927453d82575513a919dd... All 6 tests passed.
+OK
+  a7cc91c0c2f9aac3dd9677aa6b1dbb9a... All 43 tests passed.
+OK
+  711273320586b182a28eddbe63ec49df... All 7 tests passed.
+OK
+  986f49d50a371e6391e10267fb452b90... All 33 tests passed.
+OK
+  738554e3678344b65d09a3e2f48915a6... All 20 tests passed.
+OK
+  530dc06c80cc49dfa8c6e46fc7b19c3a... All 3 tests passed.
+OK
+  dac6fe52f0c4ef7bd7c1adb32de4a614... All 6 tests passed.
+OK
+  d059c8adebc8c6b7acc7c53a80d6ce2f... All 2 tests passed.
+OK
+  ae1bfa89c613979573f345d4d8f9901f... All 8 tests passed.
+OK
+  a34697e7b82cc49c1946d0e4ca98aa19... 13375398499516 ERR [tkdedu] runDedupe: duplicate event at offset
+13375400091356 ERR [tkdedu] runDedupe: duplicate event at offset
+13375401920780 ERR [tkings] runIngest: sandbox failure triggered at offset
+All 38 tests passed.
+OK
+  95dab3dfc8609fece20df7cd8c43b5c8... All 32 tests passed.
+OK
+  fc24d8ff9ae38b772dc94f3e2ea7ced8... All 6 tests passed.
+OK
+  38bc651f7d5357a4efdddc7cca302fa9... [evidence] (warn): EvidenceBundle.init() — scaffold, TODO: populate with actual artifacts
+[evidence] (warn): EvidenceBundle.init() — scaffold, TODO: populate with actual artifacts
+[evidence] (warn): EvidenceBundle.init() — scaffold, TODO: populate with actual artifacts
+[evidence] (warn): EvidenceLink.init(doc/execution/test-sample.json) — TODO: compute SHA256 hash
+[evidence] (warn): EvidenceLink.init(doc/execution/test-sample.json) — TODO: compute SHA256 hash
+[evidence] (warn): EvidenceLink.toJson() — TODO: implement JSON serialization
+[evidence] (warn): EvidenceIndex.init() — TODO: implement hash computation for links
+[evidence] (warn): EvidenceIndex.init() — TODO: implement hash computation for links
+[evidence] (warn): EvidenceLink.init(test.txt) — TODO: compute SHA256 hash
+[evidence] (warn): EvidenceIndex.addLink() — TODO: implement with hash computation
+[evidence] (warn): EvidenceIndex.init() — TODO: implement hash computation for links
+[evidence] (warn): EvidenceIndex.toJson() — TODO: implement
+[evidence] (warn): EvidenceIndex.init() — TODO: implement hash computation for links
+[evidence] (warn): EvidenceIndex.toJson() — TODO: implement
+[evidence] (warn): EvidenceBundle.init() — scaffold, TODO: populate with actual artifacts
+All 11 tests passed.
+OK
+All 68 tests passed.
+TK_OS=linux
+TK_ARCH=x86
+TK_PLATFORM=linux-x86
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77361_vicgenin_dev3_2026_08_24_13_20_07_757681217_GMT+03"
+NOTICE  08-24 13:20:07.768614 77361  f0   0    topob.c(246): tk_topob_new: mem=0x7a9c5c5fa000 app_name=tickoni
+WARNING 08-24 13:20:07.768669 77361  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7a9c5c5fa000 app_name=tickoni
+WARNING 08-24 13:20:07.815383 77361  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7a9c5c5fa000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:07.861620 77361  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77388_vicgenin_dev3_2026_08_24_13_20_07_914535257_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77390_vicgenin_dev3_2026_08_24_13_20_07_916195669_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77389_vicgenin_dev3_2026_08_24_13_20_07_920385017_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77391_vicgenin_dev3_2026_08_24_13_20_07_925027083_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77393_vicgenin_dev3_2026_08_24_13_20_07_930775511_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77392_vicgenin_dev3_2026_08_24_13_20_07_933025350_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77395_vicgenin_dev3_2026_08_24_13_20_07_935205348_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77394_vicgenin_dev3_2026_08_24_13_20_07_938992837_GMT+03"
+NOTICE  08-24 13:20:07.961073 77390  f0   0    topob.c(246): tk_topob_new: mem=0x72492b4c6000 app_name=tickoni
+WARNING 08-24 13:20:07.965659 77390  f0   0    fd_topob.c(23): fd_topob_new: mem=0x72492b4c6000 app_name=tickoni
+NOTICE  08-24 13:20:07.977280 77395  f0   0    topob.c(246): tk_topob_new: mem=0x72aa910c6000 app_name=tickoni
+WARNING 08-24 13:20:07.977339 77395  f0   0    fd_topob.c(23): fd_topob_new: mem=0x72aa910c6000 app_name=tickoni
+NOTICE  08-24 13:20:07.978039 77393  f0   0    topob.c(246): tk_topob_new: mem=0x7392b5ac6000 app_name=tickoni
+WARNING 08-24 13:20:07.978102 77393  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7392b5ac6000 app_name=tickoni
+NOTICE  08-24 13:20:07.979501 77388  f0   0    topob.c(246): tk_topob_new: mem=0x7aeef62c6000 app_name=tickoni
+WARNING 08-24 13:20:07.984656 77388  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7aeef62c6000 app_name=tickoni
+NOTICE  08-24 13:20:07.982026 77389  f0   0    topob.c(246): tk_topob_new: mem=0x7ae9edec6000 app_name=tickoni
+WARNING 08-24 13:20:07.984737 77389  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7ae9edec6000 app_name=tickoni
+NOTICE  08-24 13:20:07.985009 77391  f0   0    topob.c(246): tk_topob_new: mem=0x71ce1a463000 app_name=tickoni
+WARNING 08-24 13:20:07.985037 77391  f0   0    fd_topob.c(23): fd_topob_new: mem=0x71ce1a463000 app_name=tickoni
+NOTICE  08-24 13:20:07.986955 77392  f0   0    topob.c(246): tk_topob_new: mem=0x7812e7cc6000 app_name=tickoni
+WARNING 08-24 13:20:07.987008 77392  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7812e7cc6000 app_name=tickoni
+NOTICE  08-24 13:20:07.988151 77394  f0   0    topob.c(246): tk_topob_new: mem=0x70b2caec6000 app_name=tickoni
+WARNING 08-24 13:20:07.988201 77394  f0   0    fd_topob.c(23): fd_topob_new: mem=0x70b2caec6000 app_name=tickoni
+WARNING 08-24 13:20:08.050203 77390  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x72492b4c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:08.094848 77393  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7392b5ac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:08.094875 77388  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7aeef62c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:08.094850 77389  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7ae9edec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:08.094888 77394  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x70b2caec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:08.094865 77391  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x71ce1a463000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:08.094898 77395  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x72aa910c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:08.094908 77392  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7812e7cc6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:08.174795 77390  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:08.232229 77395  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:08.235874 77394  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:08.239592 77391  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:08.244024 77388  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:08.236937 77393  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:08.243222 77392  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:08.244864 77389  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77394_vicgenin_dev3_2026_08_24_13_20_07_938992837_GMT+03"
+Log at "/tmp/fd-0.1.1_77388_vicgenin_dev3_2026_08_24_13_20_07_914535257_GMT+03"
+Log at "/tmp/fd-0.1.1_77389_vicgenin_dev3_2026_08_24_13_20_07_920385017_GMT+03"
+Log at "/tmp/fd-0.1.1_77393_vicgenin_dev3_2026_08_24_13_20_07_930775511_GMT+03"
+Log at "/tmp/fd-0.1.1_77390_vicgenin_dev3_2026_08_24_13_20_07_916195669_GMT+03"
+Log at "/tmp/fd-0.1.1_77392_vicgenin_dev3_2026_08_24_13_20_07_933025350_GMT+03"
+Log at "/tmp/fd-0.1.1_77395_vicgenin_dev3_2026_08_24_13_20_07_935205348_GMT+03"
+Log at "/tmp/fd-0.1.1_77391_vicgenin_dev3_2026_08_24_13_20_07_925027083_GMT+03"
+Log at "/tmp/fd-0.1.1_77361_vicgenin_dev3_2026_08_24_13_20_07_757681217_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77361_vicgenin_dev3_2026_08_24_13_20_11_139223788_GMT+03"
+NOTICE  08-24 13:20:11.155835 77361  f0   0    topob.c(246): tk_topob_new: mem=0x7a9c5b0ba000 app_name=tickoni
+WARNING 08-24 13:20:11.155869 77361  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7a9c5b0ba000 app_name=tickoni
+WARNING 08-24 13:20:11.246379 77361  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7a9c5b0ba000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:11.281330 77361  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77406_vicgenin_dev3_2026_08_24_13_20_11_318285158_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77407_vicgenin_dev3_2026_08_24_13_20_11_319522242_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77409_vicgenin_dev3_2026_08_24_13_20_11_323917404_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77408_vicgenin_dev3_2026_08_24_13_20_11_324341910_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77410_vicgenin_dev3_2026_08_24_13_20_11_329152209_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77411_vicgenin_dev3_2026_08_24_13_20_11_335942265_GMT+03"
+NOTICE  08-24 13:20:11.339036 77406  f0   0    topob.c(246): tk_topob_new: mem=0x7d4cb4ec6000 app_name=tickoni
+WARNING 08-24 13:20:11.339073 77406  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7d4cb4ec6000 app_name=tickoni
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77412_vicgenin_dev3_2026_08_24_13_20_11_339954844_GMT+03"
+NOTICE  08-24 13:20:11.342839 77407  f0   0    topob.c(246): tk_topob_new: mem=0x78ce6dc98000 app_name=tickoni
+WARNING 08-24 13:20:11.342894 77407  f0   0    fd_topob.c(23): fd_topob_new: mem=0x78ce6dc98000 app_name=tickoni
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77413_vicgenin_dev3_2026_08_24_13_20_11_345057690_GMT+03"
+NOTICE  08-24 13:20:11.351460 77408  f0   0    topob.c(246): tk_topob_new: mem=0x75713d0c6000 app_name=tickoni
+WARNING 08-24 13:20:11.351508 77408  f0   0    fd_topob.c(23): fd_topob_new: mem=0x75713d0c6000 app_name=tickoni
+NOTICE  08-24 13:20:11.353035 77409  f0   0    topob.c(246): tk_topob_new: mem=0x74b6ad6c6000 app_name=tickoni
+WARNING 08-24 13:20:11.353187 77409  f0   0    fd_topob.c(23): fd_topob_new: mem=0x74b6ad6c6000 app_name=tickoni
+NOTICE  08-24 13:20:11.360426 77412  f0   0    topob.c(246): tk_topob_new: mem=0x73030e8c6000 app_name=tickoni
+WARNING 08-24 13:20:11.360463 77412  f0   0    fd_topob.c(23): fd_topob_new: mem=0x73030e8c6000 app_name=tickoni
+NOTICE  08-24 13:20:11.367567 77411  f0   0    topob.c(246): tk_topob_new: mem=0x7af46c8c6000 app_name=tickoni
+WARNING 08-24 13:20:11.367642 77411  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7af46c8c6000 app_name=tickoni
+NOTICE  08-24 13:20:11.367719 77410  f0   0    topob.c(246): tk_topob_new: mem=0x704f45ac6000 app_name=tickoni
+WARNING 08-24 13:20:11.367737 77410  f0   0    fd_topob.c(23): fd_topob_new: mem=0x704f45ac6000 app_name=tickoni
+NOTICE  08-24 13:20:11.370803 77413  f0   0    topob.c(246): tk_topob_new: mem=0x7ac5858c6000 app_name=tickoni
+WARNING 08-24 13:20:11.370834 77413  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7ac5858c6000 app_name=tickoni
+WARNING 08-24 13:20:11.427152 77406  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7d4cb4ec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:11.498763 77408  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x75713d0c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:11.498727 77409  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x74b6ad6c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:11.498769 77412  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x73030e8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:11.498786 77407  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x78ce6dc98000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:11.572675 77413  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7ac5858c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:11.572685 77411  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7af46c8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:11.572893 77410  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x704f45ac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:11.576764 77406  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:11.650558 77407  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:11.650698 77408  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:11.651068 77409  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:11.651638 77412  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:11.726998 77413  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:11.727121 77411  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:11.727124 77410  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77407_vicgenin_dev3_2026_08_24_13_20_11_319522242_GMT+03"
+Log at "/tmp/fd-0.1.1_77410_vicgenin_dev3_2026_08_24_13_20_11_329152209_GMT+03"
+Log at "/tmp/fd-0.1.1_77412_vicgenin_dev3_2026_08_24_13_20_11_339954844_GMT+03"
+Log at "/tmp/fd-0.1.1_77408_vicgenin_dev3_2026_08_24_13_20_11_324341910_GMT+03"
+Log at "/tmp/fd-0.1.1_77411_vicgenin_dev3_2026_08_24_13_20_11_335942265_GMT+03"
+Log at "/tmp/fd-0.1.1_77413_vicgenin_dev3_2026_08_24_13_20_11_345057690_GMT+03"
+Log at "/tmp/fd-0.1.1_77409_vicgenin_dev3_2026_08_24_13_20_11_323917404_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77361_vicgenin_dev3_2026_08_24_13_20_14_273459958_GMT+03"
+NOTICE  08-24 13:20:14.289093 77361  f0   0    topob.c(246): tk_topob_new: mem=0x7a9c59b7a000 app_name=tickoni
+WARNING 08-24 13:20:14.289122 77361  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7a9c59b7a000 app_name=tickoni
+WARNING 08-24 13:20:14.332841 77361  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7a9c59b7a000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:14.381298 77361  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77418_vicgenin_dev3_2026_08_24_13_20_14_428414755_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77419_vicgenin_dev3_2026_08_24_13_20_14_430949058_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77420_vicgenin_dev3_2026_08_24_13_20_14_434488428_GMT+03"
+--log-path not specified; using autogenerated path
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77421_vicgenin_dev3_2026_08_24_13_20_14_440244146_GMT+03"
+Log at "/tmp/fd-0.1.1_77422_vicgenin_dev3_2026_08_24_13_20_14_441302428_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77423_vicgenin_dev3_2026_08_24_13_20_14_445072844_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77425_vicgenin_dev3_2026_08_24_13_20_14_451141028_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77424_vicgenin_dev3_2026_08_24_13_20_14_451873455_GMT+03"
+NOTICE  08-24 13:20:14.458058 77418  f0   0    topob.c(246): tk_topob_new: mem=0x75a5880c6000 app_name=tickoni
+WARNING 08-24 13:20:14.458096 77418  f0   0    fd_topob.c(23): fd_topob_new: mem=0x75a5880c6000 app_name=tickoni
+NOTICE  08-24 13:20:14.463950 77420  f0   0    topob.c(246): tk_topob_new: mem=0x7095f7c35000 app_name=tickoni
+WARNING 08-24 13:20:14.463988 77420  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7095f7c35000 app_name=tickoni
+NOTICE  08-24 13:20:14.465000 77419  f0   0    topob.c(246): tk_topob_new: mem=0x7935cbc35000 app_name=tickoni
+WARNING 08-24 13:20:14.465033 77419  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7935cbc35000 app_name=tickoni
+NOTICE  08-24 13:20:14.472231 77425  f0   0    topob.c(246): tk_topob_new: mem=0x77f7c40c6000 app_name=tickoni
+WARNING 08-24 13:20:14.472259 77425  f0   0    fd_topob.c(23): fd_topob_new: mem=0x77f7c40c6000 app_name=tickoni
+NOTICE  08-24 13:20:14.473903 77422  f0   0    topob.c(246): tk_topob_new: mem=0x79f73eac6000 app_name=tickoni
+WARNING 08-24 13:20:14.473939 77422  f0   0    fd_topob.c(23): fd_topob_new: mem=0x79f73eac6000 app_name=tickoni
+NOTICE  08-24 13:20:14.475970 77424  f0   0    topob.c(246): tk_topob_new: mem=0x7a0ee2298000 app_name=tickoni
+WARNING 08-24 13:20:14.476001 77424  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7a0ee2298000 app_name=tickoni
+NOTICE  08-24 13:20:14.482030 77421  f0   0    topob.c(246): tk_topob_new: mem=0x737b1a2c6000 app_name=tickoni
+WARNING 08-24 13:20:14.482059 77421  f0   0    fd_topob.c(23): fd_topob_new: mem=0x737b1a2c6000 app_name=tickoni
+WARNING 08-24 13:20:14.556601 77418  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x75a5880c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:14.613016 77419  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7935cbc35000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:14.612963 77424  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7a0ee2298000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:14.612960 77422  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x79f73eac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:14.612962 77420  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7095f7c35000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:14.612959 77425  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x77f7c40c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:14.701188 77421  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x737b1a2c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:14.705222 77418  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:14.765568 77424  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:14.765568 77422  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:14.765579 77420  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:14.765652 77425  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:14.765828 77419  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:14.849645 77421  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77424_vicgenin_dev3_2026_08_24_13_20_14_451873455_GMT+03"
+Log at "/tmp/fd-0.1.1_77419_vicgenin_dev3_2026_08_24_13_20_14_430949058_GMT+03"
+Log at "/tmp/fd-0.1.1_77421_vicgenin_dev3_2026_08_24_13_20_14_440244146_GMT+03"
+Log at "/tmp/fd-0.1.1_77422_vicgenin_dev3_2026_08_24_13_20_14_441302428_GMT+03"
+Log at "/tmp/fd-0.1.1_77425_vicgenin_dev3_2026_08_24_13_20_14_451141028_GMT+03"
+Log at "/tmp/fd-0.1.1_77420_vicgenin_dev3_2026_08_24_13_20_14_434488428_GMT+03"
+Log at "/tmp/fd-0.1.1_77418_vicgenin_dev3_2026_08_24_13_20_14_428414755_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77361_vicgenin_dev3_2026_08_24_13_20_15_375360871_GMT+03"
+NOTICE  08-24 13:20:15.385561 77361  f0   0    topob.c(246): tk_topob_new: mem=0x7a9c5863a000 app_name=tickoni
+WARNING 08-24 13:20:15.385590 77361  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7a9c5863a000 app_name=tickoni
+WARNING 08-24 13:20:15.450173 77361  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7a9c5863a000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:15.487991 77361  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77429_vicgenin_dev3_2026_08_24_13_20_15_537128518_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77430_vicgenin_dev3_2026_08_24_13_20_15_542368925_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77431_vicgenin_dev3_2026_08_24_13_20_15_549674088_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77432_vicgenin_dev3_2026_08_24_13_20_15_552289251_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77433_vicgenin_dev3_2026_08_24_13_20_15_561202870_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77434_vicgenin_dev3_2026_08_24_13_20_15_568929547_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77436_vicgenin_dev3_2026_08_24_13_20_15_576322873_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77435_vicgenin_dev3_2026_08_24_13_20_15_576663977_GMT+03"
+NOTICE  08-24 13:20:15.582904 77430  f0   0    topob.c(246): tk_topob_new: mem=0x780af9cc6000 app_name=tickoni
+WARNING 08-24 13:20:15.582969 77430  f0   0    fd_topob.c(23): fd_topob_new: mem=0x780af9cc6000 app_name=tickoni
+NOTICE  08-24 13:20:15.584454 77429  f0   0    topob.c(246): tk_topob_new: mem=0x7f3ddc8c6000 app_name=tickoni
+NOTICE  08-24 13:20:15.584454 77432  f0   0    topob.c(246): tk_topob_new: mem=0x744e6fa35000 app_name=tickoni
+NOTICE  08-24 13:20:15.584725 77431  f0   0    topob.c(246): tk_topob_new: mem=0x7e6d090c6000 app_name=tickoni
+WARNING 08-24 13:20:15.585196 77431  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7e6d090c6000 app_name=tickoni
+WARNING 08-24 13:20:15.584658 77432  f0   0    fd_topob.c(23): fd_topob_new: mem=0x744e6fa35000 app_name=tickoni
+WARNING 08-24 13:20:15.584639 77429  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7f3ddc8c6000 app_name=tickoni
+NOTICE  08-24 13:20:15.600197 77433  f0   0    topob.c(246): tk_topob_new: mem=0x7a49634c6000 app_name=tickoni
+WARNING 08-24 13:20:15.600287 77433  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7a49634c6000 app_name=tickoni
+NOTICE  08-24 13:20:15.601431 77434  f0   0    topob.c(246): tk_topob_new: mem=0x7499c6ec6000 app_name=tickoni
+WARNING 08-24 13:20:15.601457 77434  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7499c6ec6000 app_name=tickoni
+NOTICE  08-24 13:20:15.602447 77436  f0   0    topob.c(246): tk_topob_new: mem=0x777649898000 app_name=tickoni
+WARNING 08-24 13:20:15.602476 77436  f0   0    fd_topob.c(23): fd_topob_new: mem=0x777649898000 app_name=tickoni
+NOTICE  08-24 13:20:15.603402 77435  f0   0    topob.c(246): tk_topob_new: mem=0x726e0a8c6000 app_name=tickoni
+WARNING 08-24 13:20:15.603447 77435  f0   0    fd_topob.c(23): fd_topob_new: mem=0x726e0a8c6000 app_name=tickoni
+WARNING 08-24 13:20:15.702387 77430  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x780af9cc6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:15.746327 77434  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7499c6ec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:15.746386 77435  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x726e0a8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:15.746385 77436  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x777649898000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:15.746328 77432  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x744e6fa35000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:15.746329 77431  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7e6d090c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:15.746375 77433  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7a49634c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:15.746324 77429  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7f3ddc8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:15.850785 77430  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:15.902513 77433  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:15.903178 77434  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:15.903277 77431  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:15.903416 77436  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:15.904339 77435  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:15.905894 77432  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:15.906074 77429  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77430_vicgenin_dev3_2026_08_24_13_20_15_542368925_GMT+03"
+Log at "/tmp/fd-0.1.1_77434_vicgenin_dev3_2026_08_24_13_20_15_568929547_GMT+03"
+Log at "/tmp/fd-0.1.1_77435_vicgenin_dev3_2026_08_24_13_20_15_576663977_GMT+03"
+Log at "/tmp/fd-0.1.1_77436_vicgenin_dev3_2026_08_24_13_20_15_576322873_GMT+03"
+Log at "/tmp/fd-0.1.1_77429_vicgenin_dev3_2026_08_24_13_20_15_537128518_GMT+03"
+Log at "/tmp/fd-0.1.1_77432_vicgenin_dev3_2026_08_24_13_20_15_552289251_GMT+03"
+Log at "/tmp/fd-0.1.1_77431_vicgenin_dev3_2026_08_24_13_20_15_549674088_GMT+03"
+Log at "/tmp/fd-0.1.1_77433_vicgenin_dev3_2026_08_24_13_20_15_561202870_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77361_vicgenin_dev3_2026_08_24_13_20_16_447848717_GMT+03"
+All 6 tests passed.
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77437_vicgenin_dev3_2026_08_24_13_20_16_461704620_GMT+03"
+NOTICE  08-24 13:20:16.472013 77437  f0   0    topob.c(246): tk_topob_new: mem=0x734cc3e28000 app_name=tickoni
+WARNING 08-24 13:20:16.472039 77437  f0   0    fd_topob.c(23): fd_topob_new: mem=0x734cc3e28000 app_name=tickoni
+WARNING 08-24 13:20:16.523483 77437  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x734cc3e28000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:16.572378 77437  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77438_vicgenin_dev3_2026_08_24_13_20_16_634243990_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77439_vicgenin_dev3_2026_08_24_13_20_16_639012089_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77440_vicgenin_dev3_2026_08_24_13_20_16_644030933_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77441_vicgenin_dev3_2026_08_24_13_20_16_657550043_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77442_vicgenin_dev3_2026_08_24_13_20_16_661882523_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77443_vicgenin_dev3_2026_08_24_13_20_16_664240480_GMT+03"
+--log-path not specified; using autogenerated path
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77444_vicgenin_dev3_2026_08_24_13_20_16_670843009_GMT+03"
+Log at "/tmp/fd-0.1.1_77445_vicgenin_dev3_2026_08_24_13_20_16_670860074_GMT+03"
+NOTICE  08-24 13:20:16.679559 77438  f0   0    topob.c(246): tk_topob_new: mem=0x7ee4bf8c6000 app_name=tickoni
+WARNING 08-24 13:20:16.679597 77438  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7ee4bf8c6000 app_name=tickoni
+NOTICE  08-24 13:20:16.682378 77440  f0   0    topob.c(246): tk_topob_new: mem=0x73790e0c6000 app_name=tickoni
+WARNING 08-24 13:20:16.682436 77440  f0   0    fd_topob.c(23): fd_topob_new: mem=0x73790e0c6000 app_name=tickoni
+NOTICE  08-24 13:20:16.695019 77442  f0   0    topob.c(246): tk_topob_new: mem=0x722c774c6000 app_name=tickoni
+WARNING 08-24 13:20:16.695069 77442  f0   0    fd_topob.c(23): fd_topob_new: mem=0x722c774c6000 app_name=tickoni
+NOTICE  08-24 13:20:16.695458 77441  f0   0    topob.c(246): tk_topob_new: mem=0x79854f835000 app_name=tickoni
+WARNING 08-24 13:20:16.695501 77441  f0   0    fd_topob.c(23): fd_topob_new: mem=0x79854f835000 app_name=tickoni
+NOTICE  08-24 13:20:16.695922 77439  f0   0    topob.c(246): tk_topob_new: mem=0x7c464fac6000 app_name=tickoni
+WARNING 08-24 13:20:16.695937 77439  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7c464fac6000 app_name=tickoni
+NOTICE  08-24 13:20:16.697473 77443  f0   0    topob.c(246): tk_topob_new: mem=0x7b7501ac6000 app_name=tickoni
+WARNING 08-24 13:20:16.697498 77443  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7b7501ac6000 app_name=tickoni
+NOTICE  08-24 13:20:16.699002 77445  f0   0    topob.c(246): tk_topob_new: mem=0x7531b2898000 app_name=tickoni
+WARNING 08-24 13:20:16.699030 77445  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7531b2898000 app_name=tickoni
+NOTICE  08-24 13:20:16.700039 77444  f0   0    topob.c(246): tk_topob_new: mem=0x7aabf6063000 app_name=tickoni
+WARNING 08-24 13:20:16.700074 77444  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7aabf6063000 app_name=tickoni
+WARNING 08-24 13:20:16.792131 77438  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7ee4bf8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:16.836801 77439  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7c464fac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:16.836798 77440  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x73790e0c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:16.836789 77441  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x79854f835000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:16.836814 77444  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7aabf6063000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:16.836885 77443  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7b7501ac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:16.836934 77442  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x722c774c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:16.836948 77445  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7531b2898000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:16.941130 77438  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:16.982708 77439  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:16.983532 77440  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:16.984987 77444  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:16.986507 77445  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:16.986968 77443  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:16.987062 77441  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:16.988405 77442  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77445_vicgenin_dev3_2026_08_24_13_20_16_670860074_GMT+03"
+Log at "/tmp/fd-0.1.1_77442_vicgenin_dev3_2026_08_24_13_20_16_661882523_GMT+03"
+Log at "/tmp/fd-0.1.1_77443_vicgenin_dev3_2026_08_24_13_20_16_664240480_GMT+03"
+Log at "/tmp/fd-0.1.1_77441_vicgenin_dev3_2026_08_24_13_20_16_657550043_GMT+03"
+Log at "/tmp/fd-0.1.1_77444_vicgenin_dev3_2026_08_24_13_20_16_670843009_GMT+03"
+Log at "/tmp/fd-0.1.1_77439_vicgenin_dev3_2026_08_24_13_20_16_639012089_GMT+03"
+Log at "/tmp/fd-0.1.1_77440_vicgenin_dev3_2026_08_24_13_20_16_644030933_GMT+03"
+Log at "/tmp/fd-0.1.1_77438_vicgenin_dev3_2026_08_24_13_20_16_634243990_GMT+03"
+Log at "/tmp/fd-0.1.1_77437_vicgenin_dev3_2026_08_24_13_20_16_461704620_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77437_vicgenin_dev3_2026_08_24_13_20_17_629941258_GMT+03"
+NOTICE  08-24 13:20:17.665124 77437  f0   0    topob.c(246): tk_topob_new: mem=0x734cc28e8000 app_name=tickoni
+WARNING 08-24 13:20:17.665161 77437  f0   0    fd_topob.c(23): fd_topob_new: mem=0x734cc28e8000 app_name=tickoni
+WARNING 08-24 13:20:17.707183 77437  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x734cc28e8000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:17.756175 77437  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77448_vicgenin_dev3_2026_08_24_13_20_17_816296098_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77449_vicgenin_dev3_2026_08_24_13_20_17_820929664_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77450_vicgenin_dev3_2026_08_24_13_20_17_831233686_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77451_vicgenin_dev3_2026_08_24_13_20_17_842158090_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77453_vicgenin_dev3_2026_08_24_13_20_17_846878100_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77452_vicgenin_dev3_2026_08_24_13_20_17_847311897_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77454_vicgenin_dev3_2026_08_24_13_20_17_855893287_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77455_vicgenin_dev3_2026_08_24_13_20_17_859058885_GMT+03"
+NOTICE  08-24 13:20:17.861168 77448  f0   0    topob.c(246): tk_topob_new: mem=0x7ab29fec6000 app_name=tickoni
+WARNING 08-24 13:20:17.861226 77448  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7ab29fec6000 app_name=tickoni
+NOTICE  08-24 13:20:17.863341 77449  f0   0    topob.c(246): tk_topob_new: mem=0x78f175e63000 app_name=tickoni
+WARNING 08-24 13:20:17.863381 77449  f0   0    fd_topob.c(23): fd_topob_new: mem=0x78f175e63000 app_name=tickoni
+NOTICE  08-24 13:20:17.870094 77450  f0   0    topob.c(246): tk_topob_new: mem=0x7487cf8c6000 app_name=tickoni
+WARNING 08-24 13:20:17.870703 77450  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7487cf8c6000 app_name=tickoni
+NOTICE  08-24 13:20:17.875575 77453  f0   0    topob.c(246): tk_topob_new: mem=0x7bac77098000 app_name=tickoni
+WARNING 08-24 13:20:17.875631 77453  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7bac77098000 app_name=tickoni
+NOTICE  08-24 13:20:17.878144 77451  f0   0    topob.c(246): tk_topob_new: mem=0x7f7fe4898000 app_name=tickoni
+WARNING 08-24 13:20:17.878173 77451  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7f7fe4898000 app_name=tickoni
+NOTICE  08-24 13:20:17.880716 77452  f0   0    topob.c(246): tk_topob_new: mem=0x716afdec6000 app_name=tickoni
+WARNING 08-24 13:20:17.880748 77452  f0   0    fd_topob.c(23): fd_topob_new: mem=0x716afdec6000 app_name=tickoni
+NOTICE  08-24 13:20:17.882224 77454  f0   0    topob.c(246): tk_topob_new: mem=0x722dcdac6000 app_name=tickoni
+WARNING 08-24 13:20:17.882247 77454  f0   0    fd_topob.c(23): fd_topob_new: mem=0x722dcdac6000 app_name=tickoni
+NOTICE  08-24 13:20:17.888105 77455  f0   0    topob.c(246): tk_topob_new: mem=0x7fb085c35000 app_name=tickoni
+WARNING 08-24 13:20:17.888139 77455  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7fb085c35000 app_name=tickoni
+WARNING 08-24 13:20:17.987014 77448  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7ab29fec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:18.020886 77451  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7f7fe4898000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:18.020898 77449  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x78f175e63000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:18.020893 77450  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7487cf8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:18.020892 77452  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x716afdec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:18.020861 77453  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7bac77098000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:18.020925 77455  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7fb085c35000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:18.021028 77454  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x722dcdac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:18.125133 77448  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:18.171690 77455  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:18.172126 77450  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:18.173961 77452  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:18.175872 77449  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:18.176312 77454  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:18.177108 77451  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:18.177360 77453  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77453_vicgenin_dev3_2026_08_24_13_20_17_846878100_GMT+03"
+Log at "/tmp/fd-0.1.1_77451_vicgenin_dev3_2026_08_24_13_20_17_842158090_GMT+03"
+Log at "/tmp/fd-0.1.1_77449_vicgenin_dev3_2026_08_24_13_20_17_820929664_GMT+03"
+Log at "/tmp/fd-0.1.1_77452_vicgenin_dev3_2026_08_24_13_20_17_847311897_GMT+03"
+Log at "/tmp/fd-0.1.1_77455_vicgenin_dev3_2026_08_24_13_20_17_859058885_GMT+03"
+Log at "/tmp/fd-0.1.1_77454_vicgenin_dev3_2026_08_24_13_20_17_855893287_GMT+03"
+Log at "/tmp/fd-0.1.1_77450_vicgenin_dev3_2026_08_24_13_20_17_831233686_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77437_vicgenin_dev3_2026_08_24_13_20_18_870410475_GMT+03"
+NOTICE  08-24 13:20:18.885286 77437  f0   0    topob.c(246): tk_topob_new: mem=0x734cc13a8000 app_name=tickoni
+WARNING 08-24 13:20:18.885314 77437  f0   0    fd_topob.c(23): fd_topob_new: mem=0x734cc13a8000 app_name=tickoni
+WARNING 08-24 13:20:18.948312 77437  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x734cc13a8000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:18.986031 77437  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77456_vicgenin_dev3_2026_08_24_13_20_19_034797393_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77457_vicgenin_dev3_2026_08_24_13_20_19_039648144_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77458_vicgenin_dev3_2026_08_24_13_20_19_044476811_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77459_vicgenin_dev3_2026_08_24_13_20_19_054541718_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77460_vicgenin_dev3_2026_08_24_13_20_19_058721289_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77461_vicgenin_dev3_2026_08_24_13_20_19_064649632_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77462_vicgenin_dev3_2026_08_24_13_20_19_067826628_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77463_vicgenin_dev3_2026_08_24_13_20_19_075182347_GMT+03"
+NOTICE  08-24 13:20:19.079437 77456  f0   0    topob.c(246): tk_topob_new: mem=0x7fbd646c6000 app_name=tickoni
+WARNING 08-24 13:20:19.079599 77456  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7fbd646c6000 app_name=tickoni
+NOTICE  08-24 13:20:19.079430 77457  f0   0    topob.c(246): tk_topob_new: mem=0x739380c63000 app_name=tickoni
+WARNING 08-24 13:20:19.080257 77457  f0   0    fd_topob.c(23): fd_topob_new: mem=0x739380c63000 app_name=tickoni
+NOTICE  08-24 13:20:19.080226 77458  f0   0    topob.c(246): tk_topob_new: mem=0x79b3d52c6000 app_name=tickoni
+WARNING 08-24 13:20:19.080449 77458  f0   0    fd_topob.c(23): fd_topob_new: mem=0x79b3d52c6000 app_name=tickoni
+NOTICE  08-24 13:20:19.088314 77459  f0   0    topob.c(246): tk_topob_new: mem=0x726bdb4c6000 app_name=tickoni
+WARNING 08-24 13:20:19.088420 77459  f0   0    fd_topob.c(23): fd_topob_new: mem=0x726bdb4c6000 app_name=tickoni
+NOTICE  08-24 13:20:19.095092 77460  f0   0    topob.c(246): tk_topob_new: mem=0x7765922c6000 app_name=tickoni
+WARNING 08-24 13:20:19.095126 77460  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7765922c6000 app_name=tickoni
+NOTICE  08-24 13:20:19.096362 77462  f0   0    topob.c(246): tk_topob_new: mem=0x7644c0835000 app_name=tickoni
+WARNING 08-24 13:20:19.096390 77462  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7644c0835000 app_name=tickoni
+NOTICE  08-24 13:20:19.097595 77463  f0   0    topob.c(246): tk_topob_new: mem=0x77cfb7cc6000 app_name=tickoni
+WARNING 08-24 13:20:19.097613 77463  f0   0    fd_topob.c(23): fd_topob_new: mem=0x77cfb7cc6000 app_name=tickoni
+WARNING 08-24 13:20:19.183488 77456  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7fbd646c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:19.231049 77463  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x77cfb7cc6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:19.231101 77458  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x79b3d52c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:19.231016 77457  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x739380c63000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:19.231036 77459  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x726bdb4c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:19.231009 77460  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7765922c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:19.231013 77462  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7644c0835000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:19.320893 77456  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:19.374840 77457  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:19.376881 77460  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:19.377834 77459  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:19.377779 77458  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:19.379249 77462  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:19.377903 77463  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77459_vicgenin_dev3_2026_08_24_13_20_19_054541718_GMT+03"
+Log at "/tmp/fd-0.1.1_77463_vicgenin_dev3_2026_08_24_13_20_19_075182347_GMT+03"
+Log at "/tmp/fd-0.1.1_77456_vicgenin_dev3_2026_08_24_13_20_19_034797393_GMT+03"
+Log at "/tmp/fd-0.1.1_77460_vicgenin_dev3_2026_08_24_13_20_19_058721289_GMT+03"
+Log at "/tmp/fd-0.1.1_77458_vicgenin_dev3_2026_08_24_13_20_19_044476811_GMT+03"
+Log at "/tmp/fd-0.1.1_77462_vicgenin_dev3_2026_08_24_13_20_19_067826628_GMT+03"
+Log at "/tmp/fd-0.1.1_77457_vicgenin_dev3_2026_08_24_13_20_19_039648144_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77437_vicgenin_dev3_2026_08_24_13_20_19_894274376_GMT+03"
+NOTICE  08-24 13:20:19.907626 77437  f0   0    topob.c(246): tk_topob_new: mem=0x734cbfe68000 app_name=tickoni
+WARNING 08-24 13:20:19.907651 77437  f0   0    fd_topob.c(23): fd_topob_new: mem=0x734cbfe68000 app_name=tickoni
+WARNING 08-24 13:20:19.987128 77437  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x734cbfe68000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:20.024641 77437  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77466_vicgenin_dev3_2026_08_24_13_20_20_073547655_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77467_vicgenin_dev3_2026_08_24_13_20_20_078252649_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77468_vicgenin_dev3_2026_08_24_13_20_20_084816959_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77469_vicgenin_dev3_2026_08_24_13_20_20_089041550_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77470_vicgenin_dev3_2026_08_24_13_20_20_099636672_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77471_vicgenin_dev3_2026_08_24_13_20_20_104349530_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77472_vicgenin_dev3_2026_08_24_13_20_20_108296305_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77473_vicgenin_dev3_2026_08_24_13_20_20_111430793_GMT+03"
+NOTICE  08-24 13:20:20.117186 77466  f0   0    topob.c(246): tk_topob_new: mem=0x76e5a7463000 app_name=tickoni
+WARNING 08-24 13:20:20.117255 77466  f0   0    fd_topob.c(23): fd_topob_new: mem=0x76e5a7463000 app_name=tickoni
+NOTICE  08-24 13:20:20.123566 77468  f0   0    topob.c(246): tk_topob_new: mem=0x77bae60c6000 app_name=tickoni
+WARNING 08-24 13:20:20.123605 77468  f0   0    fd_topob.c(23): fd_topob_new: mem=0x77bae60c6000 app_name=tickoni
+NOTICE  08-24 13:20:20.123774 77467  f0   0    topob.c(246): tk_topob_new: mem=0x74d18d4c6000 app_name=tickoni
+WARNING 08-24 13:20:20.123848 77467  f0   0    fd_topob.c(23): fd_topob_new: mem=0x74d18d4c6000 app_name=tickoni
+NOTICE  08-24 13:20:20.125236 77469  f0   0    topob.c(246): tk_topob_new: mem=0x7b35fcc98000 app_name=tickoni
+WARNING 08-24 13:20:20.125272 77469  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7b35fcc98000 app_name=tickoni
+NOTICE  08-24 13:20:20.136714 77472  f0   0    topob.c(246): tk_topob_new: mem=0x7588ad0c6000 app_name=tickoni
+WARNING 08-24 13:20:20.136766 77472  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7588ad0c6000 app_name=tickoni
+NOTICE  08-24 13:20:20.137708 77471  f0   0    topob.c(246): tk_topob_new: mem=0x7859bb6c6000 app_name=tickoni
+WARNING 08-24 13:20:20.137734 77471  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7859bb6c6000 app_name=tickoni
+NOTICE  08-24 13:20:20.140175 77470  f0   0    topob.c(246): tk_topob_new: mem=0x7cc39a8c6000 app_name=tickoni
+WARNING 08-24 13:20:20.140226 77470  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7cc39a8c6000 app_name=tickoni
+NOTICE  08-24 13:20:20.141002 77473  f0   0    topob.c(246): tk_topob_new: mem=0x7d623c635000 app_name=tickoni
+WARNING 08-24 13:20:20.141026 77473  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7d623c635000 app_name=tickoni
+WARNING 08-24 13:20:20.228702 77466  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x76e5a7463000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:20.274381 77473  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7d623c635000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:20.274362 77471  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7859bb6c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:20.274437 77472  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7588ad0c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:20.274464 77470  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7cc39a8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:20.274488 77469  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7b35fcc98000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:20.274454 77468  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x77bae60c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:20.274385 77467  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x74d18d4c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:20.388471 77466  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:20.438282 77470  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:20.439601 77473  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:20.440335 77472  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:20.440643 77467  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:20.441404 77471  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:20.441440 77469  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:20.441411 77468  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77467_vicgenin_dev3_2026_08_24_13_20_20_078252649_GMT+03"
+Log at "/tmp/fd-0.1.1_77471_vicgenin_dev3_2026_08_24_13_20_20_104349530_GMT+03"
+Log at "/tmp/fd-0.1.1_77469_vicgenin_dev3_2026_08_24_13_20_20_089041550_GMT+03"
+Log at "/tmp/fd-0.1.1_77468_vicgenin_dev3_2026_08_24_13_20_20_084816959_GMT+03"
+Log at "/tmp/fd-0.1.1_77466_vicgenin_dev3_2026_08_24_13_20_20_073547655_GMT+03"
+Log at "/tmp/fd-0.1.1_77473_vicgenin_dev3_2026_08_24_13_20_20_111430793_GMT+03"
+Log at "/tmp/fd-0.1.1_77470_vicgenin_dev3_2026_08_24_13_20_20_099636672_GMT+03"
+Log at "/tmp/fd-0.1.1_77472_vicgenin_dev3_2026_08_24_13_20_20_108296305_GMT+03"
+All 4 tests passed.
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77474_vicgenin_dev3_2026_08_24_13_20_20_989158604_GMT+03"
+NOTICE  08-24 13:20:20.999584 77474  f0   0    topob.c(246): tk_topob_new: mem=0x7944ca428000 app_name=tickoni
+WARNING 08-24 13:20:20.999609 77474  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7944ca428000 app_name=tickoni
+WARNING 08-24 13:20:21.049582 77474  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7944ca428000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:21.098256 77474  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77475_vicgenin_dev3_2026_08_24_13_20_21_151067984_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77477_vicgenin_dev3_2026_08_24_13_20_21_158857097_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77476_vicgenin_dev3_2026_08_24_13_20_21_159785999_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77478_vicgenin_dev3_2026_08_24_13_20_21_165139093_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77479_vicgenin_dev3_2026_08_24_13_20_21_170383850_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77480_vicgenin_dev3_2026_08_24_13_20_21_177602308_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77481_vicgenin_dev3_2026_08_24_13_20_21_182852658_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77482_vicgenin_dev3_2026_08_24_13_20_21_187556004_GMT+03"
+NOTICE  08-24 13:20:21.195851 77477  f0   0    topob.c(246): tk_topob_new: mem=0x72a4c0ac6000 app_name=tickoni
+WARNING 08-24 13:20:21.195899 77477  f0   0    fd_topob.c(23): fd_topob_new: mem=0x72a4c0ac6000 app_name=tickoni
+NOTICE  08-24 13:20:21.198054 77478  f0   0    topob.c(246): tk_topob_new: mem=0x7eae054c6000 app_name=tickoni
+WARNING 08-24 13:20:21.198094 77478  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7eae054c6000 app_name=tickoni
+NOTICE  08-24 13:20:21.203642 77479  f0   0    topob.c(246): tk_topob_new: mem=0x7da9f4498000 app_name=tickoni
+WARNING 08-24 13:20:21.203699 77479  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7da9f4498000 app_name=tickoni
+NOTICE  08-24 13:20:21.213171 77480  f0   0    topob.c(246): tk_topob_new: mem=0x7b01de8c6000 app_name=tickoni
+WARNING 08-24 13:20:21.213200 77480  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7b01de8c6000 app_name=tickoni
+NOTICE  08-24 13:20:21.214862 77482  f0   0    topob.c(246): tk_topob_new: mem=0x7b2c600c6000 app_name=tickoni
+NOTICE  08-24 13:20:21.214883 77481  f0   0    topob.c(246): tk_topob_new: mem=0x798b504c6000 app_name=tickoni
+WARNING 08-24 13:20:21.214897 77482  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7b2c600c6000 app_name=tickoni
+WARNING 08-24 13:20:21.214905 77481  f0   0    fd_topob.c(23): fd_topob_new: mem=0x798b504c6000 app_name=tickoni
+NOTICE  08-24 13:20:21.216044 77475  0    0    topob.c(246): tk_topob_new: mem=0x749b7ca63000 app_name=tickoni
+WARNING 08-24 13:20:21.216066 77475  0    0    fd_topob.c(23): fd_topob_new: mem=0x749b7ca63000 app_name=tickoni
+NOTICE  08-24 13:20:21.217160 77476  0    0    topob.c(246): tk_topob_new: mem=0x7e9fb12c6000 app_name=tickoni
+WARNING 08-24 13:20:21.217182 77476  0    0    fd_topob.c(23): fd_topob_new: mem=0x7e9fb12c6000 app_name=tickoni
+WARNING 08-24 13:20:21.296309 77477  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x72a4c0ac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:21.342722 77482  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7b2c600c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:21.342712 77481  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x798b504c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:21.342717 77478  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7eae054c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:21.342830 77480  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7b01de8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:21.342972 77479  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7da9f4498000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:21.342985 77475  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x749b7ca63000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:21.343100 77476  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7e9fb12c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:21.445360 77477  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:21.486012 77480  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:21.486160 77478  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:21.487472 77482  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:21.487841 77481  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:21.490388 77479  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:21.490984 77476  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:21.491192 77475  0    0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77481_vicgenin_dev3_2026_08_24_13_20_21_182852658_GMT+03"
+Log at "/tmp/fd-0.1.1_77475_vicgenin_dev3_2026_08_24_13_20_21_151067984_GMT+03"
+Log at "/tmp/fd-0.1.1_77482_vicgenin_dev3_2026_08_24_13_20_21_187556004_GMT+03"
+Log at "/tmp/fd-0.1.1_77480_vicgenin_dev3_2026_08_24_13_20_21_177602308_GMT+03"
+Log at "/tmp/fd-0.1.1_77477_vicgenin_dev3_2026_08_24_13_20_21_158857097_GMT+03"
+Log at "/tmp/fd-0.1.1_77479_vicgenin_dev3_2026_08_24_13_20_21_170383850_GMT+03"
+Log at "/tmp/fd-0.1.1_77478_vicgenin_dev3_2026_08_24_13_20_21_165139093_GMT+03"
+Log at "/tmp/fd-0.1.1_77476_vicgenin_dev3_2026_08_24_13_20_21_159785999_GMT+03"
+Log at "/tmp/fd-0.1.1_77474_vicgenin_dev3_2026_08_24_13_20_20_989158604_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77474_vicgenin_dev3_2026_08_24_13_20_22_178206866_GMT+03"
+NOTICE  08-24 13:20:22.215217 77474  f0   0    topob.c(246): tk_topob_new: mem=0x7944c8ee4000 app_name=tickoni
+WARNING 08-24 13:20:22.215278 77474  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7944c8ee4000 app_name=tickoni
+WARNING 08-24 13:20:22.255795 77474  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7944c8ee4000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:22.304811 77474  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77485_vicgenin_dev3_2026_08_24_13_20_22_362748011_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77486_vicgenin_dev3_2026_08_24_13_20_22_366122515_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77487_vicgenin_dev3_2026_08_24_13_20_22_370304904_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77488_vicgenin_dev3_2026_08_24_13_20_22_373905028_GMT+03"
+--log-path not specified; using autogenerated path
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77489_vicgenin_dev3_2026_08_24_13_20_22_379553576_GMT+03"
+Log at "/tmp/fd-0.1.1_77490_vicgenin_dev3_2026_08_24_13_20_22_380565870_GMT+03"
+--log-path not specified; using autogenerated path
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77491_vicgenin_dev3_2026_08_24_13_20_22_387925223_GMT+03"
+Log at "/tmp/fd-0.1.1_77492_vicgenin_dev3_2026_08_24_13_20_22_387325025_GMT+03"
+NOTICE  08-24 13:20:22.395306 77485  f0   0    topob.c(246): tk_topob_new: mem=0x738412e35000 app_name=tickoni
+WARNING 08-24 13:20:22.395381 77485  f0   0    fd_topob.c(23): fd_topob_new: mem=0x738412e35000 app_name=tickoni
+NOTICE  08-24 13:20:22.397739 77486  f0   0    topob.c(246): tk_topob_new: mem=0x73a69f8c6000 app_name=tickoni
+WARNING 08-24 13:20:22.397804 77486  f0   0    fd_topob.c(23): fd_topob_new: mem=0x73a69f8c6000 app_name=tickoni
+NOTICE  08-24 13:20:22.401111 77487  f0   0    topob.c(246): tk_topob_new: mem=0x716f3a0c6000 app_name=tickoni
+WARNING 08-24 13:20:22.401152 77487  f0   0    fd_topob.c(23): fd_topob_new: mem=0x716f3a0c6000 app_name=tickoni
+NOTICE  08-24 13:20:22.402862 77488  f0   0    topob.c(246): tk_topob_new: mem=0x7ce0b4898000 app_name=tickoni
+WARNING 08-24 13:20:22.402906 77488  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7ce0b4898000 app_name=tickoni
+NOTICE  08-24 13:20:22.414876 77489  f0   0    topob.c(246): tk_topob_new: mem=0x7042e5ec6000 app_name=tickoni
+WARNING 08-24 13:20:22.414918 77489  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7042e5ec6000 app_name=tickoni
+NOTICE  08-24 13:20:22.415292 77490  f0   0    topob.c(246): tk_topob_new: mem=0x7b0d69ec6000 app_name=tickoni
+WARNING 08-24 13:20:22.415312 77490  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7b0d69ec6000 app_name=tickoni
+NOTICE  08-24 13:20:22.415867 77492  f0   0    topob.c(246): tk_topob_new: mem=0x785b7bcc6000 app_name=tickoni
+WARNING 08-24 13:20:22.415886 77492  f0   0    fd_topob.c(23): fd_topob_new: mem=0x785b7bcc6000 app_name=tickoni
+NOTICE  08-24 13:20:22.416771 77491  f0   0    topob.c(246): tk_topob_new: mem=0x7696ddec6000 app_name=tickoni
+WARNING 08-24 13:20:22.416799 77491  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7696ddec6000 app_name=tickoni
+WARNING 08-24 13:20:22.497557 77485  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x738412e35000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:22.532361 77489  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7042e5ec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:22.532359 77486  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x73a69f8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:22.532355 77488  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7ce0b4898000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:22.532378 77490  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7b0d69ec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:22.532400 77492  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x785b7bcc6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:22.532468 77487  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x716f3a0c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:22.532494 77491  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7696ddec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:22.628887 77485  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:22.678706 77488  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:22.679388 77489  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:22.680117 77486  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:22.680746 77492  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:22.682613 77487  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:22.683296 77490  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:22.683369 77491  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77485_vicgenin_dev3_2026_08_24_13_20_22_362748011_GMT+03"
+Log at "/tmp/fd-0.1.1_77491_vicgenin_dev3_2026_08_24_13_20_22_387925223_GMT+03"
+Log at "/tmp/fd-0.1.1_77492_vicgenin_dev3_2026_08_24_13_20_22_387325025_GMT+03"
+Log at "/tmp/fd-0.1.1_77487_vicgenin_dev3_2026_08_24_13_20_22_370304904_GMT+03"
+Log at "/tmp/fd-0.1.1_77486_vicgenin_dev3_2026_08_24_13_20_22_366122515_GMT+03"
+Log at "/tmp/fd-0.1.1_77488_vicgenin_dev3_2026_08_24_13_20_22_373905028_GMT+03"
+Log at "/tmp/fd-0.1.1_77489_vicgenin_dev3_2026_08_24_13_20_22_379553576_GMT+03"
+Log at "/tmp/fd-0.1.1_77490_vicgenin_dev3_2026_08_24_13_20_22_380565870_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77474_vicgenin_dev3_2026_08_24_13_20_23_156065350_GMT+03"
+NOTICE  08-24 13:20:23.167037 77474  f0   0    topob.c(246): tk_topob_new: mem=0x7944c79a8000 app_name=tickoni
+WARNING 08-24 13:20:23.167077 77474  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7944c79a8000 app_name=tickoni
+WARNING 08-24 13:20:23.218050 77474  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7944c79a8000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:23.266659 77474  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77493_vicgenin_dev3_2026_08_24_13_20_23_329031346_GMT+03"
+--log-path not specified; using autogenerated path
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77495_vicgenin_dev3_2026_08_24_13_20_23_337035122_GMT+03"
+Log at "/tmp/fd-0.1.1_77494_vicgenin_dev3_2026_08_24_13_20_23_336757043_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77496_vicgenin_dev3_2026_08_24_13_20_23_340510338_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77497_vicgenin_dev3_2026_08_24_13_20_23_346715665_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77498_vicgenin_dev3_2026_08_24_13_20_23_355674394_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77500_vicgenin_dev3_2026_08_24_13_20_23_361054268_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77499_vicgenin_dev3_2026_08_24_13_20_23_361169032_GMT+03"
+NOTICE  08-24 13:20:23.369203 77495  f0   0    topob.c(246): tk_topob_new: mem=0x76d8e7cc6000 app_name=tickoni
+WARNING 08-24 13:20:23.369254 77495  f0   0    fd_topob.c(23): fd_topob_new: mem=0x76d8e7cc6000 app_name=tickoni
+NOTICE  08-24 13:20:23.370890 77496  f0   0    topob.c(246): tk_topob_new: mem=0x7ce1574c6000 app_name=tickoni
+WARNING 08-24 13:20:23.370952 77496  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7ce1574c6000 app_name=tickoni
+NOTICE  08-24 13:20:23.377743 77497  f0   0    topob.c(246): tk_topob_new: mem=0x7d802bac6000 app_name=tickoni
+WARNING 08-24 13:20:23.377780 77497  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7d802bac6000 app_name=tickoni
+NOTICE  08-24 13:20:23.387383 77493  0    0    topob.c(246): tk_topob_new: mem=0x74e0ea663000 app_name=tickoni
+WARNING 08-24 13:20:23.387423 77493  0    0    fd_topob.c(23): fd_topob_new: mem=0x74e0ea663000 app_name=tickoni
+NOTICE  08-24 13:20:23.387895 77498  f0   0    topob.c(246): tk_topob_new: mem=0x7a4c36298000 app_name=tickoni
+WARNING 08-24 13:20:23.389653 77498  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7a4c36298000 app_name=tickoni
+NOTICE  08-24 13:20:23.388214 77500  f0   0    topob.c(246): tk_topob_new: mem=0x72bddba63000 app_name=tickoni
+WARNING 08-24 13:20:23.389698 77500  f0   0    fd_topob.c(23): fd_topob_new: mem=0x72bddba63000 app_name=tickoni
+NOTICE  08-24 13:20:23.388470 77499  f0   0    topob.c(246): tk_topob_new: mem=0x7eddfd463000 app_name=tickoni
+WARNING 08-24 13:20:23.389727 77499  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7eddfd463000 app_name=tickoni
+NOTICE  08-24 13:20:23.390620 77494  0    0    topob.c(246): tk_topob_new: mem=0x75c608ec6000 app_name=tickoni
+WARNING 08-24 13:20:23.390646 77494  0    0    fd_topob.c(23): fd_topob_new: mem=0x75c608ec6000 app_name=tickoni
+WARNING 08-24 13:20:23.464339 77495  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x76d8e7cc6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:23.509768 77499  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7eddfd463000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:23.509790 77497  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7d802bac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:23.509789 77493  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x74e0ea663000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:23.509822 77496  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7ce1574c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:23.509768 77500  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x72bddba63000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:23.509850 77498  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7a4c36298000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:23.510068 77494  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x75c608ec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:23.580108 77495  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:23.631210 77499  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:23.631975 77498  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:23.632763 77497  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:23.632983 77496  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:23.635617 77500  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:23.638372 77493  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:23.638558 77494  0    0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77493_vicgenin_dev3_2026_08_24_13_20_23_329031346_GMT+03"
+Log at "/tmp/fd-0.1.1_77499_vicgenin_dev3_2026_08_24_13_20_23_361169032_GMT+03"
+Log at "/tmp/fd-0.1.1_77498_vicgenin_dev3_2026_08_24_13_20_23_355674394_GMT+03"
+Log at "/tmp/fd-0.1.1_77500_vicgenin_dev3_2026_08_24_13_20_23_361054268_GMT+03"
+Log at "/tmp/fd-0.1.1_77496_vicgenin_dev3_2026_08_24_13_20_23_340510338_GMT+03"
+Log at "/tmp/fd-0.1.1_77494_vicgenin_dev3_2026_08_24_13_20_23_336757043_GMT+03"
+Log at "/tmp/fd-0.1.1_77497_vicgenin_dev3_2026_08_24_13_20_23_346715665_GMT+03"
+Log at "/tmp/fd-0.1.1_77495_vicgenin_dev3_2026_08_24_13_20_23_337035122_GMT+03"
+All 5 tests passed.
+integration-test
+└─ run test w
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77402_vicgenin_dev3_2026_08_24_13_20_08_518079379_GMT+03"
+Log at "/tmp/fd-0.1.1_77402_vicgenin_dev3_2026_08_24_13_20_08_518079379_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77402_vicgenin_dev3_2026_08_24_13_20_10_886587695_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77402_vicgenin_dev3_2026_08_24_13_20_10_897273920_GMT+03"
+failed command: ./.zig-cache/o/b1eb901d38c75ea94aa57ba0adfdce9c/test --cache-dir=./.zig-cache --seed=0x4bf1c787 --listen=-
+
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77548_vicgenin_dev3_2026_08_24_13_20_25_516375327_GMT+03"
+NOTICE  08-24 13:20:25.527014 77548  f0   0    topob.c(246): tk_topob_new: mem=0x73e1d3c28000 app_name=tickoni
+WARNING 08-24 13:20:25.527043 77548  f0   0    fd_topob.c(23): fd_topob_new: mem=0x73e1d3c28000 app_name=tickoni
+WARNING 08-24 13:20:25.568730 77548  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x73e1d3c28000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:25.604446 77548  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77560_vicgenin_dev3_2026_08_24_13_20_25_643828447_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77559_vicgenin_dev3_2026_08_24_13_20_25_644356444_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77561_vicgenin_dev3_2026_08_24_13_20_25_654214098_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77562_vicgenin_dev3_2026_08_24_13_20_25_649614724_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77564_vicgenin_dev3_2026_08_24_13_20_25_659487090_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77563_vicgenin_dev3_2026_08_24_13_20_25_660926614_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77565_vicgenin_dev3_2026_08_24_13_20_25_663284770_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77566_vicgenin_dev3_2026_08_24_13_20_25_668708830_GMT+03"
+NOTICE  08-24 13:20:25.672590 77560  f0   0    topob.c(246): tk_topob_new: mem=0x76bc356c6000 app_name=tickoni
+WARNING 08-24 13:20:25.672650 77560  f0   0    fd_topob.c(23): fd_topob_new: mem=0x76bc356c6000 app_name=tickoni
+NOTICE  08-24 13:20:25.674991 77562  f0   0    topob.c(246): tk_topob_new: mem=0x79b9974c6000 app_name=tickoni
+WARNING 08-24 13:20:25.675023 77562  f0   0    fd_topob.c(23): fd_topob_new: mem=0x79b9974c6000 app_name=tickoni
+NOTICE  08-24 13:20:25.681833 77559  f0   0    topob.c(246): tk_topob_new: mem=0x7439d36c6000 app_name=tickoni
+WARNING 08-24 13:20:25.681886 77559  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7439d36c6000 app_name=tickoni
+NOTICE  08-24 13:20:25.688886 77565  f0   0    topob.c(246): tk_topob_new: mem=0x70510bcc6000 app_name=tickoni
+WARNING 08-24 13:20:25.688944 77565  f0   0    fd_topob.c(23): fd_topob_new: mem=0x70510bcc6000 app_name=tickoni
+NOTICE  08-24 13:20:25.697747 77566  f0   0    topob.c(246): tk_topob_new: mem=0x789fd3ec6000 app_name=tickoni
+WARNING 08-24 13:20:25.697804 77566  f0   0    fd_topob.c(23): fd_topob_new: mem=0x789fd3ec6000 app_name=tickoni
+NOTICE  08-24 13:20:25.698954 77561  f0   0    topob.c(246): tk_topob_new: mem=0x7cb6022c6000 app_name=tickoni
+WARNING 08-24 13:20:25.698980 77561  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7cb6022c6000 app_name=tickoni
+NOTICE  08-24 13:20:25.699965 77564  f0   0    topob.c(246): tk_topob_new: mem=0x790532ac6000 app_name=tickoni
+WARNING 08-24 13:20:25.699996 77564  f0   0    fd_topob.c(23): fd_topob_new: mem=0x790532ac6000 app_name=tickoni
+NOTICE  08-24 13:20:25.700528 77563  f0   0    topob.c(246): tk_topob_new: mem=0x7e8144ac6000 app_name=tickoni
+WARNING 08-24 13:20:25.700550 77563  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7e8144ac6000 app_name=tickoni
+WARNING 08-24 13:20:25.779861 77560  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x76bc356c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:25.826325 77562  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x79b9974c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:25.826370 77564  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x790532ac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:25.826369 77563  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7e8144ac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:25.826357 77559  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7439d36c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:25.826350 77565  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x70510bcc6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:25.826380 77566  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x789fd3ec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:25.826350 77561  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7cb6022c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:25.904151 77560  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:25.962139 77563  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:25.963460 77562  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:25.966898 77566  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:25.968381 77564  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:25.969265 77559  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:25.969793 77565  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:25.970046 77561  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77566_vicgenin_dev3_2026_08_24_13_20_25_668708830_GMT+03"
+Log at "/tmp/fd-0.1.1_77565_vicgenin_dev3_2026_08_24_13_20_25_663284770_GMT+03"
+Log at "/tmp/fd-0.1.1_77562_vicgenin_dev3_2026_08_24_13_20_25_649614724_GMT+03"
+Log at "/tmp/fd-0.1.1_77563_vicgenin_dev3_2026_08_24_13_20_25_660926614_GMT+03"
+Log at "/tmp/fd-0.1.1_77560_vicgenin_dev3_2026_08_24_13_20_25_643828447_GMT+03"
+Log at "/tmp/fd-0.1.1_77559_vicgenin_dev3_2026_08_24_13_20_25_644356444_GMT+03"
+Log at "/tmp/fd-0.1.1_77561_vicgenin_dev3_2026_08_24_13_20_25_654214098_GMT+03"
+Log at "/tmp/fd-0.1.1_77564_vicgenin_dev3_2026_08_24_13_20_25_659487090_GMT+03"
+Log at "/tmp/fd-0.1.1_77548_vicgenin_dev3_2026_08_24_13_20_25_516375327_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77548_vicgenin_dev3_2026_08_24_13_20_26_818099348_GMT+03"
+NOTICE  08-24 13:20:26.828926 77548  f0   0    topob.c(246): tk_topob_new: mem=0x73e1d26e8000 app_name=tickoni
+WARNING 08-24 13:20:26.828951 77548  f0   0    fd_topob.c(23): fd_topob_new: mem=0x73e1d26e8000 app_name=tickoni
+WARNING 08-24 13:20:26.885687 77548  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x73e1d26e8000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:26.931804 77548  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77591_vicgenin_dev3_2026_08_24_13_20_26_980170241_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77592_vicgenin_dev3_2026_08_24_13_20_26_981306075_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77593_vicgenin_dev3_2026_08_24_13_20_26_983729493_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77594_vicgenin_dev3_2026_08_24_13_20_26_984949227_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77595_vicgenin_dev3_2026_08_24_13_20_26_990514163_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77596_vicgenin_dev3_2026_08_24_13_20_26_992518526_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77597_vicgenin_dev3_2026_08_24_13_20_26_995126341_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77598_vicgenin_dev3_2026_08_24_13_20_26_999258067_GMT+03"
+NOTICE  08-24 13:20:27.004805 77592  f0   0    topob.c(246): tk_topob_new: mem=0x74642b8c6000 app_name=tickoni
+WARNING 08-24 13:20:27.004850 77592  f0   0    fd_topob.c(23): fd_topob_new: mem=0x74642b8c6000 app_name=tickoni
+NOTICE  08-24 13:20:27.008318 77591  f0   0    topob.c(246): tk_topob_new: mem=0x791b112c6000 app_name=tickoni
+WARNING 08-24 13:20:27.008382 77591  f0   0    fd_topob.c(23): fd_topob_new: mem=0x791b112c6000 app_name=tickoni
+NOTICE  08-24 13:20:27.009404 77593  f0   0    topob.c(246): tk_topob_new: mem=0x73c2ae8c6000 app_name=tickoni
+WARNING 08-24 13:20:27.009456 77593  f0   0    fd_topob.c(23): fd_topob_new: mem=0x73c2ae8c6000 app_name=tickoni
+NOTICE  08-24 13:20:27.010786 77594  f0   0    topob.c(246): tk_topob_new: mem=0x7800d0a63000 app_name=tickoni
+WARNING 08-24 13:20:27.010818 77594  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7800d0a63000 app_name=tickoni
+NOTICE  08-24 13:20:27.016949 77595  f0   0    topob.c(246): tk_topob_new: mem=0x7cfe040c6000 app_name=tickoni
+WARNING 08-24 13:20:27.017026 77595  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7cfe040c6000 app_name=tickoni
+NOTICE  08-24 13:20:27.022697 77596  f0   0    topob.c(246): tk_topob_new: mem=0x74557a2c6000 app_name=tickoni
+WARNING 08-24 13:20:27.022729 77596  f0   0    fd_topob.c(23): fd_topob_new: mem=0x74557a2c6000 app_name=tickoni
+NOTICE  08-24 13:20:27.024350 77598  f0   0    topob.c(246): tk_topob_new: mem=0x78601fec6000 app_name=tickoni
+WARNING 08-24 13:20:27.024376 77598  f0   0    fd_topob.c(23): fd_topob_new: mem=0x78601fec6000 app_name=tickoni
+NOTICE  08-24 13:20:27.025690 77597  f0   0    topob.c(246): tk_topob_new: mem=0x752c6d4c6000 app_name=tickoni
+WARNING 08-24 13:20:27.025713 77597  f0   0    fd_topob.c(23): fd_topob_new: mem=0x752c6d4c6000 app_name=tickoni
+WARNING 08-24 13:20:27.125983 77592  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x74642b8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:27.171312 77596  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x74557a2c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:27.171368 77597  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x752c6d4c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:27.171347 77594  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7800d0a63000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:27.171358 77595  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7cfe040c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:27.171356 77598  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x78601fec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:27.171336 77591  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x791b112c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:27.171533 77593  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x73c2ae8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:27.283043 77592  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:27.328309 77593  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:27.328905 77594  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:27.330525 77597  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:27.330996 77596  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:27.331158 77598  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:27.330571 77595  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:27.332714 77591  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77598_vicgenin_dev3_2026_08_24_13_20_26_999258067_GMT+03"
+expected .stopped, found .stale
+2/2 test_process_pipeline.test.process_pipeline_integration: stopProcess prefers clean exit over transient stale classification...FAIL (TestExpectedEqual)
+/home/vicgenin/.local/zig-x86_64-linux-0.17.0-dev.1770+5d7cf3f34/lib/std/testing.zig:111:17: 0x1259024 in expectEqualInner__anon_41784 (std.zig)
+                return error.TestExpectedEqual;
+                ^
+/home/vicgenin/.local/zig-x86_64-linux-0.17.0-dev.1770+5d7cf3f34/lib/std/testing.zig:75:5: 0x1259732 in expectEqual (test_process_pipeline.zig)
+    return expectEqualInner(T, expected, actual);
+    ^
+/home/vicgenin/work/git/tickoni/src/tickoni/test/integration/test_process_pipeline.zig:112:9: 0x12597b5 in test.process_pipeline_integration: stopProcess prefers clean exit over transient stale classification (test_process_pipeline.zig)
+        try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
+        ^
+1 passed; 0 skipped; 1 failed.
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77601_vicgenin_dev3_2026_08_24_13_20_28_133078737_GMT+03"
+NOTICE  08-24 13:20:28.143464 77601  f0   0    topob.c(246): tk_topob_new: mem=0x75d2e4f98000 app_name=tickoni
+WARNING 08-24 13:20:28.143494 77601  f0   0    fd_topob.c(23): fd_topob_new: mem=0x75d2e4f98000 app_name=tickoni
+WARNING 08-24 13:20:28.204371 77601  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x75d2e4f98000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:28.262868 77601  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77602_vicgenin_dev3_2026_08_24_13_20_28_328919376_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77603_vicgenin_dev3_2026_08_24_13_20_28_332378800_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77604_vicgenin_dev3_2026_08_24_13_20_28_335565485_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77605_vicgenin_dev3_2026_08_24_13_20_28_339018728_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77606_vicgenin_dev3_2026_08_24_13_20_28_355620629_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77608_vicgenin_dev3_2026_08_24_13_20_28_364360797_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77607_vicgenin_dev3_2026_08_24_13_20_28_367509248_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77609_vicgenin_dev3_2026_08_24_13_20_28_371025665_GMT+03"
+NOTICE  08-24 13:20:28.374735 77605  f0   0    topob.c(246): tk_topob_new: mem=0x7a053d435000 app_name=tickoni
+WARNING 08-24 13:20:28.374790 77605  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7a053d435000 app_name=tickoni
+NOTICE  08-24 13:20:28.376443 77604  f0   0    topob.c(246): tk_topob_new: mem=0x728e10235000 app_name=tickoni
+WARNING 08-24 13:20:28.376487 77604  f0   0    fd_topob.c(23): fd_topob_new: mem=0x728e10235000 app_name=tickoni
+NOTICE  08-24 13:20:28.376868 77603  f0   0    topob.c(246): tk_topob_new: mem=0x70276ca35000 app_name=tickoni
+WARNING 08-24 13:20:28.377557 77603  f0   0    fd_topob.c(23): fd_topob_new: mem=0x70276ca35000 app_name=tickoni
+NOTICE  08-24 13:20:28.379751 77602  f0   0    topob.c(246): tk_topob_new: mem=0x741feaac6000 app_name=tickoni
+WARNING 08-24 13:20:28.379799 77602  f0   0    fd_topob.c(23): fd_topob_new: mem=0x741feaac6000 app_name=tickoni
+NOTICE  08-24 13:20:28.392042 77608  f0   0    topob.c(246): tk_topob_new: mem=0x78a050ac6000 app_name=tickoni
+WARNING 08-24 13:20:28.392074 77608  f0   0    fd_topob.c(23): fd_topob_new: mem=0x78a050ac6000 app_name=tickoni
+NOTICE  08-24 13:20:28.392136 77606  f0   0    topob.c(246): tk_topob_new: mem=0x713261435000 app_name=tickoni
+WARNING 08-24 13:20:28.392153 77606  f0   0    fd_topob.c(23): fd_topob_new: mem=0x713261435000 app_name=tickoni
+NOTICE  08-24 13:20:28.394199 77607  f0   0    topob.c(246): tk_topob_new: mem=0x730eba2c6000 app_name=tickoni
+WARNING 08-24 13:20:28.394223 77607  f0   0    fd_topob.c(23): fd_topob_new: mem=0x730eba2c6000 app_name=tickoni
+NOTICE  08-24 13:20:28.394727 77609  f0   0    topob.c(246): tk_topob_new: mem=0x7e5bd8ec6000 app_name=tickoni
+WARNING 08-24 13:20:28.394745 77609  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7e5bd8ec6000 app_name=tickoni
+WARNING 08-24 13:20:28.493858 77605  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7a053d435000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:28.537668 77609  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7e5bd8ec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:28.537714 77602  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x741feaac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:28.537648 77607  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x730eba2c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:28.537686 77608  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x78a050ac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:28.537690 77606  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x713261435000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:28.537735 77604  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x728e10235000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:28.537658 77603  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x70276ca35000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:28.644479 77605  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:28.680332 77609  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:28.681594 77606  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:28.684902 77603  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:28.686002 77607  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:28.686060 77604  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:28.686413 77608  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:28.686089 77602  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77609_vicgenin_dev3_2026_08_24_13_20_28_371025665_GMT+03"
+Log at "/tmp/fd-0.1.1_77603_vicgenin_dev3_2026_08_24_13_20_28_332378800_GMT+03"
+Log at "/tmp/fd-0.1.1_77605_vicgenin_dev3_2026_08_24_13_20_28_339018728_GMT+03"
+Log at "/tmp/fd-0.1.1_77606_vicgenin_dev3_2026_08_24_13_20_28_355620629_GMT+03"
+Log at "/tmp/fd-0.1.1_77604_vicgenin_dev3_2026_08_24_13_20_28_335565485_GMT+03"
+Log at "/tmp/fd-0.1.1_77608_vicgenin_dev3_2026_08_24_13_20_28_364360797_GMT+03"
+Log at "/tmp/fd-0.1.1_77602_vicgenin_dev3_2026_08_24_13_20_28_328919376_GMT+03"
+Log at "/tmp/fd-0.1.1_77607_vicgenin_dev3_2026_08_24_13_20_28_367509248_GMT+03"
+Log at "/tmp/fd-0.1.1_77601_vicgenin_dev3_2026_08_24_13_20_28_133078737_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77601_vicgenin_dev3_2026_08_24_13_20_29_579937209_GMT+03"
+NOTICE  08-24 13:20:29.617507 77601  f0   0    topob.c(246): tk_topob_new: mem=0x75d2e3a5c000 app_name=tickoni
+WARNING 08-24 13:20:29.617553 77601  f0   0    fd_topob.c(23): fd_topob_new: mem=0x75d2e3a5c000 app_name=tickoni
+WARNING 08-24 13:20:29.667156 77601  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x75d2e3a5c000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:29.715561 77601  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77612_vicgenin_dev3_2026_08_24_13_20_29_776291099_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77613_vicgenin_dev3_2026_08_24_13_20_29_795064667_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77615_vicgenin_dev3_2026_08_24_13_20_29_801174384_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77616_vicgenin_dev3_2026_08_24_13_20_29_806125508_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77614_vicgenin_dev3_2026_08_24_13_20_29_792921741_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77619_vicgenin_dev3_2026_08_24_13_20_29_812215620_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77618_vicgenin_dev3_2026_08_24_13_20_29_813816273_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77617_vicgenin_dev3_2026_08_24_13_20_29_817963097_GMT+03"
+NOTICE  08-24 13:20:29.953851 77613  0    0    topob.c(246): tk_topob_new: mem=0x759f5c0c6000 app_name=tickoni
+WARNING 08-24 13:20:29.953882 77613  0    0    fd_topob.c(23): fd_topob_new: mem=0x759f5c0c6000 app_name=tickoni
+NOTICE  08-24 13:20:29.958747 77612  0    0    topob.c(246): tk_topob_new: mem=0x7f66a9ec6000 app_name=tickoni
+WARNING 08-24 13:20:29.958771 77612  0    0    fd_topob.c(23): fd_topob_new: mem=0x7f66a9ec6000 app_name=tickoni
+NOTICE  08-24 13:20:29.961470 77618  0    0    topob.c(246): tk_topob_new: mem=0x748138ac6000 app_name=tickoni
+WARNING 08-24 13:20:29.961494 77618  0    0    fd_topob.c(23): fd_topob_new: mem=0x748138ac6000 app_name=tickoni
+NOTICE  08-24 13:20:29.964131 77617  0    0    topob.c(246): tk_topob_new: mem=0x7b91b56c6000 app_name=tickoni
+WARNING 08-24 13:20:29.964147 77617  0    0    fd_topob.c(23): fd_topob_new: mem=0x7b91b56c6000 app_name=tickoni
+NOTICE  08-24 13:20:29.965370 77616  0    0    topob.c(246): tk_topob_new: mem=0x78a60ecc6000 app_name=tickoni
+WARNING 08-24 13:20:29.965384 77616  0    0    fd_topob.c(23): fd_topob_new: mem=0x78a60ecc6000 app_name=tickoni
+NOTICE  08-24 13:20:29.965735 77614  0    0    topob.c(246): tk_topob_new: mem=0x7c4c6c0c6000 app_name=tickoni
+WARNING 08-24 13:20:29.965747 77614  0    0    fd_topob.c(23): fd_topob_new: mem=0x7c4c6c0c6000 app_name=tickoni
+NOTICE  08-24 13:20:29.967144 77619  0    0    topob.c(246): tk_topob_new: mem=0x76442e0c6000 app_name=tickoni
+WARNING 08-24 13:20:29.967168 77619  0    0    fd_topob.c(23): fd_topob_new: mem=0x76442e0c6000 app_name=tickoni
+NOTICE  08-24 13:20:29.967702 77615  0    0    topob.c(246): tk_topob_new: mem=0x74aba60c6000 app_name=tickoni
+WARNING 08-24 13:20:29.967716 77615  0    0    fd_topob.c(23): fd_topob_new: mem=0x74aba60c6000 app_name=tickoni
+WARNING 08-24 13:20:30.031129 77612  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7f66a9ec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.031153 77613  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x759f5c0c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.048350 77618  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x748138ac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.075048 77615  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x74aba60c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.075083 77617  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7b91b56c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.075142 77619  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x76442e0c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.075105 77616  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x78a60ecc6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.075123 77614  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7c4c6c0c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.129258 77618  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:30.130917 77612  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:30.132547 77613  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:30.178874 77617  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:30.180205 77615  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:30.181000 77614  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:30.181719 77619  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:30.181879 77616  0    0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77617_vicgenin_dev3_2026_08_24_13_20_29_817963097_GMT+03"
+Log at "/tmp/fd-0.1.1_77618_vicgenin_dev3_2026_08_24_13_20_29_813816273_GMT+03"
+Log at "/tmp/fd-0.1.1_77616_vicgenin_dev3_2026_08_24_13_20_29_806125508_GMT+03"
+Log at "/tmp/fd-0.1.1_77612_vicgenin_dev3_2026_08_24_13_20_29_776291099_GMT+03"
+Log at "/tmp/fd-0.1.1_77619_vicgenin_dev3_2026_08_24_13_20_29_812215620_GMT+03"
+Log at "/tmp/fd-0.1.1_77614_vicgenin_dev3_2026_08_24_13_20_29_792921741_GMT+03"
+Log at "/tmp/fd-0.1.1_77613_vicgenin_dev3_2026_08_24_13_20_29_795064667_GMT+03"
+Log at "/tmp/fd-0.1.1_77615_vicgenin_dev3_2026_08_24_13_20_29_801174384_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77601_vicgenin_dev3_2026_08_24_13_20_30_497230975_GMT+03"
+NOTICE  08-24 13:20:30.507334 77601  f0   0    topob.c(246): tk_topob_new: mem=0x75d2e251e000 app_name=tickoni
+WARNING 08-24 13:20:30.507356 77601  f0   0    fd_topob.c(23): fd_topob_new: mem=0x75d2e251e000 app_name=tickoni
+WARNING 08-24 13:20:30.551184 77601  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x75d2e251e000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.589017 77601  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77620_vicgenin_dev3_2026_08_24_13_20_30_638368613_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77621_vicgenin_dev3_2026_08_24_13_20_30_643549959_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77623_vicgenin_dev3_2026_08_24_13_20_30_651698277_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77622_vicgenin_dev3_2026_08_24_13_20_30_651887203_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77624_vicgenin_dev3_2026_08_24_13_20_30_656997614_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77626_vicgenin_dev3_2026_08_24_13_20_30_665413209_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77625_vicgenin_dev3_2026_08_24_13_20_30_667258371_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77627_vicgenin_dev3_2026_08_24_13_20_30_673836989_GMT+03"
+NOTICE  08-24 13:20:30.676905 77620  f0   0    topob.c(246): tk_topob_new: mem=0x74abd1cc6000 app_name=tickoni
+WARNING 08-24 13:20:30.676936 77620  f0   0    fd_topob.c(23): fd_topob_new: mem=0x74abd1cc6000 app_name=tickoni
+NOTICE  08-24 13:20:30.678213 77621  f0   0    topob.c(246): tk_topob_new: mem=0x78605e063000 app_name=tickoni
+WARNING 08-24 13:20:30.678509 77621  f0   0    fd_topob.c(23): fd_topob_new: mem=0x78605e063000 app_name=tickoni
+NOTICE  08-24 13:20:30.688407 77626  f0   0    topob.c(246): tk_topob_new: mem=0x7d45ec2c6000 app_name=tickoni
+WARNING 08-24 13:20:30.688481 77626  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7d45ec2c6000 app_name=tickoni
+NOTICE  08-24 13:20:30.691800 77622  f0   0    topob.c(246): tk_topob_new: mem=0x73c37e4c6000 app_name=tickoni
+WARNING 08-24 13:20:30.691854 77622  f0   0    fd_topob.c(23): fd_topob_new: mem=0x73c37e4c6000 app_name=tickoni
+NOTICE  08-24 13:20:30.695031 77624  f0   0    topob.c(246): tk_topob_new: mem=0x7323f4ec6000 app_name=tickoni
+WARNING 08-24 13:20:30.695066 77624  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7323f4ec6000 app_name=tickoni
+NOTICE  08-24 13:20:30.695412 77623  f0   0    topob.c(246): tk_topob_new: mem=0x728b5b2c6000 app_name=tickoni
+WARNING 08-24 13:20:30.695437 77623  f0   0    fd_topob.c(23): fd_topob_new: mem=0x728b5b2c6000 app_name=tickoni
+NOTICE  08-24 13:20:30.696040 77625  f0   0    topob.c(246): tk_topob_new: mem=0x78f492ec6000 app_name=tickoni
+WARNING 08-24 13:20:30.696057 77625  f0   0    fd_topob.c(23): fd_topob_new: mem=0x78f492ec6000 app_name=tickoni
+NOTICE  08-24 13:20:30.698009 77627  f0   0    topob.c(246): tk_topob_new: mem=0x76bea9ec6000 app_name=tickoni
+WARNING 08-24 13:20:30.698030 77627  f0   0    fd_topob.c(23): fd_topob_new: mem=0x76bea9ec6000 app_name=tickoni
+WARNING 08-24 13:20:30.776853 77620  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x74abd1cc6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.820052 77627  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x76bea9ec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.820044 77625  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x78f492ec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.819998 77624  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7323f4ec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.819998 77621  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x78605e063000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.819943 77623  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x728b5b2c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.820004 77626  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7d45ec2c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.820003 77622  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x73c37e4c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:30.900952 77620  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:30.944965 77621  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:30.945078 77622  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:30.946145 77625  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:30.944934 77623  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:30.946803 77624  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:30.947751 77626  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:30.947788 77627  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77620_vicgenin_dev3_2026_08_24_13_20_30_638368613_GMT+03"
+Log at "/tmp/fd-0.1.1_77626_vicgenin_dev3_2026_08_24_13_20_30_665413209_GMT+03"
+Log at "/tmp/fd-0.1.1_77627_vicgenin_dev3_2026_08_24_13_20_30_673836989_GMT+03"
+Log at "/tmp/fd-0.1.1_77624_vicgenin_dev3_2026_08_24_13_20_30_656997614_GMT+03"
+Log at "/tmp/fd-0.1.1_77625_vicgenin_dev3_2026_08_24_13_20_30_667258371_GMT+03"
+Log at "/tmp/fd-0.1.1_77622_vicgenin_dev3_2026_08_24_13_20_30_651887203_GMT+03"
+Log at "/tmp/fd-0.1.1_77621_vicgenin_dev3_2026_08_24_13_20_30_643549959_GMT+03"
+Log at "/tmp/fd-0.1.1_77623_vicgenin_dev3_2026_08_24_13_20_30_651698277_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77601_vicgenin_dev3_2026_08_24_13_20_31_426451060_GMT+03"
+NOTICE  08-24 13:20:31.438193 77601  f0   0    topob.c(246): tk_topob_new: mem=0x75d2e0fe2000 app_name=tickoni
+WARNING 08-24 13:20:31.438219 77601  f0   0    fd_topob.c(23): fd_topob_new: mem=0x75d2e0fe2000 app_name=tickoni
+WARNING 08-24 13:20:31.489427 77601  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x75d2e0fe2000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:31.538376 77601  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77630_vicgenin_dev3_2026_08_24_13_20_31_585973919_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77631_vicgenin_dev3_2026_08_24_13_20_31_590734591_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77632_vicgenin_dev3_2026_08_24_13_20_31_592877177_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77633_vicgenin_dev3_2026_08_24_13_20_31_595426396_GMT+03"
+--log-path not specified; using autogenerated path
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77634_vicgenin_dev3_2026_08_24_13_20_31_602496917_GMT+03"
+Log at "/tmp/fd-0.1.1_77635_vicgenin_dev3_2026_08_24_13_20_31_604889364_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77636_vicgenin_dev3_2026_08_24_13_20_31_613355362_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77637_vicgenin_dev3_2026_08_24_13_20_31_619247900_GMT+03"
+NOTICE  08-24 13:20:31.744726 77630  0    0    topob.c(246): tk_topob_new: mem=0x77e93f835000 app_name=tickoni
+WARNING 08-24 13:20:31.744756 77630  0    0    fd_topob.c(23): fd_topob_new: mem=0x77e93f835000 app_name=tickoni
+NOTICE  08-24 13:20:31.746876 77631  0    0    topob.c(246): tk_topob_new: mem=0x7f37ac8c6000 app_name=tickoni
+WARNING 08-24 13:20:31.746896 77631  0    0    fd_topob.c(23): fd_topob_new: mem=0x7f37ac8c6000 app_name=tickoni
+NOTICE  08-24 13:20:31.757525 77637  0    0    topob.c(246): tk_topob_new: mem=0x7e5bc78c6000 app_name=tickoni
+WARNING 08-24 13:20:31.757553 77637  0    0    fd_topob.c(23): fd_topob_new: mem=0x7e5bc78c6000 app_name=tickoni
+NOTICE  08-24 13:20:31.759434 77634  0    0    topob.c(246): tk_topob_new: mem=0x730ebf698000 app_name=tickoni
+WARNING 08-24 13:20:31.759457 77634  0    0    fd_topob.c(23): fd_topob_new: mem=0x730ebf698000 app_name=tickoni
+NOTICE  08-24 13:20:31.761253 77635  0    0    topob.c(246): tk_topob_new: mem=0x77c82ee35000 app_name=tickoni
+WARNING 08-24 13:20:31.761270 77635  0    0    fd_topob.c(23): fd_topob_new: mem=0x77c82ee35000 app_name=tickoni
+NOTICE  08-24 13:20:31.762520 77636  0    0    topob.c(246): tk_topob_new: mem=0x713678e98000 app_name=tickoni
+WARNING 08-24 13:20:31.762533 77636  0    0    fd_topob.c(23): fd_topob_new: mem=0x713678e98000 app_name=tickoni
+NOTICE  08-24 13:20:31.762999 77633  0    0    topob.c(246): tk_topob_new: mem=0x7900ea8c6000 app_name=tickoni
+WARNING 08-24 13:20:31.763011 77633  0    0    fd_topob.c(23): fd_topob_new: mem=0x7900ea8c6000 app_name=tickoni
+NOTICE  08-24 13:20:31.763115 77632  0    0    topob.c(246): tk_topob_new: mem=0x7d023f0c6000 app_name=tickoni
+WARNING 08-24 13:20:31.763127 77632  0    0    fd_topob.c(23): fd_topob_new: mem=0x7d023f0c6000 app_name=tickoni
+WARNING 08-24 13:20:31.790966 77630  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x77e93f835000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:31.822015 77633  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7900ea8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:31.822078 77637  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7e5bc78c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:31.822118 77634  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x730ebf698000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:31.822152 77635  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x77c82ee35000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:31.822187 77636  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x713678e98000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:31.821976 77631  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7f37ac8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:31.822001 77632  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7d023f0c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:31.872911 77630  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:31.901986 77636  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:31.908325 77637  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:31.909049 77633  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:31.910772 77632  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:31.911455 77634  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:31.913189 77631  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:31.913405 77635  0    0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77631_vicgenin_dev3_2026_08_24_13_20_31_590734591_GMT+03"
+Log at "/tmp/fd-0.1.1_77630_vicgenin_dev3_2026_08_24_13_20_31_585973919_GMT+03"
+Log at "/tmp/fd-0.1.1_77635_vicgenin_dev3_2026_08_24_13_20_31_604889364_GMT+03"
+Log at "/tmp/fd-0.1.1_77634_vicgenin_dev3_2026_08_24_13_20_31_602496917_GMT+03"
+Log at "/tmp/fd-0.1.1_77632_vicgenin_dev3_2026_08_24_13_20_31_592877177_GMT+03"
+Log at "/tmp/fd-0.1.1_77633_vicgenin_dev3_2026_08_24_13_20_31_595426396_GMT+03"
+Log at "/tmp/fd-0.1.1_77636_vicgenin_dev3_2026_08_24_13_20_31_613355362_GMT+03"
+Log at "/tmp/fd-0.1.1_77637_vicgenin_dev3_2026_08_24_13_20_31_619247900_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77601_vicgenin_dev3_2026_08_24_13_20_32_253411244_GMT+03"
+NOTICE  08-24 13:20:32.265521 77601  f0   0    topob.c(246): tk_topob_new: mem=0x75d2dfaa4000 app_name=tickoni
+WARNING 08-24 13:20:32.265549 77601  f0   0    fd_topob.c(23): fd_topob_new: mem=0x75d2dfaa4000 app_name=tickoni
+WARNING 08-24 13:20:32.329839 77601  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x75d2dfaa4000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:32.378657 77601  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77638_vicgenin_dev3_2026_08_24_13_20_32_424984614_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77639_vicgenin_dev3_2026_08_24_13_20_32_426057661_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77640_vicgenin_dev3_2026_08_24_13_20_32_428636481_GMT+03"
+--log-path not specified; using autogenerated path
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77642_vicgenin_dev3_2026_08_24_13_20_32_433554341_GMT+03"
+Log at "/tmp/fd-0.1.1_77641_vicgenin_dev3_2026_08_24_13_20_32_433840610_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77643_vicgenin_dev3_2026_08_24_13_20_32_438054909_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77644_vicgenin_dev3_2026_08_24_13_20_32_442839287_GMT+03"
+NOTICE  08-24 13:20:32.449261 77638  f0   0    topob.c(246): tk_topob_new: mem=0x7584cf6c6000 app_name=tickoni
+WARNING 08-24 13:20:32.449389 77638  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7584cf6c6000 app_name=tickoni
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77645_vicgenin_dev3_2026_08_24_13_20_32_451956890_GMT+03"
+NOTICE  08-24 13:20:32.455458 77642  f0   0    topob.c(246): tk_topob_new: mem=0x72ea918c6000 app_name=tickoni
+WARNING 08-24 13:20:32.455494 77642  f0   0    fd_topob.c(23): fd_topob_new: mem=0x72ea918c6000 app_name=tickoni
+NOTICE  08-24 13:20:32.456094 77640  f0   0    topob.c(246): tk_topob_new: mem=0x7ba3742c6000 app_name=tickoni
+WARNING 08-24 13:20:32.456121 77640  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7ba3742c6000 app_name=tickoni
+NOTICE  08-24 13:20:32.458353 77639  f0   0    topob.c(246): tk_topob_new: mem=0x7da5c1ac6000 app_name=tickoni
+WARNING 08-24 13:20:32.458392 77639  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7da5c1ac6000 app_name=tickoni
+NOTICE  08-24 13:20:32.466812 77641  f0   0    topob.c(246): tk_topob_new: mem=0x79a0a10c6000 app_name=tickoni
+WARNING 08-24 13:20:32.466900 77641  f0   0    fd_topob.c(23): fd_topob_new: mem=0x79a0a10c6000 app_name=tickoni
+NOTICE  08-24 13:20:32.468778 77643  f0   0    topob.c(246): tk_topob_new: mem=0x76d1f84c6000 app_name=tickoni
+WARNING 08-24 13:20:32.468808 77643  f0   0    fd_topob.c(23): fd_topob_new: mem=0x76d1f84c6000 app_name=tickoni
+NOTICE  08-24 13:20:32.472594 77644  f0   0    topob.c(246): tk_topob_new: mem=0x783e024c6000 app_name=tickoni
+WARNING 08-24 13:20:32.472634 77644  f0   0    fd_topob.c(23): fd_topob_new: mem=0x783e024c6000 app_name=tickoni
+NOTICE  08-24 13:20:32.473215 77645  f0   0    topob.c(246): tk_topob_new: mem=0x772e23ec6000 app_name=tickoni
+WARNING 08-24 13:20:32.473233 77645  f0   0    fd_topob.c(23): fd_topob_new: mem=0x772e23ec6000 app_name=tickoni
+WARNING 08-24 13:20:32.552518 77638  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7584cf6c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:32.598841 77640  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7ba3742c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:32.598789 77643  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x76d1f84c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:32.598826 77644  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x783e024c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:32.598722 77639  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7da5c1ac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:32.598780 77641  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x79a0a10c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:32.598725 77642  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x72ea918c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:32.598730 77645  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x772e23ec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:32.690070 77638  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:32.751517 77640  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:32.751603 77644  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:32.752154 77641  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:32.752335 77639  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:32.755136 77643  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:32.755305 77645  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:32.756921 77642  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77638_vicgenin_dev3_2026_08_24_13_20_32_424984614_GMT+03"
+Log at "/tmp/fd-0.1.1_77639_vicgenin_dev3_2026_08_24_13_20_32_426057661_GMT+03"
+Log at "/tmp/fd-0.1.1_77645_vicgenin_dev3_2026_08_24_13_20_32_451956890_GMT+03"
+Log at "/tmp/fd-0.1.1_77643_vicgenin_dev3_2026_08_24_13_20_32_438054909_GMT+03"
+Log at "/tmp/fd-0.1.1_77644_vicgenin_dev3_2026_08_24_13_20_32_442839287_GMT+03"
+Log at "/tmp/fd-0.1.1_77641_vicgenin_dev3_2026_08_24_13_20_32_433840610_GMT+03"
+Log at "/tmp/fd-0.1.1_77642_vicgenin_dev3_2026_08_24_13_20_32_433554341_GMT+03"
+Log at "/tmp/fd-0.1.1_77640_vicgenin_dev3_2026_08_24_13_20_32_428636481_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77601_vicgenin_dev3_2026_08_24_13_20_33_397196360_GMT+03"
+NOTICE  08-24 13:20:33.407859 77601  f0   0    topob.c(246): tk_topob_new: mem=0x75d2de568000 app_name=tickoni
+WARNING 08-24 13:20:33.407888 77601  f0   0    fd_topob.c(23): fd_topob_new: mem=0x75d2de568000 app_name=tickoni
+WARNING 08-24 13:20:33.470571 77601  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x75d2de568000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:33.519373 77601  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77648_vicgenin_dev3_2026_08_24_13_20_33_571070040_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77649_vicgenin_dev3_2026_08_24_13_20_33_586827427_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77650_vicgenin_dev3_2026_08_24_13_20_33_581453645_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77653_vicgenin_dev3_2026_08_24_13_20_33_596305310_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77651_vicgenin_dev3_2026_08_24_13_20_33_597248474_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77654_vicgenin_dev3_2026_08_24_13_20_33_601220396_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77655_vicgenin_dev3_2026_08_24_13_20_33_603255657_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77652_vicgenin_dev3_2026_08_24_13_20_33_610769109_GMT+03"
+NOTICE  08-24 13:20:33.748842 77649  0    0    topob.c(246): tk_topob_new: mem=0x74dc7fc98000 app_name=tickoni
+WARNING 08-24 13:20:33.748874 77649  0    0    fd_topob.c(23): fd_topob_new: mem=0x74dc7fc98000 app_name=tickoni
+NOTICE  08-24 13:20:33.749034 77648  0    0    topob.c(246): tk_topob_new: mem=0x77e26d263000 app_name=tickoni
+WARNING 08-24 13:20:33.749051 77648  0    0    fd_topob.c(23): fd_topob_new: mem=0x77e26d263000 app_name=tickoni
+NOTICE  08-24 13:20:33.750694 77652  0    0    topob.c(246): tk_topob_new: mem=0x7a08044c6000 app_name=tickoni
+WARNING 08-24 13:20:33.750715 77652  0    0    fd_topob.c(23): fd_topob_new: mem=0x7a08044c6000 app_name=tickoni
+NOTICE  08-24 13:20:33.752591 77650  0    0    topob.c(246): tk_topob_new: mem=0x7cbce74c6000 app_name=tickoni
+NOTICE  08-24 13:20:33.753008 77653  0    0    topob.c(246): tk_topob_new: mem=0x78cd0e0c6000 app_name=tickoni
+WARNING 08-24 13:20:33.753023 77653  0    0    fd_topob.c(23): fd_topob_new: mem=0x78cd0e0c6000 app_name=tickoni
+WARNING 08-24 13:20:33.752620 77650  0    0    fd_topob.c(23): fd_topob_new: mem=0x7cbce74c6000 app_name=tickoni
+NOTICE  08-24 13:20:33.754240 77655  0    0    topob.c(246): tk_topob_new: mem=0x7993f82c6000 app_name=tickoni
+WARNING 08-24 13:20:33.754260 77655  0    0    fd_topob.c(23): fd_topob_new: mem=0x7993f82c6000 app_name=tickoni
+NOTICE  08-24 13:20:33.754914 77651  0    0    topob.c(246): tk_topob_new: mem=0x797c334c6000 app_name=tickoni
+WARNING 08-24 13:20:33.754928 77651  0    0    fd_topob.c(23): fd_topob_new: mem=0x797c334c6000 app_name=tickoni
+NOTICE  08-24 13:20:33.755510 77654  0    0    topob.c(246): tk_topob_new: mem=0x71d8f7263000 app_name=tickoni
+WARNING 08-24 13:20:33.755522 77654  0    0    fd_topob.c(23): fd_topob_new: mem=0x71d8f7263000 app_name=tickoni
+WARNING 08-24 13:20:33.794482 77648  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x77e26d263000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:33.805728 77649  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x74dc7fc98000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:33.825032 77650  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7cbce74c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:33.825125 77655  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7993f82c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:33.825090 77652  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7a08044c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:33.825158 77651  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x797c334c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:33.825189 77654  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x71d8f7263000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:33.825235 77653  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x78cd0e0c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:33.890918 77649  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:33.893064 77648  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:33.942809 77652  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:33.943562 77654  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:33.944297 77653  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:33.945378 77655  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:33.945835 77651  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:33.946483 77650  0    0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77655_vicgenin_dev3_2026_08_24_13_20_33_603255657_GMT+03"
+Log at "/tmp/fd-0.1.1_77649_vicgenin_dev3_2026_08_24_13_20_33_586827427_GMT+03"
+Log at "/tmp/fd-0.1.1_77648_vicgenin_dev3_2026_08_24_13_20_33_571070040_GMT+03"
+Log at "/tmp/fd-0.1.1_77654_vicgenin_dev3_2026_08_24_13_20_33_601220396_GMT+03"
+Log at "/tmp/fd-0.1.1_77651_vicgenin_dev3_2026_08_24_13_20_33_597248474_GMT+03"
+Log at "/tmp/fd-0.1.1_77653_vicgenin_dev3_2026_08_24_13_20_33_596305310_GMT+03"
+Log at "/tmp/fd-0.1.1_77652_vicgenin_dev3_2026_08_24_13_20_33_610769109_GMT+03"
+Log at "/tmp/fd-0.1.1_77650_vicgenin_dev3_2026_08_24_13_20_33_581453645_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77601_vicgenin_dev3_2026_08_24_13_20_34_431967637_GMT+03"
+NOTICE  08-24 13:20:34.442633 77601  f0   0    topob.c(246): tk_topob_new: mem=0x75d2dd02a000 app_name=tickoni
+WARNING 08-24 13:20:34.442661 77601  f0   0    fd_topob.c(23): fd_topob_new: mem=0x75d2dd02a000 app_name=tickoni
+WARNING 08-24 13:20:34.488186 77601  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x75d2dd02a000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:34.524539 77601  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77656_vicgenin_dev3_2026_08_24_13_20_34_571135361_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77657_vicgenin_dev3_2026_08_24_13_20_34_573942691_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77658_vicgenin_dev3_2026_08_24_13_20_34_575979832_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77659_vicgenin_dev3_2026_08_24_13_20_34_580929630_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77660_vicgenin_dev3_2026_08_24_13_20_34_582693976_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77661_vicgenin_dev3_2026_08_24_13_20_34_592117328_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77663_vicgenin_dev3_2026_08_24_13_20_34_597205231_GMT+03"
+NOTICE  08-24 13:20:34.599999 77656  f0   0    topob.c(246): tk_topob_new: mem=0x7432bc4c6000 app_name=tickoni
+WARNING 08-24 13:20:34.600049 77656  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7432bc4c6000 app_name=tickoni
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77662_vicgenin_dev3_2026_08_24_13_20_34_597201669_GMT+03"
+NOTICE  08-24 13:20:34.602809 77657  f0   0    topob.c(246): tk_topob_new: mem=0x7d4fb04c6000 app_name=tickoni
+WARNING 08-24 13:20:34.602839 77657  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7d4fb04c6000 app_name=tickoni
+NOTICE  08-24 13:20:34.605453 77658  f0   0    topob.c(246): tk_topob_new: mem=0x78bcd5863000 app_name=tickoni
+WARNING 08-24 13:20:34.605508 77658  f0   0    fd_topob.c(23): fd_topob_new: mem=0x78bcd5863000 app_name=tickoni
+NOTICE  08-24 13:20:34.606704 77660  f0   0    topob.c(246): tk_topob_new: mem=0x7e6b91ac6000 app_name=tickoni
+WARNING 08-24 13:20:34.606733 77660  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7e6b91ac6000 app_name=tickoni
+NOTICE  08-24 13:20:34.607534 77659  f0   0    topob.c(246): tk_topob_new: mem=0x7943226c6000 app_name=tickoni
+WARNING 08-24 13:20:34.607578 77659  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7943226c6000 app_name=tickoni
+NOTICE  08-24 13:20:34.621367 77661  f0   0    topob.c(246): tk_topob_new: mem=0x777eeb4c6000 app_name=tickoni
+WARNING 08-24 13:20:34.621424 77661  f0   0    fd_topob.c(23): fd_topob_new: mem=0x777eeb4c6000 app_name=tickoni
+NOTICE  08-24 13:20:34.627457 77663  f0   0    topob.c(246): tk_topob_new: mem=0x773d5bac6000 app_name=tickoni
+WARNING 08-24 13:20:34.627487 77663  f0   0    fd_topob.c(23): fd_topob_new: mem=0x773d5bac6000 app_name=tickoni
+NOTICE  08-24 13:20:34.628241 77662  f0   0    topob.c(246): tk_topob_new: mem=0x7a14a64c6000 app_name=tickoni
+WARNING 08-24 13:20:34.628259 77662  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7a14a64c6000 app_name=tickoni
+WARNING 08-24 13:20:34.721406 77656  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7432bc4c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:34.764961 77662  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7a14a64c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:34.765023 77663  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x773d5bac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:34.764964 77658  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x78bcd5863000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:34.764974 77661  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x777eeb4c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:34.765015 77659  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7943226c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:34.765028 77660  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7e6b91ac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:34.764959 77657  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7d4fb04c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:34.881532 77656  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:34.931013 77663  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:34.931410 77659  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:34.931500 77660  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:34.932644 77658  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:34.935929 77657  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:34.935983 77661  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:34.937087 77662  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77657_vicgenin_dev3_2026_08_24_13_20_34_573942691_GMT+03"
+Log at "/tmp/fd-0.1.1_77658_vicgenin_dev3_2026_08_24_13_20_34_575979832_GMT+03"
+Log at "/tmp/fd-0.1.1_77659_vicgenin_dev3_2026_08_24_13_20_34_580929630_GMT+03"
+Log at "/tmp/fd-0.1.1_77661_vicgenin_dev3_2026_08_24_13_20_34_592117328_GMT+03"
+Log at "/tmp/fd-0.1.1_77662_vicgenin_dev3_2026_08_24_13_20_34_597201669_GMT+03"
+Log at "/tmp/fd-0.1.1_77663_vicgenin_dev3_2026_08_24_13_20_34_597205231_GMT+03"
+Log at "/tmp/fd-0.1.1_77660_vicgenin_dev3_2026_08_24_13_20_34_582693976_GMT+03"
+Log at "/tmp/fd-0.1.1_77656_vicgenin_dev3_2026_08_24_13_20_34_571135361_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77601_vicgenin_dev3_2026_08_24_13_20_35_490362705_GMT+03"
+NOTICE  08-24 13:20:35.501093 77601  f0   0    topob.c(246): tk_topob_new: mem=0x75d2dbaee000 app_name=tickoni
+WARNING 08-24 13:20:35.501117 77601  f0   0    fd_topob.c(23): fd_topob_new: mem=0x75d2dbaee000 app_name=tickoni
+WARNING 08-24 13:20:35.550596 77601  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x75d2dbaee000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:35.599033 77601  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77666_vicgenin_dev3_2026_08_24_13_20_35_661550900_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77667_vicgenin_dev3_2026_08_24_13_20_35_674113002_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77669_vicgenin_dev3_2026_08_24_13_20_35_683923325_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77668_vicgenin_dev3_2026_08_24_13_20_35_684961891_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77672_vicgenin_dev3_2026_08_24_13_20_35_689580888_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77673_vicgenin_dev3_2026_08_24_13_20_35_693308834_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77670_vicgenin_dev3_2026_08_24_13_20_35_696283652_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77671_vicgenin_dev3_2026_08_24_13_20_35_701929318_GMT+03"
+NOTICE  08-24 13:20:35.836059 77666  0    0    topob.c(246): tk_topob_new: mem=0x74574f863000 app_name=tickoni
+WARNING 08-24 13:20:35.836103 77666  0    0    fd_topob.c(23): fd_topob_new: mem=0x74574f863000 app_name=tickoni
+NOTICE  08-24 13:20:35.840784 77669  0    0    topob.c(246): tk_topob_new: mem=0x7cc9c8498000 app_name=tickoni
+WARNING 08-24 13:20:35.840807 77669  0    0    fd_topob.c(23): fd_topob_new: mem=0x7cc9c8498000 app_name=tickoni
+NOTICE  08-24 13:20:35.842323 77668  0    0    topob.c(246): tk_topob_new: mem=0x71c9998c6000 app_name=tickoni
+WARNING 08-24 13:20:35.842344 77668  0    0    fd_topob.c(23): fd_topob_new: mem=0x71c9998c6000 app_name=tickoni
+NOTICE  08-24 13:20:35.846645 77672  0    0    topob.c(246): tk_topob_new: mem=0x7acbe5463000 app_name=tickoni
+WARNING 08-24 13:20:35.846665 77672  0    0    fd_topob.c(23): fd_topob_new: mem=0x7acbe5463000 app_name=tickoni
+NOTICE  08-24 13:20:35.844820 77667  0    0    topob.c(246): tk_topob_new: mem=0x7e4f424c6000 app_name=tickoni
+WARNING 08-24 13:20:35.846708 77667  0    0    fd_topob.c(23): fd_topob_new: mem=0x7e4f424c6000 app_name=tickoni
+NOTICE  08-24 13:20:35.847505 77670  0    0    topob.c(246): tk_topob_new: mem=0x7a6dfbac6000 app_name=tickoni
+WARNING 08-24 13:20:35.847517 77670  0    0    fd_topob.c(23): fd_topob_new: mem=0x7a6dfbac6000 app_name=tickoni
+NOTICE  08-24 13:20:35.848558 77673  0    0    topob.c(246): tk_topob_new: mem=0x7d2987035000 app_name=tickoni
+WARNING 08-24 13:20:35.848570 77673  0    0    fd_topob.c(23): fd_topob_new: mem=0x7d2987035000 app_name=tickoni
+NOTICE  08-24 13:20:35.849240 77671  0    0    topob.c(246): tk_topob_new: mem=0x73c911035000 app_name=tickoni
+WARNING 08-24 13:20:35.849252 77671  0    0    fd_topob.c(23): fd_topob_new: mem=0x73c911035000 app_name=tickoni
+WARNING 08-24 13:20:35.896590 77666  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x74574f863000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:35.896629 77668  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x71c9998c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:35.907955 77669  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7cc9c8498000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:35.930421 77671  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x73c911035000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:35.930404 77673  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7d2987035000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:35.930385 77670  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7a6dfbac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:35.930365 77667  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7e4f424c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:35.930331 77672  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7acbe5463000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:35.972777 77666  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:35.973083 77668  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:35.973440 77669  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:36.011490 77673  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:36.012296 77667  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:36.012599 77671  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:36.012796 77670  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:36.013196 77672  0    0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77666_vicgenin_dev3_2026_08_24_13_20_35_661550900_GMT+03"
+Log at "/tmp/fd-0.1.1_77667_vicgenin_dev3_2026_08_24_13_20_35_674113002_GMT+03"
+Log at "/tmp/fd-0.1.1_77673_vicgenin_dev3_2026_08_24_13_20_35_693308834_GMT+03"
+Log at "/tmp/fd-0.1.1_77668_vicgenin_dev3_2026_08_24_13_20_35_684961891_GMT+03"
+Log at "/tmp/fd-0.1.1_77669_vicgenin_dev3_2026_08_24_13_20_35_683923325_GMT+03"
+Log at "/tmp/fd-0.1.1_77672_vicgenin_dev3_2026_08_24_13_20_35_689580888_GMT+03"
+Log at "/tmp/fd-0.1.1_77670_vicgenin_dev3_2026_08_24_13_20_35_696283652_GMT+03"
+Log at "/tmp/fd-0.1.1_77671_vicgenin_dev3_2026_08_24_13_20_35_701929318_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77601_vicgenin_dev3_2026_08_24_13_20_36_364444453_GMT+03"
+NOTICE  08-24 13:20:36.375007 77601  f0   0    topob.c(246): tk_topob_new: mem=0x75d2da5b0000 app_name=tickoni
+WARNING 08-24 13:20:36.375034 77601  f0   0    fd_topob.c(23): fd_topob_new: mem=0x75d2da5b0000 app_name=tickoni
+WARNING 08-24 13:20:36.445551 77601  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x75d2da5b0000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:36.505468 77601  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77674_vicgenin_dev3_2026_08_24_13_20_36_576539234_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77675_vicgenin_dev3_2026_08_24_13_20_36_581259580_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77676_vicgenin_dev3_2026_08_24_13_20_36_587061017_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77677_vicgenin_dev3_2026_08_24_13_20_36_593210732_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77678_vicgenin_dev3_2026_08_24_13_20_36_602109091_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77680_vicgenin_dev3_2026_08_24_13_20_36_608613955_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77679_vicgenin_dev3_2026_08_24_13_20_36_610116186_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77681_vicgenin_dev3_2026_08_24_13_20_36_616405096_GMT+03"
+NOTICE  08-24 13:20:36.618106 77674  f0   0    topob.c(246): tk_topob_new: mem=0x7ba4f42c6000 app_name=tickoni
+WARNING 08-24 13:20:36.618163 77674  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7ba4f42c6000 app_name=tickoni
+NOTICE  08-24 13:20:36.619367 77675  f0   0    topob.c(246): tk_topob_new: mem=0x74b9c20c6000 app_name=tickoni
+WARNING 08-24 13:20:36.619415 77675  f0   0    fd_topob.c(23): fd_topob_new: mem=0x74b9c20c6000 app_name=tickoni
+NOTICE  08-24 13:20:36.625760 77676  f0   0    topob.c(246): tk_topob_new: mem=0x7e192dec6000 app_name=tickoni
+WARNING 08-24 13:20:36.627634 77676  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7e192dec6000 app_name=tickoni
+NOTICE  08-24 13:20:36.628451 77677  f0   0    topob.c(246): tk_topob_new: mem=0x7febf00c6000 app_name=tickoni
+WARNING 08-24 13:20:36.628573 77677  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7febf00c6000 app_name=tickoni
+NOTICE  08-24 13:20:36.636268 77678  f0   0    topob.c(246): tk_topob_new: mem=0x7453c66c6000 app_name=tickoni
+WARNING 08-24 13:20:36.636326 77678  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7453c66c6000 app_name=tickoni
+NOTICE  08-24 13:20:36.637853 77681  f0   0    topob.c(246): tk_topob_new: mem=0x705971a63000 app_name=tickoni
+WARNING 08-24 13:20:36.637884 77681  f0   0    fd_topob.c(23): fd_topob_new: mem=0x705971a63000 app_name=tickoni
+NOTICE  08-24 13:20:36.638157 77679  f0   0    topob.c(246): tk_topob_new: mem=0x7856b2463000 app_name=tickoni
+NOTICE  08-24 13:20:36.638169 77680  f0   0    topob.c(246): tk_topob_new: mem=0x7274ce863000 app_name=tickoni
+WARNING 08-24 13:20:36.638178 77679  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7856b2463000 app_name=tickoni
+WARNING 08-24 13:20:36.638187 77680  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7274ce863000 app_name=tickoni
+WARNING 08-24 13:20:36.747339 77674  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7ba4f42c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:36.789753 77678  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7453c66c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:36.789790 77676  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7e192dec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:36.789779 77680  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7274ce863000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:36.789821 77681  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x705971a63000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:36.789879 77677  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7febf00c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:36.789915 77679  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7856b2463000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:36.789946 77675  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x74b9c20c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:36.894097 77674  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:36.955302 77675  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:36.955512 77680  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:36.956003 77678  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:36.959612 77676  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:36.960397 77679  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:36.960547 77677  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:36.960547 77681  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77681_vicgenin_dev3_2026_08_24_13_20_36_616405096_GMT+03"
+Log at "/tmp/fd-0.1.1_77674_vicgenin_dev3_2026_08_24_13_20_36_576539234_GMT+03"
+Log at "/tmp/fd-0.1.1_77675_vicgenin_dev3_2026_08_24_13_20_36_581259580_GMT+03"
+Log at "/tmp/fd-0.1.1_77676_vicgenin_dev3_2026_08_24_13_20_36_587061017_GMT+03"
+Log at "/tmp/fd-0.1.1_77679_vicgenin_dev3_2026_08_24_13_20_36_610116186_GMT+03"
+Log at "/tmp/fd-0.1.1_77680_vicgenin_dev3_2026_08_24_13_20_36_608613955_GMT+03"
+Log at "/tmp/fd-0.1.1_77678_vicgenin_dev3_2026_08_24_13_20_36_602109091_GMT+03"
+Log at "/tmp/fd-0.1.1_77677_vicgenin_dev3_2026_08_24_13_20_36_593210732_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77601_vicgenin_dev3_2026_08_24_13_20_37_474782602_GMT+03"
+NOTICE  08-24 13:20:37.485932 77601  f0   0    topob.c(246): tk_topob_new: mem=0x75d2d9072000 app_name=tickoni
+WARNING 08-24 13:20:37.485958 77601  f0   0    fd_topob.c(23): fd_topob_new: mem=0x75d2d9072000 app_name=tickoni
+WARNING 08-24 13:20:37.540343 77601  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x75d2d9072000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:37.589314 77601  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77684_vicgenin_dev3_2026_08_24_13_20_37_651095800_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77685_vicgenin_dev3_2026_08_24_13_20_37_664010014_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77686_vicgenin_dev3_2026_08_24_13_20_37_671032319_GMT+03"
+--log-path not specified; using autogenerated path
+--log-path not specified; using autogenerated path
+--log-path not specified; using autogenerated path
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77687_vicgenin_dev3_2026_08_24_13_20_37_673678273_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77689_vicgenin_dev3_2026_08_24_13_20_37_693730704_GMT+03"
+Log at "/tmp/fd-0.1.1_77688_vicgenin_dev3_2026_08_24_13_20_37_681096949_GMT+03"
+Log at "/tmp/fd-0.1.1_77690_vicgenin_dev3_2026_08_24_13_20_37_683116744_GMT+03"
+Log at "/tmp/fd-0.1.1_77691_vicgenin_dev3_2026_08_24_13_20_37_685110247_GMT+03"
+NOTICE  08-24 13:20:37.821661 77684  0    0    topob.c(246): tk_topob_new: mem=0x79b40fec6000 app_name=tickoni
+WARNING 08-24 13:20:37.821690 77684  0    0    fd_topob.c(23): fd_topob_new: mem=0x79b40fec6000 app_name=tickoni
+NOTICE  08-24 13:20:37.830025 77687  0    0    topob.c(246): tk_topob_new: mem=0x7188c3ec6000 app_name=tickoni
+WARNING 08-24 13:20:37.830054 77687  0    0    fd_topob.c(23): fd_topob_new: mem=0x7188c3ec6000 app_name=tickoni
+NOTICE  08-24 13:20:37.833715 77685  0    0    topob.c(246): tk_topob_new: mem=0x70596b4c6000 app_name=tickoni
+WARNING 08-24 13:20:37.833739 77685  0    0    fd_topob.c(23): fd_topob_new: mem=0x70596b4c6000 app_name=tickoni
+NOTICE  08-24 13:20:37.835555 77688  0    0    topob.c(246): tk_topob_new: mem=0x772da2635000 app_name=tickoni
+WARNING 08-24 13:20:37.835577 77688  0    0    fd_topob.c(23): fd_topob_new: mem=0x772da2635000 app_name=tickoni
+NOTICE  08-24 13:20:37.836642 77686  0    0    topob.c(246): tk_topob_new: mem=0x7983b8ac6000 app_name=tickoni
+WARNING 08-24 13:20:37.836683 77686  0    0    fd_topob.c(23): fd_topob_new: mem=0x7983b8ac6000 app_name=tickoni
+NOTICE  08-24 13:20:37.839912 77689  0    0    topob.c(246): tk_topob_new: mem=0x78d933cc6000 app_name=tickoni
+WARNING 08-24 13:20:37.839937 77689  0    0    fd_topob.c(23): fd_topob_new: mem=0x78d933cc6000 app_name=tickoni
+NOTICE  08-24 13:20:37.840871 77690  0    0    topob.c(246): tk_topob_new: mem=0x711deecc6000 app_name=tickoni
+WARNING 08-24 13:20:37.840885 77690  0    0    fd_topob.c(23): fd_topob_new: mem=0x711deecc6000 app_name=tickoni
+NOTICE  08-24 13:20:37.841977 77691  0    0    topob.c(246): tk_topob_new: mem=0x7ba72cec6000 app_name=tickoni
+WARNING 08-24 13:20:37.841990 77691  0    0    fd_topob.c(23): fd_topob_new: mem=0x7ba72cec6000 app_name=tickoni
+WARNING 08-24 13:20:37.866572 77684  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x79b40fec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:37.899189 77685  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x70596b4c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:37.899065 77689  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x78d933cc6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:37.899122 77686  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7983b8ac6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:37.899157 77687  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7188c3ec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:37.899221 77688  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x772da2635000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:37.899253 77690  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x711deecc6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:37.899291 77691  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7ba72cec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:37.937902 77684  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:37.990951 77686  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:37.992147 77688  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:37.993135 77689  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:37.993957 77685  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:37.994598 77691  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:37.995302 77687  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:37.995993 77690  0    0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77691_vicgenin_dev3_2026_08_24_13_20_37_685110247_GMT+03"
+Log at "/tmp/fd-0.1.1_77690_vicgenin_dev3_2026_08_24_13_20_37_683116744_GMT+03"
+Log at "/tmp/fd-0.1.1_77686_vicgenin_dev3_2026_08_24_13_20_37_671032319_GMT+03"
+Log at "/tmp/fd-0.1.1_77685_vicgenin_dev3_2026_08_24_13_20_37_664010014_GMT+03"
+Log at "/tmp/fd-0.1.1_77689_vicgenin_dev3_2026_08_24_13_20_37_693730704_GMT+03"
+Log at "/tmp/fd-0.1.1_77684_vicgenin_dev3_2026_08_24_13_20_37_651095800_GMT+03"
+Log at "/tmp/fd-0.1.1_77688_vicgenin_dev3_2026_08_24_13_20_37_681096949_GMT+03"
+Log at "/tmp/fd-0.1.1_77687_vicgenin_dev3_2026_08_24_13_20_37_673678273_GMT+03"
+All 1 tests passed.
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77692_vicgenin_dev3_2026_08_24_13_20_38_309777579_GMT+03"
+NOTICE  08-24 13:20:38.320042 77692  f0   0    topob.c(246): tk_topob_new: mem=0x781e44e28000 app_name=tickoni
+WARNING 08-24 13:20:38.320077 77692  f0   0    fd_topob.c(23): fd_topob_new: mem=0x781e44e28000 app_name=tickoni
+WARNING 08-24 13:20:38.367187 77692  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x781e44e28000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:38.415639 77692  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77693_vicgenin_dev3_2026_08_24_13_20_38_467719525_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77694_vicgenin_dev3_2026_08_24_13_20_38_469724400_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77695_vicgenin_dev3_2026_08_24_13_20_38_472288389_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77696_vicgenin_dev3_2026_08_24_13_20_38_474857248_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77697_vicgenin_dev3_2026_08_24_13_20_38_481721578_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77698_vicgenin_dev3_2026_08_24_13_20_38_481913725_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77699_vicgenin_dev3_2026_08_24_13_20_38_486436892_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77700_vicgenin_dev3_2026_08_24_13_20_38_494275589_GMT+03"
+NOTICE  08-24 13:20:38.495130 77694  f0   0    topob.c(246): tk_topob_new: mem=0x7a9e636c6000 app_name=tickoni
+WARNING 08-24 13:20:38.495160 77694  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7a9e636c6000 app_name=tickoni
+NOTICE  08-24 13:20:38.495369 77693  f0   0    topob.c(246): tk_topob_new: mem=0x72f626663000 app_name=tickoni
+WARNING 08-24 13:20:38.495403 77693  f0   0    fd_topob.c(23): fd_topob_new: mem=0x72f626663000 app_name=tickoni
+NOTICE  08-24 13:20:38.497813 77695  f0   0    topob.c(246): tk_topob_new: mem=0x7ab2968c6000 app_name=tickoni
+WARNING 08-24 13:20:38.497856 77695  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7ab2968c6000 app_name=tickoni
+NOTICE  08-24 13:20:38.500074 77696  f0   0    topob.c(246): tk_topob_new: mem=0x799fed8c6000 app_name=tickoni
+WARNING 08-24 13:20:38.500117 77696  f0   0    fd_topob.c(23): fd_topob_new: mem=0x799fed8c6000 app_name=tickoni
+NOTICE  08-24 13:20:38.510983 77697  f0   0    topob.c(246): tk_topob_new: mem=0x758c91663000 app_name=tickoni
+WARNING 08-24 13:20:38.511038 77697  f0   0    fd_topob.c(23): fd_topob_new: mem=0x758c91663000 app_name=tickoni
+NOTICE  08-24 13:20:38.511883 77698  f0   0    topob.c(246): tk_topob_new: mem=0x716eaf4c6000 app_name=tickoni
+WARNING 08-24 13:20:38.511903 77698  f0   0    fd_topob.c(23): fd_topob_new: mem=0x716eaf4c6000 app_name=tickoni
+NOTICE  08-24 13:20:38.513975 77699  f0   0    topob.c(246): tk_topob_new: mem=0x767038e63000 app_name=tickoni
+WARNING 08-24 13:20:38.514002 77699  f0   0    fd_topob.c(23): fd_topob_new: mem=0x767038e63000 app_name=tickoni
+NOTICE  08-24 13:20:38.517192 77700  f0   0    topob.c(246): tk_topob_new: mem=0x7436bc8c6000 app_name=tickoni
+WARNING 08-24 13:20:38.517226 77700  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7436bc8c6000 app_name=tickoni
+WARNING 08-24 13:20:38.613753 77694  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7a9e636c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:38.665671 77700  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7436bc8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:38.665829 77696  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x799fed8c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:38.665723 77698  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x716eaf4c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:38.665765 77699  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x767038e63000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:38.666088 77697  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x758c91663000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:38.665669 77695  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7ab2968c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:38.666228 77693  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x72f626663000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:38.789849 77694  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:38.844709 77693  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:38.846310 77699  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:38.848031 77698  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:38.846723 77700  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:38.849052 77696  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:38.849364 77695  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:38.849646 77697  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77699_vicgenin_dev3_2026_08_24_13_20_38_486436892_GMT+03"
+Log at "/tmp/fd-0.1.1_77693_vicgenin_dev3_2026_08_24_13_20_38_467719525_GMT+03"
+Log at "/tmp/fd-0.1.1_77695_vicgenin_dev3_2026_08_24_13_20_38_472288389_GMT+03"
+Log at "/tmp/fd-0.1.1_77696_vicgenin_dev3_2026_08_24_13_20_38_474857248_GMT+03"
+Log at "/tmp/fd-0.1.1_77698_vicgenin_dev3_2026_08_24_13_20_38_481913725_GMT+03"
+Log at "/tmp/fd-0.1.1_77700_vicgenin_dev3_2026_08_24_13_20_38_494275589_GMT+03"
+Log at "/tmp/fd-0.1.1_77697_vicgenin_dev3_2026_08_24_13_20_38_481721578_GMT+03"
+Log at "/tmp/fd-0.1.1_77694_vicgenin_dev3_2026_08_24_13_20_38_469724400_GMT+03"
+Log at "/tmp/fd-0.1.1_77692_vicgenin_dev3_2026_08_24_13_20_38_309777579_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77692_vicgenin_dev3_2026_08_24_13_20_39_664527749_GMT+03"
+NOTICE  08-24 13:20:39.704751 77692  f0   0    topob.c(246): tk_topob_new: mem=0x781e438ec000 app_name=tickoni
+WARNING 08-24 13:20:39.704826 77692  f0   0    fd_topob.c(23): fd_topob_new: mem=0x781e438ec000 app_name=tickoni
+WARNING 08-24 13:20:39.753408 77692  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x781e438ec000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:39.801668 77692  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77703_vicgenin_dev3_2026_08_24_13_20_39_862448329_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77704_vicgenin_dev3_2026_08_24_13_20_39_867076574_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77705_vicgenin_dev3_2026_08_24_13_20_39_876500822_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77706_vicgenin_dev3_2026_08_24_13_20_39_883264440_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77707_vicgenin_dev3_2026_08_24_13_20_39_887007115_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77708_vicgenin_dev3_2026_08_24_13_20_39_893449427_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77709_vicgenin_dev3_2026_08_24_13_20_39_896366160_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77710_vicgenin_dev3_2026_08_24_13_20_39_901267282_GMT+03"
+NOTICE  08-24 13:20:39.909805 77704  f0   0    topob.c(246): tk_topob_new: mem=0x72d2d3cc6000 app_name=tickoni
+WARNING 08-24 13:20:39.909842 77704  f0   0    fd_topob.c(23): fd_topob_new: mem=0x72d2d3cc6000 app_name=tickoni
+NOTICE  08-24 13:20:39.917565 77705  f0   0    topob.c(246): tk_topob_new: mem=0x75cd280c6000 app_name=tickoni
+WARNING 08-24 13:20:39.917616 77705  f0   0    fd_topob.c(23): fd_topob_new: mem=0x75cd280c6000 app_name=tickoni
+NOTICE  08-24 13:20:39.919120 77703  f0   0    topob.c(246): tk_topob_new: mem=0x70ce42cc6000 app_name=tickoni
+WARNING 08-24 13:20:39.919160 77703  f0   0    fd_topob.c(23): fd_topob_new: mem=0x70ce42cc6000 app_name=tickoni
+NOTICE  08-24 13:20:39.921031 77708  f0   0    topob.c(246): tk_topob_new: mem=0x71f2f98c6000 app_name=tickoni
+WARNING 08-24 13:20:39.921079 77708  f0   0    fd_topob.c(23): fd_topob_new: mem=0x71f2f98c6000 app_name=tickoni
+NOTICE  08-24 13:20:39.929892 77709  f0   0    topob.c(246): tk_topob_new: mem=0x702de12c6000 app_name=tickoni
+WARNING 08-24 13:20:39.929920 77709  f0   0    fd_topob.c(23): fd_topob_new: mem=0x702de12c6000 app_name=tickoni
+NOTICE  08-24 13:20:39.931324 77710  f0   0    topob.c(246): tk_topob_new: mem=0x76656bcc6000 app_name=tickoni
+WARNING 08-24 13:20:39.931346 77710  f0   0    fd_topob.c(23): fd_topob_new: mem=0x76656bcc6000 app_name=tickoni
+NOTICE  08-24 13:20:39.934874 77706  0    0    topob.c(246): tk_topob_new: mem=0x7111a9263000 app_name=tickoni
+WARNING 08-24 13:20:39.934903 77706  0    0    fd_topob.c(23): fd_topob_new: mem=0x7111a9263000 app_name=tickoni
+NOTICE  08-24 13:20:39.936752 77707  0    0    topob.c(246): tk_topob_new: mem=0x7190a1ec6000 app_name=tickoni
+WARNING 08-24 13:20:39.936802 77707  0    0    fd_topob.c(23): fd_topob_new: mem=0x7190a1ec6000 app_name=tickoni
+WARNING 08-24 13:20:40.015562 77704  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x72d2d3cc6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:40.069389 77703  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x70ce42cc6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:40.069406 77705  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x75cd280c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:40.069681 77710  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x76656bcc6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:40.069396 77708  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x71f2f98c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:40.069430 77706  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7111a9263000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:40.069444 77709  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x702de12c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:40.166996 77707  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7190a1ec6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:40.169368 77704  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:40.228785 77706  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:40.229670 77703  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:40.230237 77708  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:40.230704 77709  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:40.231700 77710  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:40.231761 77705  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:40.317392 77707  0    0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77708_vicgenin_dev3_2026_08_24_13_20_39_893449427_GMT+03"
+Log at "/tmp/fd-0.1.1_77705_vicgenin_dev3_2026_08_24_13_20_39_876500822_GMT+03"
+Log at "/tmp/fd-0.1.1_77710_vicgenin_dev3_2026_08_24_13_20_39_901267282_GMT+03"
+Log at "/tmp/fd-0.1.1_77709_vicgenin_dev3_2026_08_24_13_20_39_896366160_GMT+03"
+Log at "/tmp/fd-0.1.1_77707_vicgenin_dev3_2026_08_24_13_20_39_887007115_GMT+03"
+Log at "/tmp/fd-0.1.1_77703_vicgenin_dev3_2026_08_24_13_20_39_862448329_GMT+03"
+Log at "/tmp/fd-0.1.1_77704_vicgenin_dev3_2026_08_24_13_20_39_867076574_GMT+03"
+Log at "/tmp/fd-0.1.1_77706_vicgenin_dev3_2026_08_24_13_20_39_883264440_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77692_vicgenin_dev3_2026_08_24_13_20_40_795809004_GMT+03"
+NOTICE  08-24 13:20:40.807078 77692  f0   0    topob.c(246): tk_topob_new: mem=0x781e423ae000 app_name=tickoni
+WARNING 08-24 13:20:40.807103 77692  f0   0    fd_topob.c(23): fd_topob_new: mem=0x781e423ae000 app_name=tickoni
+WARNING 08-24 13:20:40.847576 77692  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x781e423ae000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:40.882698 77692  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77711_vicgenin_dev3_2026_08_24_13_20_40_926481803_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77712_vicgenin_dev3_2026_08_24_13_20_40_929691794_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77713_vicgenin_dev3_2026_08_24_13_20_40_932748828_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77714_vicgenin_dev3_2026_08_24_13_20_40_938563134_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77715_vicgenin_dev3_2026_08_24_13_20_40_947551394_GMT+03"
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77716_vicgenin_dev3_2026_08_24_13_20_40_956491626_GMT+03"
+--log-path not specified; using autogenerated path
+--log-path not specified; using autogenerated path
+Log at "/tmp/fd-0.1.1_77718_vicgenin_dev3_2026_08_24_13_20_40_961223327_GMT+03"
+Log at "/tmp/fd-0.1.1_77717_vicgenin_dev3_2026_08_24_13_20_40_961509791_GMT+03"
+NOTICE  08-24 13:20:40.969537 77712  f0   0    topob.c(246): tk_topob_new: mem=0x7772f7063000 app_name=tickoni
+WARNING 08-24 13:20:40.969576 77712  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7772f7063000 app_name=tickoni
+NOTICE  08-24 13:20:40.972912 77714  0    0    topob.c(246): tk_topob_new: mem=0x7f1561c98000 app_name=tickoni
+WARNING 08-24 13:20:40.972948 77714  0    0    fd_topob.c(23): fd_topob_new: mem=0x7f1561c98000 app_name=tickoni
+NOTICE  08-24 13:20:40.978019 77713  f0   0    topob.c(246): tk_topob_new: mem=0x7d554a6c6000 app_name=tickoni
+WARNING 08-24 13:20:40.978127 77713  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7d554a6c6000 app_name=tickoni
+NOTICE  08-24 13:20:40.981088 77711  f0   0    topob.c(246): tk_topob_new: mem=0x72ed2fc35000 app_name=tickoni
+WARNING 08-24 13:20:40.981139 77711  f0   0    fd_topob.c(23): fd_topob_new: mem=0x72ed2fc35000 app_name=tickoni
+NOTICE  08-24 13:20:40.986164 77716  f0   0    topob.c(246): tk_topob_new: mem=0x7f2a434c6000 app_name=tickoni
+WARNING 08-24 13:20:40.986227 77716  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7f2a434c6000 app_name=tickoni
+NOTICE  08-24 13:20:40.987308 77715  1    0    topob.c(246): tk_topob_new: mem=0x7d439ec35000 app_name=tickoni
+WARNING 08-24 13:20:40.987357 77715  1    0    fd_topob.c(23): fd_topob_new: mem=0x7d439ec35000 app_name=tickoni
+NOTICE  08-24 13:20:40.990607 77717  f0   0    topob.c(246): tk_topob_new: mem=0x7b82350c6000 app_name=tickoni
+WARNING 08-24 13:20:40.990640 77717  f0   0    fd_topob.c(23): fd_topob_new: mem=0x7b82350c6000 app_name=tickoni
+NOTICE  08-24 13:20:40.992728 77718  f0   0    topob.c(246): tk_topob_new: mem=0x72f21d2c6000 app_name=tickoni
+WARNING 08-24 13:20:40.992761 77718  f0   0    fd_topob.c(23): fd_topob_new: mem=0x72f21d2c6000 app_name=tickoni
+WARNING 08-24 13:20:41.093751 77712  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7772f7063000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:41.145653 77711  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x72ed2fc35000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:41.145829 77715  1    0    fd_topob.c(37): fd_topob_new: memset topo=0x7d439ec35000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:41.145596 77714  0    0    fd_topob.c(37): fd_topob_new: memset topo=0x7f1561c98000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:41.145698 77716  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7f2a434c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:41.145698 77717  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7b82350c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:41.145651 77713  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x7d554a6c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:41.145677 77718  f0   0    fd_topob.c(37): fd_topob_new: memset topo=0x72f21d2c6000 sizeof(fd_topo_t)=22255936
+WARNING 08-24 13:20:41.275926 77712  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:41.334722 77713  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:41.334516 77715  1    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:41.336272 77716  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:41.336506 77718  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:41.338420 77714  0    0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:41.337882 77711  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+WARNING 08-24 13:20:41.339715 77717  f0   0    fd_topob.c(39): fd_topob_new: memset complete
+Log at "/tmp/fd-0.1.1_77718_vicgenin_dev3_2026_08_24_13_20_40_961223327_GMT+03"
+Log at "/tmp/fd-0.1.1_77712_vicgenin_dev3_2026_08_24_13_20_40_929691794_GMT+03"
+Log at "/tmp/fd-0.1.1_77717_vicgenin_dev3_2026_08_24_13_20_40_961509791_GMT+03"
+Log at "/tmp/fd-0.1.1_77714_vicgenin_dev3_2026_08_24_13_20_40_938563134_GMT+03"
+Log at "/tmp/fd-0.1.1_77713_vicgenin_dev3_2026_08_24_13_20_40_932748828_GMT+03"
+Log at "/tmp/fd-0.1.1_77716_vicgenin_dev3_2026_08_24_13_20_40_956491626_GMT+03"
+Log at "/tmp/fd-0.1.1_77715_vicgenin_dev3_2026_08_24_13_20_40_947551394_GMT+03"
+Log at "/tmp/fd-0.1.1_77711_vicgenin_dev3_2026_08_24_13_20_40_926481803_GMT+03"
+All 1 tests passed.
+integration-test
+└─ run test (plain) failure
+error: process exited with code 1
+failed command: ./.zig-cache/o/c02a177df69c48a29e364dd6ff7c8956/test
+
+Build Summary: 30/32 steps succeeded (1 failed); 19/20 tests passed (1 skipped)
+integration-test transitive failure
+└─ run test (plain) failure
+
+error: recipe `test-integration-tk` failed with exit code 1
