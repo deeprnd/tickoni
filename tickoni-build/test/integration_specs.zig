@@ -279,7 +279,7 @@ pub fn registerIntegrationSpecs(
             },
         }),
     });
-    integration_step.dependOn(&mock_servers_test.step);
+    integration_step.dependOn(&b.addRunArtifact(mock_servers_test).step);
 
     // Test 5: link_bounds_test
     const link_bounds_test = b.addTest(.{
