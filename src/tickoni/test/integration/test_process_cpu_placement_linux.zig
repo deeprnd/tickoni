@@ -133,14 +133,10 @@ test "process_cpu_placement_linux: shared-core and floating are within a 2x enve
 
     // Debug: print per-run values and computed stats
     const ns = std.fmt.allocPrint(std.testing.allocator, "floating_runs_ns=[{d}, {d}, {d}, {d}, {d}]\n" ++
-                                                   "shared_runs_ns=[{d}, {d}, {d}, {d}, {d}]\n" ++
-                                                   "floating_median={d} shared_median={d}\n" ++
-                                                   "floating_avg={d:.2} floating_std={d:.2}\n" ++
-                                                   "shared_avg={d:.2} shared_std={d:.2}",
-        .{ floating_runs[0], floating_runs[1], floating_runs[2], floating_runs[3], floating_runs[4],
-           shared_runs[0], shared_runs[1], shared_runs[2], shared_runs[3], shared_runs[4],
-           floating_median, shared_median,
-           floating_avg, floating_std, shared_avg, shared_std }) catch unreachable;
+        "shared_runs_ns=[{d}, {d}, {d}, {d}, {d}]\n" ++
+        "floating_median={d} shared_median={d}\n" ++
+        "floating_avg={d:.2} floating_std={d:.2}\n" ++
+        "shared_avg={d:.2} shared_std={d:.2}", .{ floating_runs[0], floating_runs[1], floating_runs[2], floating_runs[3], floating_runs[4], shared_runs[0], shared_runs[1], shared_runs[2], shared_runs[3], shared_runs[4], floating_median, shared_median, floating_avg, floating_std, shared_avg, shared_std }) catch unreachable;
     std.debug.print("{s}\n", .{ns});
     std.testing.allocator.free(ns);
 
@@ -159,10 +155,7 @@ test "process_cpu_placement_linux: shared-core and floating are within a 2x enve
     }
 
     // Build outlier log string (Zig 0.17 has no std.io.fixedBufferStream)
-    const os = std.fmt.allocPrint(std.testing.allocator,
-        "per_run_outliers:\n{d} total outliers (floating={d}/{d} shared={d}/{d})",
-        .{ floating_outlier_count + shared_outlier_count,
-           floating_outlier_count, samples, shared_outlier_count, samples }) catch unreachable;
+    const os = std.fmt.allocPrint(std.testing.allocator, "per_run_outliers:\n{d} total outliers (floating={d}/{d} shared={d}/{d})", .{ floating_outlier_count + shared_outlier_count, floating_outlier_count, samples, shared_outlier_count, samples }) catch unreachable;
     std.debug.print("{s}\n", .{os});
     std.testing.allocator.free(os);
 
@@ -171,8 +164,7 @@ test "process_cpu_placement_linux: shared-core and floating are within a 2x enve
     const max_ratio = 4.0;
     const shared_to_floating = shared_avg / floating_avg;
     const floating_to_shared = floating_avg / shared_avg;
-    std.debug.print("shared_to_floating={d:.2}x floating_to_shared={d:.2}x\n",
-        .{shared_to_floating, floating_to_shared});
+    std.debug.print("shared_to_floating={d:.2}x floating_to_shared={d:.2}x\n", .{ shared_to_floating, floating_to_shared });
     try std.testing.expect(shared_to_floating <= max_ratio);
     try std.testing.expect(floating_to_shared <= max_ratio);
 }
