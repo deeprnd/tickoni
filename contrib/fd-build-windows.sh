@@ -4,11 +4,13 @@
 #   bash contrib/fd-build-windows.sh [arch] [compiler]
 #   arch: x86_64|arm64 (default: host arch)
 #   compiler: clang by default (matches checked-in Windows CI lanes)
+#   mode: libs or test (default: libs)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 raw_arch="$(bash contrib/platform.sh arch)"
 cc="${2:-${TK_WINDOWS_CC:-clang}}"
+mode="${3:-libs}"
 
 clang_header_for() {
   local compiler="$1"
@@ -129,7 +131,7 @@ case "$raw_arch" in
 esac
 
 echo "[+] Windows FD build arch=${fd_windows_arch} cc=${cc}"
-env FD_WINDOWS_ARCH="$fd_windows_arch" bash contrib/fd-build-lib.sh fd-tickoni-fd "$cc"
+env FD_WINDOWS_ARCH="$fd_windows_arch" bash contrib/fd-build-lib.sh fd-tickoni-fd "$cc" "$mode"
 
 # Post-build: compile libuuid_stub.c into a proper libuuid.a archive.
 # The prebuilt Windows FD libs reference libuuid.a as a library
