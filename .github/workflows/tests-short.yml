@@ -27,7 +27,7 @@ jobs:
       - uses: ./.github/actions/detect-changes
         id: detect
         with:
-          paths: '^(src/(app/tickoni|tickoni)/|build\.zig(\.zon)?$|justfile$|contrib/quality\.sh$|contrib/security\.sh$|contrib/test/(run_cli_demo_tests\.sh|export_demo_conformance_bundle\.py|compare_demo_conformance\.py)$|contrib/readme/coverage_report\.py$|\.github/actions/|\.github/workflows/tests-short\.yml$)'
+          paths: '^(src/(app/tickoni|tickoni)/|build\.zig(\.zon)?$|justfile$|contrib/quality/|contrib/security/|contrib/test/|contrib/tool/|\.github/actions/|\.github/workflows/tests-short\.yml$)'
 
   short-tests:
     name: Harness Unit Tests

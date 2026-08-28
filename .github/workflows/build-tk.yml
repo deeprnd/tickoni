@@ -27,7 +27,7 @@ jobs:
       - uses: ./.github/actions/detect-changes
         id: detect
         with:
-          paths: '^((src/tickoni/|src/app/tickoni/|config/|contrib/fd-build-lib\.sh$|contrib/fd-build-windows\.(sh|ps1)$|contrib/fd-tk-libs\.sh$|justfile$|build\.zig$|\.zig-version$|GNUmakefile$|\.github/actions/build-fd-tk-libs/|\.github/workflows/build-tk\.yml$)|deps\.sh$)'
+          paths: '^((src/tickoni/|src/app/tickoni/|config/|contrib/setup/|contrib/build/|justfile$|build\.zig$|\.zig-version$|GNUmakefile$|\.github/actions/build-fd-tk-libs/|\.github/workflows/build-tk\.yml$)|deps\.sh$)'
 
   # ── Linux: build FD libs + Zig tickoni ──────────────────────────────────────
   build-tk-linux:

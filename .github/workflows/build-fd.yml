@@ -27,7 +27,7 @@ jobs:
       - uses: ./.github/actions/detect-changes
         id: detect
         with:
-          paths: '^((src/disco/|src/tango/|src/waltz/|src/util/|config/|contrib/deps-bundle\.sh$|contrib/fd-build-lib\.sh$|contrib/fd-build-windows\.(sh|ps1)$|contrib/fd-tk-libs\.sh$|justfile$|build\.zig$|GNUmakefile$|\.github/actions/build-fd-tk-libs/|\.github/workflows/build-fd\.yml$)|deps\.sh$)'
+          paths: '^((src/disco/|src/tango/|src/waltz/|src/util/|config/|contrib/setup/|contrib/build/|justfile$|build\.zig$|GNUmakefile$|\.github/actions/build-fd-tk-libs/|\.github/workflows/build-fd\.yml$)|deps\.sh$)'
 
   # ── Linux: GCC (x86_64) ────────────────────────────────────────────────────
   build-linux-gcc:
