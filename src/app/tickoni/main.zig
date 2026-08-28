@@ -44,12 +44,6 @@ fn boolText(value: bool) []const u8 {
 }
 
 pub fn main(init: std.process.Init) !void {
-    const log = logger.get();
-    logger.init();
-
-    try log.enter("main", "init");
-    defer log.exit("main", "init") catch {};
-
     var it = try std.process.Args.iterateAllocator(init.minimal.args, init.gpa);
     defer it.deinit();
     _ = it.next(); // skip program name
@@ -63,10 +57,20 @@ pub fn main(init: std.process.Init) !void {
         if (std.mem.eql(u8, arg, "--verbose")) verbose = true;
         args[arg_count] = arg;
     }
+    // --verbose sets TK_LOG_LEVEL=0 before logger.init() so the current
+    // process picks up debug-level output. Child processes also inherit
+    // the modified environment via standard POSIX env propagation.
     if (verbose) {
-        logger.enableVerbose();
         util.os_api.setEnv("TK_LOG_LEVEL", "0");
+        logger.init();
+    } else {
+        logger.init();
     }
+
+    const log = logger.get();
+
+    try log.enter("main", "init");
+    defer log.exit("main", "init") catch {};
 
     if (verbose) log.debug("main", "main", "verbose mode enabled") catch {};
 

@@ -42,11 +42,10 @@ pub fn getEnv(name: []const u8) ?[]const u8 {
     const raw: ?[*]const u8 = @ptrCast(c.tk_getenv(name.ptr));
     if (raw == null) return null;
     const raw_ptr = raw.?;
-    // Find the null terminator
+    // Find the null terminator and return a slice.
+    // The C shim (getenv / _getenv_s) returns a pointer to a stable
+    // buffer — no heap allocation needed.
     var len: usize = 0;
     while (raw_ptr[len] != 0) : (len += 1) {}
-    const slice = raw_ptr[0..len];
-    // Allocate owned copy
-    const owned = std.heap.page_allocator.dupe(u8, slice) catch return null;
-    return owned;
+    return raw_ptr[0..len];
 }
