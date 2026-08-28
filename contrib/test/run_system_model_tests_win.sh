@@ -49,19 +49,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "starting llama-server.exe (${backend}) — log: ${log_file}"
-"${server_bin}" \
-  -m "${TK_HF_MODEL_DIR:-$HOME/work/models/gemma/gemma-4-E2B-it-qat-GGUF}/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf" \
-  --no-mmproj \
-  --reasoning-format none \
-  --ctx-size 4096 \
-  --cache-type-k q4_0 \
-  --cache-type-v q4_0 \
-  --threads 4 \
-  --batch-size 64 \
-  --ubatch-size 32 \
-  --metrics \
-  --slots \
-  >"$log_file" 2>&1 &
+bash "${SCRIPT_DIR}/run_llm_server_win.sh" "$backend" >"$log_file" 2>&1 &
 server_pid=$!
 
 # Wait for the server health endpoint (max 120 s, 2 s poll).
