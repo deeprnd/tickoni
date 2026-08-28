@@ -19,7 +19,7 @@ inputs:
     required: false
     default: 'false'
   security:
-    description: Install security tools (gitleaks) — off by default, opt-in via CI matrix
+    description: Install security tools (gitleaks and Linux CBMC toolchain) — off by default, opt-in via CI matrix
     required: false
     default: 'false'
   kcov:

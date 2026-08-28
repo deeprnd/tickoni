@@ -332,6 +332,71 @@ ensure_gitleaks() {
     log_info "gitleaks ${version} installed"
 }
 
+# Install the CBMC proof toolchain from the official release packages.
+# CBMC publishes Ubuntu/architecture-specific debs and Litani publishes a
+# Debian package.  These tools are only required by SECURITY=on Linux setup.
+ensure_cbmc_toolchain() {
+    if ! command -v apt-get &>/dev/null || ! command -v curl &>/dev/null; then
+        log_error "CBMC security setup requires apt-get and curl on Linux"
+        return 1
+    fi
+
+    local ubuntu_version cbmc_asset cbmc_url litani_url tmpdir
+    ubuntu_version="$(. /etc/os-release && printf '%s' "${VERSION_ID:-}")"
+    case "${ubuntu_version}" in
+        22.04) cbmc_asset="ubuntu-22.04-cbmc-" ;;
+        24.04)
+            case "$(dpkg --print-architecture)" in
+                amd64) cbmc_asset="ubuntu-24.04-cbmc-" ;;
+                arm64) cbmc_asset="ubuntu-24.04-arm64-cbmc-" ;;
+                *) log_error "Unsupported Debian architecture for CBMC: $(dpkg --print-architecture)"; return 1 ;;
+            esac
+            ;;
+        *)
+            log_error "Unsupported Ubuntu version for CBMC packages: ${ubuntu_version} (expected 22.04 or 24.04)"
+            return 1
+            ;;
+    esac
+
+    if command -v cbmc &>/dev/null && command -v litani &>/dev/null; then
+        log_info "CBMC and Litani already installed"
+    else
+        log_info "Resolving CBMC and Litani packages from their official release pages..."
+        tmpdir="$(mktemp -d)"
+        cbmc_url="$(curl -fsSL https://api.github.com/repos/diffblue/cbmc/releases/latest | \
+            python3 -c 'import json, sys; prefix=sys.argv[1]; assets=json.load(sys.stdin)["assets"]; matches=[a["browser_download_url"] for a in assets if a["name"].startswith(prefix) and a["name"].endswith("-Linux.deb")]; print(matches[0] if len(matches) == 1 else "")' "${cbmc_asset}")"
+        litani_url="$(curl -fsSL https://api.github.com/repos/awslabs/aws-build-accumulator/releases/latest | \
+            python3 -c 'import json, sys; assets=json.load(sys.stdin)["assets"]; matches=[a["browser_download_url"] for a in assets if a["name"].startswith("litani-") and a["name"].endswith(".deb")]; print(matches[0] if len(matches) == 1 else "")')"
+        if [ -z "${cbmc_url}" ] || [ -z "${litani_url}" ]; then
+            log_error "Could not find matching CBMC or Litani release package"
+            rm -rf "${tmpdir}"
+            return 1
+        fi
+        curl -fsSL "${cbmc_url}" -o "${tmpdir}/cbmc.deb"
+        curl -fsSL "${litani_url}" -o "${tmpdir}/litani.deb"
+        sudo apt-get install -y --no-install-recommends \
+            "${tmpdir}/cbmc.deb" "${tmpdir}/litani.deb" universal-ctags
+        rm -rf "${tmpdir}"
+    fi
+
+    if ! command -v cbmc &>/dev/null || ! command -v litani &>/dev/null; then
+        log_error "CBMC security tools were not found after installation"
+        return 1
+    fi
+
+    if ! python3 -m pip show cbmc-viewer &>/dev/null || \
+       ! python3 -m pip show cbmc-starter-kit &>/dev/null; then
+        log_info "Installing CBMC Python tools..."
+        # Ubuntu's system Python is commonly marked externally managed.  The
+        # recommended installation is system-wide, so explicitly authorize the
+        # pip install rather than silently falling back to an untracked venv.
+        python3 -m pip install --break-system-packages --upgrade \
+            cbmc-viewer cbmc-starter-kit
+    else
+        log_info "CBMC Python tools already installed"
+    fi
+}
+
 # Install kcov from source (SimonKagstrom/kcov)
 # Returns 1 (graceful skip) if the repo is unavailable — not all hosts
 # have internet access to GitHub, and the repo is optional for coverage.

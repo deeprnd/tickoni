@@ -6,8 +6,8 @@ If the index JSON is missing, malformed, or a version is absent from it,
 the script FAILS with a non-zero exit code rather than falling back to
 anything.
 
-Downloads are verified with SHA256 (from index.json) and minisign
-signature (from ziglang.org/builds/*.minisig) where available.
+Downloads are verified with SHA256 (from index.json) and the required minisign
+signature (from ziglang.org/builds/*.minisig).
 """
 import argparse
 import hashlib
@@ -193,8 +193,7 @@ def download_minisig(archive_url, dest, dry_run=False):
         return False
     sig_exists = url_exists(sig_url)
     if not sig_exists:
-        print(f"[verify] no .minisig found at {sig_url}; signature verification unavailable")
-        return False
+        raise SystemExit(f"required Zig minisig signature not found at {sig_url}")
     dest.parent.mkdir(parents=True, exist_ok=True)
     with urllib.request.urlopen(sig_url) as response, open(dest, "wb") as out:
         shutil.copyfileobj(response, out)
@@ -248,24 +247,22 @@ def _ensure_minisign_installed(dry_run=False):
         if result.returncode == 0 and _find_minisign():
             print("[minisign] installed via apt")
             return True
-    print("[minisign] could not install minisign automatically — signature verification will be skipped")
+    print("[minisign] could not install minisign automatically — cannot verify Zig", file=sys.stderr)
     return False
 
 
 def verify_minisig(archive_path, sig_path, dry_run=False):
-    """Verify archive using minisign. Fails on verification error, warns if unavailable."""
+    """Verify archive using minisign; fail if minisign is unavailable."""
     if dry_run:
         print(f"[verify] minisig {archive_path} (dry-run)")
         return
     minisign_bin = _find_minisign()
     if not minisign_bin:
         if not _ensure_minisign_installed(dry_run=False):
-            print(f"[verify] minisign verification SKIPPED (no minisign binary available)")
-            return
+            raise SystemExit("required minisign binary is not available; cannot verify Zig")
         minisign_bin = _find_minisign()
         if not minisign_bin:
-            print(f"[verify] minisign verification SKIPPED (still not found after install attempt)")
-            return
+            raise SystemExit("required minisign binary is still unavailable after installation attempt")
 
     print(f"[verify] minisig {archive_path} ...")
     cmd = [minisign_bin, "-Vm", "-z", str(archive_path), "-p", ZIG_MINISIGN_PUBKEY]
@@ -388,8 +385,10 @@ def main():
     has_sig = download_minisig(archive_url, sig_path, dry_run=args.dry_run)
     if has_sig:
         verify_minisig(archive_path, sig_path, dry_run=args.dry_run)
+    elif args.dry_run:
+        print(f"[verify] minisig required for {archive_name} (dry-run)")
     else:
-        print(f"[verify] minisig SKIPPED (no .minisig available for {archive_name})")
+        raise SystemExit(f"required Zig minisig signature is missing for {archive_name}")
 
     extract_archive(archive_path, extract_root, dry_run=args.dry_run)
 

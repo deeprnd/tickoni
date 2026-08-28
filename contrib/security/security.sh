@@ -41,7 +41,7 @@ cmd_codeql_check_fd() {
   run_step "codeql pack download" codeql pack download codeql/cpp-queries
   rm -rf build/codeql-db
   run_step "codeql database create" \
-    bash -c 'BUILDDIR=codeql codeql database create --language=c-cpp --command="make -j$(nproc) firedancer" build/codeql-db'
+    bash -c 'BUILDDIR=codeql codeql database create --language=c-cpp --command="make -f contrib/build/GNUmakefile -j$(nproc) firedancer" build/codeql-db'
   run_step "codeql database analyze" \
     codeql database analyze \
       build/codeql-db \
@@ -79,22 +79,16 @@ cmd_proof_check_fd() {
 }
 
 cmd_sanitize_check_fd() {
-  # Source the shared FD lib definitions so the 5-lib scope stays in one place.
-  # contrib/build/fd-tk-libs.sh defines FD_TK_LIB_SRCS, FD_TK_LIB_EXCLUDES, etc.
-  source contrib/build/fd-tk-libs.sh
-  local _local_mks
-  _local_mks=$(fd_compute_mks "${FD_TK_LIB_TEST_SRCS[@]}")
-  # Always rebuild libs first (they depend on EXTRAS flags), then build unit tests.
-  # Use -B to force rebuild: if EXTRAS changed the FD_HAS_* defs, stale .a files
-  # from a previous build with different EXTRAS would silently link wrong code.
-  run_step "clang asan+ubsan lib" \
-    make -B -j"$(nproc)" BUILDDIR=clang-asan-ubsan CC=clang EXTRAS="asan ubsan blst zstd lz4" \
-      "LOCAL_MKS=$_local_mks" "LDFLAGS_EXE=-Wl,-z,shstk" \
-      lib
+  if ! command -v clang >/dev/null 2>&1; then
+    echo "sanitize-check-fd requires clang on PATH" >&2
+    return 1
+  fi
+
+  # Use the shared FD builder so the Makefile path, Tickoni machine profile,
+  # source scope, extras, and unit-test target stay in one place.
   run_step "clang asan+ubsan unit-test" \
-    make -j"$(nproc)" BUILDDIR=clang-asan-ubsan CC=clang EXTRAS="asan ubsan blst zstd lz4" \
-      "LOCAL_MKS=$_local_mks" "LDFLAGS_EXE=-Wl,-z,shstk" \
-      unit-test
+    bash contrib/build/fd-build-lib.sh clang-asan-ubsan clang test \
+      "asan ubsan blst zstd lz4" "-Wl,-z,shstk"
 }
 
 cmd_sanitize_check_tk() {
