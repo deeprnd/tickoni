@@ -18,13 +18,15 @@ Current Problems
 
 Design Goals
 
-1. ZIG_LOG_LEVEL=debug (or TK_LOG_LEVEL=debug) works everywhere — CLI, env, test
-2. Per-module filtering via ZIG_LOG_MODULE=ingest,normalize
+1. TK_LOG_LEVEL=0 (max verbosity) works everywhere — CLI, env, test
+2. Per-module filtering via TK_LOG_MODULE=ingest,normalize
 3. Structured output: {ts} {level} [{module}] {func}: {key=val ...} {message}
 4. ANSI colors when stdout is a TTY
 5. Flush on err/panic, optional flush on debug
 6. No double-gate: log.debug() is always a function call, the level check is inside
-7. Backwards compatible: --verbose still works as alias for ZIG_LOG_LEVEL=debug
+7. Backwards compatible: --verbose still works as alias for TK_LOG_LEVEL=0
+8. TK_LOG_LEVEL maps 1:1 to Firedancer syslog levels (0=DEBUG, 1=INFO, 2=NOTICE, 3=WARNING, 4=ERR, 5=CRIT, 6=ALERT, 7=EMERG)
+9. TK_LOG_LEVEL also sets FD_LOG_LEVEL_STDERR/LOGFILE/FLUSH/CORE to the same numeric value
 
 Implementation Steps
 
@@ -32,11 +34,13 @@ Implementation Steps
 
 File: src/tickoni/logger.zig
 
-- Add level and modules as optional parse from std.process.getEnvVarOwned() 
-- Parse ZIG_LOG_LEVEL → level enum (off=0, err=1, debug=2)
-- Parse ZIG_LOG_MODULES → comma-separated list of module strings to enable debug for (wildcard: * = all, ingest = only ingest)
-- If no env vars set, fall back to current default (.err, no modules)
-- If --verbose flag is passed, it sets ZIG_LOG_LEVEL=debug explicitly (override env)
+- Add level and modules as optional parse from std.process.getEnvVarOwned()
+- Parse TK_LOG_LEVEL → syslog-level enum (0-7): 0=DEBUG, 1=INFO, 2=NOTICE, 3=WARNING, 4=ERR, 5=CRIT, 6=ALERT, 7=EMERG
+  - Also accepts string names: "debug"=0, "info"=1, "notice"=2, "warning"=3, "err"=4, "crit"=5, "alert"=6, "emerg"=7
+- Parse TK_LOG_MODULES → comma-separated list of module strings to enable debug for (wildcard: * = all, ingest = only ingest)
+- If no env vars set, fall back to current default (.err / level 4, no modules)
+- If --verbose flag is passed, it sets TK_LOG_LEVEL=0 (max verbosity) explicitly
+- TK_LOG_LEVEL also syncs to Firedancer: sets FD_LOG_LEVEL_STDERR, FD_LOG_LEVEL_LOGFILE, FD_LOG_LEVEL_FLUSH, FD_LOG_LEVEL_CORE to the same numeric level
 
 zig
 // New fields on Logger struct
@@ -80,6 +84,7 @@ File: src/tickoni/logger.zig
 
 - Call fflush(stderr) after err and panic (need to add fflush to os_api.zig)
 - Debug does not flush
+- Flush on warning and above (matches Firedancer flush=3)
 
 6. Remove redundant guards from tile code
 
@@ -97,7 +102,7 @@ Files: src/tickoni/tiles/payment_pipeline/*.zig
 
 File: src/app/tickoni/main.zig
 
-- After --verbose detection, set ZIG_LOG_LEVEL=debug explicitly via std.process.setEnv()
+- After --verbose detection, set TK_LOG_LEVEL=0 (max verbosity) explicitly via util.os_api.setEnv()
 - This ensures child processes (supervisor spawning tiles) inherit the level
 
 8. Update helpers.zig test runner
