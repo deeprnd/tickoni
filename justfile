@@ -528,6 +528,12 @@ quality-format-check-tk:
 quality-format-fix-tk:
     bash contrib/quality.sh format-fix-tk
 
+# Linux/x86 qualified aliases; quality scope remains unchanged.
+quality-format-check-fd-linux-x86: quality-format-check-fd
+quality-format-fix-fd-linux-x86: quality-format-fix-fd
+quality-format-check-tk-linux-x86: quality-format-check-tk
+quality-format-fix-tk-linux-x86: quality-format-fix-tk
+
 quality-format-check-all:
     @just quality-format-check-fd
     @just quality-format-check-tk
@@ -545,6 +551,9 @@ quality-lint-check-fd:
 quality-lint-check-tk:
     bash contrib/quality.sh lint-check-tk
 
+quality-lint-check-fd-linux-x86: quality-lint-check-fd
+quality-lint-check-tk-linux-x86: quality-lint-check-tk
+
 quality-lint-check-all:
     @just quality-lint-check-fd
     @just quality-lint-check-tk
@@ -559,6 +568,9 @@ quality-proto-check-fd:
 
 quality-proto-check-tk:
     bash -c 'PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}"; command -v buf >/dev/null || exit 0; buf lint src/tickoni/schema'
+
+quality-proto-check-fd-linux-x86: quality-proto-check-fd
+quality-proto-check-tk-linux-x86: quality-proto-check-tk
 
 quality-proto-check-all:
     @just quality-proto-check-fd
@@ -577,6 +589,9 @@ security-codeql-check-fd:
 security-codeql-check-tk:
     @true
 
+security-codeql-check-fd-linux-x86: security-codeql-check-fd
+security-codeql-check-tk-linux-x86: security-codeql-check-tk
+
 security-codeql-check-all:
     @just security-codeql-check-fd
     @just security-codeql-check-tk
@@ -588,6 +603,9 @@ security-gitleaks-check-fd:
 
 security-gitleaks-check-tk:
     bash contrib/security.sh gitleaks-check-tk
+
+security-gitleaks-check-fd-linux-x86: security-gitleaks-check-fd
+security-gitleaks-check-tk-linux-x86: security-gitleaks-check-tk
 
 security-gitleaks-check-all:
     @just security-gitleaks-check-fd
@@ -601,6 +619,9 @@ security-seccomp-check-fd:
 security-seccomp-check-tk:
     @true
 
+security-seccomp-check-fd-linux-x86: security-seccomp-check-fd
+security-seccomp-check-tk-linux-x86: security-seccomp-check-tk
+
 security-seccomp-check-all:
     @just security-seccomp-check-fd
     @just security-seccomp-check-tk
@@ -613,6 +634,9 @@ security-proof-check-fd:
 security-proof-check-tk:
     @true
 
+security-proof-check-fd-linux-x86: security-proof-check-fd
+security-proof-check-tk-linux-x86: security-proof-check-tk
+
 security-proof-check-all:
     @just security-proof-check-fd
     @just security-proof-check-tk
@@ -624,6 +648,9 @@ security-sanitize-check-fd:
 
 security-sanitize-check-tk:
     bash contrib/security.sh sanitize-check-tk
+
+security-sanitize-check-fd-linux-x86: security-sanitize-check-fd
+security-sanitize-check-tk-linux-x86: security-sanitize-check-tk
 
 security-sanitize-check-all:
     @just security-sanitize-check-fd
@@ -640,6 +667,9 @@ security-engine-check-changes:
 
 security-engine-check-orchestration:
     {{ python }} contrib/engine/linter.py contrib/engine/checks/ --root {{ justfile_directory() }} --severity ERROR
+
+security-engine-check-changes-linux-x86: security-engine-check-changes
+security-engine-check-orchestration-linux-x86: security-engine-check-orchestration
 
 # ── Security: All ──────────────────────────────────────────────────────────
 
