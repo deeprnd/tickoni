@@ -27,11 +27,11 @@ Tickoni repository.
   <!-- badge:integration:end -->
 
   <!-- badge:system:start -->
-  <img alt="System Tests" src="https://img.shields.io/badge/system%20tests-unknown-lightgrey?style=flat-square" />
+  <img alt="System Tests" src="https://img.shields.io/badge/system%20tests-passing-brightgreen?style=flat-square" />
   <!-- badge:system:end -->
 
   <!-- badge:e2e:start -->
-  <img alt="E2E Tests" src="https://img.shields.io/badge/e2e%20tests-unknown-lightgrey?style=flat-square" />
+  <img alt="E2E Tests" src="https://img.shields.io/badge/e2e%20tests-passing-brightgreen?style=flat-square" />
   <!-- badge:e2e:end -->
 </p>
 
