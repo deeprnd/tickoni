@@ -5,6 +5,7 @@
 #   contrib/platform.sh os         → linux | macos | windows
 #   contrib/platform.sh arch       → x86 | arm
 #   contrib/platform.sh platform   → linux-x86 | macos-arm | …
+#   contrib/platform.sh cores      → logical CPU count
 #   contrib/platform.sh            → linux-x86 (all 3)
 #
 # Usage (sourceable):
@@ -111,6 +112,27 @@ tk_platform() {
   echo "$(tk_os)-$(tk_arch)"
 }
 
+tk_cores() {
+  case "$(tk_os)" in
+    linux)  nproc ;;
+    macos)  sysctl -n hw.ncpu ;;
+    windows)
+      if command -v powershell >/dev/null 2>&1; then
+        powershell -NoProfile -Command '(Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum'
+      elif command -v pwsh >/dev/null 2>&1; then
+        pwsh -NoProfile -Command '(Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum'
+      else
+        echo "unable to determine Windows CPU count" >&2
+        return 1
+      fi
+      ;;
+    *)
+      echo "unable to determine CPU count for unsupported OS" >&2
+      return 1
+      ;;
+  esac
+}
+
 # ── Standalone invocation ────────────────────────────────────────────────────
 # If the script is run directly (not sourced), read arg and print result.
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]] 2>/dev/null || [[ -z "${1:-}" ]]; then
@@ -127,6 +149,7 @@ else
     os)         tk_os ;;
     arch)       tk_arch ;;
     platform)   tk_platform ;;
+    cores)      tk_cores ;;
     *)
       echo "usage: $0 [os|arch|platform]" >&2
       exit 1

@@ -64,6 +64,7 @@ arch := `bash contrib/platform.sh arch`
 tk_os := `bash contrib/platform.sh os`
 tk_arch := `bash contrib/platform.sh arch`
 tk_platform := `bash contrib/platform.sh platform`
+cpu_count := `bash contrib/platform.sh cores`
 
 # Auto-detect host platform/arch and route to the correct setup recipe.
 setup-env:
@@ -271,52 +272,40 @@ test-all:
     @just test-system-all
     @just test-e2e-all
 
-# Build test binaries: libs + unit-test target.
-# Uses FD_TK_LIB_TEST_SRCS (extra: picohttpparser, blst, lz4, zstd, nanopb).
-# Linux runs the native Firedancer C unit-test binaries below (gcc-12 build +
-# run-unit-test). macOS and Windows have no native fd C unit-test lane (see
-# short-tests-macos-*/short-tests-windows-* in tests-short.yml, which only
-# build fd libs and run the Zig tk unit tests); route those hosts the same
-# way build-fd does and fall back to test-unit-tk.
+# Native Firedancer C unit-test recipes. These never fall back to Tickoni tests.
+test-unit-fd-linux-x86-gcc:
+    set timeout := 600
+    bash contrib/fd-build-lib.sh {{ fd_tickoni_build }} gcc-12 test "" ""
+    {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
+        LDFLAGS_EXE="-Wl,-z,shstk" run-unit-test TEST_OPTS="--page-sz normal"
+
+test-unit-fd-macos-x86:
+    bash contrib/fd-build-lib.sh {{ fd_tickoni_build }} clang test "" ""
+    {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
+
+test-unit-fd-macos-arm:
+    bash contrib/fd-build-lib.sh {{ fd_tickoni_build }} clang test "" ""
+    {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
+
+test-unit-fd-windows-x86:
+    bash contrib/fd-build-windows.sh x86_64 clang test
+    {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
+
+test-unit-fd-windows-arm:
+    bash contrib/fd-build-windows.sh arm64 clang test
+    {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
+
 test-unit-fd:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "{{ os }}" in
-      linux) ;;
-      macos)
-        if [ "{{ arch }}" = "arm" ]; then
-          exec bash -lc 'just build-fd-macos-arm && just test-unit-tk'
-        else
-          exec bash -lc 'just build-fd-macos-x86_64 && just test-unit-tk'
-        fi
-        ;;
-      windows)
-        case "{{ arch }}" in
-          arm) exec bash -lc 'just build-fd-windows-arm && just test-unit-tk-windows-arm' ;;
-          x86) exec bash -lc 'just build-fd-windows-x86 && just test-unit-tk-windows-x86' ;;
-          *) echo "unsupported Windows arch for test-unit-fd" >&2; exit 1 ;;
-        esac
-        ;;
-      *)
-        echo "unsupported host OS for test-unit-fd: {{ os }}" >&2
-        exit 1
-        ;;
+    case "{{ os }}-{{ arch }}" in
+      linux-x86) exec just test-unit-fd-linux-x86-gcc ;;
+      macos-x86) exec just test-unit-fd-macos-x86 ;;
+      macos-arm) exec just test-unit-fd-macos-arm ;;
+      windows-x86) exec just test-unit-fd-windows-x86 ;;
+      windows-arm) exec just test-unit-fd-windows-arm ;;
+      *) echo "unsupported host platform for test-unit-fd: {{ os }}-{{ arch }}" >&2; exit 1 ;;
     esac
-    set timeout := 600
-    # Override LOCAL_MKS so everything.mk's ?= assignment is skipped.
-    # Only the 5 Tickoni dirs: tango, util, ballet, disco, waltz —
-    # minus subdirs not compiled into the 5 libs (disco/quic, ballet/zksdk,
-    # ballet/reedsol, waltz/quic, waltz/tls).
-    # fd-build-lib.sh parses args as: BUILDDIR CC MODE EXTRAS LDFLAGS_EXE
-    # For test mode, EXTRAS is hardcoded internally (lz4 blst zstd), so we pass ""
-    # as $4. LDFLAGS_EXE is passed as a make variable (not justfile export, which
-    # breaks with :: in shell expansion).
-    # Both the lib build (via fd_build_fd) and the unit-test link (via make run-unit-test)
-    # need the CET override.
-    bash contrib/fd-build-lib.sh {{ fd_tickoni_build }} gcc-12 test "" ""
-    {{ make }} -j"$(nproc)" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
-    	LDFLAGS_EXE="-Wl,-z,shstk" \
-    	run-unit-test TEST_OPTS="--page-sz normal"
 
 # Tickoni unit lane: pure logic and fixture/mock-backed tests only.
 # No running servers belong here. Canonical platform recipes are the
