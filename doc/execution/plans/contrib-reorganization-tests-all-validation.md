@@ -27,9 +27,9 @@ unless the relevant source, generated output, environment, or recipe changed.
 - [x] `just quality-lint-check-tk`
 - [x] `just quality-proto-check-fd` — expanded from `quality-proto-check-all`
 - [x] `just quality-proto-check-tk` — expanded from `quality-proto-check-all`
-- [ ] `true` — intentional no-op for the known host-clang IBT linker failure;
+- [x] `true` — intentional no-op for the known host-clang IBT linker failure;
   record it, but do not treat it as a security check
-- [ ] `just security-engine-check-changes`
+- [x] `just security-engine-check-changes`
 
 ### Test constituents
 
@@ -182,6 +182,10 @@ fail if generated files are dirty or stale. Record such a tool absence
 explicitly rather than treating it as a path-validation result.
 
 ### 3. Security constituents included by `tests-all`
+
+**DONE** — the intentional `true` no-op was recorded and
+`just security-engine-check-changes` exited 0, reporting 13 watched harness
+files in sync.
 
 Record the deliberate no-op, then run the exact active security check. Do not
 run `just security-check-all`.
