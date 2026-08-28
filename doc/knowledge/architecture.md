@@ -322,6 +322,102 @@ wrapper, the Zig wrapper calls `tk_*`, and the C shim calls Firedancer.
 See [rant/static-inline-and-ffi.md](rant/static-inline-and-ffi.md) for why
 this is the standing default over the alternatives.
 
+### Integration Direction And Porting Rules
+
+The integration boundary between Tickoni and Firedancer is strictly one
+directional: Tickoni Zig calls down into Firedancer C through the shim layer.
+Tickoni code never embeds, includes, or depends on Firedancer source files
+directly. The call graph is:
+
+```
+Tickoni Zig  -->  Zig wrappers (c_abi/*.zig)  -->  C shims (c_abi/shim/**)  -->  Firedancer C
+```
+
+This directionality is an invariant. If a requirement forces Tickoni to depend
+on something that breaks this direction, the requirement changes, not the
+direction.
+
+#### When to port embedded Firedancer code to Zig
+
+Firedancer contains embedded implementation blocks inside its own source trees
+(`src/ballet/**`, `src/util/**`, `src/tango/**`, etc.) that serve Tickoni
+needs — cryptographic primitives, encoding helpers, memory layout utilities,
+hash functions, and similar low-level routines. The default path is to call
+them through the existing `tk_*` shim layer.
+
+However, when such embedded code carries platform or resource assumptions that
+conflict with Tickoni's operational requirements, it must be ported to Zig
+instead of routed through C. The trigger conditions are:
+
+- **Linux-only constraints** — the code assumes `mmap` with `MAP_HUGE`,
+  seccomp filters, `prctl` syscalls, `/proc` filesystem access, NUMA node
+  enumeration, CPU affinity via `sched_setaffinity`, or any other Linux API
+  that is not portable to the retail tier. If the Tickoni requirement is to
+  run on non-Linux platforms (retail tier, CI parity, developer machines), the
+  Linux-specific path must become a Zig implementation and the shim routes to
+  the Zig version.
+
+- **High RAM footprint** — the embedded code allocates fixed-size buffers,
+  alignment padding, or workspace objects that scale poorly on constrained
+  memory. Examples: `wksp_alloc` calls multiplied by link depth,
+  `fd_shmem_gaddr` lookups that require pre-reserved shared-memory regions,
+  large static tables in the binary, or SIMD-accelerated paths that duplicate
+  input buffers. If the allocation pattern causes OOM on less-than-16 GB
+  systems or prevents the retail tier from fitting in normal-page workspaces,
+  port the allocation strategy to Zig with bounded, explicit sizing.
+
+- **Validator-specific state** — the code reads or writes Solana validator
+  topology structs, keyswitch objects, tower state, or consensus-adjacent
+  fields. These must never leak into Tickoni; port only the generic
+  computation (hashing, encoding, math) to Zig and drop the validator state
+  references.
+
+When a block is ported to Zig:
+
+1. The Zig implementation owns the logic end-to-end. No `extern fn` in the
+   shim calls back into the original Firedancer source.
+2. The smaller helper functions that the ported block depended on (hash
+   routines, byte-swappers, bit-packing helpers, alignment math) still route
+   through Firedancer via the existing `tk_*` shim. The shim becomes a
+   fan-out: the top-level ported function lives in Zig; the leaf primitives
+   it calls are still `tk_*` symbols that resolve through `c_abi/shim/**` to
+   the real Firedancer implementation.
+3. The Zig port carries a comment referencing the original Firedancer source
+   file, line range, and function name it replaced, so future reviewers can
+   diff behavior across upstream bumps.
+
+#### Decision flow
+
+```
+Does the Firedancer code carry Tickoni-relevant logic?
+  |
+  +-- Yes --> Does it have Linux-only or high-RAM or validator-state deps?
+  |             |
+  |             +-- Yes --> Port the top-level logic to Zig.
+  |             |             Keep leaf primitives (hash, bits, math) as
+  |             |             tk_* shims into Firedancer.
+  |             |
+  |             +-- No  --> Call through the existing tk_* shim.
+  |
+  +-- No  --> Do not reuse. Tickoni owns its own implementation.
+```
+
+#### What this prevents
+
+- **Cross-platform build breakage** from Linux-only syscalls buried inside
+  a "just a utility" header pulled in by a shim.
+- **Memory OOM in retail or CI lanes** where large-page workspaces are not
+  available but the C shim still demands them.
+- **Validator semantics bleeding into Tickoni** through shared structs or
+  zeroed union fields that look harmless until a future bump changes the
+  memset order or the harness starts reading a field that was previously
+  unused.
+
+The rule is not anti-Firedancer. It is pro-boundary: every Tickoni
+requirement that conflicts with Firedancer's assumptions gets a Zig
+implementation; every compatible leaf primitive stays in Firedancer and
+routes through the shim.
+
 ### How the Firedancer Harness Works
 
 The Firedancer harness at `src/disco/topo/fd_topo_run.c` is a single function

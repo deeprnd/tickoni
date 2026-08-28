@@ -656,6 +656,102 @@ Use the right surface:
 Do not report a configured value when the effective value is different.  Report
 what the supervisor actually built.
 
+## Tickoni-Firedancer Integration Guidelines
+
+The integration boundary between Tickoni and Firedancer is strictly one
+directional: Tickoni Zig calls down into Firedancer C through the shim layer.
+Tickoni code never embeds, includes, or depends on Firedancer source files
+directly. The call graph is:
+
+```
+Tickoni Zig  -->  Zig wrappers (c_abi/*.zig)  -->  C shims (c_abi/shim/**)  -->  Firedancer C
+```
+
+This directionality is an invariant. If a requirement forces Tickoni to depend
+on something that breaks this direction, the requirement changes, not the
+direction.
+
+### When to port embedded Firedancer code to Zig
+
+Firedancer contains embedded implementation blocks inside its own source trees
+(`src/ballet/**`, `src/util/**`, `src/tango/**`, etc.) that serve Tickoni
+needs — cryptographic primitives, encoding helpers, memory layout utilities,
+hash functions, and similar low-level routines. The default path is to call
+them through the existing `tk_*` shim layer.
+
+However, when such embedded code carries platform or resource assumptions that
+conflict with Tickoni's operational requirements, it must be ported to Zig
+instead of routed through C. The trigger conditions are:
+
+- **Linux-only constraints** — the code assumes `mmap` with `MAP_HUGE`,
+  seccomp filters, `prctl` syscalls, `/proc` filesystem access, NUMA node
+  enumeration, CPU affinity via `sched_setaffinity`, or any other Linux API
+  that is not portable to the retail tier. If the Tickoni requirement is to
+  run on non-Linux platforms (retail tier, CI parity, developer machines), the
+  Linux-specific path must become a Zig implementation and the shim routes to
+  the Zig version.
+
+- **High RAM footprint** — the embedded code allocates fixed-size buffers,
+  alignment padding, or workspace objects that scale poorly on constrained
+  memory. Examples: `wksp_alloc` calls multiplied by link depth,
+  `fd_shmem_gaddr` lookups that require pre-reserved shared-memory regions,
+  large static tables in the binary, or SIMD-accelerated paths that duplicate
+  input buffers. If the allocation pattern causes OOM on less-than-16 GB
+  systems or prevents the retail tier from fitting in normal-page workspaces,
+  port the allocation strategy to Zig with bounded, explicit sizing.
+
+- **Validator-specific state** — the code reads or writes Solana validator
+  topology structs, keyswitch objects, tower state, or consensus-adjacent
+  fields. These must never leak into Tickoni; port only the generic
+  computation (hashing, encoding, math) to Zig and drop the validator state
+  references.
+
+When a block is ported to Zig:
+
+1. The Zig implementation owns the logic end-to-end. No `extern fn` in the
+   shim calls back into the original Firedancer source.
+2. The smaller helper functions that the ported block depended on (hash
+   routines, byte-swappers, bit-packing helpers, alignment math) still route
+   through Firedancer via the existing `tk_*` shim. The shim becomes a
+   fan-out: the top-level ported function lives in Zig; the leaf primitives
+   it calls are still `tk_*` symbols that resolve through `c_abi/shim/**` to
+   the real Firedancer implementation.
+3. The Zig port carries a comment referencing the original Firedancer source
+   file, line range, and function name it replaced, so future reviewers can
+   diff behavior across upstream bumps.
+
+### Decision flow
+
+```
+Does the Firedancer code carry Tickoni-relevant logic?
+  |
+  +-- Yes --> Does it have Linux-only or high-RAM or validator-state deps?
+  |             |
+  |             +-- Yes --> Port the top-level logic to Zig.
+  |             |             Keep leaf primitives (hash, bits, math) as
+  |             |             tk_* shims into Firedancer.
+  |             |
+  |             +-- No  --> Call through the existing tk_* shim.
+  |
+  +-- No  --> Do not reuse. Tickoni owns its own implementation.
+```
+
+### What this prevents
+
+- **Cross-platform build breakage** from Linux-only syscalls buried inside
+  a "just a utility" header pulled in by a shim.
+- **Memory OOM in retail or CI lanes** where large-page workspaces are not
+  available but the C shim still demands them.
+- **Validator semantics bleeding into Tickoni** through shared structs or
+  zeroed union fields that look harmless until a future bump changes the
+  memset order or the harness starts reading a field that was previously
+  unused.
+
+The rule is not anti-Firedancer. It is pro-boundary: every Tickoni
+requirement that conflicts with Firedancer's assumptions gets a Zig
+implementation; every compatible leaf primitive stays in Firedancer and
+routes through the shim.
+
 ## Zig Style For Runtime Code
 
 Use Zig to make ownership, bounds, and lifetimes more explicit. Do not use the
@@ -833,6 +929,67 @@ or degraded mode must be selected explicitly before the call.
   UI-to-ledger paths.
 - No hidden mutable global registries for capabilities, adapters, model
   providers, tile links, or storage backends.
+
+### Platform And Operating-System Boundaries
+
+Throughput Zig code — the steady-state event path, tile run loops, codec
+encoders, policy evaluators, and hash chains — must be pure. No `std.c`
+calls. No `#if` branches on OS or architecture. No `builtin.os.tag`
+discrimination. The hot path cannot branch on platform because platform
+discrimination destroys deterministic behavior and makes the binary
+unverifiable on non-development targets.
+
+Platform-specific logic belongs in the shim layer:
+
+- `src/tickoni/c_abi/shim/os.c` — cross-platform OS primitives (monotonic
+  clocks, sleep, PID, kill, write, env, tty). The Zig side is
+  `src/tickoni/util/os_api.zig`, which re-exports the shim and presents
+  a unified Zig API.
+- `src/tickoni/c_abi/shim/topo_run_platform_linux.c` — Linux-only topology
+  and process-platform hooks.
+- `src/tickoni/c_abi/shim/topo_run_platform_macos.c` — macOS equivalents.
+- `src/tickoni/c_abi/shim/topo_run_platform_windows.c` — Windows equivalents.
+- `src/tickoni/c_abi/shim/topo_run_platform.h` — the shared C header
+  declaring the platform-abstracted functions that the shim implements per
+  OS.
+
+When a new OS operation is needed in the runtime or a tile, the pattern is:
+
+1. Add the `extern fn` declaration and Zig wrapper in
+   `src/tickoni/c_abi/shim/os.zig`.
+2. Implement the platform-specific path in the per-platform shim file that
+   matches the target OS. Use `#if FD_HAS_LINUX` / `#if FD_HAS_MACOS` /
+   `#if FD_HAS_WINDOWS` guards — those macros are the only OS identification
+   logic this repository owns.
+3. Wire the new function through `src/tickoni/util/os_api.zig` so callers
+   import it as `os_api.<name>()` with no conditional logic at the call
+   site.
+4. The platform-detection flags are defined once in `config/base.mk`
+   (`FD_HAS_HOSTED`, `FD_HAS_LINUX`, `FD_HAS_MACOS`, `FD_HAS_WINDOWS`).
+   Do not add new OS-identification macros or re-implement the detection
+   logic elsewhere. If a new OS target is needed, extend `base.mk` first,
+   then add the corresponding shim file.
+
+This keeps the call graph clean:
+
+```
+Tickoni Zig (throughput path)
+  --> os_api.zig (no #if, no std.c)
+  --> shim/os.zig (extern fn declarations)
+  --> shim/os.c (platform-specific #if branches)
+```
+
+```
+Tickoni Zig (throughput path)
+  --> topo_run.zig (no #if, no std.c)
+  --> shim/topo_run_platform.h (extern declarations)
+  --> shim/topo_run_platform_linux.c | _macos.c | _windows.c
+```
+
+Do not add `std.c` calls to any Zig module outside `c_abi/shim/`. Do not add
+`#ifdef` or `builtin.os.tag` switches in tiles, runtime, schema, codec, or
+test code. If a throughput path needs a platform-specific syscall, add it to
+the shim — do not branch in the caller.
 
 ### Storage Access Boundaries
 
@@ -1019,6 +1176,160 @@ try std.testing.expect(resp.content.len > 0);
 ```
 
 The swap is a single struct literal at construction. Nothing else changes.
+
+## Maintainability And Design Patterns
+
+Code that survives beyond its author must be maintainable. Maintainability is not
+a post-implementation cleanup phase; it is a design requirement. Zig's lack of
+classes does not preclude elegant, structured code. The language's struct methods,
+tagged unions, comptime, and first-class functions provide all the tools needed to
+express well-known design patterns at a level of explicitness that C and C++
+abstractions often obscure.
+
+### Why Patterns Matter In Systems Code
+
+Design patterns are not academic exercises. They are shared vocabulary for solving
+recurring structural problems. In a financial event runtime where correctness,
+auditability, and replay are non-negotiable, patterns provide:
+
+- a predictable structure that reviewers can reason about without re-deriving the
+  architecture from first principles,
+- a bounded surface area for each concern, making it easier to verify that
+  ownership, bounds, and lifecycle are correct,
+- a clear separation between algorithm logic and the object or state it operates
+  on, which is essential for testing and replay substitution,
+- a path to swap implementations (mock for tests, real for production) without
+  touching the caller's control flow,
+- documentation encoded in structure rather than scattered across comments.
+
+When a contributor recognizes that a tile boundary implements a Factory, that
+a codec dispatcher uses a Strategy, or that audit record construction follows a
+Template Method, they spend less time understanding and more time verifying.
+
+### Patterns That Fit Zig
+
+Not every GoF pattern translates naturally into Zig. Prefer patterns that align
+with the language's strengths: explicit ownership, comptime dispatch, tagged
+unions, and function pointers. Avoid patterns that require inheritance, virtual
+tables, or hidden runtime dispatch.
+
+The following patterns are recommended where applicable:
+
+#### Strategy
+
+A family of algorithms, each encapsulated in its own struct, selected at
+construction via a tagged union or enum. This is the primary pattern for backend
+swapping (mock vs. real HTTP, stub vs. signed adapter, deterministic replay
+substitution vs. live execution). See [Dependency Injection](#dependency-injection)
+for the canonical Zig implementation shape. Use Strategy whenever a tile boundary
+or utility function must behave differently in tests, integration, and production
+without changing its caller.
+
+#### Factory
+
+A function or small struct that constructs objects according to a consistent
+pattern. Use Factory when object construction involves validation, allocation
+from a bounded arena, layout verification, or topology-dependent parameters.
+The factory owns the construction invariant; callers receive a ready-to-use object.
+
+```zig
+pub fn make_ingress(allocator: std.mem.Allocator, config: IngressConfig) !*Ingress {
+    const ingress = try allocator.create(Ingress);
+    ingress.* = .{
+        .allocator = allocator,
+        .max_depth = config.max_depth,
+        .source_offset = 0,
+    };
+    std.debug.assert(ingress.max_depth > 0);
+    return ingress;
+}
+```
+
+#### Template Method
+
+An algorithm skeleton defined in a base struct's method, with some steps deferred
+to methods overridden in concrete structs. Zig has no inheritance, so implement
+this pattern by passing step functions through an options struct or comptime
+parameter. Use Template Method when multiple variants share the same orchestration
+flow (validate -> transform -> persist) but differ in one or more steps
+(hash function, storage backend, validation rule).
+
+#### Observer
+
+A struct maintains a bounded list of subscriber callbacks invoked when state
+changes. Use Observer for metrics collection, diagnostic updates, and audit
+notifications. Keep the subscriber list explicit and bounded — never an
+unbounded `ArrayList` in steady state.
+
+#### Command
+
+An operation is encapsulated as a struct carrying its parameters and a single
+`execute` method. Use Command when an operation must be queued, replayed, audited,
+or undone. The approved execution ledger pattern (propose, approve, execute) is
+a natural fit for Command, where each step carries its own struct, evidence, and
+audit record.
+
+#### Adapter
+
+An interface converts one type or protocol into another. Use Adapter when wrapping
+Firedancer substrate, translating between Tickoni schema types and external API
+formats, or normalizing model-native function calls into finance-native capability
+scopes. The adapter boundary must be explicit, documented, and tested — it is
+where two incompatible contracts meet.
+
+### Patterns To Use Sparingly
+
+The following patterns are available but require justification in financial,
+auditable code:
+
+#### Singleton
+
+Zig has no built-in singleton mechanism, and that is appropriate. A global state
+object hides ownership and makes testing harder. If only one instance should exist,
+pass it explicitly from the supervisor or topology. The supervisor is the closest
+equivalent to a singleton, and it is constructed once at startup with explicit
+arguments.
+
+#### Builder
+
+A step-by-step object construction pattern. Use Builder when an object has many
+optional fields or complex validation across fields. For Tickoni, prefer a single
+`init` function that takes a config struct unless the construction genuinely has
+many independent steps that benefit from step-by-step verification.
+
+#### Flyweight
+
+Shared immutable state to reduce memory usage. Use Flyweight only when the memory
+savings are measurable and the shared state is genuinely immutable. Do not use it
+as an optimization before the data structure is correct.
+
+### Patterns And The Firedancer Inheritance
+
+Firedancer itself uses patterns — comptime-generated codec tables, tagged union
+state machines, function-pointer dispatch for tile hooks, and builder-style
+topology construction. When a Tickoni pattern mirrors a Firedancer pattern,
+document the correspondence. It helps reviewers who know Firedancer understand the
+Tickoni design, and it makes future migrations or upstream contributions easier.
+
+### Elegance Is Explicitness
+
+In a class-based language, elegance often comes from inheritance hierarchies,
+polymorphism, and hidden dispatch. In Zig, elegance comes from:
+
+- narrow interfaces that expose exactly what a caller needs and nothing else,
+- comptime that eliminates runtime dispatch while preserving multiple implementations,
+- tagged unions that make the set of variants explicit and exhaustively handled,
+- struct methods that keep behavior close to data without hiding ownership,
+- function pointers and first-class functions that enable strategy selection
+  without virtual tables,
+- error unions that encode failure modes in the type system rather than hiding
+  them in return codes or exception hierarchies,
+- assertions and compile-time checks that make invariants executable.
+
+Code is elegant when a reviewer can understand its structure, verify its
+invariants, and swap one implementation for another — without reading a
+framework, a base class, or a registry. That is achievable in Zig, and it is
+expected in Tickoni.
 
 ## Memory And Allocation
 
@@ -1320,7 +1631,7 @@ paths.
 ### Tracing
 
 Tickoni does not currently ship a standalone OpenTelemetry bootstrap or local
-Tempo/Grafana stack. The current Phase 0 surface is in-memory metrics,
+Tempo/Grafana stack. The current surface is in-memory metrics,
 diagnostics, and supervisor output. Future tracing should extend the owning
 tile, supervisor, `tkapi`, `tkmodl`, `tktool`, `tkadpt`, or `tkexec` boundary
 that already knows the operation outcome.
@@ -1393,7 +1704,7 @@ Metric style rules:
 - Duration histograms should end in `_seconds` when exported.
 - Match metric type to meaning: counter for monotonic counts, gauge for current
   state, histogram for latency or size distributions.
-- Prefer clear tile or domain names. Current Phase 0 examples include
+- Prefer clear tile or domain names. Current examples include
   `produced`, `normalized`, `invalid`, `duplicates`, `allowed`, `denied`,
   `audited`, `backpressure_waits`, `max_queue_depth`, and
   `max_latency_hops`.
@@ -1532,52 +1843,34 @@ Keep the following Tickoni-specific constraints:
   use the repository's explicit skip behavior when the external service is
   unavailable.
 
-## Phase Discipline
+### Simplicity First
 
-Do not pull later-phase concepts into earlier-phase runtime code.
+**Minimum code that solves the problem. Nothing speculative.**
 
-Phase 0:
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" or "fallbacks" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
 
-- synthetic payment stream
-- `tkings -> tknorm -> tkdedu -> tkpoly -> tkaudt`
-- `tkrepl`, `tkmetr`, `tkdiag`
-- stable event hashes
-- append-only audit
-- replay comparison
-- bounded flow and visible backpressure
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 
-Phase 1:
 
-- real fintech-like ingestion API
-- `tkcase`
-- `tkevid`
-- case history
-- replay capsule format
 
-Phase 2:
 
-- `tkdisp`
-- `tkagnt`
-- `tkmodl`
-- `tktool`
-- `tkadpt`
-- model and tool audit
-- inference budgets
+## Hard Constraints
 
-Phase 3:
+### Security Posture
 
-- `tkapi`
-- CaseOps board and approval workflow
-
-Phase 4:
-
-- `tkexec`
-- privileged accounting ledger actions
-- the approved execution ledger or other finance database integrations
-
-If a demo needs a later-phase behavior early, implement a narrow stub that
-preserves the boundary and emits audit records. Do not collapse phases into one
-tile.
+- This is a financial application. Security and correctness take priority over performance, convenience, and implementation speed.
+- Treat every external input as potentially malicious until proven otherwise.
+- This includes HTTP inputs, L1 provider data, trading broker data,
+  user event datums, environment variables, and generated test transactions.
+- Validate all inbound data for presence, shape, bounds, encoding, and semantic correctness before it influences state transitions or persistence.
+- Runtime environment configuration must also fail closed: production code must not silently default missing env vars to hardcoded values. Required env vars must be present, parsed to the expected type, and rejected explicitly when missing or malformed. Test-only helpers may set defaults locally when needed.
+- Guard explicitly against overflow, underflow, truncation, missing fields, malformed metadata, inconsistent identifiers, and partial or ambiguous state.
+- Cross-check parsed on-chain facts against canonical chain data and persisted database state, and reconcile mismatches explicitly instead of assuming either side is correct by default.
+- If an input cannot be validated deterministically, fail closed, log useful identifiers, and avoid mutating business state.
 
 ## Review Checklist
 
