@@ -98,7 +98,7 @@ const char * tk_getenv( const char * name ) {
   /* Static thread-local buffer — zero heap, cross-platform stable.
    * Env var values are small and short-lived; caller must use the
    * returned slice before the next getEnv() call on any thread. */
-  static __thread char buf[ 4096 ];
+  static _Thread_local char buf[ 4096 ];
   const char * val = getenv( name );
   if( val ) {
     size_t len = strlen( val );
@@ -161,7 +161,7 @@ int tk_setenv( const char * name, const char * value, int overwrite ) {
 
 const char * tk_getenv( const char * name ) {
   /* Same static thread-local buffer as Linux — zero heap, cross-platform. */
-  static __thread char buf[ 4096 ];
+  static _Thread_local char buf[ 4096 ];
   const char * val = getenv( name );
   if( val ) {
     size_t len = strlen( val );
@@ -256,7 +256,7 @@ const char * tk_getenv( const char * name ) {
   char * val = NULL;
   size_t sz = 0;
   if( _dupenv_s( &val, &sz, name )==0 && val!=NULL ) {
-    static __thread char buf[ 4096 ];
+    static _Thread_local char buf[ 4096 ];
     if( sz<=sizeof(buf) ) memcpy( buf, val, sz-1 ), buf[ sz-1 ] = '\0';
     else memcpy( buf, val, sizeof(buf)-1 ), buf[ sizeof(buf)-1 ] = '\0';
     free( val );
