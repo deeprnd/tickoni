@@ -8,7 +8,9 @@ scripts so developer and CI installs are provably identical.
 ## Quick Start
 
 ```bash
-just setup-env                # auto-detect platform and run the right script
+just setup-env                # Linux: install both GCC and Clang
+just setup-env gcc            # Linux: install only GCC
+just setup-env clang          # Linux: install only Clang
 just setup-linux-x86-gcc      # explicit lane
 just setup-macos-arm          # macOS ARM64
 just setup-windows-x86        # Windows x86_64

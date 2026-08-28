@@ -62,7 +62,8 @@
       "libdebuginfod-dev",
       "libdw-dev",
       "libelf-dev",
-      "libcurl4-openssl-dev"
+      "libcurl4-openssl-dev",
+      "minisign"
     ],
     "brew": [
       "coreutils",

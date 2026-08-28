@@ -36,7 +36,7 @@ case "${TOOLCHAIN}" in
         log_info "Installing system packages (clang-${compiler_version} and manifest packages)..."
         sudo apt-get update -qq
         sudo apt-get install -y --no-install-recommends \
-            "clang-${compiler_version}" "${apt_packages[@]}"
+            "clang-${compiler_version}" clang "${apt_packages[@]}"
         export CC="clang-${compiler_version}" CXX="clang++"
         ;;
     *)
@@ -59,6 +59,7 @@ ensure_just
 # 5. Quality tools (needs sudo on Linux)
 if [ "${SECURITY:-off}" = "on" ]; then
     ensure_gitleaks
+    ensure_cbmc_toolchain
 fi
 ensure_shellcheck
 ensure_precommit || log_warn "pre-commit not available"
