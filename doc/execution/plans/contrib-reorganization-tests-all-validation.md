@@ -46,8 +46,12 @@ groups. The group rows are headings, not additional commands to rerun.
 
 #### Integration (`test-integration-all`)
 
-- [ ] `just test-integration-fd` — intentional no-op; record it
-- [ ] `just test-integration-tk`
+**DONE** — `just test-integration-fd` completed as the documented intentional
+no-op. `just test-integration-tk` exited 0; all listed integration tests
+passed.
+
+- [x] `just test-integration-fd` — intentional no-op; record it
+- [x] `just test-integration-tk`
 
 #### Coverage (`test-cov-all`)
 
