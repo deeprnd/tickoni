@@ -1863,7 +1863,8 @@ pub fn build(b: *std.Build) void {
             }),
         });
         linkTickoniCodec(b, system_test, fd_lib_dir);
-        system_step.dependOn(&b.addRunArtifact(system_test).step);
+        const run_system_test = addPlainTestRun(b, system_test);
+        system_step.dependOn(&run_system_test.step);
 
         // V1.3.S4: combined portfolio/cash demo. Fixture-backed and deterministic
         // (no live model, broker, or execution), but lives under
@@ -1883,7 +1884,8 @@ pub fn build(b: *std.Build) void {
         // Imported modules do not carry their root-module C/link settings into
         // this test binary, so wire the codec seam explicitly here too.
         linkTickoniCodec(b, portfolio_cash_demo_test, fd_lib_dir);
-        system_step.dependOn(&b.addRunArtifact(portfolio_cash_demo_test).step);
+        const run_portfolio_cash_demo_test = addPlainTestRun(b, portfolio_cash_demo_test);
+        system_step.dependOn(&run_portfolio_cash_demo_test.step);
 
         // Compatibility alias for the old live-model smoke command.
         const live_model_step = b.step("integration-test-live-model", "Alias for the live V1.1 system/demo lane");
