@@ -54,7 +54,7 @@ bash "${SCRIPT_DIR}/run_llm_server.sh" "$backend" >"$log_file" 2>&1 &
 server_pid=$!
 
 # Wait for the server health endpoint (max 120 s, 2 s poll).
-endpoint="${TK_LLM_ENDPOINT:-http://127.0.0.1:8080/v1}"
+endpoint="${TK_LLM_ENDPOINT:-http://127.0.0.1:9931/v1}"
 health_url="${endpoint%/v1}/health"
 echo "waiting for llama-server at ${health_url}"
 ready=0
@@ -82,6 +82,7 @@ fi
 echo "llama-server ready"
 echo "running live investment system/demo proof"
 
-# Run the live system test in foreground so stdin is available for the
-# zig build --listen=- -Dtest=true test protocol. The EXIT trap kills the server.
-ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib system-test --summary all
+# Run the live system test in foreground. The EXIT trap kills the server.
+# Pipe through sed to strip Zig's cosmetic "failed command:" lines (caused by
+# --listen=- protocol noise when stdin is closed).
+ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib system-test --summary all </dev/null | sed '/^failed command:/d'
