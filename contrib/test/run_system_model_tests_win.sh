@@ -26,7 +26,7 @@ llama_dir="$(tk_resolve_llama_cpp_dir)"
 server_bin="${llama_dir}/llama-server.exe"
 model_dir="${TK_HF_MODEL_DIR:-$HOME/work/models/gemma/gemma-4-E2B-it-qat-GGUF}"
 model_file="${TK_HF_MODEL_FILE:-gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf}"
-endpoint="${TK_LLM_ENDPOINT:-http://127.0.0.1:8080/v1}"
+endpoint="${TK_LLM_ENDPOINT:-http://127.0.0.1:9931/v1}"
 
 echo "Windows live system-test config: host_windows_arch=${host_windows_arch} backend=${backend}"
 echo "Windows live system-test llama_dir: ${llama_dir}"
@@ -65,7 +65,7 @@ echo "starting llama-server.exe (${backend}) — log: ${log_file}"
 server_pid=$!
 
 # Wait for the server health endpoint (max 120 s, 2 s poll).
-endpoint="${TK_LLM_ENDPOINT:-http://127.0.0.1:8080/v1}"
+endpoint="${TK_LLM_ENDPOINT:-http://127.0.0.1:9931/v1}"
 health_url="${endpoint%/v1}/health"
 echo "waiting for llama-server at ${health_url}"
 ready=0
@@ -94,7 +94,9 @@ echo "llama-server.exe ready"
 echo "running live investment system/demo proof (Windows)"
 
 # Run the live system test in foreground. The EXIT trap kills the server.
+# Pipe through sed to strip Zig's cosmetic "failed command:" lines (caused by
+# --listen=- protocol noise when stdin is closed).
 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build \
   -Dtest=true \
   -Dfd-lib-dir=build/fd-tickoni-fd/lib \
-  system-test --summary all
+  system-test --summary all </dev/null | sed '/^failed command:/d'
