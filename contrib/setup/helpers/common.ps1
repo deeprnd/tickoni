@@ -249,7 +249,7 @@ function download-file {
 
 # Install Zig via install-zig.py (uses versions.zig from tool-versions.json).
 # Keep the install root aligned with install-zig.py's Windows default and with
-# contrib/zigw.sh's Windows ARM x86_64-Zig discovery path.
+# contrib/build/zigw.sh's Windows ARM x86_64-Zig discovery path.
 function ensure-zig {
     param([string]$Target)
 
