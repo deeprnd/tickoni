@@ -1,14 +1,16 @@
 /// Tickoni structured logger - name/enter/exit pattern for method tracing.
 ///
-/// Design (industry standard - OpenTelemetry/SLF4J inspired):
-///   1. Level parsed from ZIG_LOG_LEVEL env var (default .err)
-///   2. Module filtering via ZIG_LOG_MODULES env var (comma-separated, wildcard *)
+/// Design (syslog/Slf4j/OpenTelemetry inspired, 1:1 with Firedancer log levels):
+///   1. Level parsed from TK_LOG_LEVEL env var (numeric 0-7, default 4=ERR)
+///      0=DEBUG, 1=INFO, 2=NOTICE, 3=WARNING, 4=ERR, 5=CRIT, 6=ALERT, 7=EMERG
+///   2. Module filtering via TK_LOG_MODULES env var (comma-separated, wildcard *)
 ///   3. ANSI color when stdout is a TTY (auto-detected via isatty)
 ///   4. Structured key-value output: {ts} {level} [{module}] {func}: {key=val ...} {message}
 ///   5. Flush on err/panic via fflush(stderr)
 ///   6. No double-gate: log.debug() is always callable, level check internal
-///   7. --verbose flag sets ZIG_LOG_LEVEL=debug for backwards compatibility
-///   8. Backwards-compatible: isVerbose() still works, global singleton unchanged
+///   7. --verbose flag sets TK_LOG_LEVEL=0 (max verbosity) for backwards compatibility
+///   8. TK_LOG_LEVEL also sets Firedancer FD_LOG_LEVEL_* env vars (1:1 mapping)
+///   9. Backwards-compatible: isVerbose() still works, global singleton unchanged
 ///
 /// Usage:
 ///   const log = @import("logger").get();
@@ -19,11 +21,17 @@
 const std = @import("std");
 const util = @import("util");
 
-/// Log severity levels - matches OpenTelemetry/SLF4J.
-pub const Level = enum {
-    off,
-    err,
-    debug,
+/// Log severity levels - matches Firedancer syslog levels (0-7).
+/// 0=DEBUG, 1=INFO, 2=NOTICE, 3=WARNING, 4=ERR, 5=CRIT, 6=ALERT, 7=EMERG
+pub const Level = enum(u8) {
+    debug = 0,
+    info = 1,
+    notice = 2,
+    warning = 3,
+    err = 4,
+    crit = 5,
+    alert = 6,
+    emerg = 7,
 };
 
 /// Thread-safe (single-threaded, lock-free) logger state.
@@ -40,30 +48,44 @@ pub const Logger = struct {
     /// Pre-allocated buffer for formatted log lines.
     line_buf: [1024]u8 = undefined,
 
-    /// Initialize the logger: parse env vars, detect TTY.
+    /// Initialize the logger: parse env vars, detect TTY, sync with Firedancer.
     pub fn init(self: *Logger) void {
         self.level = Logger.parseLogLevel();
         self.modules = Logger.parseModules();
         self.colorize = util.os_api.isatty(2);
+        self.syncFiredancerLevels();
     }
 
-    /// Parse ZIG_LOG_LEVEL from environment.
+    /// Parse TK_LOG_LEVEL from environment (numeric 0-7 or named levels).
     fn parseLogLevel() Level {
-        const env = util.os_api.getEnv("ZIG_LOG_LEVEL") orelse return .err;
-        defer std.heap.page_allocator.free(env);
-        if (std.mem.eql(u8, env, "debug")) return .debug;
-        if (std.mem.eql(u8, env, "off")) return .off;
+        const env = util.os_api.getEnv("TK_LOG_LEVEL") orelse return .err;
+        if (std.mem.eql(u8, env, "debug") or std.mem.eql(u8, env, "0")) return .debug;
+        if (std.mem.eql(u8, env, "info") or std.mem.eql(u8, env, "1")) return .info;
+        if (std.mem.eql(u8, env, "notice") or std.mem.eql(u8, env, "2")) return .notice;
+        if (std.mem.eql(u8, env, "warning") or std.mem.eql(u8, env, "3")) return .warning;
+        if (std.mem.eql(u8, env, "err") or std.mem.eql(u8, env, "4")) return .err;
+        if (std.mem.eql(u8, env, "crit") or std.mem.eql(u8, env, "5")) return .crit;
+        if (std.mem.eql(u8, env, "alert") or std.mem.eql(u8, env, "6")) return .alert;
+        if (std.mem.eql(u8, env, "emerg") or std.mem.eql(u8, env, "7")) return .emerg;
         return .err;
     }
 
-    /// Parse ZIG_LOG_MODULES from environment.
+    /// Parse TK_LOG_MODULES from environment.
     fn parseModules() []const u8 {
-        const env = util.os_api.getEnv("ZIG_LOG_MODULES") orelse return "";
-        if (env.len == 0) {
-            std.heap.page_allocator.free(env);
-            return "";
-        }
+        const env = util.os_api.getEnv("TK_LOG_MODULES") orelse return "";
         return env;
+    }
+
+    /// Sync TK_LOG_LEVEL to Firedancer FD_LOG_LEVEL_* env vars.
+    /// This ensures the C logger and Zig logger use the same verbosity level.
+    fn syncFiredancerLevels(self: *const Logger) void {
+        const lvl = @intFromEnum(self.level);
+        var buf: [4]u8 = undefined;
+        const str = std.fmt.bufPrint(&buf, "{d}", .{lvl}) catch "4";
+        util.os_api.setEnv("FD_LOG_LEVEL_STDERR", str);
+        util.os_api.setEnv("FD_LOG_LEVEL_LOGFILE", str);
+        util.os_api.setEnv("FD_LOG_LEVEL_FLUSH", str);
+        util.os_api.setEnv("FD_LOG_LEVEL_CORE", str);
     }
 
     /// Check if a module's debug logs should be emitted.
@@ -87,15 +109,25 @@ pub const Logger = struct {
 
         const ts: i64 = util.os_api.monotonicNanos();
         const level_str: []const u8 = switch (level) {
-            .off => "OFF",
-            .err => "ERR",
             .debug => "DEBUG",
+            .info => "INFO",
+            .notice => "NOTICE",
+            .warning => "WARNING",
+            .err => "ERR",
+            .crit => "CRIT",
+            .alert => "ALERT",
+            .emerg => "EMERG",
         };
 
         const color_code = if (self.colorize) switch (level) {
-            .off => "",
-            .err => "\x1b[31m",
-            .debug => "\x1b[34m",
+            .debug => "\x1b[34m",  // blue
+            .info => "\x1b[32m",   // green
+            .notice => "\x1b[33m", // yellow
+            .warning => "\x1b[33m",
+            .err => "\x1b[31m",    // red
+            .crit => "\x1b[1;31m", // red bold
+            .alert => "\x1b[1;31m",
+            .emerg => "\x1b[1;31m",
         } else "";
         const reset = if (self.colorize) "\x1b[0m" else "";
 
@@ -106,7 +138,7 @@ pub const Logger = struct {
 
         _ = util.os_api.write(2, line);
 
-        if (level == .err) {
+        if (@intFromEnum(level) >= @intFromEnum(Level.warning)) {
             util.os_api.fflush();
         }
     }
@@ -129,6 +161,11 @@ pub const Logger = struct {
     /// Log at debug level (only with sufficient level and matching module).
     pub fn debug(self: *Logger, module: []const u8, func: []const u8, message: []const u8) !void {
         try self.write(.debug, module, func, message);
+    }
+
+    /// Log at info level (only with sufficient level).
+    pub fn info(self: *Logger, module: []const u8, func: []const u8, message: []const u8) !void {
+        try self.write(.info, module, func, message);
     }
 
     /// Log method entry: "module.func: enter"
@@ -179,6 +216,43 @@ test "Logger.write debug respects level" {
     var log = Logger{};
     try std.testing.expect(@intFromEnum(log.level) == @intFromEnum(Level.err));
     try (&log).write(.debug, "test", "func", "msg");
+}
+
+test "Logger.parseLogLevel from string names" {
+    // Default when env is not set
+    const default_level = Logger.parseLogLevel();
+    try std.testing.expect(default_level == .err);
+}
+
+test "Logger.parseLogLevel from numeric string" {
+    // This test verifies the enum value is correct for the numeric representation
+    const lvl: Level = .debug;
+    try std.testing.expect(@intFromEnum(lvl) == 0);
+    const lvl2: Level = .info;
+    try std.testing.expect(@intFromEnum(lvl2) == 1);
+    const lvl3: Level = .notice;
+    try std.testing.expect(@intFromEnum(lvl3) == 2);
+    const lvl4: Level = .warning;
+    try std.testing.expect(@intFromEnum(lvl4) == 3);
+    const lvl5: Level = .err;
+    try std.testing.expect(@intFromEnum(lvl5) == 4);
+    const lvl6: Level = .crit;
+    try std.testing.expect(@intFromEnum(lvl6) == 5);
+    const lvl7: Level = .alert;
+    try std.testing.expect(@intFromEnum(lvl7) == 6);
+    const lvl8: Level = .emerg;
+    try std.testing.expect(@intFromEnum(lvl8) == 7);
+}
+
+test "Logger.level ordering matches Firedancer" {
+    // Verify that lower numeric values = more verbose (lower threshold)
+    try std.testing.expect(@intFromEnum(Level.debug) < @intFromEnum(Level.info));
+    try std.testing.expect(@intFromEnum(Level.info) < @intFromEnum(Level.notice));
+    try std.testing.expect(@intFromEnum(Level.notice) < @intFromEnum(Level.warning));
+    try std.testing.expect(@intFromEnum(Level.warning) < @intFromEnum(Level.err));
+    try std.testing.expect(@intFromEnum(Level.err) < @intFromEnum(Level.crit));
+    try std.testing.expect(@intFromEnum(Level.crit) < @intFromEnum(Level.alert));
+    try std.testing.expect(@intFromEnum(Level.alert) < @intFromEnum(Level.emerg));
 }
 
 test "Logger.enableVerbose sets debug level" {
@@ -238,4 +312,41 @@ test "Logger.module empty (no filter)" {
 test "Logger.colorize detection" {
     const log = Logger{};
     try std.testing.expect(!log.colorize);
+}
+
+test "Logger.level filtering by numeric threshold" {
+    // When level is .err (4), only levels >= 4 should pass
+    var log = Logger{};
+    log.level = .err;
+    try std.testing.expect(!log.shouldLogModule("test", .debug)); // 0 < 4
+    try std.testing.expect(!log.shouldLogModule("test", .info));  // 1 < 4
+    try std.testing.expect(!log.shouldLogModule("test", .notice)); // 2 < 4
+    try std.testing.expect(!log.shouldLogModule("test", .warning)); // 3 < 4
+    try std.testing.expect(log.shouldLogModule("test", .err)); // 4 >= 4
+    try std.testing.expect(log.shouldLogModule("test", .crit)); // 5 >= 4
+}
+
+test "Logger.level filtering at debug (0)" {
+    // When level is .debug (0), everything should pass
+    var log = Logger{};
+    log.level = .debug;
+    try std.testing.expect(log.shouldLogModule("test", .debug));
+    try std.testing.expect(log.shouldLogModule("test", .info));
+    try std.testing.expect(log.shouldLogModule("test", .notice));
+    try std.testing.expect(log.shouldLogModule("test", .warning));
+    try std.testing.expect(log.shouldLogModule("test", .err));
+    try std.testing.expect(log.shouldLogModule("test", .crit));
+    try std.testing.expect(log.shouldLogModule("test", .alert));
+    try std.testing.expect(log.shouldLogModule("test", .emerg));
+}
+
+test "Logger.level filtering at warning (3)" {
+    // When level is .warning (3), only warning and above should pass
+    var log = Logger{};
+    log.level = .warning;
+    try std.testing.expect(!log.shouldLogModule("test", .debug));
+    try std.testing.expect(!log.shouldLogModule("test", .info));
+    try std.testing.expect(!log.shouldLogModule("test", .notice));
+    try std.testing.expect(log.shouldLogModule("test", .warning));
+    try std.testing.expect(log.shouldLogModule("test", .err));
 }
