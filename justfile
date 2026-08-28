@@ -544,12 +544,12 @@ quality-lint-check-all:
 
 quality-proto-check-fd:
     @cd src/disco/events && {{ python }} gen_events.py --skip-check
-    @command -v buf >/dev/null || { if [ -n "$(git status --porcelain src/disco/events/generated/ src/disco/events/schema/events.proto)" ]; then echo "Generated proto files are out of date. Please run 'just quality-proto-check-fd' and commit the changes." >&2; git --no-pager diff -- src/disco/events/; exit 1; fi; exit 0; }
-    buf lint src/disco/events/schema
+    @PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" command -v buf >/dev/null || { if [ -n "$(git status --porcelain src/disco/events/generated/ src/disco/events/schema/events.proto)" ]; then echo "Generated proto files are out of date. Please run 'just quality-proto-check-fd' and commit the changes." >&2; git --no-pager diff -- src/disco/events/; exit 1; fi; exit 0; }
+    PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" buf lint src/disco/events/schema
     @if [ -n "$(git status --porcelain src/disco/events/generated/ src/disco/events/schema/events.proto)" ]; then echo "Generated proto files are out of date. Please run 'just quality-proto-check-fd' and commit the changes." >&2; git --no-pager diff -- src/disco/events/; exit 1; fi
 
 quality-proto-check-tk:
-    bash -c "command -v buf >/dev/null || exit 0; buf lint src/tickoni/schema"
+    bash -c 'PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}"; command -v buf >/dev/null || exit 0; buf lint src/tickoni/schema'
 
 quality-proto-check-all:
     @just quality-proto-check-fd
@@ -670,3 +670,57 @@ mem-free page_type="gigantic" numa="0":
 
 mem-drop-caches:
     sync
+
+# ── Kill test processes ────────────────────────────────────────────────────────
+
+kill-test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "killing test processes (user: $USER)..."
+    case "{{ os }}" in
+      linux)
+        # Phase 1: kill child tile processes first (tkings, tknorm, tkdedu, etc.)
+        pkill -u "$USER" -f 'zig-out/bin/tk[a-z]\+ ' 2>/dev/null || true
+        pkill -u "$USER" -f 'target/debug/tk[a-z]\+ ' 2>/dev/null || true
+        pkill -u "$USER" -f 'target/release/tk[a-z]\+ ' 2>/dev/null || true
+        # Phase 1b: kill test-* binaries
+        pkill -u "$USER" -f 'zig-out/bin/test-' 2>/dev/null || true
+        pkill -u "$USER" -f 'target/debug/test-' 2>/dev/null || true
+        pkill -u "$USER" -f 'target/release/test-' 2>/dev/null || true
+        # Phase 2: kill tickoni-supervisor (parent of tile processes)
+        pkill -u "$USER" -f 'tickoni-supervisor' 2>/dev/null || true
+        # Phase 3: kill any remaining orphans still children of a supervisor
+        for pid in $(pgrep -u "$USER" -f 'tickoni-supervisor' 2>/dev/null || true); do
+          pkill -u "$USER" -P "$pid" 2>/dev/null || true
+        done
+        echo "done."
+        ;;
+      macos)
+        pkill -u "$USER" -f 'tickoni-supervisor' 2>/dev/null || true
+        pkill -u "$USER" -f 'zig-out/bin/tk[a-z]\+ ' 2>/dev/null || true
+        pkill -u "$USER" -f 'target/debug/tk[a-z]\+ ' 2>/dev/null || true
+        pkill -u "$USER" -f 'target/release/tk[a-z]\+ ' 2>/dev/null || true
+        pkill -u "$USER" -f 'zig-out/bin/test-' 2>/dev/null || true
+        echo "done."
+        ;;
+      windows)
+        # Windows: use taskkill with image-name filters for tk* and test-*
+        # taskkill /FI "IMAGENAME eq ..." matches the image name only
+        # We also try WMIC for broader matching on full command line
+        for img in tkings tknorm tkdedu tkcase tkpoly tkaudt tkrepl tkmetr tkdiag tkdisp tkagnt tkmodl tktool tkadpt tkapi tickoni-supervisor; do
+          taskkill /F /FI "IMAGENAME eq ${img}.exe" /T > /dev/null 2>&1 || true
+        done
+        # Kill any zig-out/test-* processes by matching the path
+        taskkill /F /FI "CMDLINE eq *zig-out/bin/test-*" /T > /dev/null 2>&1 || true
+        taskkill /F /FI "CMDLINE eq *target/debug/test-*" /T > /dev/null 2>&1 || true
+        # Kill any remaining tickoni-* processes
+        for img in $(wmic process where "name like '%tickoni%'" get name /value 2>/dev/null | grep -oP '[a-z-]+\.exe' | sort -u || true); do
+          taskkill /F /FI "IMAGENAME eq $img" /T > /dev/null 2>&1 || true
+        done
+        echo "done."
+        ;;
+      *)
+        echo "unsupported OS for kill-test: {{ os }}" >&2
+        exit 1
+        ;;
+    esac
