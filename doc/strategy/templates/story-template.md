@@ -309,7 +309,7 @@ complexity, dead code, dependency hygiene, and regression-test coverage. Record
 objective findings, affected paths, and remediation decisions; resolve all
 in-scope findings or document explicitly accepted debt with an owner and
 follow-up task. Run `just quality-check-all` and the story's targeted tests, and
-record commands and results in the task's `Evidence To Attach` section.
+record commands and results in the task's `Evidence To Attach` section. Store it under doc/execution/audits/stories/VX.Y.SN-maintainability-audit.md.
 
 VX.Y.SN.T11 — Security audit. Audit the story's code against
 `doc/execution/security.md`. Check: input validation at every trust boundary,
@@ -317,7 +317,7 @@ output/error checking, fail-closed behavior, no-bypass paths, static and
 preallocated memory discipline, C/Zig memory and stack safety, agent capability
 boundaries, deny-by-default policy, and no-elevated-permissions rules. Run
 `just security-check-all` and record results in the task's `Evidence To Attach`
-section. Flag and remediate any findings.
+section. Flag and remediate any findings. Store it under doc/execution/audits/stories/VX.Y.SN-security-audit.md.
 
 VX.Y.SN.T12 — Telemetry and observability audit. Audit the story's operator
 signals against `doc/execution/telemetry.md` (metric/diagnostic field definitions,
@@ -325,17 +325,17 @@ label policy, alerting policy, generated metrics) and
 `doc/execution/observability.md` (per-tile visibility, smoke checks, failure
 visibility). Ensure new metrics use low-cardinality labels only, new diagnostic
 signals follow the Phase 0 snapshot pattern, and failure visibility is preserved.
-Capture telemetry/observability evidence.
+Capture telemetry/observability evidence. Store it under doc/execution/audits/stories/VX.Y.SN-telemetry-audit.md.
 
-VX.Y.SN.T13 — Evidence and quality gate. Audits should be present in `doc/execution/audits/stories` as VX.Y.SN-*.md. Run the full closing gate per
-`doc/execution/quality.md`. Complete the Story Closure Checklist:
-demoability, tests at every applicable layer (unit, integration, system, E2E),
-quality and security checks (fail-closed, forbidden-direct-access, malformed
-config, quality-check-all, security-check-all), evidence artifacts (audit JSONL
-samples, replay samples, approval/rejection samples, metrics/diagnostics output,
-fixtures), and documentation/roadmap reconciliation. Mark each line
-`N/A - reason` where the story does not touch that boundary. Do not move the
-story status to `Done` until every line is checked off or explicitly waived.
+VX.Y.SN.T13 — Evidence and quality gate. Audits should be present in
+`doc/execution/audits/stories` as VX.Y.SN-*.md. Complete the Story Closure
+Checklist by confirming that the security, maintainability, and telemetry audits
+passed. Do not rerun the `just` commands. Do not move the story status to `Done`
+until every audit has passed or is explicitly waived. Store the checklist under
+`doc/execution/audits/stories/VX.Y.SN-quality-gate.md`. Once the audits pass,
+mark the story in `doc/strategy/roadmap/stories/VX.Y-SN.md` as `Done`, then check
+it off as done in the Story Breakdown section of
+`doc/strategy/roadmap/epics/VX.Y.md`.
 
 ## Evidence Plan
 

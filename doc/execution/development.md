@@ -23,7 +23,11 @@ Install platform-specific tooling with one command:
 just setup-env
 ```
 
-This installs Zig, the system compiler (GCC on Linux, clang on macOS, LLVM on Windows), make, gitleaks, shellcheck, pre-commit, buf, and Firedancer system dependencies. After `just setup-env` the rest of the `justfile` works without any further configuration.
+On Linux, this installs both GCC and Clang by default; pass `gcc` or `clang`
+to install only one compiler. On macOS and Windows it installs the platform's
+canonical compiler toolchain. It also installs Zig, make, gitleaks, shellcheck,
+pre-commit, buf, and Firedancer system dependencies. After `just setup-env` the
+rest of the `justfile` works without any further configuration.
 
 Useful local tools for full gates:
 
