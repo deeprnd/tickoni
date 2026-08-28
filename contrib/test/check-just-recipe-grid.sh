@@ -92,6 +92,15 @@ for aggregate, required in {
         print(f"{aggregate} is missing bare dispatcher calls: {', '.join(missing_calls)}")
         raise SystemExit(1)
 
+for aggregate in ("test-unit-all", "test-integration-all", "build-all", "test-all"):
+    match = re.search(
+        rf"(?m)^{re.escape(aggregate)}:\n(?P<body>(?:    .*\n|\n)*)", justfile
+    )
+    body = match.group("body") if match else ""
+    if re.search(r"just (?:build|test|quality|security)-[^\s\"']+-(?:linux|macos|windows)-", body):
+        print(f"{aggregate} calls a platform-qualified recipe directly")
+        raise SystemExit(1)
+
 recipe_bodies = {}
 recipe_matches = list(re.finditer(r"(?m)^([a-zA-Z0-9_-]+):[^\n]*\n", justfile))
 for index, match in enumerate(recipe_matches):
