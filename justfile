@@ -157,8 +157,32 @@ tests-all:
 
 # ── Build ──────────────────────────────────────────────────────────────────
 
-build-tk:
+build-tk-linux-x86:
     ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }}
+
+build-tk-linux-arm: build-tk-linux-x86
+
+build-tk-macos-x86: build-tk-linux-x86
+
+build-tk-macos-arm: build-tk-linux-x86
+
+build-tk-windows-x86: build-tk-linux-x86
+
+build-tk-windows-arm: build-tk-linux-x86
+
+# Bare dispatcher; canonical platform recipes above are the implementation.
+build-tk:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ os }}-{{ arch }}" in
+      linux-x86) exec just build-tk-linux-x86 ;;
+      linux-arm) exec just build-tk-linux-arm ;;
+      macos-x86) exec just build-tk-macos-x86 ;;
+      macos-arm) exec just build-tk-macos-arm ;;
+      windows-x86) exec just build-tk-windows-x86 ;;
+      windows-arm) exec just build-tk-windows-arm ;;
+      *) echo "unsupported host platform for build-tk: {{ os }}-{{ arch }}" >&2; exit 1 ;;
+    esac
 
 # tickoni_fd machine profile: builds only the 5 Firedancer libraries
 # Tickoni reuses (tango, util, ballet, disco, waltz). Excludes
@@ -177,73 +201,52 @@ build-fd-tk-libs: build-fd
 # pick up the change automatically.
 # ── Public build recipes ─────────────────────────────────────────────────────
 
-# Auto-detect host platform/arch and route to the correct platform-specific recipe.
-# CI recipes below (build-fd-gcc, build-fd-clang, build-fd-arm, build-fd-macos-*,
-# build-fd-windows-*) are called directly with explicit values for reproducibility.
+# Bare dispatcher; canonical platform/compiler recipes below are the implementation.
 build-fd:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "{{ os }}" in
-      linux)
-        exec bash contrib/fd-build-lib.sh fd-tickoni-fd gcc
-        ;;
-      macos)
-        if [ "{{ arch }}" = "arm" ]; then
-          exec just build-fd-macos-arm
-        else
-          exec just build-fd-macos-x86_64
-        fi
-        ;;
-      windows)
-        case "{{ arch }}" in
-          arm) exec just build-fd-windows-arm ;;
-          x86) exec just build-fd-windows-x86 ;;
-          *) echo "unsupported Windows arch for build-fd: {{ arch }}" >&2; exit 1 ;;
-        esac
-        ;;
-      *)
-        echo "unsupported host OS for build-fd: {{ os }}" >&2
-        exit 1
-        ;;
+    case "{{ os }}-{{ arch }}" in
+      linux-x86) exec just build-fd-linux-x86-gcc ;;
+      linux-arm) exec just build-fd-linux-arm-gcc ;;
+      macos-x86) exec just build-fd-macos-x86 ;;
+      macos-arm) exec just build-fd-macos-arm ;;
+      windows-x86) exec just build-fd-windows-x86 ;;
+      windows-arm) exec just build-fd-windows-arm ;;
+      *) echo "unsupported host platform for build-fd: {{ os }}-{{ arch }}" >&2; exit 1 ;;
     esac
 
-# Linux GCC (CI: maps to fd-gcc for test/quality/security compatibility)
-build-fd-gcc:
-    bash contrib/fd-build-lib.sh fd-gcc gcc-12
+# Canonical FD build recipes.
+build-fd-linux-x86-gcc:
+    bash contrib/fd-build-lib.sh fd-tickoni-fd gcc
 
-# Linux Clang (CI: maps to fd-clang for test/quality/security compatibility)
-build-fd-clang:
+build-fd-linux-x86-clang:
     bash contrib/fd-build-lib.sh fd-clang clang-18
 
-# Linux ARM (CI: maps to fd-arm for test/quality/security compatibility)
-build-fd-arm:
+build-fd-linux-arm-gcc:
     bash contrib/fd-build-lib.sh fd-arm gcc-14
 
-# macOS x86_64 build — use fd-tickoni-fd as BUILDDIR so Zig can find the libs
-# EXTRAS="" prevents blst/zstd/lz4 from being built: their vendor sources
-# have path mismatches and platform-specific assembly that fails on macOS x86_64.
-build-fd-macos-x86_64:
-    # macOS x86_64: set PATH to Homebrew prefix before invoking build script
-    # GitHub Actions macOS 15 x86_64 runners use /usr/local/homebrew
-    # Each recipe line runs in a separate shell, so set PATH on each line
+build-fd-macos-x86:
     export PATH="/usr/local/homebrew/bin:/usr/local/bin:$PATH"
     export JUST_GMAKE="/usr/local/homebrew/bin/gmake"
-    # Run build with PATH set
     env PATH="/usr/local/homebrew/bin:/usr/local/bin:$PATH" bash contrib/fd-build-lib.sh fd-tickoni-fd clang libs ""
 
-# macOS ARM build — use fd-tickoni-fd as BUILDDIR so Zig can find the libs
 build-fd-macos-arm:
     bash contrib/fd-build-lib.sh fd-tickoni-fd clang libs "lz4 blst zstd"
 
-# Windows x86_64 build — native Windows runner path backed by the Windows
-# machine profile and GNU make under bash.
 build-fd-windows-x86:
     bash contrib/fd-build-windows.sh x86_64
 
-# Windows ARM64 build — native Windows runner path backed by the Windows
-# machine profile and GNU make under bash.
 build-fd-windows-arm:
     bash contrib/fd-build-windows.sh arm64
+
+# Compatibility aliases retained for S6/documentation migration.
+build-fd-gcc: build-fd-linux-x86-gcc
+
+build-fd-clang: build-fd-linux-x86-clang
+
+build-fd-arm: build-fd-linux-arm-gcc
+
+build-fd-macos-x86_64: build-fd-macos-x86
 
 build-fd-dev:
     make -j"$(nproc)" all

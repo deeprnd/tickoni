@@ -51,7 +51,7 @@ if listing.returncode:
 recipes = {
     match.group(1)
     for line in listing.stdout.splitlines()
-    if (match := re.match(r"^\s{2}([^\s:#]+)", line))
+    if (match := re.match(r"^\s{4}([^\s:#]+)", line))
 }
 missing = [name for name in expected if name not in recipes]
 if missing:
