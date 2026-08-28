@@ -279,7 +279,7 @@ Security check entrypoints:
 5. `security-sanitize-check-all`
 
 The aggregate command is badge-wrapped through
-`contrib/readme/run-badged-command.py` so README security status is updated by
+`contrib/tool/readme/run-badged-command.py` so README security status is updated by
 the same command developers run locally.
 
 ## Scanner Scope
@@ -287,7 +287,7 @@ the same command developers run locally.
 Gitleaks:
 
 - `security-gitleaks-check-fd` scans `src/` with
-  `contrib/gitleaks-fd.toml`
+  `contrib/security/gitleaks-fd.toml`
 - `security-gitleaks-check-tk` scans `src/tickoni` and `src/app/tickoni`
 
 CodeQL:
@@ -295,18 +295,18 @@ CodeQL:
 - the `just` CodeQL recipes are currently no-ops
 - `security-codeql-check-fd` documents the blocked local path and points at the
   open Firedancer issue in the `justfile`
-- the real implementation remains in `contrib/security.sh codeql-check-fd`
+- the real implementation remains in `contrib/security/security.sh codeql-check-fd`
   for when that path is re-enabled
 
 Seccomp:
 
 - `security-seccomp-check-fd` is currently a no-op in the `justfile`
-- the real script command is `contrib/security.sh seccomp-check-fd`
+- the real script command is `contrib/security/security.sh seccomp-check-fd`
 - Tickoni-owned Zig code has no active seccomp policy checker yet
 
 Proof:
 
-- `security-proof-check-fd` runs `./contrib/make-j proof`
+- `security-proof-check-fd` runs `./contrib/build/make-j proof`
 - `security-proof-check-tk` is currently a no-op because there is no Zig proof
   harness yet
 
@@ -332,7 +332,7 @@ just python-dev-install-all
 
 Security tools such as `gitleaks`, `codeql`, and CBMC-related proof tooling must
 be installed by the developer or CI image when their corresponding non-no-op
-commands are used. Scripts under `contrib/security.sh` intentionally run real
+commands are used. Scripts under `contrib/security/security.sh` intentionally run real
 commands and fail if required tools are absent.
 
 ## Agent Capability Boundary

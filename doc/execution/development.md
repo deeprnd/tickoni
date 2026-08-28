@@ -115,7 +115,7 @@ just build-all
 ```
 
 `build-all` badge-wraps `just build-tk && just build-fd` through
-`contrib/readme/run-badged-command.py`.
+`contrib/tool/readme/run-badged-command.py`.
 
 ## Run
 

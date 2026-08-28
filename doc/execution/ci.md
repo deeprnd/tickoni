@@ -55,11 +55,11 @@ Each workflow begins with a `detect-changes` job that compares the PR diff again
 
 || Workflow          | Paths that trigger jobs                                                                                  |
 | ----------------- | -------------------------------------------------------------------------------------------------------- |
-| `build-fd.yml`    | `src/`, `config/`, `deps.sh`, `contrib/deps-bundle.sh`, `justfile`, `.github/actions/`, workflow file   |
-| `quality.yml`     | `src/`, `build.zig`, `build.zig.zon`, `justfile`, `contrib/quality.sh`, lint script, `.github/actions/`, workflow file |
-| `security.yml`    | `src/`, `build.zig`, `build.zig.zon`, `justfile`, `contrib/security.sh`, gitleaks config, CodeQL config, `.github/actions/`, workflow file |
+| `build-fd.yml`    | `src/`, `config/`, `deps.sh`, `contrib/build/deps-bundle.sh`, `justfile`, `.github/actions/`, workflow file   |
+| `quality.yml`     | `src/`, `build.zig`, `build.zig.zon`, `justfile`, `contrib/quality/quality.sh`, lint script, `.github/actions/`, workflow file |
+| `security.yml`    | `src/`, `build.zig`, `build.zig.zon`, `justfile`, `contrib/security/security.sh`, gitleaks config, CodeQL config, `.github/actions/`, workflow file |
 | `tests-short.yml` | `src/app/tickoni/`, `src/tickoni/`, `build.zig`, `build.zig.zon`, `justfile`, quality/security scripts, coverage configs, `.github/actions/`, workflow file |
-| `tests-xlong.yml` | `src/`, `build.zig`, `build.zig.zon`, `justfile`, `contrib/test/`, `contrib/make-j`, `.github/actions/`, workflow file |
+| `tests-xlong.yml` | `src/`, `build.zig`, `build.zig.zon`, `justfile`, `contrib/test/`, `contrib/build/make-j`, `.github/actions/`, workflow file |
 
 ---
 
@@ -106,7 +106,7 @@ CI usage is centralized in `.github/actions/setup-public-gh-runner/action.yml`, 
 All Firedancer build recipes, CI workflows, quality checks, and security checks draw their source-dir and library definitions from a single shared script:
 
 ```
-contrib/fd-tk-libs.sh
+contrib/build/fd-tk-libs.sh
 ```
 
 It defines:
@@ -122,7 +122,7 @@ It defines:
 | `fd_compute_mks()` | Produce `LOCAL_MKS` from a source-dir list |
 | `fd_build_fd()` | Unified builder accepting `BUILDDIR`, `CC`, `EXTRAS`, `TARGETS`, `SRCS`, `BUILD_TARGET` keyword args |
 
-**To add a new lib dependency**, edit `contrib/fd-tk-libs.sh` (add the source dir to the appropriate `FD_TK_LIB_*_SRCS` array and its `.a` name to `FD_TK_LIBS` or `FD_TK_LIBS_EXTRA`). All justfile recipes, CI workflows, `contrib/quality.sh`, and `contrib/security.sh` pick up the change automatically.
+**To add a new lib dependency**, edit `contrib/build/fd-tk-libs.sh` (add the source dir to the appropriate `FD_TK_LIB_*_SRCS` array and its `.a` name to `FD_TK_LIBS` or `FD_TK_LIBS_EXTRA`). All justfile recipes, CI workflows, `contrib/quality/quality.sh`, and `contrib/security/security.sh` pick up the change automatically.
 
 ---
 
