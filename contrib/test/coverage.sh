@@ -47,12 +47,20 @@ elif [ "$JOB" = "coverage-tk" ]; then
     COV_RAW="build/coverage/tk/kcov"
     SUMMARY="build/coverage/tk/coverage-summary.json"
     CONFIG="contrib/test/coverage-tk.json"
+    COV_CACHE="build/coverage/tk/zig-cache"
+    COV_GLOBAL_CACHE="build/coverage/tk/zig-global-cache"
 
     # ReleaseSafe triggers DWARFv4 output (via LLVM backend), which kcov handles
     # correctly across multiple CUs. Debug mode emits DWARFv5 with per-CU
     # rnglists_base; kcov v44 only honours the first CU's base, silently dropping
     # all subsequent user-code CUs from the coverage report.
-    zig build -Dtest=true cov -Doptimize=ReleaseSafe -Dfd-lib-dir=build/fd-tickoni-fd/lib
+    # Coverage builds must not reuse the repository Zig caches. An interrupted
+    # build can leave cache metadata referring to object files that no longer
+    # exist, causing Zig 0.17 to report missing *_zcu.o files at link time.
+    rm -rf "$COV_CACHE" "$COV_GLOBAL_CACHE" "$COV_BINS" "$COV_RAW"
+    ZIG_GLOBAL_CACHE_DIR="$COV_GLOBAL_CACHE" zig build \
+        --cache-dir "$COV_CACHE" \
+        -Dtest=true cov -Doptimize=ReleaseSafe -Dfd-lib-dir=build/fd-tickoni-fd/lib
 
     mkdir -p "$COV_RAW"
 
