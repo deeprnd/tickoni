@@ -160,6 +160,32 @@ except (json.JSONDecodeError, Exception):
     echo "$value"
 }
 
+# Read all package identifiers for a package manager, one per line.
+# Usage: read_packages "apt"
+read_packages() {
+    local manager="$1"
+
+    if [ ! -f "$TOOL_VERSIONS" ]; then
+        log_error "Tool versions file missing: ${TOOL_VERSIONS}"
+        exit 1
+    fi
+
+    python3 -c "
+import json, sys
+try:
+    data = json.load(open('${TOOL_VERSIONS}'))
+    packages = data.get('packages', {}).get('${manager}')
+    if not isinstance(packages, list):
+        sys.exit(1)
+    print('\\n'.join(packages))
+except (json.JSONDecodeError, Exception):
+    sys.exit(1)
+" 2>/dev/null || {
+        log_error "Package list not defined for packages.${manager} in ${TOOL_VERSIONS}"
+        exit 1
+    }
+}
+
 # Read zig version (alias for tool-versions.json).
 # Usage: read_zig_version
 read_zig_version() {
@@ -324,9 +350,16 @@ ensure_kcov() {
             log_warn "kcov: SimonKagstrom/kcov repo unavailable — skipping"
             return 1
         fi
+        # Install the package-manager prerequisites from the manifest.
+        if command -v apt-get &>/dev/null; then
+            local -a apt_packages=()
+            mapfile -t apt_packages < <(read_packages "apt")
+            sudo apt-get install -y --no-install-recommends \
+                "${apt_packages[@]}" 2>/dev/null || true
+        fi
         mkdir build && cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release 2>/dev/null || { log_warn "kcov cmake failed"; return 1; }
-        if ! make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)" 2>/dev/null; then
+        cmake .. -DCMAKE_BUILD_TYPE=Release || { log_warn "kcov cmake failed"; return 1; }
+        if ! make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)"; then
             log_warn "kcov build failed — skipping"
             return 1
         fi
@@ -369,19 +402,114 @@ ensure_precommit() {
         return 0
     fi
 
-    log_info "Installing pre-commit via pipx..."
+    log_info "Installing pre-commit..."
     if command -v pipx &>/dev/null; then
         pipx install pre-commit
+        export PATH="${HOME}/.local/bin:${PATH}"
+    elif command -v pip3 &>/dev/null; then
+        pip3 install --user pre-commit
+        export PATH="${HOME}/.local/bin:${PATH}"
     elif command -v pip &>/dev/null; then
         pip install --user pre-commit
+        export PATH="${HOME}/.local/bin:${PATH}"
+    elif command -v python3 &>/dev/null; then
+        python3 -m pip install --user pre-commit
+        export PATH="${HOME}/.local/bin:${PATH}"
     else
         log_warn "No pip found for pre-commit — skipping"
         return 1
     fi
 }
 
-# Install buf — prefer brew (handles all deps including git) then go install
+# Add a user tool directory to the current shell and future shells.
+persist_path_entry() {
+    local path_entry="$1"
+    local label="$2"
+
+    case ":${PATH}:" in
+        *":${path_entry}:"*) ;;
+        *) export PATH="${path_entry}:${PATH}" ;;
+    esac
+
+    local rc_file=""
+    case "$(basename "${SHELL:-}")" in
+        bash) rc_file="${HOME}/.bashrc" ;;
+        zsh)  rc_file="${HOME}/.zshrc" ;;
+    esac
+    if [ -z "$rc_file" ] && [ -f "${HOME}/.bashrc" ]; then
+        rc_file="${HOME}/.bashrc"
+    elif [ -z "$rc_file" ] && [ -f "${HOME}/.zshrc" ]; then
+        rc_file="${HOME}/.zshrc"
+    fi
+
+    if [ -n "$rc_file" ] && [ -f "$rc_file" ]; then
+        local marker="# Tickoni setup: ${label} PATH"
+        if ! grep -qF "$marker" "$rc_file" 2>/dev/null; then
+            printf '\n%s\nexport PATH="%s:$PATH"\n' "$marker" "$path_entry" >> "$rc_file"
+            log_info "Added ${label} PATH export to ${rc_file}"
+        fi
+    fi
+}
+
+activate_go_paths() {
+    if [ -d "/usr/local/go/bin" ]; then
+        persist_path_entry "/usr/local/go/bin" "Go"
+    fi
+    if [ -d "${HOME}/go/bin" ]; then
+        persist_path_entry "${HOME}/go/bin" "Go user binaries"
+    fi
+}
+
+# Install Go (Linux only — macOS uses brew, winget handles Windows)
+ensure_go() {
+    if tool_exists go; then
+        log_info "go already installed: $(go version 2>&1 | head -1)"
+        return 0
+    fi
+
+    activate_go_paths
+    if tool_exists go; then
+        log_info "go already installed: $(go version 2>&1 | head -1)"
+        return 0
+    fi
+
+    log_info "Installing Go..."
+    local version
+    version="$(read_tool_version "go")"
+    local os
+    os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+
+    if [ "$os" = "darwin" ] && command -v brew &>/dev/null; then
+        brew install go || { log_warn "brew install go failed"; return 1; }
+    elif [ "$os" = "linux" ] && command -v apt-get &>/dev/null; then
+        local arch
+        case "$(uname -m)" in
+            x86_64) arch="amd64" ;;
+            aarch64|arm64) arch="arm64" ;;
+            *) log_warn "Unsupported arch $(uname -m) for Go"; return 1 ;;
+        esac
+        local tmpdir
+        tmpdir="$(mktemp -d)"
+        if curl -sSfL "https://go.dev/dl/go${version}.linux-${arch}.tar.gz" -o "${tmpdir}/go.tar.gz" 2>/dev/null; then
+            sudo rm -rf /usr/local/go
+            sudo tar -C /usr/local -xzf "${tmpdir}/go.tar.gz"
+            activate_go_paths
+            log_info "Go ${version} installed to /usr/local/go"
+            rm -rf "${tmpdir}"
+            return 0
+        fi
+        rm -rf "${tmpdir}"
+        log_warn "Go download failed — skipping"
+        return 1
+    else
+        log_warn "No package manager or download method for Go — skipping"
+        return 1
+    fi
+}
+
+# Install buf — prefer brew, then go install, then GitHub binary
 ensure_buf() {
+    activate_go_paths
     if tool_exists buf; then
         log_info "buf already installed"
         return 0
@@ -394,15 +522,38 @@ ensure_buf() {
     if [ "$os" = "darwin" ] && command -v brew &>/dev/null; then
         brew install buf || log_warn "brew install buf failed"
     fi
-    if ! tool_exists buf && command -v go &>/dev/null; then
-        go install github.com/bufbuild/buf/cmd/buf@latest
-        export PATH="${HOME}/go/bin:${PATH}"
+    if ! tool_exists buf; then
+        # Linux: ensure Go is available for go install
+        if ! tool_exists go; then
+            ensure_go || true
+        fi
+        if tool_exists go; then
+            go install github.com/bufbuild/buf/cmd/buf@latest
+            activate_go_paths
+        fi
     fi
     if ! tool_exists buf && command -v apt-get &>/dev/null; then
-        # Linux: try apt first, then go
         sudo apt-get install -y buf || log_warn "apt install buf failed"
     fi
     if ! tool_exists buf; then
+        # Fallback: download buf binary from GitHub releases
+        local arch
+        case "$(uname -m)" in
+            x86_64) arch="x86_64" ;;
+            aarch64|arm64) arch="aarch64" ;;
+            *) log_warn "Unsupported arch $(uname -m) for buf — skipping"; return 1 ;;
+        esac
+        local version
+        version="$(read_tool_version "buf" 2>/dev/null || echo "1.57.0")"
+        local tmpdir
+        tmpdir="$(mktemp -d)"
+        if curl -sSfL "https://github.com/bufbuild/buf/releases/download/v${version}/buf-Linux-${arch}" \
+            -o "${tmpdir}/buf" 2>/dev/null && sudo cp "${tmpdir}/buf" /usr/local/bin/buf && sudo chmod 755 /usr/local/bin/buf; then
+            log_info "buf ${version} installed via binary"
+            rm -rf "${tmpdir}"
+            return 0
+        fi
+        rm -rf "${tmpdir}"
         log_warn "No package manager found for buf — skipping"
         return 1
     fi

@@ -32,6 +32,11 @@ function Add-PathEntry {
         $env:PATH = "$PathEntry;$env:PATH"
     }
 
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    if (($userPath -split ';') -notcontains $PathEntry) {
+        [Environment]::SetEnvironmentVariable('Path', "$PathEntry;$userPath", 'User')
+    }
+
     if ($env:GITHUB_PATH) {
         if (-not (Test-Path $env:GITHUB_PATH) -or -not (Select-String -Path $env:GITHUB_PATH -SimpleMatch -Quiet -Pattern $PathEntry)) {
             Add-Content -Path $env:GITHUB_PATH -Value $PathEntry
@@ -236,6 +241,7 @@ Install-Package "python"
 Install-Package "shellcheck"
 Install-Package "pre-commit"
 Install-Package "buf"
+Add-PathEntry (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links')
 
 # -- 1c. pkg-config (required by Zig Windows cross-compilation) ---------------
 # Windows ARM runners may resolve pkg-config through either Git for Windows or a

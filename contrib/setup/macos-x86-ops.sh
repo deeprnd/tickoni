@@ -14,6 +14,7 @@ if ! command -v brew &>/dev/null; then
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     export PATH="/usr/local/bin:${PATH}"
 fi
+persist_path_entry "$(brew --prefix)/bin" "Homebrew"
 
 # 2. Core packages (brew, no sudo)
 # GitHub-hosted macOS runners ship with unrelated third-party taps
