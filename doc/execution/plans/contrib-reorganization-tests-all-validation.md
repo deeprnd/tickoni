@@ -38,8 +38,11 @@ groups. The group rows are headings, not additional commands to rerun.
 
 #### Unit (`test-unit-all`)
 
-- [ ] `just test-unit-tk`
-- [ ] `just test-unit-fd`
+**DONE** — `just test-unit-tk` exited 0 with 69 tests passed, and
+`just test-unit-fd` exited 0 with the Firedancer unit suite reporting PASS.
+
+- [x] `just test-unit-tk`
+- [x] `just test-unit-fd`
 
 #### Integration (`test-integration-all`)
 
