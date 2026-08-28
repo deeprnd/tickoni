@@ -69,6 +69,12 @@ first failure. Record exit status and the relevant output for every step.
 
 ### 0. Preflight: verify dispatcher and moved paths
 
+**DONE** — `just --dump`, platform detection, moved-path checks, and the
+active-path grep passed after updating the workflow path filters in
+`.github/workflows/build-fd.yml`, `.github/workflows/build-tk.yml`,
+`.github/workflows/tests-long.yml`, and `.github/workflows/tests-short.yml`.
+The host reported `linux`, `x86`, and `linux-x86`.
+
 ```bash
 just --dump >/tmp/tickoni-just-dump.txt
 bash contrib/platform.sh os

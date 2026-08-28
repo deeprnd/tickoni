@@ -60,7 +60,7 @@ os := `bash contrib/platform.sh os`
 arch := `bash contrib/platform.sh arch`
 
 # Aliases for backward compatibility with any internal shell code still
-# referencing the old variable names (e.g. contrib/fd-build-lib.sh callers).
+# referencing the old variable names (e.g. contrib/build/fd-build-lib.sh callers).
 tk_os := `bash contrib/platform.sh os`
 tk_arch := `bash contrib/platform.sh arch`
 tk_platform := `bash contrib/platform.sh platform`
