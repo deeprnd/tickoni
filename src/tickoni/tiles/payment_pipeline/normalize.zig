@@ -32,7 +32,7 @@ pub fn runNormalize(state: *PaymentPipelineState) void {
         msg.pipeline_hops += 1;
         msg.event_hash = runtime.stableEventHash(msg.raw);
         _ = state.normalized.fetchAdd(1, .release);
-        if (logger.isVerbose()) log.debug("tknorm", "runNormalize", "normalized event") catch {};
+        log.debug("tknorm", "runNormalize", "normalized event") catch {};
         state.q_norm_dedu.push(msg, &state.stop) catch break;
     }
     log.debug("tknorm", "runNormalize", "done") catch {};

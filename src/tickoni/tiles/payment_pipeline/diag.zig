@@ -14,7 +14,7 @@ pub fn runDiag(state: *PaymentPipelineState) void {
     while (!state.replay_checked.load(.acquire) and !state.stop.load(.acquire)) {
         const diag = state.snapshotDiag();
         _ = state.diag_snapshots.fetchAdd(1, .release);
-        if (diag.crashed_tile != runtime.crash_none and logger.isVerbose()) {
+        if (diag.crashed_tile != runtime.crash_none) {
             log.err("tkdiag", "runDiag", "tile crashed") catch {};
         }
         std.Thread.yield() catch {};

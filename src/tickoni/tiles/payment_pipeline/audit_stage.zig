@@ -32,7 +32,7 @@ pub fn runAudit(state: *PaymentPipelineState) void {
             break;
         };
         _ = state.audited.fetchAdd(1, .release);
-        if (logger.isVerbose()) log.debug("tkaudt", "runAudit", "audited event") catch {};
+        log.debug("tkaudt", "runAudit", "audited event") catch {};
     }
     state.audit_done.store(true, .release);
     log.debug("tkaudt", "runAudit", "done") catch {};

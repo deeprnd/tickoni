@@ -38,7 +38,7 @@ pub fn runPolicy(state: *PaymentPipelineState) void {
             msg.decision = .allow;
             msg.decided_by = audit_sink.tile_id_tkpoly;
             _ = state.allowed.fetchAdd(1, .release);
-            if (logger.isVerbose()) log.debug("tkpoly", "runPolicy", "allowed at offset") catch {};
+            log.debug("tkpoly", "runPolicy", "allowed at offset") catch {};
         }
         state.q_poly_audit.push(msg, &state.stop) catch break;
     }
