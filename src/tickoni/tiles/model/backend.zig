@@ -248,7 +248,7 @@ const WireResponse = struct {
 };
 
 // HttpBackend calls an OpenAI-compatible llama.cpp server.
-// endpoint must be a base URL like "http://127.0.0.1:8080/v1".
+// endpoint must be a base URL like "http://127.0.0.1:9931/v1".
 // io is the std.Io instance for TCP connections (use std.testing.io in tests).
 pub const HttpBackend = struct {
     endpoint: []const u8,
