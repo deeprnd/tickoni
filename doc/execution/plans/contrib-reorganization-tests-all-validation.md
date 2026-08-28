@@ -55,9 +55,13 @@ passed.
 
 #### Coverage (`test-cov-all`)
 
-- [ ] `just test-cov-fd` — intentional no-op because the llvm-cov toolchain is
+**DONE** — `just test-cov-fd` completed as the documented intentional no-op
+because llvm-cov is unavailable. `just test-cov-tk` exited 0 with 89.9%
+statement and line coverage.
+
+- [x] `just test-cov-fd` — intentional no-op because the llvm-cov toolchain is
   not installed on this host; record it
-- [ ] `just test-cov-tk`
+- [x] `just test-cov-tk`
 
 #### System (`test-system-all`)
 
