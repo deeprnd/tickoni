@@ -65,7 +65,7 @@ pub fn main(init: std.process.Init) !void {
     }
     if (verbose) {
         logger.enableVerbose();
-        util.os_api.setEnv("ZIG_LOG_LEVEL", "debug");
+        util.os_api.setEnv("TK_LOG_LEVEL", "0");
     }
 
     if (verbose) log.debug("main", "main", "verbose mode enabled") catch {};
