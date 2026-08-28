@@ -215,6 +215,52 @@ get_platform_key() {
 
 # ── Tool installers ───────────────────────────────────────────────────────────
 
+# Install PowerShell Core for setup tooling that is shared across platforms.
+ensure_pwsh() {
+    if tool_exists pwsh; then
+        log_info "PowerShell already installed: $(pwsh --version 2>&1 | head -1)"
+        return 0
+    fi
+
+    local os
+    os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+    case "$os" in
+        linux)
+            if [ -d /snap/bin ]; then
+                persist_path_entry /snap/bin "Snap"
+            fi
+            if ! command -v snap &>/dev/null; then
+                log_info "Installing snapd for PowerShell..."
+                sudo apt-get update -qq
+                sudo apt-get install -y --no-install-recommends snapd
+            fi
+            if [ -d /snap/bin ]; then
+                persist_path_entry /snap/bin "Snap"
+            fi
+            log_info "Installing PowerShell Core via snap..."
+            sudo snap install powershell --classic
+            ;;
+        darwin)
+            if ! command -v brew &>/dev/null; then
+                log_error "Homebrew is required to install PowerShell on macOS"
+                return 1
+            fi
+            log_info "Installing PowerShell Core via Homebrew..."
+            brew install --cask powershell
+            ;;
+        *)
+            log_error "Unsupported OS for PowerShell installation: ${os}"
+            return 1
+            ;;
+    esac
+
+    if ! tool_exists pwsh; then
+        log_error "PowerShell installation completed without a usable pwsh"
+        return 1
+    fi
+    log_info "PowerShell installed: $(pwsh --version 2>&1 | head -1)"
+}
+
 # Install Zig via install-zig.py (uses versions.zig from tool-versions.json)
 # Captures install-zig.py's own [install] line so we never guess the path.
 # Auto-appends PATH to .bashrc/.zshrc so no manual copy-paste is needed.

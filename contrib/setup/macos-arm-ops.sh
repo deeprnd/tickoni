@@ -26,12 +26,15 @@ export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
 log_info "Installing Homebrew packages (gcc, make, git, cmake)..."
 brew install \
     gcc make git cmake pkg-config \
-    coreutils zstd
+    coreutils minisign zstd
 
-# 3. Zig (user-level, no sudo)
+# 3. PowerShell Core (shared setup tool)
+ensure_pwsh
+
+# 4. Zig (user-level, no sudo)
 ensure_zig
 
-# 4. just (brew, no sudo)
+# 5. just (brew, no sudo)
 ensure_just
 
 # 5. Quality tools (brew/go/pipx, no sudo)

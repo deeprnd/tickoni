@@ -40,6 +40,7 @@
       "buf": "bufbuild.buf",
       "shellcheck": "koalaman.shellcheck",
       "llvm": "LLVM.LLVM",
+      "minisign": "jedisct1.minisign",
       "winlibs": "BrechtSanders.WinLibs.POSIX.UCRT",
       "vs-build-tools": "Microsoft.VisualStudio.2022.BuildTools",
       "msys2": "MSYS2.MSYS2"
@@ -72,6 +73,7 @@
       "git",
       "llvm",
       "make",
+      "minisign",
       "pkg-config",
       "zstd"
     ],

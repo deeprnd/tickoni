@@ -400,6 +400,7 @@ if ($llvmPath) {
 }
 
 # -- 4. Zig (native aarch64-windows on ARM64) --------------------------------
+Install-Package "minisign"
 log-info "Installing Zig (native aarch64-windows on ARM64)..."
 ensure-zig "aarch64-windows"
 log-info "Zig installed (native aarch64-windows on ARM64)"
