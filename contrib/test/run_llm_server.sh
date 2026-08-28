@@ -63,6 +63,7 @@ fi
 cpu_cmd=(
   "$server_bin"
   -m "$model_path"
+  --port 9931
   --no-mmproj
   --reasoning-format none
   --ctx-size 4096
@@ -97,6 +98,7 @@ gpu_cmd=(
   "$server_bin"
   -m "$model_path"
   --no-mmproj
+  --port 9931
   --reasoning-format none
   --device cuda0
   --split-mode none
