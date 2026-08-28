@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 log() {
@@ -18,7 +18,7 @@ run_step() {
 
 usage() {
   cat <<'EOF'
-Usage: bash contrib/quality.sh <command>
+Usage: bash contrib/quality/quality.sh <command>
 
 Commands:
   format-check-fd   Check C source formatting (trailing whitespace)
@@ -35,7 +35,7 @@ EOF
 run_include_guard_check() {
   local out
   out="$(mktemp)"
-  python3 contrib/lint/check_include_guards.py "$@" >"$out"
+  python3 contrib/quality/lint/check_include_guards.py "$@" >"$out"
   if [ -s "$out" ]; then
     cat "$out"
     rm -f "$out"

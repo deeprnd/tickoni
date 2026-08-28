@@ -84,7 +84,7 @@ echo "running live investment system/demo proof (Windows)"
 # Run the live system test in foreground. The EXIT trap kills the server.
 # Pipe through sed to strip Zig's cosmetic "failed command:" lines (caused by
 # --listen=- protocol noise when stdin is closed).
-ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build \
+ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build \
   -Dtest=true \
   -Dfd-lib-dir=build/fd-tickoni-fd/lib \
   system-test --summary all </dev/null | sed '/^failed command:/d'

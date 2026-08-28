@@ -255,6 +255,6 @@ def main():
             _gen_cctv_ed25519()
 
 if __name__ == "__main__":
-    root = Path(__file__).parents[2]
+    root = Path(__file__).parents[3]
     os.chdir(root)
     main()

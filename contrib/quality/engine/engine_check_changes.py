@@ -6,8 +6,8 @@ versions of every tracked file, and exits 1 with a diff report if
 any hash diverges.  Exit 0 means the harness is still in sync.
 
 Usage:
-    python3 contrib/engine/engine_check_changes.py
-    python3 contrib/engine/engine_check_changes.py --update   # refresh manifest
+    python3 contrib/quality/engine/engine_check_changes.py
+    python3 contrib/quality/engine/engine_check_changes.py --update   # refresh manifest
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    repo_root = Path(__file__).resolve().parent.parent.parent
+    repo_root = Path(__file__).resolve().parents[3]
     manifest_path = repo_root / "doc" / "knowledge" / "engine-harness-snapshot.json"
 
     # Build the file list from the manifest if it exists, else hard-coded default.
@@ -120,7 +120,7 @@ def main() -> int:
             file=sys.stderr,
         )
         print(
-            "Run: python3 contrib/engine/engine_check_changes.py --update",
+            "Run: python3 contrib/quality/engine/engine_check_changes.py --update",
             file=sys.stderr,
         )
         return 1
@@ -166,7 +166,7 @@ def main() -> int:
             "FAIL: watched Firedancer harness files have changed since the last "
             "snapshot.\n"
             "Review the changes and port them into Tickoni, then run:\n"
-            "  python3 contrib/engine/engine_check_check_changes.py --update\n",
+            "  python3 contrib/quality/engine/engine_check_check_changes.py --update\n",
             file=sys.stderr,
         )
         for d in diffs:

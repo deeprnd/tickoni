@@ -181,7 +181,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[3]
     result = run_tsa_check(repo_root)
     warnings = parse_tsa_warnings(result.stdout)
 

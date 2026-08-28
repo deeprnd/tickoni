@@ -34,7 +34,7 @@ for MACHINE in ${MACHINES[*]}; do
   OBJDIR="$(make help | grep OBJDIR | awk '{print $4}')"
   OBJDIRS+=( "${OBJDIR}" )
   make clean --silent >/dev/null
-  contrib/make-j $TARGETS
+  contrib/build/make-j $TARGETS
   if [[ "$NOTEST" != 1 ]]; then
     make run-unit-test
     make run-fuzz-test

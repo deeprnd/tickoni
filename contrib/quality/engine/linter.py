@@ -7,7 +7,7 @@ tree, runs them against files, and reports results.
 
 ## Quick start
 
-Create a check module in `contrib/engine/checks/` that exports a
+Create a check module in `contrib/quality/engine/checks/` that exports a
 `define_checks(linter)` function:
 
     from linter import Check, Issue, Severity, Linter
@@ -48,7 +48,7 @@ Create a check module in `contrib/engine/checks/` that exports a
 
 Then run:
 
-    python3 contrib/engine/linter.py contrib/engine/checks/
+    python3 contrib/quality/engine/linter.py contrib/quality/engine/checks/
 
 ## CLI
 

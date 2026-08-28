@@ -5,8 +5,8 @@ Thresholds are read from a per-component config file (vitest-style):
   { "coverage": { "thresholds": { "lines": 20, "statements": 20, "branches": 20, "functions": 20 } } }
 
 Usage:
-  python3 contrib/readme/coverage_report.py coverage-fd <covdir> <output.json> --config contrib/test/coverage-fd.json
-  python3 contrib/readme/coverage_report.py coverage-tk <kcov-merged-dir> <output.json> --config contrib/test/coverage-tk.json
+  python3 contrib/tool/readme/coverage_report.py coverage-fd <covdir> <output.json> --config contrib/test/coverage-fd.json
+  python3 contrib/tool/readme/coverage_report.py coverage-tk <kcov-merged-dir> <output.json> --config contrib/test/coverage-tk.json
 """
 
 import json

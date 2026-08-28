@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent
-REPO_ROOT = SCRIPT_DIR.parent.parent
+REPO_ROOT = SCRIPT_DIR.parents[2]
 LOCK_PATH = REPO_ROOT / "doc/execution/testing-tickoni.md.lock"
 LOCK_POLL_S = 0.05
 LOCK_TIMEOUT_S = 30

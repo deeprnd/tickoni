@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Thin wrapper around fd_build_fd() from contrib/fd-tk-libs.sh.
-# Usage: contrib/fd-build-lib.sh <BUILDDIR> [CC] [MODE] [EXTRAS] [LDFLAGS_EXE]
+# Thin wrapper around fd_build_fd() from contrib/build/fd-tk-libs.sh.
+# Usage: contrib/build/fd-build-lib.sh <BUILDDIR> [CC] [MODE] [EXTRAS] [LDFLAGS_EXE]
 #   BUILDDIR: Firedancer BUILDDIR name (no build/ prefix)
 #   CC: compiler binary (default: gcc-12)
 #   MODE: build mode — test, cov, or libs (default: libs)
@@ -11,8 +11,8 @@
 #   EXTRAS:   space-separated list of extras to include (e.g. "lz4 blst zstd")
 #             passed through to fd_build_fd as EXTRAS= key=value
 set -euo pipefail
-cd "$(dirname "$0")/.."
-source contrib/fd-tk-libs.sh
+cd "$(dirname "$0")/../.."
+source contrib/build/fd-tk-libs.sh
 
 BUILDDIR="${1:?usage: fd-build-lib.sh <BUILDDIR> [CC] [MODE] [EXTRAS] [LDFLAGS_EXE]}"
 CC="${2:-gcc-12}"
@@ -104,8 +104,8 @@ if [ "$MODE" = "cov" ]; then
     "SRCS=${SRCS[*]}" EXTRAS="lz4 llvm-cov" BUILD_TARGET="unit-test"
   COV_JOBS=$(( $(fd_nproc) / 2 ))
   [[ "$COV_JOBS" -lt 1 ]] && COV_JOBS=1
-  make -j"$(fd_nproc)" MACHINE=tickoni_fd BUILDDIR="${BUILDDIR}" CC="${CC}" \
+  make -f contrib/build/GNUmakefile -j"$(fd_nproc)" MACHINE=tickoni_fd BUILDDIR="${BUILDDIR}" CC="${CC}" \
     run-unit-test TEST_OPTS="--page-sz normal --job-mem 268435456 -j ${COV_JOBS}"
 fi
 
-bash contrib/fd-write-zig-link-manifests.sh "${BUILDDIR}"
+bash contrib/build/fd-write-zig-link-manifests.sh "${BUILDDIR}"

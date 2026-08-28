@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent
-REPO_ROOT = SCRIPT_DIR.parent.parent
+REPO_ROOT = SCRIPT_DIR.parents[2]
 TESTING_DOC_PATH = REPO_ROOT / "doc/execution/testing-tickoni.md"
 README_PATH = REPO_ROOT / "README.md"
 

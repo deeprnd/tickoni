@@ -24,7 +24,7 @@ if [ "$JOB" = "coverage-fd" ]; then
     # with binary IDs vs ~900s with individual .o files.
     _t0=$(date +%s)
     set +e
-    timeout 900 python3 contrib/readme/coverage_report.py coverage-fd \
+    timeout 900 python3 contrib/tool/readme/coverage_report.py coverage-fd \
         "${COVDIR}" \
         build/coverage/fd/coverage-summary.json \
         --config contrib/test/coverage-fd.json
@@ -92,7 +92,7 @@ elif [ "$JOB" = "coverage-tk" ]; then
         exit 1
     fi
 
-    python3 contrib/readme/coverage_report.py coverage-tk \
+    python3 contrib/tool/readme/coverage_report.py coverage-tk \
         "${COV_RAW}/merged" \
         "$SUMMARY" \
         --config "$CONFIG"
