@@ -32,7 +32,7 @@ pub fn runIngest(state: *PaymentPipelineState) void {
         const raw = runtime.syntheticPayment(state.config, offset);
         if (state.q_ing_norm.push(.{ .raw = raw, .pipeline_hops = 1 }, &state.stop)) |_| {
             _ = state.produced.fetchAdd(1, .release);
-            if (logger.isVerbose()) log.debug("tkings", "runIngest", "produced event") catch {};
+            log.debug("tkings", "runIngest", "produced event") catch {};
         } else |_| {
             log.debug("tkings", "runIngest", "queue full, stopping") catch {};
             break;
