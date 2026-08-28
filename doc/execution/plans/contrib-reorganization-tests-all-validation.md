@@ -20,8 +20,8 @@ unless the relevant source, generated output, environment, or recipe changed.
 
 ### Top-level constituents
 
-- [ ] `just build-fd` — expanded from `build-all`
-- [ ] `just build-tk` — expanded from `build-all`
+- [x] `just build-fd` — expanded from `build-all`
+- [x] `just build-tk` — expanded from `build-all`
 - [ ] `just quality-format-check-fd` — expanded from `quality-format-check-all`
 - [ ] `just quality-format-check-tk` — expanded from `quality-format-check-all`
 - [ ] `just quality-lint-check-tk`
@@ -127,6 +127,10 @@ validation is clean. Historical documentation matches may remain when they
 clearly describe the former layout.
 
 ### 1. Build constituents
+
+**DONE** — `just build-fd` and `just build-tk` exited 0. The expected
+`build/fd-tickoni-fd/lib` directory and executable
+`zig-out/bin/tickoni-supervisor` were verified.
 
 Run and record each unchecked command separately; do not run `just build-all`.
 
