@@ -8,28 +8,35 @@ SCRIPT_DIR="${REPO_ROOT}/contrib/setup"
 
 log_info "Linux x86_64 essential setup starting..."
 
+# Python is required to read tool-versions.json before the full package set
+# can be resolved. Bootstrap only the interpreter when it is absent.
+if ! command -v python3 &>/dev/null; then
+    log_info "Installing Python 3 bootstrap dependency..."
+    sudo apt-get update -qq
+    sudo apt-get install -y --no-install-recommends python3
+fi
+
 # 1. Determine toolchain and read version (default: gcc)
 TOOLCHAIN="${TOOLCHAIN:-gcc}"
 platform_key="$(get_platform_key)"
 compiler_version="$(read_compiler_version "${TOOLCHAIN}" "$platform_key")"
 log_info "Toolchain: ${TOOLCHAIN}, version from tool-versions.json: ${compiler_version}"
+mapfile -t apt_packages < <(read_packages "apt")
 
 # 2. OS packages (needs sudo)
 case "${TOOLCHAIN}" in
     gcc)
-        log_info "Installing system packages (gcc-${compiler_version}, make, build-essential, git)..."
+        log_info "Installing system packages (gcc-${compiler_version} and manifest packages)..."
         sudo apt-get update -qq
         sudo apt-get install -y --no-install-recommends \
-            "gcc-${compiler_version}" "g++-${compiler_version}" make git curl ca-certificates \
-            cmake pkg-config libssl-dev zstd
+            "gcc-${compiler_version}" "g++-${compiler_version}" "${apt_packages[@]}"
         export CC="gcc-${compiler_version}" CXX="g++-${compiler_version}"
         ;;
     clang)
-        log_info "Installing system packages (clang-${compiler_version}, make, build-essential, git)..."
+        log_info "Installing system packages (clang-${compiler_version} and manifest packages)..."
         sudo apt-get update -qq
         sudo apt-get install -y --no-install-recommends \
-            "clang-${compiler_version}" make git curl ca-certificates \
-            cmake pkg-config libssl-dev zstd
+            "clang-${compiler_version}" "${apt_packages[@]}"
         export CC="clang-${compiler_version}" CXX="clang++"
         ;;
     *)

@@ -26,7 +26,8 @@
       "windows-x86": "17",
       "windows-arm": "17"
     },
-    "python": "Python.Python.3.12"
+    "python": "Python.Python.3.12",
+    "go": "1.26.7"
   },
   "packages": {
     "winget": {
@@ -52,7 +53,16 @@
       "lld",
       "make",
       "pkg-config",
-      "zstd"
+      "zstd",
+      "python3",
+      "python3-pip",
+      "pipx",
+      "binutils-dev",
+      "libiberty-dev",
+      "libdebuginfod-dev",
+      "libdw-dev",
+      "libelf-dev",
+      "libcurl4-openssl-dev"
     ],
     "brew": [
       "coreutils",
