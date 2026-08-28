@@ -79,7 +79,7 @@ pub const Logger = struct {
     /// Sync TK_LOG_LEVEL to Firedancer FD_LOG_LEVEL_* env vars.
     /// This ensures the C logger and Zig logger use the same verbosity level.
     fn syncFiredancerLevels(self: *const Logger) void {
-        const lvl = @intFromEnum(self.level);
+        const lvl = @backingInt(self.level);
         var buf: [4]u8 = undefined;
         const str = std.fmt.bufPrint(&buf, "{d}", .{lvl}) catch "4";
         util.os_api.setEnv("FD_LOG_LEVEL_STDERR", str);
@@ -90,7 +90,7 @@ pub const Logger = struct {
 
     /// Check if a module's debug logs should be emitted.
     pub fn shouldLogModule(self: *Logger, module: []const u8, level: Level) bool {
-        if (@intFromEnum(level) < @intFromEnum(self.level)) return false;
+        if (@backingInt(level) < @backingInt(self.level)) return false;
         if (self.modules.len == 0) return true;
         if (std.mem.eql(u8, self.modules, "*")) return true;
 
@@ -104,7 +104,7 @@ pub const Logger = struct {
 
     /// Write an entry to stderr.
     pub fn write(self: *Logger, level: Level, module: []const u8, func: []const u8, message: []const u8) !void {
-        if (@intFromEnum(level) < @intFromEnum(self.level)) return;
+        if (@backingInt(level) < @backingInt(self.level)) return;
         if (level == .debug and !self.shouldLogModule(module, level)) return;
 
         const ts: i64 = util.os_api.monotonicNanos();
@@ -120,11 +120,11 @@ pub const Logger = struct {
         };
 
         const color_code = if (self.colorize) switch (level) {
-            .debug => "\x1b[34m",  // blue
-            .info => "\x1b[32m",   // green
+            .debug => "\x1b[34m", // blue
+            .info => "\x1b[32m", // green
             .notice => "\x1b[33m", // yellow
             .warning => "\x1b[33m",
-            .err => "\x1b[31m",    // red
+            .err => "\x1b[31m", // red
             .crit => "\x1b[1;31m", // red bold
             .alert => "\x1b[1;31m",
             .emerg => "\x1b[1;31m",
@@ -138,7 +138,7 @@ pub const Logger = struct {
 
         _ = util.os_api.write(2, line);
 
-        if (@intFromEnum(level) >= @intFromEnum(Level.warning)) {
+        if (@backingInt(level) >= @backingInt(Level.warning)) {
             util.os_api.fflush();
         }
     }
@@ -222,7 +222,7 @@ pub fn init() void {
 
 test "Logger.write debug respects level" {
     var log = Logger{};
-    try std.testing.expect(@intFromEnum(log.level) == @intFromEnum(Level.err));
+    try std.testing.expect(@backingInt(log.level) == @backingInt(Level.err));
     try (&log).write(.debug, "test", "func", "msg");
 }
 
@@ -235,39 +235,39 @@ test "Logger.parseLogLevel from string names" {
 test "Logger.parseLogLevel from numeric string" {
     // This test verifies the enum value is correct for the numeric representation
     const lvl: Level = .debug;
-    try std.testing.expect(@intFromEnum(lvl) == 0);
+    try std.testing.expect(@backingInt(lvl) == 0);
     const lvl2: Level = .info;
-    try std.testing.expect(@intFromEnum(lvl2) == 1);
+    try std.testing.expect(@backingInt(lvl2) == 1);
     const lvl3: Level = .notice;
-    try std.testing.expect(@intFromEnum(lvl3) == 2);
+    try std.testing.expect(@backingInt(lvl3) == 2);
     const lvl4: Level = .warning;
-    try std.testing.expect(@intFromEnum(lvl4) == 3);
+    try std.testing.expect(@backingInt(lvl4) == 3);
     const lvl5: Level = .err;
-    try std.testing.expect(@intFromEnum(lvl5) == 4);
+    try std.testing.expect(@backingInt(lvl5) == 4);
     const lvl6: Level = .crit;
-    try std.testing.expect(@intFromEnum(lvl6) == 5);
+    try std.testing.expect(@backingInt(lvl6) == 5);
     const lvl7: Level = .alert;
-    try std.testing.expect(@intFromEnum(lvl7) == 6);
+    try std.testing.expect(@backingInt(lvl7) == 6);
     const lvl8: Level = .emerg;
-    try std.testing.expect(@intFromEnum(lvl8) == 7);
+    try std.testing.expect(@backingInt(lvl8) == 7);
 }
 
 test "Logger.level ordering matches Firedancer" {
     // Verify that lower numeric values = more verbose (lower threshold)
-    try std.testing.expect(@intFromEnum(Level.debug) < @intFromEnum(Level.info));
-    try std.testing.expect(@intFromEnum(Level.info) < @intFromEnum(Level.notice));
-    try std.testing.expect(@intFromEnum(Level.notice) < @intFromEnum(Level.warning));
-    try std.testing.expect(@intFromEnum(Level.warning) < @intFromEnum(Level.err));
-    try std.testing.expect(@intFromEnum(Level.err) < @intFromEnum(Level.crit));
-    try std.testing.expect(@intFromEnum(Level.crit) < @intFromEnum(Level.alert));
-    try std.testing.expect(@intFromEnum(Level.alert) < @intFromEnum(Level.emerg));
+    try std.testing.expect(@backingInt(Level.debug) < @backingInt(Level.info));
+    try std.testing.expect(@backingInt(Level.info) < @backingInt(Level.notice));
+    try std.testing.expect(@backingInt(Level.notice) < @backingInt(Level.warning));
+    try std.testing.expect(@backingInt(Level.warning) < @backingInt(Level.err));
+    try std.testing.expect(@backingInt(Level.err) < @backingInt(Level.crit));
+    try std.testing.expect(@backingInt(Level.crit) < @backingInt(Level.alert));
+    try std.testing.expect(@backingInt(Level.alert) < @backingInt(Level.emerg));
 }
 
 test "Logger.enableVerbose sets debug level" {
     var log = Logger{};
     log.level = .err;
     log.level = .debug;
-    try std.testing.expect(@intFromEnum(log.level) == @intFromEnum(Level.debug));
+    try std.testing.expect(@backingInt(log.level) == @backingInt(Level.debug));
 }
 
 test "Logger.isVerbose" {
@@ -327,7 +327,7 @@ test "Logger.level filtering by numeric threshold" {
     var log = Logger{};
     log.level = .err;
     try std.testing.expect(!log.shouldLogModule("test", .debug)); // 0 < 4
-    try std.testing.expect(!log.shouldLogModule("test", .info));  // 1 < 4
+    try std.testing.expect(!log.shouldLogModule("test", .info)); // 1 < 4
     try std.testing.expect(!log.shouldLogModule("test", .notice)); // 2 < 4
     try std.testing.expect(!log.shouldLogModule("test", .warning)); // 3 < 4
     try std.testing.expect(log.shouldLogModule("test", .err)); // 4 >= 4
