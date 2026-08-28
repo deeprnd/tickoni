@@ -10,7 +10,7 @@ pub const c = struct {
     pub extern fn tk_isatty(fd: c_int) c_int;
     pub extern fn tk_fflush() void;
     pub extern fn tk_setenv(name: [*]const u8, value: [*]const u8, overwrite: c_int) c_int;
-    pub extern fn tk_getenv(name: [*]const u8) [*]const u8;
+    pub extern fn tk_getenv(name: [*]const u8) [*:0]const u8;
 };
 
 pub fn monotonicNanos() i64 {
@@ -53,6 +53,6 @@ pub fn setenv(name: [*]const u8, value: [*]const u8, overwrite: c_int) c_int {
     return c.tk_setenv(name, value, overwrite);
 }
 
-pub fn tk_getenv(name: [*]const u8) [*]const u8 {
+pub fn tk_getenv(name: [*]const u8) ?[*:0]const u8 {
     return c.tk_getenv(name);
 }

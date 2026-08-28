@@ -39,13 +39,8 @@ pub fn setEnv(name: []const u8, value: []const u8) void {
 }
 
 pub fn getEnv(name: []const u8) ?[]const u8 {
-    const raw: ?[*]const u8 = @ptrCast(c.tk_getenv(name.ptr));
-    if (raw == null) return null;
-    const raw_ptr = raw.?;
-    // Find the null terminator and return a slice.
-    // The C shim (getenv / _getenv_s) returns a pointer to a stable
-    // buffer — no heap allocation needed.
-    var len: usize = 0;
-    while (raw_ptr[len] != 0) : (len += 1) {}
-    return raw_ptr[0..len];
+    const raw = c.tk_getenv(name.ptr) orelse return null;
+    // The C shim returns a null-terminated buffer.
+    // sliceTo handles [*:0] directly without manual null scan.
+    return std.mem.sliceTo(raw, 0);
 }
