@@ -22,11 +22,11 @@ unless the relevant source, generated output, environment, or recipe changed.
 
 - [x] `just build-fd` — expanded from `build-all`
 - [x] `just build-tk` — expanded from `build-all`
-- [ ] `just quality-format-check-fd` — expanded from `quality-format-check-all`
-- [ ] `just quality-format-check-tk` — expanded from `quality-format-check-all`
-- [ ] `just quality-lint-check-tk`
-- [ ] `just quality-proto-check-fd` — expanded from `quality-proto-check-all`
-- [ ] `just quality-proto-check-tk` — expanded from `quality-proto-check-all`
+- [x] `just quality-format-check-fd` — expanded from `quality-format-check-all`
+- [x] `just quality-format-check-tk` — expanded from `quality-format-check-all`
+- [x] `just quality-lint-check-tk`
+- [x] `just quality-proto-check-fd` — expanded from `quality-proto-check-all`
+- [x] `just quality-proto-check-tk` — expanded from `quality-proto-check-all`
 - [ ] `true` — intentional no-op for the known host-clang IBT linker failure;
   record it, but do not treat it as a security check
 - [ ] `just security-engine-check-changes`
@@ -150,6 +150,9 @@ test -x zig-out/bin/tickoni-supervisor
 ```
 
 ### 2. Quality constituents
+
+**DONE** — all five quality constituents exited 0. FD protobuf generation and
+lint passed; Tickoni formatting, lint, and protobuf lint passed.
 
 Run and record each unchecked command separately; do not run a quality
 aggregate recipe.
