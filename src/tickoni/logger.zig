@@ -179,8 +179,16 @@ pub const Logger = struct {
     }
 
     /// Log with key-value pairs: {key=val ...} appended before the message.
+    /// Zero-allocation: uses a stack buffer (matches fd_log_private_0's
+    /// static-buffer pattern — no heap allocs, safe in hot path).
     pub fn kv(self: *Logger, module: []const u8, func: []const u8, kv_pairs: []const u8, message: []const u8) !void {
-        try self.write(module, func, kv_pairs ++ " " ++ message);
+        var tmp: [1024]u8 = undefined;
+        const combined = std.fmt.bufPrint(&tmp, "{s} {s}", .{ kv_pairs, message }) catch {
+            // If combined message exceeds buffer, fall back to just message
+            try self.write(module, func, message);
+            return;
+        };
+        try self.write(module, func, combined);
     }
 };
 

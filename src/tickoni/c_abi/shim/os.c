@@ -95,7 +95,19 @@ int tk_setenv( const char * name, const char * value, int overwrite ) {
 }
 
 const char * tk_getenv( const char * name ) {
-  return getenv( name );
+  /* Static thread-local buffer — zero heap, cross-platform stable.
+   * Env var values are small and short-lived; caller must use the
+   * returned slice before the next getEnv() call on any thread. */
+  static __thread char buf[ 4096 ];
+  const char * val = getenv( name );
+  if( val ) {
+    size_t len = strlen( val );
+    if( len >= sizeof(buf) ) len = sizeof(buf) - 1;
+    memcpy( buf, val, len );
+    buf[ len ] = '\0';
+    return buf;
+  }
+  return NULL;
 }
 
 #elif FD_HAS_MACOS
@@ -148,7 +160,17 @@ int tk_setenv( const char * name, const char * value, int overwrite ) {
 }
 
 const char * tk_getenv( const char * name ) {
-  return getenv( name );
+  /* Same static thread-local buffer as Linux — zero heap, cross-platform. */
+  static __thread char buf[ 4096 ];
+  const char * val = getenv( name );
+  if( val ) {
+    size_t len = strlen( val );
+    if( len >= sizeof(buf) ) len = sizeof(buf) - 1;
+    memcpy( buf, val, len );
+    buf[ len ] = '\0';
+    return buf;
+  }
+  return NULL;
 }
 
 #elif FD_HAS_WINDOWS
