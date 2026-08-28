@@ -300,7 +300,18 @@ model/tool/adapter boundary, and API/UI surface as applicable. Each task must
 follow the task structure described above and point to the acceptance criteria
 it closes.
 
-VX.Y.SN.T10 — Security audit. Audit the story's code against
+VX.Y.SN.T10 — Maintainability audit. Audit the story's code against
+`doc/execution/contribution/tickoni.md` and the ISO/IEC 25010 maintainability
+characteristics: modularity, reusability, analysability, modifiability, and
+testability. Review cohesion and coupling, separation of concerns, API and
+ownership boundaries, naming and documentation, duplication, unnecessary
+complexity, dead code, dependency hygiene, and regression-test coverage. Record
+objective findings, affected paths, and remediation decisions; resolve all
+in-scope findings or document explicitly accepted debt with an owner and
+follow-up task. Run `just quality-check-all` and the story's targeted tests, and
+record commands and results in the task's `Evidence To Attach` section.
+
+VX.Y.SN.T11 — Security audit. Audit the story's code against
 `doc/execution/security.md`. Check: input validation at every trust boundary,
 output/error checking, fail-closed behavior, no-bypass paths, static and
 preallocated memory discipline, C/Zig memory and stack safety, agent capability
@@ -308,7 +319,7 @@ boundaries, deny-by-default policy, and no-elevated-permissions rules. Run
 `just security-check-all` and record results in the task's `Evidence To Attach`
 section. Flag and remediate any findings.
 
-VX.Y.SN.T11 — Telemetry and observability audit. Audit the story's operator
+VX.Y.SN.T12 — Telemetry and observability audit. Audit the story's operator
 signals against `doc/execution/telemetry.md` (metric/diagnostic field definitions,
 label policy, alerting policy, generated metrics) and
 `doc/execution/observability.md` (per-tile visibility, smoke checks, failure
@@ -316,7 +327,7 @@ visibility). Ensure new metrics use low-cardinality labels only, new diagnostic
 signals follow the Phase 0 snapshot pattern, and failure visibility is preserved.
 Capture telemetry/observability evidence.
 
-VX.Y.SN.T12 — Evidence and quality gate. Run the full closing gate per
+VX.Y.SN.T13 — Evidence and quality gate. Audits should be present in `doc/execution/audits/stories` as VX.Y.SN-*.md. Run the full closing gate per
 `doc/execution/quality.md`. Complete the Story Closure Checklist:
 demoability, tests at every applicable layer (unit, integration, system, E2E),
 quality and security checks (fail-closed, forbidden-direct-access, malformed
