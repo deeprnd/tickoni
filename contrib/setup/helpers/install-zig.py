@@ -265,7 +265,16 @@ def verify_minisig(archive_path, sig_path, dry_run=False):
             raise SystemExit("required minisign binary is still unavailable after installation attempt")
 
     print(f"[verify] minisig {archive_path} ...")
-    cmd = [minisign_bin, "-Vm", "-z", str(archive_path), "-p", ZIG_MINISIGN_PUBKEY]
+    cmd = [
+        minisign_bin,
+        "-V",
+        "-P",
+        ZIG_MINISIGN_PUBKEY,
+        "-x",
+        str(sig_path),
+        "-m",
+        str(archive_path),
+    ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         eprint(result.stderr.strip())

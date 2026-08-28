@@ -8,10 +8,13 @@ SCRIPT_DIR="${REPO_ROOT}/contrib/setup"
 
 log_info "Linux aarch64 ops setup starting..."
 
-# 1. Zig (user-level, no sudo)
+# 1. PowerShell Core (shared setup tool)
+ensure_pwsh
+
+# 2. Zig (user-level, no sudo)
 ensure_zig
 
-# 2. OpenSSL — build from source into ./opt (no sudo)
+# 3. OpenSSL — build from source into ./opt (no sudo)
 if [ ! -f "./opt/lib/libssl.a" ]; then
     bash "${SCRIPT_DIR}/helpers/install-openssl.sh"
 else
