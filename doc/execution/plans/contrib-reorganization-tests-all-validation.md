@@ -287,7 +287,11 @@ resuming this plan unless a constituent or aggregate recipe changes.
 just tests-all
 ```
 
-- [ ] `just tests-all` — final aggregate confirmation only
+- [x] `just tests-all` — final aggregate confirmation only
+
+**DONE** — `just tests-all` exited 0. The aggregate completed after the
+individually validated constituents and updated all expected badges without
+creating tracked working-tree changes.
 
 This is a confirmation that the aggregate wiring still matches the individually
 validated commands, not the primary diagnostic run.
