@@ -45,6 +45,8 @@ fn boolText(value: bool) []const u8 {
 
 pub fn main(init: std.process.Init) !void {
     const log = logger.get();
+    logger.init();
+
     try log.enter("main", "init");
     defer log.exit("main", "init") catch {};
 
@@ -61,7 +63,10 @@ pub fn main(init: std.process.Init) !void {
         if (std.mem.eql(u8, arg, "--verbose")) verbose = true;
         args[arg_count] = arg;
     }
-    if (verbose) logger.enableVerbose();
+    if (verbose) {
+        logger.enableVerbose();
+        util.os_api.setEnv("ZIG_LOG_LEVEL", "debug");
+    }
 
     if (verbose) log.debug("main", "main", "verbose mode enabled") catch {};
 

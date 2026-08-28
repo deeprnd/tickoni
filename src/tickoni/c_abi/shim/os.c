@@ -90,6 +90,14 @@ void tk_fflush( void ) {
   fflush( stderr );
 }
 
+int tk_setenv( const char * name, const char * value, int overwrite ) {
+  return setenv( name, value, overwrite );
+}
+
+const char * tk_getenv( const char * name ) {
+  return getenv( name );
+}
+
 #elif FD_HAS_MACOS
 
 int64_t tk_monotonic_nanos( void ) {
@@ -133,6 +141,14 @@ int tk_isatty( int fd ) {
 
 void tk_fflush( void ) {
   fflush( stderr );
+}
+
+int tk_setenv( const char * name, const char * value, int overwrite ) {
+  return setenv( name, value, overwrite );
+}
+
+const char * tk_getenv( const char * name ) {
+  return getenv( name );
 }
 
 #elif FD_HAS_WINDOWS
@@ -207,6 +223,26 @@ void tk_fflush( void ) {
   fflush( stderr );
 }
 
+int tk_setenv( const char * name, const char * value, int overwrite ) {
+  if( overwrite ) {
+    if( _putenv_s( name, value )==0 ) return 0;
+  }
+  return -1;
+}
+
+const char * tk_getenv( const char * name ) {
+  char * val = NULL;
+  size_t sz = 0;
+  if( _dupenv_s( &val, &sz, name )==0 && val!=NULL ) {
+    static __thread char buf[ 4096 ];
+    if( sz<=sizeof(buf) ) memcpy( buf, val, sz-1 ), buf[ sz-1 ] = '\0';
+    else memcpy( buf, val, sizeof(buf)-1 ), buf[ sizeof(buf)-1 ] = '\0';
+    free( val );
+    return buf;
+  }
+  return NULL;
+}
+
 #else
 /* Fallback for other hosted platforms — stubs. */
 int64_t tk_monotonic_nanos( void ) {
@@ -250,6 +286,16 @@ int tk_isatty( int fd ) {
 
 void tk_fflush( void ) {
   /* No-op flush on unsupported platforms */
+}
+
+const char * tk_getenv( const char * name ) {
+  (void)name;
+  return NULL;
+}
+
+int tk_setenv( const char * name, const char * value, int overwrite ) {
+  (void)name; (void)value; (void)overwrite;
+  return -1;
 }
 
 #endif

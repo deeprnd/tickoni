@@ -4,7 +4,7 @@ Current Problems
 
 1. Silent debug logs — Logger.level defaults to .err. All log.debug() calls (payment pipeline stages, supervisor, tile_main) are silently dropped unless --verbose is passed. Test binaries never pass it.
 
-2. No env var support — FD_LOG_LEVEL_STDERR=1 is set by helpers.zig:167 but the Zig logger ignores it. Only CLI flag --verbose works.
+2. No env var support  in the build process for test - which should run with most verbose granularity.
 
 3. Redundant guards — Tile code writes both if (logger.isVerbose()) AND calls log.debug(), which itself checks @backingInt(level) > @backingInt(self.level). Double gate.
 
