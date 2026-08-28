@@ -5,8 +5,8 @@ python := `command -v python || command -v python3`
 
 # Firedancer/Tickoni build natively on Linux, macOS, and Windows.
 
-# Shared Firedancer lib definitions — used by contrib/fd-build-lib.sh and
-# contrib/security.sh. It provides:
+# Shared Firedancer lib definitions — used by contrib/build/fd-build-lib.sh and
+# contrib/security/security.sh. It provides:
 #   FD_TK_LIB_SRCS          source dirs for the 5 harness libs
 #   FD_TK_LIB_TEST_SRCS     + picohttpparser, blst, lz4, zstd, nanopb (for tests)
 #   FD_TK_LIB_COV_SRCS      core + cjson only (coverage)
@@ -159,7 +159,7 @@ tests-all:
 # ── Build ──────────────────────────────────────────────────────────────────
 
 build-tk-linux-x86:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }}
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }}
 
 build-tk-linux-arm: build-tk-linux-x86
 
@@ -218,27 +218,27 @@ build-fd:
 
 # Canonical FD build recipes.
 build-fd-linux-x86-gcc:
-    bash contrib/fd-build-lib.sh fd-tickoni-fd gcc
+    bash contrib/build/fd-build-lib.sh fd-tickoni-fd gcc
 
 build-fd-linux-x86-clang:
-    bash contrib/fd-build-lib.sh fd-clang clang-18
+    bash contrib/build/fd-build-lib.sh fd-clang clang-18
 
 build-fd-linux-arm-gcc:
-    bash contrib/fd-build-lib.sh fd-arm gcc-14
+    bash contrib/build/fd-build-lib.sh fd-arm gcc-14
 
 build-fd-macos-x86:
     export PATH="/usr/local/homebrew/bin:/usr/local/bin:$PATH"
     export JUST_GMAKE="/usr/local/homebrew/bin/gmake"
-    env PATH="/usr/local/homebrew/bin:/usr/local/bin:$PATH" bash contrib/fd-build-lib.sh fd-tickoni-fd clang libs ""
+    env PATH="/usr/local/homebrew/bin:/usr/local/bin:$PATH" bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs ""
 
 build-fd-macos-arm:
-    bash contrib/fd-build-lib.sh fd-tickoni-fd clang libs "lz4 blst zstd"
+    bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs "lz4 blst zstd"
 
 build-fd-windows-x86:
-    bash contrib/fd-build-windows.sh x86_64
+    bash contrib/build/fd-build-windows.sh x86_64
 
 build-fd-windows-arm:
-    bash contrib/fd-build-windows.sh arm64
+    bash contrib/build/fd-build-windows.sh arm64
 
 # Compatibility aliases retained for S6/documentation migration.
 build-fd-gcc: build-fd-linux-x86-gcc
@@ -253,7 +253,7 @@ build-fd-dev:
     make -j"$(nproc)" all
 
 build-all:
-    {{ python }} contrib/readme/run-badged-command.py build bash -c "just build-fd && just build-tk"
+    {{ python }} contrib/tool/readme/run-badged-command.py build bash -c "just build-fd && just build-tk"
 
 # ── Clean ────────────────────────────────────────────────────────────────────
 
@@ -275,24 +275,24 @@ test-all:
 # Native Firedancer C unit-test recipes. These never fall back to Tickoni tests.
 test-unit-fd-linux-x86-gcc:
     set timeout := 600
-    bash contrib/fd-build-lib.sh {{ fd_tickoni_build }} gcc-12 test "" ""
+    bash contrib/build/fd-build-lib.sh {{ fd_tickoni_build }} gcc-12 test "" ""
     {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
         LDFLAGS_EXE="-Wl,-z,shstk" run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd-macos-x86:
-    bash contrib/fd-build-lib.sh {{ fd_tickoni_build }} clang test "" ""
+    bash contrib/build/fd-build-lib.sh {{ fd_tickoni_build }} clang test "" ""
     {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd-macos-arm:
-    bash contrib/fd-build-lib.sh {{ fd_tickoni_build }} clang test "" ""
+    bash contrib/build/fd-build-lib.sh {{ fd_tickoni_build }} clang test "" ""
     {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd-windows-x86:
-    bash contrib/fd-build-windows.sh x86_64 clang test
+    bash contrib/build/fd-build-windows.sh x86_64 clang test
     {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd-windows-arm:
-    bash contrib/fd-build-windows.sh arm64 clang test
+    bash contrib/build/fd-build-windows.sh arm64 clang test
     {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd:
@@ -311,8 +311,8 @@ test-unit-fd:
 # No running servers belong here. Canonical platform recipes are the
 # implementation; the bare recipe below is only a host router.
 test-unit-tk-linux-x86:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache TK_LOG_LEVEL=0 bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test --summary all
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache TK_LOG_LEVEL=0 bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache TK_LOG_LEVEL=0 bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test --summary all
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache TK_LOG_LEVEL=0 bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
 
 test-unit-tk-linux-arm: test-unit-tk-linux-x86
 
@@ -336,11 +336,11 @@ test-unit-tk:
 # Print computed hash and wire bytes for every audit fixture event, and emit audit JSONL.
 # Use the output to understand or snapshot the current encoding after intentional changes.
 gen-audit-fixtures:
-    TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true test 2>&1
-    TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true integration-test 2>&1
+    TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true test 2>&1
+    TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true integration-test 2>&1
 
 test-unit-all:
-    {{ python }} contrib/readme/run-badged-command.py unit bash -c "just test-unit-tk && just test-unit-fd"
+    {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-tk && just test-unit-fd"
 
 test-e2e-fd:
     {{ make }} -j"$(nproc)" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} integration-test && {{ make }} MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-integration-test
@@ -349,14 +349,14 @@ test-e2e-tk:
     @true
 
 test-e2e-all:
-    {{ python }} contrib/readme/run-badged-command.py e2e bash -c "just test-e2e-fd && just test-e2e-tk"
+    {{ python }} contrib/tool/readme/run-badged-command.py e2e bash -c "just test-e2e-fd && just test-e2e-tk"
 
 test-integration-fd:
     @true
 
 # Tickoni integration lane: transport and boundary wiring against local mocks.
 test-integration-tk-linux-x86:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
 
 test-integration-tk-linux-arm: test-integration-tk-linux-x86
 
@@ -383,32 +383,32 @@ test-integration-tk:
 test-unit-tk-windows-x86:
     mkdir -p build
     bash -lc 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
 
 # Windows ARM64 unit test: build FD libs for Windows ARM64, then run Zig tests.
-# contrib/zigw.sh prefers an x86_64 Windows Zig install on Windows ARM when
+# contrib/build/zigw.sh prefers an x86_64 Windows Zig install on Windows ARM when
 # available because native Zig 0.16.0 is unstable on this lane.
 test-unit-tk-windows-arm:
     mkdir -p build
     bash -lc 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
     rm -rf .zig-cache
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
 
 # Windows x86_64 integration test: build FD libs for Windows x86_64, then run Zig integration tests.
 test-integration-tk-windows-x86:
     mkdir -p build
     just build-fd-windows-x86 > build/fd-windows-x86.log 2>&1
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
 
 # Windows ARM64 integration test: build FD libs for Windows ARM64, then run Zig integration tests.
-# contrib/zigw.sh prefers an x86_64 Windows Zig install on Windows ARM when
+# contrib/build/zigw.sh prefers an x86_64 Windows Zig install on Windows ARM when
 # available because native Zig 0.16.0 is unstable on this lane.
 test-integration-tk-windows-arm:
     mkdir -p build
     just build-fd-windows-arm > build/fd-windows-arm.log 2>&1
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
 
 # Deterministic offline investment conformance suite — fixture-backed, no llama.cpp required.
 test-demo-tk:
