@@ -13,13 +13,13 @@ Tickoni repository.
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
-  <img alt="Security" src="https://img.shields.io/badge/security-unknown-lightgrey?style=flat-square" />
+  <img alt="Security" src="https://img.shields.io/badge/security-failing-red?style=flat-square" />
   <!-- badge:security:end -->
 </p>
 
 <p align="center">
   <!-- badge:unit:start -->
-  <img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-failing-red?style=flat-square" />
+  <img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-unknown-lightgrey?style=flat-square" />
   <!-- badge:unit:end -->
 
   <!-- badge:integration:start -->
