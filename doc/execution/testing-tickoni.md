@@ -146,7 +146,7 @@ shell scripts. Do not remove or rename them without explicit instruction.
 5. `just test-e2e-all`
 
 `just test-unit-all` is badge-wrapped through
-`contrib/readme/run-badged-command.py` so the README status badges reflect the
+`contrib/tool/readme/run-badged-command.py` so the README status badges reflect the
 same aggregate commands developers use locally.
 
 ## Demo Conformance Suite (test-demo-tk)
@@ -332,8 +332,8 @@ Practical rule of thumb:
 `just test-unit-tk` runs:
 
 ```bash
-ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} test --summary all
-ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} run-tests
+ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} test --summary all
+ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} run-tests
 ```
 
 On Windows, `just test-unit-tk` delegates to
@@ -411,7 +411,7 @@ and full-topology `integration-test` binaries.
 `just test-integration-tk` runs:
 
 ```bash
-ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} integration-test
+ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} integration-test
 ```
 
 On Windows, `just test-integration-tk` delegates to

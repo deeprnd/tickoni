@@ -152,7 +152,7 @@ shutdown = "graceful"
 # sandbox_enabled = false: no seccomp-Landlock entry (current Phase 0 default)
 # sandbox_enabled = true: tk_sandbox_enter called via the harness adapter,
 #   using a tile-specific generated seccomp-BPF policy from
-#   contrib/codegen/generate_filters.py
+#   contrib/security/codegen/generate_filters.py
 
 [tile.tkings.sandbox]
 enabled = false
