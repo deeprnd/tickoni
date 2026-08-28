@@ -461,4 +461,4 @@ foreach ($tool in @("clang", "zig", "just", "cl")) {
     $ver = (Get-Command $tool -ErrorAction SilentlyContinue).Version
     if ($ver) { log-info "  ${tool}: $ver" }
 }
-log-info "NOTE: Zig uses the native aarch64-windows binary on ARM64 so contrib/zigw.sh matches the current CI/local 0.17 path"
+log-info "NOTE: Zig uses the native aarch64-windows binary on ARM64 so contrib/build/zigw.sh matches the current CI/local 0.17 path"
