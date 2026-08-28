@@ -593,13 +593,9 @@ jobs:
           compiler: clang
           compiler-version: system
 
-      - uses: ./.github/actions/build-fd-tk-libs
-        with:
-          build-profile: windows-x86_64
-
-      - name: Build llama.cpp + run live system test (toolchain diagnostics)
+      - name: Run Windows x86_64 system-test just recipe
         shell: bash
-        run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/test/run_system_model_tests_win.sh
+        run: just test-system-tk-windows-x86
 
   # ── System Tests: Windows ARM (live llama.cpp, mirrors Linux/macOS) ──────
   system-tests-windows-arm:
@@ -619,13 +615,9 @@ jobs:
           compiler: clang
           compiler-version: system
 
-      - uses: ./.github/actions/build-fd-tk-libs
-        with:
-          build-profile: windows-arm
-
-      - name: Build llama.cpp + run live system test (toolchain diagnostics)
+      - name: Run Windows ARM system-test just recipe
         shell: bash
-        run: ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/test/run_system_model_tests_win.sh
+        run: just test-system-tk-windows-arm
 
   # ── Demo Conformance: Compare ───────────────────────────────────────────────
   demo-conformance-compare:
