@@ -9,7 +9,7 @@
 # ── Platform detection ────────────────────────────────────────────────────────
 # Single source of truth for OS/arch — used by callers that need it.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/platform.sh"
+source "${SCRIPT_DIR}/../platform.sh"
 
 # ── Source dirs ────────────────────────────────────────────────────────────────
 # The 5-tree core (tango, util, ballet, disco, waltz) + cjson + s2n-bignum.
@@ -204,7 +204,7 @@ fd_build_fd() {
     AR_OPTS=( "AR=${llvm_ar}" "ARFLAGS=rcs" )
   fi
 
-  local -a cmd=( "$MAKE" -j"$(fd_nproc)" MACHINE=tickoni_fd BUILDDIR="${BUILDDIR}" "${AR_OPTS[@]}" )
+  local -a cmd=( "$MAKE" -f contrib/build/GNUmakefile -j"$(fd_nproc)" MACHINE=tickoni_fd BUILDDIR="${BUILDDIR}" "${AR_OPTS[@]}" )
   [ -n "${FD_WINDOWS_ARCH:-}" ] && cmd+=( "FD_WINDOWS_ARCH=${FD_WINDOWS_ARCH}" )
   [ -n "${LDFLAGS_EXE}" ] && cmd+=( "LDFLAGS_EXE=${LDFLAGS_EXE}" )
   cmd+=( "CC=${CC}" )

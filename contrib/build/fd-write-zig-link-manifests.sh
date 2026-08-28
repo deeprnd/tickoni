@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Emit the FD-side Windows Zig link-contract manifests consumed by build.zig.
-# Usage: contrib/fd-write-zig-link-manifests.sh <BUILDDIR>
+# Usage: contrib/build/fd-write-zig-link-manifests.sh <BUILDDIR>
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 BUILDDIR="${1:?usage: fd-write-zig-link-manifests.sh <BUILDDIR>}"
 LIBDIR="build/${BUILDDIR}/lib"

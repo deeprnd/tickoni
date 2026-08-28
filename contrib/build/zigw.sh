@@ -7,7 +7,7 @@ using_windows_arm_x64_zig=0
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # Detect Windows ARM via platform.sh (single source of truth for OS/arch).
-source "${SCRIPT_DIR}/platform.sh"
+source "${SCRIPT_DIR}/../platform.sh"
 
 is_windows=0
 if [[ "$(tk_os)" == "windows" ]]; then
@@ -23,9 +23,9 @@ if [[ "$is_windows_arm" -eq 1 && -n "${LOCALAPPDATA:-}" ]]; then
   # Prefer the exact version pinned in tool-versions.json so local runs
   # match CI (both use x86_64 Windows Zig on ARM64).
   local_zig_version=""
-  if [[ -f "${SCRIPT_DIR}/setup/tool-versions.json" ]]; then
+  if [[ -f "${SCRIPT_DIR}/../setup/tool-versions.json" ]]; then
     # Extract the zig version from tool-versions.json.
-    local_zig_version="$(python3 -c "import json; print(json.load(open('${SCRIPT_DIR}/setup/tool-versions.json'))['versions']['zig'])" 2>/dev/null || echo "")"
+    local_zig_version="$(python3 -c "import json; print(json.load(open('${SCRIPT_DIR}/../setup/tool-versions.json'))['versions']['zig'])" 2>/dev/null || echo "")"
   fi
 
   if [[ -n "$local_zig_version" ]]; then

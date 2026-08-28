@@ -677,7 +677,7 @@ pub fn build(b: *std.Build) void {
         // This avoids Zig's --listen=- parallel coordination which panics
         // with EndOfStream when 48+ test binaries communicate over the same pipe.
         const run_tests_cmd = std.Build.Step.Run.create(b, "run-tests");
-        run_tests_cmd.addArgs(&.{ "bash", "contrib/run-test-series.sh" });
+        run_tests_cmd.addArgs(&.{ "bash", "contrib/build/run-test-series.sh" });
         run_tests_cmd.step.dependOn(test_step);
         run_tests_step.dependOn(&run_tests_cmd.step);
 
@@ -2308,7 +2308,7 @@ fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_l
         for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
         for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
         // Windows prebuilt FD libs (from CI) reference libuuid.a.
-        // contrib/fd-build-windows.sh post-build step compiles
+        // contrib/build/fd-build-windows.sh post-build step compiles
         // libuuid_stub.c and archives it as libuuid.a so the library lookup
         // succeeds. Do NOT add libuuid_stub.c as a raw C source file here —
         // that would create duplicate symbols with the .a archive.

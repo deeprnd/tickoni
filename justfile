@@ -197,7 +197,7 @@ build-tk:
 # CI alias — .github/actions/build-fd-tk-libs/action.yml delegates to this.
 build-fd-tk-libs: build-fd
 
-# Adding a new lib: edit contrib/fd-tk-libs.sh (FD_TK_LIBS or
+# Adding a new lib: edit contrib/build/fd-tk-libs.sh (FD_TK_LIBS or
 # FD_TK_LIBS_EXTRA arrays). All justfile/CI/quality/security consumers
 # pick up the change automatically.
 # ── Public build recipes ─────────────────────────────────────────────────────
@@ -276,24 +276,24 @@ test-all:
 test-unit-fd-linux-x86-gcc:
     set timeout := 600
     bash contrib/build/fd-build-lib.sh {{ fd_tickoni_build }} gcc-12 test "" ""
-    {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
+    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
         LDFLAGS_EXE="-Wl,-z,shstk" run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd-macos-x86:
     bash contrib/build/fd-build-lib.sh {{ fd_tickoni_build }} clang test "" ""
-    {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
+    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd-macos-arm:
     bash contrib/build/fd-build-lib.sh {{ fd_tickoni_build }} clang test "" ""
-    {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
+    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd-windows-x86:
     bash contrib/build/fd-build-windows.sh x86_64 clang test
-    {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
+    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd-windows-arm:
     bash contrib/build/fd-build-windows.sh arm64 clang test
-    {{ make }} -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
+    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd:
     #!/usr/bin/env bash
@@ -343,7 +343,7 @@ test-unit-all:
     {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-tk && just test-unit-fd"
 
 test-e2e-fd:
-    {{ make }} -j"$(nproc)" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} integration-test && {{ make }} MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-integration-test
+    {{ make }} -f contrib/build/GNUmakefile -j"$(nproc)" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} integration-test && {{ make }} -f contrib/build/GNUmakefile MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-integration-test
 
 test-e2e-tk:
     @true
@@ -422,7 +422,7 @@ test-system-fd:
     @true
 
 test-system-all:
-    {{ python }} contrib/readme/run-badged-command.py system bash -c "just test-system-tk && just test-system-fd"
+    {{ python }} contrib/tool/readme/run-badged-command.py system bash -c "just test-system-tk && just test-system-fd"
 
 # ── Windows-specific system tests (live, mirrors Linux/macOS flow) ───
 
@@ -498,7 +498,7 @@ infra-run-llamacpp:
     exec bash contrib/test/run_llm_server.sh "$backend"
 
 test-integration-all:
-    {{ python }} contrib/readme/run-badged-command.py integration bash -c "just test-integration-fd && just test-integration-tk"
+    {{ python }} contrib/tool/readme/run-badged-command.py integration bash -c "just test-integration-fd && just test-integration-tk"
 
 # ── Test: Coverage ─────────────────────────────────────────────────────────
 
@@ -508,7 +508,7 @@ test-cov-fd:
     @true # pre-existing llvm-cov toolchain not installed on this host
 
 test-cov-tk:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache {{ python }} contrib/readme/run-badged-command.py cov-tk bash contrib/test/coverage.sh coverage-tk
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache {{ python }} contrib/tool/readme/run-badged-command.py cov-tk bash contrib/test/coverage.sh coverage-tk
 
 test-cov-all:
     @just test-cov-fd
@@ -517,16 +517,16 @@ test-cov-all:
 # ── Quality: Format ────────────────────────────────────────────────────────
 
 quality-format-check-fd:
-    bash contrib/quality.sh format-check-fd
+    bash contrib/quality/quality.sh format-check-fd
 
 quality-format-fix-fd:
-    bash contrib/quality.sh format-fix-fd
+    bash contrib/quality/quality.sh format-fix-fd
 
 quality-format-check-tk:
-    bash contrib/quality.sh format-check-tk
+    bash contrib/quality/quality.sh format-check-tk
 
 quality-format-fix-tk:
-    bash contrib/quality.sh format-fix-tk
+    bash contrib/quality/quality.sh format-fix-tk
 
 # Linux/x86 qualified aliases; quality scope remains unchanged.
 quality-format-check-fd-linux-x86: quality-format-check-fd
@@ -545,11 +545,11 @@ quality-format-fix-all:
 # ── Quality: Lint ──────────────────────────────────────────────────────────
 
 quality-lint-check-fd:
-    bash contrib/quality.sh lint-check-fd
-    command -v shellcheck >/dev/null || exit 0; bash contrib/quality.sh lint-shellcheck-fd
+    bash contrib/quality/quality.sh lint-check-fd
+    command -v shellcheck >/dev/null || exit 0; bash contrib/quality/quality.sh lint-shellcheck-fd
 
 quality-lint-check-tk:
-    bash contrib/quality.sh lint-check-tk
+    bash contrib/quality/quality.sh lint-check-tk
 
 quality-lint-check-fd-linux-x86: quality-lint-check-fd
 quality-lint-check-tk-linux-x86: quality-lint-check-tk
@@ -579,12 +579,12 @@ quality-proto-check-all:
 # ── Quality: All ───────────────────────────────────────────────────────────
 
 quality-check-all:
-    {{ python }} contrib/readme/run-badged-command.py quality bash -c "just quality-format-check-all && just quality-lint-check-all && just quality-proto-check-all"
+    {{ python }} contrib/tool/readme/run-badged-command.py quality bash -c "just quality-format-check-all && just quality-lint-check-all && just quality-proto-check-all"
 
 # ── Security: CodeQL ───────────────────────────────────────────────────────
 
 security-codeql-check-fd:
-    @true ## bash contrib/security.sh codeql-check-fd, opened issue https://github.com/firedancer-io/firedancer/issues/10058
+    @true ## bash contrib/security/security.sh codeql-check-fd, opened issue https://github.com/firedancer-io/firedancer/issues/10058
 
 security-codeql-check-tk:
     @true
@@ -599,10 +599,10 @@ security-codeql-check-all:
 # ── Security: Gitleaks ─────────────────────────────────────────────────────
 
 security-gitleaks-check-fd:
-    bash contrib/security.sh gitleaks-check-fd
+    bash contrib/security/security.sh gitleaks-check-fd
 
 security-gitleaks-check-tk:
-    bash contrib/security.sh gitleaks-check-tk
+    bash contrib/security/security.sh gitleaks-check-tk
 
 security-gitleaks-check-fd-linux-x86: security-gitleaks-check-fd
 security-gitleaks-check-tk-linux-x86: security-gitleaks-check-tk
@@ -614,7 +614,7 @@ security-gitleaks-check-all:
 # ── Security: SecComp ──────────────────────────────────────────────────────
 
 security-seccomp-check-fd:
-    @bash contrib/security.sh seccomp-check-fd
+    @bash contrib/security/security.sh seccomp-check-fd
 
 security-seccomp-check-tk:
     @true
@@ -629,7 +629,7 @@ security-seccomp-check-all:
 # ── Security: Proof ────────────────────────────────────────────────────────
 
 security-proof-check-fd:
-    bash contrib/security.sh proof-check-fd
+    bash contrib/security/security.sh proof-check-fd
 
 security-proof-check-tk:
     @true
@@ -644,10 +644,10 @@ security-proof-check-all:
 # ── Security: ASan/UBSan ───────────────────────────────────────────────────
 
 security-sanitize-check-fd:
-    bash contrib/security.sh sanitize-check-fd
+    bash contrib/security/security.sh sanitize-check-fd
 
 security-sanitize-check-tk:
-    bash contrib/security.sh sanitize-check-tk
+    bash contrib/security/security.sh sanitize-check-tk
 
 security-sanitize-check-fd-linux-x86: security-sanitize-check-fd
 security-sanitize-check-tk-linux-x86: security-sanitize-check-tk
@@ -663,10 +663,10 @@ security-engine-check-all:
     @just security-engine-check-orchestration
 
 security-engine-check-changes:
-    {{ python }} contrib/engine/engine_check_changes.py
+    {{ python }} contrib/quality/engine/engine_check_changes.py
 
 security-engine-check-orchestration:
-    {{ python }} contrib/engine/linter.py contrib/engine/checks/ --root {{ justfile_directory() }} --severity ERROR
+    {{ python }} contrib/quality/engine/linter.py contrib/quality/engine/checks/ --root {{ justfile_directory() }} --severity ERROR
 
 security-engine-check-changes-linux-x86: security-engine-check-changes
 security-engine-check-orchestration-linux-x86: security-engine-check-orchestration
@@ -674,7 +674,7 @@ security-engine-check-orchestration-linux-x86: security-engine-check-orchestrati
 # ── Security: All ──────────────────────────────────────────────────────────
 
 security-check-all:
-    {{ python }} contrib/readme/run-badged-command.py security bash -c "just security-engine-check-all && just security-codeql-check-all && just security-gitleaks-check-all && just security-seccomp-check-all && just security-proof-check-all && just security-sanitize-check-all"
+    {{ python }} contrib/tool/readme/run-badged-command.py security bash -c "just security-engine-check-all && just security-codeql-check-all && just security-gitleaks-check-all && just security-seccomp-check-all && just security-proof-check-all && just security-sanitize-check-all"
 
 # ── Memory (hugepages) ─────────────────────────────────────────────────────
 

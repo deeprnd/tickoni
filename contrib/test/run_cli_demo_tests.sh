@@ -7,7 +7,7 @@ set -uo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
-build_cmd=(bash contrib/zigw.sh build -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all)
+build_cmd=(bash contrib/build/zigw.sh build -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all)
 manifest="src/tickoni/demo/fixtures/demo.manifest.json"
 cli_binary="zig-out/bin/tickoni"
 binary="zig-out/bin/tickoni-supervisor"

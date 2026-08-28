@@ -39,6 +39,6 @@ rm -rf "$DIST"
 (
   cd ../..
   OUTPUT_DIRECTORY="$DIST" \
-  ./contrib/doxygen/opt/bin/doxygen ./contrib/doxygen/Doxyfile
+  ./contrib/tool/doxygen/opt/bin/doxygen ./contrib/tool/doxygen/Doxyfile
 )
 echo "[+] Done"

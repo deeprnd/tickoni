@@ -2,11 +2,11 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
-MAKE_RUNNER=(./contrib/make-j)
-CODEQL_THRESHOLD_CHECK=(python3 ./contrib/codeql-threshold-check.py)
+MAKE_RUNNER=(./contrib/build/make-j)
+CODEQL_THRESHOLD_CHECK=(python3 ./contrib/security/codeql/codeql-threshold-check.py)
 CODEQL_HIGH_SECURITY_THRESHOLD=4.0
 
 log() {
@@ -22,7 +22,7 @@ run_step() {
 
 usage() {
   cat <<'EOF'
-Usage: bash contrib/security.sh <command>
+Usage: bash contrib/security/security.sh <command>
 
 Commands:
   codeql-check-fd     CodeQL analysis on C source
@@ -36,8 +36,8 @@ EOF
 }
 
 cmd_codeql_check_fd() {
-  run_step "codeql pack install" codeql pack install contrib/codeql/test
-  run_step "codeql pack tests" codeql test run contrib/codeql/test
+  run_step "codeql pack install" codeql pack install contrib/security/codeql/test
+  run_step "codeql pack tests" codeql test run contrib/security/codeql/test
   run_step "codeql pack download" codeql pack download codeql/cpp-queries
   rm -rf build/codeql-db
   run_step "codeql database create" \
@@ -46,7 +46,7 @@ cmd_codeql_check_fd() {
     codeql database analyze \
       build/codeql-db \
       codeql/cpp-queries:codeql-suites/cpp-code-scanning.qls \
-      contrib/codeql/src/nightly \
+      contrib/security/codeql/src/nightly \
       --format=sarif-latest \
       --output=build/codeql-results.sarif
 }
@@ -54,7 +54,7 @@ cmd_codeql_check_fd() {
 cmd_gitleaks_check_fd() {
   run_step "gitleaks fd" \
     gitleaks detect --no-git --verbose --source src/ \
-      --config contrib/gitleaks-fd.toml
+      --config contrib/security/gitleaks-fd.toml
 }
 
 cmd_gitleaks_check_tk() {
@@ -80,8 +80,8 @@ cmd_proof_check_fd() {
 
 cmd_sanitize_check_fd() {
   # Source the shared FD lib definitions so the 5-lib scope stays in one place.
-  # contrib/fd-tk-libs.sh defines FD_TK_LIB_SRCS, FD_TK_LIB_EXCLUDES, etc.
-  source contrib/fd-tk-libs.sh
+  # contrib/build/fd-tk-libs.sh defines FD_TK_LIB_SRCS, FD_TK_LIB_EXCLUDES, etc.
+  source contrib/build/fd-tk-libs.sh
   local _local_mks
   _local_mks=$(fd_compute_mks "${FD_TK_LIB_TEST_SRCS[@]}")
   # Always rebuild libs first (they depend on EXTRAS flags), then build unit tests.
