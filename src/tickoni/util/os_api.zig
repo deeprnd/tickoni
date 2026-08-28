@@ -33,3 +33,20 @@ pub fn isatty(fd: FileDescriptor) bool {
 pub fn fflush() void {
     c.fflush();
 }
+
+pub fn setEnv(name: []const u8, value: []const u8) void {
+    _ = c.setenv(name.ptr, value.ptr, 1);
+}
+
+pub fn getEnv(name: []const u8) ?[]const u8 {
+    const raw: ?[*]const u8 = @ptrCast(c.tk_getenv(name.ptr));
+    if (raw == null) return null;
+    const raw_ptr = raw.?;
+    // Find the null terminator
+    var len: usize = 0;
+    while (raw_ptr[len] != 0) : (len += 1) {}
+    const slice = raw_ptr[0..len];
+    // Allocate owned copy
+    const owned = std.heap.page_allocator.dupe(u8, slice) catch return null;
+    return owned;
+}

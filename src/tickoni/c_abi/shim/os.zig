@@ -7,6 +7,10 @@ pub const c = struct {
     pub extern fn tk_parent_pid(pid: c_int) c_int;
     pub extern fn tk_kill_process(pid: c_int) c_int;
     pub extern fn tk_write(fd: c_int, buf: [*]const u8, count: usize) usize;
+    pub extern fn tk_isatty(fd: c_int) c_int;
+    pub extern fn tk_fflush() void;
+    pub extern fn tk_setenv(name: [*]const u8, value: [*]const u8, overwrite: c_int) c_int;
+    pub extern fn tk_getenv(name: [*]const u8) [*]const u8;
 };
 
 pub fn monotonicNanos() i64 {
@@ -35,4 +39,20 @@ pub fn killProcess(pid: c_int) void {
 
 pub fn write(fd: c_int, buf: []const u8) usize {
     return c.tk_write(fd, buf.ptr, buf.len);
+}
+
+pub fn isatty(fd: c_int) c_int {
+    return c.tk_isatty(fd);
+}
+
+pub fn fflush() void {
+    c.tk_fflush();
+}
+
+pub fn setenv(name: [*]const u8, value: [*]const u8, overwrite: c_int) c_int {
+    return c.tk_setenv(name, value, overwrite);
+}
+
+pub fn tk_getenv(name: [*]const u8) [*]const u8 {
+    return c.tk_getenv(name);
 }

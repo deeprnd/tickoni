@@ -977,6 +977,24 @@ pub fn build(b: *std.Build) void {
         test_step.dependOn(&catalog_test.step);
         run_tests_cmd.addArtifactArg(catalog_test);
 
+        // logger.zig: structured, env-driven Zig logger with module filtering,
+        // colors, and flush — unit tests for level parsing, module filter,
+        // KV output, colorize detection, and enter/exit tracing.
+        const logger_test = b.addTest(.{ .root_module = b.createModule(.{
+            .root_source_file = b.path("src/tickoni/logger.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{.{ .name = "util", .module = util_mod }},
+        })});
+        // Link the os.c shim for C runtime calls (monotonicNanos, fflush, write, isatty).
+        logger_test.root_module.addCSourceFiles(.{
+            .files = &.{ "src/tickoni/c_abi/shim/os.c" },
+            .flags = &.{ "-std=c17" },
+        });
+        logger_test.root_module.linkSystemLibrary("c", .{});
+        test_step.dependOn(&logger_test.step);
+        run_tests_cmd.addArtifactArg(logger_test);
+
         const catalog_schema_test = b.addTest(.{
             .root_module = b.createModule(.{
                 .root_source_file = b.path("src/tickoni/schema/consumer_money/catalog_schema.zig"),
