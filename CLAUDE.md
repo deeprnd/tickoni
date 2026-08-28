@@ -258,53 +258,6 @@ Autonomous execution is not the priority in the current framework. Throughput,
 determinism, isolation, finance-native permissions, auditability, replay, and
 human-approved control of money-adjacent actions are.
 
-## Current Stack
-
-- Primary language: Zig for Tickoni framework runtime, tiles, supervisor, and
-  backend/control-plane code.
-- Infrastructure language: C for reused Firedancer infrastructure and selected
-  wrappers.
-- Runtime target: x86-64 Linux; Firedancer assumptions such as TSO do not make
-  other runtime targets correct.
-- Build tools: `build.zig` for Tickoni Zig artifacts, `GNUmakefile` for
-  Firedancer/C artifacts, and `justfile` for workspace orchestration.
-- Active executable: `tickoni-supervisor` from `src/app/tickoni/`.
-- Active Tickoni workspace: `src/app/tickoni/` and `src/tickoni/`.
-- Runtime framework: Tickoni AI-harness tiles over Firedancer infrastructure:
-  `src/tango` queues, topology/workspaces, sandboxing, metrics, diagnostics,
-  bounded polling, and crash-only tile lifecycle.
-- HTTP/WebSocket server: Firedancer `fd_http_server` from `src/waltz/http`,
-  used or wrapped by the future Zig `tkapi` CaseOps API tile.
-- Current Phase 0 tiles: `tkings`, `tknorm`, `tkdedu`, `tkpoly`, `tkaudt`,
-  `tkrepl`, `tkmetr`, and `tkdiag`.
-- Planned harness tiles: `tkcase`, `tkevid`, `tkdisp`, `tkagnt`, `tkmodl`,
-  `tktool`, `tkadpt`, `tkapi`, and future `tkexec`.
-- Frontend: Next.js CaseOps operator UI, attached to `tkapi`; it does not own
-  financial correctness.
-- Markdown files: memory, theses, policies, company notes, runbooks, and
-  human-authored operating context.
-- DuckDB: market data, analytics, backtests, research tables, and local
-  analytical projections.
-- TigerBeetle: balances, transfers, fills, accounting entries, and approved
-  ledger-style financial state behind `tkexec`; not a direct dependency of
-  agents or UI.
-- Model integration: LLM server and cloud providers only through `tkmodl`;
-  supported categories include deterministic stubs, local OpenAI-compatible
-  server, OpenAI, Anthropic, Qwen, DeepSeek, and future local GPU inference.
-- Agent integration: local Agent Daemon for approved CLIs such as Claude Code,
-  Codex, GitHub Copilot CLI, OpenCode, OpenClaw, Hermes, Gemini, Pi, Cursor
-  Agent, Kimi, and Kiro CLI.
-- Financial integrations: trading, crypto, payment, risk, and compliance APIs
-  through `tkadpt` for reads/proposals and future `tkexec` for approved
-  mutations.
-- Test runners: `zig build test` for Tickoni Zig tests; Firedancer tests
-  through `make` and `just test-*` recipes.
-- Quality/security tooling: `justfile` recipes, `contrib/quality.sh`,
-  `contrib/security.sh`, Firedancer linting, seccomp checks, CodeQL, gitleaks,
-  and related repository tooling.
-- Container/runtime packaging: Docker may be used for development or packaging,
-  but it is not the primary Tickoni runtime isolation model.
-
 ## Framework Invariants
 
 Do not change these assumptions without explicit approval:
