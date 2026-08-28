@@ -319,21 +319,30 @@ test-unit-fd:
     	run-unit-test TEST_OPTS="--page-sz normal"
 
 # Tickoni unit lane: pure logic and fixture/mock-backed tests only.
-# No running servers belong here.
+# No running servers belong here. Canonical platform recipes are the
+# implementation; the bare recipe below is only a host router.
+test-unit-tk-linux-x86:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache TK_LOG_LEVEL=0 bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test --summary all
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache TK_LOG_LEVEL=0 bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+
+test-unit-tk-linux-arm: test-unit-tk-linux-x86
+
+test-unit-tk-macos-x86: test-unit-tk-linux-x86
+
+test-unit-tk-macos-arm: test-unit-tk-linux-x86
+
 test-unit-tk:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "{{ os }}" in
-      windows)
-        case "{{ arch }}" in
-          arm) exec just test-unit-tk-windows-arm ;;
-          x86) exec just test-unit-tk-windows-x86 ;;
-          *) echo "unsupported Windows arch for test-unit-tk" >&2; exit 1 ;;
-        esac
-        ;;
+    case "{{ os }}-{{ arch }}" in
+      linux-x86) exec just test-unit-tk-linux-x86 ;;
+      linux-arm) exec just test-unit-tk-linux-arm ;;
+      macos-x86) exec just test-unit-tk-macos-x86 ;;
+      macos-arm) exec just test-unit-tk-macos-arm ;;
+      windows-x86) exec just test-unit-tk-windows-x86 ;;
+      windows-arm) exec just test-unit-tk-windows-arm ;;
+      *) echo "unsupported host platform for test-unit-tk: {{ os }}-{{ arch }}" >&2; exit 1 ;;
     esac
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache TK_LOG_LEVEL=0 bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test --summary all
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache TK_LOG_LEVEL=0 bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
 
 # Print computed hash and wire bytes for every audit fixture event, and emit audit JSONL.
 # Use the output to understand or snapshot the current encoding after intentional changes.
@@ -357,19 +366,27 @@ test-integration-fd:
     @true
 
 # Tickoni integration lane: transport and boundary wiring against local mocks.
+test-integration-tk-linux-x86:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+
+test-integration-tk-linux-arm: test-integration-tk-linux-x86
+
+test-integration-tk-macos-x86: test-integration-tk-linux-x86
+
+test-integration-tk-macos-arm: test-integration-tk-linux-x86
+
 test-integration-tk:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "{{ os }}" in
-      windows)
-        case "{{ arch }}" in
-          arm) exec just test-integration-tk-windows-arm ;;
-          x86) exec just test-integration-tk-windows-x86 ;;
-          *) echo "unsupported Windows arch for test-integration-tk" >&2; exit 1 ;;
-        esac
-        ;;
+    case "{{ os }}-{{ arch }}" in
+      linux-x86) exec just test-integration-tk-linux-x86 ;;
+      linux-arm) exec just test-integration-tk-linux-arm ;;
+      macos-x86) exec just test-integration-tk-macos-x86 ;;
+      macos-arm) exec just test-integration-tk-macos-arm ;;
+      windows-x86) exec just test-integration-tk-windows-x86 ;;
+      windows-arm) exec just test-integration-tk-windows-arm ;;
+      *) echo "unsupported host platform for test-integration-tk: {{ os }}-{{ arch }}" >&2; exit 1 ;;
     esac
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
 
 # ── Windows-specific test recipes ────────────────────────────────────────────
 
