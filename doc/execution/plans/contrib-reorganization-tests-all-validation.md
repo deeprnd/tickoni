@@ -75,8 +75,12 @@ the documented intentional no-op.
 
 #### End-to-end (`test-e2e-all`)
 
-- [ ] `just test-e2e-fd`
-- [ ] `just test-e2e-tk` — intentional no-op; record it
+**DONE** — `just test-e2e-fd` exited 0 with the Firedancer integration test
+runner reporting PASS and zero scheduled tests. `just test-e2e-tk` completed
+as the documented intentional no-op.
+
+- [x] `just test-e2e-fd`
+- [x] `just test-e2e-tk` — intentional no-op; record it
 
 ## Execution order
 
