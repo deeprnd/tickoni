@@ -65,8 +65,13 @@ statement and line coverage.
 
 #### System (`test-system-all`)
 
-- [ ] `just test-system-tk` — requires the local llama.cpp/model prerequisites
-- [ ] `just test-system-fd` — intentional no-op; record it
+**DONE** — `just test-system-tk` exited 0 with the live model prerequisites;
+the portfolio cash demo and investment demo live tests passed with replay
+matching and external effects disabled. `just test-system-fd` completed as
+the documented intentional no-op.
+
+- [x] `just test-system-tk` — requires the local llama.cpp/model prerequisites
+- [x] `just test-system-fd` — intentional no-op; record it
 
 #### End-to-end (`test-e2e-all`)
 
