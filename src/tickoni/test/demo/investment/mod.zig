@@ -13,7 +13,7 @@ const tkpoly = @import("tkpoly");
 const tool = @import("tool");
 const trade_ticket = @import("trade_ticket");
 
-pub const default_endpoint = "http://127.0.0.1:8080/v1";
+pub const default_endpoint = "http://127.0.0.1:9931/v1";
 pub const default_model_id = "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL";
 
 const system_prompt =
