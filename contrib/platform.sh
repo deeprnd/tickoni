@@ -69,6 +69,8 @@ tk_arch() {
     if normalized="$(tk_normalize_arch "$TK_WINDOWS_HOST_ARCH")"; then
       echo "$normalized"; return 0
     fi
+    echo "error: invalid TK_WINDOWS_HOST_ARCH '$TK_WINDOWS_HOST_ARCH'" >&2
+    return 1
   fi
 
   # 2. Powershell (Windows native)
@@ -113,14 +115,15 @@ tk_platform() {
 }
 
 tk_cores() {
+  local cores
   case "$(tk_os)" in
-    linux)  nproc ;;
-    macos)  sysctl -n hw.ncpu ;;
+    linux)  cores="$(nproc)" ;;
+    macos)  cores="$(sysctl -n hw.ncpu)" ;;
     windows)
       if command -v powershell >/dev/null 2>&1; then
-        powershell -NoProfile -Command '(Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum'
+        cores="$(powershell -NoProfile -Command '(Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum')"
       elif command -v pwsh >/dev/null 2>&1; then
-        pwsh -NoProfile -Command '(Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum'
+        cores="$(pwsh -NoProfile -Command '(Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum')"
       else
         echo "unable to determine Windows CPU count" >&2
         return 1
@@ -131,6 +134,17 @@ tk_cores() {
       return 1
       ;;
   esac
+  case "$cores" in
+    ''|*[!0-9]*)
+      echo "invalid CPU count '$cores'" >&2
+      return 1
+      ;;
+  esac
+  if (( cores < 1 )); then
+    echo "invalid CPU count '$cores'" >&2
+    return 1
+  fi
+  echo "$cores"
 }
 
 # ── Standalone invocation ────────────────────────────────────────────────────

@@ -67,21 +67,43 @@ tk_platform := `bash contrib/platform.sh platform`
 cpu_count := `bash contrib/platform.sh cores`
 
 # Auto-detect host platform/arch and route to the correct setup recipe.
-setup-env:
+# On Linux, no toolchain installs both compilers and the shared ops tools once;
+# passing gcc or clang selects only that compiler.
+setup-env toolchain="":
     @case "{{ os }}" in \
       linux) \
         if [ "{{ arch }}" = "arm" ]; then \
-          just setup-linux-arm-gcc; \
+          case "{{ toolchain }}" in \
+            "") TOOLCHAIN=gcc bash contrib/setup/linux-arm-essential.sh; \
+                TOOLCHAIN=clang bash contrib/setup/linux-arm-essential.sh; \
+                bash contrib/setup/linux-arm-ops.sh ;; \
+            gcc) just setup-linux-arm-gcc ;; \
+            clang) just setup-linux-arm-clang ;; \
+            *) echo "unsupported toolchain: {{ toolchain }} (expected gcc or clang)" >&2; exit 1 ;; \
+          esac; \
         else \
-          just setup-linux-x86-gcc; \
+          case "{{ toolchain }}" in \
+            "") TOOLCHAIN=gcc bash contrib/setup/linux-x86-essential.sh; \
+                TOOLCHAIN=clang bash contrib/setup/linux-x86-essential.sh; \
+                bash contrib/setup/linux-x86-ops.sh ;; \
+            gcc) just setup-linux-x86-gcc ;; \
+            clang) just setup-linux-x86-clang ;; \
+            *) echo "unsupported toolchain: {{ toolchain }} (expected gcc or clang)" >&2; exit 1 ;; \
+          esac; \
         fi ;; \
       macos) \
+        if [ -n "{{ toolchain }}" ] && [ "{{ toolchain }}" != "clang" ]; then \
+          echo "unsupported toolchain on macOS: {{ toolchain }} (expected clang)" >&2; exit 1; \
+        fi; \
         if [ "{{ arch }}" = "arm" ]; then \
           just setup-macos-arm; \
         else \
           just setup-macos-x86; \
         fi ;; \
       windows) \
+        if [ -n "{{ toolchain }}" ] && [ "{{ toolchain }}" != "clang" ]; then \
+          echo "unsupported toolchain on Windows: {{ toolchain }} (expected clang)" >&2; exit 1; \
+        fi; \
         just setup-windows-x86 ;; \
       *) \
         echo "unsupported OS: {{ os }}" >&2; \
@@ -107,6 +129,11 @@ setup-linux-x86-clang:
 # Linux aarch64 — GCC toolchain
 setup-linux-arm-gcc:
     TOOLCHAIN=gcc bash contrib/setup/linux-arm-essential.sh
+    bash contrib/setup/linux-arm-ops.sh
+
+# Linux aarch64 — Clang toolchain
+setup-linux-arm-clang:
+    TOOLCHAIN=clang bash contrib/setup/linux-arm-essential.sh
     bash contrib/setup/linux-arm-ops.sh
 
 # macOS x86_64
@@ -152,7 +179,7 @@ tests-all:
     @just quality-format-check-all
     @just quality-lint-check-tk
     @just quality-proto-check-all
-    @true # security-check-all: pre-existing IBT linker failure on host clang
+    @just security-check-all
     @just security-engine-check-changes
     @just test-all
 
