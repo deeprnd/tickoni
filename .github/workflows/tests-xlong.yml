@@ -27,7 +27,7 @@ jobs:
       - uses: ./.github/actions/detect-changes
         id: detect
         with:
-          paths: '^(src/|build\.zig(\.zon)?$|justfile$|contrib/test/|contrib/make-j$|\.github/actions/|\.github/workflows/tests-xlong\.yml$)'
+          paths: '^(src/|build\.zig(\.zon)?$|justfile$|contrib/test/|contrib/build/make-j$|\.github/actions/|\.github/workflows/tests-xlong\.yml$)'
 
   xlong-tests:
     name: Engine E2E Tests

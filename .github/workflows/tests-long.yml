@@ -27,7 +27,7 @@ jobs:
       - uses: ./.github/actions/detect-changes
         id: detect
         with:
-          paths: '^(src/|build\.zig(\.zon)?$|justfile$|contrib/test/|contrib/make-j$|contrib/readme/coverage_report\.py$|\.github/actions/|\.github/workflows/tests-long\.yml$)'
+          paths: '^(src/|build\.zig(\.zon)?$|justfile$|contrib/test/|contrib/build/make-j$|contrib/readme/coverage_report\.py$|\.github/actions/|\.github/workflows/tests-long\.yml$)'
 
   long-tests:
     name: Engine Unit Tests

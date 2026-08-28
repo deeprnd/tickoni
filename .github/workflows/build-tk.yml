@@ -49,7 +49,7 @@ jobs:
 
       - name: Run Zig build
         shell: bash
-        run: bash contrib/ci-run-build-tk.sh
+        run: bash contrib/build/ci-run-build-tk.sh
 
   # ── macOS: Clang (x86_64) ──────────────────────────────────────────────────
   build-tk-macos-15-x86_64:
@@ -75,7 +75,7 @@ jobs:
 
       - name: Run Zig build
         shell: bash
-        run: bash contrib/ci-run-build-tk.sh
+        run: bash contrib/build/ci-run-build-tk.sh
 
   # ── macOS: Clang (ARM64) ───────────────────────────────────────────────────
   build-tk-macos-15-arm:
@@ -101,7 +101,7 @@ jobs:
 
       - name: Run Zig build
         shell: bash
-        run: bash contrib/ci-run-build-tk.sh
+        run: bash contrib/build/ci-run-build-tk.sh
 
   # ── macOS: Clang (x86_64, macOS 26) ────────────────────────────────────────
   build-tk-macos-26-x86_64:
@@ -127,7 +127,7 @@ jobs:
 
       - name: Run Zig build
         shell: bash
-        run: bash contrib/ci-run-build-tk.sh
+        run: bash contrib/build/ci-run-build-tk.sh
 
   # ── macOS: Clang (ARM64, macOS 26) ─────────────────────────────────────────
   build-tk-macos-26-arm:
@@ -153,7 +153,7 @@ jobs:
 
       - name: Run Zig build
         shell: bash
-        run: bash contrib/ci-run-build-tk.sh
+        run: bash contrib/build/ci-run-build-tk.sh
 
   # ── Windows: x86_64 ─────────────────────────────────────────────────────────
   build-tk-windows-x86:
@@ -184,7 +184,7 @@ jobs:
           if (-not $gitBash) {
             throw 'Git Bash not found on PATH candidates; refusing to fall back to WSL bash.exe'
           }
-          & $gitBash "$Env:GITHUB_WORKSPACE/contrib/ci-run-build-tk.sh"
+          & $gitBash "$Env:GITHUB_WORKSPACE/contrib/build/ci-run-build-tk.sh"
 
   # ── Windows: ARM64 ──────────────────────────────────────────────────────────
   build-tk-windows-arm:
@@ -215,4 +215,4 @@ jobs:
           if (-not $gitBash) {
             throw 'Git Bash not found on PATH candidates; refusing to fall back to WSL bash.exe'
           }
-          & $gitBash "$Env:GITHUB_WORKSPACE/contrib/ci-run-build-tk.sh"
+          & $gitBash "$Env:GITHUB_WORKSPACE/contrib/build/ci-run-build-tk.sh"

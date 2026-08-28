@@ -8,7 +8,7 @@ inputs:
   deps-bundle-path:
     description: 'Path of deps-bundle.sh script'
     required: true
-    default: './contrib/deps-bundle.sh'
+    default: './contrib/build/deps-bundle.sh'
   extras:
     description: Extra flags
     required: true
