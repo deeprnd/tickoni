@@ -92,6 +92,12 @@ for aggregate, required in {
         print(f"{aggregate} is missing bare dispatcher calls: {', '.join(missing_calls)}")
         raise SystemExit(1)
 
+tests_all = re.search(r"(?m)^tests-all:\n(?P<body>(?:    .*\n|\n)*)", justfile)
+tests_all_body = tests_all.group("body") if tests_all else ""
+if "just security-check-all" not in tests_all_body:
+    print("tests-all is missing the security-check-all gate")
+    raise SystemExit(1)
+
 for aggregate in ("test-unit-all", "test-integration-all", "build-all", "test-all"):
     match = re.search(
         rf"(?m)^{re.escape(aggregate)}:\n(?P<body>(?:    .*\n|\n)*)", justfile
