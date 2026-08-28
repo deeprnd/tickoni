@@ -82,6 +82,14 @@ int tk_write( int fd, void const * buf, size_t count ) {
   return n<0 ? 0 : (int)n;
 }
 
+int tk_isatty( int fd ) {
+  return isatty( fd );
+}
+
+void tk_fflush( void ) {
+  fflush( stderr );
+}
+
 #elif FD_HAS_MACOS
 
 int64_t tk_monotonic_nanos( void ) {
@@ -117,6 +125,14 @@ int tk_kill_process( int pid ) {
 int tk_write( int fd, void const * buf, size_t count ) {
   ssize_t n = write( fd, buf, count );
   return n<0 ? 0 : (int)n;
+}
+
+int tk_isatty( int fd ) {
+  return isatty( fd );
+}
+
+void tk_fflush( void ) {
+  fflush( stderr );
 }
 
 #elif FD_HAS_WINDOWS
@@ -182,6 +198,15 @@ int tk_write( int fd, void const * buf, size_t count ) {
   return n<0 ? 0 : n;
 }
 
+int tk_isatty( int fd ) {
+  /* Windows _isatty uses the same signature */
+  return _isatty( fd );
+}
+
+void tk_fflush( void ) {
+  fflush( stderr );
+}
+
 #else
 /* Fallback for other hosted platforms — stubs. */
 int64_t tk_monotonic_nanos( void ) {
@@ -216,6 +241,15 @@ int tk_kill_process( int pid ) {
 int tk_write( int fd, void const * buf, size_t count ) {
   (void)fd; (void)buf; (void)count;
   return 0;
+}
+
+int tk_isatty( int fd ) {
+  (void)fd;
+  return 0;
+}
+
+void tk_fflush( void ) {
+  /* No-op flush on unsupported platforms */
 }
 
 #endif

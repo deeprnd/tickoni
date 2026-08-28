@@ -25,3 +25,11 @@ pub fn kill(pid: ProcessId) void {
 pub fn write(fd: FileDescriptor, buf: []const u8) usize {
     return c.write(@intCast(fd), buf);
 }
+
+pub fn isatty(fd: FileDescriptor) bool {
+    return c.isatty(@intCast(fd)) != 0;
+}
+
+pub fn fflush() void {
+    c.fflush();
+}
