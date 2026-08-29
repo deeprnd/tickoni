@@ -95,11 +95,12 @@ tk_arch() {
     done
   fi
 
-  # 4. Environment variables (native architecture first — PROCESSOR_ARCHITECTURE
-  # reflects the true OS arch on ARM64 Windows; uname -m lies under WOW64 MSYS2)
+  # 4. Environment variables (native architecture first — on ARM64 under
+  # WOW64 MSYS2, PROCESSOR_ARCHITEW6432 holds the true ARM64 arch while
+  # PROCESSOR_ARCHITECTURE reports AMD64 (the WoW64 host arch).
   for candidate in \
-    "${PROCESSOR_ARCHITECTURE:-}" \
     "${PROCESSOR_ARCHITEW6432:-}" \
+    "${PROCESSOR_ARCHITECTURE:-}" \
     "${MSYSTEM_CARCH:-}" \
     "${PROCESSOR_IDENTIFIER:-}" \
     "$(uname -m 2>/dev/null || echo unknown)"; do
