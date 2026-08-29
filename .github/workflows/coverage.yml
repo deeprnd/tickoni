@@ -28,11 +28,12 @@ jobs:
         with:
           zig: 'true'
           kcov: 'true'
+          setup-recipe: setup-linux-x86-gcc
 
       - uses: ./.github/actions/build-fd-tk-libs
 
       - name: Run coverage
-        run: just test-cov-tk
+        run: just test-cov-tk-linux-x86
 
       - name: Upload coverage summary
         if: always()
@@ -59,18 +60,10 @@ jobs:
           configure-hugepages: 'false'
 
       - name: Install LLVM coverage tools
-        shell: bash
-        run: |
-          sudo apt-get install -y clang-18 clang++-18 llvm-18
-          for tool in profdata objdump ar cov; do
-            sudo update-alternatives --install /usr/bin/llvm-$tool llvm-$tool \
-              /usr/bin/llvm-${tool}-18 100
-          done
+        run: just setup-coverage-linux-x86-clang
 
       - name: Run coverage
-        run: |
-          sudo prlimit --pid $$ --memlock=unlimited
-          just test-cov-fd
+        run: just test-cov-fd-linux-x86-clang
 
       - name: Upload coverage summary
         if: always()

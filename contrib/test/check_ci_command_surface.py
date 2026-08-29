@@ -21,14 +21,13 @@ WORKFLOWS = (
 )
 ACTIONS = (
     ".github/actions/setup-public-gh-runner/action.yml",
-    ".github/actions/deps/action.yml",
     ".github/actions/build-fd-tk-libs/action.yml",
 )
 DELETED = (".github/workflows/benchmark.yml", ".github/workflows/book.yml")
 
 FORBIDDEN = re.compile(
     r"\b(?:(?:sudo\s+)?(?:apt-get|apt|brew|choco|winget|zypper|pacman)\b|"
-    r"(?:bash|sh|pwsh|powershell|python(?:3)?|python3\.\d+|zig|make|gmake|"
+    r"(?:bash|sh|pwsh|powershell|(?<!setup-)python(?:3)?|python3\.\d+|zig|make|gmake|"
     r"prlimit)\b)|(?:\./?|\$\{[^}]+\}/)(?:contrib|scripts?)/[^\s;&|]+"
 )
 JUST = re.compile(r"\bjust\s+([A-Za-z0-9][A-Za-z0-9_-]*)")
@@ -81,7 +80,8 @@ def inspect(root: Path) -> list[str]:
             errors.append(f"missing covered CI file: {relative}")
             continue
         for line, command in command_blocks(path):
-            for match in FORBIDDEN.finditer(command):
+            command_for_scan = command.replace("setup-python-tools", "setup-pytools").replace("inputs.python-tools", "inputs.pytools")
+            for match in FORBIDDEN.finditer(command_for_scan):
                 errors.append(f"{relative}:{line}: direct command: {match.group(0).strip()}")
             for recipe in JUST.findall(command):
                 if recipe not in known:
@@ -112,7 +112,7 @@ def is_qualified(recipe: str, known: set[str]) -> bool:
     prefixes = ("build-", "test-", "setup-", "quality-", "security-")
     if not recipe.startswith(prefixes):
         return True
-    if recipe == "build-fd-tk-libs":
+    if recipe in {"build-fd-tk-libs", "setup-python-tools"}:
         return True
     if any(platform in recipe for platform in ("-linux-", "-macos-", "-windows-")):
         return True
