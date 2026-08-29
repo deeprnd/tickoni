@@ -2,8 +2,9 @@
 
 set -euo pipefail
 
-# Change into Firedancer root directory
-cd "$(dirname "${BASH_SOURCE[0]}")"
+# Change into repository root directory
+FD_REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$FD_REPO_DIR"
 
 # Load OS information
 OS="$(uname -s)"
@@ -35,7 +36,7 @@ if [[ ! "$(id -u)" -eq "0" ]]; then
 fi
 
 # Install prefix
-PREFIX="$(pwd)/opt"
+PREFIX="$FD_REPO_DIR/build/opt"
 
 DEVMODE=0
 MSAN=0
@@ -573,7 +574,7 @@ install_rocksdb () {
   ROCKSDB_DISABLE_GFLAGS=1 \
   ROCKSDB_USE_IO_URING=0 \
   PORTABLE=1 \
-  CFLAGS="-isystem $(pwd)/../../include -isystem $(pwd)/../../../src/third_party/lz4/lib -isystem $(pwd)/../../../src/third_party/zstd/lib -g0 -DSNAPPY -DZSTD -DLZ4 -Wno-unknown-warning-option -Wno-uninitialized -Wno-array-bounds -Wno-stringop-overread -fPIC $EXTRA_CXXFLAGS" \
+  CFLAGS="-isystem $PREFIX/include -isystem $FD_REPO_DIR/src/third_party/lz4/lib -isystem $FD_REPO_DIR/src/third_party/zstd/lib -g0 -DSNAPPY -DZSTD -DLZ4 -Wno-unknown-warning-option -Wno-uninitialized -Wno-array-bounds -Wno-stringop-overread -fPIC $EXTRA_CXXFLAGS" \
   make -j $NJOBS \
     LITE=1 \
     V=1 \
@@ -651,7 +652,7 @@ while [[ $# -gt 0 ]]; do
     "+msan")
       shift
       MSAN=1
-      PREFIX="$(pwd)/opt-msan"
+      PREFIX="$FD_REPO_DIR/build/opt-msan"
       _CC=clang
       EXTRA_CFLAGS+=" -fsanitize=memory"
       ;;
