@@ -38,6 +38,14 @@ inputs:
     description: Official Zig release version or channel key from index.json
     required: false
     default: '0.17.0-dev.1770+5d7cf3f34'
+  setup-recipe:
+    description: Fully-qualified just setup recipe for this CI lane
+    required: false
+    default: setup-linux-x86-gcc
+  deps-recipe:
+    description: Fully-qualified just dependency recipe for this CI lane
+    required: false
+    default: setup-fd-deps-linux-x86-gcc
 
 runs:
   using: composite
@@ -46,53 +54,14 @@ runs:
 
     - name: Run platform setup
       shell: bash
-      run: |
-        os="${{ runner.os == 'Linux' && 'linux' || runner.os == 'macOS' && 'macos' || 'windows' }}"
-        arch="${{ runner.arch == 'ARM64' && 'arm' || 'x86' }}"
-        compiler="${{ inputs.compiler }}"
-        if [ "$os" = "windows" ]; then
-          if [ "${{ inputs.security }}" = "true" ]; then
-            pwsh "$GITHUB_WORKSPACE/contrib/setup/windows-${arch}.ps1" -NoLLM -Security
-          else
-            pwsh "$GITHUB_WORKSPACE/contrib/setup/windows-${arch}.ps1" -NoLLM
-          fi
-        elif [ "$os" = "linux" ] && [ "$compiler" = "clang" ]; then
-          if [ "${{ inputs.security }}" = "true" ]; then
-            SECURITY=on just "setup-${os}-${arch}-clang"
-          else
-            just "setup-${os}-${arch}-clang"
-          fi
-        elif [ "$os" = "linux" ]; then
-          if [ "${{ inputs.security }}" = "true" ]; then
-            SECURITY=on just "setup-${os}-${arch}-gcc"
-          else
-            just "setup-${os}-${arch}-gcc"
-          fi
-        else
-          if [ "${{ inputs.security }}" = "true" ]; then
-            SECURITY=on just "setup-${os}-${arch}"
-          else
-            just "setup-${os}-${arch}"
-          fi
-        fi
-
-    - name: Setup Python
-      if: inputs.python-tools != ''
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.12'
+      run: just "${{ inputs.setup-recipe }}"
 
     - name: Install Python tools
       if: inputs.python-tools != ''
       shell: bash
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install ${{ inputs.python-tools }}
+      run: just setup-python-tools "${{ inputs.python-tools }}"
 
     - name: Install Firedancer deps
       if: inputs.fd-deps == 'true'
-      uses: ./.github/actions/deps
-      with:
-        compiler: ${{ inputs.compiler }}
-        compiler-version: ${{ inputs.compiler-version }}
-        extras: +dev
+      shell: bash
+      run: just "${{ inputs.deps-recipe }}"
