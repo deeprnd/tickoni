@@ -8,7 +8,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-raw_arch="$(bash contrib/platform.sh arch)"
+# $1 is an explicit arch override (e.g. "arm64" or "x86_64" from justfile).
+# Fall back to platform.sh only when no override is given — on Windows ARM64
+# runners the MSYS2/bash process is x86_64 (WOW64), so platform.sh arch would
+# return the wrong value without an explicit override.
+if [ $# -ge 1 ] && [ -n "$1" ]; then
+  raw_arch="$1"
+else
+  raw_arch="$(bash contrib/platform.sh arch)"
+fi
 cc="${2:-${TK_WINDOWS_CC:-clang}}"
 mode="${3:-libs}"
 
