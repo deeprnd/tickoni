@@ -56,6 +56,7 @@ runs:
       shell: bash
       env:
         SETUP_RECIPE: ${{ inputs.setup-recipe }}
+        SECURITY: ${{ inputs.security == 'true' && 'on' || 'off' }}
       run: |
         set -euo pipefail
         case "$SETUP_RECIPE" in
