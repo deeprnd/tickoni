@@ -56,7 +56,8 @@ The Tickoni-owned Zig runtime builds on Windows with the following conventions:
 
 CI expectations:
 
-- `zig build check` runs on Windows with MSVC and MinGW-w64 toolchains
+- qualified `just build-tk-windows-*` recipes run the Windows build with MSVC
+  and MinGW-w64 toolchains
 - Demo conformance output is compared cross-platform against Linux reference
 - No large-page or huge-page infrastructure on Windows — retail tier does not
   attempt shared-memory topology

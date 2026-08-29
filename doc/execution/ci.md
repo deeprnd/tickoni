@@ -1,5 +1,17 @@
 # CI
 
+## Command surface
+
+CI performs repository setup, dependency installation, builds, quality checks,
+security checks, tests, coverage, conformance export, and resource preparation
+only through platform/compiler-qualified `just` recipes. Bare dispatchers remain
+available for local convenience, but are not CI interfaces. Composite actions
+are thin GitHub orchestration wrappers; their executable steps invoke `just`
+recipes rather than scripts, installers, Zig, Make, or package managers.
+
+The benchmark and book workflows were retired and are not part of the retained
+CI surface.
+
 This document describes the GitHub Actions CI workflows for Tickoni.
 
 ---
@@ -27,7 +39,8 @@ All seven Tickoni workflows trigger on pull requests targeting `main` and are al
 
 This CI surface is intentionally **not** a coexist-with-upstream layout. Tickoni replaces the broad upstream Firedancer workflow set with a smaller Tickoni-owned workflow surface that keeps the PR lanes relevant to the harness, removes Firedancer-only/self-hosted jobs, and rewrites duplicated checks into the Tickoni workflow files below. In other words: macOS support here was added alongside an intentional shrink/re-shape of the upstream CI surface, not while retaining the full upstream workflow topology unchanged.
 
-Optional workflows (`benchmark.yml`, `book.yml`) are callable via `workflow_call` but do not run on every PR.
+The retained workflows run only their checked-in triggers; retired benchmark and
+book workflows are not part of the CI surface.
 
 ---
 
