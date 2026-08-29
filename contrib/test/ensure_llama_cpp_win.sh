@@ -421,7 +421,7 @@ if [[ -z "$cc" ]]; then
         # Windows ARM: skip MSVC cl.exe — llama.cpp's ggml-cpu rejects MSVC for ARM.
         # Fall through to the clang fallback (cc="${cc:-clang}") which is the correct
         # compiler for ARM64 Windows.
-        log-info "Windows ARM host detected (${host_windows_arch:-unknown}); skipping MSVC, will use clang"
+        echo "Windows ARM host detected (${host_windows_arch:-unknown}); skipping MSVC, will use clang"
       fi
     fi
   fi

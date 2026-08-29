@@ -95,11 +95,12 @@ tk_arch() {
     done
   fi
 
-  # 4. Environment variables (MSYS / WOW64 / native)
+  # 4. Environment variables (native architecture first — PROCESSOR_ARCHITECTURE
+  # reflects the true OS arch on ARM64 Windows; uname -m lies under WOW64 MSYS2)
   for candidate in \
-    "${MSYSTEM_CARCH:-}" \
-    "${PROCESSOR_ARCHITEW6432:-}" \
     "${PROCESSOR_ARCHITECTURE:-}" \
+    "${PROCESSOR_ARCHITEW6432:-}" \
+    "${MSYSTEM_CARCH:-}" \
     "${PROCESSOR_IDENTIFIER:-}" \
     "$(uname -m 2>/dev/null || echo unknown)"; do
     if normalized="$(tk_normalize_arch "$candidate" 2>/dev/null)"; then
