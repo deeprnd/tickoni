@@ -45,15 +45,10 @@ jobs:
           setup-recipe: setup-linux-x86-gcc
           configure-hugepages: 'false'
 
-      - name: Set resource limits for tests
+      - name: Set resource limits and run tests
         run: |
           open_files="$(awk '/#define CONFIGURE_NR_OPEN_FILES/ { gsub(/[()U]/, "", $3); print $3 }' src/app/shared/commands/configure/configure.h)"
           echo "Setting NOFILE=$open_files:$open_files and MEMLOCK=unlimited"
           sudo prlimit --pid $$ --nofile="$open_files:$open_files" --memlock=unlimited
-
-      - name: Drop caches before tests
-        run: sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || echo "drop-caches skipped (may be read-only or non-root)"
-
-      - name: Run test suite
-        run: |
+          sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || echo "drop-caches skipped (may be read-only or non-root)"
           just test-unit-fd-linux-x86-gcc
