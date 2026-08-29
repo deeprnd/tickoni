@@ -55,7 +55,7 @@ Each workflow begins with a `detect-changes` job that compares the PR diff again
 
 || Workflow          | Paths that trigger jobs                                                                                  |
 | ----------------- | -------------------------------------------------------------------------------------------------------- |
-| `build-fd.yml`    | `src/`, `config/`, `deps.sh`, `contrib/build/deps-bundle.sh`, `justfile`, `.github/actions/`, workflow file   |
+| `build-fd.yml`    | `src/`, `config/`, `contrib/build/deps.sh`, `contrib/build/deps-bundle.sh`, `justfile`, `.github/actions/`, workflow file   |
 | `quality.yml`     | `src/`, `build.zig`, `build.zig.zon`, `justfile`, `contrib/quality/quality.sh`, lint script, `.github/actions/`, workflow file |
 | `security.yml`    | `src/`, `build.zig`, `build.zig.zon`, `justfile`, `contrib/security/security.sh`, gitleaks config, CodeQL config, `.github/actions/`, workflow file |
 | `tests-short.yml` | `src/app/tickoni/`, `src/tickoni/`, `build.zig`, `build.zig.zon`, `justfile`, quality/security scripts, coverage configs, `.github/actions/`, workflow file |

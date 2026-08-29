@@ -4,7 +4,7 @@ inputs:
   deps-script-path:
     description: 'Path of deps.sh script'
     required: true
-    default: './deps.sh'
+    default: './contrib/build/deps.sh'
   deps-bundle-path:
     description: 'Path of deps-bundle.sh script'
     required: true
