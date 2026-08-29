@@ -29,6 +29,7 @@ jobs:
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-linux-x86-gcc
           apt-packages: ''
           compiler: gcc
           compiler-version: system
