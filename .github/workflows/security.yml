@@ -37,7 +37,7 @@ jobs:
           zig: 'false'
 
       - name: Run check
-        run: just security-gitleaks-check-all
+        run: just security-gitleaks-check-linux-x86
 
   # ── Change-gated: seccomp, sanitizers, codeql ──
 
@@ -68,22 +68,26 @@ jobs:
         include:
           - name: SecComp
             timeout_minutes: 10
-            command: just security-seccomp-check-fd
+            command: just security-seccomp-check-linux-x86
             security: 'false'
             fd_deps: 'false'
             zig: 'false'
             apt_packages: ''
             compiler: gcc
             compiler_version: system
+            setup_recipe: setup-linux-x86-gcc
+            deps_recipe: setup-fd-deps-linux-x86-gcc
           - name: Sanitizers
             timeout_minutes: 45
-            command: just security-sanitize-check-all
+            command: just security-sanitize-check-linux-x86
             security: 'false'
             fd_deps: 'true'
             zig: 'true'
             apt_packages: clang
             compiler: clang
             compiler_version: system
+            setup_recipe: setup-linux-x86-clang
+            deps_recipe: setup-fd-deps-linux-x86-clang
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -99,6 +103,8 @@ jobs:
           fd-deps: ${{ matrix.fd_deps }}
           security: ${{ matrix.security }}
           zig: ${{ matrix.zig }}
+          setup-recipe: ${{ matrix.setup_recipe }}
+          deps-recipe: ${{ matrix.deps_recipe }}
 
       - if: matrix.zig == 'true'
         uses: ./.github/actions/build-fd-tk-libs
