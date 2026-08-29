@@ -563,6 +563,7 @@ jobs:
       - name: Setup deps + Zig
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-windows-ci-x86
           zig: 'true'
           fd-deps: 'false'
           compiler: clang
@@ -585,6 +586,7 @@ jobs:
       - name: Setup deps + Zig
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-windows-ci-arm
           zig: 'true'
           fd-deps: 'false'
           compiler: clang
