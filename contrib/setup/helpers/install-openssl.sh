@@ -4,7 +4,7 @@
 # helper so our setup scripts don't need deps.sh at all.
 #
 # Usage: bash contrib/setup/helpers/install-openssl.sh [--prefix PATH]
-# Defaults to PREFIX=./opt (matching Firedancer's default OPT=.)
+# Defaults to PREFIX=./build/opt (matching Firedancer's default OPT=build/opt)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,7 +14,7 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
 # Single source of truth for OS/arch — used by callers that need it.
 source "${SCRIPT_DIR}/../../platform.sh"
 
-PREFIX="${REPO_ROOT}/opt"
+PREFIX="${REPO_ROOT}/build/opt"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

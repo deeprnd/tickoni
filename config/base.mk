@@ -4,7 +4,7 @@ BUILDDIR:=$(BUILDDIR1)
 endif
 
 VERBOSE?=0
-OPT?=opt
+OPT?=build/opt
 SHELL:=bash
 CPPFLAGS:=-isystem ./$(OPT)/include
 RUSTFLAGS:=-C force-frame-pointers=yes
