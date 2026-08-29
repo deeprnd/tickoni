@@ -162,6 +162,27 @@ setup-windows-ci-x86:
 setup-windows-ci-arm:
     powershell -ExecutionPolicy Bypass -File contrib/setup/windows-arm.ps1 -NoLLM
 
+# Qualified CI dependency/setup entrypoints.  Workflows select these names;
+# the scripts remain implementation details of the just command surface.
+setup-python-tools packages="":
+    {{ python }} -m pip install --upgrade pip
+    {{ python }} -m pip install {{ packages }}
+
+setup-fd-deps-linux-x86-gcc:
+    CC=gcc CXX=g++ FD_AUTO_INSTALL_PACKAGES=1 bash contrib/build/deps.sh check
+
+setup-fd-deps-linux-x86-clang:
+    CC=clang CXX=clang++ FD_AUTO_INSTALL_PACKAGES=1 bash contrib/build/deps.sh check
+
+setup-fd-deps-linux-arm-gcc:
+    CC=gcc CXX=g++ FD_AUTO_INSTALL_PACKAGES=1 bash contrib/build/deps.sh check
+
+setup-fd-deps-macos-x86:
+    CC=clang CXX=clang++ FD_AUTO_INSTALL_PACKAGES=1 bash contrib/build/deps.sh check
+
+setup-fd-deps-macos-arm:
+    CC=clang CXX=clang++ FD_AUTO_INSTALL_PACKAGES=1 bash contrib/build/deps.sh check
+
 # ── Python ─────────────────────────────────────────────────────────────────
 
 python-dev-install extras="dev":
