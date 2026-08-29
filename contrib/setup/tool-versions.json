@@ -43,6 +43,7 @@
       "llvm": "LLVM.LLVM",
       "minisign": "jedisct1.minisign",
       "winlibs": "BrechtSanders.WinLibs.POSIX.UCRT",
+      "ccache": "ccache.ccache",
       "vs-build-tools": "Microsoft.VisualStudio.2022.BuildTools",
       "msys2": "MSYS2.MSYS2"
     },
