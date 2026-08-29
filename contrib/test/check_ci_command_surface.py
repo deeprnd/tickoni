@@ -31,6 +31,7 @@ FORBIDDEN = re.compile(
     r"prlimit)\b)|(?:\./?|\$\{[^}]+\}/)(?:contrib|scripts?)/[^\s;&|]+"
 )
 JUST = re.compile(r"\bjust\s+([A-Za-z0-9][A-Za-z0-9_-]*)")
+UNSAFE_INPUT = re.compile(r"\$\{\{\s*inputs\.[^}]+\}\}")
 RUN_KEY = re.compile(r"^(\s*)(?:-\s*)?run:\s*(.*)$")
 
 
@@ -81,6 +82,8 @@ def inspect(root: Path) -> list[str]:
             continue
         for line, command in command_blocks(path):
             command_for_scan = command.replace("setup-python-tools", "setup-pytools").replace("inputs.python-tools", "inputs.pytools")
+            for match in UNSAFE_INPUT.finditer(command_for_scan):
+                errors.append(f"{relative}:{line}: untrusted input interpolated into shell: {match.group(0)}")
             for match in FORBIDDEN.finditer(command_for_scan):
                 errors.append(f"{relative}:{line}: direct command: {match.group(0).strip()}")
             for recipe in JUST.findall(command):
@@ -138,6 +141,11 @@ def self_test(root: Path) -> None:
         errors = inspect(fixture)
         if not any("direct command" in error for error in errors):
             raise AssertionError("synthetic direct command was not rejected")
+
+        bad.write_text(bad.read_text() + "\n      - run: just \"${{ inputs.recipe }}\"\n")
+        errors = inspect(fixture)
+        if not any("untrusted input interpolated into shell" in error for error in errors):
+            raise AssertionError("synthetic input interpolation was not rejected")
 
 
 def main() -> int:
