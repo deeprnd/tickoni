@@ -2,6 +2,13 @@ name: Setup Firedancer Test Environment
 description: Setup public GitHub runner with Firedancer deps, online CPUs, and hugepages
 
 inputs:
+  setup-recipe:
+    description: Fully-qualified just setup recipe for this CI lane
+    required: true
+  deps-recipe:
+    description: Fully-qualified just dependency recipe for this CI lane
+    required: false
+    default: setup-fd-deps-linux-x86-gcc
   compiler:
     description: Compiler for Firedancer deps setup
     required: false
@@ -22,6 +29,8 @@ runs:
       uses: ./.github/actions/setup-public-gh-runner
       with:
         fd-deps: 'true'
+        setup-recipe: ${{ inputs.setup-recipe }}
+        deps-recipe: ${{ inputs.deps-recipe }}
         compiler: ${{ inputs.compiler }}
         compiler-version: ${{ inputs.compiler-version }}
 
