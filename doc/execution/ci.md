@@ -260,14 +260,7 @@ The job passes the secret as `env: HF_TOKEN: ${{ secrets.HF_TOKEN }}`. If the se
 
 ## Optional Workflows
 
-Two workflows are callable via `workflow_call` but do not run on every PR:
-
-| Workflow     | Purpose                                  | Requirements                         |
-| ------------ | ---------------------------------------- | ------------------------------------ |
-| `benchmark.yml` | Compares benchmark performance baseline vs PR change | `github-token` secret, ledger backtest infra |
-| `book.yml`       | Deploys VitePress docs to GitHub Pages  | VitePress build, Pages deployment    |
-
----
+There are no optional benchmark or book workflows in the retained CI surface.
 
 ## Deleted Upstream Workflows
 
@@ -287,4 +280,4 @@ The following upstream Firedancer workflows were removed from Tickoni intentiona
 | `cbmc.yml` | Requires self-hosted X64 + CBMC toolchain |
 | `test_firedancer_localnet.yml`, `test_firedancer_testnet.yml` | FD validator infra (512G runners, AGAVE, GCS) |
 
-The `benchmark.yml` and `book.yml` files remain as optional `workflow_call` targets for teams that want them.
+
