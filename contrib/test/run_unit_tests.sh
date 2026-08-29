@@ -216,7 +216,9 @@ for numa in "${NUMAS[@]}"; do
       ;;
     normal)
       free_pages=$(grep MemFree /sys/devices/system/node/node"$numa"/meminfo | awk '{print $4}')
-      free_pages=$(( free_pages / 4 ))
+      div=4
+      if [[ "$JOBS" -gt 0 ]]; then div=$JOBS; fi
+      free_pages=$(( free_pages / div ))
       ;;
   esac
   NUMA_PAGES[$numa]="$free_pages"
