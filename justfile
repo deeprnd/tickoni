@@ -333,7 +333,7 @@ test-unit-fd-linux-x86-gcc:
     set timeout := 600
     bash contrib/build/fd-build-lib.sh {{ fd_tickoni_build }} gcc-12 test "" ""
     {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
-        LDFLAGS_EXE="-Wl,-z,shstk" run-unit-test TEST_OPTS="--page-sz normal -j3"
+        LDFLAGS_EXE="-Wl,-z,shstk" run-unit-test TEST_OPTS="--page-sz normal -j 3"
 
 test-unit-fd-macos-x86:
     bash contrib/build/fd-build-lib.sh {{ fd_tickoni_build }} clang test "" ""
