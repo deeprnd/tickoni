@@ -679,5 +679,7 @@ jobs:
           name: demo-conformance-windows-arm
           path: build/demo-conformance/windows-arm
 
+      - uses: taiki-e/install-action@just
+
       - name: Compare all platform conformance bundles
         run: just compare-demo-conformance
