@@ -59,7 +59,7 @@ contrib/setup/
 
 ## What Each Script Installs
 
-Every lane script installs:
+Every Linux lane script installs:
 
 - **Zig** — from `contrib/setup/tool-versions.json` via `helpers/install-zig.py`
 - **Compiler** — from `contrib/setup/tool-versions.json` (gcc-12 on Linux x86, clang-18 on Linux/macOS/Windows)
@@ -68,7 +68,7 @@ Every lane script installs:
 - **OpenSSL** — from `contrib/setup/tool-versions.json`; built from source via
   `helpers/install-openssl.sh` (deps.sh logic) into `./opt/` so the Firedancer build
   finds it at `./opt/lib/libssl.a`
-- **Quality tools** — gitleaks, shellcheck, pre-commit
+- **Quality tools** — gitleaks, actionlint, yamllint, shellcheck, pre-commit
 - **Optional** — kcov (coverage builds), buf (protobuf)
 
 ## CI Integration

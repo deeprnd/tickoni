@@ -62,6 +62,7 @@ if [ "${SECURITY:-off}" = "on" ]; then
     ensure_cbmc_toolchain
 fi
 ensure_shellcheck
+ensure_actionlint
 ensure_precommit || log_warn "pre-commit not available"
 
 # 6. Build tools (needs sudo on Linux)

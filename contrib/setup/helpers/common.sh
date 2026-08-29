@@ -378,6 +378,43 @@ ensure_gitleaks() {
     log_info "gitleaks ${version} installed"
 }
 
+# Install actionlint from the official release archive (Linux only).
+ensure_actionlint() {
+    local version
+    version="$(read_tool_version "actionlint")"
+
+    if tool_exists actionlint; then
+        log_info "actionlint ${version} already installed"
+        return 0
+    fi
+
+    local arch asset tmpdir expected actual
+    case "$(uname -m)" in
+        x86_64) arch="amd64" ;;
+        aarch64|arm64) arch="arm64" ;;
+        *) log_error "Unsupported arch $(uname -m) for actionlint"; return 1 ;;
+    esac
+    asset="actionlint_${version}_linux_${arch}.tar.gz"
+    tmpdir="$(mktemp -d)"
+
+    log_info "Installing actionlint ${version}..."
+    curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${version}/${asset}" \
+        -o "${tmpdir}/${asset}"
+    curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_checksums.txt" \
+        -o "${tmpdir}/checksums.txt"
+    expected="$(awk -v asset="${asset}" '$2 == asset || $2 == "*" asset { print $1; exit }' "${tmpdir}/checksums.txt")"
+    actual="$(sha256sum "${tmpdir}/${asset}" | awk '{print $1}')"
+    if [ -z "${expected}" ] || [ "${expected}" != "${actual}" ]; then
+        log_error "actionlint checksum verification failed"
+        rm -rf "${tmpdir}"
+        return 1
+    fi
+    tar -xzf "${tmpdir}/${asset}" -C "${tmpdir}"
+    sudo install -m 755 "${tmpdir}/actionlint" /usr/local/bin/actionlint
+    rm -rf "${tmpdir}"
+    log_info "actionlint ${version} installed"
+}
+
 # Install the CBMC proof toolchain from the official release packages.
 # CBMC publishes Ubuntu/architecture-specific debs and Litani publishes a
 # Debian package.  These tools are only required by SECURITY=on Linux setup.
@@ -698,7 +735,7 @@ ensure_just() {
 
 # Print summary of what was installed
 print_install_summary() {
-    local tools=("zig" "gcc" "clang" "make" "just" "gitleaks" "kcov" "shellcheck" "pre-commit" "buf")
+    local tools=("zig" "gcc" "clang" "make" "just" "gitleaks" "actionlint" "yamllint" "shellcheck" "kcov" "pre-commit" "buf")
     log_info "Installed tools:"
     for tool in "${tools[@]}"; do
         if tool_exists "$tool"; then

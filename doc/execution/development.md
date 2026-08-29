@@ -25,8 +25,10 @@ just setup-env
 
 On Linux, this installs both GCC and Clang by default; pass `gcc` or `clang`
 to install only one compiler. On macOS and Windows it installs the platform's
-canonical compiler toolchain. It also installs Zig, make, gitleaks, shellcheck,
-pre-commit, buf, and Firedancer system dependencies. After `just setup-env` the
+canonical compiler toolchain. On Linux it also installs Zig, make, gitleaks,
+actionlint, yamllint, and shellcheck; all platforms install pre-commit, buf,
+and their Firedancer system dependencies.
+After `just setup-env` the
 rest of the `justfile` works without any further configuration.
 
 Useful local tools for full gates:
