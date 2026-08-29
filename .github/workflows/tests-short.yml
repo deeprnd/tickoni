@@ -77,7 +77,7 @@ jobs:
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
-          build-profile: macos-x86_64
+          build-recipe: build-fd-macos-x86
 
       - name: Run unit tests
         run: just test-unit-tk-macos-x86
@@ -105,7 +105,7 @@ jobs:
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
-          build-profile: macos-arm
+          build-recipe: build-fd-macos-arm
 
       - name: Run unit tests
         run: just test-unit-tk-macos-arm
@@ -133,7 +133,7 @@ jobs:
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
-          build-profile: macos-x86_64
+          build-recipe: build-fd-macos-x86
 
       - name: Run unit tests
         run: just test-unit-tk-macos-x86
@@ -161,7 +161,7 @@ jobs:
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
-          build-profile: macos-arm
+          build-recipe: build-fd-macos-arm
 
       - name: Run unit tests
         run: just test-unit-tk-macos-arm
@@ -183,7 +183,7 @@ jobs:
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
-          build-profile: windows-x86_64
+          build-recipe: build-fd-windows-x86
 
       - name: Run unit tests
         run: just test-unit-tk-windows-x86
@@ -205,7 +205,7 @@ jobs:
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
-          build-profile: windows-arm
+          build-recipe: build-fd-windows-arm
 
       - name: Run unit tests
         run: just test-unit-tk-windows-arm
@@ -233,7 +233,7 @@ jobs:
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
-          build-profile: macos-x86_64
+          build-recipe: build-fd-macos-x86
 
       - name: Run demo conformance suite
         run: just test-demo-tk-macos-x86
@@ -261,7 +261,7 @@ jobs:
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
-          build-profile: macos-arm
+          build-recipe: build-fd-macos-arm
 
       - name: Run demo conformance suite
         run: just test-demo-tk-macos-arm
@@ -289,7 +289,7 @@ jobs:
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
-          build-profile: macos-x86_64
+          build-recipe: build-fd-macos-x86
 
       - name: Run demo conformance suite
         run: just test-demo-tk-macos-x86
@@ -317,7 +317,7 @@ jobs:
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
-          build-profile: macos-arm
+          build-recipe: build-fd-macos-arm
 
       - name: Run demo conformance suite
         run: just test-demo-tk-macos-arm
@@ -377,7 +377,7 @@ jobs:
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
-          build-profile: macos-x86_64
+          build-recipe: build-fd-macos-x86
 
       - name: Build and export macOS 15 x86_64 conformance bundle
         run: just export-demo-conformance-macos-15-x86_64
@@ -411,7 +411,7 @@ jobs:
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
-          build-profile: macos-arm
+          build-recipe: build-fd-macos-arm
 
       - name: Build and export macOS 15 ARM conformance bundle
         run: just export-demo-conformance-macos-15-arm
@@ -445,7 +445,7 @@ jobs:
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
-          build-profile: macos-x86_64
+          build-recipe: build-fd-macos-x86
 
       - name: Build and export macOS 26 x86_64 conformance bundle
         run: just export-demo-conformance-macos-26-x86_64
@@ -479,7 +479,7 @@ jobs:
 
       - uses: ./.github/actions/build-fd-tk-libs
         with:
-          build-profile: macos-arm
+          build-recipe: build-fd-macos-arm
 
       - name: Build and export macOS 26 ARM conformance bundle
         run: just export-demo-conformance-macos-26-arm

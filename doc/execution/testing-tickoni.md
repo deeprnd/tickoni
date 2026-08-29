@@ -85,7 +85,10 @@ The repository currently has:
   `contrib/test/compare_demo_conformance.py` (ignores platform-specific fields)
 - Aggregate gates that compose build, quality, security, and test checks
 
-## Core Commands
+## Test Commands
+
+CI uses the platform-qualified forms of these recipes. The bare forms below
+are local host dispatchers only.
 
 Tickoni-owned Zig:
 

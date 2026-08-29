@@ -13,7 +13,8 @@ wrapper:
 - `just ...` as the repo-facing wrapper for common build and test flows
 - Firedancer-side builds and tests via `just build-fd`, `just build-fd-dev`,
   and `just test-e2e-fd`
-- `zig build ...` for the Tickoni supervisor and harness unit tests
+- qualified `just build-tk-*` and `just test-unit-tk-*` recipes for Tickoni's
+  Zig supervisor and harness unit tests; Zig is an implementation detail
 
 Quick start
 -----------
@@ -191,7 +192,8 @@ It does not replace:
 
 Those repo-facing commands are covered by the Firedancer-side build described in
 [Build System](../build-system.md). The reason the Firedancer Make
-`integration-test` target is surfaced as `just test-e2e-fd` is documented in
+The `integration-test` target is surfaced as `just test-e2e-fd`, which is
+documented in
 [Testing](../testing.md).
 
 Instead, it builds the Tickoni-owned supervisor layer around the
