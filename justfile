@@ -188,8 +188,16 @@ setup-coverage-linux-x86-clang:
     for tool in profdata objdump ar cov; do sudo update-alternatives --install /usr/bin/llvm-$tool llvm-$tool /usr/bin/llvm-${tool}-18 100; done
 
 test-prep-linux-x86:
-    sudo prlimit --pid $$ --nofile="$(grep -oE '[0-9]+U' src/app/shared/commands/configure/configure.h | tr -d U):$(grep -oE '[0-9]+U' src/app/shared/commands/configure/configure.h | tr -d U)" --memlock=unlimited
-    just mem-drop-caches || true
+    # Increase file descriptors and memlock for the current shell session.
+    # NOFILE: read from CONFIGURE_NR_OPEN_FILES in configure.h.
+    # MEMLOCK: set to unlimited so tests can mlock large wksp regions.
+    open_files="$$(grep -oE '[0-9]+' src/app/shared/commands/configure/configure.h | head -1 || echo 1024000)"
+    echo "test-prep: setting NOFILE to $$open_files and MEMLOCK to unlimited..."
+    prlimit --pid $$ --nofile="$$open_files:$$open_files" --memlock=unlimited || echo "test-prep: prlimit skipped (may already be set)"
+    # Free page cache, dentries, and inodes so tests can mlock memory.
+    echo "test-prep: dropping caches (sync + drop_caches=3)..."
+    just mem-drop-caches
+    echo "test-prep: done."
 
 # ── Python ─────────────────────────────────────────────────────────────────
 
@@ -840,7 +848,9 @@ mem-free page_type="gigantic" numa="0":
     just mem-drop-caches
 
 mem-drop-caches:
-    sync
+    # Free page cache, dentries, and inodes so tests can mlock memory.
+    # sync alone does not free memory — drop_caches is required.
+    sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || echo "mem-drop-caches: could not free caches (may be read-only or non-root)"
 
 # ── Kill test processes ────────────────────────────────────────────────────────
 
