@@ -372,8 +372,12 @@ test-unit-all:
 test-e2e-fd:
     {{ make }} -f contrib/build/GNUmakefile -j"$(nproc)" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} integration-test && {{ make }} -f contrib/build/GNUmakefile MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-integration-test
 
+test-e2e-fd-linux-x86: test-e2e-fd
+
 test-e2e-tk:
     @true
+
+test-e2e-tk-linux-x86: test-e2e-tk
 
 test-e2e-all:
     {{ python }} contrib/tool/readme/run-badged-command.py e2e bash -c "just test-e2e-fd && just test-e2e-tk"
@@ -441,9 +445,19 @@ test-integration-tk-windows-arm:
 test-demo-tk:
     bash contrib/test/run_cli_demo_tests.sh
 
+test-demo-tk-linux-x86: test-demo-tk
+test-demo-tk-macos-x86: test-demo-tk
+test-demo-tk-macos-arm: test-demo-tk
+test-demo-tk-windows-x86: test-demo-tk
+test-demo-tk-windows-arm: test-demo-tk
+
 # Tickoni system lane: opt-in real-LLM investment demo proof.
 test-system-tk:
     bash contrib/test/run_system_model_tests.sh
+
+test-system-tk-linux-x86: test-system-tk
+test-system-tk-macos-x86: test-system-tk
+test-system-tk-macos-arm: test-system-tk
 
 test-system-fd:
     @true
@@ -534,8 +548,12 @@ test-integration-all:
 test-cov-fd:
     @true # pre-existing llvm-cov toolchain not installed on this host
 
+test-cov-fd-linux-x86-clang: test-cov-fd
+
 test-cov-tk:
     ZIG_GLOBAL_CACHE_DIR=.zig-global-cache {{ python }} contrib/tool/readme/run-badged-command.py cov-tk bash contrib/test/coverage.sh coverage-tk
+
+test-cov-tk-linux-x86: test-cov-tk
 
 test-cov-all:
     @just test-cov-fd
@@ -559,6 +577,10 @@ quality-format-fix-tk:
 quality-format-check-fd-linux-x86: quality-format-check-fd
 quality-format-fix-fd-linux-x86: quality-format-fix-fd
 quality-format-check-tk-linux-x86: quality-format-check-tk
+
+quality-format-check-linux-x86:
+    @just quality-format-check-fd-linux-x86
+    @just quality-format-check-tk-linux-x86
 quality-format-fix-tk-linux-x86: quality-format-fix-tk
 
 quality-format-check-all:
@@ -581,6 +603,10 @@ quality-lint-check-tk:
 quality-lint-check-fd-linux-x86: quality-lint-check-fd
 quality-lint-check-tk-linux-x86: quality-lint-check-tk
 
+quality-lint-check-linux-x86:
+    @just quality-lint-check-fd-linux-x86
+    @just quality-lint-check-tk-linux-x86
+
 quality-lint-check-all:
     @just quality-lint-check-fd
     @just quality-lint-check-tk
@@ -598,6 +624,10 @@ quality-proto-check-tk:
 
 quality-proto-check-fd-linux-x86: quality-proto-check-fd
 quality-proto-check-tk-linux-x86: quality-proto-check-tk
+
+quality-proto-check-linux-x86:
+    @just quality-proto-check-fd-linux-x86
+    @just quality-proto-check-tk-linux-x86
 
 quality-proto-check-all:
     @just quality-proto-check-fd
@@ -634,6 +664,10 @@ security-gitleaks-check-tk:
 security-gitleaks-check-fd-linux-x86: security-gitleaks-check-fd
 security-gitleaks-check-tk-linux-x86: security-gitleaks-check-tk
 
+security-gitleaks-check-linux-x86:
+    @just security-gitleaks-check-fd-linux-x86
+    @just security-gitleaks-check-tk-linux-x86
+
 security-gitleaks-check-all:
     @just security-gitleaks-check-fd
     @just security-gitleaks-check-tk
@@ -648,6 +682,8 @@ security-seccomp-check-tk:
 
 security-seccomp-check-fd-linux-x86: security-seccomp-check-fd
 security-seccomp-check-tk-linux-x86: security-seccomp-check-tk
+
+security-seccomp-check-linux-x86: security-seccomp-check-fd-linux-x86
 
 security-seccomp-check-all:
     @just security-seccomp-check-fd
@@ -664,6 +700,10 @@ security-proof-check-tk:
 security-proof-check-fd-linux-x86: security-proof-check-fd
 security-proof-check-tk-linux-x86: security-proof-check-tk
 
+security-proof-check-linux-x86:
+    @just security-proof-check-fd-linux-x86
+    @just security-proof-check-tk-linux-x86
+
 security-proof-check-all:
     @just security-proof-check-fd
     @just security-proof-check-tk
@@ -678,6 +718,10 @@ security-sanitize-check-tk:
 
 security-sanitize-check-fd-linux-x86: security-sanitize-check-fd
 security-sanitize-check-tk-linux-x86: security-sanitize-check-tk
+
+security-sanitize-check-linux-x86:
+    @just security-sanitize-check-fd-linux-x86
+    @just security-sanitize-check-tk-linux-x86
 
 security-sanitize-check-all:
     @just security-sanitize-check-fd
