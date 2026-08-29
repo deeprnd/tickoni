@@ -42,9 +42,13 @@ jobs:
       - name: Setup Firedancer test environment
         uses: ./.github/actions/setup-fd-test
         with:
-          setup-recipe: setup-linux-x86-gcc
-          deps-recipe: setup-fd-deps-linux-x86-gcc
           configure-hugepages: 'false'
+
+      - name: Set resource limits for tests
+        run: |
+          open_files="$(awk '/#define CONFIGURE_NR_OPEN_FILES/ { gsub(/[()U]/, "", $3); print $3 }' src/app/shared/commands/configure/configure.h)"
+          echo "Setting NOFILE=$open_files:$open_files and MEMLOCK=unlimited"
+          sudo prlimit --pid $$ --nofile="$open_files:$open_files" --memlock=unlimited
 
       - name: Run test suite
         run: |
