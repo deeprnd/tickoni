@@ -106,10 +106,29 @@ case "$(uname -s)" in
     build_dir="$(cygpath -m "${llama_dir}")/build"
     llama_src="$(cygpath -m "${llama_dir}")"
     rm -rf "${llama_dir}/build"
+    # Detect ARM64: llama.cpp rejects MSVC on ARM, requires clang+Ninja.
+    arm64=false
+    if [[ "${PROCESSOR_ARCHITEW6432:-}" == "ARM64" ]] || \
+       [[ "${PROCESSOR_ARCHITECTURE:-}" == "ARM64" ]] || \
+       [[ "$(uname -m 2>/dev/null)" == "aarch64" ]] || \
+       [[ "$(uname -m 2>/dev/null)" == "arm64" ]]; then
+      arm64=true
+    fi
     if (( gpu_build )); then
-      echo "building llama.cpp (CUDA, VS2022 x64) in ${build_dir}"
-      powershell.exe -NoProfile -Command "& { cmd /c '\"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat\" x64 >nul && cd /d ${llama_src} && cmake -G \"Visual Studio 17 2022\" -A x64 -B ${build_dir} -S ${llama_src} -DGGML_CUDA=ON && cmake --build ${build_dir} --config Release --target llama-server -j 4' }"
-    else
+      if $arm64; then
+        echo "building llama.cpp (CUDA, VS2022 x64) in ${build_dir}"
+        # CUDA not supported on ARM64 Windows — fall through to CPU build
+      else
+        echo "building llama.cpp (CUDA, VS2022 x64) in ${build_dir}"
+        powershell.exe -NoProfile -Command "& { cmd /c '\"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat\" x64 >nul && cd /d ${llama_src} && cmake -G \"Visual Studio 17 2022\" -A x64 -B ${build_dir} -S ${llama_src} -DGGML_CUDA=ON && cmake --build ${build_dir} --config Release --target llama-server -j 4' }"
+      fi
+      # On ARM64 with --gpu, fall through to CPU build (no CUDA on Windows ARM)
+    fi
+    if $arm64; then
+      echo "building llama.cpp (CPU, clang + Ninja, ARM64) in ${build_dir}"
+      cmake -G Ninja -S "${llama_src}" -B "${build_dir}" -DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS
+      cmake --build "${build_dir}" --config Release --target llama-server -j 4
+    elif (( gpu_build == 0 )); then
       echo "building llama.cpp (CPU, VS2022 x64) in ${build_dir}"
       powershell.exe -NoProfile -Command "& { cmd /c '\"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat\" x64 >nul && cd /d ${llama_src} && cmake -G \"Visual Studio 17 2022\" -A x64 -B ${build_dir} -S ${llama_src} && cmake --build ${build_dir} --config Release --target llama-server -j 4' }"
     fi
