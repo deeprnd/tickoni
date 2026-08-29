@@ -124,8 +124,11 @@ function Install-PreCommit {
 
 Add-WindowsSetupPaths
 
-if ($env:GITHUB_ENV -and $env:PROCESSOR_ARCHITECTURE) {
-    Add-Content -Path $env:GITHUB_ENV -Value "TK_WINDOWS_HOST_ARCH=$($env:PROCESSOR_ARCHITECTURE)"
+# Native ARM64 runner: hardcode ARM64 because $env:PROCESSOR_ARCHITECTURE
+# reports AMD64 under WOW64 MSYS2 (the WoW64 host arch), which would
+# normalize to x86 and break platform detection and llama.cpp clang gating.
+if ($env:GITHUB_ENV) {
+    Add-Content -Path $env:GITHUB_ENV -Value "TK_WINDOWS_HOST_ARCH=ARM64"
 }
 
 function Install-WinGet {
