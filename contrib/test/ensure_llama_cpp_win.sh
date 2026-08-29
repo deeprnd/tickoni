@@ -410,18 +410,20 @@ if [[ -z "$cc" ]]; then
   else
     vc_root="$(find_msvc_root || true)"
     if [[ -n "$vc_root" ]]; then
-      msvc_target=x64
-      echo "resolved MSVC root: ${vc_root}"
-      echo "loading MSVC environment from ${vc_root} (${msvc_target})"
-      setup_msvc_env "$vc_root" "$msvc_target"
-      if [[ "$host_windows_arm" -eq 0 ]] && command -v cl >/dev/null 2>&1; then
-        cc="cl"
-        echo "using MSVC toolchain (cl via discovered MSVC root)"
-      else
-        # Windows ARM: skip MSVC cl.exe — llama.cpp's ggml-cpu rejects MSVC for ARM.
-        # Fall through to the clang fallback (cc="${cc:-clang}") which is the correct
-        # compiler for ARM64 Windows.
+      # Windows ARM: skip MSVC entirely — llama.cpp's ggml-cpu rejects MSVC for ARM.
+      # Don't call setup_msvc_env: it pollutes PATH/INCLUDE/LIB/VCINSTALLDIR which
+      # causes CMake to detect/prefer MSVC even when -DCMAKE_C_COMPILER=clang is set.
+      if [[ "$host_windows_arm" -ne 0 ]]; then
         echo "Windows ARM host detected (${host_windows_arch:-unknown}); skipping MSVC, will use clang"
+      else
+        msvc_target=x64
+        echo "resolved MSVC root: ${vc_root}"
+        echo "loading MSVC environment from ${vc_root} (${msvc_target})"
+        setup_msvc_env "$vc_root" "$msvc_target"
+        if command -v cl >/dev/null 2>&1; then
+          cc="cl"
+          echo "using MSVC toolchain (cl via discovered MSVC root)"
+        fi
       fi
     fi
   fi
