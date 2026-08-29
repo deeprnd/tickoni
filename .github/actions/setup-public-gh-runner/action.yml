@@ -93,7 +93,7 @@ runs:
       run: |
         set -euo pipefail
         case "$DEPS_RECIPE" in
-          setup-fd-deps-linux-x86-gcc|setup-fd-deps-linux-x86-clang)
+          setup-fd-deps-linux-x86-gcc|setup-fd-deps-linux-x86-clang|setup-fd-deps-linux-arm-gcc)
             just "$DEPS_RECIPE"
             ;;
           *)
