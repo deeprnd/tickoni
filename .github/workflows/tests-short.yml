@@ -44,6 +44,7 @@ jobs:
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-linux-x86-gcc
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
@@ -342,6 +343,7 @@ jobs:
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-linux-x86-gcc
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'

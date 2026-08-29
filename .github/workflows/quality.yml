@@ -60,6 +60,7 @@ jobs:
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-linux-x86-gcc
           apt-packages: shellcheck
           python-tools: pre-commit
           zig: 'true'

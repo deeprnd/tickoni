@@ -42,6 +42,7 @@ jobs:
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-linux-x86-gcc
           fd-deps: 'true'
 
       - name: Enable all CPUs
@@ -71,6 +72,7 @@ jobs:
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-linux-x86-gcc
           zig: 'true'
           apt-packages: 'cmake libopenblas-dev libopenblas64-dev'
           python-tools: 'huggingface_hub[cli]'
