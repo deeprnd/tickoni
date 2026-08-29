@@ -77,7 +77,7 @@ runs:
       run: |
         set -euo pipefail
         case "$PYTHON_TOOLS" in
-          pre-commit|huggingface_hub[cli])
+          pre-commit|huggingface_hub\[cli\])
             just setup-python-tools "$PYTHON_TOOLS"
             ;;
           *)
