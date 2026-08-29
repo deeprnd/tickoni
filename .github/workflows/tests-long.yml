@@ -51,7 +51,9 @@ jobs:
           echo "Setting NOFILE=$open_files:$open_files and MEMLOCK=unlimited"
           sudo prlimit --pid $$ --nofile="$open_files:$open_files" --memlock=unlimited
 
+      - name: Drop caches before tests
+        run: sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || echo "drop-caches skipped (may be read-only or non-root)"
+
       - name: Run test suite
         run: |
-          just test-prep-linux-x86
           just test-unit-fd-linux-x86-gcc
