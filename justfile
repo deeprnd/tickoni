@@ -188,7 +188,7 @@ setup-coverage-linux-x86-clang:
     for tool in profdata objdump ar cov; do sudo update-alternatives --install /usr/bin/llvm-$tool llvm-$tool /usr/bin/llvm-${tool}-18 100; done
 
 test-prep-linux-x86:
-    sudo prlimit --pid $$ --nofile="$(awk '/#define CONFIGURE_NR_OPEN_FILES/ { gsub(/[()U]/, "", $$3); print $$3 }' src/app/shared/commands/configure/configure.h):$(awk '/#define CONFIGURE_NR_OPEN_FILES/ { gsub(/[()U]/, "", $$3); print $$3 }' src/app/shared/commands/configure/configure.h)" --memlock=unlimited
+    sudo prlimit --pid $$ --nofile="$(grep -oE '[0-9]+U' src/app/shared/commands/configure/configure.h | tr -d U):$(grep -oE '[0-9]+U' src/app/shared/commands/configure/configure.h | tr -d U)" --memlock=unlimited
     just mem-drop-caches || true
 
 # ── Python ─────────────────────────────────────────────────────────────────
