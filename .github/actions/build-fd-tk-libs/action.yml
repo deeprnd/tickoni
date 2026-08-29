@@ -12,4 +12,16 @@ runs:
   steps:
     - name: Build libfd_tango, libfd_util, libfd_ballet, libfd_disco, and libfd_waltz
       shell: bash
-      run: just "${{ inputs.build-recipe }}"
+      env:
+        BUILD_RECIPE: ${{ inputs.build-recipe }}
+      run: |
+        set -euo pipefail
+        case "$BUILD_RECIPE" in
+          build-fd-tk-libs|build-fd-macos-x86|build-fd-macos-arm|build-fd-windows-x86|build-fd-windows-arm)
+            just "$BUILD_RECIPE"
+            ;;
+          *)
+            echo "unsupported Firedancer library recipe: $BUILD_RECIPE" >&2
+            exit 1
+            ;;
+        esac

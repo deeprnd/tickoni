@@ -54,14 +54,50 @@ runs:
 
     - name: Run platform setup
       shell: bash
-      run: just "${{ inputs.setup-recipe }}"
+      env:
+        SETUP_RECIPE: ${{ inputs.setup-recipe }}
+      run: |
+        set -euo pipefail
+        case "$SETUP_RECIPE" in
+          setup-linux-x86-gcc|setup-linux-x86-clang|setup-linux-arm-gcc|setup-macos-x86|setup-macos-arm|setup-windows-ci-x86|setup-windows-ci-arm)
+            just "$SETUP_RECIPE"
+            ;;
+          *)
+            echo "unsupported setup recipe: $SETUP_RECIPE" >&2
+            exit 1
+            ;;
+        esac
 
     - name: Install Python tools
       if: inputs.python-tools != ''
       shell: bash
-      run: just setup-python-tools "${{ inputs.python-tools }}"
+      env:
+        PYTHON_TOOLS: ${{ inputs.python-tools }}
+      run: |
+        set -euo pipefail
+        case "$PYTHON_TOOLS" in
+          pre-commit|huggingface_hub[cli])
+            just setup-python-tools "$PYTHON_TOOLS"
+            ;;
+          *)
+            echo "unsupported Python tool set" >&2
+            exit 1
+            ;;
+        esac
 
     - name: Install Firedancer deps
       if: inputs.fd-deps == 'true'
       shell: bash
-      run: just "${{ inputs.deps-recipe }}"
+      env:
+        DEPS_RECIPE: ${{ inputs.deps-recipe }}
+      run: |
+        set -euo pipefail
+        case "$DEPS_RECIPE" in
+          setup-fd-deps-linux-x86-gcc|setup-fd-deps-linux-x86-clang)
+            just "$DEPS_RECIPE"
+            ;;
+          *)
+            echo "unsupported Firedancer dependency recipe: $DEPS_RECIPE" >&2
+            exit 1
+            ;;
+        esac
