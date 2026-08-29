@@ -417,10 +417,11 @@ if [[ -z "$cc" ]]; then
       if [[ "$host_windows_arm" -eq 0 ]] && command -v cl >/dev/null 2>&1; then
         cc="cl"
         echo "using MSVC toolchain (cl via discovered MSVC root)"
-      elif [[ "$host_windows_arm" -eq 1 ]] && command -v cl >/dev/null 2>&1; then
-        cc="cl"
-        force_x64_toolchain=1
-        echo "Windows ARM host detected (${host_windows_arch:-unknown}); forcing x64 MSVC toolchain for llama.cpp to avoid ARM backend mixing on CI/local MSYS shells"
+      else
+        # Windows ARM: skip MSVC cl.exe — llama.cpp's ggml-cpu rejects MSVC for ARM.
+        # Fall through to the clang fallback (cc="${cc:-clang}") which is the correct
+        # compiler for ARM64 Windows.
+        log-info "Windows ARM host detected (${host_windows_arch:-unknown}); skipping MSVC, will use clang"
       fi
     fi
   fi

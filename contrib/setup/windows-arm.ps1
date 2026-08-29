@@ -241,6 +241,7 @@ Install-Package "python"
 Install-Package "shellcheck"
 Install-Package "pre-commit"
 Install-Package "buf"
+Install-Package "ccache"
 Add-PathEntry (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links')
 
 # -- 1c. pkg-config (required by Zig Windows cross-compilation) ---------------
