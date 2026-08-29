@@ -42,6 +42,7 @@ jobs:
       - name: Setup Firedancer test environment
         uses: ./.github/actions/setup-fd-test
         with:
+          setup-recipe: setup-linux-x86-gcc
           configure-hugepages: 'false'
 
       - name: Set resource limits for tests
