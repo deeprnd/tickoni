@@ -183,6 +183,14 @@ setup-fd-deps-macos-x86:
 setup-fd-deps-macos-arm:
     CC=clang CXX=clang++ FD_AUTO_INSTALL_PACKAGES=1 bash contrib/build/deps.sh check
 
+setup-coverage-linux-x86-clang:
+    sudo apt-get install -y clang-18 clang++-18 llvm-18
+    for tool in profdata objdump ar cov; do sudo update-alternatives --install /usr/bin/llvm-$tool llvm-$tool /usr/bin/llvm-${tool}-18 100; done
+
+test-prep-linux-x86:
+    sudo prlimit --pid $$ --nofile="$(awk '/#define CONFIGURE_NR_OPEN_FILES/ { gsub(/[()U]/, "", $$3); print $$3 }' src/app/shared/commands/configure/configure.h):$(awk '/#define CONFIGURE_NR_OPEN_FILES/ { gsub(/[()U]/, "", $$3); print $$3 }' src/app/shared/commands/configure/configure.h)" --memlock=unlimited
+    just mem-drop-caches || true
+
 # ── Python ─────────────────────────────────────────────────────────────────
 
 python-dev-install extras="dev":
@@ -471,6 +479,38 @@ test-demo-tk-macos-x86: test-demo-tk
 test-demo-tk-macos-arm: test-demo-tk
 test-demo-tk-windows-x86: test-demo-tk
 test-demo-tk-windows-arm: test-demo-tk
+
+# Build and export the platform conformance artifact consumed by the compare job.
+export-demo-conformance-linux:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }}
+    {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/linux
+
+export-demo-conformance-macos-15-x86_64:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }}
+    {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-15-x86_64
+
+export-demo-conformance-macos-15-arm:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }}
+    {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-15-arm
+
+export-demo-conformance-macos-26-x86_64:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }}
+    {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-26-x86_64
+
+export-demo-conformance-macos-26-arm:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }}
+    {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-26-arm
+
+export-demo-conformance-windows-x86:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }} --summary all
+    {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/windows-x86
+
+export-demo-conformance-windows-arm:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }} --summary all
+    {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/windows-arm
+
+compare-demo-conformance:
+    {{ python }} contrib/test/compare_demo_conformance.py build/demo-conformance/linux/conformance.json build/demo-conformance/macos-15-x86_64/conformance.json build/demo-conformance/macos-15-arm/conformance.json build/demo-conformance/macos-26-x86_64/conformance.json build/demo-conformance/macos-26-arm/conformance.json build/demo-conformance/windows-x86/conformance.json build/demo-conformance/windows-arm/conformance.json
 
 # Tickoni system lane: opt-in real-LLM investment demo proof.
 test-system-tk:

@@ -46,6 +46,5 @@ jobs:
 
       - name: Run test suite
         run: |
-          sudo prlimit --pid $$ --nofile="$(awk '/#define CONFIGURE_NR_OPEN_FILES/ { gsub(/[()U]/, "", $3); print $3 }' src/app/shared/commands/configure/configure.h):$(awk '/#define CONFIGURE_NR_OPEN_FILES/ { gsub(/[()U]/, "", $3); print $3 }' src/app/shared/commands/configure/configure.h)" --memlock=unlimited
-          just mem-drop-caches || true
-          just test-unit-fd
+          just test-prep-linux-x86
+          just test-unit-fd-linux-x86-gcc
