@@ -292,5 +292,3 @@ The following upstream Firedancer workflows were removed from Tickoni intentiona
 | `codeql.yml` | Requires CodeQL runner group |
 | `cbmc.yml` | Requires self-hosted X64 + CBMC toolchain |
 | `test_firedancer_localnet.yml`, `test_firedancer_testnet.yml` | FD validator infra (512G runners, AGAVE, GCS) |
-
-
