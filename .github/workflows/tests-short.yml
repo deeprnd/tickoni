@@ -70,6 +70,7 @@ jobs:
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-macos-x86
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
@@ -98,6 +99,7 @@ jobs:
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-macos-arm
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
@@ -126,6 +128,7 @@ jobs:
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-macos-x86
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
@@ -154,6 +157,7 @@ jobs:
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-macos-arm
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
@@ -370,6 +374,7 @@ jobs:
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-macos-x86
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
@@ -404,6 +409,7 @@ jobs:
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-macos-arm
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
@@ -438,6 +444,7 @@ jobs:
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-macos-x86
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
@@ -472,6 +479,7 @@ jobs:
       - name: Setup public GitHub runner
         uses: ./.github/actions/setup-public-gh-runner
         with:
+          setup-recipe: setup-macos-arm
           zig: 'true'
           kcov: 'false'
           fd-deps: 'false'
