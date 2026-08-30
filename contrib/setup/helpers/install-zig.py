@@ -194,9 +194,61 @@ def _which(cmd):
 def _find_minisign():
     """Find minisign binary (minisign-verify on OpenBSD, minisig on Ubuntu, minisign elsewhere)."""
     for name in ("minisign-verify", "minisig", "minisign"):
-        if _which(name):
-            return name
+        found = _which(name)
+        if found:
+            return found
     return None
+
+
+def _install_minisign_windows_github(platform_str, dry_run=False):
+    """Download minisign binary from GitHub releases when winget fails."""
+    # Use the latest released version from GitHub
+    # We hard-code 0.12 since it is stable and already released;
+    # if a newer version appears we just update this constant.
+    version = "0.12"
+    archive_name = f"minisign-{version}-win64.zip"
+    archive_url = f"https://github.com/jedisct1/minisign/releases/download/{version}/{archive_name}"
+    print(f"[minisign] downloading {archive_url}")
+    if dry_run:
+        return False
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        archive_path = os.path.join(tmpdir, archive_name)
+        dl_result = subprocess.run(
+            ["curl", "-sSfL", "--retry", "3", "-o", archive_path, archive_url],
+            capture_output=True, text=True
+        )
+        if dl_result.returncode != 0 or not os.path.getsize(archive_path) > 0:
+            print(f"[minisign] download failed for {archive_name}", file=sys.stderr)
+            return False
+
+        # Extract to temp dir
+        subprocess.run(["unzip", "-o", archive_path, "-d", tmpdir], check=True)
+
+        # Find the binary
+        bin_name = "minisign.exe"
+        bin_path = None
+        for root, dirs, files in os.walk(tmpdir):
+            if bin_name in files:
+                bin_path = os.path.join(root, bin_name)
+                break
+        if not bin_path:
+            print("[minisign] minisign.exe not found in archive", file=sys.stderr)
+            return False
+
+        # Install to a stable location on PATH
+        install_dir = Path(os.environ.get("LOCALAPPDATA", r"C:\Users\runneradmin\AppData\Local")) / "Minisign"
+        install_dir.mkdir(parents=True, exist_ok=True)
+        dest = install_dir / bin_name
+        shutil.copy2(bin_path, dest)
+
+        # Prepend to current process PATH so we can find it immediately
+        os.environ["PATH"] = str(install_dir) + os.pathsep + os.environ.get("PATH", "")
+
+        if _find_minisign():
+            print(f"[minisign] installed via GitHub release to {dest}")
+            return True
+        return False
 
 
 def _find_winget():
@@ -256,7 +308,7 @@ def _ensure_minisign_installed(platform_str, dry_run=False):
         if result.returncode == 0 and _find_minisign():
             print("[minisign] installed via brew")
             return True
-    # Windows: winget install minisign
+    # Windows: winget install minisign (with fallback to GitHub release)
     if is_windows(platform_str):
         winget = _find_winget()
         if winget:
@@ -264,12 +316,23 @@ def _ensure_minisign_installed(platform_str, dry_run=False):
                 [winget, "install", "--id", "jedisct1.minisign", "--silent", "--accept-package-agreements", "--accept-source-agreements"],
                 capture_output=True, text=True
             )
-            if result.returncode == 0:
-                # Refresh PATH so we can find the newly installed minisign
+            output = (result.stdout or "") + (result.stderr or "")
+            # Winget returns 0 on success, but also returns 1638 (already installed)
+            # and may return non-zero even when the package is present.
+            # Parse output for success indicators.
+            if (result.returncode == 0
+                    or "Successfully installed" in output
+                    or "already installed" in output
+                    or _find_minisign()):
                 _refresh_windows_path()
                 if _find_minisign():
                     print("[minisign] installed via winget")
                     return True
+                # Winget may have installed to a non-PATH location; try GitHub fallback
+        # Fallback: download from GitHub releases
+        print("[minisign] winget did not yield a usable binary, trying GitHub release")
+        if _install_minisign_windows_github(platform_str, dry_run=False):
+            return True
     print("[minisign] could not install minisign automatically — cannot verify Zig", file=sys.stderr)
     return False
 
