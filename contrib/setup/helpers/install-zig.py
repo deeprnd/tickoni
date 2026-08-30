@@ -240,10 +240,13 @@ def _ensure_minisign_installed(dry_run=False):
         print("[minisign] binary not found, dry-run — skipping install")
         return False
     print("[minisign] minisign not found on PATH — attempting to install")
-    # Debian/Ubuntu: apt install minisign
-    if shutil.which("apt") and os.getuid() == 0:
-        subprocess.run(["apt-get", "update", "-qq"], check=True)
-        result = subprocess.run(["apt-get", "install", "-y", "-qq", "minisign"], capture_output=True, text=True)
+    # Debian/Ubuntu: apt install minisign (use sudo so CI runners work)
+    if shutil.which("apt") and shutil.which("sudo"):
+        subprocess.run(["sudo", "apt-get", "update", "-qq"], check=True)
+        result = subprocess.run(
+            ["sudo", "apt-get", "install", "-y", "-qq", "minisign"],
+            capture_output=True, text=True
+        )
         if result.returncode == 0 and _find_minisign():
             print("[minisign] installed via apt")
             return True
