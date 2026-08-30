@@ -91,6 +91,16 @@ setup-fd-linux-arm-gcc:
     python3 contrib/setup/orchestrator.py core,essential,toolchain,build
     python3 contrib/setup/orchestrator.py zig,ssl
 
+# Windows x86_64 — FD toolchain (zig + ssl)
+setup-fd-windows-x86:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc
+    python3 contrib/setup/orchestrator.py zig,ssl
+
+# Windows ARM64 — FD toolchain (zig + ssl)
+setup-fd-windows-arm:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc
+    python3 contrib/setup/orchestrator.py zig,ssl
+
 # Quality: build + quality tools (shellcheck, actionlint, yamllint, pre-commit, buf + go)
 setup-quality-linux-x86:
     python3 contrib/setup/orchestrator.py core,essential,toolchain,build
