@@ -315,6 +315,7 @@ build-fd-linux-arm-gcc:
 build-fd-macos-x86:
     export PATH="/usr/local/homebrew/bin:/usr/local/bin:$PATH"
     export JUST_GMAKE="/usr/local/homebrew/bin/gmake"
+    brew install llvm || true
     env PATH="/usr/local/homebrew/bin:/usr/local/bin:$PATH" bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs ""
 
 build-fd-macos-arm:
