@@ -237,6 +237,11 @@ def install_brew(tool, params, config, dry_run=False):
         sys.exit(1)
 
 
+def _winget_already_installed(output: str) -> bool:
+    """Check if winget output means the package is already installed."""
+    return 'Found an existing package already installed' in output
+
+
 def install_winget(tool, params, config, dry_run=False):
     """Install via winget."""
     pkg = params.get('package', '')
@@ -250,6 +255,10 @@ def install_winget(tool, params, config, dry_run=False):
         '--disable-interactivity'
     ])
     if result.returncode != 0:
+        # winget returns 1 when package already installed with no upgrade
+        if result.stdout and _winget_already_installed(result.stdout):
+            print(f"  {pkg} already installed, skipping")
+            return
         print(f"ERROR: winget install failed for {pkg}", file=sys.stderr)
         sys.exit(1)
 
