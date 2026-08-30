@@ -319,6 +319,7 @@ build-fd-macos-x86:
     env PATH="/usr/local/homebrew/bin:/usr/local/bin:$PATH" bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs ""
 
 build-fd-macos-arm:
+    brew install llvm || true
     bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs "lz4 blst zstd"
 
 build-fd-windows-x86:
