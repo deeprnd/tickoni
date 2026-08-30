@@ -323,10 +323,9 @@ build-fd-linux-arm-gcc:
     bash contrib/build/fd-build-lib.sh fd-arm gcc-14
 
 build-fd-macos-x86:
-    export PATH="/usr/local/homebrew/bin:/usr/local/bin:$PATH"
-    export JUST_GMAKE="/usr/local/homebrew/bin/gmake"
-    brew install llvm || true
-    env PATH="/usr/local/homebrew/bin:/usr/local/bin:$PATH" bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs ""
+    brew install make llvm || true
+    export PATH="$(brew --prefix)/bin:$PATH"
+    env JUST_GMAKE="$(brew --prefix)/bin/gmake" PATH="$(brew --prefix)/bin:/usr/local/bin:$PATH" bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs ""
 
 build-fd-macos-arm:
     brew install make llvm || true
@@ -378,8 +377,9 @@ test-unit-fd-linux-x86-gcc:
         LDFLAGS_EXE="-Wl,-z,shstk" run-unit-test TEST_OPTS="--page-sz normal -j 3"
 
 test-unit-fd-macos-x86:
+    brew install make llvm || true
     bash contrib/build/fd-build-lib.sh {{ fd_tickoni_build }} clang test "" ""
-    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
+    JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd-macos-arm:
     brew install make llvm || true
