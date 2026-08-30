@@ -77,7 +77,7 @@ and removing the dev-vs-CI install divergence entirely.
 per-platform installs (Zig, gmake, gitleaks, kcov, Windows bootstrap) behind `if: runner.os ==
 ...` composite-action steps — this is the right idea, but it's YAML-only, so a developer cannot
 run the same install locally. `.github/actions/deps/action.yml` separately handles Firedancer
-system deps (`deps.sh`) and duplicates its own `runner.os`/`runner.arch` branching for zstd
+system deps (`contrib/setup/helpers/deps.sh`) and duplicates its own `runner.os`/`runner.arch` branching for zstd
 installation. There is no single command a new contributor or a fresh CI runner can invoke to
 "install everything this platform needs."
 
@@ -196,7 +196,7 @@ platform's `build-*`/`test-*`/`quality-*`/`security-*` recipes need:
 | Zig | `setup-public-gh-runner/action.yml` steps 61-89, via `install-zig.py` | Yes — `setup-*` calls `install-zig.py` itself; this is the **only** Zig install path, for CI and developers alike (D1) |
 | `just` | `taiki-e/install-action@just` in the composite action | Out of scope by necessity — `just` has to exist before any `just setup-*` recipe can run. Per D4, this stays a one-line manual prerequisite documented in `doc/execution/build.md` ("install `just`"), not a scripted step and not a bootstrap script. Developers install it themselves; CI keeps `taiki-e/install-action@just` as the composite action's first step. |
 | GNU make (macOS) | `setup-public-gh-runner/action.yml:47-53` (`brew install make`) | Yes |
-| Firedancer compiler + system deps | `.github/actions/deps` (`deps.sh`) | Yes — `setup-*` calls `deps.sh` the way `deps/action.yml` does today |
+| Firedancer compiler + system deps | `.github/actions/deps` (`contrib/setup/helpers/deps.sh`) | Yes — `setup-*` calls `deps.sh` the way `deps/action.yml` does today |
 | gitleaks | `setup-public-gh-runner/action.yml:131-151` | Yes |
 | kcov | `setup-public-gh-runner/action.yml:111-129` | Yes, for lanes that run coverage |
 | shellcheck, pre-commit, buf, llvm-18 tools | Installed ad hoc across `quality.yml`/`security.yml` workflow steps (not shown in the composite action) | Yes — consolidate into the matching `setup-linux-x86-*` |
