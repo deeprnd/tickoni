@@ -426,7 +426,7 @@
         "owner": "rhysd",
         "repo": "actionlint",
         "version_ref": "actionlint",
-        "asset_pattern": "actionlint_{version}_linux_{arch}.tar.gz",
+        "asset_pattern": "actionlint_{version}_linux_amd64.tar.gz",
         "verify_checksum": true
       },
       "idempotent_check": "command -v actionlint"
@@ -467,7 +467,7 @@
         "repo": "gitleaks",
         "version_ref": "gitleaks",
         "asset_pattern_os_map": {
-          "linux": "gitleaks_{version}_linux_{arch}.tar.gz",
+          "linux": "gitleaks_{version}_linux_amd64.tar.gz",
           "darwin": {
             "arm64": "gitleaks_{version}_darwin_arm64.tar.gz",
             "x86_64": "gitleaks_{version}_darwin_x64.tar.gz"
