@@ -183,7 +183,8 @@
     "quality": [
       "core",
       "build",
-      "go"
+      "go",
+      "zig"
     ],
     "secrets": [
       "core",
