@@ -186,11 +186,11 @@ def install_apt(tool, params, config, platform_str, dry_run=False):
     if "windows" in platform_str:
         for pkg_name in packages:
             print(f"[WINGET] Installing {pkg_name}...")
-            result = run_cmd([
-                'winget', 'install', '--id', pkg_name,
+            winget_exe = _find_winget() or 'winget'
+            cmd = [winget_exe, 'install', '--id', pkg_name,
                 '--accept-package-agreements', '--accept-source-agreements',
-                '--disable-interactivity'
-            ])
+                '--disable-interactivity']
+            result = run_cmd(cmd)
             if result.returncode != 0:
                 print(f"ERROR: winget install failed for {pkg_name}", file=sys.stderr)
                 sys.exit(1)
@@ -226,11 +226,12 @@ def _find_winget():
         return which
     # Known winget locations on Windows (x64 → System32, ARM64 → SysArm64)
     system_root = os.environ.get('SystemRoot', r'C:\Windows')
-    for subdir in ('System32', 'SysArm64'):
+    for subdir in ('System32', 'SysArm64', 'syswow64'):
         candidate = os.path.join(system_root, subdir, 'winget.exe')
         if os.path.isfile(candidate):
             return candidate
-    return 'winget'
+    # Fallback: use cmd /c to force Windows PATH resolution
+    return 'cmd /c winget.exe'
 
 
 def install_winget(tool, params, config, platform_str, dry_run=False):
