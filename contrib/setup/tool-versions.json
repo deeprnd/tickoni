@@ -28,60 +28,179 @@
       "windows-arm": "17"
     },
     "python": "Python.Python.3.12",
-    "go": "1.26.7"
+    "go": "1.26.7",
+    "cbmc": "5.97.0",
+    "litani": "1.5.1",
+    "universal-ctags": "0.0.0",
+    "kcov": "0.0.0",
+    "shellcheck": "0.10.0",
+    "buf": "1.38.0",
+    "pre-commit": "4.0.1"
+  },
+  "categories": {
+    "essential": {
+      "description": "Core tools needed on all platforms",
+      "tools": ["curl", "git", "python3", "pipx", "minisign"]
+    },
+    "toolchain": {
+      "description": "Compilers, build tools, and platform bootstrap",
+      "tools": ["just", "gcc", "clang", "llvm", "msvc", "choco", "winget"]
+    },
+    "zig": {
+      "description": "Zig compiler",
+      "tools": ["zig"]
+    },
+    "ssl": {
+      "description": "OpenSSL",
+      "tools": ["openssl"]
+    },
+    "fd": {
+      "description": "Firedancer dependencies: snappy, rockdb",
+      "tools": ["snappy", "rockdb"]
+    },
+    "build": {
+      "description": "Build infrastructure",
+      "tools": ["make", "cmake", "zstd", "pkg-config", "ninja", "ccache"]
+    },
+    "quality": {
+      "description": "Lint, format, and quality checks",
+      "tools": ["shellcheck", "actionlint", "yamllint", "pre-commit", "buf", "go"]
+    },
+    "secrets": {
+      "description": "Security scanning tools",
+      "tools": ["gitleaks"]
+    },
+    "coverage": {
+      "description": "Code coverage tools",
+      "tools": ["kcov"]
+    },
+    "security": {
+      "description": "Formal verification toolchain",
+      "tools": ["cbmc", "litani", "universal-ctags", "cbmc-viewer", "cbmc-starter-kit"]
+    },
+    "ops": {
+      "description": "Operations and scripting",
+      "tools": ["pwsh"]
+    },
+    "mvsc": {
+      "description": "Windows MSVC build tools",
+      "tools": ["msvc"]
+    },
+    "go": {
+      "description": "Go toolchain (needed by buf)",
+      "tools": ["go"]
+    },
+    "llvm": {
+      "description": "LLVM/Clang (Windows/macOS; installed via winget/brew)",
+      "tools": ["llvm"]
+    },
+    "llm-server": {
+      "description": "LLM server toolchain for Windows",
+      "tools": ["llama-cpp", "openblas", "ccache", "winlibs", "huggingface-cli"]
+    }
   },
   "packages": {
-    "winget": {
-      "python": "Python.Python.3.12",
-      "cmake": "CMake.CMake",
-      "git": "Git.Git",
-      "ninja": "Ninja-build.Ninja",
-      "zstd": "Meta.Zstandard",
-      "pre-commit": "",
-      "buf": "bufbuild.buf",
-      "shellcheck": "koalaman.shellcheck",
-      "llvm": "LLVM.LLVM",
-      "minisign": "jedisct1.minisign",
-      "winlibs": "BrechtSanders.WinLibs.POSIX.UCRT",
-      "ccache": "ccache.ccache",
-      "vs-build-tools": "Microsoft.VisualStudio.2022.BuildTools",
-      "msys2": "MSYS2.MSYS2"
+    "platforms": {
+      "linux": {
+        "os": "linux",
+        "package_manager": "apt",
+        "packages": {
+          "essential": [
+            "git",
+            "python3",
+            "python3-pip",
+            "pipx",
+            "curl",
+            "minisign",
+            "build-essential",
+            "libiberty-dev",
+            "libdebuginfod-dev",
+            "libdw-dev",
+            "libelf-dev",
+            "libcurl4-openssl-dev",
+            "binutils-dev"
+          ],
+          "build": [
+            "make",
+            "cmake",
+            "zstd",
+            "pkg-config"
+          ],
+          "quality": [
+            "shellcheck",
+            "actionlint",
+            "yamllint"
+          ],
+          "security": [
+            "minisign"
+          ]
+        }
+      },
+      "macos": {
+        "os": "macos",
+        "package_manager": "brew",
+        "packages": {
+          "essential": [
+            "coreutils",
+            "git",
+            "python3",
+            "curl",
+            "minisign"
+          ],
+          "toolchain": [
+            "gcc",
+            "llvm"
+          ],
+          "build": [
+            "cmake",
+            "make",
+            "pkg-config",
+            "zstd"
+          ]
+        }
+      },
+      "windows": {
+        "os": "windows",
+        "package_manager": "winget",
+        "packages": {
+          "essential": [
+            "Python.Python.3.12",
+            "Git.Git",
+            "minisign"
+          ],
+          "toolchain": [
+            "LLVM.LLVM"
+          ],
+          "build": [
+            "CMake.CMake",
+            "Ninja-build.Ninja",
+            "Meta.Zstandard",
+            "ccache.ccache"
+          ],
+          "mvsc": [
+            "Microsoft.VisualStudio.2022.BuildTools"
+          ],
+          "go": [
+            "Go.Lang.Go"
+          ],
+          "llm-server": [
+            "BrechtSanders.WinLibs.POSIX.UCRT",
+            "ccache.ccache"
+          ],
+          "quality": [
+            "bufbuild.buf",
+            "koalaman.shellcheck"
+          ]
+        }
+      }
     },
-    "apt": [
-      "build-essential",
-      "cmake",
-      "curl",
-      "g++",
-      "git",
-      "lld",
-      "make",
-      "pkg-config",
-      "zstd",
-      "python3",
-      "python3-pip",
-      "pipx",
-      "yamllint",
-      "binutils-dev",
-      "libiberty-dev",
-      "libdebuginfod-dev",
-      "libdw-dev",
-      "libelf-dev",
-      "libcurl4-openssl-dev",
-      "minisign"
-    ],
-    "brew": [
-      "coreutils",
-      "cmake",
-      "gcc",
-      "git",
-      "llvm",
-      "make",
-      "minisign",
-      "pkg-config",
-      "zstd"
-    ],
     "pip": [
       "pre-commit"
+    ],
+    "pip-tools": [
+      "cbmc-viewer",
+      "cbmc-starter-kit",
+      "huggingface_hub[cli]"
     ]
   }
 }
