@@ -659,7 +659,10 @@ def install_build_from_source(tool, params, config, platform_str, dry_run=False)
                     print("WARNING: llama.cpp clone failed — skipping")
                     return
                 build_dir = os.path.join(tmpdir, 'build')
-                run_cmd(['cmake', '-S', tmpdir, '-B', build_dir])
+                run_cmd(['cmake', '-S', tmpdir, '-B', build_dir,
+                         '-DGGML_BLAS=ON',
+                         '-DGGML_BLAS_VENDOR=OpenBLAS',
+                         '-DGGML_NATIVE=ON'])
                 run_cmd(['cmake', '--build', build_dir, '-j', str(os.cpu_count() or 1)])
                 # llama.cpp installs binaries in-place under build/
         except Exception as e:
