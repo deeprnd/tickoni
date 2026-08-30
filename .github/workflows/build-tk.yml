@@ -40,10 +40,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup deps + Zig
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
-          setup-recipe: setup-linux-x86-gcc
+        run: just setup-linux-x86-gcc
 
       - name: Build FD libs
         uses: ./.github/actions/build-fd-tk-libs
@@ -62,10 +59,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup deps + Zig
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
-          setup-recipe: setup-macos-x86
+        run: just setup-macos-x86
 
       - name: Build FD libs
         run: just build-fd-macos-x86
@@ -84,10 +78,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup deps + Zig
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
-          setup-recipe: setup-macos-arm
+        run: just setup-macos-arm
 
       - name: Build FD libs
         run: just build-fd-macos-arm
@@ -106,10 +97,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup deps + Zig
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
-          setup-recipe: setup-macos-x86
+        run: just setup-macos-x86
 
       - name: Build FD libs
         run: just build-fd-macos-x86
@@ -128,10 +116,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup deps + Zig
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
-          setup-recipe: setup-macos-arm
+        run: just setup-macos-arm
 
       - name: Build FD libs
         run: just build-fd-macos-arm
@@ -150,9 +135,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup Windows deps
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          setup-recipe: setup-windows-ci-x86
+        run: just setup-windows-ci-x86
 
       - name: Build FD libs
         run: just build-fd-windows-x86
@@ -171,9 +154,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup Windows deps
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          setup-recipe: setup-windows-ci-arm
+        run: just setup-windows-ci-arm
 
       - name: Build FD libs
         run: just build-fd-windows-arm

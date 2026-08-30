@@ -24,11 +24,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup public GitHub runner
-        uses: ./.github/actions/setup-public-gh-runner
-        with:
-          zig: 'true'
-          kcov: 'true'
-          setup-recipe: setup-linux-x86-gcc
+        run: just setup-linux-x86-gcc
 
       - uses: ./.github/actions/build-fd-tk-libs
 
