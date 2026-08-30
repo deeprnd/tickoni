@@ -1,77 +1,88 @@
 # Platform Setup Scripts
 
-One `bash`/PowerShell script per supported machine variation. Developers run
-`bash contrib/setup/linux-x86-gcc.sh` (or the single `just setup-env` command)
-to install everything a lane needs before building or testing. CI calls the same
-scripts so developer and CI installs are provably identical.
+A single Python orchestrator reads `tool-versions.json` and installs tools based on category dependencies. Developers run `just setup-env` to install everything; CI lanes call `just setup-*` recipes that delegate to the orchestrator.
 
 ## Quick Start
 
 ```bash
-just setup-env                # Linux: install both GCC and Clang
-just setup-env gcc            # Linux: install only GCC
-just setup-env clang          # Linux: install only Clang
-just setup-linux-x86-gcc      # explicit lane
-just setup-macos-arm          # macOS ARM64
-just setup-windows-x86        # Windows x86_64
+just setup-env                # Install all tool categories
+just setup-linux-x86-gcc      # Linux x86_64 — GCC toolchain
+just setup-linux-arm-arm      # Linux ARM64
+just setup-macos-x86          # macOS x86_64
+just setup-windows-ci-x86     # Windows CI mode (no LLM tooling)
 ```
 
-## Supported Variations
+## Architecture
 
-| Script | Platform | Arch | Compiler |
-|---|---|---|---|
-| `linux-x86-gcc.sh` | Linux | x86_64 | gcc-12 |
-| `linux-x86-clang.sh` | Linux | x86_64 | clang-18 |
-| `linux-arm-gcc.sh` | Linux | aarch64 | gcc-14 |
-| `macos-x86.sh` | macOS | x86_64 | clang (Xcode) |
-| `macos-arm.sh` | macOS | arm64 | clang (Xcode) |
-| `windows-x86.ps1` | Windows | x86_64 | clang (LLVM) |
-| `windows-arm.ps1` | Windows | arm64 | clang (LLVM) |
+```
+just setup-linux-x86-gcc
+  → orchestrator.py reads tool-versions.json
+  → resolves categories (essential, toolchain, build, etc.)
+  → for each tool, reads install_method + parameters
+  → installs in dependency-safe order (deduped, idempotent)
+```
 
-## Design Principles
+## tool-versions.json Schema
 
-1. **One source of truth.** `contrib/setup/tool-versions.json` controls all
-   version everywhere — no need to hardcode versions in setup scripts.
-2. **Setup may use sudo.** The V1.21 no-sudo constraint applies to daily
-   operations. Setup is a one-time privileged operation.
-3. **Idempotent.** Every script checks before installing. Re-running is a no-op.
-4. **Transparent.** Each script echoes what it's doing, exits non-zero on
-   failure, and leaves a clear error message.
+The JSON file is the complete source of truth:
+
+- **`versions`** — version pins (e.g., `zig`, `openssl`, `go`).
+- **`categories`** — groups of tools (e.g., `core`, `essential`, `build`, `quality`, `secrets`, `coverage`, `security`, `ops`).
+- **`dependencies`** — category dependency graph (e.g., `quality` depends on `core`, `build`, `python`, `go`).
+- **`tools`** — each tool declares:
+  - `category`: owning category.
+  - `platform`: `all`, `linux-x86`, `macos-arm`, etc.
+  - `install_method`: `apt`, `brew`, `winget`, `pip`, `pipx`, `go_install`, `github_release`, `binary_download`, `python_script`, `build_from_source`, `none`.
+  - `parameters`: method-specific (e.g., `package`, `module`, `owner`/`repo` for GitHub releases).
+  - `idempotent_check`: shell command to verify installation (e.g., `command -v zig`).
+  - `version_ref`: optional reference to `versions` section.
+
+## Install Methods
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `apt` | `apt-get install` | `package`: apt package name |
+| `brew` | `brew install` | `package`: brew formula name |
+| `winget` | `winget install` | `package`: winget package ID |
+| `pip` | `pip install` | `package`: pip package name |
+| `pipx` | `pipx install` | `package`: pipx package name |
+| `go_install` | `go install` | `module`: Go module path |
+| `github_release` | Download from GitHub releases | `owner`, `repo`, `version_ref`, `asset_pattern` |
+| `binary_download` | Download arbitrary binary | `url_pattern`, `install_dir` |
+| `python_script` | Run Python script | `script_path`, `args` |
+| `build_from_source` | Clone + build | `repo`, `install_dir`, `build_command`, `install_command` |
+| `none` | No-op (tool already present) | none |
+
+## Orchestrator CLI
+
+```bash
+python3 orchestrator.py <category1,category2,...>     # Install tools
+python3 orchestrator.py <tool> --dry-run              # Preview what would install
+python3 orchestrator.py --deps <category>              # Show resolved dependency graph
+python3 orchestrator.py --list <category>              # List tools in a category
+```
 
 ## Folder Structure
 
 ```
 contrib/setup/
-  tool-versions.json      # Single source of truth for all versions
-  linux-x86-gcc.sh        # Linux x86_64 — GCC 12
-  linux-x86-clang.sh      # Linux x86_64 — Clang 18
-  linux-arm-gcc.sh        # Linux aarch64 — GCC 14
-  macos-x86.sh            # macOS x86_64
-  macos-arm.sh            # macOS ARM64
-  windows-x86.ps1         # Windows x86_64
-  windows-arm.ps1         # Windows ARM64
+  orchestrator.py          # Single generic Python script
+  tool-versions.json       # Complete source of truth
   helpers/
-    common.sh             # Shared POSIX functions
-    common.ps1            # Shared Windows PowerShell functions
-    install-zig.py        # Official Zig binary installer wrapper
-    install-openssl.sh    # OpenSSL 3.6.2 build from source (deps.sh logic)
+    platform.sh            # Platform detection
+    install-zig.py         # Zig binary installer wrapper
+    install-openssl.sh     # OpenSSL build from source
 ```
-
-## What Each Script Installs
-
-Every Linux lane script installs:
-
-- **Zig** — from `contrib/setup/tool-versions.json` via `helpers/install-zig.py`
-- **Compiler** — from `contrib/setup/tool-versions.json` (gcc-12 on Linux x86, clang-18 on Linux/macOS/Windows)
-- **just, gitleaks** — from `contrib/setup/tool-versions.json`
-- **Build tools** — make, git, cmake
-- **OpenSSL** — from `contrib/setup/tool-versions.json`; built from source via
-  `helpers/install-openssl.sh` (deps.sh logic) into `./opt/` so the Firedancer build
-  finds it at `./opt/lib/libssl.a`
-- **Quality tools** — gitleaks, actionlint, yamllint, shellcheck, pre-commit
-- **Optional** — kcov (coverage builds), buf (protobuf)
 
 ## CI Integration
 
-The `setup-public-gh-runner` composite action now calls `just setup-*` recipes
-instead of inline branching, keeping developer and CI installs identical.
+CI workflows call `just setup-*` recipes directly instead of the `setup-public-gh-runner` composite action. The `fd-deps-*` recipes still call `deps.sh check` for Firedancer C library dependencies.
+
+```yaml
+# CI lane setup
+- name: Setup
+  run: just setup-linux-x86-gcc
+
+- name: Install Firedancer deps
+  run: just setup-fd-deps-linux-x86-gcc
+```
