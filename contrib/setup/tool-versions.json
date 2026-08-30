@@ -18,11 +18,6 @@
       "windows-x86": "18",
       "windows-arm": "18"
     },
-    "llvm": {
-      "linux-x86": "18",
-      "windows-x86": "18",
-      "windows-arm": "18"
-    },
     "msvc": {
       "windows-x86": "17",
       "windows-arm": "17"
@@ -37,14 +32,25 @@
     "buf": "1.38.0",
     "pre-commit": "4.0.1"
   },
+
   "categories": {
+    "core": {
+      "description": "Bootstrap tools — minimal, no deps",
+      "tools": ["curl", "git"]
+    },
     "essential": {
       "description": "Core tools needed on all platforms",
-      "tools": ["curl", "git", "python3", "pipx", "minisign"]
+      "tools": ["python3", "pipx", "minisign"],
+      "platforms": ["linux", "macos", "windows"]
     },
     "toolchain": {
-      "description": "Compilers, build tools, and platform bootstrap",
-      "tools": ["just", "gcc", "clang", "llvm", "msvc", "choco", "winget"]
+      "description": "Compilers and build tools",
+      "tools": ["gcc", "clang-llvm", "msvc"],
+      "platforms": ["linux", "macos", "windows"]
+    },
+    "build": {
+      "description": "Build infrastructure",
+      "tools": ["make", "cmake", "zstd", "pkg-config", "ninja", "ccache"]
     },
     "zig": {
       "description": "Zig compiler",
@@ -58,13 +64,9 @@
       "description": "Firedancer dependencies: snappy, rockdb",
       "tools": ["snappy", "rockdb"]
     },
-    "build": {
-      "description": "Build infrastructure",
-      "tools": ["make", "cmake", "zstd", "pkg-config", "ninja", "ccache"]
-    },
     "quality": {
       "description": "Lint, format, and quality checks",
-      "tools": ["shellcheck", "actionlint", "yamllint", "pre-commit", "buf", "go"]
+      "tools": ["shellcheck", "actionlint", "yamllint", "pre-commit", "buf"]
     },
     "secrets": {
       "description": "Security scanning tools",
@@ -90,117 +92,326 @@
       "description": "Go toolchain (needed by buf)",
       "tools": ["go"]
     },
-    "llvm": {
-      "description": "LLVM/Clang (Windows/macOS; installed via winget/brew)",
-      "tools": ["llvm"]
-    },
     "llm-server": {
-      "description": "LLM server toolchain for Windows",
-      "tools": ["llama-cpp", "openblas", "ccache", "winlibs", "huggingface-cli"]
+      "description": "LLM server toolchain",
+      "tools": ["llama-cpp", "huggingface-cli"]
     }
   },
-  "packages": {
-    "platforms": {
-      "linux": {
-        "os": "linux",
-        "package_manager": "apt",
-        "packages": {
-          "essential": [
-            "git",
-            "python3",
-            "python3-pip",
-            "pipx",
-            "curl",
-            "minisign",
-            "build-essential",
-            "libiberty-dev",
-            "libdebuginfod-dev",
-            "libdw-dev",
-            "libelf-dev",
-            "libcurl4-openssl-dev",
-            "binutils-dev"
-          ],
-          "build": [
-            "make",
-            "cmake",
-            "zstd",
-            "pkg-config"
-          ],
-          "quality": [
-            "shellcheck",
-            "actionlint",
-            "yamllint"
-          ],
-          "security": [
-            "minisign"
-          ]
-        }
-      },
-      "macos": {
-        "os": "macos",
-        "package_manager": "brew",
-        "packages": {
-          "essential": [
-            "coreutils",
-            "git",
-            "python3",
-            "curl",
-            "minisign"
-          ],
-          "toolchain": [
-            "gcc",
-            "llvm"
-          ],
-          "build": [
-            "cmake",
-            "make",
-            "pkg-config",
-            "zstd"
-          ]
-        }
-      },
-      "windows": {
-        "os": "windows",
-        "package_manager": "winget",
-        "packages": {
-          "essential": [
-            "Python.Python.3.12",
-            "Git.Git",
-            "minisign"
-          ],
-          "toolchain": [
-            "LLVM.LLVM"
-          ],
-          "build": [
-            "CMake.CMake",
-            "Ninja-build.Ninja",
-            "Meta.Zstandard",
-            "ccache.ccache"
-          ],
-          "mvsc": [
-            "Microsoft.VisualStudio.2022.BuildTools"
-          ],
-          "go": [
-            "Go.Lang.Go"
-          ],
-          "llm-server": [
-            "BrechtSanders.WinLibs.POSIX.UCRT",
-            "ccache.ccache"
-          ],
-          "quality": [
-            "bufbuild.buf",
-            "koalaman.shellcheck"
-          ]
-        }
-      }
+
+  "dependencies": {
+    "core": [],
+    "essential": ["core"],
+    "toolchain": ["core", "essential"],
+    "build": ["core", "essential"],
+    "zig": ["core", "build"],
+    "ssl": ["core", "build"],
+    "fd": ["core", "build", "ssl"],
+    "quality": ["core", "build", "go"],
+    "secrets": ["core", "build"],
+    "coverage": ["core", "build", "toolchain"],
+    "security": ["core", "build"],
+    "ops": ["core"],
+    "mvsc": ["core", "essential"],
+    "go": ["core"],
+    "llm-server": ["core", "build"]
+  },
+
+  "tools": {
+    "curl": {
+      "category": "core",
+      "platform": "all",
+      "install_method": "apt",
+      "parameters": { "package": "curl" },
+      "idempotent_check": "command -v curl"
     },
-    "pip": [
-      "pre-commit"
-    ],
-    "pip-tools": [
-      "cbmc-viewer",
-      "cbmc-starter-kit",
-      "huggingface_hub[cli]"
-    ]
+    "git": {
+      "category": "core",
+      "platform": "all",
+      "install_method": "apt",
+      "parameters": { "package": "git" },
+      "idempotent_check": "command -v git"
+    },
+    "python3": {
+      "category": "essential",
+      "platform": "all",
+      "install_method": "apt",
+      "parameters": { "package": "python3" },
+      "idempotent_check": "command -v python3"
+    },
+    "pipx": {
+      "category": "essential",
+      "platform": "all",
+      "install_method": "apt",
+      "parameters": { "package": "pipx" },
+      "idempotent_check": "command -v pipx"
+    },
+    "minisign": {
+      "category": "essential",
+      "platform": "all",
+      "install_method": "apt",
+      "parameters": { "package": "minisign" },
+      "idempotent_check": "command -v minisign"
+    },
+    "gcc": {
+      "category": "toolchain",
+      "platform": "linux",
+      "install_method": "apt",
+      "parameters": {
+        "package": "gcc",
+        "version_key": "gcc"
+      },
+      "idempotent_check": "command -v gcc"
+    },
+    "clang-llvm": {
+      "category": "toolchain",
+      "platform": "all",
+      "install_method": "apt",
+      "parameters": {
+        "packages": ["clang-18", "llvm-18"],
+        "version_key": "clang"
+      },
+      "idempotent_check": "command -v clang",
+      "_note": "Linux apt: clang-18 + llvm-18 are same toolchain version"
+    },
+    "msvc": {
+      "category": "mvsc",
+      "platform": "windows",
+      "install_method": "winget",
+      "parameters": {
+        "package": "Microsoft.VisualStudio.2022.BuildTools"
+      },
+      "idempotent_check": "command -v cl"
+    },
+    "make": {
+      "category": "build",
+      "platform": "all",
+      "install_method": "apt",
+      "parameters": { "package": "make" },
+      "idempotent_check": "command -v make"
+    },
+    "cmake": {
+      "category": "build",
+      "platform": "all",
+      "install_method": "apt",
+      "parameters": { "package": "cmake" },
+      "idempotent_check": "command -v cmake"
+    },
+    "zstd": {
+      "category": "build",
+      "platform": "all",
+      "install_method": "apt",
+      "parameters": { "package": "zstd" },
+      "idempotent_check": "command -v zstd"
+    },
+    "pkg-config": {
+      "category": "build",
+      "platform": "all",
+      "install_method": "apt",
+      "parameters": { "package": "pkg-config" },
+      "idempotent_check": "command -v pkg-config"
+    },
+    "ninja": {
+      "category": "build",
+      "platform": "windows",
+      "install_method": "winget",
+      "parameters": { "package": "Ninja-build.Ninja" },
+      "idempotent_check": "command -v ninja"
+    },
+    "ccache": {
+      "category": "build",
+      "platform": "windows",
+      "install_method": "winget",
+      "parameters": { "package": "ccache.ccache" },
+      "idempotent_check": "command -v ccache"
+    },
+    "zig": {
+      "category": "zig",
+      "platform": "all",
+      "install_method": "python_script",
+      "parameters": {
+        "script": "install-zig.py",
+        "args": ["--install-root", "$HOME/.local"]
+      },
+      "idempotent_check": "command -v zig",
+      "version_ref": "zig"
+    },
+    "openssl": {
+      "category": "ssl",
+      "platform": "all",
+      "install_method": "build_from_source",
+      "parameters": {
+        "script": "install-openssl.sh",
+        "install_dir": "./opt"
+      },
+      "idempotent_check": "test -f ./opt/lib/libssl.a",
+      "version_ref": "openssl"
+    },
+    "snappy": {
+      "category": "fd",
+      "platform": "all",
+      "install_method": "build_from_source",
+      "parameters": {
+        "type": "firedancer_deps"
+      },
+      "idempotent_check": "test -f ./opt/lib/libsnappy.a"
+    },
+    "rockdb": {
+      "category": "fd",
+      "platform": "all",
+      "install_method": "build_from_source",
+      "parameters": {
+        "type": "firedancer_deps"
+      },
+      "idempotent_check": "test -f ./opt/lib/librocksdb.a"
+    },
+    "shellcheck": {
+      "category": "quality",
+      "platform": "all",
+      "install_method": "apt",
+      "parameters": { "package": "shellcheck" },
+      "idempotent_check": "command -v shellcheck"
+    },
+    "actionlint": {
+      "category": "quality",
+      "platform": "all",
+      "install_method": "github_release",
+      "parameters": {
+        "owner": "rhysd",
+        "repo": "actionlint",
+        "version_ref": "actionlint",
+        "asset_pattern": "actionlint_{version}_linux_{arch}.tar.gz",
+        "verify_checksum": true
+      },
+      "idempotent_check": "command -v actionlint"
+    },
+    "yamllint": {
+      "category": "quality",
+      "platform": "all",
+      "install_method": "pip",
+      "parameters": { "package": "yamllint" },
+      "idempotent_check": "command -v yamllint"
+    },
+    "pre-commit": {
+      "category": "quality",
+      "platform": "all",
+      "install_method": "pipx",
+      "parameters": { "package": "pre-commit" },
+      "idempotent_check": "command -v pre-commit"
+    },
+    "buf": {
+      "category": "quality",
+      "platform": "all",
+      "install_method": "go_install",
+      "parameters": {
+        "module": "github.com/bufbuild/buf/cmd/buf"
+      },
+      "idempotent_check": "command -v buf"
+    },
+    "gitleaks": {
+      "category": "secrets",
+      "platform": "all",
+      "install_method": "github_release",
+      "parameters": {
+        "owner": "gitleaks",
+        "repo": "gitleaks",
+        "version_ref": "gitleaks",
+        "asset_pattern_os_map": {
+          "linux": "gitleaks_{version}_linux_{arch}.tar.gz",
+          "darwin": {
+            "arm64": "gitleaks_{version}_darwin_arm64.tar.gz",
+            "x86_64": "gitleaks_{version}_darwin_x64.tar.gz"
+          },
+          "windows": "gitleaks_{version}_windows_{arch}.zip"
+        },
+        "bin_name": "gitleaks"
+      },
+      "idempotent_check": "command -v gitleaks"
+    },
+    "kcov": {
+      "category": "coverage",
+      "platform": "linux",
+      "install_method": "build_from_source",
+      "parameters": {
+        "type": "kcov"
+      },
+      "idempotent_check": "command -v kcov"
+    },
+    "cbmc": {
+      "category": "security",
+      "platform": "linux",
+      "install_method": "github_release",
+      "parameters": {
+        "type": "cbmc_deb"
+      },
+      "idempotent_check": "command -v cbmc"
+    },
+    "litani": {
+      "category": "security",
+      "platform": "linux",
+      "install_method": "github_release",
+      "parameters": {
+        "type": "litani_deb"
+      },
+      "idempotent_check": "command -v litani"
+    },
+    "universal-ctags": {
+      "category": "security",
+      "platform": "linux",
+      "install_method": "apt",
+      "parameters": { "package": "universal-ctags" },
+      "idempotent_check": "command -v ctags"
+    },
+    "cbmc-viewer": {
+      "category": "security",
+      "platform": "all",
+      "install_method": "pip",
+      "parameters": { "package": "cbmc-viewer" },
+      "idempotent_check": "command -v cbmc-viewer"
+    },
+    "cbmc-starter-kit": {
+      "category": "security",
+      "platform": "all",
+      "install_method": "pip",
+      "parameters": { "package": "cbmc-starter-kit" },
+      "idempotent_check": "command -v cbmc-starter-kit"
+    },
+    "pwsh": {
+      "category": "ops",
+      "platform": "all",
+      "install_method": "apt",
+      "parameters": {
+        "package": "powershell",
+        "fallback": "snap"
+      },
+      "idempotent_check": "command -v pwsh"
+    },
+    "go": {
+      "category": "go",
+      "platform": "all",
+      "install_method": "binary_download",
+      "parameters": {
+        "url_pattern": "https://go.dev/dl/go{version}.{{.os}}-{{.arch}}.tar.gz",
+        "install_dir": "/usr/local/go",
+        "version_ref": "go",
+        "bin_dirs": ["/usr/local/go/bin", "$HOME/go/bin"]
+      },
+      "idempotent_check": "command -v go"
+    },
+    "llama-cpp": {
+      "category": "llm-server",
+      "platform": "all",
+      "install_method": "build_from_source",
+      "parameters": {
+        "type": "llama-cpp"
+      },
+      "idempotent_check": "command -v llama-server"
+    },
+    "huggingface-cli": {
+      "category": "llm-server",
+      "platform": "all",
+      "install_method": "pip",
+      "parameters": { "package": "huggingface_hub[cli]" },
+      "idempotent_check": "command -v huggingface-cli"
+    }
   }
 }
