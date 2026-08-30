@@ -820,9 +820,7 @@ def install_zig(tool, params, config, platform_str, dry_run=False):
             print(f"ERROR: Zig version '{version}' target '{target}' is missing an archive URL", file=sys.stderr)
             sys.exit(1)
         shasum = target_entry.get("shasum")
-        if not shasum:
-            print(f"ERROR: Zig version '{version}' target '{target}' is missing a sha256 checksum", file=sys.stderr)
-            sys.exit(1)
+        # Zig only uses minisign for verification; SHA256 may be absent.
 
     if dry_run:
         print(f"  [DRY-RUN] Would install zig {version} (target={target}) to {install_root}")

@@ -176,6 +176,7 @@
     ],
     "zig": [
       "core",
+      "essential",
       "build"
     ],
     "ssl": [
