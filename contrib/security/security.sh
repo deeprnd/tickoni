@@ -92,6 +92,12 @@ cmd_sanitize_check_fd() {
 }
 
 cmd_sanitize_check_tk() {
+  # Build the Firedancer C libs that Tickoni's Zig code depends on.
+  # fd-build-lib.sh compiles the 5 libs (fd_tango, fd_util, fd_ballet,
+  # fd_disco, fd_waltz) plus their third-party deps, then writes the
+  # Windows Zig link-manifest files into the same lib dir.
+  run_step "build fd-tickoni-fd libs" \
+    bash contrib/build/fd-build-lib.sh fd-tickoni-fd gcc test "lz4 blst zstd nanopb"
   run_step "zig releasesafe" \
     bash contrib/build/zigw.sh build -Dtest=true test -Dfd-lib-dir=build/fd-tickoni-fd/lib -Doptimize=ReleaseSafe
 }
