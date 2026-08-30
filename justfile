@@ -329,8 +329,8 @@ build-fd-macos-x86:
     env PATH="/usr/local/homebrew/bin:/usr/local/bin:$PATH" bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs ""
 
 build-fd-macos-arm:
-    brew install llvm || true
-    bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs "lz4 blst zstd"
+    brew install make llvm || true
+    env JUST_GMAKE="$(brew --prefix)/bin/gmake" bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs "lz4 blst zstd"
 
 build-fd-windows-x86:
     bash contrib/build/fd-build-windows.sh x86_64
@@ -382,8 +382,9 @@ test-unit-fd-macos-x86:
     {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd-macos-arm:
+    brew install make llvm || true
     bash contrib/build/fd-build-lib.sh {{ fd_tickoni_build }} clang test "" ""
-    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
+    JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd-windows-x86:
     bash contrib/build/fd-build-windows.sh x86_64 clang test
