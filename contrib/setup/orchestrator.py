@@ -249,11 +249,12 @@ def _find_winget():
     which = shutil.which('winget') or shutil.which('winget.exe')
     if which:
         return which
-    # Known winget location on Windows (also works on ARM64 runners)
+    # Known winget locations on Windows (x64 → System32, ARM64 → SysArm64)
     system_root = os.environ.get('SystemRoot', r'C:\Windows')
-    candidate = os.path.join(system_root, 'System32', 'winget.exe')
-    if os.path.isfile(candidate):
-        return candidate
+    for subdir in ('System32', 'SysArm64'):
+        candidate = os.path.join(system_root, subdir, 'winget.exe')
+        if os.path.isfile(candidate):
+            return candidate
     return 'winget'
 
 
