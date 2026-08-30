@@ -66,22 +66,6 @@ CI expectations:
 
 ## Install
 
-Install common Python tooling used by repo maintenance, codegen, and tests:
-
-```bash
-just python-dev-install
-```
-
-Install the wider optional Python surface:
-
-```bash
-just python-dev-install-all
-```
-
-The wider install includes optional extras for protobuf generators, math
-generators, simulation helpers, Solana helpers, and agave-cluster CLI
-dependencies.
-
 Install the repository-managed Git hooks:
 
 ```bash

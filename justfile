@@ -203,45 +203,29 @@ setup-windows-ci-arm:
     python3 contrib/setup/orchestrator.py zig --platform windows-arm
     python3 contrib/setup/orchestrator.py quality --platform windows-arm
 
-# Qualified CI dependency/setup entrypoints.  Workflows select these names;
-# the scripts remain implementation details of the just command surface.
-setup-python-tools packages="":
-    {{ python }} -m pip install --upgrade pip
-    {{ python }} -m pip install {{ packages }}
-
 setup-fd-deps-linux-x86-gcc:
-    CC=gcc CXX=g++ FD_AUTO_INSTALL_PACKAGES=1 bash contrib/build/deps.sh check
+    python3 contrib/setup/orchestrator.py fd
 
 setup-fd-deps-linux-x86-clang:
-    CC=clang CXX=clang++ FD_AUTO_INSTALL_PACKAGES=1 bash contrib/build/deps.sh check
+    python3 contrib/setup/orchestrator.py fd
 
 setup-fd-deps-linux-arm-gcc:
-    CC=gcc CXX=g++ FD_AUTO_INSTALL_PACKAGES=1 bash contrib/build/deps.sh check
+    python3 contrib/setup/orchestrator.py fd
 
 setup-fd-deps-macos-x86:
-    CC=clang CXX=clang++ FD_AUTO_INSTALL_PACKAGES=1 bash contrib/build/deps.sh check
+    python3 contrib/setup/orchestrator.py fd
 
 setup-fd-deps-macos-arm:
-    CC=clang CXX=clang++ FD_AUTO_INSTALL_PACKAGES=1 bash contrib/build/deps.sh check
+    python3 contrib/setup/orchestrator.py fd
 
 setup-coverage-linux-x86-clang:
-    sudo apt-get install -y clang-18 clang++-18 llvm-18
-    for tool in profdata objdump ar cov; do sudo update-alternatives --install /usr/bin/llvm-$tool llvm-$tool /usr/bin/llvm-${tool}-18 100; done
+    python3 contrib/setup/orchestrator.py coverage,toolchain
 
 test-prep-linux-x86:
     # NO-OP — memory setup moved to workflow YAML where sudo is available.
 
 # ── Python ─────────────────────────────────────────────────────────────────
-
-python-dev-install extras="dev":
-    {{ python }} -m venv .venv
-    .venv/bin/python -m pip install --upgrade pip
-    .venv/bin/python -m pip install ".[{{ extras }}]"
-
-python-dev-install-all:
-    @just python-dev-install "dev,protobuf,mathgen,sim,solana,agave-cluster"
-
-# ── All-in ──────────────────────────────────────────────────────────────────
+# Python environment setup — orchestrator installs system Python/pip already.
 
 tests-all:
     @just build-all
@@ -323,12 +307,9 @@ build-fd-linux-arm-gcc:
     bash contrib/build/fd-build-lib.sh fd-arm gcc-14
 
 build-fd-macos-x86:
-    brew install make llvm || true
-    export PATH="$(brew --prefix)/bin:$PATH"
     env JUST_GMAKE="$(brew --prefix)/bin/gmake" PATH="$(brew --prefix)/bin:/usr/local/bin:$PATH" bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs ""
 
 build-fd-macos-arm:
-    brew install make llvm || true
     env JUST_GMAKE="$(brew --prefix)/bin/gmake" bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs "lz4 blst zstd"
 
 build-fd-windows-x86:
@@ -377,12 +358,10 @@ test-unit-fd-linux-x86-gcc:
         LDFLAGS_EXE="-Wl,-z,shstk" run-unit-test TEST_OPTS="--page-sz normal -j 3"
 
 test-unit-fd-macos-x86:
-    brew install make llvm || true
     bash contrib/build/fd-build-lib.sh {{ fd_tickoni_build }} clang test "" ""
     JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd-macos-arm:
-    brew install make llvm || true
     bash contrib/build/fd-build-lib.sh {{ fd_tickoni_build }} clang test "" ""
     JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
