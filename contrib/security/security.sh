@@ -93,7 +93,7 @@ cmd_sanitize_check_fd() {
 
 cmd_sanitize_check_tk() {
   run_step "zig releasesafe" \
-    zig build -Dtest=true test -Dfd-lib-dir=build/fd-tickoni-fd/lib -Doptimize=ReleaseSafe
+    bash contrib/build/zigw.sh build -Dtest=true test -Dfd-lib-dir=build/fd-tickoni-fd/lib -Doptimize=ReleaseSafe
 }
 
 case "${1:-}" in
