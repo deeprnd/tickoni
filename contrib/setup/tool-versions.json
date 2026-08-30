@@ -272,7 +272,7 @@
     },
     "minisign": {
       "category": "essential",
-      "platform": "all",
+      "platform": "linux",
       "install_method": "apt",
       "parameters": {
         "package": "minisign"
@@ -291,7 +291,7 @@
     },
     "clang-llvm": {
       "category": "toolchain",
-      "platform": "all",
+      "platform": "linux",
       "install_method": "apt",
       "parameters": {
         "packages": [
@@ -411,7 +411,7 @@
     },
     "shellcheck": {
       "category": "quality",
-      "platform": "all",
+      "platform": "linux",
       "install_method": "apt",
       "parameters": {
         "package": "shellcheck"
