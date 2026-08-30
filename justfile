@@ -67,48 +67,10 @@ tk_platform := `bash contrib/platform.sh platform`
 cpu_count := `bash contrib/platform.sh cores`
 
 # Auto-detect host platform/arch and route to the correct setup recipe.
-# On Linux, no toolchain installs both compilers and the shared ops tools once;
-# passing gcc or clang selects only that compiler.
+# All setup is delegated to orchestrator.py — it detects the platform and
+# resolves dependencies from tool-versions.json.
 setup-env toolchain="":
-    @case "{{ os }}" in \
-      linux) \
-        if [ "{{ arch }}" = "arm" ]; then \
-          case "{{ toolchain }}" in \
-            "") TOOLCHAIN=gcc bash contrib/setup/linux-arm-essential.sh; \
-                TOOLCHAIN=clang bash contrib/setup/linux-arm-essential.sh; \
-                bash contrib/setup/linux-arm-ops.sh ;; \
-            gcc) just setup-linux-arm-gcc ;; \
-            clang) just setup-linux-arm-clang ;; \
-            *) echo "unsupported toolchain: {{ toolchain }} (expected gcc or clang)" >&2; exit 1 ;; \
-          esac; \
-        else \
-          case "{{ toolchain }}" in \
-            "") TOOLCHAIN=gcc bash contrib/setup/linux-x86-essential.sh; \
-                TOOLCHAIN=clang bash contrib/setup/linux-x86-essential.sh; \
-                bash contrib/setup/linux-x86-ops.sh ;; \
-            gcc) just setup-linux-x86-gcc ;; \
-            clang) just setup-linux-x86-clang ;; \
-            *) echo "unsupported toolchain: {{ toolchain }} (expected gcc or clang)" >&2; exit 1 ;; \
-          esac; \
-        fi ;; \
-      macos) \
-        if [ -n "{{ toolchain }}" ] && [ "{{ toolchain }}" != "clang" ]; then \
-          echo "unsupported toolchain on macOS: {{ toolchain }} (expected clang)" >&2; exit 1; \
-        fi; \
-        if [ "{{ arch }}" = "arm" ]; then \
-          just setup-macos-arm; \
-        else \
-          just setup-macos-x86; \
-        fi ;; \
-      windows) \
-        if [ -n "{{ toolchain }}" ] && [ "{{ toolchain }}" != "clang" ]; then \
-          echo "unsupported toolchain on Windows: {{ toolchain }} (expected clang)" >&2; exit 1; \
-        fi; \
-        just setup-windows-x86 ;; \
-      *) \
-        echo "unsupported OS: {{ os }}" >&2; \
-        exit 1 ;; \
-    esac
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build,python,zig,ssl,fd,quality,secrets,coverage,security,ops
     just setup-git
 
 # Activate tracked git hooks (commit-msg strips anthropic AI co-authors)
@@ -116,51 +78,68 @@ setup-git:
     git config core.hooksPath .githooks
     chmod +x .githooks/commit-msg
 
+# All setup is delegated to orchestrator.py — it detects the platform and
+# resolves dependencies from tool-versions.json.
+
 # Linux x86_64 — GCC toolchain
 setup-linux-x86-gcc:
-    TOOLCHAIN=gcc bash contrib/setup/linux-x86-essential.sh
-    bash contrib/setup/linux-x86-ops.sh
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py zig,ssl,ops
+    python3 contrib/setup/orchestrator.py quality,secrets
 
 # Linux x86_64 — Clang toolchain
 setup-linux-x86-clang:
-    TOOLCHAIN=clang bash contrib/setup/linux-x86-essential.sh
-    bash contrib/setup/linux-x86-ops.sh
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py zig,ssl,ops
+    python3 contrib/setup/orchestrator.py quality,secrets
 
 # Linux aarch64 — GCC toolchain
 setup-linux-arm-gcc:
-    TOOLCHAIN=gcc bash contrib/setup/linux-arm-essential.sh
-    bash contrib/setup/linux-arm-ops.sh
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py zig,ssl,ops
+    python3 contrib/setup/orchestrator.py quality,secrets
 
 # Linux aarch64 — Clang toolchain
 setup-linux-arm-clang:
-    TOOLCHAIN=clang bash contrib/setup/linux-arm-essential.sh
-    bash contrib/setup/linux-arm-ops.sh
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py zig,ssl,ops
+    python3 contrib/setup/orchestrator.py quality,secrets
 
 # macOS x86_64
 setup-macos-x86:
-    SECURITY=off bash contrib/setup/macos-x86-essential.sh
-    bash contrib/setup/macos-x86-ops.sh
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py zig,ssl,ops
+    python3 contrib/setup/orchestrator.py quality
 
 # macOS ARM64
 setup-macos-arm:
-    SECURITY=off bash contrib/setup/macos-arm-essential.sh
-    bash contrib/setup/macos-arm-ops.sh
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py zig,ssl,ops
+    python3 contrib/setup/orchestrator.py quality
 
 # Windows x86_64 — dev mode (includes LLM tooling)
 setup-windows-x86:
-    powershell -ExecutionPolicy Bypass -File contrib/setup/windows-x86.ps1
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc
+    python3 contrib/setup/orchestrator.py zig,ssl
+    python3 contrib/setup/orchestrator.py quality,secrets
 
 # Windows ARM64 — dev mode (includes LLM tooling)
 setup-windows-arm:
-    powershell -ExecutionPolicy Bypass -File contrib/setup/windows-arm.ps1
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc
+    python3 contrib/setup/orchestrator.py zig,ssl
+    python3 contrib/setup/orchestrator.py quality,secrets
 
 # Windows x86_64 — CI mode (no LLM tooling, no security tools)
 setup-windows-ci-x86:
-    powershell -ExecutionPolicy Bypass -File contrib/setup/windows-x86.ps1 -NoLLM
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc
+    python3 contrib/setup/orchestrator.py zig
+    python3 contrib/setup/orchestrator.py quality
 
 # Windows ARM64 — CI mode (no LLM tooling, no security tools)
 setup-windows-ci-arm:
-    powershell -ExecutionPolicy Bypass -File contrib/setup/windows-arm.ps1 -NoLLM
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc
+    python3 contrib/setup/orchestrator.py zig
+    python3 contrib/setup/orchestrator.py quality
 
 # Qualified CI dependency/setup entrypoints.  Workflows select these names;
 # the scripts remain implementation details of the just command surface.
