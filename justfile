@@ -168,7 +168,6 @@ setup-coverage-linux-x86-clang:
 
 test-prep-linux-x86:
     # NO-OP — memory setup moved to workflow YAML where sudo is available.
-    # This target is called by CI after setup-fd-test.
 
 # ── Python ─────────────────────────────────────────────────────────────────
 

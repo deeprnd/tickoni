@@ -20,7 +20,6 @@ WORKFLOWS = (
     ".github/workflows/tests-xlong.yml",
 )
 ACTIONS = (
-    ".github/actions/setup-public-gh-runner/action.yml",
     ".github/actions/build-fd-tk-libs/action.yml",
 )
 DELETED = (".github/workflows/benchmark.yml", ".github/workflows/book.yml")
@@ -126,7 +125,7 @@ def self_test(root: Path) -> None:
     with tempfile.TemporaryDirectory() as directory:
         fixture = Path(directory)
         (fixture / ".github/workflows").mkdir(parents=True)
-        (fixture / ".github/actions/setup-public-gh-runner").mkdir(parents=True)
+        (fixture / ".github/actions/build-fd-tk-libs").mkdir(parents=True)
         (fixture / "justfile").write_text("build-linux-x86:\n    true\n")
         for relative in WORKFLOWS:
             path = fixture / relative
