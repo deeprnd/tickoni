@@ -161,7 +161,7 @@ def _apt_update():
 
 
 def install_apt(tool, params, config, dry_run=False):
-    """Install via apt-get."""
+    """Install via apt-get, with fallback to brew (macOS) / winget (Windows)."""
     pkg = params.get('package', '')
     packages = params.get('packages', [])
     if not isinstance(packages, list):
@@ -169,18 +169,53 @@ def install_apt(tool, params, config, dry_run=False):
 
     if dry_run:
         for p in packages:
-            print(f"  [DRY-RUN] Would apt-get install {p}")
+            print(f"  [DRY-RUN] Would install {p}")
         return
 
-    _apt_update()
-    for pkg_name in packages:
-        print(f"[APT] Installing {pkg_name}...")
+    def _try_install(pkg_name):
+        print(f"[INSTALL] Installing {pkg_name}...")
         result = run_cmd([
             'sudo', 'apt-get', 'install', '-y', '--no-install-recommends', pkg_name
         ])
-        if result.returncode != 0:
-            print(f"ERROR: apt install failed for {pkg_name}", file=sys.stderr)
-            sys.exit(1)
+        return result
+
+    # Try apt first (Linux)
+    os_name = get_os()
+    if os_name == 'linux':
+        _apt_update()
+        for pkg_name in packages:
+            result = _try_install(pkg_name)
+            if result.returncode != 0:
+                print(f"ERROR: apt install failed for {pkg_name}", file=sys.stderr)
+                sys.exit(1)
+        return
+
+    # Fallback for macOS
+    if os_name == 'macos':
+        for pkg_name in packages:
+            print(f"[BREW] Installing {pkg_name}...")
+            result = run_cmd(['brew', 'install', '--formula', pkg_name])
+            if result.returncode != 0:
+                print(f"ERROR: brew install failed for {pkg_name}", file=sys.stderr)
+                sys.exit(1)
+        return
+
+    # Fallback for Windows
+    if os_name == 'windows':
+        for pkg_name in packages:
+            print(f"[WINGET] Installing {pkg_name}...")
+            result = run_cmd([
+                'winget', 'install', '--id', pkg_name,
+                '--accept-package-agreements', '--accept-source-agreements',
+                '--disable-interactivity'
+            ])
+            if result.returncode != 0:
+                print(f"ERROR: winget install failed for {pkg_name}", file=sys.stderr)
+                sys.exit(1)
+        return
+
+    print(f"ERROR: unknown OS '{os_name}' for apt install", file=sys.stderr)
+    sys.exit(1)
 
 
 def install_brew(tool, params, config, dry_run=False):
