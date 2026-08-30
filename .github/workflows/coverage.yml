@@ -48,14 +48,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Firedancer test environment
-        uses: ./.github/actions/setup-fd-test
-        with:
-          setup-recipe: setup-linux-x86-clang
-          deps-recipe: setup-fd-deps-linux-x86-clang
-          compiler: clang
-          compiler-version: '18'
-          configure-hugepages: 'false'
+      - name: Setup
+        run: just setup-linux-x86-clang
+
+      - name: Install Firedancer deps
+        run: just setup-fd-deps-linux-x86-clang
 
       - name: Install LLVM coverage tools
         run: just setup-coverage-linux-x86-clang

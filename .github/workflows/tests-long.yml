@@ -39,11 +39,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Firedancer test environment
-        uses: ./.github/actions/setup-fd-test
-        with:
-          setup-recipe: setup-linux-x86-gcc
-          configure-hugepages: 'false'
+      - name: Setup
+        run: just setup-linux-x86-gcc
 
       - name: Set resource limits and run tests
         run: |
