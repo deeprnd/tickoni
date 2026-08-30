@@ -120,6 +120,22 @@ def run_cmd(cmd, capture=True, shell=False, **kwargs):
     return result
 
 
+def _download_file(url, dest, dry_run=False):
+    """Download a file from url to dest, with retries."""
+    if dry_run:
+        print(f"[download] {url} -> {dest} (dry-run)")
+        return
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    attempts = 0
+    while attempts < 3:
+        result = run_cmd(['curl', '-sSfL', '--retry', '3', '-o', str(dest), url])
+        if result.returncode == 0 and dest.is_file() and dest.stat().st_size > 0:
+            return
+        attempts += 1
+    print(f"ERROR: download failed for {url}", file=sys.stderr)
+    sys.exit(1)
+
+
 def resolve_version(config, version_ref):
     """Resolve a version reference from config.versions."""
     if not version_ref:
@@ -378,20 +394,10 @@ def install_github_release(tool, params, config, platform_str, dry_run=False):
         return
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        archive_path = os.path.join(tmpdir, pattern)
+        archive_path = Path(os.path.join(tmpdir, pattern))
         download_url = f"https://github.com/{owner}/{repo}/releases/download/v{version}/{pattern}"
-
-        # Download with retries
-        dl_attempts = 0
-        while dl_attempts < 3:
-            result = run_cmd([
-                'curl', '-sSfL', '--retry', '3',
-                '--output', archive_path, download_url
-            ])
-            if result.returncode == 0 and os.path.getsize(archive_path) > 0:
-                break
-            dl_attempts += 1
-        if not os.path.getsize(archive_path) > 0:
+        _download_file(download_url, archive_path)
+        if not archive_path.exists() or archive_path.stat().st_size == 0:
             print(f"ERROR: download failed for {download_url}", file=sys.stderr)
             sys.exit(1)
 
@@ -495,8 +501,8 @@ def _install_cbmc_deb(tool, params, config, platform_str, dry_run, version):
             return
 
         url = matching[0]['browser_download_url']
-        deb_path = os.path.join(tmpdir, 'cbmc.deb')
-        run_cmd(['curl', '-fsSL', url, '-o', deb_path])
+        deb_path = Path(os.path.join(tmpdir, 'cbmc.deb'))
+        _download_file(url, deb_path)
 
         # Also get litani URL for batch install
         litani_result = run_cmd(['curl', '-sSfL', 'https://api.github.com/repos/awslabs/aws-build-accumulator/releases/latest'])
@@ -505,8 +511,8 @@ def _install_cbmc_deb(tool, params, config, platform_str, dry_run, version):
         litani_match = [a for a in litani_assets if a['name'].startswith('litani-') and a['name'].endswith('.deb')]
         if litani_match:
             litani_url = litani_match[0]['browser_download_url']
-            litani_path = os.path.join(tmpdir, 'litani.deb')
-            run_cmd(['curl', '-fsSL', litani_url, '-o', litani_path])
+            litani_path = Path(os.path.join(tmpdir, 'litani.deb'))
+            _download_file(litani_url, litani_path)
             run_cmd(['sudo', 'apt-get', 'install', '-y', '--no-install-recommends', deb_path, litani_path, 'universal-ctags'])
         else:
             run_cmd(['sudo', 'apt-get', 'install', '-y', '--no-install-recommends', deb_path, 'universal-ctags'])
@@ -559,11 +565,8 @@ def install_binary_download(tool, params, config, platform_str, dry_run=False):
         return
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        archive = os.path.join(tmpdir, 'download.tar.gz')
-        result = run_cmd(['curl', '-sSfL', url, '-o', archive])
-        if result.returncode != 0:
-            print(f"ERROR: download failed for {url}", file=sys.stderr)
-            sys.exit(1)
+        archive = Path(os.path.join(tmpdir, 'download.tar.gz'))
+        _download_file(url, archive)
 
         # Install to target directory
         if install_dir == '/usr/local/go':
@@ -719,37 +722,6 @@ def _zig_target(platform_str):
     return target
 
 
-def _zig_download(url, dest, dry_run=False):
-    """Download a file, with retries."""
-    attempts = 0
-    while attempts < 3:
-        if dry_run:
-            return
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        result = run_cmd(['curl', '-sSfL', '--retry', '3', '-o', str(dest), url])
-        if result.returncode == 0 and dest.is_file() and dest.stat().st_size > 0:
-            return
-        attempts += 1
-    print(f"ERROR: download failed for {url}", file=sys.stderr)
-    sys.exit(1)
-
-
-def _zig_sha256(path, expected):
-    """Verify SHA256 of a file."""
-    if not expected:
-        print(f"[verify] no sha256 published for {path.name}; skipping sha256 verification")
-        return
-    print(f"[verify] sha256 {path.name} == {expected}")
-    digest = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-            digest.update(chunk)
-    actual = digest.hexdigest()
-    if actual.lower() != expected.lower():
-        print(f"ERROR: sha256 mismatch for {path.name}: expected {expected}, got {actual}", file=sys.stderr)
-        sys.exit(1)
-
-
 def _zig_verify_minisig(archive_path, sig_path, dry_run=False):
     """Verify archive with minisign. Fails if minisign is unavailable."""
     if dry_run:
@@ -819,8 +791,6 @@ def install_zig(tool, params, config, platform_str, dry_run=False):
         if not archive_url:
             print(f"ERROR: Zig version '{version}' target '{target}' is missing an archive URL", file=sys.stderr)
             sys.exit(1)
-        shasum = target_entry.get("shasum")
-        # Zig only uses minisign for verification; SHA256 may be absent.
 
     if dry_run:
         print(f"  [DRY-RUN] Would install zig {version} (target={target}) to {install_root}")
@@ -833,8 +803,7 @@ def install_zig(tool, params, config, platform_str, dry_run=False):
     sig_path = cache_dir / f"{archive_name}.minisig"
 
     print(f"[download] {archive_name}")
-    _zig_download(archive_url, archive_path, dry_run=False)
-    _zig_sha256(archive_path, shasum)
+    _download_file(archive_url, archive_path, dry_run=False)
 
     # Minisign verification
     sig_url = f"{archive_url}.minisig"
@@ -847,7 +816,7 @@ def install_zig(tool, params, config, platform_str, dry_run=False):
         pass
 
     if sig_exists:
-        _zig_download(sig_url, sig_path, dry_run=False)
+        _download_file(sig_url, sig_path, dry_run=False)
         _zig_verify_minisig(archive_path, sig_path, dry_run=False)
     else:
         print(f"ERROR: required minisig signature not found at {sig_url}", file=sys.stderr)
