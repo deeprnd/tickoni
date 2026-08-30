@@ -93,8 +93,8 @@ setup-fd-linux-arm-gcc:
 
 # Windows x86_64 — FD toolchain (zig + ssl)
 setup-fd-windows-x86:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc
-    python3 contrib/setup/orchestrator.py zig,ssl
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc --platform windows-x86
+    python3 contrib/setup/orchestrator.py zig,ssl --platform windows-x86
 
 # Windows ARM64 — FD toolchain (zig + ssl)
 setup-fd-windows-arm:
