@@ -59,7 +59,9 @@ jobs:
           fetch-depth: 0
 
       - name: Create local main branch for diff-based quality scripts
-        run: git branch --force main origin/main
+        run: |
+          git fetch origin main
+          git branch --force main origin/main
 
       - name: Setup public GitHub runner
         run: just setup-linux-x86-gcc
