@@ -78,7 +78,7 @@ jobs:
             security: 'false'
             fd_deps: 'true'
             zig: 'true'
-            apt_packages: clang
+            apt_packages: "clang"
             compiler: clang
             compiler_version: system
             setup_recipe: setup-linux-x86-clang
@@ -89,6 +89,19 @@ jobs:
       - uses: taiki-e/install-action@just
         with:
           fetch-depth: 0
+
+      - name: Install apt packages
+        if: matrix.apt_packages != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.apt_packages }}
+
+      - name: Setup compiler + toolchain
+        run: just ${{ matrix.setup_recipe }}
+
+      - name: Install FD deps
+        if: matrix.fd_deps == 'true'
+        run: just ${{ matrix.deps_recipe }}
 
       - name: Run check
         run: ${{ matrix.command }}
