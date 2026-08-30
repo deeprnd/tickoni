@@ -15,7 +15,10 @@ import os
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
+import urllib.request
+import zipfile
 from pathlib import Path
 
 
@@ -185,14 +188,15 @@ def install_apt(tool, params, config, platform_str, dry_run=False):
 
     if "windows" in platform_str:
         for pkg_name in packages:
-            print(f"[WINGET] Installing {pkg_name}...")
+            winget_id = params.get('winget_id', pkg_name)
+            print(f"[WINGET] Installing {winget_id}...")
             cmd = [
-                *_find_winget(), 'install', '--id', pkg_name,
+                *_find_winget(), 'install', '--id', winget_id,
                 '--accept-package-agreements', '--accept-source-agreements',
                 '--disable-interactivity']
             result = run_cmd(cmd)
             if result.returncode != 0:
-                print(f"ERROR: winget install failed for {pkg_name}", file=sys.stderr)
+                print(f"ERROR: winget install failed for {winget_id}", file=sys.stderr)
                 sys.exit(1)
         return
 
@@ -682,6 +686,236 @@ def install_none(tool, params, config, platform_str, dry_run=False):
         print(f"  [DRY-RUN] Would skip (none)")
 
 
+# ── Zig Install ────────────────────────────────────────────────────────────────
+
+ZIG_INDEX_URL = "https://ziglang.org/download/index.json"
+ZIG_BUILDS_BASE_URL = "https://ziglang.org/builds"
+ZIG_MINISIGN_PUBKEY = "RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
+
+PLATFORM_TO_ZIG_TARGET = {
+    "linux-x86": "x86_64-linux",
+    "linux-arm": "aarch64-linux",
+    "macos-x86": "x86_64-macos",
+    "macos-arm": "aarch64-macos",
+    "windows-x86": "x86_64-windows",
+    "windows-arm": "aarch64-windows",
+}
+
+
+def _zig_target(platform_str):
+    """Convert platform string to Zig release target key."""
+    target = PLATFORM_TO_ZIG_TARGET.get(platform_str)
+    if target is None:
+        print(
+            f"ERROR: unknown platform '{platform_str}' for Zig; expected one of: "
+            f"{', '.join(PLATFORM_TO_ZIG_TARGET.keys())}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return target
+
+
+def _zig_download(url, dest, dry_run=False):
+    """Download a file, with retries."""
+    attempts = 0
+    while attempts < 3:
+        if dry_run:
+            return
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        result = run_cmd(['curl', '-sSfL', '--retry', '3', '-o', str(dest), url])
+        if result.returncode == 0 and dest.is_file() and dest.stat().st_size > 0:
+            return
+        attempts += 1
+    print(f"ERROR: download failed for {url}", file=sys.stderr)
+    sys.exit(1)
+
+
+def _zig_sha256(path, expected):
+    """Verify SHA256 of a file."""
+    if not expected:
+        print(f"[verify] no sha256 published for {path.name}; skipping sha256 verification")
+        return
+    print(f"[verify] sha256 {path.name} == {expected}")
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    actual = digest.hexdigest()
+    if actual.lower() != expected.lower():
+        print(f"ERROR: sha256 mismatch for {path.name}: expected {expected}, got {actual}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _zig_verify_minisig(archive_path, sig_path, dry_run=False):
+    """Verify archive with minisign. Fails if minisign is unavailable."""
+    if dry_run:
+        print(f"[verify] minisig {archive_path.name} (dry-run)")
+        return
+
+    # Check if minisign is available
+    import shutil as _shutil
+    minisign = _shutil.which("minisign") or _shutil.which("minisign-verify") or _shutil.which("minisig")
+    if minisign:
+        cmd = [minisign, "-V", "-P", ZIG_MINISIGN_PUBKEY, "-x", str(sig_path), "-m", str(archive_path)]
+    else:
+        # Fallback: try minisign-verify (OpenBSD)
+        for name in ("minisign", "minisign-verify", "minisig"):
+            candidate = _shutil.which(name)
+            if candidate:
+                minisign = candidate
+                break
+        if not minisign:
+            print("ERROR: minisign binary not found on PATH — cannot verify Zig", file=sys.stderr)
+            sys.exit(1)
+        cmd = [minisign, "-V", "-P", ZIG_MINISIGN_PUBKEY, "-x", str(sig_path), "-m", str(archive_path)]
+
+    print(f"[verify] minisig {archive_path.name} ...")
+    result = run_cmd(cmd, capture=False)
+    if result.returncode != 0:
+        print(f"ERROR: minisig verification FAILED for {archive_path.name}", file=sys.stderr)
+        sys.exit(1)
+    print("[verify] minisig OK")
+
+
+def install_zig(tool, params, config, platform_str, dry_run=False):
+    """Install an official prebuilt Zig release."""
+    version_ref = params.get('version_ref')
+    install_root = params.get('install_root', os.path.expanduser('~/.local'))
+    user_path = params.get('user_path', False)
+    version = resolve_version(config, version_ref)
+    if not version:
+        print("ERROR: no zig version in tool-versions.json", file=sys.stderr)
+        sys.exit(1)
+
+    target = _zig_target(platform_str)
+    index_url = ZIG_INDEX_URL
+
+    # Resolve archive URL from index
+    with urllib.request.urlopen(index_url) as resp:
+        index = json.load(resp)
+    version_entry = index.get(version)
+    if version_entry is None:
+        # Check dev build
+        ext = ".zip" if target.endswith("-windows") else ".tar.xz"
+        dev_url = f"{ZIG_BUILDS_BASE_URL}/zig-{target}-{version}{ext}"
+        req = urllib.request.Request(dev_url, method="HEAD")
+        try:
+            urllib.request.urlopen(req)
+            archive_url = dev_url
+            shasum = None
+        except Exception:
+            print(f"ERROR: Zig version '{version}' not found in {index_url} and no dev build at {dev_url}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        target_entry = version_entry.get(target)
+        if target_entry is None:
+            print(f"ERROR: Zig version '{version}' has no prebuilt archive for target '{target}'", file=sys.stderr)
+            sys.exit(1)
+        archive_url = target_entry.get("tarball") or target_entry.get("zip")
+        if not archive_url:
+            print(f"ERROR: Zig version '{version}' target '{target}' is missing an archive URL", file=sys.stderr)
+            sys.exit(1)
+        shasum = target_entry.get("shasum")
+        if not shasum:
+            print(f"ERROR: Zig version '{version}' target '{target}' is missing a sha256 checksum", file=sys.stderr)
+            sys.exit(1)
+
+    if dry_run:
+        print(f"  [DRY-RUN] Would install zig {version} (target={target}) to {install_root}")
+        return
+
+    # Download
+    archive_name = archive_url.rsplit("/", 1)[-1]
+    cache_dir = Path(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))) / "zig" / "archives"
+    archive_path = cache_dir / archive_name
+    sig_path = cache_dir / f"{archive_name}.minisig"
+
+    print(f"[download] {archive_name}")
+    _zig_download(archive_url, archive_path, dry_run=False)
+    _zig_sha256(archive_path, shasum)
+
+    # Minisign verification
+    sig_url = f"{archive_url}.minisig"
+    sig_exists = False
+    try:
+        req = urllib.request.Request(sig_url, method="HEAD")
+        urllib.request.urlopen(req)
+        sig_exists = True
+    except Exception:
+        pass
+
+    if sig_exists:
+        _zig_download(sig_url, sig_path, dry_run=False)
+        _zig_verify_minisig(archive_path, sig_path, dry_run=False)
+    else:
+        print(f"ERROR: required minisig signature not found at {sig_url}", file=sys.stderr)
+        sys.exit(1)
+
+    # Extract
+    extract_root = cache_dir / "extract" / f"{version}-{target}"
+    if extract_root.exists():
+        shutil.rmtree(extract_root)
+    extract_root.mkdir(parents=True, exist_ok=True)
+
+    if archive_name.endswith(".zip"):
+        with zipfile.ZipFile(archive_path) as zf:
+            zf.extractall(extract_root)
+    else:
+        with tarfile.open(archive_path, "r:xz") as tf:
+            tf.extractall(extract_root)
+
+    # Locate extracted directory
+    children = [p for p in extract_root.iterdir() if p.is_dir()]
+    if len(children) != 1:
+        print(f"ERROR: expected exactly one extracted directory in {extract_root}, found {len(children)}", file=sys.stderr)
+        sys.exit(1)
+    source_dir = children[0]
+
+    # Install
+    install_dir = Path(install_root) / source_dir.name
+    if install_dir.exists():
+        shutil.rmtree(install_dir)
+    install_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source_dir, install_dir)
+    print(f"[install] zig -> {install_dir}")
+
+    # PATH handling
+    bin_dir = str(install_dir / "zig")
+    if platform_str.startswith("windows"):
+        # GitHub Actions PATH
+        gh_path = os.environ.get("GITHUB_PATH")
+        if gh_path:
+            with open(gh_path, "a") as fh:
+                fh.write(bin_dir + os.linesep)
+            print(f"[github-path] {bin_dir}")
+        # Windows user PATH
+        if user_path:
+            import subprocess as _sub
+            ps = (
+                f"$zigDir = '{bin_dir}'\n"
+                "$current = [Environment]::GetEnvironmentVariable('Path', 'User')\n"
+                "$parts = @()\n"
+                "if ($current) { $parts = $current -split ';' | Where-Object { $_ -and ($_ -ne $zigDir) } }\n"
+                "$new = ($zigDir + ';' + ($parts -join ';')).TrimEnd(';')\n"
+                "[Environment]::SetEnvironmentVariable('Path', $new, 'User')\n"
+            )
+            _sub.run(["powershell.exe", "-NoProfile", "-Command", ps], check=True)
+            print(f"[user-path] prepend {bin_dir}")
+    else:
+        # GitHub Actions PATH
+        gh_path = os.environ.get("GITHUB_PATH")
+        if gh_path:
+            with open(gh_path, "a") as fh:
+                fh.write(bin_dir + os.linesep)
+            print(f"[github-path] {bin_dir}")
+        # Posix: print activation hint
+        if not gh_path:
+            print(f"[activation] add Zig to your shell PATH with:")
+            print(f'  export PATH="{bin_dir}:$PATH"')
+
+    print(f"[done] zig version={version} target={target} install_dir={install_dir}")
+
+
 # ── Dispatch ─────────────────────────────────────────────────────────────────
 
 INSTALL_METHODS = {
@@ -695,6 +929,7 @@ INSTALL_METHODS = {
     'binary_download': install_binary_download,
     'python_script': install_python_script,
     'build_from_source': install_build_from_source,
+    'install_zig': install_zig,
     'none': install_none,
 }
 

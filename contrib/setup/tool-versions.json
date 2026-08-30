@@ -273,10 +273,11 @@
     },
     "minisign": {
       "category": "essential",
-      "platform": "linux",
+      "platform": "all",
       "install_method": "apt",
       "parameters": {
-        "package": "minisign"
+        "package": "minisign",
+        "winget_id": "jedisct1.minisign"
       },
       "idempotent_check": "command -v minisign"
     },
@@ -370,13 +371,9 @@
     "zig": {
       "category": "zig",
       "platform": "all",
-      "install_method": "python_script",
+      "install_method": "install_zig",
       "parameters": {
-        "script": "install-zig.py",
-        "args": [
-          "--install-root",
-          "$HOME/.local"
-        ]
+        "install_root": "$HOME/.local"
       },
       "idempotent_check": "command -v zig",
       "version_ref": "zig"

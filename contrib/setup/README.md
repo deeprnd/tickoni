@@ -32,7 +32,7 @@ The JSON file is the complete source of truth:
 - **`tools`** — each tool declares:
   - `category`: owning category.
   - `platform`: `all`, `linux-x86`, `macos-arm`, etc.
-  - `install_method`: `apt`, `brew`, `winget`, `pip`, `pipx`, `go_install`, `github_release`, `binary_download`, `python_script`, `build_from_source`, `none`.
+  - `install_method`: `apt`, `brew`, `winget`, `pip`, `pipx`, `go_install`, `github_release`, `binary_download`, `python_script`, `install_zig`, `build_from_source`, `none`.
   - `parameters`: method-specific (e.g., `package`, `module`, `owner`/`repo` for GitHub releases).
   - `idempotent_check`: shell command to verify installation (e.g., `command -v zig`).
   - `version_ref`: optional reference to `versions` section.
@@ -49,7 +49,8 @@ The JSON file is the complete source of truth:
 | `go_install` | `go install` | `module`: Go module path |
 | `github_release` | Download from GitHub releases | `owner`, `repo`, `version_ref`, `asset_pattern` |
 | `binary_download` | Download arbitrary binary | `url_pattern`, `install_dir` |
-| `python_script` | Run Python script | `script_path`, `args` |
+| `python_script` | Run Python script | `script`, `args` |
+| `install_zig` | Install official Zig release | `install_root` |
 | `build_from_source` | Clone + build | `repo`, `install_dir`, `build_command`, `install_command` |
 | `none` | No-op (tool already present) | none |
 
@@ -70,7 +71,6 @@ contrib/setup/
   tool-versions.json       # Complete source of truth
   helpers/
     platform.sh            # Platform detection
-    install-zig.py         # Zig binary installer wrapper
     install-openssl.sh     # OpenSSL build from source
 ```
 
