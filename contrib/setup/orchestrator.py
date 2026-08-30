@@ -100,6 +100,12 @@ def collect_tools(resolved_categories, categories_config, tools_config):
                 tool = tools_config[tool_name].copy()
                 tool['name'] = tool_name
                 tool['category'] = cat
+                # Propagate top-level version_ref into parameters so
+                # install_python_script can read params.get('version_ref')
+                if 'version_ref' in tool:
+                    tool.setdefault('parameters', {}).setdefault(
+                        'version_ref', tool['version_ref']
+                    )
                 tools.append(tool)
                 seen.add(tool_name)
     return tools
