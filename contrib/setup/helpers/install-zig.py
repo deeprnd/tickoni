@@ -250,6 +250,15 @@ def _ensure_minisign_installed(dry_run=False):
         if result.returncode == 0 and _find_minisign():
             print("[minisign] installed via apt")
             return True
+    # macOS: brew install minisign
+    if shutil.which("brew"):
+        result = subprocess.run(
+            ["brew", "install", "minisign"],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0 and _find_minisign():
+            print("[minisign] installed via brew")
+            return True
     print("[minisign] could not install minisign automatically — cannot verify Zig", file=sys.stderr)
     return False
 
