@@ -8,12 +8,14 @@ anything.
 
 Downloads are verified with SHA256 (from index.json) and the required minisign
 signature (from ziglang.org/builds/*.minisig).
+
+Platform detection is delegated to contrib/platform.sh via the --platform
+argument.  No other file in contrib/setup/ should re-implement OS/arch detection.
 """
 import argparse
 import hashlib
 import json
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -29,88 +31,53 @@ ZIG_BUILDS_BASE_URL = "https://ziglang.org/builds"
 # Zig minisign public key — copied from ziglang.org/download/
 ZIG_MINISIGN_PUBKEY = "RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
 
+# Platform → Zig release target mapping.
+# contrib/platform.sh emits: linux-x86, macos-arm, windows-x86, etc.
+PLATFORM_TO_TARGET = {
+    "linux-x86": "x86_64-linux",
+    "linux-arm": "aarch64-linux",
+    "macos-x86": "x86_64-macos",
+    "macos-arm": "aarch64-macos",
+    "windows-x86": "x86_64-windows",
+    "windows-arm": "aarch64-windows",
+}
+
 
 def eprint(*args):
     print(*args, file=sys.stderr)
 
 
-# ── Platform detection ────────────────────────────────────────────────────────
+# ── Platform helpers ──────────────────────────────────────────────────────────
+# Platform detection is the single source of truth in contrib/platform.sh.
+# All scripts in contrib/setup/ derive platform from --platform or platform.sh,
+# never from Python's platform module.
 
 
-def detect_windows_native_machine():
-    arch_map = {
-        "ARM64": "arm64",
-        "AMD64": "x86_64",
-        "X86": "x86",
-    }
-    try:
-        import subprocess
+def is_windows(platform_str):
+    """Return True if the platform string indicates Windows."""
+    return platform_str and "windows" in platform_str
 
-        result = subprocess.run(
-            [
-                "powershell.exe",
-                "-NoProfile",
-                "-Command",
-                "(Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty Architecture)",
-            ],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
+
+def resolve_target(platform_str):
+    """Convert contrib/platform.sh platform string to Zig release target key.
+
+    E.g. 'linux-x86' -> 'x86_64-linux', 'windows-arm' -> 'aarch64-windows'.
+    """
+    if platform_str is None:
+        raise SystemExit("--platform is required; platform detection is handled by contrib/platform.sh")
+    target = PLATFORM_TO_TARGET.get(platform_str)
+    if target is None:
+        raise SystemExit(
+            f"unknown platform '{platform_str}'; expected one of: {', '.join(PLATFORM_TO_TARGET.keys())}"
         )
-        code = result.stdout.strip()
-        mapped = {
-            "0": "x86",
-            "9": "x86_64",
-            "12": "arm64",
-        }.get(code)
-        if mapped:
-            return mapped
-    except Exception:
-        pass
-    wow64 = os.environ.get("PROCESSOR_ARCHITEW6432")
-    if wow64:
-        return arch_map.get(wow64.upper(), wow64.lower())
-    proc_arch = os.environ.get("PROCESSOR_ARCHITECTURE")
-    if proc_arch:
-        mapped = arch_map.get(proc_arch.upper())
-        if mapped:
-            return mapped
-    return None
-
-
-def detect_target(system_name=None, machine_name=None):
-    system_name = (system_name or platform.system()).lower()
-    if system_name == "windows":
-        machine_name = detect_windows_native_machine() or machine_name or platform.machine()
-    else:
-        machine_name = machine_name or platform.machine()
-    machine_name = machine_name.lower()
-
-    arch_map = {
-        "x86_64": "x86_64",
-        "amd64": "x86_64",
-        "arm64": "aarch64",
-        "aarch64": "aarch64",
-    }
-    arch = arch_map.get(machine_name)
-    if arch is None:
-        raise SystemExit(f"unsupported architecture for Zig release target inference: {machine_name}")
-
-    if system_name == "windows":
-        return f"{arch}-windows"
-    if system_name == "darwin":
-        return f"{arch}-macos"
-    if system_name == "linux":
-        return f"{arch}-linux"
-    raise SystemExit(f"unsupported operating system for Zig release target inference: {system_name}")
+    return target
 
 
 # ── Install paths ────────────────────────────────────────────────────────────
 
 
-def default_install_root():
-    if os.name == "nt":
+def default_install_root(platform_str):
+    if is_windows(platform_str):
         local = os.environ.get("LOCALAPPDATA")
         if not local:
             raise SystemExit("LOCALAPPDATA is not set")
@@ -118,8 +85,8 @@ def default_install_root():
     return Path.home() / ".local" / "zig"
 
 
-def default_cache_root():
-    if os.name == "nt":
+def default_cache_root(platform_str):
+    if is_windows(platform_str):
         local = os.environ.get("LOCALAPPDATA")
         if not local:
             raise SystemExit("LOCALAPPDATA is not set")
@@ -232,8 +199,8 @@ def _find_minisign():
     return None
 
 
-def _ensure_minisign_installed(dry_run=False):
-    """Install minisign via apt on Debian/Ubuntu if not present. Returns True if usable after."""
+def _ensure_minisign_installed(platform_str, dry_run=False):
+    """Install minisign via the appropriate package manager if not present. Returns True if usable after."""
     if _find_minisign():
         return True
     if dry_run:
@@ -260,7 +227,7 @@ def _ensure_minisign_installed(dry_run=False):
             print("[minisign] installed via brew")
             return True
     # Windows: winget install minisign
-    if os.name == "nt":
+    if is_windows(platform_str):
         winget = shutil.which("winget") or shutil.which("winget.exe")
         if winget:
             result = subprocess.run(
@@ -274,14 +241,14 @@ def _ensure_minisign_installed(dry_run=False):
     return False
 
 
-def verify_minisig(archive_path, sig_path, dry_run=False):
+def verify_minisig(archive_path, sig_path, platform_str, dry_run=False):
     """Verify archive using minisign; fail if minisign is unavailable."""
     if dry_run:
         print(f"[verify] minisig {archive_path} (dry-run)")
         return
     minisign_bin = _find_minisign()
     if not minisign_bin:
-        if not _ensure_minisign_installed(dry_run=False):
+        if not _ensure_minisign_installed(platform_str, dry_run=False):
             raise SystemExit("required minisign binary is not available; cannot verify Zig")
         minisign_bin = _find_minisign()
         if not minisign_bin:
@@ -363,8 +330,6 @@ def add_to_github_path(path_value, dry_run=False):
 
 
 def update_windows_user_path(path_value, dry_run=False):
-    if os.name != "nt":
-        raise SystemExit("--user-path is currently supported on Windows only")
     print(f"[user-path] prepend {path_value}")
     if dry_run:
         return
@@ -393,21 +358,31 @@ def main():
     parser = argparse.ArgumentParser(description="Install a prebuilt official Zig release for local development or CI.")
     parser.add_argument("version", help="Zig release version or channel key from index.json (REQUIRED)")
     parser.add_argument("--index-url", default=ZIG_INDEX_URL, help="Zig download index JSON URL")
-    parser.add_argument("--target", help="prebuilt Zig target key (default: inferred from host)")
-    parser.add_argument("--install-root", type=Path, default=default_install_root(), help="root directory that will receive zig-<target>-<version>")
-    parser.add_argument("--cache-root", type=Path, default=default_cache_root(), help="cache/work directory for downloaded Zig archives")
+    parser.add_argument("--platform", required=True, help="platform string from contrib/platform.sh (e.g. linux-x86, macos-arm, windows-x86)")
+    parser.add_argument("--target", help="prebuilt Zig target key (overrides --platform)")
+    parser.add_argument("--install-root", type=Path, default=None, help="root directory that will receive zig-<target>-<version>")
+    parser.add_argument("--cache-root", type=Path, default=None, help="cache/work directory for downloaded Zig archives")
     parser.add_argument("--user-path", action="store_true", help="persist the installed Zig directory to the Windows user PATH")
     parser.add_argument("--dry-run", action="store_true", help="print the plan without downloading, extracting, or editing PATH")
     args = parser.parse_args()
 
-    target = args.target or detect_target()
+    platform_str = args.platform
+    install_root = args.install_root or default_install_root(platform_str)
+    cache_root = args.cache_root or default_cache_root(platform_str)
+
+    # --target overrides --platform for backwards compatibility.
+    if args.target:
+        target = args.target
+    else:
+        target = resolve_target(platform_str)
+
     index = load_index(args.index_url)
     archive_url, shasum = select_release(index, args.version, target)
 
     archive_name = archive_url.rsplit("/", 1)[-1]
-    archive_path = args.cache_root / "archives" / archive_name
-    sig_path = args.cache_root / "archives" / f"{archive_name}.minisig"
-    extract_root = args.cache_root / "extract" / f"{args.version}-{target}"
+    archive_path = cache_root / "archives" / archive_name
+    sig_path = cache_root / "archives" / f"{archive_name}.minisig"
+    extract_root = cache_root / "extract" / f"{args.version}-{target}"
     archive_stem = archive_name.removesuffix(".tar.xz").removesuffix(".zip")
 
     download_archive(archive_url, archive_path, dry_run=args.dry_run)
@@ -416,7 +391,7 @@ def main():
     # Minisign verification (download sig and verify)
     has_sig = download_minisig(archive_url, sig_path, dry_run=args.dry_run)
     if has_sig:
-        verify_minisig(archive_path, sig_path, dry_run=args.dry_run)
+        verify_minisig(archive_path, sig_path, platform_str, dry_run=args.dry_run)
     elif args.dry_run:
         print(f"[verify] minisig required for {archive_name} (dry-run)")
     else:
@@ -425,14 +400,14 @@ def main():
     extract_archive(archive_path, extract_root, dry_run=args.dry_run)
 
     source_dir = resolve_source_dir(extract_root, dry_run=args.dry_run, archive_stem=archive_stem)
-    install_dir = args.install_root / source_dir.name
+    install_dir = install_root / source_dir.name
     copy_tree(source_dir, install_dir, dry_run=args.dry_run)
 
     add_to_github_path(install_dir, dry_run=args.dry_run)
 
     if args.user_path:
         update_windows_user_path(install_dir, dry_run=args.dry_run)
-    elif os.name != "nt" and not os.environ.get("GITHUB_PATH"):
+    elif not is_windows(platform_str) and not os.environ.get("GITHUB_PATH"):
         print_posix_activation(install_dir)
 
     print(f"[done] zig version={args.version} target={target} install_dir={install_dir}")
