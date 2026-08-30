@@ -481,12 +481,18 @@
         "repo": "gitleaks",
         "version_ref": "gitleaks",
         "asset_pattern_os_map": {
-          "linux": "gitleaks_{version}_linux_amd64.tar.gz",
+          "linux": {
+            "amd64": "gitleaks_{version}_linux_x64.tar.gz",
+            "arm64": "gitleaks_{version}_linux_arm64.tar.gz"
+          },
           "darwin": {
             "arm64": "gitleaks_{version}_darwin_arm64.tar.gz",
             "x86_64": "gitleaks_{version}_darwin_x64.tar.gz"
           },
-          "windows": "gitleaks_{version}_windows_{arch}.zip"
+          "windows": {
+            "amd64": "gitleaks_{version}_windows_x64.zip",
+            "arm64": "gitleaks_{version}_windows_arm64.zip"
+          }
         },
         "bin_name": "gitleaks"
       },
