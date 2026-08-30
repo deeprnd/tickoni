@@ -186,8 +186,8 @@ def install_apt(tool, params, config, platform_str, dry_run=False):
     if "windows" in platform_str:
         for pkg_name in packages:
             print(f"[WINGET] Installing {pkg_name}...")
-            winget_exe = _find_winget() or 'winget'
-            cmd = [winget_exe, 'install', '--id', pkg_name,
+            cmd = [
+                *_find_winget(), 'install', '--id', pkg_name,
                 '--accept-package-agreements', '--accept-source-agreements',
                 '--disable-interactivity']
             result = run_cmd(cmd)
@@ -231,7 +231,7 @@ def _find_winget():
         if os.path.isfile(candidate):
             return candidate
     # Fallback: use cmd /c to force Windows PATH resolution
-    return 'cmd /c winget.exe'
+    return ['cmd', '/c', 'winget.exe']
 
 
 def install_winget(tool, params, config, platform_str, dry_run=False):
@@ -242,8 +242,7 @@ def install_winget(tool, params, config, platform_str, dry_run=False):
         return
     print(f"[WINGET] Installing {pkg}...")
     cmd = [
-        _find_winget() or 'winget',
-        'install', '--id', pkg,
+        *_find_winget(), 'install', '--id', pkg,
         '--accept-package-agreements', '--accept-source-agreements',
         '--disable-interactivity'
     ]
