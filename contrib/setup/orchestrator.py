@@ -347,8 +347,6 @@ def install_github_release(tool, params, config, platform_str, dry_run=False):
         pattern = asset_pattern
         pattern = pattern.replace('{os}', os_name)
         pattern = pattern.replace('{arch}', arch)
-        if version:
-            pattern = pattern.replace('{version}', version)
     else:
         print(f"ERROR: no asset pattern defined for {owner or repo}", file=sys.stderr)
         sys.exit(1)
@@ -356,6 +354,10 @@ def install_github_release(tool, params, config, platform_str, dry_run=False):
     if not pattern:
         print(f"ERROR: could not resolve asset for {platform_str}", file=sys.stderr)
         sys.exit(1)
+
+    # Substitute {version} in the resolved pattern (runs regardless of branch).
+    if version:
+        pattern = pattern.replace('{version}', version)
 
     # Fetch latest tag if version is not pinned
     if not version:
