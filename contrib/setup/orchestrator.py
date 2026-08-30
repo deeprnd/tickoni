@@ -663,7 +663,8 @@ def install_build_from_source(tool, params, config, platform_str, dry_run=False)
                          '-DGGML_BLAS=ON',
                          '-DGGML_BLAS_VENDOR=OpenBLAS',
                          '-DGGML_NATIVE=ON'])
-                run_cmd(['cmake', '--build', build_dir, '-j', str(os.cpu_count() or 1)])
+                run_cmd(['cmake', '--build', build_dir, '-j', str(os.cpu_count() or 1),
+                         '--target', 'llama-server'])
                 # llama.cpp installs binaries in-place under build/
         except Exception as e:
             print(f"WARNING: llama.cpp build failed — skipping: {e}", file=sys.stderr)
