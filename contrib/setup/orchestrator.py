@@ -158,7 +158,7 @@ def _apt_update():
     if not hasattr(_apt_update, '_updated'):
         try:
             subprocess.run(
-                ['sudo', 'apt-get', 'update', '-qq'],
+                ['sudo', '-n', 'apt-get', 'update', '-qq'],
                 capture_output=True, timeout=120
             )
         except Exception:
@@ -181,7 +181,7 @@ def install_apt(tool, params, config, dry_run=False):
     def _try_install(pkg_name):
         print(f"[INSTALL] Installing {pkg_name}...")
         result = run_cmd([
-            'sudo', 'apt-get', 'install', '-y', '--no-install-recommends', pkg_name
+            'sudo', '-n', 'apt-get', 'install', '-y', '--no-install-recommends', pkg_name
         ])
         return result
 
