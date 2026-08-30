@@ -134,6 +134,13 @@
         "pwsh"
       ]
     },
+    "math-libs": {
+      "description": "Math libraries needed by LLM toolchain",
+      "tools": [
+        "openblas-linux",
+        "openblas-macos"
+      ]
+    },
     "mvsc": {
       "description": "Windows MSVC build tools",
       "tools": [
@@ -211,7 +218,8 @@
     ],
     "llm-server": [
       "core",
-      "build"
+      "build",
+      "math-libs"
     ]
   },
   "tools": {
@@ -592,6 +600,24 @@
         "package": "huggingface_hub[cli]"
       },
       "idempotent_check": "command -v huggingface-cli"
+    },
+    "openblas-linux": {
+      "category": "math-libs",
+      "platform": "linux",
+      "install_method": "apt",
+      "parameters": {
+        "package": "libopenblas-dev"
+      },
+      "idempotent_check": "pkg-config --libs openblas"
+    },
+    "openblas-macos": {
+      "category": "math-libs",
+      "platform": "macos",
+      "install_method": "brew",
+      "parameters": {
+        "package": "openblas"
+      },
+      "idempotent_check": "brew list openblas"
     }
   }
 }
