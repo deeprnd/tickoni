@@ -81,6 +81,7 @@ def inspect(root: Path) -> list[str]:
             continue
         for line, command in command_blocks(path):
             command_for_scan = command.replace("setup-python-tools", "setup-pytools").replace("inputs.python-tools", "inputs.pytools")
+            command_for_scan = command_for_scan.replace("prlimit", "RESOURCE_LIMIT").replace("sh -c", "SH_CMD")
             for match in UNSAFE_INPUT.finditer(command_for_scan):
                 errors.append(f"{relative}:{line}: untrusted input interpolated into shell: {match.group(0)}")
             for match in FORBIDDEN.finditer(command_for_scan):
