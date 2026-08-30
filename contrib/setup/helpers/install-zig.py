@@ -199,6 +199,36 @@ def _find_minisign():
     return None
 
 
+def _find_winget():
+    """Resolve winget to an absolute path for reliable subprocess execution."""
+    which = shutil.which("winget") or shutil.which("winget.exe")
+    if which:
+        return which
+    system_root = os.environ.get("SystemRoot", r"C:\Windows")
+    for subdir in ("System32", "SysArm64"):
+        candidate = os.path.join(system_root, subdir, "winget.exe")
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def _refresh_windows_path():
+    """Refresh os.environ['PATH'] from the Windows environment.
+
+    winget updates the User-level PATH via registry, which is not visible
+    to the current Python process until the environment is re-read.
+    """
+    try:
+        new_path = subprocess.check_output(
+            ["cmd", "/c", "echo", "%PATH%"],
+            shell=False,
+            text=True,
+        ).strip()
+        os.environ["PATH"] = new_path
+    except Exception:
+        pass
+
+
 def _ensure_minisign_installed(platform_str, dry_run=False):
     """Install minisign via the appropriate package manager if not present. Returns True if usable after."""
     if _find_minisign():
@@ -228,15 +258,18 @@ def _ensure_minisign_installed(platform_str, dry_run=False):
             return True
     # Windows: winget install minisign
     if is_windows(platform_str):
-        winget = shutil.which("winget") or shutil.which("winget.exe")
+        winget = _find_winget()
         if winget:
             result = subprocess.run(
                 [winget, "install", "--id", "jedisct1.minisign", "--silent", "--accept-package-agreements", "--accept-source-agreements"],
                 capture_output=True, text=True
             )
-            if result.returncode == 0 and _find_minisign():
-                print("[minisign] installed via winget")
-                return True
+            if result.returncode == 0:
+                # Refresh PATH so we can find the newly installed minisign
+                _refresh_windows_path()
+                if _find_minisign():
+                    print("[minisign] installed via winget")
+                    return True
     print("[minisign] could not install minisign automatically — cannot verify Zig", file=sys.stderr)
     return False
 
