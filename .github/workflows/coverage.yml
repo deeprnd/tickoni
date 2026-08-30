@@ -24,8 +24,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup public GitHub runner
-        run: just setup-linux-x86-gcc
+      - name: Setup minimal FD deps (Linux GCC)
+        run: just setup-fd-linux-x86-gcc
 
       - uses: ./.github/actions/build-fd-tk-libs
 
@@ -50,8 +50,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup
-        run: just setup-linux-x86-clang
+      - name: Setup minimal FD deps (Linux Clang)
+        run: just setup-fd-linux-x86-clang
 
       - name: Install Firedancer deps
         run: just setup-fd-deps-linux-x86-clang

@@ -49,6 +49,58 @@ default:
 help:
     @just --list
 
+# ── Minimal CI setup recipes ─────────────────────────────────────────────────
+# Each workflow calls the minimal recipe that installs only what it needs.
+# This avoids over-installing tools like quality/lint/Go when only gitleaks
+# or a build toolchain is required.
+
+# Build-only: compilers + build infra (no zig, no ssl, no quality, no secrets)
+setup-build-linux-x86-gcc:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+
+setup-build-linux-x86-clang:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+
+setup-build-macos-x86:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+
+setup-build-macos-arm:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+
+setup-build-linux-arm-gcc:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+
+# Engine build: full FD toolchain (build + zig + ssl + gcc)
+setup-fd-linux-x86-gcc:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py zig,ssl
+
+setup-fd-linux-x86-clang:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py zig,ssl
+
+setup-fd-macos-x86:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py zig,ssl
+
+setup-fd-macos-arm:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py zig,ssl
+
+setup-fd-linux-arm-gcc:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py zig,ssl
+
+# Quality: build + quality tools (shellcheck, actionlint, yamllint, pre-commit, buf + go)
+setup-quality-linux-x86:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py quality
+
+# Secrets-only: gitleaks (no quality, no build tools beyond what gitleaks needs)
+setup-gitleaks-linux-x86:
+    python3 contrib/setup/orchestrator.py core,essential,secrets
+
+# Full developer stack (unchanged)
 # ── Platform Detection ────────────────────────────────────────────────────────
 # All recipes use {{ os }} and {{ arch }} from here — never call uname directly.
 

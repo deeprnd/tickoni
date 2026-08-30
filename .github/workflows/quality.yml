@@ -63,8 +63,8 @@ jobs:
           git fetch origin main
           git branch --force main origin/main
 
-      - name: Setup public GitHub runner
-        run: just setup-linux-x86-gcc
+      - name: Setup minimal quality deps
+        run: just setup-quality-linux-x86
 
       - uses: ./.github/actions/build-fd-tk-libs
 

@@ -332,8 +332,10 @@ def install_github_release(tool, params, config, platform_str, dry_run=False):
     for part in platform_str.split('-'):
         if part in ('linux', 'macos', 'windows', 'darwin'):
             os_name = part
-        elif part in ('x86', 'arm', 'x86_64', 'aarch64', 'arm64'):
-            arch = part
+        elif part in ('x86', 'x86_64', 'amd64'):
+            arch = 'amd64'
+        elif part in ('arm', 'arm64', 'aarch64'):
+            arch = 'arm64'
 
     if asset_pattern_os_map:
         os_map = asset_pattern_os_map.get(os_name, '')

@@ -41,8 +41,8 @@ jobs:
         uses: actions/checkout@v7
       - uses: taiki-e/install-action@just
 
-      - name: Setup public GitHub runner
-        run: just setup-linux-x86-gcc
+      - name: Setup minimal FD deps (Linux GCC)
+        run: just setup-fd-linux-x86-gcc
 
       - name: Enable all CPUs
         uses: ./.github/actions/cpusonline
@@ -69,10 +69,13 @@ jobs:
         uses: actions/checkout@v7
       - uses: taiki-e/install-action@just
 
-      - name: Setup public GitHub runner
-        run: just setup-linux-x86-gcc
+      - name: Setup minimal FD deps (Linux GCC)
+        run: just setup-fd-linux-x86-gcc
 
       - uses: ./.github/actions/build-fd-tk-libs
+
+      - name: Setup minimal build deps for llama.cpp
+        run: just setup-build-linux-x86-gcc
 
       - name: Build llama.cpp
         run: just infra-ensure-llamacpp

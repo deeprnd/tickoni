@@ -27,8 +27,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup public GitHub runner
-        run: just setup-linux-x86-gcc
+      - name: Setup minimal deps for gitleaks
+        run: just setup-gitleaks-linux-x86
 
       - name: Run check
         run: just security-gitleaks-check-linux-x86

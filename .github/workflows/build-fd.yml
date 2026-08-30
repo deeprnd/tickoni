@@ -41,8 +41,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: taiki-e/install-action@just
 
-      - name: Setup deps
-        run: just setup-linux-x86-gcc
+      - name: Setup minimal FD deps (Linux GCC)
+        run: just setup-fd-linux-x86-gcc
 
       - name: Build
         run: just build-fd-linux-x86-gcc
@@ -58,8 +58,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: taiki-e/install-action@just
 
-      - name: Setup deps
-        run: just setup-linux-x86-clang
+      - name: Setup minimal FD deps (Linux Clang)
+        run: just setup-fd-linux-x86-clang
 
       - name: Build
         run: just build-fd-linux-x86-clang
@@ -75,8 +75,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: taiki-e/install-action@just
 
-      - name: Setup deps
-        run: just setup-linux-arm-gcc
+      - name: Setup minimal FD deps (Linux ARM GCC)
+        run: just setup-fd-linux-arm-gcc
 
       - name: Build
         run: just build-fd-linux-arm-gcc
@@ -92,8 +92,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: taiki-e/install-action@just
 
-      - name: Setup deps
-        run: just setup-macos-x86
+      - name: Setup minimal FD deps (macOS x86)
+        run: just setup-fd-macos-x86
 
       - name: Build
         run: just build-fd-macos-x86
@@ -109,8 +109,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: taiki-e/install-action@just
 
-      - name: Setup deps
-        run: just setup-macos-arm
+      - name: Setup minimal FD deps (macOS ARM)
+        run: just setup-fd-macos-arm
 
       - name: Build
         run: just build-fd-macos-arm
@@ -126,8 +126,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: taiki-e/install-action@just
 
-      - name: Setup Windows deps
-        run: just setup-windows-ci-x86
+      - name: Setup minimal FD deps (Windows x86_64)
+        run: just setup-fd-windows-x86
 
       - name: Build
         run: just build-fd-windows-x86
@@ -143,8 +143,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: taiki-e/install-action@just
 
-      - name: Setup Windows deps
-        run: just setup-windows-ci-arm
+      - name: Setup minimal FD deps (Windows ARM64)
+        run: just setup-fd-windows-arm
 
       - name: Build
         run: just build-fd-windows-arm
