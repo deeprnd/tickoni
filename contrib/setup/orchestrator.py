@@ -626,7 +626,7 @@ def install_build_from_source(tool, params, config, platform_str, dry_run=False)
         return
 
     if source_type == 'firedancer_deps':
-        deps_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'build', 'deps.sh')
+        deps_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'helpers', 'deps.sh')
         if os.path.isfile(deps_script):
             print("[DEPS] Running deps.sh check...")
             result = run_cmd(['bash', deps_script, 'check'])
