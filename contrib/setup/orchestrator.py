@@ -242,6 +242,21 @@ def _winget_already_installed(output: str) -> bool:
     return 'Found an existing package already installed' in output
 
 
+def _find_winget():
+    """Resolve winget to an absolute path for reliable subprocess execution."""
+    import shutil
+    # Try PATH first
+    which = shutil.which('winget') or shutil.which('winget.exe')
+    if which:
+        return which
+    # Known winget location on Windows (also works on ARM64 runners)
+    system_root = os.environ.get('SystemRoot', r'C:\Windows')
+    candidate = os.path.join(system_root, 'System32', 'winget.exe')
+    if os.path.isfile(candidate):
+        return candidate
+    return 'winget'
+
+
 def install_winget(tool, params, config, dry_run=False):
     """Install via winget."""
     pkg = params.get('package', '')
@@ -249,11 +264,13 @@ def install_winget(tool, params, config, dry_run=False):
         print(f"  [DRY-RUN] Would winget install {pkg}")
         return
     print(f"[WINGET] Installing {pkg}...")
-    result = run_cmd([
-        'winget', 'install', '--id', pkg,
+    cmd = [
+        _find_winget() or 'winget',
+        'install', '--id', pkg,
         '--accept-package-agreements', '--accept-source-agreements',
         '--disable-interactivity'
-    ])
+    ]
+    result = run_cmd(cmd)
     if result.returncode != 0:
         # winget returns 1 when package already installed with no upgrade
         if result.stdout and _winget_already_installed(result.stdout):
