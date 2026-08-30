@@ -110,7 +110,7 @@ Policy rules:
 
 Local developer machines use `contrib/setup/helpers/install-zig.py` (same as CI), not `install-zig-bootstrap.py` which was removed.
 
-CI usage is centralized in `.github/actions/setup-public-gh-runner/action.yml`, which invokes `contrib/setup/helpers/install-zig.py` for Windows and POSIX runners.
+CI usage is centralized in the `just setup-*` recipes (e.g. `just setup-linux-x86-gcc`), which invoke `contrib/setup/orchestrator.py` for tool installation. The orchestrator reads `contrib/setup/tool-versions.json` to resolve the full dependency graph and installs tools via the appropriate platform-native method.
 
 ---
 
