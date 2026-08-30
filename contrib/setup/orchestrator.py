@@ -536,6 +536,14 @@ def install_binary_download(tool, params, config, platform_str, dry_run=False):
         elif part in ('x86', 'arm', 'x86_64', 'aarch64', 'arm64'):
             arch = part
 
+    # Normalize os/arch to canonical names expected by binary_download tools.
+    # Go uses darwin/linux/windows + amd64/arm64, not macos/linux/windows + x86/arm.
+    if os_name == 'macos':
+        os_name = 'darwin'
+    arch_map = {'x86': 'amd64', 'x86_64': 'amd64', 'arm': 'arm64', 'arm64': 'arm64', 'aarch64': 'arm64'}
+    if arch is not None:
+        arch = arch_map.get(arch, arch)
+
     url = url_pattern.replace('{version}', version)
     url = url.replace('{{.os}}', os_name).replace('{{.arch}}', arch)
 
