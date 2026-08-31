@@ -132,7 +132,7 @@ cpu_count := `bash contrib/platform.sh cores`
 # All setup is delegated to orchestrator.py — it detects the platform and
 # resolves dependencies from tool-versions.json.
 setup-env toolchain="":
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build,python,zig,ssl,fd,quality,secrets,coverage,security,ops
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build,zig,ssl,fd,quality,secrets,coverage,security,ops
     just setup-git
 
 # Activate tracked git hooks (commit-msg strips anthropic AI co-authors)

@@ -179,17 +179,13 @@
     ],
     "zig": [
       "core",
-      "essential",
-      "build"
+      "essential"
     ],
     "ssl": [
-      "core",
-      "build"
+      "core"
     ],
     "fd": [
-      "core",
-      "build",
-      "ssl"
+      "core"
     ],
     "quality": [
       "core",
@@ -198,8 +194,7 @@
       "zig"
     ],
     "secrets": [
-      "core",
-      "build"
+      "core"
     ],
     "coverage": [
       "core",
@@ -207,8 +202,7 @@
       "toolchain"
     ],
     "security": [
-      "core",
-      "build"
+      "core"
     ],
     "ops": [
       "core"
