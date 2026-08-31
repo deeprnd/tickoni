@@ -207,7 +207,7 @@ fd_build_fd() {
   local -a cmd=( "$MAKE" -f contrib/build/GNUmakefile -j"$(fd_nproc)" MACHINE=tickoni_fd BUILDDIR="${BUILDDIR}" "${AR_OPTS[@]}" )
   [ -n "${FD_WINDOWS_ARCH:-}" ] && cmd+=( "FD_WINDOWS_ARCH=${FD_WINDOWS_ARCH}" )
   [ -n "${LDFLAGS_EXE}" ] && cmd+=( "LDFLAGS_EXE=${LDFLAGS_EXE}" )
-  cmd+=( "CC=${CC}" )
+  cmd+=( "CC=${CC}" "LD=${CC}" )
   cmd+=( "LOCAL_MKS=${mks}" )
   [ -n "${EXTRAS}" ] && cmd+=( "EXTRAS=\"${EXTRAS}\"" )
   cmd+=(${TARGETS})
