@@ -252,9 +252,9 @@ def _winget_already_installed(output: str) -> bool:
 def _find_winget_shell():
     """Return the shell command to invoke winget on Windows.
 
-    PowerShell resolves winget on both x86 and ARM runners (cmd cannot
-    find the UWP app on ARM).  Falls back to cmd on x86 if pwsh is
-    missing.
+    On x86 runners `winget` is on PATH.  On the windows-11-arm image
+    winget is absent from the runner — we install it first via the
+    Microsoft.WinGet.Client PowerShell module, then use it.
     """
     for ps in ('pwsh', 'powershell'):
         try:
@@ -266,7 +266,29 @@ def _find_winget_shell():
                 return ps
         except Exception:
             pass
-    # Last resort: cmd (works on x86, fails on ARM)
+    # winget not found — try installing it via PowerShell module (ARM runners)
+    for ps in ('pwsh', 'powershell'):
+        try:
+            script = (
+                'Install-Module -Name Microsoft.WinGet.Client '
+                '-Repository PSGallery -Force -Scope CurrentUser -Confirm:$false;'
+                'Repair-WinGetPackageManager -Latest -Force'
+            )
+            result = subprocess.run(
+                [ps, '-NoProfile', '-Command', script],
+                capture_output=True, timeout=120,
+            )
+            if result.returncode == 0:
+                # Verify winget is now available
+                result = subprocess.run(
+                    [ps, '-NoProfile', '-Command', 'winget --version'],
+                    capture_output=True, timeout=10,
+                )
+                if result.returncode == 0:
+                    return ps
+        except Exception:
+            pass
+    # Last resort: cmd (works on x86, fails on ARM without winget)
     return 'cmd'
 
 
