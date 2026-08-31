@@ -226,7 +226,8 @@
       "platform": "all",
       "install_method": "apt",
       "parameters": {
-        "package": "curl"
+        "package": "curl",
+        "winget_id": "curl.curl"
       },
       "idempotent_check": "command -v curl"
     },
@@ -235,7 +236,8 @@
       "platform": "all",
       "install_method": "apt",
       "parameters": {
-        "package": "git"
+        "package": "git",
+        "winget_id": "Git.Git"
       },
       "idempotent_check": "command -v git"
     },
@@ -264,7 +266,8 @@
       "platform": "all",
       "install_method": "apt",
       "parameters": {
-        "package": "python3"
+        "package": "python3",
+        "winget_id": "Python.Python.3"
       },
       "idempotent_check": "command -v python3"
     },
@@ -273,7 +276,8 @@
       "platform": "all",
       "install_method": "apt",
       "parameters": {
-        "package": "pipx"
+        "package": "pipx",
+        "winget_id": "AlexanderPopler.pipx"
       },
       "idempotent_check": "command -v pipx"
     },
@@ -325,7 +329,8 @@
       "platform": "all",
       "install_method": "apt",
       "parameters": {
-        "package": "make"
+        "package": "make",
+        "winget_id": "GnuWin32.Make"
       },
       "idempotent_check": "command -v make"
     },
@@ -334,7 +339,8 @@
       "platform": "all",
       "install_method": "apt",
       "parameters": {
-        "package": "cmake"
+        "package": "cmake",
+        "winget_id": "Kitware.CMake"
       },
       "idempotent_check": "command -v cmake"
     },
@@ -343,7 +349,8 @@
       "platform": "all",
       "install_method": "apt",
       "parameters": {
-        "package": "zstd"
+        "package": "zstd",
+        "winget_id": "Meta.Zstandard"
       },
       "idempotent_check": "command -v zstd"
     },
@@ -352,7 +359,8 @@
       "platform": "all",
       "install_method": "apt",
       "parameters": {
-        "package": "pkg-config"
+        "package": "pkg-config",
+        "winget_id": "bloodrock.pkg-config-lite"
       },
       "idempotent_check": "command -v pkg-config"
     },
