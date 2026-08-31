@@ -41,7 +41,7 @@ if [[ "$is_windows_arm" -eq 1 && -n "${LOCALAPPDATA:-}" ]]; then
   # TODO: remove this fallback scan path entirely once install-zig.py is
   # the single authority for Zig installation across all lanes (CI + local).
   # See contrib/setup/helpers/install-zig.py.
-  if [[ -z "$local_zig_version" || "$using_windows_arm_x64_zig" -ne 1 ]]; then
+  if [[ -z "$local_zig_version" || "${using_windows_arm_x64_zig:-0}" -ne 1 ]]; then
     zig_root="$LOCALAPPDATA"
     if command -v cygpath >/dev/null 2>&1; then
       zig_root="$(cygpath -u "$zig_root")"
