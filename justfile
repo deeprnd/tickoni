@@ -556,10 +556,11 @@ test-system-tk-windows-x86:
     bash contrib/test/run_system_model_tests_win.sh
 
 # Windows ARM64 system test: build FD libs, ensure llama.cpp, run live test.
-# Same as x86_64: mirrors Linux/macOS `test-system-tk` on Windows ARM.
+# Orchestrator ensures llama.cpp and model are present before running tests.
 test-system-tk-windows-arm:
     mkdir -p build
     bash -lc 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
+    {{ python }} contrib/setup/orchestrator.py llm-server --platform windows-arm
     bash contrib/test/run_system_model_tests_win.sh
 
 # ── Infrastructure: ensure llama.cpp and model (for LLM system tests) ──────
