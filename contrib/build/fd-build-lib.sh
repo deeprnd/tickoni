@@ -18,6 +18,9 @@ BUILDDIR="${1:?usage: fd-build-lib.sh <BUILDDIR> [CC] [MODE] [EXTRAS] [LDFLAGS_E
 CC="${2:-gcc-12}"
 MODE="${3:-libs}"
 EXTRAS="${4:-}"
+# Strip embedded quotes so the GNUmakefile $(subst) doesn't have to guess.
+EXTRAS="${EXTRAS//\"/}"
+EXTRAS="${EXTRAS//\'/}"
 LDFLAGS_EXE="${5:-}"
 
 LIBDIR="build/${BUILDDIR}/lib"
