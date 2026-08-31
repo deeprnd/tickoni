@@ -3,7 +3,7 @@
     "just": "1.58.0",
     "gitleaks": "8.30.1",
     "actionlint": "1.7.12",
-    "zig": "0.17.0-dev.1770+5d7cf3f34",
+    "zig": "0.17.0-dev.1941+71115f0ab",
     "openssl": {
       "version": "3.6.2",
       "tag": "openssl-3.6.2"
