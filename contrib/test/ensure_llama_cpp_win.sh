@@ -143,7 +143,9 @@ prepare_windows_sdk_tool_aliases() {
   alias_native="$(cygpath -w "$alias_dir")"
   target_native="$(cygpath -w "$sdk_bin_dir")"
 
-  rmdir /s /q "$alias_native" 2>/dev/null || true
+  # Use native rmdir: MSYS rmdir does not understand the Windows /s /q
+  # switches and leaves an existing junction in place on cached runners.
+  cmd.exe /c rmdir /s /q "$alias_native" 2>/dev/null || true
   cmd.exe /c mklink /J "$alias_native" "$target_native"
 
   windows_sdk_rc_native="$(cygpath -m "$alias_dir/rc.exe")"
