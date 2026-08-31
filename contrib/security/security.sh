@@ -87,8 +87,8 @@ cmd_sanitize_check_fd() {
   # Use the shared FD builder so the Makefile path, Tickoni machine profile,
   # source scope, extras, and unit-test target stay in one place.
   run_step "clang asan+ubsan unit-test" \
-    python3 contrib/build/orchestrator.py build-fd clang-asan-ubsan test \
-      clang "asan ubsan blst zstd lz4" "--ldflags -Wl,-z,shstk"
+    python3 contrib/build/orchestrator.py --ldflags="-Wl,-z,shstk" build-fd clang-asan-ubsan test \
+      clang "asan ubsan blst zstd lz4"
 }
 
 cmd_sanitize_check_tk() {

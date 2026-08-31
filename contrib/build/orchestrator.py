@@ -65,6 +65,13 @@ def cmd_build_fd(args, config: dict) -> None:
     build_target = args.build_target or ""
     builddir = args.builddir or "fd-tickoni-fd"
 
+    # If target_name is not in config, treat it as a BUILDDIR override
+    # (backward-compatible with fd-build-lib.sh callers that pass
+    # a custom BUILDDIR name like 'clang-asan-ubsan' as the first arg)
+    if target_name not in config["targets"]:
+        builddir = target_name
+        target_name = "fd-tickoni-fd"
+
     target = config["targets"][target_name]
     lib_dir = target["lib_dir"]
     obj_dir = target["obj_dir"]
@@ -348,6 +355,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Build orchestrator for Firedancer/Tickoni")
     parser.add_argument("--platform", default=None, help="Platform override")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show command without running",
+    )
+    parser.add_argument("--ldflags", default="",
+                        help="Extra LDFLAGS_EXE (e.g. '--ldflags -Wl,-z,shstk')")
     sub = parser.add_subparsers(dest="command")
 
     # build-fd
@@ -359,19 +373,16 @@ def main() -> None:
                       help="Compiler (default: platform-specific)")
     p_fd.add_argument("extras", nargs="?", default="",
                       help="Extra libs (e.g. 'lz4 blst zstd')")
-    p_fd.add_argument("--ldflags", default="", help="Extra LDFLAGS_EXE")
     p_fd.add_argument("--builddir", default=None,
                       help="BUILDDIR name (default: fd-tickoni-fd)")
     p_fd.add_argument("--build-target", default="",
                       help="Additional make target (e.g. unit-test)")
     p_fd.add_argument("--arch", default=None, help="Windows arch (x86_64/arm64)")
-    p_fd.add_argument("--dry-run", action="store_true")
 
     # build-tk
     p_tk = sub.add_parser("build-tk", help="Build Tickoni Zig exe")
     p_tk.add_argument("fd_lib_dir", nargs="?", default=None,
                       help="FD lib dir (default: from config)")
-    p_tk.add_argument("--dry-run", action="store_true")
 
     # nproc — return CPU count (replaces contrib/build/make-j for parallelism)
     sub.add_parser("nproc", help="Print CPU count")
