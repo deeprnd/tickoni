@@ -27,6 +27,16 @@ PLATFORM_TO_ZIG_TARGET = {
 }
 
 
+def _url_exists(url: str) -> bool:
+    """Check an upstream URL without relying on Python's DNS/IDNA stack."""
+    result = subprocess.run(
+        ["curl", "-fsSIL", "--retry", "3", "--max-time", "30", url],
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
 class _ZigMinisigVerifier:
     """Helper for Zig minisign verification."""
 
@@ -142,21 +152,24 @@ class ZigInstallStrategy(InstallStrategy):
             return
 
         index_url = ZIG_INDEX_URL
+        ext = ".zip" if target.endswith("-windows") else ".tar.xz"
+        dev_url = f"{ZIG_BUILDS_BASE_URL}/zig-{target}-{version}{ext}"
 
-        with urllib.request.urlopen(index_url) as resp:
-            index = json.load(resp)
-        version_entry = index.get(version)
-        if version_entry is None:
-            ext = ".zip" if target.endswith("-windows") else ".tar.xz"
-            dev_url = f"{ZIG_BUILDS_BASE_URL}/zig-{target}-{version}{ext}"
-            req = urllib.request.Request(dev_url, method="HEAD")
-            try:
-                urllib.request.urlopen(req)
-                archive_url = dev_url
-            except Exception:
-                print(f"ERROR: Zig version '{version}' not found in {index_url} and no dev build at {dev_url}", file=sys.stderr)
+        # Development builds are published under /builds and are not listed in
+        # download/index.json. Resolve them directly so CI does not need the
+        # Python urllib DNS/IDNA path (which can be missing in runner images).
+        if "-dev." in version:
+            archive_url = dev_url
+            if not _url_exists(archive_url):
+                print(f"ERROR: no Zig dev build at {archive_url}", file=sys.stderr)
                 sys.exit(1)
         else:
+            with urllib.request.urlopen(index_url) as resp:
+                index = json.load(resp)
+            version_entry = index.get(version)
+            if version_entry is None:
+                print(f"ERROR: Zig version '{version}' not found in {index_url}", file=sys.stderr)
+                sys.exit(1)
             target_entry = version_entry.get(target)
             if target_entry is None:
                 print(f"ERROR: Zig version '{version}' has no prebuilt archive for target '{target}'", file=sys.stderr)
@@ -166,6 +179,7 @@ class ZigInstallStrategy(InstallStrategy):
                 print(f"ERROR: Zig version '{version}' target '{target}' is missing an archive URL", file=sys.stderr)
                 sys.exit(1)
 
+        print(f"[resolve] Zig archive: {archive_url}")
         archive_name = archive_url.rsplit("/", 1)[-1]
         cache_dir = Path(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))) / "zig" / "archives"
         archive_path = cache_dir / archive_name
@@ -176,13 +190,8 @@ class ZigInstallStrategy(InstallStrategy):
 
         # Minisign verification
         sig_url = f"{archive_url}.minisig"
-        sig_exists = False
-        try:
-            req = urllib.request.Request(sig_url, method="HEAD")
-            urllib.request.urlopen(req)
-            sig_exists = True
-        except Exception:
-            pass
+        print(f"[resolve] Zig minisig: {sig_url}")
+        sig_exists = _url_exists(sig_url)
 
         if sig_exists:
             _download_file(sig_url, sig_path, dry_run=False)
