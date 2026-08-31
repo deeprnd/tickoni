@@ -308,7 +308,7 @@ build-fd-linux-arm-gcc:
 
 build-fd-macos-x86:
     brew install llvm
-    env JUST_GMAKE="$(brew --prefix)/bin/gmake" PATH="$(brew --prefix)/bin:/usr/local/bin:$PATH" bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs ""
+    env JUST_GMAKE="$(brew --prefix)/bin/gmake" PATH="$(brew --prefix)/bin:/usr/local/bin:$PATH" bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs "lz4 blst zstd"
 
 build-fd-macos-arm:
     brew install llvm
