@@ -24,8 +24,6 @@ class BuildFromSourceStrategy(InstallStrategy):
             self._build_firedancer_deps()
         elif source_type == 'kcov':
             self._build_kcov()
-        elif source_type == 'llama-cpp':
-            self._build_llama_cpp()
         elif script:
             self._build_script(script, platform_str)
 
@@ -58,29 +56,6 @@ class BuildFromSourceStrategy(InstallStrategy):
                 subprocess.run(['sudo', 'make', '-C', build_dir, 'install'], check=True)
         except Exception as e:
             print(f"WARNING: kcov build failed — skipping: {e}", file=sys.stderr)
-
-    def _build_llama_cpp(self):
-        print("[BUILD] Building llama.cpp from source...")
-        try:
-            with tempfile.TemporaryDirectory() as tmpdir:
-                result = subprocess.run(
-                    ['git', 'clone', '--depth', '1', 'https://github.com/ggerganov/llama.cpp.git', tmpdir],
-                    capture_output=True, text=True,
-                )
-                if result.returncode != 0:
-                    print("WARNING: llama.cpp clone failed — skipping")
-                    return
-                build_dir = os.path.join(tmpdir, 'build')
-                subprocess.run([
-                    'cmake', '-S', tmpdir, '-B', build_dir,
-                    '-DGGML_BLAS=ON', '-DGGML_BLAS_VENDOR=OpenBLAS', '-DGGML_NATIVE=ON'
-                ], check=True)
-                subprocess.run([
-                    'cmake', '--build', build_dir, '-j', str(os.cpu_count() or 1),
-                    '--target', 'llama-server'
-                ], check=True)
-        except Exception as e:
-            print(f"WARNING: llama.cpp build failed — skipping: {e}", file=sys.stderr)
 
     def _build_script(self, script, platform_str):
         script_dir = os.path.dirname(os.path.abspath(__file__))
