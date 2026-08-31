@@ -46,6 +46,11 @@
 
 ### Bootstrap the Makefile environment
 
+# Strip embedded quotes from EXTRAS passed by fd-tk-libs.sh.
+# Without this, $(addsuffix .mk,$(EXTRAS)) produces filenames like
+# "with-zstd".mk instead of with-zstd.mk.
+EXTRAS:=$(subst ",,${EXTRAS})
+
 # Remove pollution from unwanted default Make variables, such as $(CC)
 MAKEFLAGS += --no-builtin-rules
 MAKEFLAGS += --no-builtin-variables
