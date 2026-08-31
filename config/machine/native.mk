@@ -18,14 +18,11 @@ ifeq ($(FD_IS_GNU),1)
     endif
 endif
 
-ifeq ($(origin FD_USING_GCC),undefined)
-  ifeq ($(origin FD_USING_CLANG),undefined)
-    # native_config.sh failed (e.g. empty CC) — base.mk was skipped.
-    # Include it unconditionally so essential variables (FIND, AR, etc.)
-    # are available for auxiliary targets such as seccomp-policies.
-    include config/base.mk
-  endif
-endif
+# base.mk must always be included for essential variables (MKDIR, FIND, AR, etc.)
+# native_config.sh may succeed but base.mk was previously only included in
+# the failure path, leaving MKDIR empty when FD_USING_GCC or FD_USING_CLANG
+# are defined by the generated config.mk.
+include config/base.mk
 ifdef FD_USING_GCC
   LD?=$(CC)
   include config/extra/with-gcc.mk
