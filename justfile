@@ -57,18 +57,23 @@ help:
 # Build-only: compilers + build infra (no zig, no ssl, no quality, no secrets)
 setup-build-linux-x86-gcc:
     python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py llm-server
 
 setup-build-linux-x86-clang:
     python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py llm-server
 
 setup-build-macos-x86:
     python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py llm-server
 
 setup-build-macos-arm:
     python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py llm-server
 
 setup-build-linux-arm-gcc:
     python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py llm-server
 
 # Engine build: full FD toolchain (build + zig + ssl + gcc)
 setup-fd-linux-x86-gcc:
@@ -94,10 +99,12 @@ setup-fd-linux-arm-gcc:
 # Windows x86_64 — FD toolchain (zig + ssl)
 setup-fd-windows-x86:
     {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc,zig,ssl --platform windows-x86
+    {{ python }} contrib/setup/orchestrator.py llm-server --platform windows-x86
 
 # Windows ARM64 — FD toolchain (zig + ssl)
 setup-fd-windows-arm:
     {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc,zig,ssl --platform windows-arm
+    {{ python }} contrib/setup/orchestrator.py llm-server --platform windows-arm
 
 # Quality: build + quality tools (shellcheck, actionlint, yamllint, pre-commit, buf + go)
 setup-quality-linux-x86:
