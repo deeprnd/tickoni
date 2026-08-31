@@ -108,6 +108,8 @@ def idempotent_check(check_cmd):
 
 def run_cmd(cmd, capture=True, shell=False, **kwargs):
     """Run a command and print its output."""
+    # Convert Path objects to str so join and subprocess both work
+    cmd = [str(c) for c in cmd]
     if capture and not shell:
         print(f"  $ {' '.join(cmd)}")
     elif capture and shell:
