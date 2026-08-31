@@ -347,6 +347,7 @@ def cmd_build_tk(args, config: dict) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Build orchestrator for Firedancer/Tickoni")
+    parser.add_argument("--platform", default=None, help="Platform override")
     sub = parser.add_subparsers(dest="command")
 
     # build-fd
@@ -364,7 +365,6 @@ def main() -> None:
     p_fd.add_argument("--build-target", default="",
                       help="Additional make target (e.g. unit-test)")
     p_fd.add_argument("--arch", default=None, help="Windows arch (x86_64/arm64)")
-    p_fd.add_argument("--platform", default=None, help="Platform override")
     p_fd.add_argument("--dry-run", action="store_true")
 
     # build-tk
