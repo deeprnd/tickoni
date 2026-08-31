@@ -267,17 +267,16 @@
       "install_method": "apt",
       "parameters": {
         "package": "python3",
-        "winget_id": "Python.Python.3"
+        "winget_id": "Python.Python.3.12"
       },
       "idempotent_check": "command -v python3"
     },
     "pipx": {
       "category": "essential",
       "platform": "all",
-      "install_method": "apt",
+      "install_method": "pip",
       "parameters": {
-        "package": "pipx",
-        "winget_id": "AlexanderPopler.pipx"
+        "package": "pipx"
       },
       "idempotent_check": "command -v pipx"
     },

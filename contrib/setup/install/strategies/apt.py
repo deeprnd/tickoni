@@ -199,7 +199,7 @@ class AptInstallStrategy(InstallStrategy):
                 print(f"[WINGET] Installing {winget_id}...")
                 if shell in ('pwsh', 'powershell'):
                     winget_cmd = (
-                        f'winget install --id {winget_id} '
+                        f'winget install --exact --id {winget_id} '
                         '--accept-package-agreements '
                         '--accept-source-agreements '
                         '--disable-interactivity '
@@ -208,7 +208,7 @@ class AptInstallStrategy(InstallStrategy):
                     cmd = [shell, '-NoProfile', '-Command', winget_cmd]
                 else:
                     cmd = [
-                        shell, '/c', 'winget', 'install', '--id', winget_id,
+                        shell, '/c', 'winget', 'install', '--exact', '--id', winget_id,
                         '--accept-package-agreements', '--accept-source-agreements',
                         '--disable-interactivity', '--source', 'winget'
                     ]
