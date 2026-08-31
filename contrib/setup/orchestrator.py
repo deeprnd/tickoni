@@ -203,13 +203,24 @@ def install_apt(tool, params, config, platform_str, dry_run=False):
         return
 
     if "windows" in platform_str:
+        shell = _find_winget_shell()
         for pkg_name in packages:
             winget_id = params.get('winget_id', pkg_name)
             print(f"[WINGET] Installing {winget_id}...")
-            cmd = [
-                *_find_winget(), 'install', '--id', winget_id,
-                '--accept-package-agreements', '--accept-source-agreements',
-                '--disable-interactivity']
+            if shell == 'pwsh' or shell == 'powershell':
+                winget_cmd = (
+                    f'winget install --id {winget_id} '
+                    '--accept-package-agreements '
+                    '--accept-source-agreements '
+                    '--disable-interactivity'
+                )
+                cmd = [shell, '-NoProfile', '-Command', winget_cmd]
+            else:
+                cmd = [
+                    shell, '/c', 'winget', 'install', '--id', winget_id,
+                    '--accept-package-agreements', '--accept-source-agreements',
+                    '--disable-interactivity'
+                ]
             result = run_cmd(cmd)
             if result.returncode != 0:
                 print(f"ERROR: winget install failed for {winget_id}", file=sys.stderr)
@@ -238,14 +249,25 @@ def _winget_already_installed(output: str) -> bool:
     return 'Found an existing package already installed' in output
 
 
-def _find_winget():
-    """Resolve winget for subprocess execution on Windows.
+def _find_winget_shell():
+    """Return the shell command to invoke winget on Windows.
 
-    Uses `cmd /c winget` because the WindowsApps stub (found by shutil.which)
-    is a UWP app that CreateProcess cannot launch directly.  cmd /c handles
-    all PATH resolution reliably on GitHub Actions runners and local boxes.
+    PowerShell resolves winget on both x86 and ARM runners (cmd cannot
+    find the UWP app on ARM).  Falls back to cmd on x86 if pwsh is
+    missing.
     """
-    return ['cmd', '/c', 'winget']
+    for ps in ('pwsh', 'powershell'):
+        try:
+            result = subprocess.run(
+                [ps, '-NoProfile', '-Command', 'winget --version'],
+                capture_output=True, timeout=10,
+            )
+            if result.returncode == 0:
+                return ps
+        except Exception:
+            pass
+    # Last resort: cmd (works on x86, fails on ARM)
+    return 'cmd'
 
 
 def install_winget(tool, params, config, platform_str, dry_run=False):
@@ -255,11 +277,21 @@ def install_winget(tool, params, config, platform_str, dry_run=False):
         print(f"  [DRY-RUN] Would winget install {pkg}")
         return
     print(f"[WINGET] Installing {pkg}...")
-    cmd = [
-        *_find_winget(), 'install', '--id', pkg,
-        '--accept-package-agreements', '--accept-source-agreements',
-        '--disable-interactivity'
-    ]
+    shell = _find_winget_shell()
+    if shell == 'pwsh' or shell == 'powershell':
+        winget_cmd = (
+            f'winget install --id {pkg} '
+            '--accept-package-agreements '
+            '--accept-source-agreements '
+            '--disable-interactivity'
+        )
+        cmd = [shell, '-NoProfile', '-Command', winget_cmd]
+    else:
+        cmd = [
+            shell, '/c', 'winget', 'install', '--id', pkg,
+            '--accept-package-agreements', '--accept-source-agreements',
+            '--disable-interactivity'
+        ]
     result = run_cmd(cmd)
     if result.returncode != 0:
         # winget returns 1 when package already installed with no upgrade
