@@ -1,0 +1,39 @@
+{
+  "targets": {
+    "fd-tickoni-fd": {
+      "lib_dir": "build/fd-tickoni-fd/lib",
+      "obj_dir": "build/fd-tickoni-fd/obj"
+    }
+  },
+  "platforms": {
+    "linux-x86":   { "gcc": "gcc-12", "clang": "clang-18" },
+    "linux-arm":   { "gcc": "gcc-14", "clang": "clang-18" },
+    "macos-x86":   { "gcc": "gcc-12", "clang": "clang" },
+    "macos-arm":   { "gcc": "gcc-12", "clang": "clang" },
+    "windows-x86": { "gcc": "gcc",     "clang": "clang" },
+    "windows-arm": { "gcc": "gcc",     "clang": "clang" }
+  },
+  "libs": {
+    "core": ["libfd_tango.a", "libfd_util.a", "libfd_ballet.a", "libfd_disco.a", "libfd_waltz.a"],
+    "test": ["libfd_blst.a", "libfd_zstd.a", "libfd_lz4.a"]
+  },
+  "source_sets": {
+    "libs": [
+      "src/tango", "src/util", "src/ballet", "src/disco", "src/waltz",
+      "src/third_party/cjson", "src/third_party/s2n-bignum"
+    ],
+    "test": [
+      "src/tango", "src/util", "src/ballet", "src/disco", "src/waltz",
+      "src/third_party/cjson", "src/third_party/s2n-bignum",
+      "src/third_party/picohttpparser", "src/third_party/blst",
+      "src/third_party/lz4", "src/third_party/zstd", "src/third_party/nanopb"
+    ],
+    "cov": [
+      "src/tango", "src/util", "src/ballet", "src/disco", "src/waltz",
+      "src/third_party/s2n-bignum", "src/third_party/cjson",
+      "src/third_party/picohttpparser", "src/third_party/blst",
+      "src/third_party/lz4", "src/third_party/zstd", "src/third_party/nanopb"
+    ]
+  },
+  "excludes": "disco/quic/|disco/gui/|ballet/zksdk/|ballet/zstd/|waltz/quic/"
+}
