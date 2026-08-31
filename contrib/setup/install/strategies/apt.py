@@ -2,6 +2,7 @@
 import subprocess
 import sys
 import re
+import shutil
 from ..base import InstallStrategy
 from .. import register
 
@@ -58,6 +59,8 @@ def _log_version(tool_name, pkg_name):
 
 def _find_winget_shell():
     """Return the shell command to invoke winget on Windows."""
+    if shutil.which('winget.exe') or shutil.which('winget'):
+        return 'winget.exe'
     for ps in ('pwsh', 'powershell'):
         try:
             result = subprocess.run(
@@ -214,6 +217,12 @@ class AptInstallStrategy(InstallStrategy):
                         '--source winget'
                     )
                     cmd = [shell, '-NoProfile', '-Command', winget_cmd]
+                elif shell == 'winget.exe':
+                    cmd = [
+                        shell, 'install', '--id', winget_id,
+                        '--accept-package-agreements', '--accept-source-agreements',
+                        '--disable-interactivity', '--source', 'winget'
+                    ]
                 else:
                     cmd = [
                         shell, '/c', 'winget', 'install', '--id', winget_id,
@@ -223,6 +232,9 @@ class AptInstallStrategy(InstallStrategy):
                     ]
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 if not _winget_succeeded_or_noop(result):
+                    output = (result.stdout or '') + (result.stderr or '')
+                    if output:
+                        print(output, file=sys.stderr, end='')
                     print(f"ERROR: winget install failed for {winget_id}",
                           file=sys.stderr)
                     sys.exit(1)
@@ -268,6 +280,12 @@ class WingetInstallStrategy(InstallStrategy):
                 '--source winget'
             )
             cmd = [shell, '-NoProfile', '-Command', winget_cmd]
+        elif shell == 'winget.exe':
+            cmd = [
+                shell, 'install', '--exact', '--id', pkg,
+                '--accept-package-agreements', '--accept-source-agreements',
+                '--disable-interactivity', '--source', 'winget'
+            ]
         else:
             cmd = [
                 shell, '/c', 'winget', 'install', '--exact', '--id', pkg,
@@ -276,5 +294,8 @@ class WingetInstallStrategy(InstallStrategy):
             ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if not _winget_succeeded_or_noop(result):
+            output = (result.stdout or '') + (result.stderr or '')
+            if output:
+                print(output, file=sys.stderr, end='')
             print(f"ERROR: winget install failed for {pkg}", file=sys.stderr)
             sys.exit(1)
