@@ -901,7 +901,7 @@ def install_zig(tool, params, config, platform_str, dry_run=False):
     source_dir = children[0]
 
     # Install
-    install_dir = Path(install_root) / source_dir.name
+    install_dir = Path(os.path.expandvars(install_root)) / source_dir.name
     if install_dir.exists():
         shutil.rmtree(install_dir)
     install_dir.mkdir(parents=True, exist_ok=True)
