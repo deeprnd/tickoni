@@ -373,6 +373,9 @@ def main() -> None:
                       help="FD lib dir (default: from config)")
     p_tk.add_argument("--dry-run", action="store_true")
 
+    # nproc — return CPU count (replaces contrib/build/make-j for parallelism)
+    sub.add_parser("nproc", help="Print CPU count")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -385,6 +388,11 @@ def main() -> None:
         cmd_build_fd(args, config)
     elif args.command == "build-tk":
         cmd_build_tk(args, config)
+    elif args.command == "nproc":
+        platform_name = platform_from_args(args)
+        strategies = __import__("contrib.build.strategies", fromlist=["load"])
+        strat = strategies.load(platform_name)
+        print(strat.nproc())
 
 
 if __name__ == "__main__":
