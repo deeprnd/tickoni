@@ -314,6 +314,16 @@
       "idempotent_check": "command -v clang",
       "_note": "Linux apt: clang-18 + llvm-18 are same toolchain version"
     },
+    "llvm": {
+      "category": "toolchain",
+      "platform": "all",
+      "install_method": "apt",
+      "parameters": {
+        "package": "llvm",
+        "winget_id": "LLVM.LLVM"
+      },
+      "idempotent_check": "case \"$(uname -s 2>/dev/null)\" in Darwin) test -x \"$(brew --prefix llvm 2>/dev/null)/bin/llvm-ar\" ;; *) command -v llvm-ar ;; esac"
+    },
     "msvc": {
       "category": "mvsc",
       "platform": "windows",
@@ -331,7 +341,7 @@
         "package": "make",
         "winget_id": "GnuWin32.Make"
       },
-      "idempotent_check": "command -v make"
+      "idempotent_check": "case \"$(uname -s 2>/dev/null)\" in Darwin) command -v gmake ;; *) command -v make ;; esac"
     },
     "cmake": {
       "category": "build",
