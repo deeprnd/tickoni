@@ -177,17 +177,17 @@ class ZigInstallStrategy(InstallStrategy):
         # PATH handling
         bin_dir = str(install_dir / "zig")
         if platform_str.startswith("windows"):
-            self._handle_windows_path(bin_dir, user_path)
+            self._handle_windows_path(install_dir, user_path)
         else:
-            self._handle_posix_path(bin_dir)
+            self._handle_posix_path(install_dir)
 
         print(f"[done] zig version={version} target={target} install_dir={install_dir}")
 
-    def _handle_windows_path(self, bin_dir: str, user_path: bool):
+    def _handle_windows_path(self, bin_dir: Path, user_path: bool):
         gh_path = os.environ.get("GITHUB_PATH")
         if gh_path:
             with open(gh_path, "a") as fh:
-                fh.write(bin_dir + os.linesep)
+                fh.write(str(bin_dir) + os.linesep)
             print(f"[github-path] {bin_dir}")
         if user_path:
             ps = (
@@ -201,11 +201,11 @@ class ZigInstallStrategy(InstallStrategy):
             subprocess.run(["powershell.exe", "-NoProfile", "-Command", ps], check=True)
             print(f"[user-path] prepend {bin_dir}")
 
-    def _handle_posix_path(self, bin_dir: str):
+    def _handle_posix_path(self, bin_dir: Path):
         gh_path = os.environ.get("GITHUB_PATH")
         if gh_path:
             with open(gh_path, "a") as fh:
-                fh.write(bin_dir + os.linesep)
+                fh.write(str(bin_dir) + os.linesep)
             print(f"[github-path] {bin_dir}")
         if not gh_path:
             print(f"[activation] add Zig to your shell PATH with:")
