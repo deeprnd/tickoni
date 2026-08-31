@@ -208,9 +208,25 @@ class ZigInstallStrategy(InstallStrategy):
         extract_root.mkdir(parents=True, exist_ok=True)
 
         if archive_name.endswith(".zip"):
-            import zipfile
-            with zipfile.ZipFile(archive_path) as zf:
-                zf.extractall(extract_root)
+            # Some Windows runner Python installations are missing the cp437
+            # codec required by zipfile. Git for Windows provides unzip and
+            # avoids that Python codec dependency.
+            try:
+                result = subprocess.run(
+                    ["unzip", "-q", "-o", str(archive_path), "-d", str(extract_root)],
+                    capture_output=True,
+                    text=True,
+                )
+            except FileNotFoundError:
+                print("ERROR: unzip is required to extract Zig Windows archives", file=sys.stderr)
+                sys.exit(1)
+            if result.returncode != 0:
+                if result.stdout:
+                    print(result.stdout, file=sys.stderr, end="")
+                if result.stderr:
+                    print(result.stderr, file=sys.stderr, end="")
+                print(f"ERROR: failed to extract {archive_path}", file=sys.stderr)
+                sys.exit(1)
         else:
             with tarfile.open(archive_path, "r:xz") as tf:
                 tf.extractall(extract_root)
