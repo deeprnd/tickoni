@@ -99,7 +99,7 @@ cmd_sanitize_check_tk() {
   run_step "build fd-tickoni-fd libs" \
     bash contrib/build/fd-build-lib.sh fd-tickoni-fd gcc test "lz4 blst zstd nanopb"
   run_step "zig releasesafe" \
-    bash contrib/build/zigw.sh build -Dtest=true test -Dfd-lib-dir=build/fd-tickoni-fd/lib -Doptimize=ReleaseSafe
+    zig build -Dtest=true test -Dfd-lib-dir=build/fd-tickoni-fd/lib -Doptimize=ReleaseSafe
 }
 
 case "${1:-}" in
