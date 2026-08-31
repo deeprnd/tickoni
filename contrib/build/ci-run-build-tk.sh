@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-build_cmd=(bash contrib/build/zigw.sh build -Dfd-lib-dir=build/fd-tickoni-fd/lib)
+build_cmd=(zig build -Dfd-lib-dir=build/fd-tickoni-fd/lib)
 log_path="${RUNNER_TEMP:-/tmp}/build-tk.log"
 rm -f "$log_path"
 
@@ -10,7 +10,7 @@ if just build-tk 2>&1 | tee "$log_path"; then
 fi
 
 status=$?
-echo "::warning::just build-tk failed; rerunning raw Zig build via contrib/build/zigw.sh with --summary all --verbose-link for diagnostics"
+echo "::warning::just build-tk failed; rerunning raw Zig build with --summary all --verbose-link for diagnostics"
 echo "::group::build-tk verbose diagnostics"
 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache "${build_cmd[@]}" --summary all --verbose-link 2>&1 | tee -a "$log_path" || true
 echo "::endgroup::"
