@@ -18,14 +18,20 @@ ifeq ($(FD_IS_GNU),1)
     endif
 endif
 
+ifeq ($(origin FD_USING_GCC),undefined)
+  ifeq ($(origin FD_USING_CLANG),undefined)
+    # native_config.sh failed (e.g. empty CC) — base.mk was skipped.
+    # Include it unconditionally so essential variables (FIND, AR, etc.)
+    # are available for auxiliary targets such as seccomp-policies.
+    include config/base.mk
+  endif
+endif
 ifdef FD_USING_GCC
   LD?=$(CC)
-  include config/base.mk
-include config/extra/with-gcc.mk
+  include config/extra/with-gcc.mk
 else ifdef FD_USING_CLANG
   LD?=$(CC)
-  include config/base.mk
-include config/extra/with-clang.mk
+  include config/extra/with-clang.mk
 endif
 
 RUSTFLAGS+=-C target-cpu=native
