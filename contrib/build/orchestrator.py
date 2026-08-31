@@ -376,6 +376,10 @@ def main() -> None:
     # nproc — return CPU count (replaces contrib/build/make-j for parallelism)
     sub.add_parser("nproc", help="Print CPU count")
 
+    # make — wrap make with CPU count and GNUmakefile path (replaces make-j)
+    p_make = sub.add_parser("make", help="Run make with platform-appropriate CPU count")
+    p_make.add_argument("target", nargs="+", help="Make target(s)")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -393,6 +397,14 @@ def main() -> None:
         strategies = __import__("contrib.build.strategies", fromlist=["load"])
         strat = strategies.load(platform_name)
         print(strat.nproc())
+    elif args.command == "make":
+        platform_name = platform_from_args(args)
+        strategies = __import__("contrib.build.strategies", fromlist=["load"])
+        strat = strategies.load(platform_name)
+        make = strat.resolve_make()
+        cmd = [make, "-f", os.path.join(ROOT_DIR, "contrib/build/GNUmakefile"),
+               f"-j{strat.nproc()}", "-Otarget"] + args.target
+        subprocess.run(cmd, cwd=ROOT_DIR, check=True)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
-MAKE_RUNNER=(./contrib/build/make-j)
+MAKE_RUNNER=(python3 ./contrib/build/orchestrator.py make)
 CODEQL_THRESHOLD_CHECK=(python3 ./contrib/security/codeql/codeql-threshold-check.py)
 CODEQL_HIGH_SECURITY_THRESHOLD=4.0
 
@@ -87,8 +87,8 @@ cmd_sanitize_check_fd() {
   # Use the shared FD builder so the Makefile path, Tickoni machine profile,
   # source scope, extras, and unit-test target stay in one place.
   run_step "clang asan+ubsan unit-test" \
-    bash contrib/build/fd-build-lib.sh clang-asan-ubsan clang test \
-      "asan ubsan blst zstd lz4" "-Wl,-z,shstk"
+    python3 contrib/build/orchestrator.py build-fd clang-asan-ubsan test \
+      clang "asan ubsan blst zstd lz4" "--ldflags -Wl,-z,shstk"
 }
 
 cmd_sanitize_check_tk() {
@@ -97,7 +97,7 @@ cmd_sanitize_check_tk() {
   # fd_disco, fd_waltz) plus their third-party deps, then writes the
   # Windows Zig link-manifest files into the same lib dir.
   run_step "build fd-tickoni-fd libs" \
-    bash contrib/build/fd-build-lib.sh fd-tickoni-fd gcc test "lz4 blst zstd nanopb"
+    python3 contrib/build/orchestrator.py build-fd fd-tickoni-fd test gcc "lz4 blst zstd nanopb"
   run_step "zig releasesafe" \
     zig build -Dtest=true test -Dfd-lib-dir=build/fd-tickoni-fd/lib -Doptimize=ReleaseSafe
 }
