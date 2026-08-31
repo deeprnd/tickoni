@@ -565,60 +565,23 @@ test-system-tk-windows-arm:
 
 # ── Infrastructure: ensure llama.cpp and model (for LLM system tests) ──────
 
-# Build llama.cpp (CPU or CUDA if detected).
+# Build llama.cpp and download model using orchestrator.py (CPU only).
 infra-ensure-llamacpp:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if command -v nvidia-smi >/dev/null 2>&1; then
-    gpu_count="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l || echo 0)"
-    if (( gpu_count > 0 )); then
-    bash contrib/test/ensure_llama_cpp.sh --gpu
-    else
-    bash contrib/test/ensure_llama_cpp.sh
-    fi
-    else
-    bash contrib/test/ensure_llama_cpp.sh
-    fi
+    python3 contrib/setup/orchestrator.py llm-server
 
 infra-ensure-llamacpp-win:
-    bash contrib/test/ensure_llama_cpp_win.sh
-
-# Run llama-server.exe for Windows live system tests.
-infra-run-llamacpp-win:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source contrib/test/llama_cpp_env.sh
-    llama_dir="$(tk_resolve_llama_cpp_dir)"
-    backend=cpu
-    if command -v nvidia-smi >/dev/null 2>&1; then
-    gpu_count="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l || echo 0)"
-    if (( gpu_count > 0 )) && ldd "${llama_dir}/llama-server.exe" 2>/dev/null | grep -qi 'cuda\|cublas'; then
-    backend=gpu
-    fi
-    fi
-    [[ "$backend" == "gpu" ]] && bash contrib/test/ensure_llama_cpp_win.sh --gpu || bash contrib/test/ensure_llama_cpp_win.sh
-    bash contrib/test/ensure_hf_model.sh
-    exec bash contrib/test/run_llm_server_win.sh "$backend"
+    {{ python }} contrib/setup/orchestrator.py llm-server --platform windows-x86
 
 # Download the GGUF model for system tests (requires `hf` CLI).
+# (hf-model is handled by orchestrator.py llm-server; kept for explicitness.)
 infra-ensure-model:
-    bash contrib/test/ensure_hf_model.sh
+    python3 contrib/setup/orchestrator.py llm-server
 
 infra-run-llamacpp:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source contrib/test/llama_cpp_env.sh
-    llama_dir="$(tk_resolve_llama_cpp_dir)"
-    backend=cpu
-    if command -v nvidia-smi >/dev/null 2>&1; then
-    gpu_count="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l || echo 0)"
-    if (( gpu_count > 0 )) && ldd "${llama_dir}/llama-server" 2>/dev/null | grep -qi 'cuda\|cublas'; then
-    backend=gpu
-    fi
-    fi
-    [[ "$backend" == "gpu" ]] && bash contrib/test/ensure_llama_cpp.sh --gpu || bash contrib/test/ensure_llama_cpp.sh
-    bash contrib/test/ensure_hf_model.sh
-    exec bash contrib/test/run_llm_server.sh "$backend"
+    # Use the test runner script which starts server and waits for health.
+    # Run in background: just infra-ensure-llamacpp && just infra-run-llamacpp
+    echo "Use contrib/test/run_system_model_tests.sh to start server and run tests."
+    echo "Or: python3 contrib/setup/orchestrator.py llm-server"
 
 test-integration-all:
     {{ python }} contrib/tool/readme/run-badged-command.py integration bash -c "just test-integration-fd && just test-integration-tk"

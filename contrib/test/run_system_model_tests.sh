@@ -1,58 +1,30 @@
 #!/usr/bin/env bash
-# Ensure llama.cpp and model exist, start the local server, run the live
-# investment system/demo proof, then stop the server.
+# Run the live investment system/demo proof with llama.cpp.
+# Orchestrator ensures llama.cpp and model are present.
+# Then starts server, waits for health, runs Zig system-test, kills server.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=contrib/test/llama_cpp_env.sh
-source "${SCRIPT_DIR}/llama_cpp_env.sh"
 
-# Detect compute backend: GPU only if nvidia-smi reports devices AND the
-# llama.cpp binary was compiled with CUDA support.
-llama_dir="$(tk_resolve_llama_cpp_dir)"
+# Resolve paths
+llama_dir="${TK_LLAMA_CPP_DIR:-$HOME/work/models/llama.cpp}"
+model_dir="${TK_HF_MODEL_DIR:-$HOME/work/models/gemma/gemma-4-E2B-it-qat-GGUF}"
+model_file="${TK_HF_MODEL_FILE:-gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf}"
+model_path="${model_dir}/${model_file}"
+server_bin="${llama_dir}/llama-server"
 
-server_name="llama-server"
-case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*) server_name="llama-server.exe" ;;
-esac
-
-backend=cpu
-if command -v nvidia-smi >/dev/null 2>&1; then
-  gpu_count="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l || echo 0)"
-  if (( gpu_count > 0 )); then
-    if ldd "${llama_dir}/${server_name}" 2>/dev/null | grep -qi 'cuda\|cublas'; then
-      backend=gpu
-    else
-      echo "note: GPU detected but llama.cpp binary has no CUDA support; using cpu"
-    fi
-  fi
-fi
-echo "compute backend: ${backend}"
-
-# Verify llama.cpp is built (setup must have done this).
-llama_dir="$(tk_resolve_llama_cpp_dir)"
-server_name="llama-server"
-case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*) server_name="llama-server.exe" ;;
-esac
-server_bin="${llama_dir}/${server_name}"
 if [[ ! -x "$server_bin" ]]; then
   echo "llama-server not found at ${server_bin}; run 'python3 contrib/setup/orchestrator.py llm-server' first" >&2
   exit 1
 fi
 
-# Verify model is present (setup must have downloaded this).
-model_dir="${TK_HF_MODEL_DIR:-$HOME/work/models/gemma/gemma-4-E2B-it-qat-GGUF}"
-model_file="${TK_HF_MODEL_FILE:-gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf}"
-model_path="${model_dir}/${model_file}"
 if [[ ! -s "$model_path" ]]; then
   echo "model not found at ${model_path}; run 'python3 contrib/setup/orchestrator.py llm-server' first" >&2
   exit 1
 fi
 
-# Start server and tests as separate background channels.
-# Either channel dying kills the other.
-server_pid=
+# Start server in background.
+server_pid=""
 log_file="/tmp/llama_server_$$.log"
 cleanup() {
   [[ -n "$server_pid" ]] && kill "$server_pid" 2>/dev/null || true
@@ -60,8 +32,21 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "starting llama-server (${backend}) — log: ${log_file}"
-bash "${SCRIPT_DIR}/run_llm_server.sh" "$backend" >"$log_file" 2>&1 &
+echo "starting llama-server — log: ${log_file}"
+"$server_bin" \
+  -m "$model_path" \
+  --port 9931 \
+  --no-mmproj \
+  --reasoning-format none \
+  --ctx-size 4096 \
+  --cache-type-k q4_0 \
+  --cache-type-v q4_0 \
+  --threads 4 \
+  --batch-size 64 \
+  --ubatch-size 32 \
+  --metrics \
+  --slots \
+  >"$log_file" 2>&1 &
 server_pid=$!
 
 # Wait for the server health endpoint (max 120 s, 2 s poll).
@@ -94,6 +79,4 @@ echo "llama-server ready"
 echo "running live investment system/demo proof"
 
 # Run the live system test in foreground. The EXIT trap kills the server.
-# Pipe through sed to strip Zig's cosmetic "failed command:" lines (caused by
-# --listen=- protocol noise when stdin is closed).
 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib system-test --summary all </dev/null | sed '/^failed command:/d'
