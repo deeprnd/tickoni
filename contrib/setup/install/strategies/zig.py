@@ -174,24 +174,27 @@ class ZigInstallStrategy(InstallStrategy):
         shutil.copytree(source_dir, install_dir, dirs_exist_ok=True)
         print(f"[install] zig -> {install_dir}")
 
-        # PATH handling
-        bin_dir = str(install_dir / "zig")
+        # PATH handling — install the *directory* so `zig` (or `zig.exe`) is on PATH
+        install_dir_str = str(install_dir)
         if platform_str.startswith("windows"):
             self._handle_windows_path(install_dir, user_path)
         else:
             self._handle_posix_path(install_dir)
 
+        # In-process PATH modification so subsequent tools in this process find zig
+        os.environ['PATH'] = f"{install_dir_str}{os.pathsep}{os.environ['PATH']}"
+
         print(f"[done] zig version={version} target={target} install_dir={install_dir}")
 
-    def _handle_windows_path(self, bin_dir: Path, user_path: bool):
+    def _handle_windows_path(self, install_dir: Path, user_path: bool):
         gh_path = os.environ.get("GITHUB_PATH")
         if gh_path:
             with open(gh_path, "a") as fh:
-                fh.write(str(bin_dir) + os.linesep)
-            print(f"[github-path] {bin_dir}")
+                fh.write(str(install_dir) + os.linesep)
+            print(f"[github-path] {install_dir}")
         if user_path:
             ps = (
-                f"$zigDir = '{bin_dir}'\n"
+                f"$zigDir = '{install_dir}'\n"
                 "$current = [Environment]::GetEnvironmentVariable('Path', 'User')\n"
                 "$parts = @()\n"
                 "if ($current) { $parts = $current -split ';' | Where-Object { $_ -and ($_ -ne $zigDir) } }\n"
@@ -199,14 +202,14 @@ class ZigInstallStrategy(InstallStrategy):
                 "[Environment]::SetEnvironmentVariable('Path', $new, 'User')\n"
             )
             subprocess.run(["powershell.exe", "-NoProfile", "-Command", ps], check=True)
-            print(f"[user-path] prepend {bin_dir}")
+            print(f"[user-path] prepend {install_dir}")
 
-    def _handle_posix_path(self, bin_dir: Path):
+    def _handle_posix_path(self, install_dir: Path):
         gh_path = os.environ.get("GITHUB_PATH")
         if gh_path:
             with open(gh_path, "a") as fh:
-                fh.write(str(bin_dir) + os.linesep)
-            print(f"[github-path] {bin_dir}")
+                fh.write(str(install_dir) + os.linesep)
+            print(f"[github-path] {install_dir}")
         if not gh_path:
             print(f"[activation] add Zig to your shell PATH with:")
-            print(f'  export PATH="{bin_dir}:$PATH"')
+            print(f'  export PATH="{install_dir}:$PATH"')

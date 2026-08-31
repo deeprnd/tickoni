@@ -239,7 +239,7 @@ tests-all:
 # ── Build ──────────────────────────────────────────────────────────────────
 
 build-tk-linux-x86:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }}
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }}
 
 build-tk-linux-arm: build-tk-linux-x86
 
@@ -391,8 +391,8 @@ test-unit-fd:
 # No running servers belong here. Canonical platform recipes are the
 # implementation; the bare recipe below is only a host router.
 test-unit-tk-linux-x86:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache TK_LOG_LEVEL=0 bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test --summary all
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache TK_LOG_LEVEL=0 bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test --summary all
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
 
 test-unit-tk-linux-arm: test-unit-tk-linux-x86
 
@@ -416,8 +416,8 @@ test-unit-tk:
 # Print computed hash and wire bytes for every audit fixture event, and emit audit JSONL.
 # Use the output to understand or snapshot the current encoding after intentional changes.
 gen-audit-fixtures:
-    TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true test 2>&1
-    TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true integration-test 2>&1
+    TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true test 2>&1
+    TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true integration-test 2>&1
 
 test-unit-all:
     {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-tk && just test-unit-fd"
@@ -440,7 +440,7 @@ test-integration-fd:
 
 # Tickoni integration lane: transport and boundary wiring against local mocks.
 test-integration-tk-linux-x86:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
 
 test-integration-tk-linux-arm: test-integration-tk-linux-x86
 
@@ -467,32 +467,28 @@ test-integration-tk:
 test-unit-tk-windows-x86:
     mkdir -p build
     bash -lc 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
 
 # Windows ARM64 unit test: build FD libs for Windows ARM64, then run Zig tests.
-# contrib/build/zigw.sh prefers an x86_64 Windows Zig install on Windows ARM when
-# available because native Zig 0.16.0 is unstable on this lane.
 test-unit-tk-windows-arm:
     mkdir -p build
     bash -lc 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
     rm -rf .zig-cache
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
 
 # Windows x86_64 integration test: build FD libs for Windows x86_64, then run Zig integration tests.
 test-integration-tk-windows-x86:
     mkdir -p build
     just build-fd-windows-x86 > build/fd-windows-x86.log 2>&1
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
 
 # Windows ARM64 integration test: build FD libs for Windows ARM64, then run Zig integration tests.
-# contrib/build/zigw.sh prefers an x86_64 Windows Zig install on Windows ARM when
-# available because native Zig 0.16.0 is unstable on this lane.
 test-integration-tk-windows-arm:
     mkdir -p build
     just build-fd-windows-arm > build/fd-windows-arm.log 2>&1
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
 
 # Deterministic offline investment conformance suite — fixture-backed, no llama.cpp required.
 test-demo-tk:
@@ -506,31 +502,31 @@ test-demo-tk-windows-arm: test-demo-tk
 
 # Build and export the platform conformance artifact consumed by the compare job.
 export-demo-conformance-linux:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }}
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }}
     {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/linux
 
 export-demo-conformance-macos-15-x86_64:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }}
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }}
     {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-15-x86_64
 
 export-demo-conformance-macos-15-arm:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }}
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }}
     {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-15-arm
 
 export-demo-conformance-macos-26-x86_64:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }}
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }}
     {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-26-x86_64
 
 export-demo-conformance-macos-26-arm:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }}
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }}
     {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-26-arm
 
 export-demo-conformance-windows-x86:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }} --summary all
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }} --summary all
     {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/windows-x86
 
 export-demo-conformance-windows-arm:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dfd-lib-dir={{ fd_tickoni_lib }} --summary all
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }} --summary all
     {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/windows-arm
 
 compare-demo-conformance:
