@@ -307,9 +307,11 @@ build-fd-linux-arm-gcc:
     bash contrib/build/fd-build-lib.sh fd-arm gcc-14
 
 build-fd-macos-x86:
+    brew install llvm
     env JUST_GMAKE="$(brew --prefix)/bin/gmake" PATH="$(brew --prefix)/bin:/usr/local/bin:$PATH" bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs ""
 
 build-fd-macos-arm:
+    brew install llvm
     env JUST_GMAKE="$(brew --prefix)/bin/gmake" bash contrib/build/fd-build-lib.sh fd-tickoni-fd clang libs "lz4 blst zstd"
 
 build-fd-windows-x86:

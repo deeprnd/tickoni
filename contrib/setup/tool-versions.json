@@ -58,7 +58,8 @@
       "tools": [
         "gcc",
         "clang-llvm",
-        "msvc"
+        "msvc",
+        "llvm"
       ],
       "platforms": [
         "linux",
