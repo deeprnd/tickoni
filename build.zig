@@ -677,7 +677,7 @@ pub fn build(b: *std.Build) void {
         // This avoids Zig's --listen=- parallel coordination which panics
         // with EndOfStream when 48+ test binaries communicate over the same pipe.
         const run_tests_cmd = std.Build.Step.Run.create(b, "run-tests");
-        run_tests_cmd.addArgs(&.{ "bash", "contrib/build/run-test-series.sh" });
+        run_tests_cmd.addArgs(&.{ "bash", "contrib/test/run_test_series.sh" });
         run_tests_cmd.step.dependOn(test_step);
         run_tests_step.dependOn(&run_tests_cmd.step);
 
