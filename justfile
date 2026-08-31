@@ -1,7 +1,7 @@
 # Prefer GNU Make 4.x (Homebrew installs it as `gmake` on macOS); fall back to `make`.
 # Firedancer's GNUmakefile uses `undefine`, which needs GNU Make >= 3.82.
 make := `command -v gmake || command -v make`
-python := `command -v python || command -v python3`
+python := `command -v python3 || command -v python`
 
 # Firedancer/Tickoni build natively on Linux, macOS, and Windows.
 
@@ -512,11 +512,11 @@ export-demo-conformance-macos-26-arm:
     {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/macos-26-arm
 
 export-demo-conformance-windows-x86:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }} --summary all
+    bash -lc "ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }} --summary all"
     {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/windows-x86
 
 export-demo-conformance-windows-arm:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }} --summary all
+    bash -lc "ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }} --summary all"
     {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/windows-arm
 
 compare-demo-conformance:
