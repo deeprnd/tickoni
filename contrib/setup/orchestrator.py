@@ -723,28 +723,36 @@ def _zig_target(platform_str):
 
 
 def _zig_verify_minisig(archive_path, sig_path, dry_run=False):
-    """Verify archive with minisign. Fails if minisign is unavailable."""
+    """Verify archive with minisign. Skips with warning if minisign is unavailable."""
     if dry_run:
         print(f"[verify] minisig {archive_path.name} (dry-run)")
         return
 
-    # Check if minisign is available
     import shutil as _shutil
-    minisign = _shutil.which("minisign") or _shutil.which("minisign-verify") or _shutil.which("minisig")
-    if minisign:
-        cmd = [minisign, "-V", "-P", ZIG_MINISIGN_PUBKEY, "-x", str(sig_path), "-m", str(archive_path)]
-    else:
-        # Fallback: try minisign-verify (OpenBSD)
-        for name in ("minisign", "minisign-verify", "minisig"):
-            candidate = _shutil.which(name)
-            if candidate:
-                minisign = candidate
-                break
-        if not minisign:
-            print("ERROR: minisign binary not found on PATH — cannot verify Zig", file=sys.stderr)
-            sys.exit(1)
-        cmd = [minisign, "-V", "-P", ZIG_MINISIGN_PUBKEY, "-x", str(sig_path), "-m", str(archive_path)]
 
+    def _find_minisign():
+        for name in ("minisign", "minisign-verify", "minisig"):
+            found = _shutil.which(name)
+            if found:
+                return found
+        return None
+
+    minisign = _find_minisign()
+    if not minisign:
+        print(
+            f"[WARN] minisign binary not found on PATH — skipping signature "
+            f"verification for {archive_path.name}",
+            file=sys.stderr,
+        )
+        print(
+            "  To enable verification, install minisign: apt install minisign "
+            "(Debian/Ubuntu), brew install minisign (macOS), or "
+            "winget install jedisct1.minisign (Windows)",
+            file=sys.stderr,
+        )
+        return
+
+    cmd = [minisign, "-V", "-P", ZIG_MINISIGN_PUBKEY, "-x", str(sig_path), "-m", str(archive_path)]
     print(f"[verify] minisig {archive_path.name} ...")
     result = run_cmd(cmd, capture=False)
     if result.returncode != 0:
