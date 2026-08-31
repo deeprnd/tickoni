@@ -68,10 +68,18 @@ if [[ -z "$zig_cmd" ]]; then
     local_zig_root="${HOME:-}/.local"
     if [[ -d "$local_zig_root" ]]; then
       candidate="$(find "$local_zig_root" -maxdepth 2 -type d -name 'zig-*' | sort | tail -n 1)"
-      if [[ -n "$candidate" && -f "${candidate}/zig" ]]; then
-        zig_cmd="${candidate}/zig"
-      elif [[ -n "$candidate" && -f "${candidate}/zig.exe" ]]; then
-        zig_cmd="${candidate}/zig.exe"
+      if [[ -n "$candidate" ]]; then
+        # zig dev builds install a directory named "zig/" with the binary inside;
+        # older or official releases may place the binary directly at zig/zig.
+        if [[ -f "${candidate}/zig" ]]; then
+          zig_cmd="${candidate}/zig"
+        elif [[ -f "${candidate}/zig/zig" ]]; then
+          zig_cmd="${candidate}/zig/zig"
+        elif [[ -f "${candidate}/zig.exe" ]]; then
+          zig_cmd="${candidate}/zig.exe"
+        elif [[ -f "${candidate}/zig/zig.exe" ]]; then
+          zig_cmd="${candidate}/zig/zig.exe"
+        fi
       fi
     fi
   fi
