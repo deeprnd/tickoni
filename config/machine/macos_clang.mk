@@ -22,6 +22,13 @@ include config/extra/with-debug.mk
 include config/extra/with-optimization.mk
 include config/extra/with-threads.mk
 
+# Restore FD_HAS_BLST flag after base.mk resets CPPFLAGS.
+# with-blst.mk sets -DFD_HAS_BLST=1 in CPPFLAGS, but base.mk
+# wipes it with CPPFLAGS:=-isystem ./$(OPT)/include.
+ifeq ($(FD_HAS_BLST),1)
+CPPFLAGS+=-DFD_HAS_BLST=1
+endif
+
 # Platform detection (MUST come before any platform-specific settings)
 UNAME?=$(shell uname)
 
