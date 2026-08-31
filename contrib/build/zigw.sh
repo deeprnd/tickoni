@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-zig_cmd="${ZIG:-zig}"
-using_windows_arm_x64_zig=0
+zig_cmd="${ZIG:-}"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -58,6 +57,31 @@ if [[ "$is_windows_arm" -eq 1 && -n "${LOCALAPPDATA:-}" ]]; then
   fi
 fi
 
+# Auto-discover zig when not set via $ZIG and not already found.
+# The orchestrator installs zig to $HOME/.local/zig-<target>-<version>/
+# (bin dir is <install>/zig). GITHUB_PATH may not persist across steps.
+if [[ -z "$zig_cmd" ]]; then
+  if command -v zig >/dev/null 2>&1; then
+    zig_cmd="zig"
+  else
+    # Search $HOME/.local for zig (orchestrator install location).
+    local_zig_root="${HOME:-}/.local"
+    if [[ -d "$local_zig_root" ]]; then
+      candidate="$(find "$local_zig_root" -maxdepth 2 -type d -name 'zig-*' | sort | tail -n 1)"
+      if [[ -n "$candidate" && -f "${candidate}/zig" ]]; then
+        zig_cmd="${candidate}/zig"
+      elif [[ -n "$candidate" && -f "${candidate}/zig.exe" ]]; then
+        zig_cmd="${candidate}/zig.exe"
+      fi
+    fi
+  fi
+fi
+
+if [[ -z "$zig_cmd" ]]; then
+  echo "ERROR: zig not found — install zig or set \$ZIG" >&2
+  exit 127
+fi
+
 # Allow CI / other callers to force the Zig target via env var
 force_target="${ZIG_TARGET_OVERRIDE:-}"
 
@@ -76,7 +100,7 @@ if [[ "${1:-}" == "build" ]]; then
   # from PATH rather than the Windows ARM x64-install auto-discovery path.
   if [[ -n "$force_target" && "$has_target" -eq 0 ]]; then
     set -- "$1" "-Dtarget=$force_target" "${@:2}"
-  elif [[ "$using_windows_arm_x64_zig" -eq 1 && "$has_target" -eq 0 ]]; then
+  elif [[ "${using_windows_arm_x64_zig:-0}" -eq 1 && "$has_target" -eq 0 ]]; then
     set -- "$1" "-Dtarget=aarch64-windows" "${@:2}"
   fi
 fi
