@@ -143,7 +143,8 @@ prepare_windows_sdk_tool_aliases() {
   alias_native="$(cygpath -w "$alias_dir")"
   target_native="$(cygpath -w "$sdk_bin_dir")"
 
-  python -c 'import shutil, subprocess, sys; link, target = sys.argv[1:3]; shutil.rmtree(link, ignore_errors=True); subprocess.run(["cmd.exe", "/c", "mklink", "/J", link, target], check=True)' "$alias_native" "$target_native"
+  rmdir /s /q "$alias_native" 2>/dev/null || true
+  cmd.exe /c mklink /J "$alias_native" "$target_native"
 
   windows_sdk_rc_native="$(cygpath -m "$alias_dir/rc.exe")"
   windows_sdk_mt_native="$(cygpath -m "$alias_dir/mt.exe")"
@@ -199,37 +200,24 @@ patch_llama_ui_cmake_for_old_windows_gxx() {
     return 0
   fi
 
-  python - "$ui_cmake" <<'PY'
-from pathlib import Path
-import sys
+  # Use sed to insert the extra CMake block (no python dependency for Windows CI).
+  # Insert after the message(STATUS "UI: building llama-ui-embed ...") line.
+  sed -i '/message(STATUS "UI: building llama-ui-embed/a\
+\
+    set(LLAMA_UI_HOST_CXX_EXTRA_LIBS "")\
+    if(CMAKE_HOST_WIN32 AND HOST_CXX_COMPILER MATCHES "(^|[/\\\\])g\\\\+\\\\+(\\\\.exe)?$")\
+        execute_process(COMMAND "${HOST_CXX_COMPILER}" -dumpfullversion -dumpversion\
+            OUTPUT_VARIABLE LLAMA_UI_HOST_CXX_VERSION\
+            OUTPUT_STRIP_TRAILING_WHITESPACE\
+            ERROR_QUIET)\
+        if(LLAMA_UI_HOST_CXX_VERSION VERSION_LESS 9)\
+            list(APPEND LLAMA_UI_HOST_CXX_EXTRA_LIBS -lstdc++fs)\
+        endif()\
+    endif()\
+' "$ui_cmake"
 
-path = Path(sys.argv[1])
-text = path.read_text(encoding='utf-8')
-
-needle1 = '    message(STATUS "UI: building llama-ui-embed with host compiler ${HOST_CXX_COMPILER}")\n\n'
-insert1 = (
-    '    set(LLAMA_UI_HOST_CXX_EXTRA_LIBS "")\n'
-    '    if(CMAKE_HOST_WIN32 AND HOST_CXX_COMPILER MATCHES "(^|[/\\\\])g\\\\+\\\\+(\\\\.exe)?$")\n'
-    '        execute_process(COMMAND "${HOST_CXX_COMPILER}" -dumpfullversion -dumpversion\n'
-    '            OUTPUT_VARIABLE LLAMA_UI_HOST_CXX_VERSION\n'
-    '            OUTPUT_STRIP_TRAILING_WHITESPACE\n'
-    '            ERROR_QUIET)\n'
-    '        if(LLAMA_UI_HOST_CXX_VERSION VERSION_LESS 9)\n'
-    '            list(APPEND LLAMA_UI_HOST_CXX_EXTRA_LIBS -lstdc++fs)\n'
-    '        endif()\n'
-    '    endif()\n\n'
-)
-
-needle2 = '        COMMAND "${HOST_CXX_COMPILER}" -O2 -std=c++17\n                -o "${LLAMA_UI_EMBED_EXE}" "${CMAKE_CURRENT_SOURCE_DIR}/embed.cpp"\n'
-insert2 = '        COMMAND "${HOST_CXX_COMPILER}" -O2 -std=c++17\n                -o "${LLAMA_UI_EMBED_EXE}" "${CMAKE_CURRENT_SOURCE_DIR}/embed.cpp" ${LLAMA_UI_HOST_CXX_EXTRA_LIBS}\n'
-
-if needle1 not in text or needle2 not in text:
-    raise SystemExit(f'failed to find expected UI host compiler snippets in {path}')
-
-text = text.replace(needle1, needle1 + insert1, 1)
-text = text.replace(needle2, insert2, 1)
-path.write_text(text, encoding='utf-8')
-PY
+  # Append LLAMA_UI_HOST_CXX_EXTRA_LIBS to the -o command line.
+  sed -i 's|\(-o "${LLAMA_UI_EMBED_EXE}" "${CMAKE_CURRENT_SOURCE_DIR}/embed.cpp"\)|\1 ${LLAMA_UI_HOST_CXX_EXTRA_LIBS}|' "$ui_cmake"
 
   echo "patched llama UI CMake host compiler link flags for old Windows g++: ${ui_cmake}"
 }
