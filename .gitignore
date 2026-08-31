@@ -67,6 +67,7 @@ memory
 
 # Local build/test artifacts
 *.o
+*.obj
 /os_api
 /test_process_topology
 /zig-test
