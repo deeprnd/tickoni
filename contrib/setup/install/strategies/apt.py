@@ -93,7 +93,17 @@ def _find_winget_shell():
 
 def _winget_already_installed(output: str) -> bool:
     """Check if winget output means the package is already installed."""
-    return 'Found an existing package already installed' in output
+    return any(message in output for message in (
+        'Found an existing package already installed',
+        'No available upgrade found',
+        'No newer package versions are available',
+    ))
+
+
+def _winget_succeeded_or_noop(result) -> bool:
+    """Accept winget's successful and already-installed outcomes."""
+    output = (result.stdout or '') + (result.stderr or '')
+    return result.returncode == 0 or result.returncode == 43 or _winget_already_installed(output)
 
 
 @register('apt')
@@ -212,10 +222,7 @@ class AptInstallStrategy(InstallStrategy):
                         '--source', 'winget'
                     ]
                 result = subprocess.run(cmd, capture_output=True, text=True)
-                if result.returncode != 0:
-                    if result.stdout and _winget_already_installed(result.stdout):
-                        print(f"  {winget_id} already installed, skipping")
-                        continue
+                if not _winget_succeeded_or_noop(result):
                     print(f"ERROR: winget install failed for {winget_id}",
                           file=sys.stderr)
                     sys.exit(1)
@@ -268,9 +275,6 @@ class WingetInstallStrategy(InstallStrategy):
                 '--source', 'winget'
             ]
         result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            if result.stdout and _winget_already_installed(result.stdout):
-                print(f"  {pkg} already installed, skipping")
-                return
+        if not _winget_succeeded_or_noop(result):
             print(f"ERROR: winget install failed for {pkg}", file=sys.stderr)
             sys.exit(1)

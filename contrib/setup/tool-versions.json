@@ -139,8 +139,7 @@
       "description": "Math libraries needed by LLM toolchain",
       "tools": [
         "openblas-linux",
-        "openblas-macos",
-        "openblas-windows"
+        "openblas-macos"
       ]
     },
     "mvsc": {
@@ -174,8 +173,7 @@
     ],
     "build": [
       "core",
-      "essential",
-      "math-libs"
+      "essential"
     ],
     "zig": [
       "core",
@@ -387,7 +385,7 @@
       "platform": "windows",
       "install_method": "winget",
       "parameters": {
-        "package": "ccache.ccache"
+        "package": "Ccache.Ccache"
       },
       "idempotent_check": "command -v ccache"
     },
@@ -633,15 +631,6 @@
         "package": "openblas"
       },
       "idempotent_check": "brew list openblas"
-    },
-    "openblas-windows": {
-      "category": "math-libs",
-      "platform": "windows",
-      "install_method": "winget",
-      "parameters": {
-        "package": "OpenBLAS.OpenBLAS"
-      },
-      "idempotent_check": "pkg-config --libs openblas"
     }
   }
 }
