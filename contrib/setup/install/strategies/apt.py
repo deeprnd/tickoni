@@ -169,15 +169,13 @@ class AptInstallStrategy(InstallStrategy):
             return
 
         if "macos" in platform_str:
-            # On macOS, `make` installs BSD make; we need `gmake` (GNU Make)
-            # which Firedancer's GNUmakefile requires.
+            # On macOS, Homebrew's `make` formula installs GNU make as
+            # `gmake`; Firedancer's GNUmakefile requires that binary.
             resolved_packages = []
             for pkg_name in packages:
-                # macOS: `make` → install `gmake` instead
-                if pkg_name == 'make':
-                    resolved_packages.append('gmake')
-                else:
-                    resolved_packages.append(pkg_name)
+                # Keep the Homebrew formula name (`make`), not its binary
+                # name (`gmake`).
+                resolved_packages.append(pkg_name)
 
             for pkg_name in resolved_packages:
                 print(f"[BREW] Installing {pkg_name}...")
