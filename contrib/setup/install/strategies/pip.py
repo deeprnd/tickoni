@@ -1,9 +1,49 @@
 """Pip, pipx, and go_install strategies."""
 import os
+import shutil
 import subprocess
 import sys
 from ..base import InstallStrategy
 from .. import register
+
+
+def _python_commands() -> list[list[str]]:
+    """Return usable Python launchers, preferring the current interpreter.
+
+    On Windows CI, ``sys.executable`` can refer to a toolcache path that is no
+    longer spawnable after the runner image updates.  The Python launcher and
+    PATH-resolved interpreters provide reliable fallbacks, including on ARM.
+    """
+    commands: list[list[str]] = []
+    if sys.executable:
+        commands.append([sys.executable])
+
+    for launcher in (("py", "-3"), ("python",), ("python3",)):
+        executable = shutil.which(launcher[0])
+        if executable and [executable, *launcher[1:]] not in commands:
+            commands.append([executable, *launcher[1:]])
+    return commands
+
+
+def _run_pip(package: str, platform_str: str):
+    """Run pip, falling back when a Windows interpreter cannot be spawned."""
+    args = ["-m", "pip", "install", "--upgrade", package]
+    if "windows" not in platform_str:
+        # --break-system-packages is Debian/Ubuntu-specific; skip on macOS.
+        args.append("--break-system-packages")
+
+    missing: list[str] = []
+    for command in _python_commands():
+        try:
+            return subprocess.run(command + args, capture_output=True, text=True)
+        except FileNotFoundError:
+            missing.append(command[0])
+
+    attempted = ", ".join(missing) or "no Python interpreter"
+    raise FileNotFoundError(
+        f"could not spawn a Python interpreter while installing {package}; "
+        f"attempted: {attempted}"
+    )
 
 
 @register('pip')
@@ -16,15 +56,17 @@ class PipInstallStrategy(InstallStrategy):
             print(f"  [DRY-RUN] Would pip install {pkg}")
             return
         print(f"[PIP] Installing {pkg}...")
-        pip_args = [
-            sys.executable, '-m', 'pip', 'install', '--upgrade', pkg
-        ]
-        if "windows" not in platform_str:
-            # --break-system-packages is Debian/Ubuntu-specific; skip on macOS
-            pip_args.append('--break-system-packages')
-        result = subprocess.run(pip_args, capture_output=True, text=True)
+        try:
+            result = _run_pip(pkg, platform_str)
+        except FileNotFoundError as error:
+            print(f"ERROR: {error}", file=sys.stderr)
+            sys.exit(1)
         if result.returncode != 0:
             print(f"ERROR: pip install failed for {pkg}", file=sys.stderr)
+            if result.stdout:
+                print(result.stdout, file=sys.stderr, end="")
+            if result.stderr:
+                print(result.stderr, file=sys.stderr, end="")
             sys.exit(1)
 
 
