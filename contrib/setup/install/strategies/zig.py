@@ -214,10 +214,11 @@ class ZigInstallStrategy(InstallStrategy):
         print(f"[done] zig version={version} target={target} install_dir={install_dir}")
 
     def _handle_windows_path(self, install_dir: Path, user_path: bool):
+        install_dir_str = str(install_dir)
         gh_path = os.environ.get("GITHUB_PATH")
-        if gh_path:
+        if gh_path and not self._github_path_already_written(gh_path, install_dir_str):
             with open(gh_path, "a") as fh:
-                fh.write(str(install_dir) + os.linesep)
+                fh.write(install_dir_str + os.linesep)
             print(f"[github-path] {install_dir}")
         if user_path:
             ps = (
@@ -232,10 +233,11 @@ class ZigInstallStrategy(InstallStrategy):
             print(f"[user-path] prepend {install_dir}")
 
     def _handle_posix_path(self, install_dir: Path):
+        install_dir_str = str(install_dir)
         gh_path = os.environ.get("GITHUB_PATH")
-        if gh_path:
+        if gh_path and not self._github_path_already_written(gh_path, install_dir_str):
             with open(gh_path, "a") as fh:
-                fh.write(str(install_dir) + os.linesep)
+                fh.write(install_dir_str + os.linesep)
             print(f"[github-path] {install_dir}")
         if not gh_path:
             print(f"[activation] add Zig to your shell PATH with:")
