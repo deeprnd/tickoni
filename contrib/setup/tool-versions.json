@@ -22,7 +22,7 @@
       "windows-x86": "17",
       "windows-arm": "17"
     },
-    "python": "Python.Python.3.12",
+    "python": "Python.Python.3.0",
     "go": "1.26.7",
     "cbmc": "5.97.0",
     "litani": "1.5.1",

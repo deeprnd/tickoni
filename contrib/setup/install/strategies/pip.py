@@ -16,10 +16,13 @@ class PipInstallStrategy(InstallStrategy):
             print(f"  [DRY-RUN] Would pip install {pkg}")
             return
         print(f"[PIP] Installing {pkg}...")
-        result = subprocess.run([
-            'python3', '-m', 'pip', 'install',
-            '--break-system-packages', '--upgrade', pkg
-        ], capture_output=True, text=True)
+        pip_args = [
+            'python3', '-m', 'pip', 'install', '--upgrade', pkg
+        ]
+        if "windows" not in platform_str:
+            # --break-system-packages is Debian/Ubuntu-specific; skip on macOS
+            pip_args.append('--break-system-packages')
+        result = subprocess.run(pip_args, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"ERROR: pip install failed for {pkg}", file=sys.stderr)
             sys.exit(1)

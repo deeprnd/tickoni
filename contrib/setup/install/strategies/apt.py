@@ -202,7 +202,6 @@ class AptInstallStrategy(InstallStrategy):
                         f'winget install --exact --id {winget_id} '
                         '--accept-package-agreements '
                         '--accept-source-agreements '
-                        '--disable-interactivity '
                         '--source winget'
                     )
                     cmd = [shell, '-NoProfile', '-Command', winget_cmd]
@@ -210,7 +209,7 @@ class AptInstallStrategy(InstallStrategy):
                     cmd = [
                         shell, '/c', 'winget', 'install', '--exact', '--id', winget_id,
                         '--accept-package-agreements', '--accept-source-agreements',
-                        '--disable-interactivity', '--source', 'winget'
+                        '--source', 'winget'
                     ]
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 if result.returncode != 0:
@@ -253,18 +252,17 @@ class WingetInstallStrategy(InstallStrategy):
         shell = _find_winget_shell()
         if shell in ('pwsh', 'powershell'):
             winget_cmd = (
-                f'winget install --id {pkg} '
+                f'winget install --exact --id {pkg} '
                 '--accept-package-agreements '
                 '--accept-source-agreements '
-                '--disable-interactivity '
                 '--source winget'
             )
             cmd = [shell, '-NoProfile', '-Command', winget_cmd]
         else:
             cmd = [
-                shell, '/c', 'winget', 'install', '--id', pkg,
+                shell, '/c', 'winget', 'install', '--exact', '--id', pkg,
                 '--accept-package-agreements', '--accept-source-agreements',
-                '--disable-interactivity', '--source', 'winget'
+                '--source', 'winget'
             ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
