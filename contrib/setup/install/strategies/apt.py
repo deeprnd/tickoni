@@ -199,20 +199,25 @@ class AptInstallStrategy(InstallStrategy):
                 print(f"[WINGET] Installing {winget_id}...")
                 if shell in ('pwsh', 'powershell'):
                     winget_cmd = (
-                        f'winget install --exact --id {winget_id} '
+                        f'winget install --id {winget_id} '
                         '--accept-package-agreements '
                         '--accept-source-agreements '
+                        '--disable-interactivity '
                         '--source winget'
                     )
                     cmd = [shell, '-NoProfile', '-Command', winget_cmd]
                 else:
                     cmd = [
-                        shell, '/c', 'winget', 'install', '--exact', '--id', winget_id,
+                        shell, '/c', 'winget', 'install', '--id', winget_id,
                         '--accept-package-agreements', '--accept-source-agreements',
+                        '--disable-interactivity',
                         '--source', 'winget'
                     ]
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 if result.returncode != 0:
+                    if result.stdout and _winget_already_installed(result.stdout):
+                        print(f"  {winget_id} already installed, skipping")
+                        continue
                     print(f"ERROR: winget install failed for {winget_id}",
                           file=sys.stderr)
                     sys.exit(1)
