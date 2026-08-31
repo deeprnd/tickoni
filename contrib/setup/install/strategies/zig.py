@@ -127,6 +127,7 @@ class ZigInstallStrategy(InstallStrategy):
 
         with urllib.request.urlopen(index_url) as resp:
             index = json.load(resp)
+        version_entry = index.get(version)
         if version_entry is None:
             ext = ".zip" if target.endswith("-windows") else ".tar.xz"
             dev_url = f"{ZIG_BUILDS_BASE_URL}/zig-{target}-{version}{ext}"
