@@ -224,7 +224,7 @@ def cmd_build_fd(args, config: dict) -> None:
                 fp = os.path.join(obj_dir, f)
                 if os.path.isfile(fp):
                     os.remove(fp)
-            cmd_no_extras.extend(targets)
+            # targets already in cmd_no_extras from line 199, no need to append again
             if build_target:
                 cmd_no_extras.append(build_target)
             subprocess.run(cmd_no_extras, cwd=ROOT_DIR, env=env, check=True)
