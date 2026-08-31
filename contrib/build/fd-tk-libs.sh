@@ -209,7 +209,7 @@ fd_build_fd() {
   [ -n "${LDFLAGS_EXE}" ] && cmd+=( "LDFLAGS_EXE=${LDFLAGS_EXE}" )
   cmd+=( "CC=${CC}" "LD=${CC}" )
   cmd+=( "LOCAL_MKS=${mks}" )
-  [ -n "${EXTRAS}" ] && cmd+=( "EXTRAS=\"${EXTRAS}\"" )
+  [ -n "${EXTRAS}" ] && cmd+=( "EXTRAS=${EXTRAS}" )
   cmd+=(${TARGETS})
   [ -n "${BUILD_TARGET}" ] && cmd+=("${BUILD_TARGET}")
 
