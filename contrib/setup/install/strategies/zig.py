@@ -69,7 +69,7 @@ class _ZigMinisigVerifier:
         if result.returncode != 0:
             # Dev builds from ziglang.org/builds may use a different signing key
             # or have corrupted signatures; treat as warning only for dev builds.
-            is_dev = ".dev." in archive_path.name
+            is_dev = "-dev." in archive_path.name or ".dev." in archive_path.name
             if is_dev:
                 print(
                     f"[WARN] minisig verification FAILED for dev build {archive_path.name}; "
