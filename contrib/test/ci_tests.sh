@@ -34,7 +34,7 @@ for MACHINE in ${MACHINES[*]}; do
   OBJDIR="$(make help | grep OBJDIR | awk '{print $4}')"
   OBJDIRS+=( "${OBJDIR}" )
   make clean --silent >/dev/null
-  contrib/build/make-j $TARGETS
+  python3 ./contrib/build/orchestrator.py make $TARGETS
   if [[ "$NOTEST" != 1 ]]; then
     make run-unit-test
     make run-fuzz-test
