@@ -600,9 +600,11 @@
     "llama-cpp": {
       "category": "llm-server",
       "platform": "all",
-      "install_method": "llama_cpp",
+      "install_method": "llama_cpp_build",
       "parameters": {
-        "script": "contrib/setup/ensure_llama_cpp.sh"
+        "clone_url": "https://github.com/ggml-org/llama.cpp",
+        "clone_dir": "~/work/models/llama.cpp",
+        "openblas_pkg": "libopenblas-dev"
       },
       "idempotent_check": "test -x ~/work/models/llama.cpp/llama-server"
     },
@@ -618,9 +620,11 @@
     "hf-model": {
       "category": "llm-server",
       "platform": "all",
-      "install_method": "llama_cpp",
+      "install_method": "hf_model",
       "parameters": {
-        "script": "contrib/setup/ensure_hf_model.sh"
+        "repo_id": "unsloth/gemma-4-E2B-it-qat-GGUF",
+        "model_file": "gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf",
+        "model_dir": "$HOME/work/models/gemma/gemma-4-E2B-it-qat-GGUF"
       },
       "idempotent_check": "test -s ~/work/models/gemma/gemma-4-E2B-it-qat-GGUF/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"
     },
