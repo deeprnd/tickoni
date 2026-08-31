@@ -52,13 +52,13 @@ MAKEFLAGS += --no-builtin-variables
 # The above doesn't unset built-ins in the first phase GNU Make <4.4,
 # so do this manually
 ifeq ($(origin CC),default)
-	undefine CC
+undefine CC
 endif
 ifeq ($(origin CXX),default)
-	undefine CXX
+undefine CXX
 endif
 ifeq ($(origin LD),default)
-	undefine LD
+undefine LD
 endif
 # Disable implicit rules
 .SUFFIXES:
