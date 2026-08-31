@@ -17,7 +17,7 @@ class PipInstallStrategy(InstallStrategy):
             return
         print(f"[PIP] Installing {pkg}...")
         pip_args = [
-            'python3', '-m', 'pip', 'install', '--upgrade', pkg
+            sys.executable, '-m', 'pip', 'install', '--upgrade', pkg
         ]
         if "windows" not in platform_str:
             # --break-system-packages is Debian/Ubuntu-specific; skip on macOS
