@@ -57,9 +57,15 @@ class Orchestrator:
         name = tool['name']
         method = tool['install_method']
 
-        # Idempotency check via Command pattern
+        # Idempotency check via Command pattern.
+        # For install_zig, build_from_source, and binary_download, skip the
+        # idempotency shortcut — we need to write GITHUB_PATH for PATH
+        # propagation even when the tool is already installed.
+        skip_path = method not in (
+            'install_zig', 'build_from_source', 'binary_download',
+        )
         check_cmd = build_check(tool)
-        if check_cmd and check_cmd.is_satisfied():
+        if check_cmd and check_cmd.is_satisfied() and skip_path:
             return {'tool': name, 'status': 'already_installed'}
 
         if dry_run:
@@ -125,6 +131,8 @@ def main():
         ok = sum(1 for r in results if r['status'] in ('installed', 'already_installed'))
         fail = sum(1 for r in results if r['status'] == 'failed')
         print(f"\n[COMPLETE] {ok}/{len(results)} tools handled ({fail} failed)")
+        if fail > 0:
+            sys.exit(1)
     else:
         print(f"\n[DRY-RUN] Would install {len(results)} tools on {plat}")
 

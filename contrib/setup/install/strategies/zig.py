@@ -93,13 +93,40 @@ class ZigInstallStrategy(InstallStrategy):
 
         self._install(version, target, install_root, user_path, platform_str)
 
+    @staticmethod
+    def _github_path_already_written(gh_path: str, install_dir_str: str) -> bool:
+        """Check if install_dir is already in GITHUB_PATH."""
+        try:
+            with open(gh_path) as fh:
+                for line in fh:
+                    if line.strip() == install_dir_str:
+                        return True
+        except OSError:
+            pass
+        return False
+
     def _install(self, version: str, target: str, install_root: str, user_path: bool, platform_str: str) -> None:
         """Core Zig installation logic."""
+        # Check if zig is already installed and on PATH.
+        # If so, skip download/extract/copy and just propagate PATH via
+        # GITHUB_PATH so subsequent CI steps find it.
+        existing_path = shutil.which('zig')
+        if existing_path:
+            install_dir = Path(existing_path).resolve().parent
+            install_dir_str = str(install_dir)
+            gh_path = os.environ.get("GITHUB_PATH")
+            if gh_path and not self._github_path_already_written(gh_path, install_dir_str):
+                with open(gh_path, "a") as fh:
+                    fh.write(install_dir_str + os.linesep)
+                print(f"[github-path] {install_dir} (existing zig on PATH)")
+            os.environ['PATH'] = f"{install_dir_str}{os.pathsep}{os.environ['PATH']}"
+            print(f"[done] zig already on PATH: {existing_path}")
+            return
+
         index_url = ZIG_INDEX_URL
 
         with urllib.request.urlopen(index_url) as resp:
             index = json.load(resp)
-        version_entry = index.get(version)
         if version_entry is None:
             ext = ".zip" if target.endswith("-windows") else ".tar.xz"
             dev_url = f"{ZIG_BUILDS_BASE_URL}/zig-{target}-{version}{ext}"
