@@ -905,7 +905,7 @@ def install_zig(tool, params, config, platform_str, dry_run=False):
     if install_dir.exists():
         shutil.rmtree(install_dir)
     install_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(source_dir, install_dir)
+    shutil.copytree(source_dir, install_dir, dirs_exist_ok=True)
     print(f"[install] zig -> {install_dir}")
 
     # PATH handling
