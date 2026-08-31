@@ -33,11 +33,22 @@ echo "Windows live system-test llama_dir: ${llama_dir}"
 echo "Windows live system-test model: ${model_dir}/${model_file}"
 echo "Windows live system-test endpoint: ${endpoint}"
 
-# Ensure llama.cpp is built.
-bash "${SCRIPT_DIR}/ensure_llama_cpp_win.sh" "${ensure_args[@]}"
+# Verify llama.cpp is built (setup must have done this).
+llama_dir="$(tk_resolve_llama_cpp_dir)"
+server_bin="${llama_dir}/llama-server.exe"
+if [[ ! -x "$server_bin" ]]; then
+  echo "llama-server.exe not found at ${server_bin}; run 'python3 contrib/setup/orchestrator.py llm-server' first" >&2
+  exit 1
+fi
 
-# Ensure model is present.
-bash "${SCRIPT_DIR}/ensure_hf_model.sh"
+# Verify model is present (setup must have downloaded this).
+model_dir="${TK_HF_MODEL_DIR:-$HOME/work/models/gemma/gemma-4-E2B-it-qat-GGUF}"
+model_file="${TK_HF_MODEL_FILE:-gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf}"
+model_path="${model_dir}/${model_file}"
+if [[ ! -s "$model_path" ]]; then
+  echo "model not found at ${model_path}; run 'python3 contrib/setup/orchestrator.py llm-server' first" >&2
+  exit 1
+fi
 
 # Start server in background.
 server_pid=""

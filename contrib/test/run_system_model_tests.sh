@@ -29,15 +29,26 @@ if command -v nvidia-smi >/dev/null 2>&1; then
 fi
 echo "compute backend: ${backend}"
 
-# Ensure llama.cpp is built for the detected backend.
-if [[ "$backend" == "gpu" ]]; then
-  bash "${SCRIPT_DIR}/ensure_llama_cpp.sh" --gpu
-else
-  bash "${SCRIPT_DIR}/ensure_llama_cpp.sh"
+# Verify llama.cpp is built (setup must have done this).
+llama_dir="$(tk_resolve_llama_cpp_dir)"
+server_name="llama-server"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) server_name="llama-server.exe" ;;
+esac
+server_bin="${llama_dir}/${server_name}"
+if [[ ! -x "$server_bin" ]]; then
+  echo "llama-server not found at ${server_bin}; run 'python3 contrib/setup/orchestrator.py llm-server' first" >&2
+  exit 1
 fi
 
-# Ensure model is present.
-bash "${SCRIPT_DIR}/ensure_hf_model.sh"
+# Verify model is present (setup must have downloaded this).
+model_dir="${TK_HF_MODEL_DIR:-$HOME/work/models/gemma/gemma-4-E2B-it-qat-GGUF}"
+model_file="${TK_HF_MODEL_FILE:-gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf}"
+model_path="${model_dir}/${model_file}"
+if [[ ! -s "$model_path" ]]; then
+  echo "model not found at ${model_path}; run 'python3 contrib/setup/orchestrator.py llm-server' first" >&2
+  exit 1
+fi
 
 # Start server and tests as separate background channels.
 # Either channel dying kills the other.
