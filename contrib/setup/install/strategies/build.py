@@ -84,7 +84,7 @@ class BuildFromSourceStrategy(InstallStrategy):
 
     def _build_script(self, script, platform_str):
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
+        parent_dir = os.path.dirname(os.path.dirname(script_dir))
         script_path = os.path.join(parent_dir, 'helpers', script)
         if os.path.isfile(script_path):
             print(f"[BUILD] Running {script}...")
