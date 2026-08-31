@@ -79,8 +79,13 @@ else
   # Also delete stale .a archives from a prior build — make considers them
   # up-to-date and skips recompilation, leaving ELF objects inside the .a
   # archives that the Windows linker rejects.
+  # Also delete stale extra libs (libfd_blst.a, libfd_zstd.a, libfd_lz4.a)
+  # from a prior MODE=libs or MODE=test build without EXTRAS — those .a
+  # files are empty and make won't rebuild them even when EXTRAS is now set.
   rm -rf "${OBJDIR:?}/"*
-  rm -f "${LIBDIR:?}/libfd_ballet.a" "${LIBDIR:?}/libfd_disco.a" "${LIBDIR:?}/libfd_tango.a" "${LIBDIR:?}/libfd_util.a"
+  rm -f "${LIBDIR:?}/libfd_blst.a" "${LIBDIR:?}/libfd_zstd.a" "${LIBDIR:?}/libfd_lz4.a" \
+        "${LIBDIR:?}/libfd_ballet.a" "${LIBDIR:?}/libfd_disco.a" "${LIBDIR:?}/libfd_tango.a" \
+        "${LIBDIR:?}/libfd_util.a"
   fd_build_fd BUILDDIR="${BUILDDIR}" CC="${CC}" "TARGETS=${TARGETS[*]}" "SRCS=${SRCS[*]}" "EXTRAS=${EXTRAS}" ${LDFLAGS_EXE:+LDFLAGS_EXE="${LDFLAGS_EXE}"} || fd_build_fd BUILDDIR="${BUILDDIR}" CC="${CC}" "TARGETS=${TARGETS[*]}" "SRCS=${SRCS[*]}" ${LDFLAGS_EXE:+LDFLAGS_EXE="${LDFLAGS_EXE}"}
 fi
 
