@@ -104,11 +104,11 @@ cmd_format_fix_fd() {
 }
 
 cmd_format_check_tk() {
-  run_step "zig fmt check" "$(ROOT_DIR)/contrib/build/zigw.sh" fmt --check src/app/tickoni src/tickoni
+  run_step "zig fmt check" "$ROOT_DIR/contrib/build/zigw.sh" fmt --check src/app/tickoni src/tickoni
 }
 
 cmd_format_fix_tk() {
-  run_step "zig fmt" "$(ROOT_DIR)/contrib/build/zigw.sh" fmt src/app/tickoni src/tickoni
+  run_step "zig fmt" "$ROOT_DIR/contrib/build/zigw.sh" fmt src/app/tickoni src/tickoni
 }
 
 cmd_lint_check_fd() {
@@ -133,7 +133,7 @@ cmd_lint_shellcheck_fd() {
 }
 
 cmd_lint_check_tk() {
-  run_step "zig build check" "$(ROOT_DIR)/contrib/build/zigw.sh" build -Dfd-lib-dir=build/fd-tickoni-fd/lib
+  run_step "zig build check" "$ROOT_DIR/contrib/build/zigw.sh" build -Dfd-lib-dir=build/fd-tickoni-fd/lib
 }
 
 case "${1:-}" in
