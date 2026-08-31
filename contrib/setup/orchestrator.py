@@ -239,19 +239,13 @@ def _winget_already_installed(output: str) -> bool:
 
 
 def _find_winget():
-    """Resolve winget to an absolute path for reliable subprocess execution."""
-    # Try PATH first
-    which = shutil.which('winget') or shutil.which('winget.exe')
-    if which:
-        return which
-    # Known winget locations on Windows (x64 → System32, ARM64 → SysArm64)
-    system_root = os.environ.get('SystemRoot', r'C:\Windows')
-    for subdir in ('System32', 'SysArm64', 'syswow64'):
-        candidate = os.path.join(system_root, subdir, 'winget.exe')
-        if os.path.isfile(candidate):
-            return candidate
-    # Fallback: use cmd /c to force Windows PATH resolution
-    return ['cmd', '/c', 'winget.exe']
+    """Resolve winget for subprocess execution on Windows.
+
+    Uses `cmd /c winget` because the WindowsApps stub (found by shutil.which)
+    is a UWP app that CreateProcess cannot launch directly.  cmd /c handles
+    all PATH resolution reliably on GitHub Actions runners and local boxes.
+    """
+    return ['cmd', '/c', 'winget']
 
 
 def install_winget(tool, params, config, platform_str, dry_run=False):
