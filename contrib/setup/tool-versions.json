@@ -158,7 +158,8 @@
       "description": "LLM server toolchain",
       "tools": [
         "llama-cpp",
-        "huggingface-cli"
+        "huggingface-cli",
+        "hf-model"
       ]
     }
   },
@@ -599,11 +600,11 @@
     "llama-cpp": {
       "category": "llm-server",
       "platform": "all",
-      "install_method": "build_from_source",
+      "install_method": "llama_cpp",
       "parameters": {
-        "type": "llama-cpp"
+        "script": "contrib/setup/ensure_llama_cpp.sh"
       },
-      "idempotent_check": "command -v llama-server"
+      "idempotent_check": "test -x ~/work/models/llama.cpp/llama-server"
     },
     "huggingface-cli": {
       "category": "llm-server",
@@ -613,6 +614,15 @@
         "package": "huggingface_hub[cli]"
       },
       "idempotent_check": "command -v huggingface-cli"
+    },
+    "hf-model": {
+      "category": "llm-server",
+      "platform": "all",
+      "install_method": "llama_cpp",
+      "parameters": {
+        "script": "contrib/setup/ensure_hf_model.sh"
+      },
+      "idempotent_check": "test -s ~/work/models/gemma/gemma-4-E2B-it-qat-GGUF/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"
     },
     "openblas-linux": {
       "category": "math-libs",
