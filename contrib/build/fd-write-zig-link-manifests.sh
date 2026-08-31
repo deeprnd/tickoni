@@ -4,6 +4,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
+# Windows-only: manifests list Windows-specific object paths (e.g.
+# fd_shmem_windows_stub.o) that do not exist on macOS or Linux.
+UNAME="$(uname)"
+if [ "$UNAME" = Darwin ] || [ "$UNAME" = Linux ]; then
+  echo "[+] skipping Windows-only link manifests (host is $UNAME)"
+  exit 0
+fi
+
 BUILDDIR="${1:?usage: fd-write-zig-link-manifests.sh <BUILDDIR>}"
 LIBDIR="build/${BUILDDIR}/lib"
 mkdir -p "$LIBDIR"
