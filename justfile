@@ -360,10 +360,10 @@ build-fd-macos-arm:
     env JUST_GMAKE="$(brew --prefix)/bin/gmake" python3 contrib/build/orchestrator.py --platform macos-arm build-fd fd-tickoni-fd libs clang "lz4 blst zstd"
 
 build-fd-windows-x86:
-    python3 contrib/build/orchestrator.py --platform windows-x86 build-fd fd-tickoni-fd clang libs --arch x86_64
+    python3 contrib/build/orchestrator.py --platform windows-x86 build-fd fd-tickoni-fd libs clang --arch x86_64
 
 build-fd-windows-arm:
-    python3 contrib/build/orchestrator.py --platform windows-arm build-fd fd-tickoni-fd clang libs --arch arm64
+    python3 contrib/build/orchestrator.py --platform windows-arm build-fd fd-tickoni-fd libs clang --arch arm64
 
 # Compatibility aliases retained for S6/documentation migration.
 build-fd-gcc: build-fd-linux-x86-gcc
@@ -413,11 +413,11 @@ test-unit-fd-macos-arm:
     JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd-windows-x86:
-    python3 contrib/build/orchestrator.py --platform windows-x86 build-fd {{ fd_tickoni_build }} clang test --arch x86_64
+    python3 contrib/build/orchestrator.py --platform windows-x86 build-fd {{ fd_tickoni_build }} test clang --arch x86_64
     {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd-windows-arm:
-    python3 contrib/build/orchestrator.py --platform windows-arm build-fd {{ fd_tickoni_build }} clang test --arch arm64
+    python3 contrib/build/orchestrator.py --platform windows-arm build-fd {{ fd_tickoni_build }} test clang --arch arm64
     {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal"
 
 test-unit-fd:
