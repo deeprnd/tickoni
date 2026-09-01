@@ -437,20 +437,23 @@ grows.
 
 ## Explicit System Lane
 
-`just test-system-tk` runs `contrib/test/run_system_model_tests.sh`, which
-starts a real local `llama.cpp` server, waits for its health endpoint, and runs
-`zig build system-test`.
+`just test-system-tk` runs `contrib/test/run_live_investment_demo.sh`, which
+executes the full end-to-end flow: setup (via `contrib/setup/orchestrator.py
+llm-server`), start llama.cpp server, run `zig build system-test`, and clean up
+(server shutdown).
 
-The test runner calls `contrib/setup/orchestrator.py llm-server` internally for
-setup, so `just infra-ensure-llamacpp` and `just infra-ensure-model` are no
-longer required before `just test-system-tk`.
+`contrib/test/run_system_model_tests.sh` is the test runner that executes
+`zig build system-test` against a pre-started server. It is called internally by
+`run_live_investment_demo.sh`; developers should not call it directly unless
+debugging the test phase separately.
 
-To run setup manually (e.g. when the llama.cpp build is expensive and you want
-to reuse it across multiple test runs):
+Test infrastructure is managed by
+`contrib/test/orchestrator.py`:
 
 ```bash
-just infra-ensure-llamacpp   # build llama.cpp (CPU + OpenBLAS)
-just infra-ensure-model      # download GGUF model
+python3 contrib/test/orchestrator.py llm-server-start   # start server, wait for health
+python3 contrib/test/orchestrator.py llm-server-stop    # kill server by PID
+python3 contrib/test/orchestrator.py zig-test --target system-test  # build + run
 ```
 
 To override default paths:
@@ -463,8 +466,8 @@ export TK_HF_MODEL_FILE=my-model.gguf
 
 On Windows, `just test-system-tk` delegates to
 `just test-system-tk-windows-x86` or `just test-system-tk-windows-arm`, which
-use `infra-ensure-llamacpp-win` and `infra-run-llamacpp-win` (CPU-only, no CUDA
-on CI runners).
+build FD libs for the target platform and then call
+`run_live_investment_demo_win.sh` (full e2e flow, CPU-only).
 
 The boundary for this lane is also the directory: every test root under
 `src/tickoni/test/system/` runs here, and nothing outside that directory does.
