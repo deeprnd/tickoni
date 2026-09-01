@@ -315,13 +315,12 @@
     },
     "llvm": {
       "category": "toolchain",
-      "platform": "all",
-      "install_method": "apt",
+      "platform": "macos",
+      "install_method": "brew",
       "parameters": {
-        "package": "llvm",
-        "winget_id": "LLVM.LLVM"
+        "package": "llvm"
       },
-      "idempotent_check": "case \"$(uname -s 2>/dev/null)\" in Darwin) test -x \"$(brew --prefix llvm 2>/dev/null)/bin/llvm-ar\" ;; *) command -v llvm-ar ;; esac"
+      "idempotent_check": "test -x \"$(brew --prefix llvm 2>/dev/null)/bin/llvm-ar\""
     },
     "msvc": {
       "category": "mvsc",

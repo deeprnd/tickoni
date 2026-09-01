@@ -42,6 +42,8 @@ class BuildFromSourceStrategy(InstallStrategy):
     def _build_kcov(self):
         print("[BUILD] Building kcov from source...")
         try:
+            local_bin = os.path.expanduser('~/.local/bin')
+            os.makedirs(local_bin, exist_ok=True)
             with tempfile.TemporaryDirectory() as tmpdir:
                 result = subprocess.run(
                     ['git', 'clone', '--depth', '1', 'https://github.com/SimonKagstrom/kcov.git', tmpdir],
@@ -51,9 +53,16 @@ class BuildFromSourceStrategy(InstallStrategy):
                     print("WARNING: kcov clone failed — skipping")
                     return
                 build_dir = os.path.join(tmpdir, 'build')
-                subprocess.run(['cmake', '-S', tmpdir, '-B', build_dir, '-DCMAKE_BUILD_TYPE=Release'], check=True)
+                subprocess.run(
+                    ['cmake', '-S', tmpdir, '-B', build_dir, '-DCMAKE_BUILD_TYPE=Release',
+                     f'-DCMAKE_INSTALL_PREFIX={local_bin}/..'],
+                    check=True,
+                )
                 subprocess.run(['make', '-C', build_dir, '-j', str(os.cpu_count() or 1)], check=True)
-                subprocess.run(['sudo', 'make', '-C', build_dir, 'install'], check=True)
+                subprocess.run(['make', '-C', build_dir, 'install'], check=True)
+                # Ensure ~/.local/bin is on PATH
+                if local_bin not in os.environ.get('PATH', '').split(os.pathsep):
+                    os.environ['PATH'] = local_bin + os.pathsep + os.environ.get('PATH', '')
         except Exception as e:
             print(f"WARNING: kcov build failed — skipping: {e}", file=sys.stderr)
 

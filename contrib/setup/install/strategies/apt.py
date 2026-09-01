@@ -140,9 +140,17 @@ class AptInstallStrategy(InstallStrategy):
 
         def _try_install(pkg_name):
             print(f"[INSTALL] Installing {pkg_name}...")
+            # Try sudo -n first (non-interactive). If sudo requires a password,
+            # fall back to apt-get without sudo (works for already-downloaded
+            # packages or if the user has passwordless sudo).
             result = subprocess.run([
                 'sudo', '-n', 'apt-get', 'install', '-y', '--no-install-recommends', pkg_name
             ], capture_output=True, text=True)
+            if result.returncode != 0 and 'password' in (result.stderr or '').lower():
+                print(f"  [WARN] sudo -n failed (password required), retrying without sudo")
+                result = subprocess.run([
+                    'apt-get', 'install', '-y', '--no-install-recommends', pkg_name
+                ], capture_output=True, text=True)
             return result
 
         tool_name = tool.get('name', '')
