@@ -96,10 +96,10 @@ distclean:
 	$(RMDIR) $(BASEDIR) && $(RMDIR) target && $(RMDIR) agave/target && \
 $(SCRUB)
 
-run-unit-test:
+run-unit-test: unit-test
 	contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt $(TEST_OPTS)
 
-run-integration-test:
+run-integration-test: integration-test
 	contrib/test/run_integration_tests.sh --tests $(OBJDIR)/integration-test/automatic.txt $(TEST_OPTS)
 
 ##############################
