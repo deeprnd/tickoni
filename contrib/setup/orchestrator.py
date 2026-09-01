@@ -58,12 +58,11 @@ class Orchestrator:
         method = tool['install_method']
 
         # Idempotency check via Command pattern.
-        # For install_zig, build_from_source, and binary_download, skip the
-        # idempotency shortcut — we need to write GITHUB_PATH for PATH
-        # propagation even when the tool is already installed.
-        skip_path = method not in (
-            'install_zig', 'build_from_source', 'binary_download',
-        )
+        # For install_zig, skip the idempotency shortcut — we need to write
+        # GITHUB_PATH for PATH propagation even when the tool is already
+        # installed. build_from_source and binary_download use their
+        # idempotent_check like normal methods.
+        skip_path = method not in ('install_zig',)
         check_cmd = build_check(tool)
         if check_cmd and check_cmd.is_satisfied() and skip_path:
             return {'tool': name, 'status': 'already_installed'}
