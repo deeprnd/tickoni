@@ -29,13 +29,27 @@ class BuildFromSourceStrategy(InstallStrategy):
 
     def _build_firedancer_deps(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
-        deps_script = os.path.join(parent_dir, 'helpers', 'deps.sh')
+        # __file__ is contrib/setup/install/strategies/build.py;
+        # helpers/ lives at contrib/setup/helpers/deps.sh (2 levels up from strategies/)
+        deps_script = os.path.join(script_dir, '..', '..', 'helpers', 'deps.sh')
+        deps_script = os.path.normpath(deps_script)
         if os.path.isfile(deps_script):
             print("[DEPS] Running deps.sh check...")
-            result = subprocess.run(['bash', deps_script, 'check'], capture_output=True, text=True)
+            env = os.environ.copy()
+            # Auto-install missing system packages (will fail silently if sudo unavailable)
+            env['FD_AUTO_INSTALL_PACKAGES'] = '1'
+            result = subprocess.run(
+                ['bash', deps_script, 'check'],
+                capture_output=True, text=True, env=env,
+            )
             if result.returncode != 0:
                 print(f"WARNING: deps.sh check failed (exit {result.returncode})")
+                # This is expected when sudo is unavailable — system packages
+                # needed for snappy/rockdb cannot be auto-installed. The check
+                # logs the fix command for manual installation.
+                output = (result.stdout or '') + (result.stderr or '')
+                if 'missing system packages' in output:
+                    print("NOTE: snappy/rockdb require system packages not auto-installed; skipping.")
         else:
             print(f"WARNING: deps.sh not found at {deps_script}, skipping", file=sys.stderr)
 
@@ -68,8 +82,10 @@ class BuildFromSourceStrategy(InstallStrategy):
 
     def _build_script(self, script, platform_str):
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        parent_dir = os.path.dirname(os.path.dirname(script_dir))
-        script_path = os.path.join(parent_dir, 'helpers', script)
+        # __file__ is contrib/setup/install/strategies/build.py;
+        # helpers/ lives at contrib/setup/helpers/<script> (2 levels up from strategies/)
+        script_path = os.path.join(script_dir, '..', '..', 'helpers', script)
+        script_path = os.path.normpath(script_path)
         if os.path.isfile(script_path):
             print(f"[BUILD] Running {script}...")
             env = os.environ.copy()
