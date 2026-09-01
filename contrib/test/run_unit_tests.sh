@@ -1,21 +1,23 @@
 #!/usr/bin/env bash
 # Run FD C unit-test binaries sequentially.
-# Usage: run_unit_tests.sh --tests <file> [--page-sz <sz>] [-j <n>]
+# Usage: run_unit_tests.sh --tests <file> [--page-sz <sz>] [--page-cnt <cnt>] [-j <n>]
 set -uo pipefail
 
 if [ $# -lt 1 ]; then
-  echo "Usage: $0 --tests <test-list> [--page-sz <sz>] [-j <n>]" >&2
+  echo "Usage: $0 --tests <test-list> [--page-sz <sz>] [--page-cnt <cnt>] [-j <n>]" >&2
   exit 1
 fi
 
 TESTS_FILE=""
 PAGE_SZ="normal"
+PAGE_CNT=""
 JOBS=1
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --tests) TESTS_FILE="$2"; shift 2 ;;
     --page-sz) PAGE_SZ="$2"; shift 2 ;;
+    --page-cnt) PAGE_CNT="$2"; shift 2 ;;
     -j) JOBS="$2"; shift 2 ;;
     *) shift ;;
   esac
@@ -35,7 +37,11 @@ while IFS= read -r test_bin; do
   [[ -z "$test_bin" ]] && continue
   total=$((total + 1))
   echo -n "  $(basename "$test_bin")... "
-  if "$test_bin" --page-sz "$PAGE_SZ" -j "$JOBS" 2>/dev/null; then
+  TEST_CMD="$test_bin --page-sz $PAGE_SZ -j $JOBS"
+  if [[ -n "$PAGE_CNT" ]]; then
+    TEST_CMD="$TEST_CMD --page-cnt $PAGE_CNT"
+  fi
+  if $TEST_CMD 2>/dev/null; then
     echo "OK"
     passed=$((passed + 1))
   else
