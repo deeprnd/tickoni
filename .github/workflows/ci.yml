@@ -57,7 +57,7 @@ jobs:
   build-canonical:
     name: CI / Build / Linux x86_64
     needs: [plan, quality, security-secrets]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.quality.result == 'success' && needs.quality.result != 'failure' && needs.security-secrets.result == 'success' && needs.security-secrets.result != 'failure' }}
+    if: needs.plan.outputs.core == 'true'
     uses: ./.github/workflows/_ci-build.yml
     with:
       build-type: canonical
@@ -67,7 +67,7 @@ jobs:
   build-portability:
     name: CI / Build / Portability
     needs: [plan, quality, security-secrets]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.quality.result == 'success' && needs.quality.result != 'failure' && needs.security-secrets.result == 'success' && needs.security-secrets.result != 'failure' }}
+    if: needs.plan.outputs.core == 'true'
     uses: ./.github/workflows/_ci-build.yml
     with:
       build-type: portability
