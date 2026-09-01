@@ -46,59 +46,46 @@ jobs:
     if: needs.plan.outputs.core == 'true'
     uses: ./.github/workflows/_ci-quality.yml
 
-  # ── SECURITY/SECRETS: gitleaks (runs after quality, before build) ────────
+  # ── SECURITY/SECRETS: gitleaks — runs in parallel with quality ───────────
   security-secrets:
     name: CI / Secrets
-    needs: [plan, quality]
-    if: needs.plan.outputs.core == 'true' && needs.quality.result == 'success'
+    needs: plan
+    if: needs.plan.outputs.core == 'true'
     uses: ./.github/workflows/_ci-security-secrets.yml
 
-  # ── BUILD / CANONICAL: Linux x86_64 compile+link → artifact ──────────────
-  build-canonical:
-    name: CI / Build / Linux x86_64
+  # ── BUILD: all platforms in parallel (depends on quality + secrets) ──────
+  build:
+    name: CI / Build
     needs: [plan, quality, security-secrets]
     if: needs.plan.outputs.core == 'true' && needs.quality.result == 'success' && needs.security-secrets.result == 'success'
     uses: ./.github/workflows/_ci-build.yml
-    with:
-      build-type: canonical
-      runner: ubuntu-24.04
-
-  # ── BUILD / PORTABILITY: macOS + Windows matrix ──────────────────────────
-  build-portability:
-    name: CI / Build / Portability
-    needs: [plan, quality, security-secrets]
-    if: needs.plan.outputs.core == 'true' && needs.quality.result == 'success' && needs.security-secrets.result == 'success'
-    uses: ./.github/workflows/_ci-build.yml
-    with:
-      build-type: portability
-      runner: ubuntu-24.04
 
   # ── UNIT: component tests per platform (downloads build artifact) ────────
   unit:
     name: CI / Unit
-    needs: [plan, build-canonical, build-portability]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build-canonical.result == 'success' && needs.build-portability.result == 'success' }}
+    needs: [plan, build]
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
     uses: ./.github/workflows/_ci-unit.yml
 
   # ── INTEGRATION: multi-component tests per platform ──────────────────────
   integration:
     name: CI / Integration
-    needs: [plan, build-canonical, build-portability]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build-canonical.result == 'success' && needs.build-portability.result == 'success' }}
+    needs: [plan, build]
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
     uses: ./.github/workflows/_ci-integration.yml
 
   # ── SYSTEM: live-LLM tests per platform ──────────────────────────────────
   system:
     name: CI / System
-    needs: [plan, build-canonical, build-portability]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build-canonical.result == 'success' && needs.build-portability.result == 'success' }}
+    needs: [plan, build]
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
     uses: ./.github/workflows/_ci-system.yml
 
   # ── DEMO: fixture-backed demos per platform ──────────────────────────────
   demo:
     name: CI / Demo
-    needs: [plan, build-canonical, build-portability]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build-canonical.result == 'success' && needs.build-portability.result == 'success' }}
+    needs: [plan, build]
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
     uses: ./.github/workflows/_ci-demo.yml
 
   # ── CONFORMANCE: cross-platform binary comparison ────────────────────────
@@ -111,15 +98,15 @@ jobs:
   # ── SECURITY / DEEP: sanitizers, seccomp, formal verification ────────────
   security-deep:
     name: CI / Security / Deep
-    needs: [plan, build-canonical, build-portability]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build-canonical.result == 'success' && needs.build-portability.result == 'success' }}
+    needs: [plan, build]
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
     uses: ./.github/workflows/_ci-security-deep.yml
 
   # ── CI / Required: aggregating gate for branch protection ────────────────
   ci-required:
     name: CI / Required
     needs:
-      [plan, quality, security-secrets, build-canonical, build-portability,
+      [plan, quality, security-secrets, build,
        unit, integration, system, demo, conformance, security-deep]
     if: always()
     runs-on: ubuntu-24.04
@@ -133,13 +120,12 @@ jobs:
           failures=""
           skipped=0
 
-          for job in plan quality security-secrets build-canonical build-portability unit integration system demo conformance security-deep; do
+          for job in plan quality security-secrets build unit integration system demo conformance security-deep; do
             case "$job" in
               plan) status="${{ needs.plan.result }}" ;;
               quality) status="${{ needs.quality.result }}" ;;
               security-secrets) status="${{ needs.security-secrets.result }}" ;;
-              build-canonical) status="${{ needs.build-canonical.result }}" ;;
-              build-portability) status="${{ needs.build-portability.result }}" ;;
+              build) status="${{ needs.build.result }}" ;;
               unit) status="${{ needs.unit.result }}" ;;
               integration) status="${{ needs.integration.result }}" ;;
               system) status="${{ needs.system.result }}" ;;
@@ -157,7 +143,7 @@ jobs:
 
           # If core=false, all non-plan jobs should be skipped.
           if [ "${{ needs.plan.outputs.core }}" = "false" ]; then
-            expected_skipped=$((11 - 1)) # all except plan
+            expected_skipped=$((10 - 1)) # all except plan
             if [ "$skipped" -ge "$expected_skipped" ]; then
               echo "docs-only PR: $skipped jobs skipped as expected"
               exit 0
@@ -174,5 +160,5 @@ jobs:
             exit 1
           fi
 
-          echo "CI / Required: all $((11 - skipped)) active jobs passed, $skipped skipped"
+          echo "CI / Required: all $((10 - skipped)) active jobs passed, $skipped skipped"
           exit 0
