@@ -1,0 +1,44 @@
+# Reusable Security/Deep workflow: sanitizers, seccomp, formal verification.
+# Heavy checks that run after the main test stages.
+
+name: Security Deep Stage
+
+on:
+  workflow_call:
+
+jobs:
+  security-deep:
+    name: Security / Deep
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Create local main branch for diff-based quality scripts
+        run: |
+          git fetch origin main
+          git branch --force main origin/main
+
+      - name: Install just
+        uses: taiki-e/install-action@just
+
+      - name: Setup build toolchain
+        run: just setup-build-linux-x86-gcc
+
+      - name: Setup coverage/sanitizer toolchain
+        run: just setup-coverage-linux-x86-clang
+
+      - name: Run sanitizer checks
+        run: just security-sanitize-check-all
+
+      - name: Run seccomp checks
+        run: just security-seccomp-check-all
+
+      - name: Run proof checks
+        run: just security-proof-check-all
+
+      - name: Run engine checks
+        run: just security-engine-check-all

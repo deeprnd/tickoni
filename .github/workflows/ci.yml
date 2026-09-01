@@ -1,0 +1,166 @@
+# Orchestrator CI workflow — staged DAG with fail-open change detection.
+# This is the single PR-required workflow. All stages are reusable sub-workflows
+# or jobs that consume outputs from the PLAN job.
+#
+# Reference: doc/execution/plans/v2.10-s8-5.md
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── PLAN: single change classifier (fail-open) ────────────────────────────
+  plan:
+    name: CI / Plan
+    runs-on: ubuntu-24.04
+    outputs:
+      core: ${{ steps.plan.outputs.core }}
+      docs: ${{ steps.plan.outputs.docs }}
+      book: ${{ steps.plan.outputs.book }}
+      benchmark: ${{ steps.plan.outputs.benchmark }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/plan-ci
+        id: plan
+        with:
+          base_ref: ${{ github.base_ref }}
+          event_name: ${{ github.event_name }}
+
+  # ── QUALITY: format, lint, proto — no FD build needed ─────────────────────
+  quality:
+    name: CI / Quality
+    needs: plan
+    if: needs.plan.outputs.core == 'true'
+    uses: ./.github/workflows/_ci-quality.yml
+
+  # ── SECURITY/SECRETS: gitleaks (cheap, runs in parallel with quality) ────
+  security-secrets:
+    name: CI / Secrets
+    needs: plan
+    if: needs.plan.outputs.core == 'true'
+    uses: ./.github/workflows/_ci-security-secrets.yml
+
+  # ── BUILD / CANONICAL: Linux x86_64 compile+link → artifact ──────────────
+  build-canonical:
+    name: CI / Build / Linux x86_64
+    needs: [plan, quality]
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.quality.result == 'success' && needs.quality.result != 'failure' }}
+    uses: ./.github/workflows/_ci-build.yml
+    with:
+      build-type: canonical
+      runner: ubuntu-24.04
+
+  # ── BUILD / PORTABILITY: macOS + Windows matrix ──────────────────────────
+  build-portability:
+    name: CI / Build / Portability
+    needs: [plan, quality]
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.quality.result == 'success' && needs.quality.result != 'failure' }}
+    uses: ./.github/workflows/_ci-build.yml
+    with:
+      build-type: portability
+      runner: ubuntu-24.04
+
+  # ── UNIT: component tests per platform (downloads build artifact) ────────
+  unit:
+    name: CI / Unit
+    needs: [plan, build-canonical, build-portability]
+    if: ${{ always() && needs.plan.outputs.core == 'true' }}
+    uses: ./.github/workflows/_ci-unit.yml
+
+  # ── INTEGRATION: multi-component tests per platform ──────────────────────
+  integration:
+    name: CI / Integration
+    needs: [plan, build-canonical, build-portability]
+    if: ${{ always() && needs.plan.outputs.core == 'true' }}
+    uses: ./.github/workflows/_ci-integration.yml
+
+  # ── SYSTEM: live-LLM tests per platform ──────────────────────────────────
+  system:
+    name: CI / System
+    needs: [plan, build-canonical, build-portability]
+    if: ${{ always() && needs.plan.outputs.core == 'true' }}
+    uses: ./.github/workflows/_ci-system.yml
+
+  # ── DEMO: fixture-backed demos per platform ──────────────────────────────
+  demo:
+    name: CI / Demo
+    needs: [plan, build-canonical, build-portability]
+    if: ${{ always() && needs.plan.outputs.core == 'true' }}
+    uses: ./.github/workflows/_ci-demo.yml
+
+  # ── CONFORMANCE: cross-platform binary comparison ────────────────────────
+  conformance:
+    name: CI / Conformance
+    needs: [plan, demo]
+    if: ${{ always() && needs.plan.outputs.core == 'true' }}
+    uses: ./.github/workflows/_ci-conformance.yml
+
+  # ── SECURITY / DEEP: sanitizers, seccomp, formal verification ────────────
+  security-deep:
+    name: CI / Security / Deep
+    needs: [plan, build-canonical, build-portability]
+    if: ${{ always() && needs.plan.outputs.core == 'true' }}
+    uses: ./.github/workflows/_ci-security-deep.yml
+
+  # ── CI / Required: aggregating gate for branch protection ────────────────
+  ci-required:
+    name: CI / Required
+    needs:
+      [plan, quality, security-secrets, build-canonical, build-portability,
+       unit, integration, system, demo, conformance, security-deep]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check CI results
+        shell: bash
+        env:
+          PLAN_CORE: ${{ needs.plan.outputs.core }}
+        run: |
+          results=""
+          failures=""
+          skipped="0"
+
+          for job in plan quality security-secrets build-canonical build-portability unit integration system demo conformance security-deep; do
+            status="${{ needs.$job.result }}"
+            results="$results $job=$status"
+            if [ "$status" = "success" ] || [ "$status" = "skipped" ]; then
+              [ "$status" = "skipped" ] && skipped=$((skipped + 1))
+            else
+              failures="$failures $job=$status"
+            fi
+          done
+
+          # If core=false, all non-plan jobs should be skipped.
+          if [ "$PLAN_CORE" = "false" ]; then
+            expected_skipped=$((11 - 1)) # all except plan
+            if [ "$skipped" -ge "$expected_skipped" ]; then
+              echo "docs-only PR: $skipped jobs skipped as expected"
+              exit 0
+            else
+              echo "docs-only PR expected $expected_skipped skipped, got $skipped"
+              echo "results: $results"
+              exit 1
+            fi
+          fi
+
+          if [ -n "$failures" ]; then
+            echo "FAIL: $failures"
+            echo "all results: $results"
+            exit 1
+          fi
+
+          echo "CI / Required: all $((11 - skipped)) active jobs passed, $skipped skipped"
+          exit 0

@@ -1,0 +1,157 @@
+# Reusable Build workflow: canonical (Linux x86_64) or portability matrix
+# (macOS 15/26 x86_64/arm64, Windows x86_64/arm64).
+#
+# Uploads build artifacts for downstream stages to consume.
+# No downstream stage rebuilds FD libs or Tickoni — they download artifacts.
+
+name: Build Stage
+
+on:
+  workflow_call:
+    inputs:
+      build-type:
+        description: "canonical or portability"
+        type: string
+        default: canonical
+      runner:
+        description: "Base runner image (used for plan-only matrix jobs)"
+        type: string
+        default: ubuntu-24.04
+
+jobs:
+  # ── Canonical: Linux x86_64 compile+link → artifact ──────────────────────
+  build-canonical:
+    if: ${{ inputs.build-type == 'canonical' }}
+    name: Build / Linux x86_64 (canonical)
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install just
+        uses: taiki-e/install-action@just
+
+      - name: Setup toolchain
+        run: just setup-build-linux-x86-gcc
+
+      - name: Setup Firedancer deps
+        run: just setup-fd-deps-linux-x86-gcc
+
+      - name: Setup Zig + SSL
+        run: just setup-fd-linux-x86-gcc
+
+      - name: Setup LLM server tools
+        run: just infra-ensure-llamacpp
+
+      - name: Build FD libraries
+        run: just build-fd-tk-libs
+
+      - name: Build Tickoni supervisor
+        run: just build-tk-linux-x86
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-linux-x86
+          path: |
+            build/
+            target/
+            zig-out/
+          retention-days: 3
+
+  # ── Portability matrix: macOS + Windows ──────────────────────────────────
+  build-portability:
+    if: ${{ inputs.build-type == 'portability' }}
+    name: Build / ${{ matrix.platform-name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout_minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS 15
+          - platform-name: macOS 15 (x86_64)
+            runner: macos-15-intel
+            timeout_minutes: 30
+            build-recipe: build-fd-macos-x86
+            build-tk-recipe: build-tk-macos-x86
+            setup-fd: setup-fd-macos-x86
+            setup-recipe: setup-build-macos-x86
+            artifact-name: build-macos-15-x86_64
+          - platform-name: macOS 15 (ARM)
+            runner: macos-15
+            timeout_minutes: 30
+            build-recipe: build-fd-macos-arm
+            build-tk-recipe: build-tk-macos-arm
+            setup-fd: setup-fd-macos-arm
+            setup-recipe: setup-build-macos-arm
+            artifact-name: build-macos-15-arm
+          # macOS 26
+          - platform-name: macOS 26 (x86_64)
+            runner: macos-26-intel
+            timeout_minutes: 30
+            build-recipe: build-fd-macos-x86
+            build-tk-recipe: build-tk-macos-x86
+            setup-fd: setup-fd-macos-x86
+            setup-recipe: setup-build-macos-x86
+            artifact-name: build-macos-26-x86_64
+          - platform-name: macOS 26 (ARM)
+            runner: macos-26
+            timeout_minutes: 30
+            build-recipe: build-fd-macos-arm
+            build-tk-recipe: build-tk-macos-arm
+            setup-fd: setup-fd-macos-arm
+            setup-recipe: setup-build-macos-arm
+            artifact-name: build-macos-26-arm
+          # Windows x86_64
+          - platform-name: Windows x86_64
+            runner: windows-2025-vs2026
+            timeout_minutes: 45
+            build-recipe: build-fd-windows-x86
+            build-tk-recipe: build-tk-windows-x86
+            setup-fd: setup-fd-windows-x86
+            setup-recipe: setup-build-linux-x86-gcc
+            artifact-name: build-windows-x86_64
+          # Windows ARM64
+          - platform-name: Windows ARM64
+            runner: windows-11-vs2026-arm
+            timeout_minutes: 45
+            build-recipe: build-fd-windows-arm
+            build-tk-recipe: build-tk-windows-arm
+            setup-fd: setup-fd-windows-arm
+            setup-recipe: setup-build-linux-x86-gcc
+            artifact-name: build-windows-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install just
+        uses: taiki-e/install-action@just
+
+      - name: Setup toolchain
+        run: just ${{ matrix.setup-recipe }}
+
+      - name: Setup Firedancer deps
+        run: just ${{ matrix.setup-fd }}
+
+      - name: Build FD libraries
+        run: just ${{ matrix.build-recipe }}
+
+      - name: Build Tickoni supervisor
+        run: just ${{ matrix.build-tk-recipe }}
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: |
+            build/
+            target/
+            zig-out/
+          retention-days: 3
