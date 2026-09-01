@@ -36,20 +36,28 @@ class BuildFromSourceStrategy(InstallStrategy):
         if os.path.isfile(deps_script):
             print("[DEPS] Running deps.sh check...")
             env = os.environ.copy()
-            # Auto-install missing system packages (will fail silently if sudo unavailable)
             env['FD_AUTO_INSTALL_PACKAGES'] = '1'
-            result = subprocess.run(
+            check_result = subprocess.run(
                 ['bash', deps_script, 'check'],
                 capture_output=True, text=True, env=env,
             )
-            if result.returncode != 0:
-                print(f"WARNING: deps.sh check failed (exit {result.returncode})")
-                # This is expected when sudo is unavailable — system packages
-                # needed for snappy/rockdb cannot be auto-installed. The check
-                # logs the fix command for manual installation.
-                output = (result.stdout or '') + (result.stderr or '')
+            if check_result.returncode != 0:
+                print(f"WARNING: deps.sh check failed (exit {check_result.returncode})")
+                output = (check_result.stdout or '') + (check_result.stderr or '')
                 if 'missing system packages' in output:
                     print("NOTE: snappy/rockdb require system packages not auto-installed; skipping.")
+                return
+            # Check passed — proceed to build
+            print("[DEPS] Running deps.sh install...")
+            install_result = subprocess.run(
+                ['bash', deps_script, 'install'],
+                capture_output=True, text=True, env=env,
+            )
+            if install_result.returncode != 0:
+                print(f"WARNING: deps.sh install failed (exit {install_result.returncode})")
+                print(install_result.stderr[-1000:] if install_result.stderr else "(no stderr)")
+            else:
+                print("[DEPS] Successfully built and installed snappy + rockdb")
         else:
             print(f"WARNING: deps.sh not found at {deps_script}, skipping", file=sys.stderr)
 

@@ -3,7 +3,8 @@
 set -euo pipefail
 
 # Change into repository root directory
-FD_REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+# deps.sh lives at contrib/setup/helpers/deps.sh → need 4 levels up to reach repo root
+FD_REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$FD_REPO_DIR"
 
 # Load OS information
@@ -35,8 +36,12 @@ if [[ ! "$(id -u)" -eq "0" ]]; then
   SUDO="sudo"
 fi
 
-# Install prefix
-PREFIX="$FD_REPO_DIR/build/opt"
+# Install prefix (match orchestrator's ./opt/)
+if [[ -z "${FD_DEPS_PREFIX:-}" ]]; then
+  PREFIX="$FD_REPO_DIR/opt"
+else
+  PREFIX="$FD_DEPS_PREFIX"
+fi
 
 DEVMODE=0
 MSAN=0
@@ -136,7 +141,8 @@ fetch () {
   mkdir -pv "$PREFIX/git"
 
   checkout_repo openssl   https://github.com/openssl/openssl          "openssl-3.6.2"
-  if [[ $DEVMODE == 1 ]]; then
+  # DEVMODE can be overridden to always include snappy/rockdb (default 1)
+  if [[ "${DEVMODE:-1}" == "1" ]]; then
     checkout_repo rocksdb https://github.com/facebook/rocksdb         "v11.1.1"
     checkout_repo snappy  https://github.com/google/snappy            "1.2.2"
   fi
