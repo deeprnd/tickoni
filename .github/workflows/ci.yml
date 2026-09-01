@@ -50,14 +50,14 @@ jobs:
   security-secrets:
     name: CI / Secrets
     needs: [plan, quality]
-    if: needs.plan.outputs.core == 'true'
+    if: needs.plan.outputs.core == 'true' && needs.quality.result == 'success'
     uses: ./.github/workflows/_ci-security-secrets.yml
 
   # ── BUILD / CANONICAL: Linux x86_64 compile+link → artifact ──────────────
   build-canonical:
     name: CI / Build / Linux x86_64
     needs: [plan, quality, security-secrets]
-    if: needs.plan.outputs.core == 'true'
+    if: needs.plan.outputs.core == 'true' && needs.quality.result == 'success' && needs.security-secrets.result == 'success'
     uses: ./.github/workflows/_ci-build.yml
     with:
       build-type: canonical
@@ -67,7 +67,7 @@ jobs:
   build-portability:
     name: CI / Build / Portability
     needs: [plan, quality, security-secrets]
-    if: needs.plan.outputs.core == 'true'
+    if: needs.plan.outputs.core == 'true' && needs.quality.result == 'success' && needs.security-secrets.result == 'success'
     uses: ./.github/workflows/_ci-build.yml
     with:
       build-type: portability
@@ -77,42 +77,42 @@ jobs:
   unit:
     name: CI / Unit
     needs: [plan, build-canonical, build-portability]
-    if: ${{ always() && needs.plan.outputs.core == 'true' }}
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build-canonical.result == 'success' && needs.build-portability.result == 'success' }}
     uses: ./.github/workflows/_ci-unit.yml
 
   # ── INTEGRATION: multi-component tests per platform ──────────────────────
   integration:
     name: CI / Integration
     needs: [plan, build-canonical, build-portability]
-    if: ${{ always() && needs.plan.outputs.core == 'true' }}
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build-canonical.result == 'success' && needs.build-portability.result == 'success' }}
     uses: ./.github/workflows/_ci-integration.yml
 
   # ── SYSTEM: live-LLM tests per platform ──────────────────────────────────
   system:
     name: CI / System
     needs: [plan, build-canonical, build-portability]
-    if: ${{ always() && needs.plan.outputs.core == 'true' }}
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build-canonical.result == 'success' && needs.build-portability.result == 'success' }}
     uses: ./.github/workflows/_ci-system.yml
 
   # ── DEMO: fixture-backed demos per platform ──────────────────────────────
   demo:
     name: CI / Demo
     needs: [plan, build-canonical, build-portability]
-    if: ${{ always() && needs.plan.outputs.core == 'true' }}
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build-canonical.result == 'success' && needs.build-portability.result == 'success' }}
     uses: ./.github/workflows/_ci-demo.yml
 
   # ── CONFORMANCE: cross-platform binary comparison ────────────────────────
   conformance:
     name: CI / Conformance
     needs: [plan, demo]
-    if: ${{ always() && needs.plan.outputs.core == 'true' }}
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.demo.result == 'success' }}
     uses: ./.github/workflows/_ci-conformance.yml
 
   # ── SECURITY / DEEP: sanitizers, seccomp, formal verification ────────────
   security-deep:
     name: CI / Security / Deep
     needs: [plan, build-canonical, build-portability]
-    if: ${{ always() && needs.plan.outputs.core == 'true' }}
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build-canonical.result == 'success' && needs.build-portability.result == 'success' }}
     uses: ./.github/workflows/_ci-security-deep.yml
 
   # ── CI / Required: aggregating gate for branch protection ────────────────
