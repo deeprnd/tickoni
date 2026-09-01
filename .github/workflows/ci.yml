@@ -46,18 +46,18 @@ jobs:
     if: needs.plan.outputs.core == 'true'
     uses: ./.github/workflows/_ci-quality.yml
 
-  # ── SECURITY/SECRETS: gitleaks (cheap, runs in parallel with quality) ────
+  # ── SECURITY/SECRETS: gitleaks (runs after quality, before build) ────────
   security-secrets:
     name: CI / Secrets
-    needs: plan
+    needs: [plan, quality]
     if: needs.plan.outputs.core == 'true'
     uses: ./.github/workflows/_ci-security-secrets.yml
 
   # ── BUILD / CANONICAL: Linux x86_64 compile+link → artifact ──────────────
   build-canonical:
     name: CI / Build / Linux x86_64
-    needs: [plan, quality]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.quality.result == 'success' && needs.quality.result != 'failure' }}
+    needs: [plan, quality, security-secrets]
+    if: needs.plan.outputs.core == 'true'
     uses: ./.github/workflows/_ci-build.yml
     with:
       build-type: canonical
@@ -66,8 +66,8 @@ jobs:
   # ── BUILD / PORTABILITY: macOS + Windows matrix ──────────────────────────
   build-portability:
     name: CI / Build / Portability
-    needs: [plan, quality]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.quality.result == 'success' && needs.quality.result != 'failure' }}
+    needs: [plan, quality, security-secrets]
+    if: needs.plan.outputs.core == 'true'
     uses: ./.github/workflows/_ci-build.yml
     with:
       build-type: portability
