@@ -70,11 +70,13 @@ def cmd_build_fd(args, config: dict) -> None:
     # a custom BUILDDIR name like 'clang-asan-ubsan' as the first arg)
     if target_name not in config["targets"]:
         builddir = target_name
-        target_name = "fd-tickoni-fd"
-
-    target = config["targets"][target_name]
-    lib_dir = target["lib_dir"]
-    obj_dir = target["obj_dir"]
+        # Use build/ convention for lib/obj dirs when overriding BUILDDIR
+        lib_dir = f"build/{builddir}/lib"
+        obj_dir = f"build/{builddir}/obj"
+    else:
+        target = config["targets"][target_name]
+        lib_dir = target["lib_dir"]
+        obj_dir = target["obj_dir"]
 
     platform_name = platform_from_args(args)
     strategies = __import__("contrib.build.strategies", fromlist=["load"])
@@ -337,7 +339,6 @@ def _write_manifests(config: dict, builddir: str, lib_dir: str, obj_dir: str) ->
 def cmd_build_tk(args, config: dict) -> None:
     """Build Tickoni Zig exe (replaces ci-run-build-tk.sh)."""
     fd_lib_dir = args.fd_lib_dir or config["targets"]["fd-tickoni-fd"]["lib_dir"]
-    fd_lib_dir = os.path.join(ROOT_DIR, fd_lib_dir)
 
     dry_run = getattr(args, "dry_run", False)
     cmd = ["zig", "build", f"-Dfd-lib-dir={fd_lib_dir}"]
