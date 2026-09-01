@@ -22,7 +22,7 @@ concurrency:
 jobs:
   # ── PLAN: single change classifier (fail-open) ────────────────────────────
   plan:
-    name: CI / Plan
+    name: Plan
     runs-on: ubuntu-24.04
     outputs:
       core: ${{ steps.plan.outputs.core }}
@@ -41,7 +41,7 @@ jobs:
 
   # ── QUALITY: format, lint, proto — no FD build needed ─────────────────────
   quality:
-    name: CI / Quality
+    name: Quality
     needs: plan
     if: needs.plan.outputs.core == 'true'
     uses: ./.github/workflows/_ci-quality.yml
