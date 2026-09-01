@@ -50,6 +50,6 @@ while IFS= read -r test_bin; do
   fi
 done < "$TESTS_FILE"
 
-echo "All $total tests passed."
+echo "$passed/$total tests passed${failures:+, $failures failed}."
 [[ $failures -gt 0 ]] && exit 1
 exit 0
