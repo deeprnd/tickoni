@@ -1917,7 +1917,8 @@ pub fn build(b: *std.Build) void {
         cli_exe.root_module.linkLibrary(addTickoniCodecShimLibrary(b, target, optimize, "tickoni-codec-shims"));
         addWindowsFdManifestFixups(b, cli_exe, b.fmt("{s}/fd_windows_zig_codec_link.txt", .{fd_lib_dir}));
         linkTickoniSystemLibraries(b, cli_exe, fd_lib_dir, &.{ "fd_ballet", "fd_util" });
-        cli_exe.root_module.linkSystemLibrary("crypt32", .{});
+        // crypt32 is a Windows system library, not a pkg-config dependency.
+        cli_exe.root_module.linkSystemLibrary("crypt32", .{ .use_pkg_config = .no });
     } else {
         linkTickoniCodec(b, cli_exe, fd_lib_dir);
     }
@@ -2298,15 +2299,17 @@ fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) void 
 fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8, libs: []const []const u8) void {
     step.root_module.addLibraryPath(b.path(fd_lib_dir));
     if (step.root_module.resolved_target.?.result.os.tag == .windows) {
-        // COFF static linking is less forgiving about archive-member discovery
-        // across deep/transitive and same-archive dependencies. Repeat the
-        // closure so later unresolveds can pull additional members from the
-        // same Firedancer archives.
-        // Windows doesn't have pkg-config — use link_libcpp instead of
-        // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config on
-        // a Linux host doing cross-compilation.
-        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
-        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
+        // Link the concrete archives directly. Calling linkSystemLibrary on
+        // Windows makes Zig probe pkg-config.BAT before it resolves the
+        // archive, even though these libraries are already in fd_lib_dir.
+        // Direct archive paths also preserve the repeated archive closure
+        // needed by COFF linking across deep/transitive dependencies.
+        for (libs) |lib| {
+            step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib }) });
+        }
+        for (libs) |lib| {
+            step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib }) });
+        }
         // Windows prebuilt FD libs (from CI) reference libuuid.a.
         // contrib/build/fd-build-windows.sh post-build step compiles
         // libuuid_stub.c and archives it as libuuid.a so the library lookup
