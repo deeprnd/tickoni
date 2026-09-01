@@ -33,33 +33,49 @@ class BuildFromSourceStrategy(InstallStrategy):
         # helpers/ lives at contrib/setup/helpers/deps.sh (2 levels up from strategies/)
         deps_script = os.path.join(script_dir, '..', '..', 'helpers', 'deps.sh')
         deps_script = os.path.normpath(deps_script)
-        if os.path.isfile(deps_script):
-            print("[DEPS] Running deps.sh check...")
-            env = os.environ.copy()
-            env['FD_AUTO_INSTALL_PACKAGES'] = '1'
-            check_result = subprocess.run(
-                ['bash', deps_script, 'check'],
-                capture_output=True, text=True, env=env,
-            )
-            if check_result.returncode != 0:
-                print(f"WARNING: deps.sh check failed (exit {check_result.returncode})")
-                output = (check_result.stdout or '') + (check_result.stderr or '')
-                if 'missing system packages' in output:
-                    print("NOTE: snappy/rockdb require system packages not auto-installed; skipping.")
-                return
-            # Check passed — proceed to build
-            print("[DEPS] Running deps.sh install...")
-            install_result = subprocess.run(
-                ['bash', deps_script, 'install'],
-                capture_output=True, text=True, env=env,
-            )
-            if install_result.returncode != 0:
-                print(f"WARNING: deps.sh install failed (exit {install_result.returncode})")
-                print(install_result.stderr[-1000:] if install_result.stderr else "(no stderr)")
-            else:
-                print("[DEPS] Successfully built and installed snappy + rockdb")
-        else:
+        if not os.path.isfile(deps_script):
             print(f"WARNING: deps.sh not found at {deps_script}, skipping", file=sys.stderr)
+            return
+
+        # Fix ownership if ./opt is owned by root but we're not root.
+        prefix = './opt'
+        if os.path.isdir(prefix):
+            stat = os.stat(prefix)
+            if stat.st_uid == 0 and os.geteuid() != 0:
+                import grp
+                try:
+                    user = os.environ.get('USER', os.environ.get('LOGNAME', ''))
+                    gid = grp.getpwnam(user).pw_gid if user else os.getgid()
+                    print(f"[DEPS] Fixing ownership of {prefix} from root to {user} (gid={gid})")
+                    os.chown(prefix, -1, gid)
+                except (KeyError, PermissionError) as e:
+                    print(f"[DEPS] Failed to fix {prefix} ownership: {e}, proceeding anyway.")
+
+        env = os.environ.copy()
+        env['FD_AUTO_INSTALL_PACKAGES'] = '1'
+
+        print("[DEPS] Running deps.sh check...")
+        check_result = subprocess.run(
+            ['bash', deps_script, 'check'],
+            capture_output=True, text=True, env=env,
+        )
+        if check_result.returncode != 0:
+            print(f"WARNING: deps.sh check failed (exit {check_result.returncode})")
+            output = (check_result.stdout or '') + (check_result.stderr or '')
+            if 'missing system packages' in output:
+                print("NOTE: snappy/rockdb require system packages not auto-installed; skipping.")
+            return
+
+        print("[DEPS] Running deps.sh install...")
+        install_result = subprocess.run(
+            ['bash', deps_script, 'install'],
+            capture_output=True, text=True, env=env,
+        )
+        if install_result.returncode != 0:
+            print(f"WARNING: deps.sh install failed (exit {install_result.returncode})")
+            print(install_result.stderr[-1000:] if install_result.stderr else "(no stderr)")
+        else:
+            print("[DEPS] Successfully built and installed snappy + rockdb")
 
     def _build_kcov(self):
         print("[BUILD] Building kcov from source...")
