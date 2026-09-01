@@ -131,10 +131,22 @@ jobs:
         run: |
           results=""
           failures=""
-          skipped="0"
+          skipped=0
 
           for job in plan quality security-secrets build-canonical build-portability unit integration system demo conformance security-deep; do
-            status="${{ needs.$job.result }}"
+            case "$job" in
+              plan) status="${{ needs.plan.result }}" ;;
+              quality) status="${{ needs.quality.result }}" ;;
+              security-secrets) status="${{ needs.security-secrets.result }}" ;;
+              build-canonical) status="${{ needs.build-canonical.result }}" ;;
+              build-portability) status="${{ needs.build-portability.result }}" ;;
+              unit) status="${{ needs.unit.result }}" ;;
+              integration) status="${{ needs.integration.result }}" ;;
+              system) status="${{ needs.system.result }}" ;;
+              demo) status="${{ needs.demo.result }}" ;;
+              conformance) status="${{ needs.conformance.result }}" ;;
+              security-deep) status="${{ needs.security-deep.result }}" ;;
+            esac
             results="$results $job=$status"
             if [ "$status" = "success" ] || [ "$status" = "skipped" ]; then
               [ "$status" = "skipped" ] && skipped=$((skipped + 1))
@@ -144,7 +156,7 @@ jobs:
           done
 
           # If core=false, all non-plan jobs should be skipped.
-          if [ "$PLAN_CORE" = "false" ]; then
+          if [ "${{ needs.plan.outputs.core }}" = "false" ]; then
             expected_skipped=$((11 - 1)) # all except plan
             if [ "$skipped" -ge "$expected_skipped" ]; then
               echo "docs-only PR: $skipped jobs skipped as expected"
