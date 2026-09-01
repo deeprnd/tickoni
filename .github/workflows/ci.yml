@@ -48,7 +48,7 @@ jobs:
 
   # ── SECURITY/SECRETS: gitleaks — runs in parallel with quality ───────────
   security-secrets:
-    name: CI / Secrets
+    name: Security / Secrets
     needs: plan
     if: needs.plan.outputs.core == 'true'
     uses: ./.github/workflows/_ci-security-secrets.yml
@@ -62,42 +62,42 @@ jobs:
 
   # ── UNIT: component tests per platform (downloads build artifact) ────────
   unit:
-    name: CI / Unit
+    name: Tests / Unit
     needs: [plan, build]
     if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
     uses: ./.github/workflows/_ci-unit.yml
 
   # ── INTEGRATION: multi-component tests per platform ──────────────────────
   integration:
-    name: CI / Integration
+    name: Tests / Integration
     needs: [plan, build]
     if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
     uses: ./.github/workflows/_ci-integration.yml
 
   # ── SYSTEM: live-LLM tests per platform ──────────────────────────────────
   system:
-    name: CI / System
+    name: Tests / System
     needs: [plan, build]
     if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
     uses: ./.github/workflows/_ci-system.yml
 
   # ── DEMO: fixture-backed demos per platform ──────────────────────────────
   demo:
-    name: CI / Demo
+    name: Tests / Demo
     needs: [plan, build]
     if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
     uses: ./.github/workflows/_ci-demo.yml
 
   # ── CONFORMANCE: cross-platform binary comparison ────────────────────────
   conformance:
-    name: CI / Conformance
+    name: Tests / Conformance
     needs: [plan, demo]
     if: ${{ always() && needs.plan.outputs.core == 'true' && needs.demo.result == 'success' }}
     uses: ./.github/workflows/_ci-conformance.yml
 
   # ── SECURITY / DEEP: sanitizers, seccomp, formal verification ────────────
   security-deep:
-    name: CI / Security / Deep
+    name: Security / Deep
     needs: [plan, build]
     if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
     uses: ./.github/workflows/_ci-security-deep.yml
