@@ -1,0 +1,125 @@
+name: CI Plan
+description: >
+  Single change-classification step for the CI DAG.
+  Outputs core, docs, book, benchmark booleans.
+  Uses fail-open policy: every unknown file triggers core=true.
+  Only runs full CI unless ALL changed files are in the safe-skip set.
+
+inputs:
+  base_ref:
+    description: Base branch for diff (usually github.base_ref)
+    required: false
+    default: main
+  event_name:
+    description: GitHub event name
+    required: false
+    default: pull_request
+
+outputs:
+  core:
+    description: "true if core CI should run (source/build infrastructure changed)"
+    value: ${{ steps.plan.outputs.core }}
+  docs:
+    description: "true if docs-only CI (book, docs changed)"
+    value: ${{ steps.plan.outputs.docs }}
+  book:
+    description: "true if book should be rebuilt"
+    value: ${{ steps.plan.outputs.book }}
+  benchmark:
+    description: "true if benchmarks should run"
+    value: ${{ steps.plan.outputs.benchmark }}
+
+runs:
+  using: composite
+  steps:
+    - name: Classify changes
+      id: plan
+      shell: bash
+      env:
+        BASE_REF: ${{ inputs.base_ref }}
+        EVENT_NAME: ${{ inputs.event_name }}
+      run: |
+        # Fail-open: default to core=true unless we can prove docs-only.
+        core="true"
+        docs="false"
+        book="false"
+        benchmark="false"
+
+        # Manual dispatch always runs full CI.
+        if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+          echo "core=true" >> "$GITHUB_OUTPUT"
+          echo "docs=false" >> "$GITHUB_OUTPUT"
+          echo "book=false" >> "$GITHUB_OUTPUT"
+          echo "benchmark=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # Merge-group always runs full CI.
+        if [ "$EVENT_NAME" = "merge_group" ]; then
+          echo "core=true" >> "$GITHUB_OUTPUT"
+          echo "docs=false" >> "$GITHUB_OUTPUT"
+          echo "book=false" >> "$GITHUB_OUTPUT"
+          echo "benchmark=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        changed="$(git diff --name-only "origin/${BASE_REF}...HEAD")"
+
+        if [ -z "$changed" ]; then
+          echo "no changes detected; skipping CI" >&2
+          echo "core=false" >> "$GITHUB_OUTPUT"
+          echo "docs=false" >> "$GITHUB_OUTPUT"
+          echo "book=false" >> "$GITHUB_OUTPUT"
+          echo "benchmark=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "Changed files:"
+        echo "$changed"
+
+        # Safe-skip set: files known to never affect compiled output.
+        # Fail-open: anything NOT in this set triggers core=true.
+        safe_skip="false"
+
+        while IFS= read -r f; do
+          # Skip empty lines.
+          [ -z "$f" ] && continue
+
+          # Exact README match.
+          case "$f" in
+            README.md) continue ;;
+            LICENSE) continue ;;
+          esac
+
+          # Docs directory.
+          case "$f" in
+            docs/*) continue ;;
+            doc/*) continue ;;
+          esac
+
+          # Book content (markdown).
+          case "$f" in
+            book/*) book="true"; continue ;;
+            docs/book/*) book="true"; continue ;;
+          esac
+
+          # Benchmarks directory.
+          case "$f" in
+            benchmark*|benchmarks*|bench/*) benchmark="true"; continue ;;
+          esac
+
+          # If we reach here, the file is NOT in the safe-skip set.
+          safe_skip="true"
+        done <<< "$changed"
+
+        # Fail-open: unknown files → core CI.
+        if [ "$safe_skip" = "true" ]; then
+          core="true"
+        else
+          core="false"
+        fi
+
+        echo "core=$core" >> "$GITHUB_OUTPUT"
+        echo "docs=$docs" >> "$GITHUB_OUTPUT"
+        echo "book=$book" >> "$GITHUB_OUTPUT"
+        echo "benchmark=$benchmark" >> "$GITHUB_OUTPUT"
