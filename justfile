@@ -285,15 +285,20 @@ tests-all:
 build-tk-linux-x86:
     ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }}
 
-build-tk-linux-arm: build-tk-linux-x86
+build-tk-linux-arm:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }}
 
-build-tk-macos-x86: build-tk-linux-x86
+build-tk-macos-x86:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }}
 
-build-tk-macos-arm: build-tk-linux-x86
+build-tk-macos-arm:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }}
 
-build-tk-windows-x86: build-tk-linux-x86
+build-tk-windows-x86:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }}
 
-build-tk-windows-arm: build-tk-linux-x86
+build-tk-windows-arm:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }}
 
 # Bare dispatcher; canonical platform recipes above are the implementation.
 build-tk:
@@ -506,14 +511,14 @@ test-integration-tk:
 # Windows x86_64 unit test: build FD libs for Windows x86_64, then run Zig tests.
 test-unit-tk-windows-x86:
     mkdir -p build
-    bash -lc 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
+    bash -c 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
     ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
     ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
 
 # Windows ARM64 unit test: build FD libs for Windows ARM64, then run Zig tests.
 test-unit-tk-windows-arm:
     mkdir -p build
-    bash -lc 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
+    bash -c 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
     rm -rf .zig-cache
     ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
     ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
@@ -593,14 +598,14 @@ test-system-all:
 # The test runner calls orchestrator.py llm-server internally.
 test-system-tk-windows-x86:
     mkdir -p build
-    bash -lc 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
+    bash -c 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
     bash contrib/test/run_live_investment_demo_win.sh
 
 # Windows ARM64 system test: build FD libs, run live test.
 # The test runner calls orchestrator.py llm-server internally.
 test-system-tk-windows-arm:
     mkdir -p build
-    bash -lc 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
+    bash -c 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
     bash contrib/test/run_live_investment_demo_win.sh
 
 # ── Infrastructure: ensure llama.cpp and model (for LLM system tests) ──────

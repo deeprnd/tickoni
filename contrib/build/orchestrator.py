@@ -16,6 +16,7 @@ Modes:
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -122,23 +123,22 @@ def cmd_build_fd(args, config: dict) -> None:
     src_sets = config["source_sets"]
     srcs = src_sets.get(mode, src_sets["libs"])
 
-    # Compute LOCAL_MKS
+    # Compute LOCAL_MKS without shelling out to `find`/`grep`.  This command is
+    # run by native Python on Windows, where `find` resolves to the unrelated
+    # Windows text-search utility rather than MSYS find and returns no paths.
     excludes = config["excludes"]
-    find_cmd = ["find"] + srcs + ["-name", "Local.mk"]
-    grep_cmd = ["grep", "-vE", excludes] if excludes else None
-    try:
-        find_out = subprocess.run(find_cmd, capture_output=True, text=True,
-                                  cwd=ROOT_DIR).stdout.strip()
-        if grep_cmd and find_out:
-            grep_out = subprocess.run(grep_cmd, input=find_out,
-                                      capture_output=True, text=True,
-                                      cwd=ROOT_DIR).stdout.strip()
-        else:
-            grep_out = find_out
-        local_mks = grep_out.replace("\n", " ") if grep_out else ""
-    except Exception as e:
-        print(f"[!] failed to compute LOCAL_MKS: {e}", file=sys.stderr)
-        local_mks = " ".join(os.path.join("src", d, "Local.mk") for d in srcs)
+    exclude_re = re.compile(excludes) if excludes else None
+    local_mks_paths: list[str] = []
+    for src in srcs:
+        src_root = os.path.join(ROOT_DIR, src)
+        for root, _dirs, files in os.walk(src_root):
+            if "Local.mk" not in files:
+                continue
+            path = os.path.relpath(os.path.join(root, "Local.mk"), ROOT_DIR)
+            path = make_path(path)
+            if exclude_re is None or not exclude_re.search(path):
+                local_mks_paths.append(path)
+    local_mks = " ".join(sorted(local_mks_paths))
 
     # Determine targets
     libs = config["libs"]["core"]
@@ -215,6 +215,8 @@ def cmd_build_fd(args, config: dict) -> None:
     cmd.extend([make_assignment("CC", cc, platform_name),
                 make_assignment("LD", cc, platform_name),
                 f"LOCAL_MKS={local_mks}"])
+    if ar_tool:
+        cmd.append(make_assignment("AR", ar_tool, platform_name))
     if extras:
         cmd.append(f"EXTRAS={extras}")
     cmd.extend(targets)

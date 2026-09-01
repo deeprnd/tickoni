@@ -172,10 +172,20 @@ def compile_libuuid_stub(
         target_flags = target_map.get(arch, "")
 
     try:
+        # The orchestrator is native Windows Python, while clang may have been
+        # discovered through an MSYS PATH entry such as /c/Program Files/LLVM.
+        # Native CreateProcess cannot execute that MSYS spelling directly.
+        cc_for_process = cc
+        cygpath = shutil.which("cygpath")
+        if cygpath and cc.startswith("/"):
+            cc_for_process = subprocess.check_output(
+                [cygpath, "-w", cc], text=True, stderr=subprocess.DEVNULL
+            ).strip()
         cc_base = os.path.basename(cc)
-        args = [cc, "-c", "-o", obj_out]
+        args = [cc_for_process]
         if target_flags:
-            args.insert(3, target_flags)
+            args.append(target_flags)
+        args.extend(["-c", "-o", obj_out])
         args.extend(["-I", "src",
                      "-DFD_HAS_HOSTED=1", "-DFD_USING_MSVC=1",
                      stub_src])
