@@ -99,12 +99,10 @@ setup-fd-linux-arm-gcc:
 # Windows x86_64 — FD toolchain (zig + ssl)
 setup-fd-windows-x86:
     {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc,zig,ssl --platform windows-x86
-    {{ python }} contrib/setup/orchestrator.py llm-server --platform windows-x86
 
 # Windows ARM64 — FD toolchain (zig + ssl)
 setup-fd-windows-arm:
     {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc,zig,ssl --platform windows-arm
-    {{ python }} contrib/setup/orchestrator.py llm-server --platform windows-arm
 
 # Quality: build + quality tools (shellcheck, actionlint, yamllint, pre-commit, buf + go)
 setup-quality-linux-x86:
