@@ -28,7 +28,7 @@ LOCAL_MKS := $(shell $(FIND) -L src -type f -name Local.mk)
 # Note: Make's % wildcard matches / too, so src/disco/%
 # also matches src/disco/tickoni/% — filter-out removes that subdirectory.
 LOCAL_MKS := $(filter src/tango/% src/util/% src/ballet/% src/disco/% src/waltz/% src/third_party/%,$(LOCAL_MKS))
-LOCAL_MKS := $(filter-out src/discof/% src/disco/tickoni/% src/flamenco/% src/choreo/% src/app/platform/%,$(LOCAL_MKS))
+LOCAL_MKS := $(filter-out src/discof/% src/disco/tickoni/% src/disco/gui/% src/disco/platform/% src/flamenco/% src/choreo/% src/app/platform/%,$(LOCAL_MKS))
 endif
 
 # Parse EXTRAS from the command line to include corresponding with-*.mk files.

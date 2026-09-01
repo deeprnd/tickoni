@@ -35,5 +35,5 @@
       "src/third_party/lz4", "src/third_party/zstd", "src/third_party/nanopb"
     ]
   },
-  "excludes": "disco/quic/|disco/gui/|ballet/zksdk/|ballet/zstd/|waltz/quic/"
+  "excludes": "disco/gui/|ballet/zksdk/|ballet/zstd/|waltz/quic/"
 }
