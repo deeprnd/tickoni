@@ -42,14 +42,8 @@ class BuildFromSourceStrategy(InstallStrategy):
         if os.path.isdir(prefix):
             stat = os.stat(prefix)
             if stat.st_uid == 0 and os.geteuid() != 0:
-                import pwd
-                try:
-                    user = os.environ.get('USER', os.environ.get('LOGNAME', ''))
-                    gid = pwd.getpwnam(user).pw_gid if user else os.getgid()
-                    print(f"[DEPS] Fixing ownership of {prefix} from root to {user} (gid={gid})")
-                    os.chown(prefix, -1, gid)
-                except (KeyError, PermissionError) as e:
-                    print(f"[DEPS] Failed to fix {prefix} ownership: {e}, proceeding anyway.")
+                print(f"[DEPS] ./opt is owned by root — deps.sh will fail without sudo. Skipping snappy/rockdb build.")
+                return
 
         env = os.environ.copy()
         env['FD_AUTO_INSTALL_PACKAGES'] = '1'
