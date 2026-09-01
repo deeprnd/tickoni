@@ -347,7 +347,7 @@ build-fd-linux-x86-clang:
     python3 contrib/build/orchestrator.py --platform linux-x86 build-fd fd-clang libs clang-18
 
 build-fd-linux-arm-gcc:
-    python3 contrib/build/orchestrator.py --platform linux-arm build-fd fd-arm gcc-14 libs
+    python3 contrib/build/orchestrator.py --platform linux-arm build-fd fd-arm libs gcc-14
 
 build-fd-macos-x86:
     brew install llvm
