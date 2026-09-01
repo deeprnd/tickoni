@@ -1,0 +1,10 @@
+# Minimal pre-commit config for Firedancer FD scope files.
+# Used by contrib/quality/quality.sh for format-check-fd and format-fix-fd.
+# Only the trailing-whitespace hook is needed for the FD scope;
+# Zig formatting is handled directly by zig fmt in quality-format-check-tk.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        files: '^src/(tango|util|ballet|disco|waltz)/'
