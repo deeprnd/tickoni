@@ -55,7 +55,7 @@ jobs:
 
   # ── BUILD: all platforms in parallel (depends on quality + secrets) ──────
   build:
-    name: CI / Build
+    name: Build
     needs: [plan, quality, security-secrets]
     if: needs.plan.outputs.core == 'true' && needs.quality.result == 'success' && needs.security-secrets.result == 'success'
     uses: ./.github/workflows/_ci-build.yml
