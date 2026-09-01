@@ -14,7 +14,7 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
 # Single source of truth for OS/arch — used by callers that need it.
 source "${SCRIPT_DIR}/../../platform.sh"
 
-PREFIX="${REPO_ROOT}/build/opt"
+PREFIX="$(cd -- "${REPO_ROOT}" && pwd)/build/opt"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
