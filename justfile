@@ -573,9 +573,9 @@ compare-demo-conformance:
     {{ python }} contrib/test/compare_demo_conformance.py build/demo-conformance/linux/conformance.json build/demo-conformance/macos-15-x86_64/conformance.json build/demo-conformance/macos-15-arm/conformance.json build/demo-conformance/macos-26-x86_64/conformance.json build/demo-conformance/macos-26-arm/conformance.json build/demo-conformance/windows-x86/conformance.json build/demo-conformance/windows-arm/conformance.json
 
 # Tickoni system lane: opt-in real-LLM investment demo proof.
-# The test runner calls orchestrator.py llm-server internally for setup.
+# Full end-to-end: setup (orchestrator.py llm-server) → start server → run tests → cleanup.
 test-system-tk:
-    bash contrib/test/run_system_model_tests.sh
+    bash contrib/test/run_live_investment_demo.sh
 
 test-system-tk-linux-x86: test-system-tk
 test-system-tk-macos-x86: test-system-tk
@@ -594,14 +594,14 @@ test-system-all:
 test-system-tk-windows-x86:
     mkdir -p build
     bash -lc 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
-    bash contrib/test/run_system_model_tests_win.sh
+    bash contrib/test/run_live_investment_demo_win.sh
 
 # Windows ARM64 system test: build FD libs, run live test.
 # The test runner calls orchestrator.py llm-server internally.
 test-system-tk-windows-arm:
     mkdir -p build
     bash -lc 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
-    bash contrib/test/run_system_model_tests_win.sh
+    bash contrib/test/run_live_investment_demo_win.sh
 
 # ── Infrastructure: ensure llama.cpp and model (for LLM system tests) ──────
 
@@ -616,12 +616,6 @@ infra-ensure-llamacpp-win:
 # (hf-model is handled by orchestrator.py llm-server; kept for explicitness.)
 infra-ensure-model:
     python3 contrib/setup/orchestrator.py llm-server
-
-infra-run-llamacpp:
-    # Use the test runner script which starts server and waits for health.
-    # Run in background: just infra-ensure-llamacpp && just infra-run-llamacpp
-    echo "Use contrib/test/run_system_model_tests.sh to start server and run tests."
-    echo "Or: python3 contrib/setup/orchestrator.py llm-server"
 
 test-integration-all:
     {{ python }} contrib/tool/readme/run-badged-command.py integration bash -c "just test-integration-fd && just test-integration-tk"
