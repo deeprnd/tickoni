@@ -35,6 +35,23 @@ def load_config() -> dict:
         return json.load(f)
 
 
+def make_path(path: str) -> str:
+    """Use make's portable path separator for generated target names."""
+    return path.replace("\\", "/")
+
+
+def make_assignment(name: str, value: str, platform_name: str) -> str:
+    """Quote Windows make variables whose values contain spaces.
+
+    GNU make expands command-line assignments into shell recipes.  On MSYS2,
+    an unquoted compiler path such as ``/c/Program Files/...`` is split by
+    ``/usr/bin/sh`` before clang is started.
+    """
+    if platform_name.startswith("windows") and " " in value:
+        value = f'"{value}"'
+    return f"{name}={value}"
+
+
 def platform_from_args(args) -> str:
     """Resolve the platform string from command args or justfile variables."""
     # Try explicit --platform override first
@@ -126,9 +143,9 @@ def cmd_build_fd(args, config: dict) -> None:
     # Determine targets
     libs = config["libs"]["core"]
     extra_libs = config["libs"]["test"]
-    targets = [os.path.join(lib_dir, lib) for lib in libs]
+    targets = [make_path(os.path.join(lib_dir, lib)) for lib in libs]
     if mode in ("test", "cov"):
-        targets.extend([os.path.join(lib_dir, lib) for lib in extra_libs])
+        targets.extend([make_path(os.path.join(lib_dir, lib)) for lib in extra_libs])
 
     # Clean stale objects and archives for rebuild
     os.makedirs(obj_dir, exist_ok=True)
@@ -195,7 +212,9 @@ def cmd_build_fd(args, config: dict) -> None:
         cmd.append(f"FD_WINDOWS_ARCH={args.arch}")
     if ldflags_exe:
         cmd.append(f"LDFLAGS_EXE={ldflags_exe}")
-    cmd.extend([f"CC={cc}", f"LD={cc}", f"LOCAL_MKS={local_mks}"])
+    cmd.extend([make_assignment("CC", cc, platform_name),
+                make_assignment("LD", cc, platform_name),
+                f"LOCAL_MKS={local_mks}"])
     if extras:
         cmd.append(f"EXTRAS={extras}")
     cmd.extend(targets)
