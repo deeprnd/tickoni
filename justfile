@@ -530,9 +530,8 @@ compare-demo-conformance:
     {{ python }} contrib/test/compare_demo_conformance.py build/demo-conformance/linux/conformance.json build/demo-conformance/macos-15-x86_64/conformance.json build/demo-conformance/macos-15-arm/conformance.json build/demo-conformance/macos-26-x86_64/conformance.json build/demo-conformance/macos-26-arm/conformance.json build/demo-conformance/windows-x86/conformance.json build/demo-conformance/windows-arm/conformance.json
 
 # Tickoni system lane: opt-in real-LLM investment demo proof.
-# Orchestrator ensures llama.cpp and model are present before running tests.
+# The test runner calls orchestrator.py llm-server internally for setup.
 test-system-tk:
-    {{ python }} contrib/setup/orchestrator.py llm-server
     bash contrib/test/run_system_model_tests.sh
 
 test-system-tk-linux-x86: test-system-tk
@@ -547,20 +546,18 @@ test-system-all:
 
 # ── Windows-specific system tests (live, mirrors Linux/macOS flow) ───
 
-# Windows x86_64 system test: build FD libs, ensure llama.cpp, run live test.
-# Orchestrator ensures llama.cpp and model are present before running tests.
+# Windows x86_64 system test: build FD libs, run live test.
+# The test runner calls orchestrator.py llm-server internally.
 test-system-tk-windows-x86:
     mkdir -p build
     bash -lc 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
-    {{ python }} contrib/setup/orchestrator.py llm-server --platform windows-x86
     bash contrib/test/run_system_model_tests_win.sh
 
-# Windows ARM64 system test: build FD libs, ensure llama.cpp, run live test.
-# Orchestrator ensures llama.cpp and model are present before running tests.
+# Windows ARM64 system test: build FD libs, run live test.
+# The test runner calls orchestrator.py llm-server internally.
 test-system-tk-windows-arm:
     mkdir -p build
     bash -lc 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
-    {{ python }} contrib/setup/orchestrator.py llm-server --platform windows-arm
     bash contrib/test/run_system_model_tests_win.sh
 
 # ── Infrastructure: ensure llama.cpp and model (for LLM system tests) ──────

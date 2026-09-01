@@ -6,22 +6,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Resolve paths
+# Phase 1: Setup via orchestrator (idempotent)
+python3 "$(dirname "$SCRIPT_DIR")/setup/orchestrator.py" llm-server
+
+# Phase 2: Resolve paths
 llama_dir="${TK_LLAMA_CPP_DIR:-$HOME/work/models/llama.cpp}"
 model_dir="${TK_HF_MODEL_DIR:-$HOME/work/models/gemma/gemma-4-E2B-it-qat-GGUF}"
 model_file="${TK_HF_MODEL_FILE:-gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf}"
 model_path="${model_dir}/${model_file}"
 server_bin="${llama_dir}/llama-server"
-
-if [[ ! -x "$server_bin" ]]; then
-  echo "llama-server not found at ${server_bin}; run 'python3 contrib/setup/orchestrator.py llm-server' first" >&2
-  exit 1
-fi
-
-if [[ ! -s "$model_path" ]]; then
-  echo "model not found at ${model_path}; run 'python3 contrib/setup/orchestrator.py llm-server' first" >&2
-  exit 1
-fi
 
 # Start server in background.
 server_pid=""

@@ -255,9 +255,11 @@ Contains long-running tests that require additional infrastructure or model asse
 1. Install `cmake`, `libopenblas-dev`, `libopenblas64-dev` via apt.
 2. `just infra-ensure-llamacpp` — resolves `llama.cpp` from `TK_LLAMA_CPP_DIR` when set, otherwise auto-detects `~/work/models/llama.cpp` first and then `~/work/git/llama.cpp`; if neither exists it clones `https://github.com/ggml-org/llama.cpp` into `~/work/models/llama.cpp`, builds for CPU with OpenBLAS via cmake, and copies `llama-*` binaries to the clone root.
 3. `just infra-ensure-model` — downloads the GGUF model via the `hf` CLI (Hugging Face Hub) if not already present.
-4. `just test-system-tk` — ensures llama.cpp and model are present, starts the server, runs `zig build system-test`, and stops the server.
+4. `just test-system-tk` — starts the server, runs `zig build system-test`, and stops the server (orchestrator.py llm-server is called by the test runner script).
 
-The llama.cpp path and model path can be overridden with `TK_LLAMA_CPP_DIR`, `TK_HF_MODEL_DIR`, and `TK_HF_MODEL_FILE` environment variables (see `contrib/test/ensure_llama_cpp.sh` and `contrib/test/ensure_hf_model.sh`).
+The llama.cpp path and model path can be overridden with `TK_LLAMA_CPP_DIR`,
+`TK_HF_MODEL_DIR`, and `TK_HF_MODEL_FILE` environment variables
+(see `contrib/test/run_system_model_tests.sh`).
 
 ---
 

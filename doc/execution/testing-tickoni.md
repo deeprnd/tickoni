@@ -13,7 +13,7 @@ Tickoni repository.
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
-  <img alt="Security" src="https://img.shields.io/badge/security-passing-brightgreen?style=flat-square" />
+  <img alt="Security" src="https://img.shields.io/badge/security-unknown-lightgrey?style=flat-square" />
   <!-- badge:security:end -->
 </p>
 
@@ -437,25 +437,28 @@ grows.
 
 ## Explicit System Lane
 
-`just test-system-tk` runs:
+`just test-system-tk` runs `contrib/test/run_system_model_tests.sh`, which
+starts a real local `llama.cpp` server, waits for its health endpoint, and runs
+`zig build system-test`.
+
+The test runner calls `contrib/setup/orchestrator.py llm-server` internally for
+setup, so `just infra-ensure-llamacpp` and `just infra-ensure-model` are no
+longer required before `just test-system-tk`.
+
+To run setup manually (e.g. when the llama.cpp build is expensive and you want
+to reuse it across multiple test runs):
 
 ```bash
-bash contrib/test/run_system_model_tests.sh
+just infra-ensure-llamacpp   # build llama.cpp (CPU + OpenBLAS)
+just infra-ensure-model      # download GGUF model
 ```
 
-This lane starts a real local `llama.cpp` server, waits for its health endpoint,
-and runs:
+To override default paths:
 
 ```bash
-zig build system-test
-```
-
-Before running system tests, ensure the llama.cpp server is set up:
-
-```bash
-just infra-ensure-llamacpp   # build llama.cpp (CPU or CUDA if GPU detected)
-just infra-ensure-model      # download GGUF model (requires `hf` CLI)
-just infra-run-llamacpp      # start llama-server
+export TK_LLAMA_CPP_DIR=~/custom/llama.cpp
+export TK_HF_MODEL_DIR=~/custom/models
+export TK_HF_MODEL_FILE=my-model.gguf
 ```
 
 On Windows, `just test-system-tk` delegates to
