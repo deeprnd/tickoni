@@ -37,12 +37,12 @@ class BuildFromSourceStrategy(InstallStrategy):
             print(f"WARNING: deps.sh not found at {deps_script}, skipping", file=sys.stderr)
             return
 
-        # Fix ownership if ./opt is owned by root but we're not root.
-        prefix = './opt'
+        # Fix ownership if ./build/opt is owned by root but we're not root.
+        prefix = './build/opt'
         if os.path.isdir(prefix):
             stat = os.stat(prefix)
             if stat.st_uid == 0 and os.geteuid() != 0:
-                print(f"[DEPS] ./opt is owned by root — deps.sh will fail without sudo. Skipping snappy/rockdb build.")
+                print(f"[DEPS] ./build/opt is owned by root — deps.sh will fail without sudo. Skipping snappy/rockdb build.")
                 return
 
         env = os.environ.copy()

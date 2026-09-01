@@ -38,7 +38,7 @@ fi
 
 # Install prefix (match orchestrator's ./opt/)
 if [[ -z "${FD_DEPS_PREFIX:-}" ]]; then
-  PREFIX="$FD_REPO_DIR/opt"
+  PREFIX="$FD_REPO_DIR/build/opt"
 else
   PREFIX="$FD_DEPS_PREFIX"
 fi
