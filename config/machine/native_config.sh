@@ -15,7 +15,7 @@ OUT="$1"
 shift
 mkdir -p "$(dirname "$OUT")"
 
-printf '\n' | "$@" -march=native -E -dM - | awk '
+printf '' | "$@" -march=native -E -dM - | awk '
   $1=="#define" { define[$2]=$3 }
 
   function emit_feature(var, macro) {
