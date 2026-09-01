@@ -56,14 +56,14 @@ jobs:
             artifact-name: build-windows-x86_64
             test-recipe: test-unit-tk-windows-x86
             fd-deps: setup-fd-windows-x86
-            setup-recipe: setup-build-linux-x86-gcc
+            setup-recipe: setup-fd-windows-x86
           - platform-name: Windows ARM
             runner: windows-11-vs2026-arm
             timeout_minutes: 20
             artifact-name: build-windows-arm
             test-recipe: test-unit-tk-windows-arm
             fd-deps: setup-fd-windows-arm
-            setup-recipe: setup-build-linux-x86-gcc
+            setup-recipe: setup-fd-windows-arm
 
     steps:
       - name: Checkout

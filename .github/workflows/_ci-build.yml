@@ -113,7 +113,7 @@ jobs:
             build-recipe: build-fd-windows-x86
             build-tk-recipe: build-tk-windows-x86
             setup-fd: setup-fd-windows-x86
-            setup-recipe: setup-build-linux-x86-gcc
+            setup-recipe: setup-build-windows-x86
             artifact-name: build-windows-x86_64
           # Windows ARM64
           - platform-name: Windows ARM64
@@ -122,7 +122,7 @@ jobs:
             build-recipe: build-fd-windows-arm
             build-tk-recipe: build-tk-windows-arm
             setup-fd: setup-fd-windows-arm
-            setup-recipe: setup-build-linux-x86-gcc
+            setup-recipe: setup-build-windows-arm
             artifact-name: build-windows-arm
 
     steps:

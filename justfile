@@ -1,7 +1,9 @@
 # Prefer GNU Make 4.x (Homebrew installs it as `gmake` on macOS); fall back to `make`.
 # Firedancer's GNUmakefile uses `undefine`, which needs GNU Make >= 3.82.
 make := `command -v gmake || command -v make`
-python := `command -v python3 || command -v python`
+# Prefer the real Windows Python executable over the WindowsApps `python3`
+# Store alias, which can become invalid after winget installs Python.
+python := `command -v python || command -v python3`
 
 # Firedancer/Tickoni build natively on Linux, macOS, and Windows.
 
@@ -57,23 +59,25 @@ help:
 # Build-only: compilers + build infra (no zig, no ssl, no quality, no secrets)
 setup-build-linux-x86-gcc:
     python3 contrib/setup/orchestrator.py core,essential,toolchain,build
-    python3 contrib/setup/orchestrator.py llm-server
 
 setup-build-linux-x86-clang:
     python3 contrib/setup/orchestrator.py core,essential,toolchain,build
-    python3 contrib/setup/orchestrator.py llm-server
 
 setup-build-macos-x86:
     python3 contrib/setup/orchestrator.py core,essential,toolchain,build
-    python3 contrib/setup/orchestrator.py llm-server
 
 setup-build-macos-arm:
     python3 contrib/setup/orchestrator.py core,essential,toolchain,build
-    python3 contrib/setup/orchestrator.py llm-server
 
 setup-build-linux-arm-gcc:
     python3 contrib/setup/orchestrator.py core,essential,toolchain,build
-    python3 contrib/setup/orchestrator.py llm-server
+
+# Windows build-only setup: no llama.cpp; system-test setup owns the LLM.
+setup-build-windows-x86:
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc --platform windows-x86
+
+setup-build-windows-arm:
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc --platform windows-arm
 
 # Engine build: full FD toolchain (build + zig + ssl + gcc)
 setup-fd-linux-x86-gcc:

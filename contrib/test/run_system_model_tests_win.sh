@@ -7,7 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Phase 1: Setup via orchestrator (idempotent)
-python3 "$(dirname "$SCRIPT_DIR")/setup/orchestrator.py" llm-server --platform windows-x86
+python "$(dirname "$SCRIPT_DIR")/setup/orchestrator.py" llm-server --platform windows-x86
 
 # Phase 2: Resolve paths (Windows-friendly)
 llama_dir="${TK_LLAMA_CPP_DIR:-$HOME/work/models/llama.cpp}"

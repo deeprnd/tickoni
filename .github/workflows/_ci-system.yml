@@ -41,7 +41,7 @@ jobs:
             timeout_minutes: 60
             artifact-name: build-windows-x86_64
             test-recipe: test-system-tk-windows-x86
-            setup-recipe: setup-build-linux-x86-gcc
+            setup-recipe: setup-fd-windows-x86
             llamacpp: infra-ensure-llamacpp-win
 
     steps:
