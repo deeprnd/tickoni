@@ -392,7 +392,23 @@ build-all:
 clean-all:
     rm -rf build/ target/ zig-out/
 
-# ── Test ───────────────────────────────────────────────────────────────────
+# ── Dynamic resource detection for test runs ──────────────────────────────────
+# Sourced by all test-unit-fd-* recipes. Queries available RAM and CPU cores,
+# then computes safe --page-cnt and -j to maximize parallelism without
+# exceeding ~80% of available memory. page_sz=4096 (FD_SHMEM_NORMAL_PAGE_SZ).
+#
+# The justfile syntax for shell subshells uses backtick-style:
+#   var := `command`
+# We source the dynamic script inline so TEST_OPTS and LDFLAGS_EXE are available
+# as justfile variables.  The dynamic script exports those variables and also
+# prints them for visibility.
+#
+# Limitation: justfile variables are evaluated once at parse time, not at
+# recipe time.  To get true per-recipe dynamic detection we use a helper
+# recipe that sources the script and passes the computed values via env vars
+# to make.
+dynamic-test-opts:
+    @source contrib/test/run_unit_tests_dynamic.sh
 
 test-all:
     @just test-unit-all
@@ -403,10 +419,15 @@ test-all:
 
 # Native Firedancer C unit-test recipes. These never fall back to Tickoni tests.
 test-unit-fd-linux-x86-gcc:
-    set timeout := 600
+    #!/usr/bin/env bash
+    set -euo pipefail
+    timeout=600
     python3 contrib/build/orchestrator.py --platform linux-x86 build-fd {{ fd_tickoni_build }} test gcc-12
+    # Source dynamic resource detection to compute safe --page-cnt and -j
+    eval "$(bash contrib/test/run_unit_tests_dynamic.sh | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
+    echo "Running unit tests with: $TEST_OPTS"
     {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
-        LDFLAGS_EXE="-Wl,-z,shstk" run-unit-test TEST_OPTS="--page-sz normal --page-cnt 131072 -j 3"
+        LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-12 LD=gcc-12 run-unit-test TEST_OPTS="$TEST_OPTS"
 
 test-unit-fd-macos-x86:
     python3 contrib/build/orchestrator.py --platform macos-x86 build-fd {{ fd_tickoni_build }} test clang
