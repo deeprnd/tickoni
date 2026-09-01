@@ -14,7 +14,7 @@ on:
 jobs:
   build:
     if: ${{ inputs.core == 'true' }}
-    name: Build / ${{ matrix.platform-name }}
+    name: ${{ matrix.platform-name }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: ${{ matrix.timeout_minutes }}
     strategy:
