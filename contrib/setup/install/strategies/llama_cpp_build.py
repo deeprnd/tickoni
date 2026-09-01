@@ -1,6 +1,5 @@
 """Llama.cpp build strategy — cross-platform clone + cmake + build (CPU + OpenBLAS)."""
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -9,23 +8,20 @@ from .. import register
 
 
 def _expand_home(path: str) -> str:
-    """Expand ~ to HOME and convert Windows paths when on cygwin/msys."""
+    """Expand ~ to HOME."""
     if path == '~':
         path = os.environ.get('HOME', os.path.expanduser('~'))
     elif path.startswith('~/'):
         path = os.path.join(os.environ.get('HOME', os.path.expanduser('~')), path[2:])
-    # On Windows with cygpath, convert to native path
-    if platform.system() in ('MINGW32_NT', 'MINGW64_NT', 'CYGWIN'):
-        if shutil.which('cygpath'):
-            result = subprocess.run(['cygpath', '-m', path], capture_output=True, text=True)
-            if result.returncode == 0:
-                path = result.stdout.strip()
     return path
 
 
 def _is_windows():
-    """Detect Windows (native, MSYS2, or cygwin)."""
-    return platform.system() in ('MINGW32_NT', 'MINGW64_NT', 'CYGWIN')
+    """Detect Windows (native, MSYS2, Cygwin, or WSL on Windows)."""
+    # Use sys.platform instead of platform.system() to avoid stdlib platform
+    # module corruption on Ubuntu (apport calls platform.freedesktop_os_release()
+    # which doesn't exist in Python 3.12).
+    return sys.platform in ('win32', 'cygwin')
 
 
 def _resolve_llama_dir(tool: dict, config: dict) -> str:
