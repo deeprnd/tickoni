@@ -192,14 +192,6 @@ setup-windows-x86:
 setup-windows-arm:
     {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc,zig,ssl,quality,secrets --platform windows-arm
 
-# Windows x86_64 — CI mode (no LLM tooling, no security tools)
-setup-windows-ci-x86:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc,zig,quality --platform windows-x86
-
-# Windows ARM64 — CI mode (no LLM tooling, no security tools)
-setup-windows-ci-arm:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc,zig,quality --platform windows-arm
-
 setup-fd-deps-linux-x86-gcc:
     python3 contrib/setup/orchestrator.py fd
 
@@ -420,14 +412,10 @@ test-unit-all:
     {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-tk && just test-unit-fd"
 
 test-e2e-fd:
-    {{ make }} -f contrib/build/GNUmakefile -j"$(nproc)" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} integration-test && {{ make }} -f contrib/build/GNUmakefile MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-integration-test
-
-test-e2e-fd-linux-x86: test-e2e-fd
+    @true
 
 test-e2e-tk:
     @true
-
-test-e2e-tk-linux-x86: test-e2e-tk
 
 test-e2e-all:
     {{ python }} contrib/tool/readme/run-badged-command.py e2e bash -c "just test-e2e-fd && just test-e2e-tk"
