@@ -210,6 +210,60 @@ setup-fd-deps-macos-arm:
 setup-coverage-linux-x86-clang:
     python3 contrib/setup/orchestrator.py coverage,toolchain
 
+# ── FD deps for platforms missing them ─────────────────────────────────────
+setup-fd-deps-windows-x86:
+    {{ python }} contrib/setup/orchestrator.py fd --platform windows-x86
+
+setup-fd-deps-windows-arm:
+    {{ python }} contrib/setup/orchestrator.py fd --platform windows-arm
+
+# ── Quality setup for all platforms ─────────────────────────────────────────
+setup-quality-macos-x86:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py quality
+
+setup-quality-macos-arm:
+    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py quality
+
+setup-quality-windows-x86:
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
+    {{ python }} contrib/setup/orchestrator.py quality --platform windows-x86
+
+setup-quality-windows-arm:
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
+    {{ python }} contrib/setup/orchestrator.py quality --platform windows-arm
+
+# ── Secrets/gitleaks for all platforms ──────────────────────────────────────
+setup-gitleaks-macos-x86:
+    python3 contrib/setup/orchestrator.py core,essential,secrets
+
+setup-gitleaks-macos-arm:
+    python3 contrib/setup/orchestrator.py core,essential,secrets
+
+setup-gitleaks-windows-x86:
+    {{ python }} contrib/setup/orchestrator.py core,essential,secrets --platform windows-x86
+
+setup-gitleaks-windows-arm:
+    {{ python }} contrib/setup/orchestrator.py core,essential,secrets --platform windows-arm
+
+# ── Coverage for macOS ──────────────────────────────────────────────────────
+setup-coverage-macos-x86:
+    python3 contrib/setup/orchestrator.py core,build,toolchain,coverage
+
+setup-coverage-macos-arm:
+    python3 contrib/setup/orchestrator.py core,build,toolchain,coverage
+
+# ── Security/formal-verification (CBMC suite) ───────────────────────────────
+setup-security-linux-x86:
+    python3 contrib/setup/orchestrator.py core,security
+
+setup-security-macos-x86:
+    python3 contrib/setup/orchestrator.py core,security
+
+setup-security-windows-x86:
+    {{ python }} contrib/setup/orchestrator.py core,security --platform windows-x86
+
 test-prep-linux-x86:
     # NO-OP — memory setup moved to workflow YAML where sudo is available.
 
