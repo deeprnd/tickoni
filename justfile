@@ -1,9 +1,9 @@
 # Prefer GNU Make 4.x (Homebrew installs it as `gmake` on macOS); fall back to `make`.
 # Firedancer's GNUmakefile uses `undefine`, which needs GNU Make >= 3.82.
 make := `command -v gmake || command -v make`
-# Prefer the real Windows Python executable over the WindowsApps `python3`
-# Store alias, which can become invalid after winget installs Python.
-python := `command -v python || command -v python3`
+# Prefer a working Windows Python launcher over the WindowsApps Store aliases,
+# which can remain on PATH after winget installs Python.
+python := `if command -v py >/dev/null 2>&1 && py -3 -c "import sys" >/dev/null 2>&1; then printf 'py -3'; elif command -v python >/dev/null 2>&1 && python -c "import sys" >/dev/null 2>&1; then command -v python; else command -v python3; fi`
 
 # Firedancer/Tickoni build natively on Linux, macOS, and Windows.
 
