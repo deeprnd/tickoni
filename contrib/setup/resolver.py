@@ -43,9 +43,8 @@ class DependencyResolver:
                     # Propagate top-level version_ref into parameters so
                     # install strategies can read it via params.get('version_ref')
                     if 'version_ref' in tool:
-                        tool.setdefault('parameters', {}).setdefault(
-                            'version_ref', tool['version_ref']
-                        )
+                        tool.setdefault('parameters', {})
+                        tool['parameters']['version_ref'] = tool['version_ref']
                     tools.append(tool)
                     seen.add(tool_name)
         return tools
