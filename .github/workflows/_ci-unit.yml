@@ -76,7 +76,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: ${{ matrix.artifact-name }}
-          path: build/
+          path: .
 
       - name: Verify build artifacts
         shell: bash
