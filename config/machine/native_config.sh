@@ -55,7 +55,7 @@ printf '' | "$@" -march=native -E -dM - | awk '
     print "FD_HAS_DOUBLE:=1"
     print ""
     print "CPPFLAGS_NATIVE:="
-    print "CPPFLAGS_NATIVE+=-march=native -mtune=native"
+    print "CPPFLAGS_NATIVE+=-march=haswell -mtune=haswell"
     print "CPPFLAGS_NATIVE+=-DFD_HAS_DOUBLE=1"
     printf "%s", cppflags
   }
