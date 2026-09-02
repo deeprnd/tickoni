@@ -58,6 +58,7 @@ class ZigInstallStrategy(InstallStrategy):
 
     def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool) -> None:
         self._tool = tool
+        self._config = config
         version_ref = tool['parameters'].get('version_ref')
         install_root = tool['parameters'].get('install_root', os.path.expanduser('~/.local'))
         user_path = tool['parameters'].get('user_path', False)
@@ -146,7 +147,7 @@ class ZigInstallStrategy(InstallStrategy):
         sig_url = f"{archive_url}.minisig"
 
         # Download + verify (shared pipeline)
-        pubkey = self._get_minisign_pubkey(self._tool)
+        pubkey = self._get_minisign_pubkey(self._config)
         if not pubkey:
             print(f"ERROR: no minisign public key in tool-versions.json", file=sys.stderr)
             sys.exit(1)

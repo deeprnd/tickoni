@@ -41,18 +41,18 @@ class Orchestrator:
         self.config = config
         self.resolver = DependencyResolver(config['dependencies'])
 
-    def setup(self, categories: list[str], platform_str: str, dry_run: bool) -> list[dict]:
+    def setup(self, categories: list[str], platform_str: str, dry_run: bool, skip_idempotency: bool = False) -> list[dict]:
         """Run the full setup pipeline. Returns list of install results."""
         resolved = self.resolver.resolve(categories)
         tools = self.resolver.collect(resolved, self.config['categories'], self.config['tools'])
         tools = [t for t in tools if matches_platform(t, platform_str)]
         results = []
         for tool in tools:
-            result = self._install_tool(tool, platform_str, dry_run)
+            result = self._install_tool(tool, platform_str, dry_run, skip_idempotency)
             results.append(result)
         return results
 
-    def _install_tool(self, tool: dict, platform_str: str, dry_run: bool) -> dict:
+    def _install_tool(self, tool: dict, platform_str: str, dry_run: bool, skip_idempotency: bool = False) -> dict:
         """Install a single tool using the strategy registry and command pattern."""
         name = tool['name']
         method = tool['install_method']
@@ -64,7 +64,7 @@ class Orchestrator:
         # idempotent_check like normal methods.
         skip_path = method not in ('install_zig',)
         check_cmd = build_check(tool)
-        if check_cmd and check_cmd.is_satisfied() and skip_path:
+        if check_cmd and check_cmd.is_satisfied() and skip_path and not skip_idempotency:
             return {'tool': name, 'status': 'already_installed'}
 
         if dry_run:
@@ -92,9 +92,13 @@ def main():
     parser.add_argument('--deps', help='Show resolved dependency graph for a category')
     parser.add_argument('--list', help='List all tools in a category')
     parser.add_argument('--dry-run', action='store_true', help='Preview without installing')
+    parser.add_argument('--skip-idempotency', action='store_true', help='Skip idempotency checks — reinstall all tools')
     parser.add_argument('--platform', help='Platform string from contrib/platform.sh (e.g. linux-x86, macos-arm)')
 
     args = parser.parse_args()
+
+    # Support SKIP_IDEMPOTENCY env var (used by justfile recipes)
+    skip_idempotency = args.skip_idempotency or os.environ.get('SKIP_IDEMPOTENCY') == 'true'
 
     if args.deps:
         config = load_config()
@@ -124,7 +128,7 @@ def main():
     plat = detect_platform(args.platform)
     print(f"Platform: {plat}")
 
-    results = orch.setup(requested, plat, dry_run=args.dry_run)
+    results = orch.setup(requested, plat, dry_run=args.dry_run, skip_idempotency=skip_idempotency)
 
     if not args.dry_run:
         ok = sum(1 for r in results if r['status'] in ('installed', 'already_installed'))

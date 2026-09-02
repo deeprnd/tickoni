@@ -101,7 +101,7 @@ setup-fd-linux-arm-gcc:
 
 # Windows x86_64 — FD toolchain (zig + ssl)
 setup-fd-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc,zig,ssl --platform windows-x86
+    SKIP_IDEMPOTENCY=`echo ${SKIP_IDEMPOTENCY:-}` python3 contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc,zig,ssl --platform windows-x86
 
 # Windows ARM64 — FD toolchain (zig + ssl)
 setup-fd-windows-arm:
@@ -138,7 +138,7 @@ cpu_count := `bash contrib/platform.sh cores`
 # All setup is delegated to orchestrator.py — it detects the platform and
 # resolves dependencies from tool-versions.json.
 setup-env toolchain="":
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build,zig,ssl,fd,quality,secrets,coverage,security,ops
+    SKIP_IDEMPOTENCY=`echo ${SKIP_IDEMPOTENCY:-}` python3 contrib/setup/orchestrator.py core,essential,toolchain,build,zig,ssl,fd,quality,secrets,coverage,security,ops
     just setup-git
 
 # Activate tracked git hooks (commit-msg strips anthropic AI co-authors)
