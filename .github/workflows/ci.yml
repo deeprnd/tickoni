@@ -3,6 +3,16 @@
 # or jobs that consume outputs from the PLAN job.
 #
 # Reference: doc/execution/plans/v2.10-s8-5.md
+#
+# Execution order:
+#   (all build) → (all unit) → (integration, system, demo) → security-deep → dev-setup
+#
+# Stage 1: quality + security-secrets (parallel, cheap pre-build gates)
+# Stage 2: build (all platforms, after quality + secrets)
+# Stage 3: unit tests (all platforms, after build)
+# Stage 4: integration + system + demo (parallel, after unit)
+# Stage 5: security-deep (after integration/system/demo)
+# Stage 6: dev-setup (after security-deep, validates full dev lifecycle)
 
 name: CI
 
@@ -68,24 +78,27 @@ jobs:
     uses: ./.github/workflows/_ci-unit.yml
 
   # ── INTEGRATION: multi-component tests per platform ──────────────────────
+  # Only runs if unit tests succeed (sequential dependency)
   integration:
     name: Tests / Integration
-    needs: [plan, build]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
+    needs: [plan, build, unit]
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' && needs.unit.result == 'success' }}
     uses: ./.github/workflows/_ci-integration.yml
 
   # ── SYSTEM: live-LLM tests per platform ──────────────────────────────────
+  # Only runs if unit tests succeed (sequential dependency)
   system:
     name: Tests / System
-    needs: [plan, build]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
+    needs: [plan, build, unit]
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' && needs.unit.result == 'success' }}
     uses: ./.github/workflows/_ci-system.yml
 
   # ── DEMO: fixture-backed demos per platform ──────────────────────────────
+  # Only runs if unit tests succeed (sequential dependency)
   demo:
     name: Tests / Demo
-    needs: [plan, build]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
+    needs: [plan, build, unit]
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' && needs.unit.result == 'success' }}
     uses: ./.github/workflows/_ci-demo.yml
 
   # ── CONFORMANCE: cross-platform binary comparison ────────────────────────
@@ -96,18 +109,27 @@ jobs:
     uses: ./.github/workflows/_ci-conformance.yml
 
   # ── SECURITY / DEEP: sanitizers, seccomp, formal verification ────────────
+  # Only runs after integration, system, and demo succeed
   security-deep:
     name: Security / Deep
-    needs: [plan, build]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
+    needs: [plan, build, integration, system, demo]
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' && needs.integration.result == 'success' && needs.system.result == 'success' && needs.demo.result == 'success' }}
     uses: ./.github/workflows/_ci-security-deep.yml
+
+  # ── DEV SETUP: validates full dev lifecycle (setup-env + build + tests) ──
+  # Only runs after security-deep succeeds
+  dev-setup:
+    name: Dev Setup
+    needs: [plan, build, integration, system, demo, security-deep]
+    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' && needs.integration.result == 'success' && needs.system.result == 'success' && needs.demo.result == 'success' && needs.security-deep.result == 'success' }}
+    uses: ./.github/workflows/tests-dev-setup.yml
 
   # ── CI / Required: aggregating gate for branch protection ────────────────
   ci-required:
     name: CI / Required
     needs:
       [plan, quality, security-secrets, build,
-       unit, integration, system, demo, conformance, security-deep]
+       unit, integration, system, demo, conformance, security-deep, dev-setup]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -120,7 +142,7 @@ jobs:
           failures=""
           skipped=0
 
-          for job in plan quality security-secrets build unit integration system demo conformance security-deep; do
+          for job in plan quality security-secrets build unit integration system demo conformance security-deep dev-setup; do
             case "$job" in
               plan) status="${{ needs.plan.result }}" ;;
               quality) status="${{ needs.quality.result }}" ;;
@@ -132,6 +154,7 @@ jobs:
               demo) status="${{ needs.demo.result }}" ;;
               conformance) status="${{ needs.conformance.result }}" ;;
               security-deep) status="${{ needs.security-deep.result }}" ;;
+              dev-setup) status="${{ needs.dev-setup.result }}" ;;
             esac
             results="$results $job=$status"
             if [ "$status" = "success" ] || [ "$status" = "skipped" ]; then
@@ -143,7 +166,7 @@ jobs:
 
           # If core=false, all non-plan jobs should be skipped.
           if [ "${{ needs.plan.outputs.core }}" = "false" ]; then
-            expected_skipped=$((10 - 1)) # all except plan
+            expected_skipped=$((11 - 1)) # all except plan
             if [ "$skipped" -ge "$expected_skipped" ]; then
               echo "docs-only PR: $skipped jobs skipped as expected"
               exit 0
@@ -160,5 +183,5 @@ jobs:
             exit 1
           fi
 
-          echo "CI / Required: all $((10 - skipped)) active jobs passed, $skipped skipped"
+          echo "CI / Required: all $((11 - skipped)) active jobs passed, $skipped skipped"
           exit 0
