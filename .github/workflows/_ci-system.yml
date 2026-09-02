@@ -1,5 +1,5 @@
 # Reusable System Test workflow: live-LLM tests per platform.
-# Downloads build artifacts from the Build stage and ensures llama.cpp is available.
+# Builds FD libs locally on the same runner that runs tests.
 
 name: System Test Stage
 
@@ -18,32 +18,32 @@ jobs:
           - platform-name: Linux x86_64
             runner: ubuntu-24.04
             timeout_minutes: 60
-            artifact-name: build-linux-x86
             test-recipe: test-system-tk-linux-x86
+            build-recipe: build-fd-linux-x86-gcc
             fd-deps: setup-fd-linux-x86-gcc
             setup-recipe: setup-build-linux-x86-gcc
             llamacpp: infra-ensure-llamacpp
           - platform-name: macOS 15 (x86_64)
             runner: macos-15-intel
             timeout_minutes: 60
-            artifact-name: build-macos-15-x86_64
             test-recipe: test-system-tk-macos-x86
+            build-recipe: build-fd-macos-x86
             fd-deps: setup-fd-macos-x86
             setup-recipe: setup-build-macos-x86
             llamacpp: infra-ensure-llamacpp
           - platform-name: macOS 15 (ARM)
             runner: macos-15
             timeout_minutes: 60
-            artifact-name: build-macos-15-arm
             test-recipe: test-system-tk-macos-arm
+            build-recipe: build-fd-macos-arm
             fd-deps: setup-fd-macos-arm
             setup-recipe: setup-build-macos-arm
             llamacpp: infra-ensure-llamacpp
           - platform-name: Windows x86_64
             runner: windows-2025-vs2026
             timeout_minutes: 60
-            artifact-name: build-windows-x86_64
             test-recipe: test-system-tk-windows-x86
+            build-recipe: build-fd-windows-x86
             setup-recipe: setup-fd-windows-x86
             llamacpp: infra-ensure-llamacpp-win
 
@@ -54,17 +54,8 @@ jobs:
       - name: Install just
         uses: taiki-e/install-action@just
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v7
-        with:
-          name: ${{ matrix.artifact-name }}
-          path: .
-
-      - name: Verify build artifacts
-        shell: bash
-        run: |
-          echo "Checking build artifacts for ${{ matrix.platform-name }}..."
-          ls -la build/
+      - name: Build Firedancer libs
+        run: just ${{ matrix.build-recipe }}
 
       - name: Setup toolchain
         run: just ${{ matrix.setup-recipe }}
