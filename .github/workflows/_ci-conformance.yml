@@ -5,62 +5,63 @@ name: Conformance Stage
 
 on:
   workflow_call:
-    jobs:
-      conformance:
-        name: Conformance / Compare
-        runs-on: ubuntu-24.04
-        timeout-minutes: 30
-        steps:
-          - name: Checkout
-            uses: actions/checkout@v7
 
-          - name: Install just
-            uses: taiki-e/install-action@just
+jobs:
+  conformance:
+    name: Conformance / Compare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
-          - name: Setup build toolchain
-            run: just setup-build-linux-x86-gcc
+      - name: Install just
+        uses: taiki-e/install-action@just
 
-          - name: Download Linux conformance artifact
-            uses: actions/download-artifact@v7
-            with:
-              name: build-linux-x86
-              path: build/
+      - name: Setup build toolchain
+        run: just setup-build-linux-x86-gcc
 
-          - name: Download macOS 15 x86_64 conformance artifact
-            uses: actions/download-artifact@v7
-            with:
-              name: build-macos-15-x86_64
-              path: build/
+      - name: Download Linux conformance artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-linux-x86
+          path: build/
 
-          - name: Download macOS 15 ARM conformance artifact
-            uses: actions/download-artifact@v7
-            with:
-              name: build-macos-15-arm
-              path: build/
+      - name: Download macOS 15 x86_64 conformance artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-macos-15-x86_64
+          path: build/
 
-          - name: Download macOS 26 x86_64 conformance artifact
-            uses: actions/download-artifact@v7
-            with:
-              name: build-macos-26-x86_64
-              path: build/
+      - name: Download macOS 15 ARM conformance artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-macos-15-arm
+          path: build/
 
-          - name: Download macOS 26 ARM conformance artifact
-            uses: actions/download-artifact@v7
-            with:
-              name: build-macos-26-arm
-              path: build/
+      - name: Download macOS 26 x86_64 conformance artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-macos-26-x86_64
+          path: build/
 
-          - name: Download Windows x86_64 conformance artifact
-            uses: actions/download-artifact@v7
-            with:
-              name: build-windows-x86_64
-              path: build/
+      - name: Download macOS 26 ARM conformance artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-macos-26-arm
+          path: build/
 
-          - name: Download Windows ARM conformance artifact
-            uses: actions/download-artifact@v7
-            with:
-              name: build-windows-arm
-              path: build/
+      - name: Download Windows x86_64 conformance artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-windows-x86_64
+          path: build/
 
-          - name: Compare conformance outputs
-            run: just compare-demo-conformance
+      - name: Download Windows ARM conformance artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-windows-arm
+          path: build/
+
+      - name: Compare conformance outputs
+        run: just compare-demo-conformance
