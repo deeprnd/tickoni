@@ -106,7 +106,24 @@ class LlamaCppBuildStrategy(InstallStrategy):
 
     def _ensure_openblas(self, tool: dict, platform_str: str) -> None:
         """Ensure OpenBLAS is installed on the system."""
-        # If openblas_pkg is specified, try to install via apt
+        # macOS — brew
+        if 'macos' in platform_str:
+            result = subprocess.run(
+                ['brew', 'list', 'openblas'],
+                capture_output=True
+            )
+            if result.returncode != 0:
+                print("Installing OpenBLAS via brew...")
+                result = subprocess.run(
+                    ['brew', 'install', 'openblas'],
+                    capture_output=True, text=True
+                )
+                if result.returncode != 0:
+                    print(f"ERROR: brew install openblas failed: {result.stderr}", file=sys.stderr)
+                    sys.exit(1)
+            return
+
+        # Linux — apt
         pkg = tool.get('parameters', {}).get('openblas_pkg')
         if pkg and 'linux' in platform_str:
             result = subprocess.run(
