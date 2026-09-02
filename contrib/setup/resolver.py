@@ -41,7 +41,7 @@ class DependencyResolver:
                     tool['name'] = tool_name
                     tool['category'] = cat
                     # Propagate top-level version_ref into parameters so
-                    # install_python_script can read params.get('version_ref')
+                    # install strategies can read it via params.get('version_ref')
                     if 'version_ref' in tool:
                         tool.setdefault('parameters', {}).setdefault(
                             'version_ref', tool['version_ref']
