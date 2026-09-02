@@ -83,7 +83,7 @@ def _resolve_url_and_platform(tool: dict, config: dict, platform_str: str) -> tu
             sys.exit(1)
 
     version = llama_config.get('version', 'b10760')
-    base_url = llama_config.get('base_url', '')
+    base_url = llama_config.get('base_url', '').replace('{version}', version)
     filename = artifact['filename'].replace('{version}', version)
     url = f"{base_url}/{filename}"
 
@@ -150,10 +150,35 @@ class LlamaCppDownloadStrategy(InstallStrategy):
             if name.endswith('.tar.gz') or name.endswith('.tgz'):
                 with tarfile.open(archive_path) as tf:
                     tf.extractall(install_dir)
-                print(f"[EXTRACT] tar.gz -> {install_dir} (inner: {extract_dir})")
+                # Move contents from inner directory (e.g., llama-b10760/) to install_dir
+                if extract_dir and extract_dir != '.':
+                    expanded = extract_dir.replace('{version}', version)
+                    inner_path = os.path.join(install_dir, expanded)
+                    if os.path.isdir(inner_path):
+                        for item in os.listdir(inner_path):
+                            src = os.path.join(inner_path, item)
+                            dst = os.path.join(install_dir, item)
+                            if os.path.exists(dst):
+                                # Avoid overwriting; the inner dir is from the tarball
+                                continue
+                            os.rename(src, dst)
+                        os.rmdir(inner_path)
+                    print(f"[EXTRACT] tar.gz -> {install_dir} (inner: {expanded})")
             elif name.endswith('.zip'):
                 with zipfile.ZipFile(archive_path) as zf:
                     zf.extractall(install_dir)
+                # Move contents from inner directory if present
+                if extract_dir and extract_dir != '.':
+                    expanded = extract_dir.replace('{version}', version)
+                    inner_path = os.path.join(install_dir, expanded)
+                    if os.path.isdir(inner_path):
+                        for item in os.listdir(inner_path):
+                            src = os.path.join(inner_path, item)
+                            dst = os.path.join(install_dir, item)
+                            if os.path.exists(dst):
+                                continue
+                            os.rename(src, dst)
+                        os.rmdir(inner_path)
                 print(f"[EXTRACT] zip -> {install_dir}")
             else:
                 print(f"ERROR: unsupported archive format: {name}", file=sys.stderr)
