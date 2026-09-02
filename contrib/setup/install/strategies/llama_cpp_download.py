@@ -2,13 +2,13 @@
 
 Replaces: llama_cpp_build.py (clone + cmake + build)
 
-This strategy reads artifact metadata from build-config.json and delegates
+This strategy reads artifact metadata from tool-versions.json and delegates
 download, SHA256 verification, and archive extraction to the shared helpers
 in .download.
 """
+import json
 import os
 import sys
-import json
 from pathlib import Path
 from ..base import InstallStrategy
 from .. import register
@@ -21,47 +21,38 @@ class LlamaCppDownloadStrategy(InstallStrategy):
     """Download pre-built llama.cpp binaries with SHA256 verification."""
 
     @staticmethod
-    def _resolve_from_config(platform_str: str) -> dict:
-        """Read artifact URL and server binary from build-config.json.
+    def _resolve_from_config(platform_str: str, config: dict) -> dict:
+        """Read artifact metadata from tool-versions.json."""
+        llama_entry = config.get('versions', {}).get('llama-cpp', {})
+        if isinstance(llama_entry, str):
+            # Legacy: bare string version — no artifact metadata available
+            sha256 = None
+            filename = None
+            extract_dir = '.'
+            server_bin = 'llama-server'
+            base_url = ''
+        else:
+            options = llama_entry.get('options', {})
+            sha256 = options.get('sha256', {}).get(platform_str)
+            filename = options.get('filename', {}).get(platform_str)
+            extract_dir = options.get('extract_dir', {}).get(platform_str, '.')
+            server_bin = options.get('server_bin', {}).get(platform_str, 'llama-server')
+            base_url = options.get('base_url', '')
 
-        Note: version is no longer embedded here. The caller (execute)
-        resolves it from tool-versions.json via resolve_version.
-        """
-        config_path = Path(__file__).parent.parent.parent.parent / 'build' / 'build-config.json'
-        with open(config_path) as f:
-            build_config = json.load(f)
-
-        llama_config = build_config.get('llama_cpp', {})
-        artifacts = llama_config.get('artifacts', {})
-
-        # Map platform to artifact key
-        artifact = None
-        for key, val in artifacts.items():
-            if key == platform_str:
-                artifact = val
-                break
-        if artifact is None:
-            parts = platform_str.split('-', 1)
-            if len(parts) == 2:
-                candidate = f"{parts[0]}-{parts[1]}"
-                if candidate in artifacts:
-                    artifact = artifacts[candidate]
-
-        if artifact is None:
-            print(f"ERROR: no llama.cpp artifact for platform {platform_str}", file=sys.stderr)
+        if filename is None:
+            print(f"ERROR: no llama.cpp filename for platform {platform_str}", file=sys.stderr)
             sys.exit(1)
 
-        extract_dir = artifact.get('extract_dir', '.')
-        server_bin = artifact.get('server_bin', 'llama-server' + ('.exe' if _is_windows(platform_str) else ''))
-
         return {
-            'artifact': artifact,
+            'sha256': sha256,
+            'filename': filename,
             'extract_dir': extract_dir,
             'server_bin': server_bin,
+            'base_url': base_url,
         }
 
     def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool) -> None:
-        resolved = self._resolve_from_config(platform_str)
+        resolved = self._resolve_from_config(platform_str, config)
         params = tool.get('parameters', {})
 
         # Version from tool-versions.json via resolve_version
@@ -70,15 +61,11 @@ class LlamaCppDownloadStrategy(InstallStrategy):
             print("ERROR: no llama-cpp version in tool-versions.json", file=sys.stderr)
             sys.exit(1)
 
-        # Build URL from build-config, substituting version
-        artifact = resolved['artifact']
-        llama_config = json.load(
-            open(Path(__file__).parent.parent.parent.parent / 'build' / 'build-config.json')
-        )['llama_cpp']
-        base_url = llama_config.get('base_url', '').replace('{version}', version)
-        filename = artifact['filename'].replace('{version}', version)
+        # Build URL from tool-versions.json base_url
+        base_url = resolved['base_url'].replace('{version}', version)
+        filename = resolved['filename'].replace('{version}', version)
         url = f"{base_url}/{filename}"
-        sha256 = artifact.get('sha256')
+        sha256 = resolved['sha256']
 
         # Direct URL override (for testing or custom builds)
         if params.get('download_url'):
