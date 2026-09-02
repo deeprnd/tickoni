@@ -599,11 +599,9 @@
     "llama-cpp": {
       "category": "llm-server",
       "platform": "all",
-      "install_method": "llama_cpp_build",
+      "install_method": "llama_cpp_download",
       "parameters": {
-        "clone_url": "https://github.com/ggml-org/llama.cpp",
-        "clone_dir": "~/work/models/llama.cpp",
-        "openblas_pkg": "libopenblas-dev"
+        "install_dir": "~/work/models/llama.cpp"
       },
       "idempotent_check": "test -x ~/work/models/llama.cpp/llama-server"
     },

@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Phase 1: Setup via orchestrator (build llama.cpp + download model)
+# Phase 1: Setup via orchestrator (download llama.cpp + download model)
 python "$(dirname "$SCRIPT_DIR")/setup/orchestrator.py" llm-server --platform windows-x86
 
 # Phase 2: Start llama.cpp server (infrastructure)

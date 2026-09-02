@@ -253,7 +253,7 @@ Contains long-running tests that require additional infrastructure or model asse
 **LLM System Tests** — runs the explicit system live-model lane against a real local `llama.cpp` server. Steps in order:
 
 1. Install `cmake`, `libopenblas-dev`, `libopenblas64-dev` via apt.
-2. `just infra-ensure-llamacpp` — resolves `llama.cpp` from `TK_LLAMA_CPP_DIR` when set, otherwise auto-detects `~/work/models/llama.cpp` first and then `~/work/git/llama.cpp`; if neither exists it clones `https://github.com/ggml-org/llama.cpp` into `~/work/models/llama.cpp`, builds for CPU with OpenBLAS via cmake, and copies `llama-*` binaries to the clone root.
+2. `just infra-ensure-llamacpp` — resolves `llama.cpp` from `TK_LLAMA_CPP_DIR` when set, otherwise defaults to `~/work/models/llama.cpp`. Downloads the pre-built binary archive from `https://github.com/ggml-org/llama.cpp/releases` for the current platform, verifies SHA256 checksum, extracts to the install directory, and verifies the server binary is present. OpenBLAS must be installed on the system as a separate dependency.
 3. `just test-system-tk` — runs the full end-to-end flow: start server, run `zig build system-test`, stop server (`run_live_investment_demo.sh` calls `contrib/setup/orchestrator.py llm-server` for setup, and `contrib/test/orchestrator.py` for server lifecycle).
 
 The llama.cpp path and model path can be overridden with `TK_LLAMA_CPP_DIR`,
