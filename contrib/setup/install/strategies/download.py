@@ -1,4 +1,4 @@
-"""Download strategies: github_release and binary_download."""
+"""Download strategies: github_release, binary_download, and archive_download."""
 import hashlib
 import json
 import os
@@ -9,6 +9,62 @@ from .. import register
 from config import resolve_version
 from platform import get_platform_from_string
 
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+def _expand_home(path: str) -> str:
+    """Expand ~ to HOME."""
+    if path == '~':
+        path = os.environ.get('HOME', os.path.expanduser('~'))
+    elif path.startswith('~/'):
+        path = os.path.join(os.environ.get('HOME', os.path.expanduser('~')), path[2:])
+    return path
+
+
+def _is_windows(platform_str: str) -> bool:
+    """Decide Windows from the orchestrator-supplied platform string."""
+    return platform_str.startswith('windows')
+
+
+def _verify_sha256(archive_path: Path, expected: str) -> None:
+    """Verify a file's SHA256 against an expected hex digest."""
+    actual = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+    if actual != expected:
+        print(f"ERROR: SHA256 mismatch for {archive_path.name}", file=__import__('sys').stderr)
+        print(f"  expected: {expected}", file=__import__('sys').stderr)
+        print(f"  actual:   {actual}", file=__import__('sys').stderr)
+        __import__('sys').exit(1)
+
+
+def _extract_archive(archive_path: Path, dest: str, extract_dir: str, version: str | None) -> None:
+    """Extract tar.gz / zip into *dest*, flattening one inner directory if present."""
+    name = archive_path.name
+    if name.endswith(('.tar.gz', '.tgz')):
+        import tarfile
+        with tarfile.open(archive_path) as tf:
+            tf.extractall(dest)
+    elif name.endswith('.zip'):
+        import zipfile
+        with zipfile.ZipFile(archive_path) as zf:
+            zf.extractall(dest)
+    else:
+        print(f"ERROR: unsupported archive format: {name}", file=__import__('sys').stderr)
+        __import__('sys').exit(1)
+
+    # Flatten one inner directory (common with versioned tarball roots).
+    if extract_dir and extract_dir != '.':
+        expanded = extract_dir.replace('{version}', version or '')
+        inner = os.path.join(dest, expanded)
+        if os.path.isdir(inner):
+            for item in os.listdir(inner):
+                src = os.path.join(inner, item)
+                dst = os.path.join(dest, item)
+                if os.path.exists(dst):
+                    continue
+                os.rename(src, dst)
+            os.rmdir(inner)
+
+
+# ── strategies ───────────────────────────────────────────────────────────────
 
 @register('github_release')
 class GitHubReleaseStrategy(DownloadInstallStrategy):
@@ -151,3 +207,111 @@ class BinaryDownloadStrategy(DownloadInstallStrategy):
         url = url_pattern.replace('{version}', version)
         url = url.replace('{{.os}}', os_name).replace('{{.arch}}', arch)
         return (url, version, os.path.basename(url), False)
+
+
+@register('archive_download')
+class ArchiveDownloadStrategy(DownloadInstallStrategy):
+    """Download an archive (tar.gz/zip), verify SHA256, extract to a target dir.
+
+    Parameters (in tool configuration):
+
+    - ``url_pattern`` (required): URL template supporting ``{version}``,
+      ``{{.os}}``, ``{{.arch}}`` substitution.
+    - ``install_dir``: target extraction directory (default ``/usr/local``).
+    - ``version_ref``: key into ``config['tools'][name]['version_ref']``.
+    - ``sha256`` (optional): expected hex digest, embedded in the strategy
+      or supplied as a literal parameter.  If omitted, no checksum is
+      enforced.
+    - ``extract_dir`` (optional): inner directory to flatten after extract
+      (``.`` or omitted = no flattening).
+    - ``bin_name``: expected binary name for the post-extract sanity check.
+
+    The orchestrator supplies *platform_str* (e.g. ``linux-x86``,
+    ``macos-arm``); this class uses it to pick the OS/arch tokens for the
+    URL and to decide the platform-specific file extension for binaries.
+    """
+
+    def _resolve_url(self, tool: dict, config: dict, platform_str: str) -> tuple[str, str, str, bool]:
+        params = tool['parameters']
+        url_pattern = params.get('url_pattern', '')
+        install_dir = _expand_home(params.get('install_dir', '/usr/local'))
+        version_ref = params.get('version_ref')
+        sha256_expected = params.get('sha256')
+        extract_dir = params.get('extract_dir', '.')
+        bin_name = params.get('bin_name', 'downloaded_binary')
+
+        version = resolve_version(config, version_ref)
+        if not version:
+            print(f"ERROR: no version for {tool['name']}", file=__import__('sys').stderr)
+            __import__('sys').exit(1)
+
+        os_name, arch = get_platform_from_string(platform_str)
+        if os_name == 'macos':
+            os_name = 'darwin'
+        arch_map = {'x86': 'amd64', 'x86_64': 'amd64', 'arm': 'arm64', 'arm64': 'arm64', 'aarch64': 'arm64'}
+        if arch is not None:
+            arch = arch_map.get(arch, arch)
+
+        url = url_pattern.replace('{version}', version)
+        url = url.replace('{{.os}}', os_name).replace('{{.arch}}', arch)
+
+        return (url, version, os.path.basename(url), False)
+
+    def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool) -> None:
+        """Run the full download → verify → extract pipeline."""
+        url, version, pattern, verify_checksum = self._resolve_url(tool, config, platform_str)
+        params = tool['parameters']
+        install_dir = _expand_home(params.get('install_dir', '/usr/local'))
+        sha256_expected = params.get('sha256')
+        extract_dir = params.get('extract_dir', '.')
+        bin_name = params.get('bin_name', 'downloaded_binary')
+        verify_checksum = verify_checksum or sha256_expected is not None
+
+        # Idempotency: check for the target binary.
+        server_path = os.path.join(install_dir, bin_name)
+        if _is_windows(platform_str):
+            server_path = os.path.join(install_dir, bin_name) if not bin_name.endswith('.exe') else bin_name
+        if os.path.isfile(server_path) and os.access(server_path, os.X_OK):
+            print(f"{tool['name']} already installed: {install_dir}")
+            return
+
+        if dry_run:
+            print(f"[DRY-RUN] Would download {url} -> {install_dir}")
+            return
+
+        os.makedirs(install_dir, exist_ok=True)
+
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            archive_path = Path(tmpdir) / pattern
+
+            # Download
+            print(f"[DOWNLOAD] {url} -> {archive_path}")
+            self._download_file(url, archive_path)
+
+            if not archive_path.exists() or archive_path.stat().st_size == 0:
+                print(f"ERROR: downloaded file is empty: {url}", file=__import__('sys').stderr)
+                __import__('sys').exit(1)
+
+            # SHA256 verification
+            if sha256_expected:
+                print("[CHECKSUM] Verifying SHA256 ...")
+                _verify_sha256(archive_path, sha256_expected)
+                print(f"[CHECKSUM] SHA256 verified for {pattern}")
+            elif verify_checksum:
+                print("[CHECKSUM] Download complete (no checksum to verify)")
+
+            # Extract
+            _extract_archive(archive_path, install_dir, extract_dir, version)
+            print(f"[EXTRACT] {pattern} -> {install_dir}")
+
+            # Sanity: binary must exist.
+            if not os.path.isfile(server_path):
+                print(f"ERROR: binary not found after extraction: {server_path}", file=__import__('sys').stderr)
+                __import__('sys').exit(1)
+
+        print(f"[INSTALLED] {tool['name']} {version} -> {install_dir}")
+
+    @staticmethod
+    def requires_openblas() -> bool:
+        return False
