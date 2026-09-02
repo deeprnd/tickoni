@@ -27,3 +27,10 @@ def test_non_windows_compiler_assignment_is_not_quoted():
     assert make_assignment("CC", compiler, "linux-x86") == (
         "CC=/opt/llvm/bin/clang"
     )
+
+
+def test_windows_make_profile_detects_absolute_clang_path():
+    profile = Path(__file__).resolve().parents[2] / "config/machine/tickoni_fd.mk"
+    text = profile.read_text()
+    assert "ifneq (,$(findstring clang,$(CC)))" in text
+    assert "ifeq ($(CC),clang)" not in text
