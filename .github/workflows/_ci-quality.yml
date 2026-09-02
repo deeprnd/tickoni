@@ -4,40 +4,41 @@ name: Quality Stage
 
 on:
   workflow_call:
-    jobs:
-      quality:
-        name: Quality
-        runs-on: ubuntu-24.04
-        timeout-minutes: 30
-        strategy:
-          fail-fast: false
-          matrix:
-            include:
-              - name: Format Check
-                command: just quality-format-check-linux-x86
-                timeout_minutes: 20
-              - name: Lint Check
-                command: just quality-lint-check-linux-x86
-                timeout_minutes: 30
-              - name: Proto Check
-                command: just quality-proto-check-linux-x86
-                timeout_minutes: 10
-        steps:
-          - name: Checkout
-            uses: actions/checkout@v7
-            with:
-              fetch-depth: 0
 
-          - name: Create local main branch for diff-based quality scripts
-            run: |
-              git fetch origin main
-              git branch --force main origin/main
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Format Check
+            command: just quality-format-check-linux-x86
+            timeout_minutes: 20
+          - name: Lint Check
+            command: just quality-lint-check-linux-x86
+            timeout_minutes: 30
+          - name: Proto Check
+            command: just quality-proto-check-linux-x86
+            timeout_minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-          - name: Install just
-            uses: taiki-e/install-action@just
+      - name: Create local main branch for diff-based quality scripts
+        run: |
+          git fetch origin main
+          git branch --force main origin/main
 
-          - name: Setup minimal quality deps
-            run: just setup-quality-linux-x86
+      - name: Install just
+        uses: taiki-e/install-action@just
 
-          - name: Run check
-            run: ${{ matrix.command }}
+      - name: Setup minimal quality deps
+        run: just setup-quality-linux-x86
+
+      - name: Run check
+        run: ${{ matrix.command }}
