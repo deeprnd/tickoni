@@ -22,6 +22,20 @@ jobs:
             build-recipe: build-fd-linux-x86-gcc
             fd-deps: setup-fd-linux-x86-gcc
             setup-recipe: setup-build-linux-x86-gcc
+          - platform-name: Linux x86_64 Clang
+            runner: ubuntu-24.04
+            timeout_minutes: 20
+            test-recipe: test-integration-tk-linux-x86
+            build-recipe: build-fd-linux-x86-clang
+            fd-deps: setup-fd-linux-x86-clang
+            setup-recipe: setup-build-linux-x86-clang
+          - platform-name: Linux ARM
+            runner: ubuntu-24.04-arm
+            timeout_minutes: 20
+            test-recipe: test-integration-tk-linux-arm
+            build-recipe: build-fd-linux-arm-gcc
+            fd-deps: setup-fd-linux-arm-gcc
+            setup-recipe: setup-build-linux-x86-gcc
           - platform-name: macOS 15 (x86_64)
             runner: macos-15-intel
             timeout_minutes: 20

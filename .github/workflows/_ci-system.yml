@@ -23,6 +23,22 @@ jobs:
             fd-deps: setup-fd-linux-x86-gcc
             setup-recipe: setup-build-linux-x86-gcc
             llamacpp: infra-ensure-llamacpp
+          - platform-name: Linux x86_64 Clang
+            runner: ubuntu-24.04
+            timeout_minutes: 60
+            test-recipe: test-system-tk-linux-x86
+            build-recipe: build-fd-linux-x86-clang
+            fd-deps: setup-fd-linux-x86-clang
+            setup-recipe: setup-build-linux-x86-clang
+            llamacpp: infra-ensure-llamacpp
+          - platform-name: Linux ARM
+            runner: ubuntu-24.04-arm
+            timeout_minutes: 60
+            test-recipe: test-system-tk-linux-arm
+            build-recipe: build-fd-linux-arm-gcc
+            fd-deps: setup-fd-linux-arm-gcc
+            setup-recipe: setup-build-linux-x86-gcc
+            llamacpp: infra-ensure-llamacpp
           - platform-name: macOS 15 (x86_64)
             runner: macos-15-intel
             timeout_minutes: 60
