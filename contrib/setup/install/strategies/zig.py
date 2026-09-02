@@ -10,12 +10,12 @@ import urllib.request
 from pathlib import Path
 from ..base import InstallStrategy, _download_file
 from .. import register
+from .download import _download_and_verify, _expand_home
 from config import resolve_version
 
 
 ZIG_INDEX_URL = "https://ziglang.org/download/index.json"
 ZIG_BUILDS_BASE_URL = "https://ziglang.org/builds"
-ZIG_MINISIGN_PUBKEY = "RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
 
 PLATFORM_TO_ZIG_TARGET = {
     "linux-x86": "x86_64-linux",
@@ -37,66 +37,26 @@ def _url_exists(url: str) -> bool:
     return result.returncode == 0
 
 
-class _ZigMinisigVerifier:
-    """Helper for Zig minisign verification."""
-
-    def __init__(self, pubkey: str):
-        self.pubkey = pubkey
-
-    def find(self) -> str | None:
-        for name in ("minisign", "minisign-verify", "minisig"):
-            found = shutil.which(name)
-            if found:
-                return found
-        return None
-
-    def verify(self, archive_path: Path, sig_path: Path) -> None:
-        minisign = self.find()
-        if not minisign:
-            print(
-                f"[WARN] minisign binary not found on PATH — skipping signature "
-                f"verification for {archive_path.name}",
-                file=sys.stderr,
-            )
-            print(
-                "  To enable verification, install minisign: apt install minisign "
-                "(Debian/Ubuntu), brew install minisign (macOS), or "
-                "winget install jedisct1.minisign (Windows)",
-                file=sys.stderr,
-            )
-            return
-        # If signature file is empty or missing, skip verification
-        if not sig_path.exists() or sig_path.stat().st_size == 0:
-            print(
-                f"[WARN] signature file {sig_path.name} is empty or missing — "
-                f"skipping verification for {archive_path.name}",
-                file=sys.stderr,
-            )
-            return
-        cmd = [minisign, "V", "-P", self.pubkey, "-x", str(sig_path), "-m", str(archive_path)]
-        print(f"[verify] minisig {archive_path.name} ...")
-        result = subprocess.run(cmd, capture_output=False, text=True)
-        if result.returncode != 0:
-            # Dev builds from ziglang.org/builds may use a different signing key
-            # or have corrupted signatures; treat as warning only for dev builds.
-            is_dev = "-dev." in archive_path.name or ".dev." in archive_path.name
-            if is_dev:
-                print(
-                    f"[WARN] minisig verification FAILED for dev build {archive_path.name}; "
-                    f"continuing without verified signature",
-                    file=sys.stderr,
-                )
-                return
-            print(f"ERROR: minisig verification FAILED for {archive_path.name}", file=sys.stderr)
-            sys.exit(1)
-        print("[verify] minisig OK")
-
-
 @register('install_zig')
 class ZigInstallStrategy(InstallStrategy):
     """Install an official prebuilt Zig release."""
 
+    def _get_minisign_pubkey(self, config: dict) -> str:
+        """Resolve the minisign public key from tool-versions.json."""
+        version_ref_sig = self._tool.get('parameters', {}).get('version_ref_sig')
+        if version_ref_sig:
+            val = config.get('versions', {}).get(version_ref_sig)
+            if isinstance(val, dict):
+                return val.get('key', '')
+            return str(val)
+        # Fallback: read from config directly
+        zig_minisign = config.get('versions', {}).get('zig-minisign')
+        if isinstance(zig_minisign, dict):
+            return zig_minisign.get('key', '')
+        return ''
+
     def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool) -> None:
+        self._tool = tool
         version_ref = tool['parameters'].get('version_ref')
         install_root = tool['parameters'].get('install_root', os.path.expanduser('~/.local'))
         user_path = tool['parameters'].get('user_path', False)
@@ -136,8 +96,6 @@ class ZigInstallStrategy(InstallStrategy):
     def _install(self, version: str, target: str, install_root: str, user_path: bool, platform_str: str) -> None:
         """Core Zig installation logic."""
         # Check if zig is already installed and on PATH.
-        # If so, skip download/extract/copy and just propagate PATH via
-        # GITHUB_PATH so subsequent CI steps find it.
         existing_path = shutil.which('zig')
         if existing_path:
             install_dir = Path(existing_path).resolve().parent
@@ -184,22 +142,22 @@ class ZigInstallStrategy(InstallStrategy):
         cache_dir = Path(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))) / "zig" / "archives"
         archive_path = cache_dir / archive_name
         sig_path = cache_dir / f"{archive_name}.minisig"
-
-        print(f"[download] {archive_name}")
-        _download_file(archive_url, archive_path, dry_run=False)
-
-        # Minisign verification
         sig_url = f"{archive_url}.minisig"
-        print(f"[resolve] Zig minisig: {sig_url}")
-        sig_exists = _url_exists(sig_url)
 
-        if sig_exists:
-            _download_file(sig_url, sig_path, dry_run=False)
-            verifier = _ZigMinisigVerifier(ZIG_MINISIGN_PUBKEY)
-            verifier.verify(archive_path, sig_path)
-        else:
-            print(f"ERROR: required minisig signature not found at {sig_url}", file=sys.stderr)
+        # Download + verify (shared pipeline)
+        pubkey = self._get_minisign_pubkey(self._tool)
+        if not pubkey:
+            print(f"ERROR: no minisign public key in tool-versions.json", file=sys.stderr)
             sys.exit(1)
+
+        _download_and_verify(
+            url=archive_url,
+            archive_path=archive_path,
+            expected_sha256=None,  # Zig uses minisign only
+            sig_url=sig_url,
+            sig_path=sig_path,
+            pubkey=pubkey,
+        )
 
         # Extract
         extract_root = cache_dir / "extract" / f"{version}-{target}"
