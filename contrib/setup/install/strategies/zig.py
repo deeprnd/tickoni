@@ -42,18 +42,19 @@ class ZigInstallStrategy(InstallStrategy):
     """Install an official prebuilt Zig release."""
 
     def _get_minisign_pubkey(self, config: dict) -> str:
-        """Resolve the minisign public key from tool-versions.json."""
-        version_ref_sig = self._tool.get('parameters', {}).get('version_ref_sig')
-        if version_ref_sig:
-            val = config.get('versions', {}).get(version_ref_sig)
-            if isinstance(val, dict):
-                return val.get('key', '')
-            return str(val)
-        # Fallback: read from config directly
-        zig_minisign = config.get('versions', {}).get('zig-minisign')
-        if isinstance(zig_minisign, dict):
-            return zig_minisign.get('key', '')
-        return ''
+        """Read minisign key from versions.<version_ref>.options.minisign_key."""
+        version_ref = self._tool.get('parameters', {}).get('version_ref')
+        if not version_ref:
+            return ''
+        version_entry = config.get('versions', {}).get(version_ref, {})
+        if isinstance(version_entry, str):
+            # Legacy: bare string version with top-level zig-minisign
+            zig_minisign = config.get('versions', {}).get('zig-minisign')
+            if isinstance(zig_minisign, dict):
+                return zig_minisign.get('key', '')
+            return str(zig_minisign or '')
+        options = version_entry.get('options', {})
+        return options.get('minisign_key', '')
 
     def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool) -> None:
         self._tool = tool
