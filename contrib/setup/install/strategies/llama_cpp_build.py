@@ -121,6 +121,18 @@ class LlamaCppBuildStrategy(InstallStrategy):
                 if result.returncode != 0:
                     print(f"ERROR: brew install openblas failed: {result.stderr}", file=sys.stderr)
                     sys.exit(1)
+            # Set PKG_CONFIG_PATH so cmake's FindBLAS can locate the pkg-config file
+            openblas_prefix = subprocess.run(
+                ['brew', '--prefix', 'openblas'],
+                capture_output=True, text=True
+            )
+            if openblas_prefix.returncode == 0:
+                prefix = openblas_prefix.stdout.strip()
+                pc_path = os.path.join(prefix, 'lib', 'pkgconfig')
+                existing = os.environ.get('PKG_CONFIG_PATH', '')
+                if pc_path not in existing:
+                    os.environ['PKG_CONFIG_PATH'] = pc_path + os.pathsep + existing if existing else pc_path
+                print(f"Set PKG_CONFIG_PATH={pc_path} for OpenBLAS discovery by cmake")
             return
 
         # Linux — apt
