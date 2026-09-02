@@ -30,7 +30,11 @@
     "kcov": "0.0.0",
     "shellcheck": "0.10.0",
     "buf": "1.38.0",
-    "pre-commit": "4.0.1"
+    "pre-commit": "4.0.1",
+    "llama-cpp": "b10760",
+    "zig-minisign": {
+      "key": "RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
+    }
   },
   "categories": {
     "core": {
@@ -397,7 +401,8 @@
         "install_root": "$HOME/.local"
       },
       "idempotent_check": "command -v zig",
-      "version_ref": "zig"
+      "version_ref": "zig",
+      "version_ref_sig": "zig-minisign"
     },
     "openssl": {
       "category": "ssl",

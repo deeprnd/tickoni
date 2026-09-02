@@ -4,7 +4,7 @@ import json
 import os
 import urllib.request
 from pathlib import Path
-from ..base import DownloadInstallStrategy, _run_cmd
+from ..base import DownloadInstallStrategy, _run_cmd, _download_file
 from .. import register
 from config import resolve_version
 from platform import get_platform_from_string
@@ -62,6 +62,121 @@ def _extract_archive(archive_path: Path, dest: str, extract_dir: str, version: s
                     continue
                 os.rename(src, dst)
             os.rmdir(inner)
+
+
+def _verify_minisign(archive_path: Path, sig_path: Path, pubkey: str) -> None:
+    """Verify an archive's minisign signature against *pubkey*.
+
+    If no minisign binary is on PATH, if the sig file is empty/missing,
+    or if the build name contains ``-dev.``, a warning is logged and
+    verification continues (never exits).
+    """
+    import shutil
+    import subprocess
+
+    minisign = shutil.which('minisign')
+    if not minisign:
+        minisign = shutil.which('minisign-verify')
+    if not minisign:
+        minisign = shutil.which('minisig')
+
+    if not minisign:
+        print(
+            f"[WARN] minisign binary not found on PATH — skipping signature "
+            f"verification for {archive_path.name}",
+            file=__import__('sys').stderr,
+        )
+        return
+
+    # If signature file is empty or missing, skip verification
+    if not sig_path.exists() or sig_path.stat().st_size == 0:
+        print(
+            f"[WARN] signature file {sig_path.name} is empty or missing — "
+            f"skipping verification for {archive_path.name}",
+            file=__import__('sys').stderr,
+        )
+        return
+
+    cmd = [minisign, "V", "-P", pubkey, "-x", str(sig_path), "-m", str(archive_path)]
+    print(f"[verify] minisig {archive_path.name} ...")
+    result = subprocess.run(cmd, capture_output=False, text=True)
+    if result.returncode != 0:
+        # Dev builds may use a different signing key or have corrupted
+        # signatures; treat as warning only for dev builds.
+        is_dev = "-dev." in archive_path.name or ".dev." in archive_path.name
+        if is_dev:
+            print(
+                f"[WARN] minisig verification FAILED for dev build {archive_path.name}; "
+                f"continuing without verified signature",
+                file=__import__('sys').stderr,
+            )
+            return
+        print(f"ERROR: minisig verification FAILED for {archive_path.name}", file=__import__('sys').stderr)
+        __import__('sys').exit(1)
+    print("[verify] minisig OK")
+
+
+def _download_and_verify(
+    url: str,
+    archive_path: Path,
+    expected_sha256: str | None,
+    sig_url: str | None = None,
+    sig_path: Path | None = None,
+    pubkey: str | None = None,
+) -> None:
+    """Template Method: download an archive with optional SHA256 and minisign verification.
+
+    Parameters
+    ----------
+    url : str
+        Download URL for the archive.
+    archive_path : Path
+        Where to save the downloaded archive.
+    expected_sha256 : str or None
+        Expected hex SHA256 digest.  If given, verification runs.
+    sig_url : str or None
+        URL for the minisign signature file.  If given together with
+        *pubkey*, the signature is downloaded and verified.
+    sig_path : Path or None
+        Local path to save the signature file (also the path used for
+        verification if it already exists from the download above).
+    pubkey : str or None
+        Minisign public key string.
+    """
+    import urllib.request
+
+    # 1. Download the archive
+    print(f"[DOWNLOAD] {url} -> {archive_path}")
+    _download_file(url, archive_path, dry_run=False)
+
+    if not archive_path.exists() or archive_path.stat().st_size == 0:
+        print(f"ERROR: downloaded file is empty: {url}", file=__import__('sys').stderr)
+        __import__('sys').exit(1)
+
+    # 2. SHA256 verification
+    if expected_sha256:
+        print("[CHECKSUM] Verifying SHA256 ...")
+        _verify_sha256(archive_path, expected_sha256)
+        print(f"[CHECKSUM] SHA256 verified for {archive_path.name}")
+
+    # 3. Minisign verification
+    if sig_url and pubkey:
+        if sig_path is None:
+            sig_path = archive_path.with_suffix(archive_path.suffix + '.minisig')
+
+        print(f"[resolve] Minisign signature: {sig_url}")
+        _download_file(sig_url, sig_path, dry_run=False)
+        _verify_minisign(archive_path, sig_path, pubkey)
+
+
+def resolve_version_from_config(config: dict, version_ref: str) -> str | None:
+    """Thin re-export of config.resolve_version.
+
+    Strategies can import this directly from download.py instead of
+    reaching into config.py, keeping all download/verify plumbing in
+    one module.
+    """
+    return resolve_version(config, version_ref)
 
 
 # ── strategies ───────────────────────────────────────────────────────────────
