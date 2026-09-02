@@ -51,7 +51,7 @@ printf '' | "$@" -march=native -E -dM - | awk '
       cppflags = cppflags "CPPFLAGS_NATIVE+=-maes -mpclmul\n"
 
     # Older versions of GCC (<10) do not fully support AVX512.
-    if( !( "__GNUC__" in define && !( "__clang__" in define ) && define["__GNUC__"]<10 ) )
+    if( !( "__GNUC__" in define && !("__clang__" in define) && define["__GNUC__"]<10 ) )
       emit_feature( "FD_HAS_AVX512", "__AVX512IFMA__" )
 
     print "FD_HAS_DOUBLE:=1"
@@ -59,6 +59,8 @@ printf '' | "$@" -march=native -E -dM - | awk '
     print "CPPFLAGS_NATIVE:="
     print "CPPFLAGS_NATIVE+=-march=haswell -mtune=haswell"
     print "CPPFLAGS_NATIVE+=-DFD_HAS_DOUBLE=1"
+    if( "__AVX512IFMA__" in define )
+      cppflags = cppflags "CPPFLAGS_NATIVE+=-mavx512f -mavx512bw\n"
     printf "%s", cppflags
   }
 ' > "$OUT"
