@@ -121,19 +121,22 @@ class LlamaCppBuildStrategy(InstallStrategy):
                 if result.returncode != 0:
                     print(f"ERROR: brew install openblas failed: {result.stderr}", file=sys.stderr)
                     sys.exit(1)
-            # Set CMAKE_PREFIX_PATH so cmake's FindBLAS can locate the brew
-            # OpenBLAS libraries.  FindBLAS does not use pkg-config; it reads
-            # CMAKE_PREFIX_PATH (and LDFLAGS/CPPFLAGS) from the environment.
+            # llama.cpp's ggml-blas CMakeLists.txt uses custom find_library
+            # / find_path which do NOT read LDFLAGS/CPPFLAGS.  We must pass
+            # the paths directly to cmake via -D flags.
             openblas_prefix = subprocess.run(
                 ['brew', '--prefix', 'openblas'],
                 capture_output=True, text=True
             )
             if openblas_prefix.returncode == 0:
                 prefix = openblas_prefix.stdout.strip()
-                existing = os.environ.get('CMAKE_PREFIX_PATH', '')
-                if prefix not in existing:
-                    os.environ['CMAKE_PREFIX_PATH'] = prefix + os.pathsep + existing if existing else prefix
-                print(f"Set CMAKE_PREFIX_PATH={prefix} for OpenBLAS discovery by cmake")
+                self._openblas_prefix = os.path.join(prefix, 'lib')
+                self._openblas_include = os.path.join(prefix, 'include')
+                print(f"OpenBLAS found at: include={self._openblas_include} lib={self._openblas_prefix}")
+            else:
+                self._openblas_prefix = None
+                self._openblas_include = None
+                print(f"WARNING: brew --prefix openblas failed, cmake may not find BLAS")
             return
 
         # Linux — apt
@@ -175,6 +178,13 @@ class LlamaCppBuildStrategy(InstallStrategy):
             '-DLLAMA_BUILD_APP=OFF',
             '-DLLAMA_BUILD_EXAMPLES=OFF',
         ]
+        # On macOS, pass OpenBLAS paths so cmake's find_library/find_path
+        # can locate the brew-installed library.
+        if hasattr(self, '_openblas_prefix') and self._openblas_prefix:
+            cmake_args += [
+                f'-DCMAKE_INCLUDE_PATH={self._openblas_include}',
+                f'-DCMAKE_LIBRARY_PATH={self._openblas_prefix}',
+            ]
         result = subprocess.run(cmake_args, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"ERROR: cmake configure failed: {result.stderr}", file=sys.stderr)
