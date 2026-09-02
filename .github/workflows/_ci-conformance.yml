@@ -25,43 +25,43 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: build-linux-x86
-          path: build/
+          path: .
 
       - name: Download macOS 15 x86_64 conformance artifact
         uses: actions/download-artifact@v7
         with:
           name: build-macos-15-x86_64
-          path: build/
+          path: .
 
       - name: Download macOS 15 ARM conformance artifact
         uses: actions/download-artifact@v7
         with:
           name: build-macos-15-arm
-          path: build/
+          path: .
 
       - name: Download macOS 26 x86_64 conformance artifact
         uses: actions/download-artifact@v7
         with:
           name: build-macos-26-x86_64
-          path: build/
+          path: .
 
       - name: Download macOS 26 ARM conformance artifact
         uses: actions/download-artifact@v7
         with:
           name: build-macos-26-arm
-          path: build/
+          path: .
 
       - name: Download Windows x86_64 conformance artifact
         uses: actions/download-artifact@v7
         with:
           name: build-windows-x86_64
-          path: build/
+          path: .
 
       - name: Download Windows ARM conformance artifact
         uses: actions/download-artifact@v7
         with:
           name: build-windows-arm
-          path: build/
+          path: .
 
       - name: Compare conformance outputs
         run: just compare-demo-conformance
