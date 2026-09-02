@@ -1,39 +1,109 @@
 {
   "versions": {
-    "just": "1.58.0",
-    "gitleaks": "8.30.1",
-    "actionlint": "1.7.12",
-    "zig": "0.17.0-dev.1941+71115f0ab",
+    "just": {
+      "version": "1.58.0"
+    },
+    "gitleaks": {
+      "version": "8.30.1"
+    },
+    "actionlint": {
+      "version": "1.7.12"
+    },
+    "zig": {
+      "version": "0.17.0-dev.1941+71115f0ab",
+      "options": {
+        "minisign_key": "RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
+      }
+    },
     "openssl": {
       "version": "3.6.2",
-      "tag": "openssl-3.6.2"
+      "options": {
+        "tag": "openssl-3.6.2"
+      }
     },
     "gcc": {
-      "linux-x86": "12",
-      "linux-arm": "14"
+      "version": "multi",
+      "options": {
+        "linux-x86": "12",
+        "linux-arm": "14"
+      }
     },
     "clang": {
-      "linux-x86": "18",
-      "linux-arm": "18",
-      "windows-x86": "18",
-      "windows-arm": "18"
+      "version": "multi",
+      "options": {
+        "linux-x86": "18",
+        "linux-arm": "18",
+        "windows-x86": "18",
+        "windows-arm": "18"
+      }
     },
     "msvc": {
-      "windows-x86": "17",
-      "windows-arm": "17"
+      "version": "multi",
+      "options": {
+        "windows-x86": "17",
+        "windows-arm": "17"
+      }
     },
-    "python": "Python.Python.3.0",
-    "go": "1.26.7",
-    "cbmc": "5.97.0",
-    "litani": "1.5.1",
-    "universal-ctags": "0.0.0",
-    "kcov": "0.0.0",
-    "shellcheck": "0.10.0",
-    "buf": "1.38.0",
-    "pre-commit": "4.0.1",
-    "llama-cpp": "b10760",
-    "zig-minisign": {
-      "key": "RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
+    "python": {
+      "version": "Python.Python.3.0"
+    },
+    "go": {
+      "version": "1.26.7"
+    },
+    "cbmc": {
+      "version": "5.97.0"
+    },
+    "litani": {
+      "version": "1.5.1"
+    },
+    "universal-ctags": {
+      "version": "0.0.0"
+    },
+    "kcov": {
+      "version": "0.0.0"
+    },
+    "shellcheck": {
+      "version": "0.10.0"
+    },
+    "buf": {
+      "version": "1.38.0"
+    },
+    "pre-commit": {
+      "version": "4.0.1"
+    },
+    "llama-cpp": {
+      "version": "b10760",
+      "options": {
+        "base_url": "https://github.com/ggml-org/llama.cpp/releases/download/{version}",
+        "sha256": {
+          "linux-x86": "00cfac8189ebec8d5576c2a5acfcd7bff230ec2aa4b8454a8f2fa77548b4cc15",
+          "linux-arm": "ea26ba267c3a81e014bc1342fb3310cfeaab29e96c831b211bde9770078e666f",
+          "macos-x86": "909188c4feef3519a4f5e95001b41dd35f07319b81ee4965fcbb524e7bc8e3a9",
+          "macos-arm": "4451e74e6f6d76838b6a10be8c0224d74f0fe2b2c9c23e9a4ff46c33855dd782",
+          "windows-x86": "ed409470580a35501b48396b0b6a6d75f7835fa9741b39af668fc94952c37e98",
+          "windows-arm": "297905bb7792a0091959af4a53d4bec5437aa37d1484a3e24d1193e8a6ae785a"
+        },
+        "filename": {
+          "linux-x86": "llama-{version}-bin-ubuntu-x64.tar.gz",
+          "linux-arm": "llama-{version}-bin-ubuntu-arm64.tar.gz",
+          "macos-x86": "llama-{version}-bin-macos-x64.tar.gz",
+          "macos-arm": "llama-{version}-bin-macos-arm64.tar.gz",
+          "windows-x86": "llama-{version}-bin-win-cpu-x64.zip",
+          "windows-arm": "llama-{version}-bin-win-cpu-arm64.zip"
+        },
+        "extract_dir": {
+          "linux-x86": "llama-{version}",
+          "linux-arm": "llama-{version}",
+          "macos-x86": "llama-{version}",
+          "macos-arm": "llama-{version}",
+          "windows-x86": ".",
+          "windows-arm": "."
+        },
+        "server_bin": {
+          "windows-x86": "llama-server.exe",
+          "windows-arm": "llama-server.exe"
+        }
+      }
     }
   },
   "categories": {
@@ -401,8 +471,7 @@
         "install_root": "$HOME/.local"
       },
       "idempotent_check": "command -v zig",
-      "version_ref": "zig",
-      "version_ref_sig": "zig-minisign"
+      "version_ref": "zig"
     },
     "openssl": {
       "category": "ssl",
