@@ -423,7 +423,8 @@ test-unit-fd-linux-x86-gcc:
     set -euo pipefail
     # Raised memlock limit — FD workspaces need mlock() for ~256MB+ workspace memory.
     # Default RLIMIT_MEMLOCK is 64KB which causes wksp allocation failures.
-    ulimit -l unlimited
+    # Use 2GB (2097152 KB) — works inside containers where `unlimited` is rejected.
+    ulimit -l 2097152
     timeout=600
     python3 contrib/build/orchestrator.py --platform linux-x86 build-fd {{ fd_tickoni_build }} test gcc-12
     # Source dynamic resource detection to compute safe --page-cnt and -j
