@@ -17,6 +17,45 @@
     "core": ["libfd_tango.a", "libfd_util.a", "libfd_ballet.a", "libfd_disco.a", "libfd_waltz.a"],
     "test": ["libfd_blst.a", "libfd_zstd.a", "libfd_lz4.a"]
   },
+  "llama_cpp": {
+    "version": "b10760",
+    "base_url": "https://github.com/ggml-org/llama.cpp/releases/download/{version}",
+    "install_dir": "~/work/models/llama.cpp",
+    "artifacts": {
+      "linux-x86": {
+        "filename": "llama-{version}-bin-ubuntu-x64.tar.gz",
+        "sha256": "00cfac8189ebec8d5576c2a5acfcd7bff230ec2aa4b8454a8f2fa77548b4cc15",
+        "extract_dir": "llama-{version}"
+      },
+      "linux-arm": {
+        "filename": "llama-{version}-bin-ubuntu-arm64.tar.gz",
+        "sha256": "ea26ba267c3a81e014bc1342fb3310cfeaab29e96c831b211bde9770078e666f",
+        "extract_dir": "llama-{version}"
+      },
+      "macos-x86": {
+        "filename": "llama-{version}-bin-macos-x64.tar.gz",
+        "sha256": "909188c4feef3519a4f5e95001b41dd35f07319b81ee4965fcbb524e7bc8e3a9",
+        "extract_dir": "llama-{version}"
+      },
+      "macos-arm": {
+        "filename": "llama-{version}-bin-macos-arm64.tar.gz",
+        "sha256": "4451e74e6f6d76838b6a10be8c0224d74f0fe2b2c9c23e9a4ff46c33855dd782",
+        "extract_dir": "llama-{version}"
+      },
+      "windows-x86": {
+        "filename": "llama-{version}-bin-win-cpu-x64.zip",
+        "sha256": "ed409470580a35501b48396b0b6a6d75f7835fa9741b39af668fc94952c37e98",
+        "extract_dir": ".",
+        "server_bin": "llama-server.exe"
+      },
+      "windows-arm": {
+        "filename": "llama-{version}-bin-win-cpu-arm64.zip",
+        "sha256": "297905bb7792a0091959af4a53d4bec5437aa37d1484a3e24d1193e8a6ae785a",
+        "extract_dir": ".",
+        "server_bin": "llama-server.exe"
+      }
+    }
+  },
   "source_sets": {
     "libs": [
       "src/tango", "src/util", "src/ballet", "src/disco", "src/waltz",
