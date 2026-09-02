@@ -10,105 +10,104 @@ name: Build Stage
 
 on:
   workflow_call:
+    jobs:
+      build:
+        name: ${{ matrix.platform-name }}
+        runs-on: ${{ matrix.runner }}
+        timeout-minutes: ${{ matrix.timeout_minutes }}
+        strategy:
+          fail-fast: false
+          matrix:
+            include:
+              # Canonical: Linux x86_64
+              - platform-name: Linux x86_64
+                runner: ubuntu-24.04
+                timeout_minutes: 30
+                artifact-name: build-linux-x86
+                setup-recipe: setup-build-linux-x86-gcc
+                setup-fd: setup-fd-linux-x86-gcc
+                build-recipe: build-fd-tk-libs
+                build-tk-recipe: build-tk-linux-x86
+              # macOS 15
+              - platform-name: macOS 15 (x86_64)
+                runner: macos-15-intel
+                timeout_minutes: 30
+                artifact-name: build-macos-15-x86_64
+                setup-recipe: setup-build-macos-x86
+                setup-fd: setup-fd-macos-x86
+                build-recipe: build-fd-macos-x86
+                build-tk-recipe: build-tk-macos-x86
+              - platform-name: macOS 15 (ARM)
+                runner: macos-15
+                timeout_minutes: 30
+                artifact-name: build-macos-15-arm
+                setup-recipe: setup-build-macos-arm
+                setup-fd: setup-fd-macos-arm
+                build-recipe: build-fd-macos-arm
+                build-tk-recipe: build-tk-macos-arm
+              # macOS 26
+              - platform-name: macOS 26 (x86_64)
+                runner: macos-26-intel
+                timeout_minutes: 30
+                artifact-name: build-macos-26-x86_64
+                setup-recipe: setup-build-macos-x86
+                setup-fd: setup-fd-macos-x86
+                build-recipe: build-fd-macos-x86
+                build-tk-recipe: build-tk-macos-x86
+              - platform-name: macOS 26 (ARM)
+                runner: macos-26
+                timeout_minutes: 30
+                artifact-name: build-macos-26-arm
+                setup-recipe: setup-build-macos-arm
+                setup-fd: setup-fd-macos-arm
+                build-recipe: build-fd-macos-arm
+                build-tk-recipe: build-tk-macos-arm
+              # Windows x86_64
+              - platform-name: Windows x86_64
+                runner: windows-2025-vs2026
+                timeout_minutes: 45
+                artifact-name: build-windows-x86_64
+                setup-recipe: setup-build-windows-x86
+                setup-fd: setup-fd-windows-x86
+                build-recipe: build-fd-windows-x86
+                build-tk-recipe: build-tk-windows-x86
+              # Windows ARM64
+              - platform-name: Windows ARM64
+                runner: windows-11-vs2026-arm
+                timeout_minutes: 45
+                artifact-name: build-windows-arm
+                setup-recipe: setup-build-windows-arm
+                setup-fd: setup-fd-windows-arm
+                build-recipe: build-fd-windows-arm
+                build-tk-recipe: build-tk-windows-arm
 
-jobs:
-  build:
-    name: ${{ matrix.platform-name }}
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: ${{ matrix.timeout_minutes }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Canonical: Linux x86_64
-          - platform-name: Linux x86_64
-            runner: ubuntu-24.04
-            timeout_minutes: 30
-            artifact-name: build-linux-x86
-            setup-recipe: setup-build-linux-x86-gcc
-            setup-fd: setup-fd-linux-x86-gcc
-            build-recipe: build-fd-tk-libs
-            build-tk-recipe: build-tk-linux-x86
-          # macOS 15
-          - platform-name: macOS 15 (x86_64)
-            runner: macos-15-intel
-            timeout_minutes: 30
-            artifact-name: build-macos-15-x86_64
-            setup-recipe: setup-build-macos-x86
-            setup-fd: setup-fd-macos-x86
-            build-recipe: build-fd-macos-x86
-            build-tk-recipe: build-tk-macos-x86
-          - platform-name: macOS 15 (ARM)
-            runner: macos-15
-            timeout_minutes: 30
-            artifact-name: build-macos-15-arm
-            setup-recipe: setup-build-macos-arm
-            setup-fd: setup-fd-macos-arm
-            build-recipe: build-fd-macos-arm
-            build-tk-recipe: build-tk-macos-arm
-          # macOS 26
-          - platform-name: macOS 26 (x86_64)
-            runner: macos-26-intel
-            timeout_minutes: 30
-            artifact-name: build-macos-26-x86_64
-            setup-recipe: setup-build-macos-x86
-            setup-fd: setup-fd-macos-x86
-            build-recipe: build-fd-macos-x86
-            build-tk-recipe: build-tk-macos-x86
-          - platform-name: macOS 26 (ARM)
-            runner: macos-26
-            timeout_minutes: 30
-            artifact-name: build-macos-26-arm
-            setup-recipe: setup-build-macos-arm
-            setup-fd: setup-fd-macos-arm
-            build-recipe: build-fd-macos-arm
-            build-tk-recipe: build-tk-macos-arm
-          # Windows x86_64
-          - platform-name: Windows x86_64
-            runner: windows-2025-vs2026
-            timeout_minutes: 45
-            artifact-name: build-windows-x86_64
-            setup-recipe: setup-build-windows-x86
-            setup-fd: setup-fd-windows-x86
-            build-recipe: build-fd-windows-x86
-            build-tk-recipe: build-tk-windows-x86
-          # Windows ARM64
-          - platform-name: Windows ARM64
-            runner: windows-11-vs2026-arm
-            timeout_minutes: 45
-            artifact-name: build-windows-arm
-            setup-recipe: setup-build-windows-arm
-            setup-fd: setup-fd-windows-arm
-            build-recipe: build-fd-windows-arm
-            build-tk-recipe: build-tk-windows-arm
+        steps:
+          - name: Checkout
+            uses: actions/checkout@v7
+            with:
+              fetch-depth: 0
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+          - name: Install just
+            uses: taiki-e/install-action@just
 
-      - name: Install just
-        uses: taiki-e/install-action@just
+          - name: Setup toolchain
+            run: just ${{ matrix.setup-recipe }}
 
-      - name: Setup toolchain
-        run: just ${{ matrix.setup-recipe }}
+          - name: Setup Firedancer deps
+            run: just ${{ matrix.setup-fd }}
 
-      - name: Setup Firedancer deps
-        run: just ${{ matrix.setup-fd }}
+          - name: Build FD libraries
+            run: just ${{ matrix.build-recipe }}
 
-      - name: Build FD libraries
-        run: just ${{ matrix.build-recipe }}
+          - name: Build Tickoni supervisor
+            run: just ${{ matrix.build-tk-recipe }}
 
-      - name: Build Tickoni supervisor
-        run: just ${{ matrix.build-tk-recipe }}
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ matrix.artifact-name }}
-          path: |
-            build/
-            target/
-            zig-out/
-          retention-days: 3
+          - name: Upload build artifact
+            uses: actions/upload-artifact@v7
+            with:
+              name: ${{ matrix.artifact-name }}
+              path: |
+                build/
+                target/
+                zig-out/
+              retention-days: 3
