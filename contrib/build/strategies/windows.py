@@ -166,8 +166,8 @@ def compile_libuuid_stub(
     target_flags = ""
     if "clang" in os.path.basename(cc).lower():
         target_map = {
-            "x86_64": "--target=x86_64-windows-msvc",
-            "arm64": "--target=arm64-windows-msvc",
+            "x86_64": "--target=x86_64-pc-windows-msvc",
+            "arm64": "--target=aarch64-pc-windows-msvc",
         }
         target_flags = target_map.get(arch, "")
 
@@ -191,11 +191,13 @@ def compile_libuuid_stub(
                      stub_src])
         subprocess.run(args, check=True, cwd=root_dir)
     except subprocess.CalledProcessError as e:
-        print(f"[+] libuuid_stub compilation failed: {e}")
-        return
-    except FileNotFoundError:
-        print(f"[+] compiler '{cc}' not found for libuuid_stub")
-        return
+        raise RuntimeError(
+            f"failed to compile Windows UUID compatibility stub with '{cc}'"
+        ) from e
+    except FileNotFoundError as e:
+        raise RuntimeError(
+            f"compiler '{cc}' not found for Windows UUID compatibility stub"
+        ) from e
 
     # Archive
     ar_tool = resolve_ar(cc)

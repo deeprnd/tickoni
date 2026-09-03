@@ -15,3 +15,14 @@ def test_windows_supervisor_links_uuid_archive_from_fd_lib_dir():
     assert "linkTickoniWindowsUuid(b, exe, fd_lib_dir);" in supervisor_branch
     assert "fn linkTickoniWindowsUuid" in text
     assert '"{s}/libuuid.a"' in text
+
+
+def test_windows_uuid_stub_build_uses_canonical_arm64_target_and_fails_loudly():
+    windows_strategy = (
+        Path(__file__).resolve().parents[1] / "build" / "strategies" / "windows.py"
+    ).read_text()
+    assert '"arm64": "--target=aarch64-pc-windows-msvc"' in windows_strategy
+    assert "failed to compile Windows UUID compatibility stub" in windows_strategy
+    assert "return" not in windows_strategy.split(
+        "except subprocess.CalledProcessError", 1
+    )[1].split("# Archive", 1)[0]
