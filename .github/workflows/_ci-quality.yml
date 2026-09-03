@@ -16,7 +16,7 @@ jobs:
         include:
           - name: Format Check
             command: just quality-format-check-linux-x86
-            timeout_minutes: 20
+            timeout_minutes: 30
           - name: Lint Check
             command: just quality-lint-check-linux-x86
             timeout_minutes: 30

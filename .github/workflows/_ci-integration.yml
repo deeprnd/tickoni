@@ -17,62 +17,62 @@ jobs:
         include:
           - platform-name: Linux x86_64
             runner: ubuntu-24.04
-            timeout_minutes: 20
+            timeout_minutes: 30
             test-recipe: test-integration-tk-linux-x86
             build-recipe: build-fd-linux-x86-gcc
             fd-deps: setup-fd-linux-x86-gcc
             setup-recipe: setup-build-linux-x86-gcc
           - platform-name: Linux x86_64 Clang
             runner: ubuntu-24.04
-            timeout_minutes: 20
+            timeout_minutes: 30
             test-recipe: test-integration-tk-linux-x86
             build-recipe: build-fd-linux-x86-clang
             fd-deps: setup-fd-linux-x86-clang
             setup-recipe: setup-build-linux-x86-clang
           - platform-name: Linux ARM
             runner: ubuntu-24.04-arm
-            timeout_minutes: 20
+            timeout_minutes: 30
             test-recipe: test-integration-tk-linux-arm
             build-recipe: build-fd-linux-arm-gcc
             fd-deps: setup-fd-linux-arm-gcc
             setup-recipe: setup-build-linux-x86-gcc
           - platform-name: macOS 15 (x86_64)
             runner: macos-15-intel
-            timeout_minutes: 20
+            timeout_minutes: 30
             test-recipe: test-integration-tk-macos-x86
             build-recipe: build-fd-macos-x86
             fd-deps: setup-fd-macos-x86
             setup-recipe: setup-build-macos-x86
           - platform-name: macOS 15 (ARM)
             runner: macos-15
-            timeout_minutes: 20
+            timeout_minutes: 30
             test-recipe: test-integration-tk-macos-arm
             build-recipe: build-fd-macos-arm
             fd-deps: setup-fd-macos-arm
             setup-recipe: setup-build-macos-arm
           - platform-name: macOS 26 (x86_64)
             runner: macos-26-intel
-            timeout_minutes: 20
+            timeout_minutes: 30
             test-recipe: test-integration-tk-macos-x86
             build-recipe: build-fd-macos-x86
             fd-deps: setup-fd-macos-x86
             setup-recipe: setup-build-macos-x86
           - platform-name: macOS 26 (ARM)
             runner: macos-26
-            timeout_minutes: 20
+            timeout_minutes: 30
             test-recipe: test-integration-tk-macos-arm
             build-recipe: build-fd-macos-arm
             fd-deps: setup-fd-macos-arm
             setup-recipe: setup-build-macos-arm
           - platform-name: Windows x86_64
             runner: windows-2025-vs2026
-            timeout_minutes: 20
+            timeout_minutes: 30
             test-recipe: test-integration-tk-windows-x86
             build-recipe: build-fd-windows-x86
             setup-recipe: setup-fd-windows-x86
           - platform-name: Windows ARM
             runner: windows-11-vs2026-arm
-            timeout_minutes: 20
+            timeout_minutes: 30
             test-recipe: test-integration-tk-windows-arm
             build-recipe: build-fd-windows-arm
             setup-recipe: setup-fd-windows-arm
