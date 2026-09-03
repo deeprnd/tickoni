@@ -12,6 +12,16 @@ def load_config():
         return json.load(f)
 
 
+def env_flag(name):
+    """Interpret an environment variable as a boolean flag.
+
+    Accepts the common truthy spellings (``1``, ``true``, ``yes``, ``on``,
+    case-insensitive) so callers such as ``SKIP_IDEMPOTENCY=1`` and
+    ``SKIP_IDEMPOTENCY=true`` behave identically.
+    """
+    return os.environ.get(name, '').strip().lower() in ('1', 'true', 'yes', 'on')
+
+
 def resolve_version(config, version_ref):
     """Resolve a version reference from config.versions."""
     if not version_ref:

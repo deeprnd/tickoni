@@ -11,7 +11,7 @@ from pathlib import Path
 from ..base import InstallStrategy
 from .. import register
 from .download import _download_and_verify, _extract_archive, _expand_home
-from config import resolve_version
+from config import resolve_version, env_flag
 from shell import bash_command
 
 
@@ -67,7 +67,7 @@ class OpenSSLBuildStrategy(InstallStrategy):
         install_path = Path(install_dir)
 
         # Idempotency check (respect SKIP_IDEMPOTENCY env var)
-        skip = os.environ.get('SKIP_IDEMPOTENCY') == 'true'
+        skip = env_flag('SKIP_IDEMPOTENCY')
         if not skip and install_path.joinpath('lib', 'libssl.a').exists():
             print(f"OpenSSL already installed: {install_dir}")
             return

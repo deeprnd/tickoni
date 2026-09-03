@@ -25,7 +25,7 @@ if _script_dir not in sys.path:
 
 # ── Imports ──────────────────────────────────────────────────────────────────
 
-from config import load_config
+from config import load_config, env_flag
 from resolver import DependencyResolver
 from platform import matches_platform, detect_platform
 from install import get as get_strategy
@@ -98,7 +98,7 @@ def main():
     args = parser.parse_args()
 
     # Support SKIP_IDEMPOTENCY env var (used by justfile recipes)
-    skip_idempotency = args.skip_idempotency or os.environ.get('SKIP_IDEMPOTENCY') == 'true'
+    skip_idempotency = args.skip_idempotency or env_flag('SKIP_IDEMPOTENCY')
 
     if args.deps:
         config = load_config()
