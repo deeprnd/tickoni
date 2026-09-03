@@ -584,7 +584,7 @@
           },
           "darwin": {
             "arm64": "gitleaks_{version}_darwin_arm64.tar.gz",
-            "x86_64": "gitleaks_{version}_darwin_x64.tar.gz"
+            "amd64": "gitleaks_{version}_darwin_x64.tar.gz"
           },
           "windows": {
             "amd64": "gitleaks_{version}_windows_x64.zip",

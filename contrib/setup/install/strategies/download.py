@@ -202,6 +202,8 @@ class GitHubReleaseStrategy(DownloadInstallStrategy):
             return ('', '', '', False)
 
         os_name, arch = get_platform_from_string(platform_str)
+        if os_name == 'macos':
+            os_name = 'darwin'
         asset_pattern_os_map = params.get('asset_pattern_os_map', {})
         asset_pattern = params.get('asset_pattern', '')
         pattern = ''
