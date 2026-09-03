@@ -99,7 +99,7 @@ cmd_sanitize_check_tk() {
   run_step "build fd-tickoni-fd libs" \
     python3 contrib/build/orchestrator.py build-fd fd-tickoni-fd test gcc "lz4 blst zstd nanopb"
   run_step "zig releasesafe" \
-    zig build -Dtest=true test -Dfd-lib-dir=build/fd-tickoni-fd/lib -Doptimize=ReleaseSafe
+    zig build -Dtest=1 test -Dfd-lib-dir=build/fd-tickoni-fd/lib -Doptimize=ReleaseSafe
 }
 
 case "${1:-}" in
