@@ -416,7 +416,7 @@
         "package": "make",
         "winget_id": "GnuWin32.Make"
       },
-      "idempotent_check": "case \"$(uname -s 2>/dev/null)\" in Darwin) command -v gmake ;; *) command -v make ;; esac"
+      "idempotent_check": "command -v gmake || command -v make"
     },
     "cmake": {
       "category": "build",
