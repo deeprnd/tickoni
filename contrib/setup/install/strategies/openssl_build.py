@@ -12,6 +12,7 @@ from ..base import InstallStrategy
 from .. import register
 from .download import _download_and_verify, _extract_archive, _expand_home
 from config import resolve_version
+from shell import bash_command
 
 
 @register('openssl_build')
@@ -119,7 +120,7 @@ class OpenSSLBuildStrategy(InstallStrategy):
         env = os.environ.copy()
         env['TK_PLATFORM'] = platform_str
 
-        result = subprocess.run(['bash', script_path], env=env, capture_output=True, text=True)
+        result = subprocess.run([bash_command(), script_path], env=env, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"ERROR: {script} failed (exit {result.returncode})", file=sys.stderr)
             print(result.stdout[-3000:] if result.stdout else "(no stdout)")

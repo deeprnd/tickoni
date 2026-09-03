@@ -1,6 +1,7 @@
 """Platform string helpers and matching."""
 import os
 import subprocess
+from shell import bash_command
 
 
 def matches_platform(tool, platform_key):
@@ -26,7 +27,7 @@ def detect_platform(args_platform):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         repo_root = os.path.dirname(os.path.dirname(script_dir))
         plat = subprocess.check_output(
-            ['bash', 'contrib/platform.sh', 'platform'],
+            [bash_command(), 'contrib/platform.sh', 'platform'],
             stderr=subprocess.DEVNULL,
             cwd=repo_root,
         ).decode().strip()

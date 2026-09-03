@@ -5,6 +5,7 @@ import sys
 import tempfile
 from ..base import InstallStrategy
 from .. import register
+from shell import bash_command
 
 
 @register('build_from_source')
@@ -55,7 +56,7 @@ class BuildFromSourceStrategy(InstallStrategy):
 
         print("[DEPS] Running deps.sh check...")
         check_result = subprocess.run(
-            ['bash', deps_script, 'check'],
+            [bash_command(), deps_script, 'check'],
             capture_output=True, text=True, env=env,
         )
         if check_result.returncode != 0:
@@ -67,7 +68,7 @@ class BuildFromSourceStrategy(InstallStrategy):
 
         print("[DEPS] Running deps.sh install...")
         install_result = subprocess.run(
-            ['bash', deps_script, 'install'],
+            [bash_command(), deps_script, 'install'],
             capture_output=True, text=True, env=env,
         )
         if install_result.returncode != 0:
@@ -113,7 +114,7 @@ class BuildFromSourceStrategy(InstallStrategy):
             print(f"[BUILD] Running {script}...")
             env = os.environ.copy()
             env['TK_PLATFORM'] = platform_str
-            result = subprocess.run(['bash', script_path], env=env, capture_output=True, text=True)
+            result = subprocess.run([bash_command(), script_path], env=env, capture_output=True, text=True)
             if result.returncode != 0:
                 print(f"WARNING: {script} failed (exit {result.returncode})")
         else:
