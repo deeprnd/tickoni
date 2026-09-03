@@ -2,9 +2,11 @@
 import hashlib
 import json
 import os
+import shutil
+import sys
 import urllib.request
 from pathlib import Path
-from ..base import DownloadInstallStrategy, _run_cmd, _download_file
+from ..base import DownloadInstallStrategy, _activate_path, _run_cmd, _download_file
 from .. import register
 from config import resolve_version
 from platform import get_platform_from_string
@@ -299,20 +301,45 @@ class GitHubReleaseStrategy(DownloadInstallStrategy):
                 _run_cmd(['sudo', 'apt-get', 'install', '-y', '--no-install-recommends', str(deb_path), 'universal-ctags'])
 
 
+def _relocate_dir(src: Path, dest: str) -> None:
+    """Replace the directory tree at *dest* with *src*, using sudo if needed."""
+    parent = os.path.dirname(os.path.abspath(dest))
+    existing_ancestor = parent
+    while existing_ancestor and not os.path.isdir(existing_ancestor):
+        existing_ancestor = os.path.dirname(existing_ancestor)
+    can_write = os.access(existing_ancestor, os.W_OK) and (
+        not os.path.exists(dest) or os.access(dest, os.W_OK)
+    )
+    if can_write:
+        os.makedirs(parent, exist_ok=True)
+        if os.path.exists(dest):
+            shutil.rmtree(dest)
+        shutil.move(str(src), dest)
+    else:
+        _run_cmd(['sudo', 'rm', '-rf', dest])
+        _run_cmd(['sudo', 'mkdir', '-p', parent])
+        _run_cmd(['sudo', 'cp', '-a', str(src), dest])
+
+
 @register('binary_download')
 class BinaryDownloadStrategy(DownloadInstallStrategy):
-    """Install via arbitrary binary download."""
+    """Install a toolchain shipped as a versioned tarball.
+
+    The archive is expected to unpack to a single top-level directory (the Go
+    distribution's ``go1.x.y.<os>-<arch>.tar.gz`` unpacks to ``go/``). That
+    directory is moved into ``install_dir`` and the configured ``bin_dirs``
+    are put on PATH for the rest of the run, ``$GITHUB_PATH``, and the shell.
+    """
 
     def _resolve_url(self, tool: dict, config: dict, platform_str: str) -> tuple[str, str, str, bool]:
         params = tool['parameters']
         url_pattern = params.get('url_pattern', '')
-        install_dir = params.get('install_dir', '/usr/local')
         version_ref = params.get('version_ref')
 
         version = resolve_version(config, version_ref)
         if not version:
-            print(f"ERROR: no version for {tool['name']}", file=__import__('sys').stderr)
-            __import__('sys').exit(1)
+            print(f"ERROR: no version for {tool['name']}", file=sys.stderr)
+            sys.exit(1)
 
         os_name, arch = get_platform_from_string(platform_str)
         if os_name == 'macos':
@@ -324,6 +351,54 @@ class BinaryDownloadStrategy(DownloadInstallStrategy):
         url = url_pattern.replace('{version}', version)
         url = url.replace('{{.os}}', os_name).replace('{{.arch}}', arch)
         return (url, version, os.path.basename(url), False)
+
+    def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool) -> None:
+        url, version, pattern, _ = self._resolve_url(tool, config, platform_str)
+        params = tool['parameters']
+        name = tool['name']
+        install_dir = _expand_home(params.get('install_dir', f'/usr/local/{name}'))
+        bin_name = params.get('bin_name', name)
+        bin_dirs = params.get('bin_dirs', [os.path.join(install_dir, 'bin')])
+        primary_bin = os.path.join(install_dir, 'bin', bin_name)
+
+        if dry_run:
+            print(f"  [DRY-RUN] Would download {url} -> {install_dir}")
+            return
+
+        if os.path.isfile(primary_bin) and os.access(primary_bin, os.X_OK):
+            print(f"{name} already installed: {install_dir}")
+            _activate_path(bin_dirs)
+            return
+
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            archive_path = Path(tmpdir) / pattern
+            self._download_file(url, archive_path)
+            if not archive_path.exists() or archive_path.stat().st_size == 0:
+                print(f"ERROR: downloaded file is empty: {url}", file=sys.stderr)
+                sys.exit(1)
+
+            extract_root = Path(tmpdir) / 'extract'
+            extract_root.mkdir()
+            self._extract(archive_path, str(extract_root))
+
+            children = [p for p in extract_root.iterdir() if p.is_dir()]
+            if len(children) != 1:
+                print(
+                    f"ERROR: expected one top-level directory in {pattern}, "
+                    f"found {len(children)}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+            _relocate_dir(children[0], install_dir)
+
+        if not os.path.isfile(primary_bin):
+            print(f"ERROR: {bin_name} not found after install: {primary_bin}", file=sys.stderr)
+            sys.exit(1)
+
+        _activate_path(bin_dirs)
+        print(f"[INSTALLED] {name} {version} -> {install_dir}")
 
 
 @register('archive_download')
