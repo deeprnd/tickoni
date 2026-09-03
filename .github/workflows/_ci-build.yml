@@ -29,6 +29,24 @@ jobs:
             setup-fd: setup-fd-linux-x86-gcc
             build-recipe: build-fd-tk-libs
             build-tk-recipe: build-tk-linux-x86
+          # Linux x86_64 (clang)
+          - platform-name: Linux x86_64 (clang)
+            runner: ubuntu-24.04
+            timeout_minutes: 30
+            artifact-name: build-linux-x86-clang
+            setup-recipe: setup-build-linux-x86-clang
+            setup-fd: setup-fd-linux-x86-clang
+            build-recipe: build-fd-tk-libs
+            build-tk-recipe: build-tk-linux-x86
+          # Linux ARM64
+          - platform-name: Linux ARM64
+            runner: ubuntu-24.04-arm
+            timeout_minutes: 30
+            artifact-name: build-linux-arm
+            setup-recipe: setup-build-linux-arm-gcc
+            setup-fd: setup-fd-linux-arm-gcc
+            build-recipe: build-fd-tk-libs
+            build-tk-recipe: build-tk-linux-arm
           # macOS 15
           - platform-name: macOS 15 (x86_64)
             runner: macos-15-intel
