@@ -84,14 +84,14 @@ jobs:
       - name: Install just
         uses: taiki-e/install-action@just
 
-      - name: Build Firedancer libs
-        run: just ${{ matrix.build-recipe }}
-
       - name: Setup toolchain (for test commands)
         run: just ${{ matrix.setup-recipe }}
 
       - name: Setup Firedancer deps (zig + SSL)
         run: just ${{ matrix.fd-deps }}
+
+      - name: Build Firedancer libs
+        run: just ${{ matrix.build-recipe }}
 
       - name: Run integration tests
         run: just ${{ matrix.test-recipe }}
