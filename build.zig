@@ -419,13 +419,22 @@ pub fn build(b: *std.Build) void {
     if (target.result.os.tag == .windows) {
         exe.root_module.linkLibrary(addTickoniSupervisorShimLibrary(b, target, optimize));
         addWindowsFdManifestFixups(b, exe, b.fmt("{s}/fd_windows_zig_supervisor_link.txt", .{fd_lib_dir}));
+    } else if (target.result.cpu.arch == .aarch64) {
+        // ARM64 Linux: use explicit archive paths (like Windows) to preserve link order
+        // with ld.lld, and link libatomic for ARM64 CAS intrinsics.
+        addTickoniCodecShim(b, exe);
+        addTickoniFiredancerShims(b, exe);
+        addTickoniTopoRunShims(b, exe);
+        addTickoniTileRunShim(b, exe);
+        linkTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
+        exe.root_module.linkSystemLibrary("atomic", .{});
     } else {
         addTickoniCodecShim(b, exe);
         addTickoniFiredancerShims(b, exe);
         addTickoniTopoRunShims(b, exe);
         addTickoniTileRunShim(b, exe);
+        linkTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
     }
-    linkTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
     b.installArtifact(exe);
 
     const run_exe = b.addRunArtifact(exe);
@@ -2298,15 +2307,13 @@ fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) void 
 
 fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8, libs: []const []const u8) void {
     step.root_module.addLibraryPath(b.path(fd_lib_dir));
-    if (step.root_module.resolved_target.?.result.os.tag == .windows) {
-        // Link the concrete archives directly. Calling linkSystemLibrary on
-        // Windows makes Zig probe pkg-config.BAT before it resolves the
-        // archive, even though these libraries are already in fd_lib_dir.
-        // Direct archive paths also preserve the repeated archive closure
-        // needed by COFF linking across deep/transitive dependencies.
-        for (libs) |lib| {
-            step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib }) });
-        }
+    const os_tag = step.root_module.resolved_target.?.result.os.tag;
+    const cpu_arch = step.root_module.resolved_target.?.result.cpu.arch;
+    if (os_tag == .windows or (os_tag == .linux and cpu_arch == .aarch64)) {
+        // Windows and ARM64 Linux: use explicit archive paths. On Windows this avoids
+        // pkg-config.BAT probing; on ARM64 Linux it preserves link order with ld.lld,
+        // which is required because fd_sandbox_* symbols from libfd_util.a must be
+        // resolved after the shim wrappers in sandbox.c reference them.
         for (libs) |lib| {
             step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib }) });
         }
