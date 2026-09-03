@@ -91,8 +91,9 @@ class OpenSSLBuildStrategy(InstallStrategy):
             # Extract into install_dir/git — the script expects ${PREFIX}/git/openssl
             git_dir = os.path.join(install_dir, 'git')
             os.makedirs(git_dir, exist_ok=True)
-            _extract_archive(archive_path, git_dir, resolved['extract_dir'], version)
-            # Rename versioned dir → openssl (matching script's src_dir)
+            # Use extract_dir='.' to skip flattening, preserving the versioned root dir
+            _extract_archive(archive_path, git_dir, '.', version)
+            # Now we have git/openssl-3.6.4/ — rename to git/openssl/ (matching script's src_dir)
             renamed = Path(git_dir) / 'openssl'
             if renamed.exists():
                 import shutil

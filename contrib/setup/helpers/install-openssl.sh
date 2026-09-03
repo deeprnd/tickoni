@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# install-openssl.sh — Fetch and build OpenSSL 3.6.2 from source
-# This is the openssl-3.6.2 build from deps.sh, extracted as a standalone
+# install-openssl.sh — Build OpenSSL 3.6.4 from source
+# This is the openssl-3.6.4 build from deps.sh, extracted as a standalone
 # helper so our setup scripts don't need deps.sh at all.
 #
 # Usage: bash contrib/setup/helpers/install-openssl.sh [--prefix PATH]
@@ -92,13 +92,14 @@ CONFIG_OPTS=(
 
 # ── Linux ────────────────────────────────────────────────────────────────────
 build_linux() {
-  echo "[openssl] Building OpenSSL 3.6.2 for Linux ($(uname -m))"
+  echo "[openssl] Building OpenSSL 3.6.4 for Linux ($(uname -m))"
   local src_dir="${PREFIX}/git/openssl"
+
   cd "${src_dir}"
 
   # Apply config patches for Linux (deps.sh lines 543-544)
   local cf_opts="-g3 -fno-omit-frame-pointer"
-  case "${host_arch}" in
+  case "$(uname -m)" in
     x86_64|i686) cf_opts+=" -fcf-protection=return" ;;
   esac
   CFLAGS="${cf_opts}" \
