@@ -419,8 +419,7 @@ pub fn build(b: *std.Build) void {
     if (target.result.os.tag == .windows) {
         exe.root_module.linkLibrary(addTickoniSupervisorShimLibrary(b, target, optimize));
         addWindowsFdManifestFixups(b, exe, b.fmt("{s}/fd_windows_zig_supervisor_link.txt", .{fd_lib_dir}));
-        exe.root_module.addLibraryPath(b.path(fd_lib_dir));
-        linkTickoniWindowsUuid(b, exe, fd_lib_dir);
+        linkTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
     } else if (target.result.cpu.arch == .aarch64) {
         // ARM64 Linux: use explicit archive paths (like Windows) to preserve link order
         // with ld.lld, and link libatomic for ARM64 CAS intrinsics.
