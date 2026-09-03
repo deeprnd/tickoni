@@ -25,6 +25,43 @@ def _python_commands() -> list[list[str]]:
     return commands
 
 
+def _has_pip(command: list[str]) -> bool:
+    """Return True if ``python -m pip`` works for *command*."""
+    try:
+        probe = subprocess.run(
+            command + ["-m", "pip", "--version"], capture_output=True, text=True
+        )
+    except FileNotFoundError:
+        return False
+    return probe.returncode == 0
+
+
+def _bootstrap_pip(command: list[str], platform_str: str) -> None:
+    """Best-effort: make ``python -m pip`` available for *command*.
+
+    Debian/Ubuntu ships a minimal ``python3`` without pip or venv; pipx also
+    needs venv. Try the stdlib bootstrapper first, then the distro package.
+    """
+    if _has_pip(command):
+        return
+
+    subprocess.run(
+        command + ["-m", "ensurepip", "--upgrade", "--default-pip"],
+        capture_output=True, text=True,
+    )
+    if _has_pip(command):
+        return
+
+    if "linux" in platform_str and shutil.which("apt-get"):
+        from config import _apt_update
+        _apt_update()
+        apt = ["apt-get", "install", "-y", "--no-install-recommends",
+               "python3-pip", "python3-venv"]
+        result = subprocess.run(["sudo", "-n", *apt], capture_output=True, text=True)
+        if result.returncode != 0 and "password" in (result.stderr or "").lower():
+            subprocess.run(apt, capture_output=True, text=True)
+
+
 def _run_pip(package: str, platform_str: str):
     """Run pip, falling back when a Windows interpreter cannot be spawned."""
     args = ["-m", "pip", "install", "--upgrade", package]
@@ -34,6 +71,7 @@ def _run_pip(package: str, platform_str: str):
 
     missing: list[str] = []
     for command in _python_commands():
+        _bootstrap_pip(command, platform_str)
         try:
             return subprocess.run(command + args, capture_output=True, text=True)
         except FileNotFoundError:

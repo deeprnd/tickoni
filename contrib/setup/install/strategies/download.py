@@ -97,7 +97,7 @@ def _verify_minisign(archive_path: Path, sig_path: Path, pubkey: str) -> None:
         )
         return
 
-    cmd = [minisign, "V", "-P", pubkey, "-x", str(sig_path), "-m", str(archive_path)]
+    cmd = [minisign, "-V", "-P", pubkey, "-x", str(sig_path), "-m", str(archive_path)]
     print(f"[verify] minisig {archive_path.name} ...")
     result = subprocess.run(cmd, capture_output=False, text=True)
     if result.returncode != 0:
