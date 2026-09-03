@@ -55,6 +55,22 @@ jobs:
             fd-deps: setup-fd-macos-arm
             setup-recipe: setup-build-macos-arm
             llamacpp: infra-ensure-llamacpp
+          - platform-name: macOS 26 (x86_64)
+            runner: macos-26-intel
+            timeout_minutes: 60
+            test-recipe: test-system-tk-macos-x86
+            build-recipe: build-fd-macos-x86
+            fd-deps: setup-fd-macos-x86
+            setup-recipe: setup-build-macos-x86
+            llamacpp: infra-ensure-llamacpp
+          - platform-name: macOS 26 (ARM)
+            runner: macos-26
+            timeout_minutes: 60
+            test-recipe: test-system-tk-macos-arm
+            build-recipe: build-fd-macos-arm
+            fd-deps: setup-fd-macos-arm
+            setup-recipe: setup-build-macos-arm
+            llamacpp: infra-ensure-llamacpp
           - platform-name: Windows x86_64
             runner: windows-2025-vs2026
             timeout_minutes: 60
@@ -62,6 +78,13 @@ jobs:
             build-recipe: build-fd-windows-x86
             setup-recipe: setup-fd-windows-x86
             llamacpp: infra-ensure-llamacpp-win
+          - platform-name: Windows ARM
+            runner: windows-11-vs2026-arm
+            timeout_minutes: 60
+            test-recipe: test-system-tk-windows-arm
+            build-recipe: build-fd-windows-arm
+            setup-recipe: setup-fd-windows-arm
+            llamacpp: infra-ensure-llamacpp-win-arm
 
     steps:
       - name: Checkout

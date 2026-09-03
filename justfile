@@ -595,6 +595,7 @@ test-system-tk:
     bash contrib/test/run_live_investment_demo.sh
 
 test-system-tk-linux-x86: test-system-tk
+test-system-tk-linux-arm: test-system-tk
 test-system-tk-macos-x86: test-system-tk
 test-system-tk-macos-arm: test-system-tk
 
@@ -611,14 +612,14 @@ test-system-all:
 test-system-tk-windows-x86:
     mkdir -p build
     bash -c 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
-    bash contrib/test/run_live_investment_demo_win.sh
+    bash contrib/test/run_live_investment_demo_win.sh windows-x86
 
 # Windows ARM64 system test: build FD libs, run live test.
 # The test runner calls orchestrator.py llm-server internally.
 test-system-tk-windows-arm:
     mkdir -p build
     bash -c 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
-    bash contrib/test/run_live_investment_demo_win.sh
+    bash contrib/test/run_live_investment_demo_win.sh windows-arm
 
 # ── Infrastructure: ensure llama.cpp and model (for LLM system tests) ──────
 
@@ -628,6 +629,9 @@ infra-ensure-llamacpp:
 
 infra-ensure-llamacpp-win:
     {{ python }} contrib/setup/orchestrator.py llm-server --platform windows-x86
+
+infra-ensure-llamacpp-win-arm:
+    {{ python }} contrib/setup/orchestrator.py llm-server --platform windows-arm
 
 # Download the GGUF model for system tests (requires `hf` CLI).
 # (hf-model is handled by orchestrator.py llm-server; kept for explicitness.)
