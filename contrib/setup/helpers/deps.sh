@@ -7,21 +7,24 @@ set -euo pipefail
 FD_REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$FD_REPO_DIR"
 
-# Load OS information
-OS="$(uname -s)"
+# Source platform.sh for cross-platform OS/arch detection
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../platform.sh"
+
+# Load OS information — tk_os() returns normalized: linux, macos, windows
+OS="$(tk_os)"
 case "$OS" in
-  Darwin)
+  macos)
     MAKE=( make -j )
     ID=macos
     ;;
-  Linux)
+  linux)
     MAKE=( make -j )
     # Load distro information
     if [[ -f /etc/os-release ]]; then
       source /etc/os-release
     fi
     ;;
-  MINGW*|MSYS*|CYGWIN*)
+  windows)
     MAKE=( make -j )
     ID=windows
     ;;
@@ -49,7 +52,7 @@ _CC="${CC:=gcc}"
 _CXX="${CXX:=g++}"
 EXTRA_CFLAGS="-g3"
 EXTRA_CXXFLAGS=""
-if [[ "$(uname -m)" == x86_64 ]]; then
+if [[ "$(tk_arch)" == x86 ]]; then
   EXTRA_CFLAGS+=" -fno-omit-frame-pointer -fcf-protection=return"
   EXTRA_CXXFLAGS+=" -fno-omit-frame-pointer -fcf-protection=return"
 fi
@@ -383,7 +386,7 @@ check () {
   PACKAGE_INSTALL_CMD=( )
 
   # macOS has no /etc/os-release — must be handled separately.
-  if [[ "$OS" = "Darwin" ]]; then
+  if [[ "$OS" = "macos" ]]; then
     check_macos_pkgs
   elif [[ "$ID" = "windows" ]]; then
     check_windows_pkgs
@@ -521,7 +524,7 @@ install_openssl () {
 
   if [[ "$ID" = windows ]]; then
     local openssl_target
-    local windows_arch="${FD_WINDOWS_ARCH:-$(uname -m)}"
+    local windows_arch="${FD_WINDOWS_ARCH:-$(tk_arch)}"
     local openssl_perl="/usr/bin/perl"
     local cpanm_cmd=""
 
@@ -544,11 +547,10 @@ install_openssl () {
       }
     fi
 
-    if [[ "$windows_arch" =~ ^(arm64|aarch64)$ ]]; then
-      openssl_target="mingwarm64"
-    else
-      openssl_target="mingw64"
-    fi
+    case "${windows_arch}" in
+      arm) openssl_target="mingwarm64" ;;
+      *)   openssl_target="mingw64" ;;
+    esac
     CFLAGS="$EXTRA_CFLAGS" CXXFLAGS="$EXTRA_CXXFLAGS" "$openssl_perl" ./Configure "$openssl_target" "${CONFIG_OPTS[@]}"
   else
     CFLAGS="$EXTRA_CFLAGS" CXXFLAGS="$EXTRA_CXXFLAGS" ./config "${CONFIG_OPTS[@]}"
