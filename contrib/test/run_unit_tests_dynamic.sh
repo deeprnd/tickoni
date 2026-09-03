@@ -18,10 +18,16 @@
 
 set -euo pipefail
 
+# Source platform.sh for cross-platform OS detection
+# Redirect stdout to /dev/null — platform.sh prints TK_OS/TK_ARCH/TK_PLATFORM
+# when sourced, but we only need the functions here.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../platform.sh" >/dev/null
+
 # ── Detect available memory (bytes) ──────────────────────────────────────────
 if command -v free &>/dev/null; then
   avail_bytes=$(free -b | awk '/Mem:/ {print $7}')
-elif command -v sysctl &>/dev/null && uname -qDar &>/dev/null; then
+elif [[ "$(tk_os)" == "macos" ]] && command -v sysctl &>/dev/null; then
   avail_bytes=$(sysctl -n hw.memsize 2>/dev/null || echo 0)
 else
   echo "ERROR: cannot detect available memory" >&2
@@ -37,7 +43,7 @@ fi
 # ── Detect CPU cores ─────────────────────────────────────────────────────────
 if command -v nproc &>/dev/null; then
   cores=$(nproc)
-elif command -v sysctl &>/dev/null && uname -qDar &>/dev/null; then
+elif [[ "$(tk_os)" == "macos" ]] && command -v sysctl &>/dev/null; then
   cores=$(sysctl -n hw.ncpu 2>/dev/null || echo 4)
 else
   cores=4

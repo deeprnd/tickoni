@@ -57,6 +57,11 @@ class Orchestrator:
         from infra.zig_build import run_zig_build
         return run_zig_build(target=target, run_tests=True)
 
+    def dynamic_test_opts(self):
+        """Run dynamic resource detection and output TEST_OPTS + LDFLAGS_EXE."""
+        from infra.dynamic_test_opts import run_dynamic_test_opts
+        return run_dynamic_test_opts()
+
 
 def main():
     parser = argparse.ArgumentParser(description="Test infrastructure orchestrator")
@@ -76,6 +81,9 @@ def main():
     zig_test_p = sub.add_parser("zig-test", help="Build and run Zig test target")
     zig_test_p.add_argument("--target", required=True, help="Zig build target")
 
+    # dynamic-test-opts
+    sub.add_parser("dynamic-test-opts", help="Compute TEST_OPTS and LDFLAGS_EXE from system resources")
+
     args = parser.parse_args()
     orch = Orchestrator()
 
@@ -87,6 +95,8 @@ def main():
         orch.zig_build(args.target)
     elif args.command == "zig-test":
         orch.zig_test(args.target)
+    elif args.command == "dynamic-test-opts":
+        orch.dynamic_test_opts()
 
 
 if __name__ == "__main__":

@@ -397,17 +397,6 @@ clean-all:
 #
 # The justfile syntax for shell subshells uses backtick-style:
 #   var := `command`
-# We source the dynamic script inline so TEST_OPTS and LDFLAGS_EXE are available
-# as justfile variables.  The dynamic script exports those variables and also
-# prints them for visibility.
-#
-# Limitation: justfile variables are evaluated once at parse time, not at
-# recipe time.  To get true per-recipe dynamic detection we use a helper
-# recipe that sources the script and passes the computed values via env vars
-# to make.
-dynamic-test-opts:
-    @source contrib/test/run_unit_tests_dynamic.sh
-
 test-all:
     @just test-unit-all
     @just test-integration-all
@@ -425,8 +414,8 @@ test-unit-fd-linux-x86-gcc:
     ulimit -l 2097152
     timeout=600
     python3 contrib/build/orchestrator.py --platform linux-x86 build-fd {{ fd_tickoni_build }} test gcc-12
-    # Source dynamic resource detection to compute safe --page-cnt and -j
-    eval "$(bash contrib/test/run_unit_tests_dynamic.sh | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
+    # Source dynamic resource detection via orchestrator (eliminates uname)
+    eval "$(python3 contrib/test/orchestrator.py dynamic-test-opts | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
     echo "Running unit tests with: $TEST_OPTS"
     {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
         LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-12 LD=gcc-12 run-unit-test TEST_OPTS="$TEST_OPTS"
