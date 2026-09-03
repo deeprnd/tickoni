@@ -16,9 +16,12 @@
       }
     },
     "openssl": {
-      "version": "3.6.2",
+      "version": "3.6.4",
       "options": {
-        "tag": "openssl-3.6.2"
+        "base_url": "https://github.com/openssl/openssl/releases/download/openssl-3.6.4",
+        "filename": "openssl-3.6.4.tar.gz",
+        "sha256": "9bffaa1ad1e07b354c21bd3324ec02fa15579f45a7d0494b3e74bc449b7333ef",
+        "extract_dir": "openssl-3.6.4"
       }
     },
     "gcc": {
@@ -476,12 +479,12 @@
     "openssl": {
       "category": "ssl",
       "platform": "all",
-      "install_method": "build_from_source",
+      "install_method": "openssl_build",
       "parameters": {
         "script": "install-openssl.sh",
-        "install_dir": "./opt"
+        "install_dir": "./build/opt"
       },
-      "idempotent_check": "test -f ./opt/lib/libssl.a",
+      "idempotent_check": "test -f ./build/opt/lib/libssl.a",
       "version_ref": "openssl"
     },
     "snappy": {

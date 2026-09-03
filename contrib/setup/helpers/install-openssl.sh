@@ -94,25 +94,6 @@ CONFIG_OPTS=(
 build_linux() {
   echo "[openssl] Building OpenSSL 3.6.2 for Linux ($(uname -m))"
   local src_dir="${PREFIX}/git/openssl"
-  local host_arch
-  host_arch="$(uname -m)"
-
-  if [[ -d "${src_dir}" && ! -d "${src_dir}/config" ]]; then
-    echo "[openssl] Removing incomplete source tree at ${src_dir}..."
-    rm -rf "${src_dir}"
-  fi
-
-  if [[ ! -d "${src_dir}/config" ]]; then
-    echo "[openssl] Fetching OpenSSL 3.6.2..."
-    mkdir -p "${PREFIX}/git"
-    (
-      cd "${PREFIX}/git"
-      git -c advice.detachedHead=false clone \
-        https://github.com/openssl/openssl \
-        openssl --branch openssl-3.6.2 --depth=1
-    )
-  fi
-
   cd "${src_dir}"
 
   # Apply config patches for Linux (deps.sh lines 543-544)
@@ -142,22 +123,6 @@ build_macos() {
   brew install flex gettext 2>/dev/null || true
 
   local src_dir="${PREFIX}/git/openssl"
-  if [[ -d "${src_dir}" && ! -d "${src_dir}/config" ]]; then
-    echo "[openssl] Removing incomplete source tree at ${src_dir}..."
-    rm -rf "${src_dir}"
-  fi
-
-  if [[ ! -d "${src_dir}/config" ]]; then
-    echo "[openssl] Fetching OpenSSL 3.6.2..."
-    mkdir -p "${PREFIX}/git"
-    (
-      cd "${PREFIX}/git"
-      git -c advice.detachedHead=false clone \
-        https://github.com/openssl/openssl \
-        openssl --branch openssl-3.6.2 --depth=1
-    )
-  fi
-
   cd "${src_dir}"
 
   # On macOS we can't have 'gettext' in PATH during configure because
@@ -214,23 +179,6 @@ build_macos() {
 build_windows() {
   echo "[openssl] Building OpenSSL 3.6.2 for Windows (MSVC)"
   local src_dir="${PREFIX}/git/openssl"
-
-  if [[ -d "${src_dir}" && ! -d "${src_dir}/config" ]]; then
-    echo "[openssl] Removing incomplete source tree at ${src_dir}..."
-    rm -rf "${src_dir}"
-  fi
-
-  if [[ ! -d "${src_dir}/config" ]]; then
-    echo "[openssl] Fetching OpenSSL 3.6.2..."
-    mkdir -p "${PREFIX}/git"
-    (
-      cd "${PREFIX}/git"
-      git -c advice.detachedHead=false clone \
-        https://github.com/openssl/openssl \
-        openssl --branch openssl-3.6.2 --depth=1
-    )
-  fi
-
   cd "${src_dir}"
 
   # Determine architecture for the OpenSSL target.
