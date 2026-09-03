@@ -86,6 +86,3 @@ else
   include config/machine/native.mk
 endif
 include config/extra/with-hosted.mk
-ifdef FD_HAS_ARM
-include config/extra/with-arm.mk
-endif
