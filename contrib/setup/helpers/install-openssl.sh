@@ -94,12 +94,14 @@ CONFIG_OPTS=(
 build_linux() {
   echo "[openssl] Building OpenSSL 3.6.4 for Linux ($(uname -m))"
   local src_dir="${PREFIX}/git/openssl"
+  local host_arch
+  host_arch="$(uname -m)"
 
   cd "${src_dir}"
 
   # Apply config patches for Linux (deps.sh lines 543-544)
   local cf_opts="-g3 -fno-omit-frame-pointer"
-  case "$(uname -m)" in
+  case "${host_arch}" in
     x86_64|i686) cf_opts+=" -fcf-protection=return" ;;
   esac
   CFLAGS="${cf_opts}" \
