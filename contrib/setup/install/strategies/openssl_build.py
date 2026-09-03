@@ -65,8 +65,9 @@ class OpenSSLBuildStrategy(InstallStrategy):
         install_dir = _expand_home(params.get('install_dir', './build/opt'))
         install_path = Path(install_dir)
 
-        # Idempotency check
-        if install_path.joinpath('lib', 'libssl.a').exists():
+        # Idempotency check (respect SKIP_IDEMPOTENCY env var)
+        skip = os.environ.get('SKIP_IDEMPOTENCY') == 'true'
+        if not skip and install_path.joinpath('lib', 'libssl.a').exists():
             print(f"OpenSSL already installed: {install_dir}")
             return
 
