@@ -35,7 +35,7 @@ jobs:
             test-recipe: test-unit-tk-linux-arm
             build-recipe: build-fd-linux-arm-gcc
             fd-deps: setup-fd-linux-arm-gcc
-            setup-recipe: setup-build-linux-x86-gcc
+            setup-recipe: setup-build-linux-arm-gcc
           - platform-name: macOS 15 (x86_64)
             runner: macos-15-intel
             timeout_minutes: 20

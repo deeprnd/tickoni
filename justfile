@@ -350,10 +350,10 @@ build-fd-linux-x86-gcc:
     python3 contrib/build/orchestrator.py --platform linux-x86 build-fd fd-tickoni-fd libs
 
 build-fd-linux-x86-clang:
-    python3 contrib/build/orchestrator.py --platform linux-x86 build-fd fd-clang libs clang-18
+    python3 contrib/build/orchestrator.py --platform linux-x86 build-fd fd-tickoni-fd libs clang-18
 
 build-fd-linux-arm-gcc:
-    python3 contrib/build/orchestrator.py --platform linux-arm build-fd fd-arm libs gcc-14
+    python3 contrib/build/orchestrator.py --platform linux-arm build-fd fd-tickoni-fd libs gcc-14
 
 build-fd-macos-x86:
     brew install llvm
