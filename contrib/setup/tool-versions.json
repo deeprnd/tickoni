@@ -687,11 +687,8 @@
     "huggingface-cli": {
       "category": "llm-server",
       "platform": "all",
-      "install_method": "pip",
-      "parameters": {
-        "package": "huggingface_hub[cli]"
-      },
-      "idempotent_check": "command -v huggingface-cli"
+      "install_method": "hf_cli",
+      "idempotent_check": "command -v hf || test -x $HOME/work/hf-cli-venv/bin/hf"
     },
     "hf-model": {
       "category": "llm-server",

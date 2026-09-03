@@ -1,10 +1,10 @@
-"""Hugging Face model download strategy — pip install huggingface_hub + hf download."""
+"""Hugging Face model download strategy — ensure the ``hf`` CLI, then download."""
 import os
-import shutil
 import subprocess
 import sys
 from ..base import InstallStrategy
 from .. import register
+from .hf_cli import ensure_hf_cli
 
 
 def _expand_home(path: str) -> str:
@@ -14,58 +14,6 @@ def _expand_home(path: str) -> str:
     elif path.startswith('~/'):
         path = os.path.join(os.environ.get('HOME', os.path.expanduser('~')), path[2:])
     return path
-
-
-def _ensure_hf_cli():
-    """Ensure huggingface_hub CLI (hf command) is available."""
-    if shutil.which('hf'):
-        return
-
-    # Try to find pip-installed scripts dirs
-    import sysconfig
-    scripts_dirs = []
-    for scheme in ('nt_user', 'posix_user', 'posix_prefix', 'nt'):
-        if scheme in sysconfig.get_scheme_names():
-            p = sysconfig.get_path('scripts', scheme=scheme)
-            if p:
-                scripts_dirs.append(p)
-
-    env_path = os.environ.get('PATH', '')
-    for sd in scripts_dirs:
-        if sd not in env_path:
-            env_path = f"{sd}:{env_path}"
-
-    if shutil.which('hf', path=env_path):
-        os.environ['PATH'] = env_path
-        return
-
-    # Install via pip
-    print("Installing huggingface_hub CLI...")
-    result = subprocess.run(
-        [sys.executable, '-m', 'pip', 'install', '--user', 'huggingface_hub[cli]'],
-        capture_output=True, text=True
-    )
-    if result.returncode != 0:
-        # Try --break-system-packages for Debian/Ubuntu
-        result = subprocess.run(
-            [sys.executable, '-m', 'pip', 'install', '--break-system-packages',
-             'huggingface_hub[cli]'],
-            capture_output=True, text=True
-        )
-    if result.returncode != 0:
-        print("ERROR: failed to install huggingface_hub", file=sys.stderr)
-        if result.stderr:
-            print(result.stderr, file=sys.stderr, end='')
-        sys.exit(1)
-
-    # Update PATH again
-    for sd in scripts_dirs:
-        env_path = f"{sd}:{env_path}"
-    os.environ['PATH'] = env_path
-
-    if not shutil.which('hf', path=env_path):
-        print("ERROR: hf CLI not found after installing huggingface_hub", file=sys.stderr)
-        sys.exit(1)
 
 
 @register('hf_model')
@@ -98,7 +46,7 @@ class HfModelStrategy(InstallStrategy):
             return
 
         # Ensure hf CLI
-        _ensure_hf_cli()
+        hf = ensure_hf_cli()
 
         # Create model dir
         os.makedirs(model_dir, exist_ok=True)
@@ -106,7 +54,7 @@ class HfModelStrategy(InstallStrategy):
         # Download
         print(f"downloading {repo_id}/{model_file} with hf...")
         result = subprocess.run(
-            ['hf', 'download', repo_id, model_file, '--local-dir', model_dir],
+            [hf, 'download', repo_id, model_file, '--local-dir', model_dir],
             capture_output=True, text=True
         )
         if result.returncode != 0:
