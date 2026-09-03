@@ -417,7 +417,8 @@
         "package": "make",
         "winget_id": "GnuWin32.Make"
       },
-      "idempotent_check": "command -v gmake || command -v make"
+      "idempotent_check": "command -v mingw32-make >/dev/null 2>&1 || { gmake --version 2>/dev/null || make --version 2>/dev/null; } | grep -qE 'GNU Make ([4-9]|[0-9][0-9])'",
+      "_note": "Firedancer's makefiles need GNU Make >= 4.0 ($(file ...) builtin). macOS ships /usr/bin/make 3.81, so a plain 'command -v make' would wrongly pass and the FD build would silently drop fd_version.o / libfd_util.a."
     },
     "cmake": {
       "category": "build",

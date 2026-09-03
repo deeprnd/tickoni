@@ -2,25 +2,47 @@
 """macOS platform strategy for Firedancer build."""
 
 import os
+import re
 import subprocess
 
 
 def resolve_make() -> str:
-    """Resolve GNU make on macOS — prefer Homebrew gmake."""
+    """Resolve GNU make on macOS — prefer Homebrew gmake.
+
+    Firedancer's makefiles use the ``$(file ...)`` builtin, added in GNU
+    Make 4.0.  macOS ships ``/usr/bin/make`` (GNU Make 3.81), which would
+    silently drop ``fd_version.o`` and fail ``libfd_util.a``; reject it so
+    the failure is a clear message instead.
+    """
     if (make := os.environ.get("JUST_GMAKE")) and os.path.isfile(make):
         return make
-    if _which("gmake"):
+    if _which("gmake") and _is_gnu_make_4plus("gmake"):
         return "gmake"
     # Homebrew keg-only llvm / make — try common prefixes
     for prefix in _homebrew_prefixes():
         bin_dir = os.path.join(prefix, "bin")
         for name in ("gmake", "make"):
             path = os.path.join(bin_dir, name)
-            if os.path.isfile(path) and os.access(path, os.X_OK):
+            if os.path.isfile(path) and os.access(path, os.X_OK) \
+                    and _is_gnu_make_4plus(path):
                 return path
-    if _which("make"):
+    if _which("make") and _is_gnu_make_4plus("make"):
         return "make"
-    raise RuntimeError("cannot find GNU make on macOS")
+    raise RuntimeError(
+        "cannot find GNU Make >= 4.0 on macOS (system /usr/bin/make is 3.81) — "
+        "run: just setup-build-macos-arm  (installs Homebrew gmake)"
+    )
+
+
+def _is_gnu_make_4plus(make: str) -> bool:
+    """True if *make* is GNU Make 4.0 or newer."""
+    try:
+        out = subprocess.check_output([make, "--version"], text=True,
+                                      stderr=subprocess.DEVNULL)
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return False
+    m = re.search(r"GNU Make (\d+)", out)
+    return bool(m) and int(m.group(1)) >= 4
 
 
 def resolve_llvm_ar() -> str:
