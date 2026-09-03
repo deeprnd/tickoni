@@ -356,11 +356,9 @@ build-fd-linux-arm-gcc:
     python3 contrib/build/orchestrator.py --platform linux-arm build-fd fd-tickoni-fd libs gcc-14
 
 build-fd-macos-x86:
-    brew install llvm
     env JUST_GMAKE="$(brew --prefix)/bin/gmake" python3 contrib/build/orchestrator.py --platform macos-x86 build-fd fd-tickoni-fd libs clang "lz4 blst zstd"
 
 build-fd-macos-arm:
-    brew install llvm
     env JUST_GMAKE="$(brew --prefix)/bin/gmake" python3 contrib/build/orchestrator.py --platform macos-arm build-fd fd-tickoni-fd libs clang "lz4 blst zstd"
 
 build-fd-windows-x86:

@@ -26,28 +26,34 @@ def resolve_make() -> str:
 def resolve_llvm_ar() -> str:
     """Resolve llvm-ar on macOS (Homebrew keg-only formula).
 
-    Homebrew's llvm formula does NOT symlink llvm-ar into the Homebrew bin
-    prefix — only under opt/Cellar paths.
+    Homebrew's llvm formula is keg-only — not symlinked into PATH.
+    We check the Homebrew prefix directly instead of relying on PATH.
     """
-    if (llvm_ar := _which("llvm-ar")):
-        return llvm_ar
     for prefix in _homebrew_prefixes():
         llvm_bin = os.path.join(prefix, "opt", "llvm", "bin")
         ar_path = os.path.join(llvm_bin, "llvm-ar")
         if os.path.isfile(ar_path) and os.access(ar_path, os.X_OK):
             return ar_path
-    # Direct Homebrew paths
-    for path in ("/opt/homebrew/opt/llvm/bin/llvm-ar",
-                 "/usr/local/opt/llvm/bin/llvm-ar"):
-        if os.path.isfile(path) and os.access(path, os.X_OK):
-            return path
     raise RuntimeError(
-        "cannot find llvm-ar on macOS — run: brew install llvm"
+        "cannot find llvm-ar on macOS — run: just setup-fd-deps-macos-x86"
     )
 
 
 def resolve_cc(platform_name: str, compiler: str) -> str:
-    """Return compiler path."""
+    """Return compiler path, resolving Homebrew keg-only clang."""
+    if compiler.lower() == "clang":
+        # Homebrew's llvm is keg-only — not symlinked into PATH.
+        # Resolve to the actual Homebrew llvm clang binary.
+        for prefix in _homebrew_prefixes():
+            clang_path = os.path.join(prefix, "opt", "llvm", "bin", "clang")
+            if os.path.isfile(clang_path) and os.access(clang_path, os.X_OK):
+                return clang_path
+        # Direct Homebrew paths as fallback
+        for path in ("/opt/homebrew/opt/llvm/bin/clang",
+                     "/usr/local/opt/llvm/bin/clang"):
+            if os.path.isfile(path) and os.access(path, os.X_OK):
+                return path
+        # Fall back to PATH resolution (Apple clang)
     return compiler
 
 
