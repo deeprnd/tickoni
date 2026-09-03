@@ -3,8 +3,19 @@ import os
 import shutil
 import subprocess
 import sys
-from ..base import InstallStrategy
+from ..base import InstallStrategy, _activate_path
 from .. import register
+
+
+def _go_binary() -> str | None:
+    """Locate the ``go`` binary on PATH or at a well-known install prefix."""
+    found = shutil.which('go')
+    if found:
+        return found
+    for candidate in ('/usr/local/go/bin/go', os.path.expanduser('~/go/bin/go')):
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return None
 
 
 def _python_commands() -> list[list[str]]:
@@ -134,13 +145,32 @@ class GoInstallStrategy(InstallStrategy):
             print(f"  [DRY-RUN] Would go install {module}")
             return
         print(f"[GO] Installing {module}...")
-        result = subprocess.run(['go', 'install', f'{module}@latest'], capture_output=True, text=True)
+        go = _go_binary()
+        if not go:
+            print(
+                "ERROR: go toolchain not found on PATH or under /usr/local/go/bin "
+                f"while installing {module}; the 'go' category must run first",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        env = os.environ.copy()
+        env['PATH'] = f"{os.path.dirname(go)}{os.pathsep}{env.get('PATH', '')}"
+        result = subprocess.run(
+            [go, 'install', f'{module}@latest'],
+            capture_output=True, text=True, env=env,
+        )
         if result.returncode != 0:
             print(f"ERROR: go install failed for {module}", file=sys.stderr)
+            if result.stdout:
+                print(result.stdout, file=sys.stderr, end="")
+            if result.stderr:
+                print(result.stderr, file=sys.stderr, end="")
             sys.exit(1)
-        go_bin = os.path.expanduser('~/go/bin')
-        if os.path.isdir(go_bin):
-            path_parts = os.environ.get('PATH', '').split(':')
-            if go_bin not in path_parts:
-                os.environ['PATH'] = f"{go_bin}:{os.environ['PATH']}"
-                print(f"  Added {go_bin} to PATH")
+        gobin = subprocess.run(
+            [go, 'env', 'GOBIN'], capture_output=True, text=True, env=env,
+        ).stdout.strip()
+        gopath = subprocess.run(
+            [go, 'env', 'GOPATH'], capture_output=True, text=True, env=env,
+        ).stdout.strip()
+        go_bin = gobin or (os.path.join(gopath, 'bin') if gopath else os.path.expanduser('~/go/bin'))
+        _activate_path([go_bin])

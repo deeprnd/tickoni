@@ -1,5 +1,6 @@
 """Abstract base class and Template Method skeleton for install strategies."""
 from abc import ABC, abstractmethod
+import os
 import subprocess
 import sys
 import tarfile
@@ -22,6 +23,34 @@ def _download_file(url, dest, dry_run=False):
         attempts += 1
     print(f"ERROR: download failed for {url}", file=sys.stderr)
     sys.exit(1)
+
+
+def _activate_path(bin_dirs):
+    """Put *bin_dirs* on PATH for this process, ``$GITHUB_PATH``, and the shell.
+
+    Toolchains installed outside a directory that is already on PATH (Go under
+    ``/usr/local/go/bin``, ``go install`` binaries under ``~/go/bin``) must be
+    reachable by later tools in this same orchestrator run, by subsequent CI
+    steps (via ``$GITHUB_PATH``), and by an interactive developer (printed
+    activation line when there is no ``$GITHUB_PATH``).
+    """
+    gh_path = os.environ.get('GITHUB_PATH')
+    for raw in bin_dirs:
+        bin_dir = os.path.expanduser(os.path.expandvars(raw))
+        if bin_dir not in os.environ.get('PATH', '').split(os.pathsep):
+            os.environ['PATH'] = f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}"
+        if gh_path:
+            try:
+                with open(gh_path) as fh:
+                    already = any(line.strip() == bin_dir for line in fh)
+            except OSError:
+                already = False
+            if not already:
+                with open(gh_path, 'a') as fh:
+                    fh.write(bin_dir + os.linesep)
+                print(f"[github-path] {bin_dir}")
+        else:
+            print(f'[activation] add to PATH with:\n  export PATH="{bin_dir}:$PATH"')
 
 
 def _run_cmd(cmd, capture=True, shell=False, **kwargs):
