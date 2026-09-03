@@ -404,7 +404,8 @@
       "platform": "windows",
       "install_method": "winget",
       "parameters": {
-        "package": "Microsoft.VisualStudio.2022.BuildTools"
+        "package": "Microsoft.VisualStudio.2022.BuildTools",
+        "override": "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait --norestart"
       },
       "idempotent_check": "command -v cl"
     },

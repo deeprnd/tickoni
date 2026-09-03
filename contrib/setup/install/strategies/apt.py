@@ -3,6 +3,7 @@ import subprocess
 import sys
 import re
 import shutil
+import shlex
 from ..base import InstallStrategy
 from .. import register
 
@@ -215,6 +216,7 @@ class AptInstallStrategy(InstallStrategy):
             shell = _find_winget_shell()
             for pkg_name in packages:
                 winget_id = params.get('winget_id', pkg_name)
+                override = params.get('override', '')
                 print(f"[WINGET] Installing {winget_id}...")
                 if shell in ('pwsh', 'powershell'):
                     winget_cmd = (
@@ -224,6 +226,8 @@ class AptInstallStrategy(InstallStrategy):
                         '--disable-interactivity '
                         '--source winget'
                     )
+                    if override:
+                        winget_cmd += f' --override {shlex.quote(override)}'
                     cmd = [shell, '-NoProfile', '-Command', winget_cmd]
                 elif shell == 'winget.exe':
                     cmd = [
@@ -231,6 +235,8 @@ class AptInstallStrategy(InstallStrategy):
                         '--accept-package-agreements', '--accept-source-agreements',
                         '--disable-interactivity', '--source', 'winget'
                     ]
+                    if override:
+                        cmd.extend(['--override', override])
                 else:
                     cmd = [
                         shell, '/c', 'winget', 'install', '--id', winget_id,
@@ -238,6 +244,8 @@ class AptInstallStrategy(InstallStrategy):
                         '--disable-interactivity',
                         '--source', 'winget'
                     ]
+                    if override:
+                        cmd.extend(['--override', override])
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 if not _winget_succeeded_or_noop(result):
                     output = (result.stdout or '') + (result.stderr or '')
@@ -274,7 +282,9 @@ class WingetInstallStrategy(InstallStrategy):
     """Install via winget."""
 
     def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool) -> None:
-        pkg = tool['parameters'].get('package', '')
+        params = tool['parameters']
+        pkg = params.get('package', '')
+        override = params.get('override', '')
         if dry_run:
             print(f"  [DRY-RUN] Would winget install {pkg}")
             return
@@ -287,6 +297,8 @@ class WingetInstallStrategy(InstallStrategy):
                 '--accept-source-agreements '
                 '--source winget'
             )
+            if override:
+                winget_cmd += f' --override {shlex.quote(override)}'
             cmd = [shell, '-NoProfile', '-Command', winget_cmd]
         elif shell == 'winget.exe':
             cmd = [
@@ -294,12 +306,16 @@ class WingetInstallStrategy(InstallStrategy):
                 '--accept-package-agreements', '--accept-source-agreements',
                 '--disable-interactivity', '--source', 'winget'
             ]
+            if override:
+                cmd.extend(['--override', override])
         else:
             cmd = [
                 shell, '/c', 'winget', 'install', '--exact', '--id', pkg,
                 '--accept-package-agreements', '--accept-source-agreements',
                 '--source', 'winget'
             ]
+            if override:
+                cmd.extend(['--override', override])
         result = subprocess.run(cmd, capture_output=True, text=True)
         if not _winget_succeeded_or_noop(result):
             output = (result.stdout or '') + (result.stderr or '')
