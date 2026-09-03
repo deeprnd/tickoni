@@ -114,9 +114,9 @@ build_linux() {
 
 # ── macOS ────────────────────────────────────────────────────────────────────
 build_macos() {
-  echo "[openssl] Building OpenSSL 3.6.2 for macOS"
+  echo "[openssl] Building OpenSSL 3.6.4 for macOS"
 
-  # OpenSSL 3.6.2 needs flex and gettext; brew's gettext conflicts with
+  # OpenSSL 3.6.4 needs flex and gettext; brew's gettext conflicts with
   # Firedancer's bundled libgettext, so it's hidden from PATH during the
   # build below (not uninstalled — `brew uninstall` would tear out
   # libintl.dylib from under every other installed formula linked against
