@@ -90,6 +90,11 @@ venv
 *.pyc
 *.egg-info/
 
+# Environment
+.env
+.env.*
+!.env.example
+
 # Zig
 .zig-cache
 zig-pkg/
