@@ -801,16 +801,10 @@
     "nodejs": {
       "category": "nodejs",
       "platform": "all",
-      "install_method": "binary_download",
-      "parameters": {
-        "url_pattern": "https://nodejs.org/dist/v{version}/node-v{version}-{{.os}}-{{.arch}}.tar.gz",
-        "install_dir": "$HOME/.local",
-        "version_ref": "nodejs",
-        "bin_dirs": [
-          "$HOME/.local/bin"
-        ]
-      },
-      "idempotent_check": "command -v node"
+      "install_method": "nvm",
+      "parameters": {},
+      "idempotent_check": "command -v node",
+      "version_ref": "nodejs"
     },
     "cspell": {
       "category": "quality",
