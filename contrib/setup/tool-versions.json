@@ -110,6 +110,36 @@
           "windows-arm": "llama-server.exe"
         }
       }
+    },
+    "qt-installer": {
+      "version": "4.11.0",
+      "options": {
+        "base_url": "https://qt.mirror.constant.com/archive/online_installers/4.11",
+        "qt_module": {
+          "linux-x86": "qt.qt6.6112.linux_gcc_64",
+          "linux-arm": "qt.qt6.6112.linux_arm",
+          "macos-x86": "qt.qt6.6112.macOS_clang_64",
+          "macos-arm": "qt.qt6.6112.macOS_clang_64",
+          "windows-x86": "qt.qt6.6112.win64_msvc2022_64",
+          "windows-arm": "qt.qt6.6112.win64_msvc2022_64"
+        },
+        "asset_name": {
+          "linux-x86": "qt-online-installer-linux-x64-{version}.run",
+          "linux-arm": "qt-online-installer-linux-arm64-{version}.run",
+          "macos-x86": "qt-online-installer-macOS-universal-{version}.dmg",
+          "macos-arm": "qt-online-installer-macOS-universal-{version}.dmg",
+          "windows-x86": "qt-online-installer-windows-x64-{version}.exe",
+          "windows-arm": "qt-online-installer-windows-arm64-{version}.exe"
+        },
+        "sha256": {
+          "linux-x86": "40b76bdf74f6a396341efb70ae2e754fcd878474babb6cd9d7f07eff12a85c62",
+          "linux-arm": "7f2a9be88098c1e2e0a608458252dc9864be513a16be6af7190769922536b3f5",
+          "macos-x86": "917fb4048226db081b780b751138c896165f66df523f3b0f4385bcfb4a1c59da",
+          "macos-arm": "917fb4048226db081b780b751138c896165f66df523f3b0f4385bcfb4a1c59da",
+          "windows-x86": "ae919bc9b224b8ccdada69ec787a9f69330001f227f3fcbfb4a11a4adb3786f6",
+          "windows-arm": "3c4635366059172b52fe5776b164bc4c56a36772cf01122e0473619a48463e32"
+        }
+      }
     }
   },
   "categories": {
@@ -235,6 +265,17 @@
         "go"
       ]
     },
+    "qt": {
+      "description": "Qt 6 framework and build tools",
+      "tools": [
+        "qt-installer"
+      ],
+      "platforms": [
+        "linux",
+        "macos",
+        "windows"
+      ]
+    },
     "llm-server": {
       "description": "LLM server toolchain",
       "tools": [
@@ -293,6 +334,11 @@
     ],
     "go": [
       "core"
+    ],
+    "qt": [
+      "core",
+      "build",
+      "toolchain"
     ],
     "llm-server": [
       "core",
@@ -722,6 +768,16 @@
         "package": "openblas"
       },
       "idempotent_check": "brew list openblas"
+    },
+    "qt-installer": {
+      "category": "qt",
+      "platform": "all",
+      "install_method": "qt_installer",
+      "parameters": {
+        "install_dir": "~/Qt",
+        "version_ref": "qt-installer"
+      },
+      "idempotent_check": "command -v qmake"
     }
   }
 }
