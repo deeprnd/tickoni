@@ -300,8 +300,7 @@ model/tool/adapter boundary, and API/UI surface as applicable. Each task must
 follow the task structure described above and point to the acceptance criteria
 it closes.
 
-VX.Y.SN.T10 — Maintainability audit. Audit the story's code against
-`doc/execution/contribution/tickoni.md` and the ISO/IEC 25010 maintainability
+VX.Y.SN.T10 — Maintainability audit. Audit the story's code (branch changes vs main) against `doc/execution/contribution/tickoni.md` and the ISO/IEC 25010 maintainability
 characteristics: modularity, reusability, analysability, modifiability, and
 testability. Review cohesion and coupling, separation of concerns, API and
 ownership boundaries, naming and documentation, duplication, unnecessary
@@ -311,7 +310,7 @@ in-scope findings or document explicitly accepted debt with an owner and
 follow-up task. Run `just quality-check-all` and the story's targeted tests, and
 record commands and results in the task's `Evidence To Attach` section. Store it under doc/execution/audits/stories/VX.Y.SN-maintainability-audit.md.
 
-VX.Y.SN.T11 — Security audit. Audit the story's code against
+VX.Y.SN.T11 — Security audit. Audit the story's code (branch changes vs main)
 `doc/execution/security.md`. Check: input validation at every trust boundary,
 output/error checking, fail-closed behavior, no-bypass paths, static and
 preallocated memory discipline, C/Zig memory and stack safety, agent capability
@@ -320,8 +319,7 @@ boundaries, deny-by-default policy, and no-elevated-permissions rules. Run
 section. Flag and remediate any findings. Store it under doc/execution/audits/stories/VX.Y.SN-security-audit.md.
 
 VX.Y.SN.T12 — Telemetry and observability audit. Audit the story's operator
-signals against `doc/execution/telemetry.md` (metric/diagnostic field definitions,
-label policy, alerting policy, generated metrics) and
+signals (branch changes vs main) against `doc/execution/telemetry.md` (metric/diagnostic field definitions, label policy, alerting policy, generated metrics) and
 `doc/execution/observability.md` (per-tile visibility, smoke checks, failure
 visibility). Ensure new metrics use low-cardinality labels only, new diagnostic
 signals follow the Phase 0 snapshot pattern, and failure visibility is preserved.
