@@ -1,5 +1,5 @@
 """Qt Online Installer strategy — downloads the per-platform installer binary,
-renames to canonical name, invokes CLI to install Qt modules.
+installs system dependencies (Linux/macOS), and invokes CLI to install Qt modules.
 
 All version data (installer version, Qt library version, asset names,
 SHA-256 hashes, base URL) is driven from ``tool-versions.json`` under
@@ -45,6 +45,22 @@ def _is_qt_installed(install_dir: str, qt_version: str, qt_sub_dir: str) -> bool
         if os.path.isfile(p) and os.access(p, os.X_OK):
             return True
     return False
+
+
+def _extract_qt_version(qt_module: str) -> str:
+    """Extract the Qt library version from a module ID.
+
+    ``qt.qt6.6112.linux_gcc_64`` → ``6.11.2``.
+    The format is qt.qtN.NNNN.subdir where NNNN encodes X.Y.Z.
+    """
+    # Extract the 4-digit version segment (e.g. 6112 from qt.qt6.6112.linux_gcc_64)
+    parts = qt_module.split('.')
+    # parts[1] is 'qt6', parts[2] is '6112'
+    version_digits = parts[2]
+    major = version_digits[0]
+    minor = version_digits[1:3]
+    patch = version_digits[3]
+    return f'{major}.{minor}.{patch}'
 
 
 # ── Strategy ──────────────────────────────────────────────────────────────────
@@ -97,8 +113,66 @@ class QtInstallerStrategy(InstallStrategy):
     @staticmethod
     def _extract_qt_subdir(qt_module: str) -> str:
         """Extract the directory component from a Qt module ID like
-        ``qt.qt6.6112.linux_gcc_64`` → ``linux_gcc_64``."""
-        return qt_module.split('.')[-1]
+        ``qt.qt6.6112.linux_gcc_64`` → ``gcc_64``.
+
+        The module ID has a platform prefix (linux_, macOS_, win64_, etc.)
+        that is NOT part of the actual directory name.
+        """
+        suffix = qt_module.split('.')[-1]
+        # Strip common platform prefixes that the Qt installer prepends
+        for prefix in ('linux_', 'macOS_', 'win64_', 'win32_'):
+            if suffix.startswith(prefix):
+                return suffix[len(prefix):]
+        return suffix
+
+    @staticmethod
+    def _install_system_dependencies(platform_str: str) -> None:
+        """Verify system dependencies required by Qt6 on the host OS.
+
+        System packages are installed by the orchestrator via the
+        ``graphics-libs`` category before this strategy runs.  This method
+        only prints a diagnostic and exits with code 1 if the packages are
+        genuinely missing (e.g. the user skipped the setup step).
+
+        On macOS and Windows no extra dependencies are needed.
+        """
+        if _is_platform_windows(platform_str):
+            return
+
+        # macOS: no extra dependencies needed for Qt6Quick
+        if platform_str.startswith('macos'):
+            print('[DEPS] macOS Qt6 has no extra system dependencies')
+            return
+
+        # Linux: verify graphics-libs were installed by the orchestrator
+        if platform_str.startswith('linux'):
+            packages = [
+                'libgl1-mesa-dev',   # OpenGL
+                'libx11-dev',        # X11
+                'libxext-dev',       # X11 extensions
+                'libxcb1-dev',       # XCB
+            ]
+
+            missing = []
+            for pkg in packages:
+                result = _run_cmd(['dpkg', '-s', pkg], capture=True)
+                if result.returncode != 0:
+                    missing.append(pkg)
+
+            if missing:
+                print(
+                    f'ERROR: Qt6 requires graphics-libs category. '
+                    f'Missing packages: {", ".join(missing)}',
+                    file=sys.stderr,
+                )
+                print(
+                    'Run `just setup-linux-x86-qt` (or the appropriate '
+                    'setup-<platform> command) to install system dependencies.',
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+            print('[DEPS] All Qt6 system dependencies present')
 
     def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool) -> None:
         params = tool.get('parameters', {})
@@ -132,9 +206,16 @@ class QtInstallerStrategy(InstallStrategy):
 
         install_dir = _expand_home(params.get('install_dir', '~/Qt'))
 
+        # ── Install system dependencies (Linux/macOS) ─────────────────────
+        # Always run — idempotent, only installs missing packages.
+        self._install_system_dependencies(platform_str)
+
         # ── Idempotency check ─────────────────────────────────────────────
-        if _is_qt_installed(install_dir, version, qt_sub_dir):
-            print(f'Qt already installed in {install_dir}')
+        # Extract the Qt library version from the module ID for directory lookup.
+        # Module: qt.qt6.6112.linux_gcc_64 → Qt version: 6.11.2
+        qt_lib_version = _extract_qt_version(qt_module)
+        if _is_qt_installed(install_dir, qt_lib_version, qt_sub_dir):
+            print(f'Qt {qt_lib_version} already installed in {install_dir}')
             return
 
         if dry_run:
@@ -171,24 +252,41 @@ class QtInstallerStrategy(InstallStrategy):
                 os.chmod(canonical, 0o755)
 
             # ── Build install command with unattended flags ───────────────────
-            # Credentials: QT_USERNAME + QT_TOKEN env vars (CI-friendly).
-            # Falls back to --email/--pw only when both are set.
+            # Credentials: QT_USERNAME + QT_PASSWORD env vars (CI/local).
+            # --pw expects the Qt Online Installer password, not an API token.
+            # Qt CLI syntax: installer --root DIR --accept-licenses ... install --email user --pw pass MODULE
             qt_username = os.environ.get('QT_USERNAME', '')
-            qt_token = os.environ.get('QT_TOKEN', '')
+            qt_password = os.environ.get('QT_PASSWORD', '')
 
             parts = [
                 str(canonical),
                 f'--root {install_dir}',
-                flags,
             ]
-            if qt_username and qt_token:
-                parts.extend(['--email', qt_username, '--pw', qt_token])
+
+            # Global flags (must come before subcommand)
+            parts.extend(['--accept-licenses', '--accept-obligations', '--default-answer', '--confirm-command'])
+
+            # Subcommand
+            parts.append('install')
+
+            # Credential flags: only valid in CLI (headless) mode
+            if qt_username and qt_password:
+                parts.extend(['--email', qt_username, '--pw', qt_password])
+
             parts.append(qt_module)
 
             install_cmd = parts
             install_str = " ".join(install_cmd)
             print(f'[INSTALLER] {install_str}')
-            result = _run_cmd(install_cmd, capture=True)
+
+            # Force CLI/headless mode on platforms with display servers (local dev).
+            # CI runners have no display, so this is harmless there too.
+            run_env = os.environ.copy()
+            if not _is_platform_windows(platform_str):
+                run_env.pop('DISPLAY', None)
+                run_env.pop('WAYLAND_DISPLAY', None)
+
+            result = _run_cmd(install_cmd, capture=True, env=run_env)
             if result.returncode != 0:
                 print(f'ERROR: Qt installer exited with code {result.returncode}', file=sys.stderr)
                 if result.stderr:
