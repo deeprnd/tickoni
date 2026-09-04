@@ -160,7 +160,7 @@ test_main( int     argc,
       fd_wksp_free( wksp, gaddr );
 
       #if FD_HAS_DEEPASAN
-      if ( mem[k] && sz[k] )
+      if( mem[k] && sz[k] )
         FD_TEST( fd_asan_query( mem[k], sz[k] ) != NULL );
       #endif
 
