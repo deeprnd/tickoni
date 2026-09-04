@@ -87,6 +87,26 @@ class Orchestrator:
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
+    # Load .env file into environment if it exists (local dev credentials).
+    # CI: secrets (QT_USERNAME, QT_PASSWORD) are already in the runner env.
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+    _repo_root = os.path.dirname(_script_dir)
+    env_path = os.path.join(_repo_root, '.env')
+    if os.path.isfile(env_path):
+        for line in open(env_path):
+            line = line.strip()
+            if '=' in line and not line.startswith('#'):
+                k, v = line.split('=', 1)
+                if k and k not in os.environ:
+                    os.environ[k] = v
+    elif os.path.isfile('.env'):
+        for line in open('.env'):
+            line = line.strip()
+            if '=' in line and not line.startswith('#'):
+                k, v = line.split('=', 1)
+                if k and k not in os.environ:
+                    os.environ[k] = v
+
     parser = argparse.ArgumentParser(description='CI tool orchestrator')
     parser.add_argument('categories', nargs='?', help='Comma-separated category list')
     parser.add_argument('--deps', help='Show resolved dependency graph for a category')

@@ -103,6 +103,9 @@ zig-out/
 .codex
 .hermes-tmp.*
 
+# Secrets
+.env
+
 # Lore
 doc/strategy/lore/audits/
 
