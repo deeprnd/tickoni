@@ -1,7 +1,7 @@
----
 # Reusable Unit Test workflow: component tests per platform.
 # Builds FD libs locally on the same runner that runs tests.
-
+# Reference: doc/execution/plans/v2.10-s8-5.md
+---
 name: Unit Test Stage
 
 'on':
