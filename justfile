@@ -711,6 +711,9 @@ quality-lint-check-all:
     @just quality-lint-check-fd
     @just quality-lint-check-tk
 
+quality-yaml-check-linux-x86:
+    yamllint .github/
+
 # ── Quality: Proto ─────────────────────────────────────────────────────────
 
 quality-proto-check-fd:

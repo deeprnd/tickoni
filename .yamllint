@@ -1,0 +1,17 @@
+extends: relaxed
+
+rules:
+  line-length: disable
+  document-start: enable
+  indentation:
+    spaces: 2
+    indent-sequences: true
+  trailing-spaces: enable
+  new-line-at-end-of-file: enable
+
+ignore: |
+  node_modules/
+  .zig-global-cache/
+  build/
+  target/
+  zig-out/
