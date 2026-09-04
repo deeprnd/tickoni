@@ -1,4 +1,7 @@
 """Apt, brew, and winget strategies."""
+from dataclasses import dataclass
+import glob
+import os
 import subprocess
 import sys
 import re
@@ -58,41 +61,134 @@ def _log_version(tool_name, pkg_name):
         pass
 
 
-def _find_winget_shell():
-    """Return the shell command to invoke winget on Windows."""
-    if shutil.which('winget.exe') or shutil.which('winget'):
-        return 'winget.exe'
-    for ps in ('pwsh', 'powershell'):
+@dataclass(frozen=True)
+class WingetResolution:
+    """Result of resolving an executable WinGet invocation."""
+
+    command: str | None
+    status: str
+    detail: str
+
+
+def _refresh_winget_path() -> None:
+    """Expose the per-user WindowsApps and WinGet package directories."""
+    local_app_data = os.environ.get('LOCALAPPDATA')
+    if not local_app_data:
+        return
+
+    candidates = [os.path.join(local_app_data, 'Microsoft', 'WindowsApps')]
+    candidates.extend(glob.glob(os.path.join(
+        local_app_data, 'Microsoft', 'WinGet', 'Packages', '**', 'bin'
+    ), recursive=True))
+    candidates.extend(glob.glob(os.path.join(
+        local_app_data, 'Microsoft', 'WinGet', 'Packages', '**'
+    ), recursive=True))
+
+    path_entries = os.environ.get('PATH', '').split(os.pathsep)
+    for candidate in candidates:
+        if os.path.isdir(candidate) and candidate not in path_entries:
+            path_entries.insert(0, candidate)
+    os.environ['PATH'] = os.pathsep.join(path_entries)
+
+
+def _probe_winget_power_shell(ps: str) -> bool:
+    """Verify that PowerShell can resolve and execute WinGet."""
+    result = subprocess.run(
+        [ps, '-NoProfile', '-Command',
+         'Get-Command winget.exe -ErrorAction SilentlyContinue; winget --version'],
+        capture_output=True, text=True, timeout=10,
+    )
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
+def _app_installer_present(ps: str) -> bool:
+    """Return whether the Microsoft App Installer package is registered."""
+    result = subprocess.run(
+        [ps, '-NoProfile', '-Command',
+         'Get-AppxPackage -Name Microsoft.DesktopAppInstaller'],
+        capture_output=True, text=True, timeout=10,
+    )
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
+def _find_winget_shell() -> WingetResolution:
+    """Resolve WinGet and report why resolution failed when it is unavailable."""
+    _refresh_winget_path()
+
+    # A real package-local executable is preferable to the WindowsApps UWP
+    # alias, which may be visible to PATH but cannot be launched by CreateProcess.
+    package_candidates = glob.glob(os.path.join(
+        os.environ.get('LOCALAPPDATA', ''), 'Microsoft', 'WinGet',
+        'Packages', '**', 'winget.exe'
+    ), recursive=True)
+    for candidate in [*package_candidates, shutil.which('winget.exe')]:
+        if not candidate or 'WindowsApps' in candidate:
+            continue
         try:
             result = subprocess.run(
-                [ps, '-NoProfile', '-Command', 'winget --version'],
-                capture_output=True, timeout=10,
+                [candidate, '--version'], capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
-                return ps
-        except Exception:
+                return WingetResolution(candidate, 'executable', 'verified executable')
+        except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
             pass
-    for ps in ('pwsh', 'powershell'):
+
+    powershells = [ps for ps in ('pwsh', 'powershell') if shutil.which(ps)]
+    for ps in powershells:
         try:
-            script = (
-                'Install-Module -Name Microsoft.WinGet.Client '
-                '-Repository PSGallery -Force -Scope CurrentUser -Confirm:$false;'
-                'Repair-WinGetPackageManager -Latest -Force'
-            )
-            result = subprocess.run(
-                [ps, '-NoProfile', '-Command', script],
-                capture_output=True, timeout=120,
-            )
-            if result.returncode == 0:
-                result = subprocess.run(
-                    [ps, '-NoProfile', '-Command', 'winget --version'],
-                    capture_output=True, timeout=10,
-                )
-                if result.returncode == 0:
-                    return ps
-        except Exception:
+            if _probe_winget_power_shell(ps):
+                return WingetResolution(ps, 'powershell', 'PowerShell resolved winget.exe')
+        except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
             pass
-    return 'cmd'
+
+    app_installer = False
+    for ps in powershells:
+        try:
+            app_installer = _app_installer_present(ps)
+            if app_installer:
+                break
+        except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+            pass
+
+    # Repair only when App Installer is absent.  Always refresh and verify the
+    # resulting command; a successful repair command alone is not evidence that
+    # winget can execute in this process.
+    if powershells and not app_installer:
+        ps = powershells[0]
+        repair = (
+            'Install-Module -Name Microsoft.WinGet.Client '
+            '-Repository PSGallery -Force -Scope CurrentUser -Confirm:$false; '
+            'Repair-WinGetPackageManager -Latest -Force'
+        )
+        try:
+            result = subprocess.run(
+                [ps, '-NoProfile', '-Command', repair],
+                capture_output=True, text=True, timeout=120,
+            )
+            _refresh_winget_path()
+            if result.returncode == 0 and _probe_winget_power_shell(ps):
+                return WingetResolution(ps, 'repaired', 'WinGet verified after App Installer repair')
+        except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+            pass
+
+    if not powershells:
+        return WingetResolution(None, 'powershell_missing', 'pwsh and powershell are not on PATH')
+    if not app_installer:
+        return WingetResolution(None, 'app_installer_missing', 'Microsoft.DesktopAppInstaller is not registered')
+    return WingetResolution(None, 'cannot_execute', 'App Installer is present, but winget.exe cannot execute')
+
+
+def _require_winget() -> str:
+    """Return a verified WinGet command or fail with an actionable diagnostic."""
+    resolution = _find_winget_shell()
+    if resolution.command is None:
+        print(
+            f"ERROR: WinGet unavailable ({resolution.status}): {resolution.detail}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    print(f"[WINGET] Using {resolution.command} ({resolution.status})")
+    return resolution.command
 
 
 def _winget_already_installed(output: str) -> bool:
@@ -108,6 +204,18 @@ def _winget_succeeded_or_noop(result) -> bool:
     """Accept winget's successful and already-installed outcomes."""
     output = (result.stdout or '') + (result.stderr or '')
     return result.returncode == 0 or result.returncode == 43 or _winget_already_installed(output)
+
+
+def _winget_failure_status(output: str) -> str:
+    """Classify a failed WinGet command for actionable CI diagnostics."""
+    missing_package_markers = (
+        'No package found matching input criteria',
+        'No package found matching input criteria.',
+        'No applicable upgrade found',
+    )
+    if any(marker in output for marker in missing_package_markers):
+        return 'package_not_found_or_unsupported'
+    return 'install_failed'
 
 
 @register('apt')
@@ -213,7 +321,7 @@ class AptInstallStrategy(InstallStrategy):
             return
 
         if "windows" in platform_str:
-            shell = _find_winget_shell()
+            shell = _require_winget()
             for pkg_name in packages:
                 winget_id = params.get('winget_id', pkg_name)
                 override = params.get('override', '')
@@ -251,7 +359,9 @@ class AptInstallStrategy(InstallStrategy):
                     output = (result.stdout or '') + (result.stderr or '')
                     if output:
                         print(output, file=sys.stderr, end='')
-                    print(f"ERROR: winget install failed for {winget_id}",
+                    print(
+                        f"ERROR: winget install failed for {winget_id} "
+                        f"({_winget_failure_status(output)})",
                           file=sys.stderr)
                     sys.exit(1)
             return
@@ -289,7 +399,7 @@ class WingetInstallStrategy(InstallStrategy):
             print(f"  [DRY-RUN] Would winget install {pkg}")
             return
         print(f"[WINGET] Installing {pkg}...")
-        shell = _find_winget_shell()
+        shell = _require_winget()
         if shell in ('pwsh', 'powershell'):
             winget_cmd = (
                 f'winget install --exact --id {pkg} '
@@ -321,5 +431,9 @@ class WingetInstallStrategy(InstallStrategy):
             output = (result.stdout or '') + (result.stderr or '')
             if output:
                 print(output, file=sys.stderr, end='')
-            print(f"ERROR: winget install failed for {pkg}", file=sys.stderr)
+            print(
+                f"ERROR: winget install failed for {pkg} "
+                f"({_winget_failure_status(output)})",
+                file=sys.stderr,
+            )
             sys.exit(1)
