@@ -22,7 +22,8 @@ set -euo pipefail
 # Redirect stdout to /dev/null — platform.sh prints TK_OS/TK_ARCH/TK_PLATFORM
 # when sourced, but we only need the functions here.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=contrib/platform.sh
+# shellcheck source=../platform.sh
+# shellcheck disable=SC1091
 source "${SCRIPT_DIR}/../platform.sh" >/dev/null
 
 # ── Detect available memory (bytes) ──────────────────────────────────────────
