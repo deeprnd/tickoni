@@ -68,6 +68,9 @@
     "shellcheck": {
       "version": "0.10.0"
     },
+    "cspell": {
+      "version": "8.0.0"
+    },
     "buf": {
       "version": "1.38.0"
     },
@@ -180,6 +183,7 @@
         "shellcheck",
         "actionlint",
         "yamllint",
+        "cspell",
         "pre-commit",
         "buf"
       ]

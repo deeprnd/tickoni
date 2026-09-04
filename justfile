@@ -712,7 +712,10 @@ quality-lint-check-all:
     @just quality-lint-check-tk
 
 quality-yaml-check-linux-x86:
-    find . -name '*.yaml' -o -name '*.yml' | grep -vE '^./(opt|node_modules|.zig-global-cache|build|target|zig-out|\.git)/' | xargs yamllint -f parsable
+    find . -name '*.yaml' -o -name '*.yml' | grep -vE '^./(opt|node_modules|.zig-global-cache|build|target|zig-out|\\.git)/' | xargs yamllint -f parsable
+
+quality-spell-check-linux-x86:
+    cspell lint --no-progress .
 
 # ── Quality: Proto ─────────────────────────────────────────────────────────
 
