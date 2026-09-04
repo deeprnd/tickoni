@@ -271,6 +271,15 @@
         "go"
       ]
     },
+    "graphics-libs": {
+      "description": "Linux graphics dev libraries (OpenGL, X11) needed by Qt6",
+      "tools": [
+        "graphics-libs"
+      ],
+      "platforms": [
+        "linux"
+      ]
+    },
     "qt": {
       "description": "Qt 6 framework and build tools",
       "tools": [
@@ -356,7 +365,8 @@
     "qt": [
       "core",
       "build",
-      "toolchain"
+      "toolchain",
+      "graphics-libs"
     ],
     "llm-server": [
       "core",
@@ -377,7 +387,8 @@
       "secrets",
       "coverage",
       "security",
-      "fd"
+      "fd",
+      "graphics-libs"
     ]
   },
   "tools": {
@@ -802,6 +813,20 @@
         "package": "openblas"
       },
       "idempotent_check": "brew list openblas"
+    },
+    "graphics-libs": {
+      "category": "graphics-libs",
+      "platform": "linux",
+      "install_method": "apt",
+      "parameters": {
+        "packages": [
+          "libgl1-mesa-dev",
+          "libx11-dev",
+          "libxext-dev",
+          "libxcb1-dev"
+        ]
+      },
+      "idempotent_check": "pkg-config --libs gl x11"
     },
     "qt-installer": {
       "category": "qt",
