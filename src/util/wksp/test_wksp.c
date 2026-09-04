@@ -128,7 +128,7 @@ test_main( int     argc,
       for( ; b<sz[j]; b++ ) mem[j][b] = ((uchar)tile_idx);
 
       #if FD_HAS_DEEPASAN
-      if ( mem[j] && sz[j] )
+      if( mem[j] && sz[j] )
         FD_TEST( fd_asan_query( mem[j], sz[j] ) == NULL );
       #endif
 
