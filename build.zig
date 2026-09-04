@@ -453,7 +453,7 @@ pub fn build(b: *std.Build) void {
     const check_step = b.step("check", "Check Zig + C compilation without full link dependencies");
 
     // ---------------------------------------------------------------------------
-    // Test / integration / system / coverage steps — gated behind -Dtest=1
+    // Test / integration / system / coverage steps — gated behind -Dtest=true
     // so `zig build` alone never compiles test binaries (important for macOS
     // CI where we only need the exe).  Use `zig build -Dtest=true ...` to compile + run
     // them.
