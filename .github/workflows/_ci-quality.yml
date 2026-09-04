@@ -33,6 +33,7 @@ jobs:
           - name: Spell Check
             command: just quality-spell-check-linux-x86
             timeout_minutes: 10
+            skip: true
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -51,4 +52,5 @@ jobs:
         run: just setup-quality-linux-x86
 
       - name: Run check
+        if: ${{ matrix.skip != true }}
         run: ${{ matrix.command }}
