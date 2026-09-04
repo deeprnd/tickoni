@@ -129,12 +129,13 @@ jobs:
       - name: Build Tickoni supervisor
         run: just ${{ matrix.build-tk-recipe }}
 
-      - name: Export demo conformance bundle
-        if: matrix.conformance-dir != ''
-        run: |
-          python3 \
-            contrib/test/export_demo_conformance_bundle.py \
-            . build/demo-conformance/${{ matrix.conformance-dir }}
+      - name: Export demo conformance bundle (Unix)
+        if: matrix.conformance-dir != '' && runner.os != 'Windows'
+        run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/${{ matrix.conformance-dir }}
+
+      - name: Export demo conformance bundle (Windows)
+        if: matrix.conformance-dir != '' && runner.os == 'Windows'
+        run: py -3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/${{ matrix.conformance-dir }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
