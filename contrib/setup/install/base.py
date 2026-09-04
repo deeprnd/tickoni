@@ -103,6 +103,11 @@ class DownloadInstallStrategy(InstallStrategy):
 
     def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool) -> None:
         download_url, version, pattern, verify_checksum = self._resolve_url(tool, config, platform_str)
+
+        # Already handled by a specialized handler in _resolve_url (e.g. cbmc_deb)
+        if not download_url:
+            return
+
         bin_name = tool['parameters'].get('bin_name', 'downloaded_binary')
 
         if dry_run:
