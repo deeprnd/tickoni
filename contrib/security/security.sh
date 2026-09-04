@@ -6,8 +6,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 MAKE_RUNNER=(python3 ./contrib/build/orchestrator.py make)
-CODEQL_THRESHOLD_CHECK=(python3 ./contrib/security/codeql/codeql-threshold-check.py)
-CODEQL_HIGH_SECURITY_THRESHOLD=4.0
+# CODEQL_THRESHOLD_CHECK and CODEQL_HIGH_SECURITY_THRESHOLD were part of a
+# previous codeql-threshold-check design that was never wired into a command.
+# Kept as comments for future reference; remove if codeql-threshold-check
+# is ever implemented and wired into a `cmd_codeql_threshold` entry point.
 
 log() {
   printf '\n[%s] %s\n' "$1" "$2"
@@ -40,6 +42,9 @@ cmd_codeql_check_fd() {
   run_step "codeql pack tests" codeql test run contrib/security/codeql/test
   run_step "codeql pack download" codeql pack download codeql/cpp-queries
   rm -rf build/codeql-db
+  # Single quotes intentional: $(nproc) must expand inside the bash -c
+  # subshell, not at script-definition time.
+  # shellcheck disable=SC2016
   run_step "codeql database create" \
     bash -c 'BUILDDIR=codeql codeql database create --language=c-cpp --command="make -f contrib/build/GNUmakefile -j$(nproc) firedancer" build/codeql-db'
   run_step "codeql database analyze" \

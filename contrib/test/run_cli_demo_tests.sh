@@ -5,7 +5,7 @@
 set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-cd "$repo_root"
+cd "$repo_root" || exit 1
 
 build_cmd=(zig build -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all)
 manifest="src/tickoni/demo/fixtures/demo.manifest.json"

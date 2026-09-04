@@ -22,6 +22,7 @@ set -euo pipefail
 # Redirect stdout to /dev/null — platform.sh prints TK_OS/TK_ARCH/TK_PLATFORM
 # when sourced, but we only need the functions here.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=contrib/platform.sh
 source "${SCRIPT_DIR}/../platform.sh" >/dev/null
 
 # ── Detect available memory (bytes) ──────────────────────────────────────────
@@ -54,7 +55,10 @@ PAGE_SZ_NORMAL=4096       # FD_SHMEM_NORMAL_PAGE_SZ
 OS_RESERVE_GB=16          # GB to reserve for OS + other processes
 OVERHEAD_MULT=8           # FD workspaces typically use 2-6x raw page space;
                           # use 8 to leave headroom for peak workloads
-MIN_JOBS=1
+# MIN_JOBS was used in an earlier version where sequential fallback logic
+# could reduce parallelism below the auto-detected count.  Current code
+# only enforces MAX_JOBS, so this constant is kept for documentation.
+# MIN_JOBS=1
 MAX_JOBS=6                # cap to avoid fork-bomb on many-core machines
 MIN_PAGE_CNT=65536        # minimum pages (256 MB workspace)
 
