@@ -68,7 +68,7 @@ class Orchestrator:
         # installed. build_from_source and binary_download use their
         # idempotent_check like normal methods.
         skip_path = method not in ('install_zig',)
-        check_cmd = build_check(tool)
+        check_cmd = build_check(tool, platform_str)
         if check_cmd and check_cmd.is_satisfied() and skip_path and not skip_idempotency:
             return {'tool': name, 'status': 'already_installed'}
 
