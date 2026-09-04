@@ -1,8 +1,9 @@
-# Reusable Dev Setup Validation workflow
+# Standalone Dev Setup Validation workflow
 # Validates the full developer lifecycle: setup-env → build-all → tests
 # Mirrors what a developer does locally: just setup-env && just build-all \
 #   test-unit-tk test-integration-all test-system-all
 #
+# Runs weekly every Monday at 09:00 UTC, or on demand via workflow_dispatch.
 # Runs on all six platform/compiler combinations:
 #   - Linux x86_64 (GCC)
 #   - Linux ARM64 (GCC)
@@ -17,7 +18,9 @@
 name: Dev Setup Validation
 
 'on':
-  workflow_call:
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday at 09:00 UTC
+  workflow_dispatch:
 
 jobs:
   dev-setup-linux-x86:

@@ -1,6 +1,8 @@
 ---
-# Reusable Quality workflow: format, lint, proto — no FD build needed.
+# Reusable Quality workflow: format, lint, proto, yaml — no FD build needed.
 # This is the first gate after plan. If quality fails, nothing builds.
+#
+# Reference: doc/execution/plans/v2.10-s8-5.md
 
 name: Quality Stage
 
@@ -25,6 +27,10 @@ jobs:
           - name: Proto Check
             command: just quality-proto-check-linux-x86
             timeout_minutes: 10
+          # YAML check disabled temporarily (lintyaml)
+          # - name: YAML Check
+          #   command: just quality-yaml-check-linux-x86
+          #   timeout_minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7

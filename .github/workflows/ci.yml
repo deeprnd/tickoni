@@ -6,14 +6,16 @@
 #
 # Execution order:
 #   (all build) → (all unit) → (integration, system, demo)
-#     → security-deep → dev-setup
+#     → security-deep
 #
 # Stage 1: quality + security-secrets (parallel, cheap pre-build gates)
 # Stage 2: build (all platforms, after quality + secrets)
 # Stage 3: unit tests (all platforms, after build)
 # Stage 4: integration + system + demo (parallel, after unit)
 # Stage 5: security-deep (after integration/system/demo)
-# Stage 6: dev-setup (after security-deep, validates full dev lifecycle)
+#
+# Dev Setup Validation runs standalone: weekly on Mondays + on-demand via
+# .github/workflows/tests-dev-setup.yml
 
 ---
 name: CI
@@ -145,27 +147,13 @@ jobs:
       needs.demo.result == 'success'
     uses: ./.github/workflows/_ci-security-deep.yml
 
-  # ── DEV SETUP: validates full dev lifecycle (setup-env + build + tests) ──
-  # Only runs after security-deep succeeds
-  dev-setup:
-    name: Dev Setup
-    needs: [plan, build, integration, system, demo, security-deep]
-    if: >-
-      always() &&
-      needs.plan.outputs.core == 'true' &&
-      needs.build.result == 'success' &&
-      needs.integration.result == 'success' &&
-      needs.system.result == 'success' &&
-      needs.demo.result == 'success' &&
-      needs.security-deep.result == 'success'
-    uses: ./.github/workflows/tests-dev-setup.yml
 
   # ── CI / Required: aggregating gate for branch protection ────────────────
   ci-required:
     name: CI / Required
     needs:
       [plan, quality, security-secrets, build,
-       unit, integration, system, demo, conformance, security-deep, dev-setup]
+       unit, integration, system, demo, conformance, security-deep]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -180,7 +168,7 @@ jobs:
 
           for job in plan quality security-secrets \
               build unit integration system demo \
-              conformance security-deep dev-setup; do
+              conformance security-deep; do
             case "$job" in
               plan) status="${{ needs.plan.result }}" ;;
               quality) status="${{ needs.quality.result }}" ;;
@@ -193,7 +181,6 @@ jobs:
               demo) status="${{ needs.demo.result }}" ;;
               conformance) status="${{ needs.conformance.result }}" ;;
               security-deep) status="${{ needs.security-deep.result }}" ;;
-              dev-setup) status="${{ needs.dev-setup.result }}" ;;
             esac
             results="$results $job=$status"
             if [ "$status" = "success" ] || \
@@ -207,7 +194,7 @@ jobs:
 
           # If core=false, all non-plan jobs should be skipped.
           if [ "${{ needs.plan.outputs.core }}" = "false" ]; then
-            expected_skipped=$((11 - 1)) # all except plan
+            expected_skipped=$((10 - 1)) # all except plan
             if [ "$skipped" -ge "$expected_skipped" ]; then
               echo "docs-only PR: $skipped jobs skipped as expected"
               exit 0
@@ -226,5 +213,5 @@ jobs:
           fi
 
           echo "CI / Required: all \
-            $((11 - skipped)) active jobs passed, $skipped skipped"
+            $((10 - skipped)) active jobs passed, $skipped skipped"
           exit 0
