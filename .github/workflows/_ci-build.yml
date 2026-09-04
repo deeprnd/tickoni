@@ -44,7 +44,7 @@ jobs:
             runner: ubuntu-24.04-arm
             timeout_minutes: 30
             artifact-name: build-linux-arm
-            setup-recipe: setup-build-arm-gcc
+            setup-recipe: setup-build-linux-arm-gcc
             setup-fd: setup-fd-linux-arm-gcc
             build-recipe: build-fd-tk-libs
             build-tk-recipe: build-tk-linux-arm
