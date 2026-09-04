@@ -293,9 +293,7 @@ test-prep-linux-x86:
 
 tests-all:
     @just build-all
-    @just quality-format-check-all
-    @just quality-lint-check-tk
-    @just quality-proto-check-all
+    @just quality-check-all
     @just security-check-all
     @just security-engine-check-changes
     @just test-all
@@ -722,6 +720,9 @@ quality-lint-check-fd:
     bash contrib/quality/quality.sh lint-check-fd
     command -v shellcheck >/dev/null || exit 0; bash contrib/quality/quality.sh lint-shellcheck-fd
 
+quality-lint-check-actions:
+    @command -v actionlint >/dev/null || exit 0; actionlint -ignore 'label "windows-11-vs2026-arm" is unknown' .github/workflows/*.yml
+
 quality-lint-check-tk:
     bash contrib/quality/quality.sh lint-check-tk
 
@@ -735,12 +736,12 @@ quality-lint-check-linux-x86:
 quality-lint-check-all:
     @just quality-lint-check-fd
     @just quality-lint-check-tk
-    @command -v actionlint >/dev/null || exit 0; actionlint -ignore 'label "windows-11-vs2026-arm" is unknown' .github/workflows/*.yml
+    @just quality-lint-check-actions
 
-quality-yaml-check-linux-x86:
+quality-yaml-check-linux:
     find . -name '*.yaml' -o -name '*.yml' | grep -vE '^./(opt|node_modules|.zig-global-cache|build|target|zig-out|\\.git)/' | xargs yamllint -f parsable
 
-quality-spell-check-linux-x86:
+quality-spell-check-linux:
     cspell lint --no-progress .
 
 # ── Quality: Proto ─────────────────────────────────────────────────────────
@@ -768,7 +769,7 @@ quality-proto-check-all:
 # ── Quality: All ───────────────────────────────────────────────────────────
 
 quality-check-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py quality bash -c "just quality-format-check-all && just quality-lint-check-all && just quality-proto-check-all && just quality-yaml-check-linux-x86 && just quality-spell-check-linux-x86"
+    {{ python }} contrib/tool/readme/run-badged-command.py quality bash -c "just quality-format-check-all && just quality-lint-check-all && just quality-proto-check-all && just quality-yaml-check-linux && just quality-spell-check-linux"
 
 # ── Security: CodeQL ───────────────────────────────────────────────────────
 
