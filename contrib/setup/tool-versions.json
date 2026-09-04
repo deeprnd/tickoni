@@ -10,7 +10,7 @@
       "version": "1.7.12"
     },
     "zig": {
-      "version": "0.17.0-dev.1941+71115f0ab",
+      "version": "0.17.0-dev.1978+c961124d9",
       "options": {
         "minisign_key": "RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
       }
