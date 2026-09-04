@@ -260,6 +260,25 @@ setup-security-macos-x86:
 setup-security-windows-x86:
     {{ python }} contrib/setup/orchestrator.py security --platform windows-x86
 
+# ── Qt 6 installation (for Qt terminal) ──────────────────────────────────────
+setup-qt-linux-x86:
+    python3 contrib/setup/orchestrator.py qt --platform linux-x86
+
+setup-qt-linux-arm:
+    python3 contrib/setup/orchestrator.py qt --platform linux-arm
+
+setup-qt-macos-x86:
+    python3 contrib/setup/orchestrator.py qt --platform macos-x86
+
+setup-qt-macos-arm:
+    python3 contrib/setup/orchestrator.py qt --platform macos-arm
+
+setup-qt-windows-x86:
+    {{ python }} contrib/setup/orchestrator.py qt --platform windows-x86
+
+setup-qt-windows-arm:
+    {{ python }} contrib/setup/orchestrator.py qt --platform windows-arm
+
 test-prep-linux-x86:
     # NO-OP — memory setup moved to workflow YAML where sudo is available.
 
