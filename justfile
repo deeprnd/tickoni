@@ -262,8 +262,8 @@ setup-security-windows-x86:
 
 # ── Qt 6 installation (for Qt terminal) ──────────────────────────────────────
 # Credentials from .env file (local) or GitHub secrets (CI).
-# Local: fill in .env with QT_USERNAME= and QT_PASSWORD=
-# CI: set QT_USERNAME and QT_PASSWORD as repository secrets
+# Local: copy .env.example → .env and fill in QT_USERNAME and QT_TOKEN
+# CI: set QT_USERNAME and QT_TOKEN as repository secrets
 #   → they propagate to the runner env automatically.
 # Note: orchestrator.py automatically loads .env when present.
 

@@ -171,18 +171,18 @@ class QtInstallerStrategy(InstallStrategy):
                 os.chmod(canonical, 0o755)
 
             # ── Build install command with unattended flags ───────────────────
-            # Credentials: QT_USERNAME + QT_PASSWORD env vars (CI-friendly).
+            # Credentials: QT_USERNAME + QT_TOKEN env vars (CI-friendly).
             # Falls back to --email/--pw only when both are set.
             qt_username = os.environ.get('QT_USERNAME', '')
-            qt_password = os.environ.get('QT_PASSWORD', '')
+            qt_token = os.environ.get('QT_TOKEN', '')
 
             parts = [
                 str(canonical),
                 f'--root {install_dir}',
                 flags,
             ]
-            if qt_username and qt_password:
-                parts.extend(['--email', qt_username, '--pw', qt_password])
+            if qt_username and qt_token:
+                parts.extend(['--email', qt_username, '--pw', qt_token])
             parts.append(qt_module)
 
             install_cmd = parts
