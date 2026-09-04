@@ -8,7 +8,20 @@ import os
 import signal
 import subprocess
 import sys
+import tempfile
 import time
+
+
+def pid_file_path():
+    """Return the platform-native path shared by server start and stop."""
+    return os.path.join(tempfile.gettempdir(), "llama_server.pid")
+
+
+def log_file_path(pid=None):
+    """Return a platform-native diagnostic log path."""
+    if pid is None:
+        pid = os.getpid()
+    return os.path.join(tempfile.gettempdir(), f"llama_server_{pid}.log")
 
 
 def start_server(llama_dir, model_dir, model_file, endpoint, port):
@@ -19,8 +32,8 @@ def start_server(llama_dir, model_dir, model_file, endpoint, port):
     server_bin = os.path.join(llama_dir, "llama-server" + (".exe" if os.name == "nt" else ""))
     model_path = os.path.join(model_dir, model_file)
     health_url = f"{endpoint.rstrip('/')}/health"
-    pid_file = "/tmp/llama_server.pid"
-    log_file = f"/tmp/llama_server_$$.log"
+    pid_file = pid_file_path()
+    log_file = log_file_path()
 
     if not os.path.isfile(server_bin):
         print(f"ERROR: llama-server binary not found at {server_bin}", file=sys.stderr)

@@ -43,8 +43,8 @@ class Orchestrator:
 
     def llm_server_stop(self):
         """Kill llama.cpp server by PID."""
-        from infra.llama_server import stop_server
-        pid_file = "/tmp/llama_server.pid"
+        from infra.llama_server import pid_file_path, stop_server
+        pid_file = pid_file_path()
         stop_server(pid_file)
 
     def zig_build(self, target):
