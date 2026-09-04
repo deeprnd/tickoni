@@ -143,6 +143,9 @@
     },
     "nodejs": {
       "version": "22.23.0"
+    },
+    "nvm": {
+      "version": "0.40.7"
     }
   },
   "categories": {
