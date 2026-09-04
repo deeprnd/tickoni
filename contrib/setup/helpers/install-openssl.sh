@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# install-openssl.sh — Fetch and build OpenSSL 3.6.2 from source
-# This is the openssl-3.6.2 build from deps.sh, extracted as a standalone
+# install-openssl.sh — Build OpenSSL 3.6.4 from source
+# This is the openssl-3.6.4 build from deps.sh, extracted as a standalone
 # helper so our setup scripts don't need deps.sh at all.
 #
 # Usage: bash contrib/setup/helpers/install-openssl.sh [--prefix PATH]
@@ -14,7 +14,7 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
 # Single source of truth for OS/arch — used by callers that need it.
 source "${SCRIPT_DIR}/../../platform.sh"
 
-PREFIX="${REPO_ROOT}/build/opt"
+PREFIX="$(cd -- "${REPO_ROOT}" && pwd)/build/opt"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -92,33 +92,17 @@ CONFIG_OPTS=(
 
 # ── Linux ────────────────────────────────────────────────────────────────────
 build_linux() {
-  echo "[openssl] Building OpenSSL 3.6.2 for Linux ($(uname -m))"
+  echo "[openssl] Building OpenSSL 3.6.4 for Linux ($(tk_arch))"
   local src_dir="${PREFIX}/git/openssl"
   local host_arch
-  host_arch="$(uname -m)"
-
-  if [[ -d "${src_dir}" && ! -d "${src_dir}/config" ]]; then
-    echo "[openssl] Removing incomplete source tree at ${src_dir}..."
-    rm -rf "${src_dir}"
-  fi
-
-  if [[ ! -d "${src_dir}/config" ]]; then
-    echo "[openssl] Fetching OpenSSL 3.6.2..."
-    mkdir -p "${PREFIX}/git"
-    (
-      cd "${PREFIX}/git"
-      git -c advice.detachedHead=false clone \
-        https://github.com/openssl/openssl \
-        openssl --branch openssl-3.6.2 --depth=1
-    )
-  fi
+  host_arch="$(tk_arch)"
 
   cd "${src_dir}"
 
   # Apply config patches for Linux (deps.sh lines 543-544)
   local cf_opts="-g3 -fno-omit-frame-pointer"
   case "${host_arch}" in
-    x86_64|i686) cf_opts+=" -fcf-protection=return" ;;
+    x86) cf_opts+=" -fcf-protection=return" ;;
   esac
   CFLAGS="${cf_opts}" \
     CXXFLAGS="${cf_opts}" \
@@ -132,9 +116,9 @@ build_linux() {
 
 # ── macOS ────────────────────────────────────────────────────────────────────
 build_macos() {
-  echo "[openssl] Building OpenSSL 3.6.2 for macOS"
+  echo "[openssl] Building OpenSSL 3.6.4 for macOS"
 
-  # OpenSSL 3.6.2 needs flex and gettext; brew's gettext conflicts with
+  # OpenSSL 3.6.4 needs flex and gettext; brew's gettext conflicts with
   # Firedancer's bundled libgettext, so it's hidden from PATH during the
   # build below (not uninstalled — `brew uninstall` would tear out
   # libintl.dylib from under every other installed formula linked against
@@ -142,22 +126,6 @@ build_macos() {
   brew install flex gettext 2>/dev/null || true
 
   local src_dir="${PREFIX}/git/openssl"
-  if [[ -d "${src_dir}" && ! -d "${src_dir}/config" ]]; then
-    echo "[openssl] Removing incomplete source tree at ${src_dir}..."
-    rm -rf "${src_dir}"
-  fi
-
-  if [[ ! -d "${src_dir}/config" ]]; then
-    echo "[openssl] Fetching OpenSSL 3.6.2..."
-    mkdir -p "${PREFIX}/git"
-    (
-      cd "${PREFIX}/git"
-      git -c advice.detachedHead=false clone \
-        https://github.com/openssl/openssl \
-        openssl --branch openssl-3.6.2 --depth=1
-    )
-  fi
-
   cd "${src_dir}"
 
   # On macOS we can't have 'gettext' in PATH during configure because
@@ -178,8 +146,8 @@ build_macos() {
 
   # -fcf-protection=return is x86-only
   local cf_opts="-g3 -fno-omit-frame-pointer"
-  case "$(uname -m)" in
-    x86_64) cf_opts+=" -fcf-protection=return" ;;
+  case "$(tk_arch)" in
+    x86) cf_opts+=" -fcf-protection=return" ;;
   esac
   # Clear host CPPFLAGS/HOSTCFLAGS — CI runners may have -fcf-protection=return
   # (x86 CET flag) which clang on arm64 rejects.  OpenSSL ./config inherits
@@ -214,39 +182,21 @@ build_macos() {
 build_windows() {
   echo "[openssl] Building OpenSSL 3.6.2 for Windows (MSVC)"
   local src_dir="${PREFIX}/git/openssl"
-
-  if [[ -d "${src_dir}" && ! -d "${src_dir}/config" ]]; then
-    echo "[openssl] Removing incomplete source tree at ${src_dir}..."
-    rm -rf "${src_dir}"
-  fi
-
-  if [[ ! -d "${src_dir}/config" ]]; then
-    echo "[openssl] Fetching OpenSSL 3.6.2..."
-    mkdir -p "${PREFIX}/git"
-    (
-      cd "${PREFIX}/git"
-      git -c advice.detachedHead=false clone \
-        https://github.com/openssl/openssl \
-        openssl --branch openssl-3.6.2 --depth=1
-    )
-  fi
-
   cd "${src_dir}"
 
   # Determine architecture for the OpenSSL target.
   # FD_WINDOWS_ARCH is set by the caller (arm64/x86_64).
   # Default to current architecture.
-  local windows_arch="${FD_WINDOWS_ARCH:-$(uname -m)}"
+  local windows_arch="${FD_WINDOWS_ARCH:-$(tk_arch)}"
 
   # OpenSSL target for Windows.
   # ARM64: VC-WIN64-ARM (uses MSVC cl.exe + nmake)
   # x86_64: VC-WIN64A (uses MSVC cl.exe + nmake)
   local openssl_target
-  if [[ "${windows_arch}" =~ ^(arm64|aarch64)$ ]]; then
-    openssl_target="VC-WIN64-ARM"
-  else
-    openssl_target="VC-WIN64A"
-  fi
+  case "${windows_arch}" in
+    arm) openssl_target="VC-WIN64-ARM" ;;
+    *)   openssl_target="VC-WIN64A" ;;
+  esac
 
   # Ensure Text::Template >= 1.46 is available for OpenSSL Configure.
   # Git for Windows includes Strawberry Perl which bundles Text::Template.
@@ -284,11 +234,10 @@ build_windows() {
   # Activate MSVC environment (VS Build Tools / Developer Command Prompt).
   # Without this, nmake is not in PATH inside Git Bash and GNU make cannot
   # read the MSVC-style Makefile generated by OpenSSL Configure.
-  if [[ "${windows_arch}" =~ ^(arm64|aarch64)$ ]]; then
-    local vc_target="arm64"
-  else
-    local vc_target="x64"
-  fi
+  case "${windows_arch}" in
+    arm) local vc_target="arm64" ;;
+    *)   local vc_target="x64" ;;
+  esac
 
   # Try VS 2026 first, then VS 2022, then VS 2019.
   local vcvars_path=""

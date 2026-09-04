@@ -99,16 +99,12 @@ pub fn parse(gpa: std.mem.Allocator, init: std.process.Init) !Parser {
             continue;
         }
 
-        // Positional (after -- or non-flag)
-    }
-
-    // Collect positionals
-    for (0..args.len) |j| {
-        if (std.mem.eql(u8, args[j], "--")) {
-            pos_start = j + 1;
-            break;
+        // Positional: first non-flag argument sets the start
+        if (pos_start == 0) {
+            pos_start = i;
         }
     }
+
     if (pos_start > 0) {
         result.positionals = args[pos_start..];
     }

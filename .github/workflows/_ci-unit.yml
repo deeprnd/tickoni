@@ -1,0 +1,100 @@
+---
+# Reusable Unit Test workflow: component tests per platform.
+# Builds FD libs locally on the same runner that runs tests.
+
+name: Unit Test Stage
+
+'on':
+  workflow_call:
+
+jobs:
+  unit-tests:
+    name: Unit Tests / ${{ matrix.platform-name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout_minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform-name: Linux x86_64
+            runner: ubuntu-24.04
+            timeout_minutes: 30
+            test-recipe: test-unit-tk-linux-x86
+            build-recipe: build-fd-linux-x86-gcc
+            fd-deps: setup-fd-linux-x86-gcc
+            setup-recipe: setup-build-linux-x86-gcc
+          - platform-name: Linux x86_64 Clang
+            runner: ubuntu-24.04
+            timeout_minutes: 30
+            test-recipe: test-unit-tk-linux-x86
+            build-recipe: build-fd-linux-x86-clang
+            fd-deps: setup-fd-linux-x86-clang
+            setup-recipe: setup-build-linux-x86-clang
+          - platform-name: Linux ARM
+            runner: ubuntu-24.04-arm
+            timeout_minutes: 30
+            test-recipe: test-unit-tk-linux-arm
+            build-recipe: build-fd-linux-arm-gcc
+            fd-deps: setup-fd-linux-arm-gcc
+            setup-recipe: setup-build-linux-arm-gcc
+          - platform-name: macOS 15 (x86_64)
+            runner: macos-15-intel
+            timeout_minutes: 30
+            test-recipe: test-unit-tk-macos-x86
+            build-recipe: build-fd-macos-x86
+            fd-deps: setup-fd-macos-x86
+            setup-recipe: setup-build-macos-x86
+          - platform-name: macOS 15 (ARM)
+            runner: macos-15
+            timeout_minutes: 30
+            test-recipe: test-unit-tk-macos-arm
+            build-recipe: build-fd-macos-arm
+            fd-deps: setup-fd-macos-arm
+            setup-recipe: setup-build-macos-arm
+          - platform-name: macOS 26 (x86_64)
+            runner: macos-26-intel
+            timeout_minutes: 30
+            test-recipe: test-unit-tk-macos-x86
+            build-recipe: build-fd-macos-x86
+            fd-deps: setup-fd-macos-x86
+            setup-recipe: setup-build-macos-x86
+          - platform-name: macOS 26 (ARM)
+            runner: macos-26
+            timeout_minutes: 30
+            test-recipe: test-unit-tk-macos-arm
+            build-recipe: build-fd-macos-arm
+            fd-deps: setup-fd-macos-arm
+            setup-recipe: setup-build-macos-arm
+          - platform-name: Windows x86_64
+            runner: windows-2025-vs2026
+            timeout_minutes: 30
+            test-recipe: test-unit-tk-windows-x86
+            build-recipe: build-fd-windows-x86
+            fd-deps: setup-fd-windows-x86
+            setup-recipe: setup-fd-windows-x86
+          - platform-name: Windows ARM
+            runner: windows-11-vs2026-arm
+            timeout_minutes: 30
+            test-recipe: test-unit-tk-windows-arm
+            build-recipe: build-fd-windows-arm
+            fd-deps: setup-fd-windows-arm
+            setup-recipe: setup-fd-windows-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install just
+        uses: taiki-e/install-action@just
+
+      - name: Setup toolchain (for test commands)
+        run: just ${{ matrix.setup-recipe }}
+
+      - name: Setup Firedancer deps (zig + SSL)
+        run: just ${{ matrix.fd-deps }}
+
+      - name: Build Firedancer libs
+        run: just ${{ matrix.build-recipe }}
+
+      - name: Run unit tests
+        run: just ${{ matrix.test-recipe }}

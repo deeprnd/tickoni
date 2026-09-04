@@ -66,22 +66,6 @@ CI expectations:
 
 ## Install
 
-Install common Python tooling used by repo maintenance, codegen, and tests:
-
-```bash
-just python-dev-install
-```
-
-Install the wider optional Python surface:
-
-```bash
-just python-dev-install-all
-```
-
-The wider install includes optional extras for protobuf generators, math
-generators, simulation helpers, Solana helpers, and agave-cluster CLI
-dependencies.
-
 Install the repository-managed Git hooks:
 
 ```bash
@@ -271,6 +255,16 @@ Lint:
 - `just quality-lint-check-fd`
 - `just quality-lint-check-tk`
 - `just quality-lint-check-all`
+
+YAML lint:
+
+- `just quality-yaml-check-linux-x86` — `yamllint` with relaxed profile across
+  the repo (`.yamllint` config)
+
+Spell check:
+
+- `just quality-spell-check-linux-x86` — `cspell` with domain dictionary
+  (`.cspell.json`)
 
 Aggregate:
 

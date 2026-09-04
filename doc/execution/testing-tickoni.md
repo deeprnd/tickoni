@@ -13,7 +13,7 @@ Tickoni repository.
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
-  <img alt="Security" src="https://img.shields.io/badge/security-passing-brightgreen?style=flat-square" />
+  <img alt="Security" src="https://img.shields.io/badge/security-failing-red?style=flat-square" />
   <!-- badge:security:end -->
 </p>
 
@@ -110,7 +110,7 @@ Aggregates:
 - `just test-system-all` — system lane (requires llama.cpp)
 - `just test-all` — unit + integration + system + e2e
 - `just test-cov-tk` — Tickoni harness coverage
-- `just test-cov-fd` — Firedancer coverage (pre-optional, toolchain may be missing)
+- `just test-cov-fd` — Firedancer coverage (no-op locally; CI coverage is pre-existing and requires LLVM toolchain)
 - `just test-cov-all` — both coverage lanes
 - `just tests-all` — build + quality + security + tests (full handoff gate)
 
@@ -122,7 +122,7 @@ Current placeholder test recipes:
   `test-demo-tk` and `test-e2e-fd`.
 - `just test-system-fd` — no-op (`@true`). Firedancer system testing uses
   `test-e2e-fd` (Firedancer's integration-test target).
-- `just test-cov-fd` — no-op (pre-existing llvm-cov toolchain not installed).
+- `just test-cov-fd` — no-op (pre-existing llvm-cov toolchain not installed locally).
 
 Placeholder commands return `@true` in the `justfile`, following the repo
 tooling rule that no-op component variants live in the `justfile` and not in
@@ -335,8 +335,8 @@ Practical rule of thumb:
 `just test-unit-tk` runs:
 
 ```bash
-ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} test --summary all
-ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} run-tests
+ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} test --summary all
+ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} run-tests
 ```
 
 On Windows, `just test-unit-tk` delegates to
@@ -414,7 +414,7 @@ and full-topology `integration-test` binaries.
 `just test-integration-tk` runs:
 
 ```bash
-ZIG_GLOBAL_CACHE_DIR=.zig-global-cache bash contrib/build/zigw.sh build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} integration-test
+ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} integration-test
 ```
 
 On Windows, `just test-integration-tk` delegates to
@@ -437,31 +437,37 @@ grows.
 
 ## Explicit System Lane
 
-`just test-system-tk` runs:
+`just test-system-tk` runs `contrib/test/run_live_investment_demo.sh`, which
+executes the full end-to-end flow: setup (via `contrib/setup/orchestrator.py
+llm-server`), start llama.cpp server, run `zig build system-test`, and clean up
+(server shutdown).
+
+`contrib/test/run_system_model_tests.sh` is the test runner that executes
+`zig build system-test` against a pre-started server. It is called internally by
+`run_live_investment_demo.sh`; developers should not call it directly unless
+debugging the test phase separately.
+
+Test infrastructure is managed by
+`contrib/test/orchestrator.py`:
 
 ```bash
-bash contrib/test/run_system_model_tests.sh
+python3 contrib/test/orchestrator.py llm-server-start   # start server, wait for health
+python3 contrib/test/orchestrator.py llm-server-stop    # kill server by PID
+python3 contrib/test/orchestrator.py zig-test --target system-test  # build + run
 ```
 
-This lane starts a real local `llama.cpp` server, waits for its health endpoint,
-and runs:
+To override default paths:
 
 ```bash
-zig build system-test
-```
-
-Before running system tests, ensure the llama.cpp server is set up:
-
-```bash
-just infra-ensure-llamacpp   # build llama.cpp (CPU or CUDA if GPU detected)
-just infra-ensure-model      # download GGUF model (requires `hf` CLI)
-just infra-run-llamacpp      # start llama-server
+export TK_LLAMA_CPP_DIR=~/custom/llama.cpp
+export TK_HF_MODEL_DIR=~/custom/models
+export TK_HF_MODEL_FILE=my-model.gguf
 ```
 
 On Windows, `just test-system-tk` delegates to
 `just test-system-tk-windows-x86` or `just test-system-tk-windows-arm`, which
-use `infra-ensure-llamacpp-win` and `infra-run-llamacpp-win` (CPU-only, no CUDA
-on CI runners).
+build FD libs for the target platform and then call
+`run_live_investment_demo_win.sh` (full e2e flow, CPU-only).
 
 The boundary for this lane is also the directory: every test root under
 `src/tickoni/test/system/` runs here, and nothing outside that directory does.
@@ -506,8 +512,19 @@ Preferred validation commands in order:
 - `just quality-lint-check-fd` runs Firedancer-derived lint checks and
   `shellcheck` when that tool is installed.
 - `just quality-lint-check-all` runs both lint lanes.
+- `just quality-yaml-check-linux-x86` runs `yamllint` with a relaxed profile
+  across the entire repository (all `.yaml`/`.yml` files). The config is in
+  `.yamllint`. It excludes `opt/`, `node_modules/`, `.zig-global-cache/`,
+  `build/`, `target/`, and `zig-out/`. Initially scoped to `.github/`, it was
+  later expanded to the full repo.
+- `just quality-spell-check-linux-x86` runs `cspell lint --no-progress` across
+  the repository. The domain dictionary and ignored paths are configured in
+  `.cspell.json`. It checks markdown, yaml, bash, python, and json files while
+  excluding compiled/source trees under `src/`, `config/`, `.github/`, and
+  build artefact directories.
 - `just quality-check-all` runs the main repository quality bundle:
-  format-check all lanes, then lint-check all lanes.
+  format-check all lanes, lint-check all lanes, proto-check, yaml-check,
+  and spell-check.
 - `just security-gitleaks-check-all` scans the current Tickoni and
   Firedancer-owned source scopes for secret leaks.
 - `just security-codeql-check-all` runs the configured CodeQL recipe variants.
@@ -532,8 +549,8 @@ Preferred validation commands in order:
 - `just test-e2e-all` runs the Firedancer e2e/system lane plus the current
   Tickoni e2e placeholder.
 - `just test-cov-tk` runs Tickoni harness coverage.
-- `just test-cov-fd` runs Firedancer-derived C coverage with reduced
-  parallelism for local and CI memory limits.
+- `just test-cov-fd` runs Firedancer-derived C coverage (no-op locally; requires
+  LLVM toolchain not installed on host).
 - `just test-cov-all` runs both coverage lanes.
 - `just test-all` runs the broad test bundle: unit, integration, system, e2e.
 - `just tests-all` runs the full local handoff gate: build, quality, security,

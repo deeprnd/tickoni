@@ -318,18 +318,6 @@ Sanitizers:
 
 ## Local Expectations
 
-Install developer Python tooling before running quality or security gates:
-
-```bash
-just python-dev-install
-```
-
-The optional wider Python surface is:
-
-```bash
-just python-dev-install-all
-```
-
 Security tools such as `gitleaks`, `codeql`, and CBMC-related proof tooling must
 be installed by the developer or CI image when their corresponding non-no-op
 commands are used. Scripts under `contrib/security/security.sh` intentionally run real

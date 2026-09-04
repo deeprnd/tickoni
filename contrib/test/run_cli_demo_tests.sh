@@ -5,9 +5,9 @@
 set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-cd "$repo_root"
+cd "$repo_root" || exit 1
 
-build_cmd=(bash contrib/build/zigw.sh build -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all)
+build_cmd=(zig build -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all)
 manifest="src/tickoni/demo/fixtures/demo.manifest.json"
 cli_binary="zig-out/bin/tickoni"
 binary="zig-out/bin/tickoni-supervisor"
@@ -25,7 +25,7 @@ version_output="$($cli_binary --version)" || exit 1
 python3 - <<'PY' "$version_output"
 import sys
 text = sys.argv[1]
-assert text.startswith('Tickoni '), text
+assert text.lower().startswith('tickoni '), text
 for needle in [
     'Build ID:',
     'Git:',

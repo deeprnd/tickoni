@@ -1,0 +1,68 @@
+---
+# Reusable Conformance workflow: cross-platform binary comparison.
+# Downloads all demo artifacts from the Demo stage and compares outputs.
+
+name: Conformance Stage
+
+'on':
+  workflow_call:
+
+jobs:
+  conformance:
+    name: Conformance / Compare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install just
+        uses: taiki-e/install-action@just
+
+      - name: Setup build toolchain
+        run: just setup-build-linux-x86-gcc
+
+      - name: Download Linux conformance artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-linux-x86
+          path: .
+
+      - name: Download macOS 15 x86_64 conformance artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-macos-15-x86_64
+          path: .
+
+      - name: Download macOS 15 ARM conformance artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-macos-15-arm
+          path: .
+
+      - name: Download macOS 26 x86_64 conformance artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-macos-26-x86_64
+          path: .
+
+      - name: Download macOS 26 ARM conformance artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-macos-26-arm
+          path: .
+
+      - name: Download Windows x86_64 conformance artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-windows-x86_64
+          path: .
+
+      - name: Download Windows ARM conformance artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-windows-arm
+          path: .
+
+      - name: Compare conformance outputs
+        run: just compare-demo-conformance

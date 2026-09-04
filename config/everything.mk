@@ -16,7 +16,7 @@ CPPFLAGS+=-DFD_BUILD_INFO=\"$(OBJDIR)/info\"
 CPPFLAGS+=$(EXTRA_CPPFLAGS)
 
 # Auxiliary rules that should not set up dependencies
-AUX_RULES:=clean distclean help run-unit-test run-integration-test cov-report dist-cov-report seccomp-policies frontend env
+AUX_RULES:=clean distclean help cov-report dist-cov-report seccomp-policies frontend env
 
 # Dry rules that should set up dependency targets, but not generate them
 DRY_RULES:=check show-deps proof
@@ -96,10 +96,10 @@ distclean:
 	$(RMDIR) $(BASEDIR) && $(RMDIR) target && $(RMDIR) agave/target && \
 $(SCRUB)
 
-run-unit-test:
+run-unit-test: unit-test
 	contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt $(TEST_OPTS)
 
-run-integration-test:
+run-integration-test: integration-test
 	contrib/test/run_integration_tests.sh --tests $(OBJDIR)/integration-test/automatic.txt $(TEST_OPTS)
 
 ##############################

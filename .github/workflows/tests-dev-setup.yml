@@ -1,0 +1,182 @@
+# Standalone Dev Setup Validation workflow
+# Validates the full developer lifecycle: setup-env → build-all → tests
+# Mirrors what a developer does locally: just setup-env && just build-all \
+#   test-unit-tk test-integration-all test-system-all
+#
+# Runs weekly every Monday at 09:00 UTC, or on demand via workflow_dispatch.
+# Runs on all six platform/compiler combinations:
+#   - Linux x86_64 (GCC)
+#   - Linux ARM64 (GCC)
+#   - macOS 15/26 x86_64
+#   - macOS 15/26 ARM
+#   - Windows x86_64
+#   - Windows ARM64
+#
+# Reference: doc/execution/plans/v2.10-s8-4-done.md
+
+---
+name: Dev Setup Validation
+
+'on':
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday at 09:00 UTC
+  workflow_dispatch:
+
+jobs:
+  dev-setup-linux-x86:
+    name: Dev Setup / Linux x86_64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: taiki-e/install-action@just
+
+      - name: Dev setup
+        run: just setup-linux-x86-gcc
+
+      - name: Configure hugepages and memory limits
+        run: |
+          sudo prlimit --pid $$ --nofile=65536 --memlock=unlimited
+          sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || true
+          sudo src/util/shmem/fd_shmem_cfg init 0700 "$USER" ""
+          sudo src/util/shmem/fd_shmem_cfg alloc-auto 0
+
+      - name: Run validation test suite
+        run: just build-all test-unit-tk test-integration-all \
+            test-system-all
+
+  dev-setup-linux-arm:
+    name: Dev Setup / Linux ARM64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: taiki-e/install-action@just
+
+      - name: Dev setup
+        run: just setup-linux-arm-gcc
+
+      - name: Configure hugepages and memory limits
+        run: |
+          sudo prlimit --pid $$ --nofile=65536 --memlock=unlimited
+          sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || true
+          sudo src/util/shmem/fd_shmem_cfg init 0700 "$USER" ""
+          sudo src/util/shmem/fd_shmem_cfg alloc-auto 0
+
+      - name: Run validation test suite
+        run: just build-all test-unit-tk test-integration-all \
+            test-system-all
+
+  dev-setup-macos-15-x86:
+    name: Dev Setup / macOS 15 (x86_64)
+    runs-on: macos-15-intel
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: taiki-e/install-action@just
+
+      - name: Dev setup
+        run: just setup-macos-x86
+
+      - name: Run validation test suite
+        run: just build-all test-unit-tk test-integration-all \
+            test-system-all
+
+  dev-setup-macos-15-arm:
+    name: Dev Setup / macOS 15 (ARM)
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: taiki-e/install-action@just
+
+      - name: Dev setup
+        run: just setup-macos-arm
+
+      - name: Run validation test suite
+        run: just build-all test-unit-tk test-integration-all \
+            test-system-all
+
+  dev-setup-macos-26-x86:
+    name: Dev Setup / macOS 26 (x86_64)
+    runs-on: macos-26-intel
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: taiki-e/install-action@just
+
+      - name: Dev setup
+        run: just setup-macos-x86
+
+      - name: Run validation test suite
+        run: just build-all test-unit-tk test-integration-all \
+            test-system-all
+
+  dev-setup-macos-26-arm:
+    name: Dev Setup / macOS 26 (ARM)
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: taiki-e/install-action@just
+
+      - name: Dev setup
+        run: just setup-macos-arm
+
+      - name: Run validation test suite
+        run: just build-all test-unit-tk test-integration-all \
+            test-system-all
+
+  dev-setup-windows-x86:
+    name: Dev Setup / Windows x86_64
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: taiki-e/install-action@just
+
+      - name: Dev setup
+        run: just setup-windows-x86
+
+      - name: Run validation test suite
+        run: just build-all test-unit-tk test-integration-all \
+            test-system-all
+
+  dev-setup-windows-arm:
+    name: Dev Setup / Windows ARM64
+    runs-on: windows-11-vs2026-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: taiki-e/install-action@just
+
+      - name: Dev setup
+        run: just setup-windows-arm
+
+      - name: Run validation test suite
+        run: just build-all test-unit-tk test-integration-all \
+            test-system-all

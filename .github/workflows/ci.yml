@@ -1,0 +1,217 @@
+# Orchestrator CI workflow — staged DAG with fail-open change detection.
+# This is the single PR-required workflow. All stages are reusable sub-workflows
+# or jobs that consume outputs from the PLAN job.
+#
+# Reference: doc/execution/plans/v2.10-s8-5.md
+#
+# Execution order:
+#   (all build) → (all unit) → (integration, system, demo)
+#     → security-deep
+#
+# Stage 1: quality + security-secrets (parallel, cheap pre-build gates)
+# Stage 2: build (all platforms, after quality + secrets)
+# Stage 3: unit tests (all platforms, after build)
+# Stage 4: integration + system + demo (parallel, after unit)
+# Stage 5: security-deep (after integration/system/demo)
+#
+# Dev Setup Validation runs standalone: weekly on Mondays + on-demand via
+# .github/workflows/tests-dev-setup.yml
+
+---
+name: CI
+
+'on':
+  pull_request:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── PLAN: single change classifier (fail-open) ────────────────────────────
+  plan:
+    name: Plan
+    runs-on: ubuntu-24.04
+    outputs:
+      core: ${{ steps.plan.outputs.core }}
+      docs: ${{ steps.plan.outputs.docs }}
+      book: ${{ steps.plan.outputs.book }}
+      benchmark: ${{ steps.plan.outputs.benchmark }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/plan-ci
+        id: plan
+        with:
+          base_ref: ${{ github.base_ref }}
+          event_name: ${{ github.event_name }}
+
+  # ── QUALITY: format, lint, proto — no FD build needed ─────────────────────
+  quality:
+    name: Quality
+    needs: plan
+    if: needs.plan.outputs.core == 'true'
+    uses: ./.github/workflows/_ci-quality.yml
+
+  # ── SECURITY/SECRETS: gitleaks — runs in parallel with quality ───────────
+  security-secrets:
+    name: Security / Secrets
+    needs: plan
+    if: needs.plan.outputs.core == 'true'
+    uses: ./.github/workflows/_ci-security-secrets.yml
+
+  # ── BUILD: all platforms in parallel (depends on quality + secrets) ──────
+  build:
+    name: Build
+    needs: [plan, quality, security-secrets]
+    if: >-
+      needs.plan.outputs.core == 'true' &&
+      needs.quality.result == 'success' &&
+      needs.security-secrets.result == 'success'
+    uses: ./.github/workflows/_ci-build.yml
+
+  # ── UNIT: component tests per platform (downloads build artifact) ────────
+  unit:
+    name: Tests / Unit
+    needs: [plan, build]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success'
+    uses: ./.github/workflows/_ci-unit.yml
+
+  # ── INTEGRATION: multi-component tests per platform ──────────────────────
+  # Only runs if unit tests succeed (sequential dependency)
+  integration:
+    name: Tests / Integration
+    needs: [plan, build, unit]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.unit.result == 'success'
+    uses: ./.github/workflows/_ci-integration.yml
+
+  # ── SYSTEM: live-LLM tests per platform ──────────────────────────────────
+  # Only runs if unit tests succeed (sequential dependency)
+  system:
+    name: Tests / System
+    needs: [plan, build, unit]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.unit.result == 'success'
+    uses: ./.github/workflows/_ci-system.yml
+
+  # ── DEMO: fixture-backed demos per platform ──────────────────────────────
+  # Only runs if unit tests succeed (sequential dependency)
+  demo:
+    name: Tests / Demo
+    needs: [plan, build, unit]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.unit.result == 'success'
+    uses: ./.github/workflows/_ci-demo.yml
+
+  # ── CONFORMANCE: cross-platform binary comparison ────────────────────────
+  conformance:
+    name: Tests / Conformance
+    needs: [plan, demo]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.demo.result == 'success'
+    uses: ./.github/workflows/_ci-conformance.yml
+
+  # ── SECURITY / DEEP: sanitizers, seccomp, formal verification ────────────
+  # Only runs after integration, system, and demo succeed
+  security-deep:
+    name: Security / Deep
+    needs: [plan, build, integration, system, demo]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.integration.result == 'success' &&
+      needs.system.result == 'success' &&
+      needs.demo.result == 'success'
+    uses: ./.github/workflows/_ci-security-deep.yml
+
+
+  # ── CI / Required: aggregating gate for branch protection ────────────────
+  ci-required:
+    name: CI / Required
+    needs:
+      [plan, quality, security-secrets, build,
+       unit, integration, system, demo, conformance, security-deep]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check CI results
+        shell: bash
+        env:
+          PLAN_CORE: ${{ needs.plan.outputs.core }}
+        run: |
+          results=""
+          failures=""
+          skipped=0
+
+          for job in plan quality security-secrets \
+              build unit integration system demo \
+              conformance security-deep; do
+            case "$job" in
+              plan) status="${{ needs.plan.result }}" ;;
+              quality) status="${{ needs.quality.result }}" ;;
+              security-secrets) \
+                status="${{ needs.security-secrets.result }}" ;;
+              build) status="${{ needs.build.result }}" ;;
+              unit) status="${{ needs.unit.result }}" ;;
+              integration) status="${{ needs.integration.result }}" ;;
+              system) status="${{ needs.system.result }}" ;;
+              demo) status="${{ needs.demo.result }}" ;;
+              conformance) status="${{ needs.conformance.result }}" ;;
+              security-deep) status="${{ needs.security-deep.result }}" ;;
+            esac
+            results="$results $job=$status"
+            if [ "$status" = "success" ] || \
+               [ "$status" = "skipped" ]; then
+              [ "$status" = "skipped" ] \
+                && skipped=$((skipped + 1))
+            else
+              failures="$failures $job=$status"
+            fi
+          done
+
+          # If core=false, all non-plan jobs should be skipped.
+          if [ "${{ needs.plan.outputs.core }}" = "false" ]; then
+            expected_skipped=$((10 - 1)) # all except plan
+            if [ "$skipped" -ge "$expected_skipped" ]; then
+              echo "docs-only PR: $skipped jobs skipped as expected"
+              exit 0
+            else
+              echo "docs-only PR expected $expected_skipped \
+                skipped, got $skipped"
+              echo "results: $results"
+              exit 1
+            fi
+          fi
+
+          if [ -n "$failures" ]; then
+            echo "FAIL: $failures"
+            echo "all results: $results"
+            exit 1
+          fi
+
+          echo "CI / Required: all \
+            $((10 - skipped)) active jobs passed, $skipped skipped"
+          exit 0

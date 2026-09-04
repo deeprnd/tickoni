@@ -1,3 +1,4 @@
+---
 # This workspace advertises the nested local packs so the CLI resolves them
 # from the repository instead of trying to fetch them from a registry.
 provide:
@@ -7,5 +8,5 @@ provide:
   - "test/qlpack.yml"
 
 registries:
- - packages: 'codeql/*'
-   url: https://ghcr.io/v2/
+  - packages: "codeql/*"
+    url: https://ghcr.io/v2/

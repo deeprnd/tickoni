@@ -1,5 +1,8 @@
+---
 name: submodule-init
-description: 'Initialize submodules with file locking to prevent concurrent access'
+description: >-
+  Initialize submodules with file locking to prevent
+  concurrent access
 runs:
   using: composite
   steps:

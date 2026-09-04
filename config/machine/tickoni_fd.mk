@@ -28,7 +28,7 @@ LOCAL_MKS := $(shell $(FIND) -L src -type f -name Local.mk)
 # Note: Make's % wildcard matches / too, so src/disco/%
 # also matches src/disco/tickoni/% — filter-out removes that subdirectory.
 LOCAL_MKS := $(filter src/tango/% src/util/% src/ballet/% src/disco/% src/waltz/% src/third_party/%,$(LOCAL_MKS))
-LOCAL_MKS := $(filter-out src/discof/% src/disco/tickoni/% src/flamenco/% src/choreo/% src/app/platform/%,$(LOCAL_MKS))
+LOCAL_MKS := $(filter-out src/disco/quic/% src/discof/% src/disco/tickoni/% src/disco/gui/% src/disco/platform/% src/flamenco/% src/choreo/% src/app/platform/% src/waltz/quic/%,$(LOCAL_MKS))
 endif
 
 # Parse EXTRAS from the command line to include corresponding with-*.mk files.
@@ -71,13 +71,13 @@ UNAME?=$(shell uname)
 ifeq ($(UNAME), Darwin)
   include config/machine/macos_clang.mk
 else ifneq (,$(filter MINGW% MSYS% CYGWIN% Windows_NT,$(UNAME)))
-  ifeq ($(CC),clang)
+  ifneq (,$(findstring clang,$(CC)))
     include config/machine/windows_clang.mk
   else
     include config/machine/windows_gcc.mk
   endif
 else ifneq (,$(FD_WINDOWS_ARCH))
-  ifeq ($(CC),clang)
+  ifneq (,$(findstring clang,$(CC)))
     include config/machine/windows_clang.mk
   else
     include config/machine/windows_gcc.mk

@@ -419,13 +419,23 @@ pub fn build(b: *std.Build) void {
     if (target.result.os.tag == .windows) {
         exe.root_module.linkLibrary(addTickoniSupervisorShimLibrary(b, target, optimize));
         addWindowsFdManifestFixups(b, exe, b.fmt("{s}/fd_windows_zig_supervisor_link.txt", .{fd_lib_dir}));
+        linkTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
+    } else if (target.result.cpu.arch == .aarch64) {
+        // ARM64 Linux: use explicit archive paths (like Windows) to preserve link order
+        // with ld.lld, and link libatomic for ARM64 CAS intrinsics.
+        addTickoniCodecShim(b, exe);
+        addTickoniFiredancerShims(b, exe);
+        addTickoniTopoRunShims(b, exe);
+        addTickoniTileRunShim(b, exe);
+        linkTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
+        exe.root_module.linkSystemLibrary("atomic", .{});
     } else {
         addTickoniCodecShim(b, exe);
         addTickoniFiredancerShims(b, exe);
         addTickoniTopoRunShims(b, exe);
         addTickoniTileRunShim(b, exe);
+        linkTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
     }
-    linkTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
     b.installArtifact(exe);
 
     const run_exe = b.addRunArtifact(exe);
@@ -677,7 +687,7 @@ pub fn build(b: *std.Build) void {
         // This avoids Zig's --listen=- parallel coordination which panics
         // with EndOfStream when 48+ test binaries communicate over the same pipe.
         const run_tests_cmd = std.Build.Step.Run.create(b, "run-tests");
-        run_tests_cmd.addArgs(&.{ "bash", "contrib/build/run-test-series.sh" });
+        run_tests_cmd.addArgs(&.{ "bash", "contrib/test/run_test_series.sh" });
         run_tests_cmd.step.dependOn(test_step);
         run_tests_step.dependOn(&run_tests_cmd.step);
 
@@ -1917,7 +1927,8 @@ pub fn build(b: *std.Build) void {
         cli_exe.root_module.linkLibrary(addTickoniCodecShimLibrary(b, target, optimize, "tickoni-codec-shims"));
         addWindowsFdManifestFixups(b, cli_exe, b.fmt("{s}/fd_windows_zig_codec_link.txt", .{fd_lib_dir}));
         linkTickoniSystemLibraries(b, cli_exe, fd_lib_dir, &.{ "fd_ballet", "fd_util" });
-        cli_exe.root_module.linkSystemLibrary("crypt32", .{});
+        // crypt32 is a Windows system library, not a pkg-config dependency.
+        cli_exe.root_module.linkSystemLibrary("crypt32", .{ .use_pkg_config = .no });
     } else {
         linkTickoniCodec(b, cli_exe, fd_lib_dir);
     }
@@ -2270,7 +2281,7 @@ fn linkTickoniFiredancer(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_di
         step.root_module.addLibraryPath(b.path(fd_lib_dir));
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
-        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{fd_lib_dir}) });
+        linkTickoniWindowsUuid(b, step, fd_lib_dir);
         // Windows doesn't have pkg-config, so use link_libcpp instead of
         // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
         step.root_module.link_libcpp = true;
@@ -2295,23 +2306,27 @@ fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) void 
     });
 }
 
+fn linkTickoniWindowsUuid(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8) void {
+    if (step.root_module.resolved_target.?.result.os.tag != .windows) return;
+    // Windows FD archives carry a libuuid.a default-library reference. The
+    // FD build creates this compatibility archive from libuuid_stub.c; add
+    // the archive explicitly for every Windows link.
+    step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{fd_lib_dir}) });
+}
+
 fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8, libs: []const []const u8) void {
     step.root_module.addLibraryPath(b.path(fd_lib_dir));
-    if (step.root_module.resolved_target.?.result.os.tag == .windows) {
-        // COFF static linking is less forgiving about archive-member discovery
-        // across deep/transitive and same-archive dependencies. Repeat the
-        // closure so later unresolveds can pull additional members from the
-        // same Firedancer archives.
-        // Windows doesn't have pkg-config — use link_libcpp instead of
-        // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config on
-        // a Linux host doing cross-compilation.
-        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
-        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
-        // Windows prebuilt FD libs (from CI) reference libuuid.a.
-        // contrib/build/fd-build-windows.sh post-build step compiles
-        // libuuid_stub.c and archives it as libuuid.a so the library lookup
-        // succeeds. Do NOT add libuuid_stub.c as a raw C source file here —
-        // that would create duplicate symbols with the .a archive.
+    const os_tag = step.root_module.resolved_target.?.result.os.tag;
+    const cpu_arch = step.root_module.resolved_target.?.result.cpu.arch;
+    if (os_tag == .windows or (os_tag == .linux and cpu_arch == .aarch64)) {
+        // Windows and ARM64 Linux: use explicit archive paths. On Windows this avoids
+        // pkg-config.BAT probing; on ARM64 Linux it preserves link order with ld.lld,
+        // which is required because fd_sandbox_* symbols from libfd_util.a must be
+        // resolved after the shim wrappers in sandbox.c reference them.
+        for (libs) |lib| {
+            step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib }) });
+        }
+        linkTickoniWindowsUuid(b, step, fd_lib_dir);
         step.root_module.link_libcpp = true;
     } else {
         for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
@@ -2464,7 +2479,7 @@ fn linkTickoniCodec(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []
         step.root_module.addLibraryPath(b.path(fd_lib_dir));
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
-        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{fd_lib_dir}) });
+        linkTickoniWindowsUuid(b, step, fd_lib_dir);
         // Windows doesn't have pkg-config, so use link_libcpp instead of
         // linkSystemLibrary("stdc++", .{}) which would invoke pkg-config.
         step.root_module.link_libcpp = true;

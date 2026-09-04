@@ -1,0 +1,778 @@
+# Story 8.3.3 — Test `just setup-env` and `just tests-all` from all sides
+
+## Goal
+
+Build a comprehensive test plan for `just setup-env` and `just tests-all` that covers
+all constituent parts, all execution paths, and all failure modes. Everything runs locally.
+No CI. No remote calls except the tools those commands themselves make.
+
+DONT RUN ANYTHING IN PARALLEL!!!!
+
+---
+
+## What these commands do
+
+### `just setup-env`
+
+```
+python3 contrib/setup/orchestrator.py core,essential,toolchain,build,zig,ssl,fd,quality,secrets,coverage,security,ops
+just setup-git
+```
+
+Orchestrator.py reads `tool-versions.json`, resolves the dependency graph for the
+11 categories, filters by platform (linux-x86 on this host), and installs each tool
+using its registered strategy. Then setup-git configures git hooks.
+
+**Dependency resolution chain:**
+
+```
+core → []
+essential → [core]
+toolchain → [core, essential]
+build → [core, essential]
+zig → [core, essential]
+ssl → [core]
+fd → [core]
+quality → [core, build, go, zig]
+secrets → [core]
+coverage → [core, build, toolchain]
+security → [core]
+ops → [core]
+```
+
+**Tools installed per category:**
+
+| Category | Tools | Install Method |
+|----------|-------|----------------|
+| core | curl, git | apt |
+| essential | python3, pipx, minisign | apt / pip |
+| toolchain | gcc, clang-llvm, llvm | apt |
+| build | make, cmake, zstd, pkg-config, ninja, ccache | apt |
+| zig | zig | install_zig (github_release) |
+| ssl | openssl | build_from_source (compiles from tarball) |
+| fd | snappy, rockdb | build_from_source (firedancer_deps script) |
+| quality | shellcheck, actionlint, yamllint, pre-commit, buf | apt / pip / pipx / go_install |
+| secrets | gitleaks | github_release |
+| coverage | kcov | apt |
+| security | cbmc, litani, universal-ctags, cbmc-viewer, cbmc-starter-kit | apt / github_release |
+| ops | pwsh | apt |
+
+### `just tests-all`
+
+```
+just build-all              # build fd libs + tk zig binary
+just quality-format-check-all   # zig fmt --check (tk) + trailing whitespace check (fd)
+just quality-lint-check-tk      # zig build lint-check
+just quality-proto-check-all    # buf lint/check (proto files)
+security-check-all            # @true (pre-existing IBT linker failure, skipped)
+just security-engine-check-changes  # gitleaks diff scan
+just test-all
+```
+
+**test-all chain:**
+
+```
+test-unit-all → test-unit-tk && test-unit-fd
+test-integration-all → test-integration-tk && test-integration-fd (placeholder @true)
+test-cov-all → test-cov-tk && test-cov-fd (placeholder @true)
+test-system-all → test-system-tk && test-system-fd (placeholder @true)
+test-e2e-all → test-e2e-fd && test-e2e-tk (placeholder @true)
+```
+
+---
+
+## Test Plan
+
+### Phase 1: Setup-env — Clean run verification
+
+**Status: NOT TESTED**
+
+**1.1. Clean machine setup — TODO**
+
+**1.2. Idempotent re-run — TODO**
+
+**1.3. Dry-run — TODO**
+
+**1.4. Partial category — TODO**
+
+**1.5. Dependency graph — TODO**
+
+**1.6. Platform override — TODO**
+
+**1.7. Setup-git — TODO**
+
+---
+
+**1.1. Clean machine setup (fresh virtualenv + no pre-installed tools)**
+
+```bash
+# Create fresh env
+python3 -m venv /tmp/test-setup-env-venv
+source /tmp/test-setup-env-venv/bin/activate
+
+# Run setup-env
+cd /home/vicgenin/work/git/tickoni
+just setup-env
+```
+
+Verify:
+- Every category logs `[INSTALL] <tool>` or `[COMPLETE] N/N tools handled`
+- No `already_installed` for tools that should be fresh
+- `just setup-git` succeeds and `.githooks/commit-msg` is active
+- All tools are discoverable: `command -v curl git python3 pipx minisign gcc clang cmake make zig gitleaks kcov pwsh buf shellcheck actionlint yamllint cbmc litani`
+
+**1.2. Idempotent re-run (tools already installed)**
+
+```bash
+just setup-env
+```
+
+Verify:
+- All tools show `already_installed` status
+- Exit code is 0
+- No rebuilds or re-downloads
+- `setup-git` still succeeds
+
+**1.3. Dry-run verification**
+
+```bash
+python3 contrib/setup/orchestrator.py core,essential,toolchain,build,zig,ssl,fd,quality,secrets,coverage,security,ops --dry-run
+```
+
+Verify:
+- Output lists all expected tools with `[DRY-RUN] Would install <tool> via <method>`
+- Dependency resolution is correct (each category's tools are listed)
+- No actual installation happens (check that openssl tarball isn't downloaded, etc.)
+
+**1.4. Partial category run**
+
+```bash
+python3 contrib/setup/orchestrator.py core,essential --dry-run
+python3 contrib/setup/orchestrator.py zig,ssl,fd --dry-run
+python3 contrib/setup/orchestrator.py quality,secrets --dry-run
+```
+
+Verify:
+- `core,essential` resolves correctly and installs just curl, git, python3, pipx, minisign
+- `zig,ssl,fd` resolves to just zig, openssl, snappy, rockdb
+- No toolchain or build tools are accidentally included
+
+**1.5. Dependency graph verification**
+
+```bash
+python3 contrib/setup/orchestrator.py --deps coverage
+python3 contrib/setup/orchestrator.py --deps quality
+```
+
+Verify:
+- `--deps coverage` returns: `core, build, toolchain`
+- `--deps quality` returns: `core, build, go, zig`
+- The resolved order is topological (core first, toolchain before coverage, etc.)
+
+**1.6. Platform override test**
+
+```bash
+python3 contrib/setup/orchestrator.py core,essential --dry-run --platform macos-arm
+python3 contrib/setup/orchestrator.py core,essential --dry-run --platform windows-x86
+```
+
+Verify:
+- Platform filtering excludes linux-only tools (e.g., gcc via apt)
+- Windows-specific tools (msvc, ninja via winget) appear for windows platforms
+- macOS-specific tools (brew-based installs) appear for macos platforms
+
+**1.7. Setup-git verification**
+
+```bash
+git config --get core.hooksPath
+test -x .githooks/commit-msg
+grep -q 'anthropic' .githooks/commit-msg
+```
+
+Verify:
+- `core.hooksPath` is set to `.githooks`
+- `.githooks/commit-msg` is executable
+- It contains logic to strip anthropic AI co-authors
+
+---
+
+### Phase 2: Setup-env — Build-time verification
+
+**Status: NOT TESTED**
+
+**2.1. OpenSSL — TODO**
+
+**2.2. Firedancer deps — TODO**
+
+**2.3. Zig install — TODO**
+
+**2.4. CBMC tools — TODO**
+
+---
+
+**2.1. OpenSSL build from source (critical path)**
+
+This is the most complex install — it downloads, extracts, configures, and compiles OpenSSL.
+
+```bash
+# Force re-install by removing existing install
+rm -rf ./opt/lib/libssl.a ./opt/lib/libssl.so* ./opt/include/openssl
+
+# Run ssl category
+python3 contrib/setup/orchestrator.py ssl
+```
+
+Verify:
+- Tarball is downloaded to the correct location
+- `./opt/lib/libssl.a` and `./opt/lib/libcrypto.a` exist after install
+- `./opt/include/openssl/ssl.h` exists
+- `pkg-config --libs openssl` works if `--cflags`/`--libs` were set
+
+**2.2. Firedancer deps build (snappy + rockdb)**
+
+```bash
+python3 contrib/setup/orchestrator.py fd --dry-run
+python3 contrib/setup/orchestrator.py fd
+```
+
+Verify:
+- `./opt/lib/libsnappy.a` exists after install
+- `./opt/lib/librocksdb.a` exists after install
+- Both use the `firedancer_deps` build_from_source strategy
+- The build script handles dependencies correctly
+
+**2.3. Zig install (install_zig strategy)**
+
+```bash
+python3 contrib/setup/orchestrator.py zig --dry-run
+python3 contrib/setup/orchestrator.py zig
+```
+
+Verify:
+- Zig binary is installed to `$HOME/.local/bin/zig` or equivalent
+- `zig version` returns the expected version from tool-versions.json
+- GITHUB_PATH is written for PATH propagation
+
+**2.4. CBMC and formal verification tools (security category)**
+
+```bash
+python3 contrib/setup/orchestrator.py security --dry-run
+```
+
+Verify:
+- All 5 tools (cbmc, litani, universal-ctags, cbmc-viewer, cbmc-starter-kit) are listed
+- Mix of apt and github_release methods is handled correctly
+
+---
+
+### Phase 3: Build-all — Verification
+
+**Status: NOT TESTED**
+
+**3.1. Firedancer build — TODO**
+
+**3.2. Tickoni Zig build — TODO**
+
+**3.3. build-all aggregate — TODO**
+
+**3.4. Clang build — TODO**
+
+---
+
+**3.1. Firedancer library build**
+
+```bash
+just build-fd
+```
+
+Verify:
+- Build uses `MACHINE=tickoni_fd` profile (scoped to 5 libs only)
+- Output libraries: `libfd_tango.a`, `libfd_util.a`, `libfd_ballet.a`, `libfd_disco.a`, `libfd_waltz.a`
+- Build completes without errors
+- No Solana validator tiles or RPC schemas are compiled
+
+**3.2. Tickoni Zig build**
+
+```bash
+ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir=build/fd-tickoni-fd/lib
+```
+
+Verify:
+- Binary is produced (should be `tickoni` or `tickoni-supervisor`)
+- Linking against the previously built Firedancer libs works
+- No undefined symbols from the Firedancer side
+
+**3.3. build-all aggregate**
+
+```bash
+just build-all
+```
+
+Verify:
+- Both `build-fd` and `build-tk` succeed
+- Order is correct (fd libs first, then tk binary)
+- Exit code is 0
+
+**3.4. Build with different compiler**
+
+```bash
+# Check if clang build works
+just build-fd-clang
+```
+
+Verify:
+- Clang build succeeds (or document expected failure if known)
+- No `-mno-avx10.1-256` conflict with icelake
+
+---
+
+### Phase 4: Quality checks — Verification
+
+**Status: NOT TESTED**
+
+**4.1. Format check tk — TODO**
+
+**4.2. Format check fd — TODO**
+
+**4.3. Full format check — TODO**
+
+**4.4. Lint check — TODO**
+
+**4.5. Proto check — TODO**
+
+---
+
+**4.1. Format check (Zig source)**
+
+```bash
+just quality-format-check-tk
+```
+
+Verify:
+- Runs `zig fmt --check` on all Tickoni-owned Zig source trees
+- Reports cleanly if code is already formatted
+
+**4.2. Format check (Firedancer C / docs / scripts)**
+
+```bash
+just quality-format-check-fd
+```
+
+Verify:
+- Checks trailing whitespace in non-Tickoni paths
+- Reports cleanly
+
+**4.3. Full format check**
+
+```bash
+just quality-format-check-all
+```
+
+Verify:
+- Both tk and fd format checks pass
+- Exit code is 0
+
+**4.4. Lint check (Tickoni)**
+
+```bash
+just quality-lint-check-tk
+```
+
+Verify:
+- Runs `zig build lint-check` (or equivalent)
+- Reports on code quality issues
+
+**4.5. Proto check (buf)**
+
+```bash
+just quality-proto-check-all
+```
+
+Verify:
+- Runs `buf lint` and `buf check` on proto files
+- Exits 0 when no violations
+
+---
+
+### Phase 5: Security checks — Verification
+
+**Status: NOT TESTED**
+
+**5.1. security-check-all — TODO**
+
+**5.2. security-engine-check-changes — TODO**
+
+**5.3. Gitleaks full scan — TODO**
+
+---
+
+**5.1. security-check-all (known failure)**
+
+```bash
+just security-check-all
+```
+
+Verify:
+- Runs `@true` (pre-existing IBT linker failure on host clang — documented skip)
+- This is expected behavior, not a bug
+- Document this in the plan as a known limitation
+
+**5.2. security-engine-check-changes**
+
+```bash
+just security-engine-check-changes
+```
+
+Verify:
+- Runs gitleaks diff scan on changed files
+- Reports no false positives on clean repo
+- Document which files it scans
+
+**5.3. Gitleaks full scan**
+
+```bash
+gitleaks detect --source . --no-banner
+```
+
+Verify:
+- No secrets are detected in the working tree
+- If there are known false positives, document them
+
+---
+
+### Phase 6: Test lane — Verification
+
+**Status: NOT TESTED**
+
+**6.1. Unit tests FD — TODO**
+
+**6.2. Unit tests FD (gcc) — TODO**
+
+**6.3. Integration tests tk — TODO**
+
+**6.4. Integration tests FD — TODO**
+
+**6.5. System tests tk (live llama.cpp) — TODO**
+
+**6.6. System tests FD — TODO**
+
+**6.7. Demo conformance — TODO**
+
+**6.8. E2E tests FD — TODO**
+
+**6.9. E2E tests tk — TODO**
+
+**6.10. Coverage tk — TODO**
+
+**6.11. Coverage FD — TODO**
+
+---
+
+**6.1. Unit tests — Tickoni (Zig)**
+
+```bash
+just test-unit-tk
+```
+
+Verify:
+- Runs `zig build -Dtest=true -Dfd-lib-dir=<path> test --summary all`
+- Runs `zig build -Dtest=true -Dfd-lib-dir=<path> run-tests`
+- All unit tests pass
+- Report test count and any failures
+
+**6.2. Unit tests — Firedancer (C)**
+
+```bash
+just test-unit-fd
+```
+
+Verify:
+- Attempts gigantic page allocation
+- Falls back to normal pages if gigantic pages unavailable
+- Runs `make run-unit-test` under `MACHINE=tickoni_fd`
+- All unit tests pass
+- Document any expected skips
+
+**6.3. Integration tests — Tickoni**
+
+```bash
+just test-integration-tk
+```
+
+Verify:
+- Runs `zig build -Dtest=true -Dfd-lib-dir=<path> integration-test`
+- Tests tile wiring, replay, audit, decision cards, transport
+- Model and adapter backends are substituted with fixtures/mocks
+- All integration tests pass
+
+**6.4. Integration tests — Firedancer (placeholder)**
+
+```bash
+just test-integration-fd
+```
+
+Verify:
+- Returns `@true` (documented placeholder)
+- Document why this is a placeholder (FD doesn't have intermediate integration layer)
+
+**6.5. System tests — Tickoni (live llama.cpp)**
+
+```bash
+# First ensure LLM infrastructure
+python3 contrib/setup/orchestrator.py llm-server
+
+# Then run system tests
+just test-system-tk
+```
+
+Verify:
+- Orchestrator installs llama.cpp, downloads GGUF model
+- llama-server starts and health endpoint responds
+- Zig system-test binary runs against the live server
+- All system tests pass
+
+**6.6. System tests — Firedancer (placeholder)**
+
+```bash
+just test-system-fd
+```
+
+Verify:
+- Returns `@true` (documented placeholder)
+
+**6.7. Demo conformance suite**
+
+```bash
+just test-demo-tk
+```
+
+Verify:
+- `tickoni --version` contract passes
+- `tickoni doctor --plain` and `--json` contracts pass
+- `tickoni-supervisor demo` without manifest fails closed
+- `tickoni-supervisor demo investment` with fixture manifest passes
+- Conformance output written to `build/demo-conformance/<platform>/conformance.json`
+
+**6.8. E2E tests — Firedancer**
+
+```bash
+just test-e2e-fd
+```
+
+Verify:
+- Runs `make integration-test && make run-integration-test` under `MACHINE=tickoni_fd`
+- Starts Firedancer dev command path and local topology
+- All e2e tests pass
+
+**6.9. E2E tests — Tickoni (placeholder)**
+
+```bash
+just test-e2e-tk
+```
+
+Verify:
+- Returns `@true` (documented placeholder)
+- E2e is folded into test-demo-tk and test-e2e-fd
+
+**6.10. Coverage — Tickoni**
+
+```bash
+just test-cov-tk
+```
+
+Verify:
+- Runs coverage collection for Tickoni harness
+- Report coverage percentage
+- Note: coverage toolchain may need kcov (installed by setup-env)
+
+**6.11. Coverage — Firedancer (placeholder)**
+
+```bash
+just test-cov-fd
+```
+
+Verify:
+- Returns `@true` (pre-existing llvm-cov toolchain not installed)
+- Document what's needed to enable this
+
+---
+
+### Phase 7: Aggregate lanes — Verification
+
+**Status: NOT TESTED**
+
+**7.1. test-unit-all — TODO**
+
+**7.2. test-integration-all — TODO**
+
+**7.3. test-cov-all — TODO**
+
+**7.4. test-system-all — TODO**
+
+**7.5. test-e2e-all — TODO**
+
+**7.6. test-all (full test suite) — TODO**
+
+**7.7. tests-all (full handoff gate) — TODO**
+
+---
+
+**7.1. test-unit-all**
+
+```bash
+just test-unit-all
+```
+
+Verify:
+- Runs `test-unit-tk && test-unit-fd` via badge-wrapping
+- Both lanes pass
+
+**7.2. test-integration-all**
+
+```bash
+just test-integration-all
+```
+
+Verify:
+- Runs `test-integration-fd && test-integration-tk`
+- Placeholder + real test
+
+**7.3. test-cov-all**
+
+```bash
+just test-cov-all
+```
+
+Verify:
+- Runs `test-cov-fd && test-cov-tk`
+- Placeholder + real coverage
+
+**7.4. test-system-all**
+
+```bash
+just test-system-all
+```
+
+Verify:
+- Runs `test-system-tk && test-system-fd`
+- Requires LLM infrastructure (llama.cpp + model)
+- Placeholder + real system test
+
+**7.5. test-e2e-all**
+
+```bash
+just test-e2e-all
+```
+
+Verify:
+- Runs `test-e2e-fd && test-e2e-tk`
+- Placeholder + real e2e test
+
+**7.6. test-all (full test suite)**
+
+```bash
+just test-all
+```
+
+Verify:
+- Unit → Integration → Coverage → System → E2E, all in sequence
+- Every lane reports pass/fail
+- Exit code is 0 if all pass
+
+**7.7. tests-all (full handoff gate)**
+
+```bash
+just tests-all
+```
+
+Verify:
+- Build → Format → Lint → Proto → Security (skip) → Engine → Tests, all in sequence
+- Every phase reports pass/fail
+- Exit code is 0 if all pass
+- Document the known `security-check-all` skip
+
+---
+
+### Phase 8: Cross-cutting — Verification
+
+**Status: NOT TESTED**
+
+**8.1. test-demo-tk — TODO**
+
+**8.2. test-system-tk — TODO**
+
+**8.3. run_llama_cpp_server — TODO**
+
+**8.4. gen_unit_test_pages — TODO**
+
+**8.5. run_system_model_tests — TODO**
+
+**8.6. run_system_model_tests_win — TODO**
+
+**8.7. smoke_test — TODO**
+
+**8.8. lint-tk — TODO**
+
+**8.9. lint-fd — TODO**
+
+**8.10. check-just-recipe-grid — TODO**
+
+**8.11. check_ci_command_surface — TODO**
+
+---
+
+**8.1. Clean-room full run (setup-env → tests-all)**
+
+```bash
+# Start from a state where everything is clean
+rm -rf ./opt build
+rm -rf ~/.local/bin/zig  # if previously installed
+
+just setup-env
+just tests-all
+```
+
+Verify:
+- Everything installs from scratch
+- Everything builds
+- Every test lane passes
+- No manual intervention needed between steps
+
+**8.2. Partial setup + full test**
+
+```bash
+# Skip some categories to test partial setup
+python3 contrib/setup/orchestrator.py core,essential,toolchain,build,zig --dry-run
+
+# Then try tests-all (should fail gracefully or use pre-existing tools)
+```
+
+Verify:
+- Missing tools are reported clearly
+- Tests that require missing tools fail with actionable error
+
+**8.3. Broken toolchain recovery**
+
+```bash
+# Simulate a partial setup failure
+python3 contrib/setup/orchestrator.py core,essential  # partial success
+# Manually break one tool (e.g., remove zig)
+rm -f ~/.local/bin/zig
+
+# Re-run — should detect missing tool and reinstall
+python3 contrib/setup/orchestrator.py zig
+```
+
+Verify:
+- Idempotency check detects the missing tool
+- Re-install succeeds
+- No corruption or partial state
+
+**8.4. Workspace pollution check**
+
+```bash
+# After full setup-env + tests-all, check what was created
+find . -name '*.tmp' -o -name '*.bak' -o -name '.*.swp' 2>/dev/null
+ls -la ./opt/
+ls -la .zig-global-cache/
+```

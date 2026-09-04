@@ -36,3 +36,11 @@ CPPFLAGS+=-DFD_USING_CLANG=1
 # itself doesn't matter ... only that the variable is defined).
 
 FD_USING_CLANG:=1
+
+# Clang promotes -mavx10.1-256 (emitted by -march=native on Zen4+) to
+# avx10.1-512 which conflicts with existing AVX512 flags, so we must
+# suppress it here. This affects ALL clang builds, not just icelake.
+# See: linux_clang_icelake.mk comment for history.
+ifdef FD_HAS_AVX512
+CPPFLAGS+=-mno-avx10.1-256
+endif

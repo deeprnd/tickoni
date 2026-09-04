@@ -1,0 +1,110 @@
+---
+# Reusable System Test workflow: live-LLM tests per platform.
+# Builds FD libs locally on the same runner that runs tests.
+
+name: System Test Stage
+
+'on':
+  workflow_call:
+
+jobs:
+  system-tests:
+    name: System Tests / ${{ matrix.platform-name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout_minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform-name: Linux x86_64
+            runner: ubuntu-24.04
+            timeout_minutes: 60
+            test-recipe: test-system-tk-linux-x86
+            build-recipe: build-fd-linux-x86-gcc
+            fd-deps: setup-fd-linux-x86-gcc
+            setup-recipe: setup-build-linux-x86-gcc
+            llamacpp: infra-ensure-llamacpp
+          - platform-name: Linux x86_64 Clang
+            runner: ubuntu-24.04
+            timeout_minutes: 60
+            test-recipe: test-system-tk-linux-x86
+            build-recipe: build-fd-linux-x86-clang
+            fd-deps: setup-fd-linux-x86-clang
+            setup-recipe: setup-build-linux-x86-clang
+            llamacpp: infra-ensure-llamacpp
+          - platform-name: Linux ARM
+            runner: ubuntu-24.04-arm
+            timeout_minutes: 60
+            test-recipe: test-system-tk-linux-arm
+            build-recipe: build-fd-linux-arm-gcc
+            fd-deps: setup-fd-linux-arm-gcc
+            setup-recipe: setup-build-linux-x86-gcc
+            llamacpp: infra-ensure-llamacpp
+          - platform-name: macOS 15 (x86_64)
+            runner: macos-15-intel
+            timeout_minutes: 60
+            test-recipe: test-system-tk-macos-x86
+            build-recipe: build-fd-macos-x86
+            fd-deps: setup-fd-macos-x86
+            setup-recipe: setup-build-macos-x86
+            llamacpp: infra-ensure-llamacpp
+          - platform-name: macOS 15 (ARM)
+            runner: macos-15
+            timeout_minutes: 60
+            test-recipe: test-system-tk-macos-arm
+            build-recipe: build-fd-macos-arm
+            fd-deps: setup-fd-macos-arm
+            setup-recipe: setup-build-macos-arm
+            llamacpp: infra-ensure-llamacpp
+          - platform-name: macOS 26 (x86_64)
+            runner: macos-26-intel
+            timeout_minutes: 60
+            test-recipe: test-system-tk-macos-x86
+            build-recipe: build-fd-macos-x86
+            fd-deps: setup-fd-macos-x86
+            setup-recipe: setup-build-macos-x86
+            llamacpp: infra-ensure-llamacpp
+          - platform-name: macOS 26 (ARM)
+            runner: macos-26
+            timeout_minutes: 60
+            test-recipe: test-system-tk-macos-arm
+            build-recipe: build-fd-macos-arm
+            fd-deps: setup-fd-macos-arm
+            setup-recipe: setup-build-macos-arm
+            llamacpp: infra-ensure-llamacpp
+          - platform-name: Windows x86_64
+            runner: windows-2025-vs2026
+            timeout_minutes: 60
+            test-recipe: test-system-tk-windows-x86
+            build-recipe: build-fd-windows-x86
+            setup-recipe: setup-fd-windows-x86
+            llamacpp: infra-ensure-llamacpp-win
+          - platform-name: Windows ARM
+            runner: windows-11-vs2026-arm
+            timeout_minutes: 60
+            test-recipe: test-system-tk-windows-arm
+            build-recipe: build-fd-windows-arm
+            setup-recipe: setup-fd-windows-arm
+            llamacpp: infra-ensure-llamacpp-win-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install just
+        uses: taiki-e/install-action@just
+
+      - name: Setup toolchain
+        run: just ${{ matrix.setup-recipe }}
+
+      - name: Setup Firedancer deps (zig + SSL)
+        run: just ${{ matrix.fd-deps }}
+
+      - name: Build Firedancer libs
+        run: just ${{ matrix.build-recipe }}
+
+      - name: Ensure llama.cpp is available
+        run: just ${{ matrix.llamacpp }}
+
+      - name: Run system tests
+        run: just ${{ matrix.test-recipe }}
