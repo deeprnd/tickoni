@@ -735,6 +735,7 @@ quality-lint-check-linux-x86:
 quality-lint-check-all:
     @just quality-lint-check-fd
     @just quality-lint-check-tk
+    @command -v actionlint >/dev/null || exit 0; actionlint -ignore 'label "windows-11-vs2026-arm" is unknown' .github/workflows/*.yml
 
 quality-yaml-check-linux-x86:
     find . -name '*.yaml' -o -name '*.yml' | grep -vE '^./(opt|node_modules|.zig-global-cache|build|target|zig-out|\\.git)/' | xargs yamllint -f parsable
