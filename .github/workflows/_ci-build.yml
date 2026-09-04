@@ -25,11 +25,12 @@ jobs:
             runner: ubuntu-24.04
             timeout_minutes: 30
             artifact-name: build-linux-x86
+            conformance-dir: linux
             setup-recipe: setup-build-linux-x86-gcc
             setup-fd: setup-fd-linux-x86-gcc
             build-recipe: build-fd-tk-libs
             build-tk-recipe: build-tk-linux-x86
-          # Linux x86_64 (clang)
+          # Linux x86_64 (clang) — no conformance export
           - platform-name: Linux x86_64 (clang)
             runner: ubuntu-24.04
             timeout_minutes: 30
@@ -38,12 +39,12 @@ jobs:
             setup-fd: setup-fd-linux-x86-clang
             build-recipe: build-fd-tk-libs
             build-tk-recipe: build-tk-linux-x86
-          # Linux ARM64
+          # Linux ARM64 — no conformance export
           - platform-name: Linux ARM64
             runner: ubuntu-24.04-arm
             timeout_minutes: 30
             artifact-name: build-linux-arm
-            setup-recipe: setup-build-linux-arm-gcc
+            setup-recipe: setup-build-arm-gcc
             setup-fd: setup-fd-linux-arm-gcc
             build-recipe: build-fd-tk-libs
             build-tk-recipe: build-tk-linux-arm
@@ -52,6 +53,7 @@ jobs:
             runner: macos-15-intel
             timeout_minutes: 30
             artifact-name: build-macos-15-x86_64
+            conformance-dir: macos-15-x86_64
             setup-recipe: setup-build-macos-x86
             setup-fd: setup-fd-macos-x86
             build-recipe: build-fd-macos-x86
@@ -60,6 +62,7 @@ jobs:
             runner: macos-15
             timeout_minutes: 30
             artifact-name: build-macos-15-arm
+            conformance-dir: macos-15-arm
             setup-recipe: setup-build-macos-arm
             setup-fd: setup-fd-macos-arm
             build-recipe: build-fd-macos-arm
@@ -69,6 +72,7 @@ jobs:
             runner: macos-26-intel
             timeout_minutes: 30
             artifact-name: build-macos-26-x86_64
+            conformance-dir: macos-26-x86_64
             setup-recipe: setup-build-macos-x86
             setup-fd: setup-fd-macos-x86
             build-recipe: build-fd-macos-x86
@@ -77,15 +81,17 @@ jobs:
             runner: macos-26
             timeout_minutes: 30
             artifact-name: build-macos-26-arm
+            conformance-dir: macos-26-arm
             setup-recipe: setup-build-macos-arm
             setup-fd: setup-fd-macos-arm
             build-recipe: build-fd-macos-arm
             build-tk-recipe: build-tk-macos-arm
-          # Windows x86_64
+          # Windows x86_64 — conformance uses x86 alias (matches justfile convention)
           - platform-name: Windows x86_64
             runner: windows-2025-vs2026
             timeout_minutes: 45
             artifact-name: build-windows-x86_64
+            conformance-dir: windows-x86_64
             setup-recipe: setup-build-windows-x86
             setup-fd: setup-fd-windows-x86
             build-recipe: build-fd-windows-x86
@@ -95,6 +101,7 @@ jobs:
             runner: windows-11-vs2026-arm
             timeout_minutes: 45
             artifact-name: build-windows-arm
+            conformance-dir: windows-arm
             setup-recipe: setup-build-windows-arm
             setup-fd: setup-fd-windows-arm
             build-recipe: build-fd-windows-arm
@@ -120,6 +127,11 @@ jobs:
 
       - name: Build Tickoni supervisor
         run: just ${{ matrix.build-tk-recipe }}
+
+      - name: Export demo conformance bundle
+        if: matrix.conformance-dir != ''
+        run: |
+          python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/${{ matrix.conformance-dir }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
