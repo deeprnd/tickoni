@@ -1,3 +1,4 @@
+---
 name: cpusonline
 description: 'Switch all CPUs to online'
 inputs: {}

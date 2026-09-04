@@ -1,9 +1,10 @@
+---
 # Reusable Conformance workflow: cross-platform binary comparison.
 # Downloads all demo artifacts from the Demo stage and compares outputs.
 
 name: Conformance Stage
 
-on:
+'on':
   workflow_call:
 
 jobs:

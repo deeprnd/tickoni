@@ -1,17 +1,22 @@
+---
 name: Detect Changes
-description: >
-  Outputs run=true if any changed file in the PR matches the given ERE pattern,
-  or when triggered by workflow_dispatch. Requires the repository to already be
-  checked out with fetch-depth: 0.
+description: >-
+  Outputs run=true if any changed file in the PR matches the
+  given ERE pattern, or when triggered by workflow_dispatch.
+  Requires the repository to already be checked out with
+  fetch-depth: 0.
 
 inputs:
   paths:
-    description: Extended regex (ERE) pattern matched against the list of changed file paths
+    description: >-
+      Extended regex (ERE) pattern matched against the list of
+      changed file paths
     required: true
 
 outputs:
   run:
-    description: '"true" if CI should run, "false" if the job should be skipped'
+    description: >-
+      "true" if CI should run, "false" if the job should be skipped
     value: ${{ steps.check.outputs.run }}
 
 runs:

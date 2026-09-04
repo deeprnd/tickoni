@@ -1,23 +1,28 @@
+---
 name: Build Firedancer C libs for Tickoni
-description: Build libfd_tango, libfd_util, libfd_ballet, libfd_disco, and libfd_waltz — required by the Zig harness build
+description: >-
+  Build libfd_tango, libfd_util, libfd_ballet, libfd_disco,
+  and libfd_waltz — required by the Zig harness build
 
 inputs:
   build-recipe:
-    description: Fully-qualified just recipe for the Firedancer libraries
+    description: >-
+      Fully-qualified just recipe for the Firedancer libraries
     required: false
     default: build-fd-tk-libs
 
 runs:
   using: composite
   steps:
-    - name: Build libfd_tango, libfd_util, libfd_ballet, libfd_disco, and libfd_waltz
+    - name: Build Firedancer C libraries
       shell: bash
       env:
         BUILD_RECIPE: ${{ inputs.build-recipe }}
       run: |
         set -euo pipefail
         case "$BUILD_RECIPE" in
-          build-fd-tk-libs|build-fd-macos-x86|build-fd-macos-arm|build-fd-windows-x86|build-fd-windows-arm)
+          build-fd-tk-libs|build-fd-macos-x86|build-fd-macos-arm|
+            build-fd-windows-x86|build-fd-windows-arm)
             just "$BUILD_RECIPE"
             ;;
           *)

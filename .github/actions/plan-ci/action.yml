@@ -1,5 +1,6 @@
+---
 name: CI Plan
-description: >
+description: >-
   Single change-classification step for the CI DAG.
   Outputs core, docs, book, benchmark booleans.
   Uses fail-open policy: every unknown file triggers core=true.
@@ -17,10 +18,13 @@ inputs:
 
 outputs:
   core:
-    description: "true if core CI should run (source/build infrastructure changed)"
+    description: >-
+      "true if core CI should run (source/build infrastructure
+      changed)"
     value: ${{ steps.plan.outputs.core }}
   docs:
-    description: "true if docs-only CI (book, docs changed)"
+    description: >-
+      "true if docs-only CI (book, docs changed)"
     value: ${{ steps.plan.outputs.docs }}
   book:
     description: "true if book should be rebuilt"
@@ -37,9 +41,10 @@ runs:
       shell: bash
       env:
         BASE_REF: ${{ inputs.base_ref }}
-        EVENT_NAME: ${{ inputs.event_name }}
+        EVENT_NAME: ${{ github.event_name }}
       run: |
-        # Fail-open: default to core=true unless we can prove docs-only.
+        # Fail-open: default to core=true unless we can prove
+        # docs-only.
         core="true"
         docs="false"
         book="false"
@@ -105,7 +110,8 @@ runs:
 
           # Benchmarks directory.
           case "$f" in
-            benchmark*|benchmarks*|bench/*) benchmark="true"; continue ;;
+            benchmark*|benchmarks*|bench/*) benchmark="true"
+              continue ;;
           esac
 
           # If we reach here, the file is NOT in the safe-skip set.

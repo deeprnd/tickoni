@@ -1,9 +1,10 @@
+---
 # Reusable System Test workflow: live-LLM tests per platform.
 # Builds FD libs locally on the same runner that runs tests.
 
 name: System Test Stage
 
-on:
+'on':
   workflow_call:
 
 jobs:

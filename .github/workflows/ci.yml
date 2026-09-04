@@ -5,7 +5,8 @@
 # Reference: doc/execution/plans/v2.10-s8-5.md
 #
 # Execution order:
-#   (all build) → (all unit) → (integration, system, demo) → security-deep → dev-setup
+#   (all build) → (all unit) → (integration, system, demo)
+#     → security-deep → dev-setup
 #
 # Stage 1: quality + security-secrets (parallel, cheap pre-build gates)
 # Stage 2: build (all platforms, after quality + secrets)
@@ -14,9 +15,10 @@
 # Stage 5: security-deep (after integration/system/demo)
 # Stage 6: dev-setup (after security-deep, validates full dev lifecycle)
 
+---
 name: CI
 
-on:
+'on':
   pull_request:
     branches: [main]
   merge_group:
@@ -67,14 +69,20 @@ jobs:
   build:
     name: Build
     needs: [plan, quality, security-secrets]
-    if: needs.plan.outputs.core == 'true' && needs.quality.result == 'success' && needs.security-secrets.result == 'success'
+    if: >-
+      needs.plan.outputs.core == 'true' &&
+      needs.quality.result == 'success' &&
+      needs.security-secrets.result == 'success'
     uses: ./.github/workflows/_ci-build.yml
 
   # ── UNIT: component tests per platform (downloads build artifact) ────────
   unit:
     name: Tests / Unit
     needs: [plan, build]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success'
     uses: ./.github/workflows/_ci-unit.yml
 
   # ── INTEGRATION: multi-component tests per platform ──────────────────────
@@ -82,7 +90,11 @@ jobs:
   integration:
     name: Tests / Integration
     needs: [plan, build, unit]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' && needs.unit.result == 'success' }}
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.unit.result == 'success'
     uses: ./.github/workflows/_ci-integration.yml
 
   # ── SYSTEM: live-LLM tests per platform ──────────────────────────────────
@@ -90,7 +102,11 @@ jobs:
   system:
     name: Tests / System
     needs: [plan, build, unit]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' && needs.unit.result == 'success' }}
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.unit.result == 'success'
     uses: ./.github/workflows/_ci-system.yml
 
   # ── DEMO: fixture-backed demos per platform ──────────────────────────────
@@ -98,14 +114,21 @@ jobs:
   demo:
     name: Tests / Demo
     needs: [plan, build, unit]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' && needs.unit.result == 'success' }}
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.unit.result == 'success'
     uses: ./.github/workflows/_ci-demo.yml
 
   # ── CONFORMANCE: cross-platform binary comparison ────────────────────────
   conformance:
     name: Tests / Conformance
     needs: [plan, demo]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.demo.result == 'success' }}
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.demo.result == 'success'
     uses: ./.github/workflows/_ci-conformance.yml
 
   # ── SECURITY / DEEP: sanitizers, seccomp, formal verification ────────────
@@ -113,7 +136,13 @@ jobs:
   security-deep:
     name: Security / Deep
     needs: [plan, build, integration, system, demo]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' && needs.integration.result == 'success' && needs.system.result == 'success' && needs.demo.result == 'success' }}
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.integration.result == 'success' &&
+      needs.system.result == 'success' &&
+      needs.demo.result == 'success'
     uses: ./.github/workflows/_ci-security-deep.yml
 
   # ── DEV SETUP: validates full dev lifecycle (setup-env + build + tests) ──
@@ -121,7 +150,14 @@ jobs:
   dev-setup:
     name: Dev Setup
     needs: [plan, build, integration, system, demo, security-deep]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' && needs.integration.result == 'success' && needs.system.result == 'success' && needs.demo.result == 'success' && needs.security-deep.result == 'success' }}
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.integration.result == 'success' &&
+      needs.system.result == 'success' &&
+      needs.demo.result == 'success' &&
+      needs.security-deep.result == 'success'
     uses: ./.github/workflows/tests-dev-setup.yml
 
   # ── CI / Required: aggregating gate for branch protection ────────────────
@@ -142,11 +178,14 @@ jobs:
           failures=""
           skipped=0
 
-          for job in plan quality security-secrets build unit integration system demo conformance security-deep dev-setup; do
+          for job in plan quality security-secrets \
+              build unit integration system demo \
+              conformance security-deep dev-setup; do
             case "$job" in
               plan) status="${{ needs.plan.result }}" ;;
               quality) status="${{ needs.quality.result }}" ;;
-              security-secrets) status="${{ needs.security-secrets.result }}" ;;
+              security-secrets) \
+                status="${{ needs.security-secrets.result }}" ;;
               build) status="${{ needs.build.result }}" ;;
               unit) status="${{ needs.unit.result }}" ;;
               integration) status="${{ needs.integration.result }}" ;;
@@ -157,8 +196,10 @@ jobs:
               dev-setup) status="${{ needs.dev-setup.result }}" ;;
             esac
             results="$results $job=$status"
-            if [ "$status" = "success" ] || [ "$status" = "skipped" ]; then
-              [ "$status" = "skipped" ] && skipped=$((skipped + 1))
+            if [ "$status" = "success" ] || \
+               [ "$status" = "skipped" ]; then
+              [ "$status" = "skipped" ] \
+                && skipped=$((skipped + 1))
             else
               failures="$failures $job=$status"
             fi
@@ -171,7 +212,8 @@ jobs:
               echo "docs-only PR: $skipped jobs skipped as expected"
               exit 0
             else
-              echo "docs-only PR expected $expected_skipped skipped, got $skipped"
+              echo "docs-only PR expected $expected_skipped \
+                skipped, got $skipped"
               echo "results: $results"
               exit 1
             fi
@@ -183,5 +225,6 @@ jobs:
             exit 1
           fi
 
-          echo "CI / Required: all $((11 - skipped)) active jobs passed, $skipped skipped"
+          echo "CI / Required: all \
+            $((11 - skipped)) active jobs passed, $skipped skipped"
           exit 0

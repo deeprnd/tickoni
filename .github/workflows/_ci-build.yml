@@ -6,9 +6,10 @@
 #
 # Reference: doc/execution/plans/v2.10-s8-5.md
 
+---
 name: Build Stage
 
-on:
+'on':
   workflow_call:
 
 jobs:
@@ -86,7 +87,7 @@ jobs:
             setup-fd: setup-fd-macos-arm
             build-recipe: build-fd-macos-arm
             build-tk-recipe: build-tk-macos-arm
-          # Windows x86_64 — conformance uses x86 alias (matches justfile convention)
+          # Windows x86_64 — conformance uses x86 alias (matches justfile)
           - platform-name: Windows x86_64
             runner: windows-2025-vs2026
             timeout_minutes: 45
@@ -130,7 +131,10 @@ jobs:
 
       - name: Export demo conformance bundle
         if: matrix.conformance-dir != ''
-        run: ${{ runner.os == 'Windows' && 'py -3' || 'python3' }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/${{ matrix.conformance-dir }}
+        run: |
+          python3 \
+            contrib/test/export_demo_conformance_bundle.py \
+            . build/demo-conformance/${{ matrix.conformance-dir }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7

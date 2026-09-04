@@ -1,9 +1,10 @@
+---
 # Reusable Unit Test workflow: component tests per platform.
 # Builds FD libs locally on the same runner that runs tests.
 
 name: Unit Test Stage
 
-on:
+'on':
   workflow_call:
 
 jobs:

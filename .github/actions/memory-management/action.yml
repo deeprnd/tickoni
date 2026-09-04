@@ -1,5 +1,8 @@
+---
 name: memory-management
-description: 'Setup huge/gigantic pages on free GitHub-hosted runners (graceful fallback)'
+description: >-
+  Setup huge/gigantic pages on free GitHub-hosted runners
+  (graceful fallback)
 inputs:
   count_huge:
     description: 'Number of huge pages'
@@ -32,7 +35,9 @@ runs:
         if (( have_gigantic < want_gigantic )); then
           if ! just mem-alloc "$want_gigantic" gigantic 0; then
             have_gigantic=$(cat "$gigantic_path/nr_hugepages")
-            echo "requested $want_gigantic gigantic pages but only $have_gigantic are available; continuing with smaller pages if needed"
+            echo "requested $want_gigantic gigantic pages but only \
+              $have_gigantic are available; continuing with smaller \
+              pages if needed"
           fi
         fi
 
@@ -40,7 +45,9 @@ runs:
         if (( have_huge < want_huge )); then
           if ! just mem-alloc "$want_huge" huge 0; then
             have_huge=$(cat "$huge_path/nr_hugepages")
-            echo "requested $want_huge huge pages but only $have_huge are available; tests may fall back to normal pages"
+            echo "requested $want_huge huge pages but only \
+              $have_huge are available; tests may fall back to normal \
+              pages"
           fi
         fi
 

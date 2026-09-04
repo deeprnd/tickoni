@@ -1,9 +1,10 @@
+---
 # Reusable Demo workflow: fixture-backed demo tests per platform.
 # Builds FD libs locally on the same runner that runs tests.
 
 name: Demo Stage
 
-on:
+'on':
   workflow_call:
 
 jobs:

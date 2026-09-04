@@ -1,9 +1,10 @@
+---
 # Reusable Security/Deep workflow: sanitizers, seccomp, formal verification.
 # Heavy checks that run after the main test stages.
 
 name: Security Deep Stage
 
-on:
+'on':
   workflow_call:
 
 jobs:

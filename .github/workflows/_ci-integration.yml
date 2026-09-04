@@ -1,9 +1,10 @@
+---
 # Reusable Integration Test workflow: multi-component tests per platform.
 # Builds FD libs locally on the same runner that runs tests.
 
 name: Integration Test Stage
 
-on:
+'on':
   workflow_call:
 
 jobs:

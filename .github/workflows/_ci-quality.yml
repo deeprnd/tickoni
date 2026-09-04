@@ -1,8 +1,10 @@
+---
 # Reusable Quality workflow: format, lint, proto — no FD build needed.
 # This is the first gate after plan. If quality fails, nothing builds.
+
 name: Quality Stage
 
-on:
+'on':
   workflow_call:
 
 jobs:
