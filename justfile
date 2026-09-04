@@ -712,7 +712,7 @@ quality-lint-check-all:
     @just quality-lint-check-tk
 
 quality-yaml-check-linux-x86:
-    yamllint .github/
+    find . -name '*.yaml' -o -name '*.yml' | grep -vE '^./(opt|node_modules|.zig-global-cache|build|target|zig-out|\.git)/' | xargs yamllint -f parsable
 
 # ── Quality: Proto ─────────────────────────────────────────────────────────
 

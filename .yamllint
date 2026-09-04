@@ -13,5 +13,6 @@ ignore: |
   node_modules/
   .zig-global-cache/
   build/
+  opt/
   target/
   zig-out/

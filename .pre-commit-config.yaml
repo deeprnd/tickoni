@@ -1,3 +1,4 @@
+---
 # Minimal pre-commit config for Firedancer FD scope files.
 # Used by contrib/quality/quality.sh for format-check-fd and format-fix-fd.
 # Only the trailing-whitespace hook is needed for the FD scope;
