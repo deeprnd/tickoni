@@ -512,12 +512,12 @@ Preferred validation commands in order:
 - `just quality-lint-check-fd` runs Firedancer-derived lint checks and
   `shellcheck` when that tool is installed.
 - `just quality-lint-check-all` runs both lint lanes.
-- `just quality-yaml-check-linux-x86` runs `yamllint` with a relaxed profile
+- `just quality-yaml-check-linux` runs `yamllint` with a relaxed profile
   across the entire repository (all `.yaml`/`.yml` files). The config is in
   `.yamllint`. It excludes `opt/`, `node_modules/`, `.zig-global-cache/`,
   `build/`, `target/`, and `zig-out/`. Initially scoped to `.github/`, it was
   later expanded to the full repo.
-- `just quality-spell-check-linux-x86` runs `cspell lint --no-progress` across
+- `just quality-spell-check-linux` runs `cspell lint --no-progress` across
   the repository. The domain dictionary and ignored paths are configured in
   `.cspell.json`. It checks markdown, yaml, bash, python, and json files while
   excluding compiled/source trees under `src/`, `config/`, `.github/`, and

@@ -184,8 +184,8 @@ Static quality checks run as a matrix so they report independently and do not fa
 | Format Check  | `just quality-format-check-all`| `zig fmt`, C formatting, whitespace rules   |
 | Lint Check    | `just quality-lint-check-all`  | include guards, shellcheck, pre-commit hooks|
 | Proto Check   | `just quality-proto-check-all` | Proto regeneration + `buf lint` + drift check |
-| YAML Check    | `just quality-yaml-check-linux-x86` | YAML lint across repo (`yamllint`, relaxed profile) |
-| Spell Check   | `just quality-spell-check-linux-x86` | Cross-file spell check (`cspell`, domain dictionary in `.cspell.json`) |
+| YAML Check    | `just quality-yaml-check-linux` | YAML lint across repo (`yamllint`, relaxed profile) |
+| Spell Check   | `just quality-spell-check-linux` | Cross-file spell check (`cspell`, domain dictionary in `.cspell.json`) |
 
 Each job runs on `ubuntu-24.04` and is wrapped in a matrix so that one failure does not block the others. The `detect-changes` step creates a local `main` branch so diff-based quality scripts have a comparison ref.
 
