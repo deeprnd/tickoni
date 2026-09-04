@@ -318,7 +318,7 @@ a separate decision from this consolidation.
    `blst`/`zstd`/`lz4` macOS x86_64 vendor-source blocker instead of silently degrading the
    recipe's meaning again. This phase is the highest-risk one in the plan and should ship on its
    own, independent of the mechanical renames in Phases 0/1/4.
-4. **Phase 3 (CI cutover):** Update all 7 workflow files to call the new fully-qualified names
+4. **Phase 3 (CI cutover):** Update all workflow files to call the new fully-qualified names
    directly (Principle 4), for the exact same jobs that run today — no new scheduled lanes (D5).
    Verify every existing CI lane still passes.
 5. **Phase 4 (setup scripts):** Add `setup-*` recipes per 2.6. Convert
