@@ -2,7 +2,12 @@ ifneq ($(CROSS),)
 $(error "native build not supported when cross-compiling.  Try setting MACHINE=linux_clang_zen2")
 endif
 
-CC?=gcc
+# GNU Make clears its built-in CC variable before loading machine profiles.
+# Treat that empty value like an unset compiler so native feature probing gets
+# an actual compiler command instead of invoking the shell with `-dumpversion`.
+ifeq ($(strip $(CC)),)
+CC:=gcc
+endif
 BASEDIR?=build
 BUILDDIR?=native/$(notdir $(CC))
 

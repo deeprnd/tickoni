@@ -35,6 +35,9 @@ jobs:
       - name: Setup Firedancer deps (zig + SSL)
         run: just setup-fd-linux-x86-gcc
 
+      - name: Setup security proof toolchain
+        run: just setup-security-linux-x86
+
       - name: Run sanitizer checks
         run: just security-sanitize-check-all
 
