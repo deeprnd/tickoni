@@ -256,6 +256,16 @@ Lint:
 - `just quality-lint-check-tk`
 - `just quality-lint-check-all`
 
+YAML lint:
+
+- `just quality-yaml-check-linux-x86` — `yamllint` with relaxed profile across
+  the repo (`.yamllint` config)
+
+Spell check:
+
+- `just quality-spell-check-linux-x86` — `cspell` with domain dictionary
+  (`.cspell.json`)
+
 Aggregate:
 
 - `just quality-check-all`

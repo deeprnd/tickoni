@@ -56,7 +56,7 @@ book workflows are not part of the CI surface.
 | `_ci-integration.yml`     | `ubuntu-24.04`                      | Harness Integration Tests                                    | 20 m    |
 | `_ci-system.yml`          | `ubuntu-latest`                     | LLM System Tests                                             | 60–90 m |
 | `_ci-demo.yml`            | `ubuntu-24.04`, `windows-2025-vs2026`, `windows-11-vs2026-arm` | Deterministic Demo Conformance                               | 20 m    |
-| `_ci-quality.yml`         | `ubuntu-24.04`                      | Format Check, Lint Check, Proto Check                        | 20–30 m |
+| `_ci-quality.yml`         | `ubuntu-24.04`                      | Format Check, Lint Check, Proto Check, YAML Check, Spell Check | 20–30 m |
 | `_ci-security-secrets.yml`| `ubuntu-24.04`                      | Gitleaks                                                     | 20–30 m |
 | `_ci-security-deep.yml`   | `ubuntu-24.04`                      | Sanitizers, SecComp                                          | 20–45 m |
 | `_ci-conformance.yml`     | `ubuntu-24.04`                      | Cross-platform conformance comparison                        | 20 m    |
@@ -179,13 +179,15 @@ The Windows build CI contract is documented in the branch history and CI workflo
 
 Static quality checks run as a matrix so they report independently and do not fail-fast:
 
-|| Job           | Command                        | What it checks                              |
+| Job           | Command                        | What it checks                              |
 | ------------- | ------------------------------ | ------------------------------------------- |
 | Format Check  | `just quality-format-check-all`| `zig fmt`, C formatting, whitespace rules   |
 | Lint Check    | `just quality-lint-check-all`  | include guards, shellcheck, pre-commit hooks|
 | Proto Check   | `just quality-proto-check-all` | Proto regeneration + `buf lint` + drift check |
+| YAML Check    | `just quality-yaml-check-linux-x86` | YAML lint across repo (`yamllint`, relaxed profile) |
+| Spell Check   | `just quality-spell-check-linux-x86` | Cross-file spell check (`cspell`, domain dictionary in `.cspell.json`) |
 
-Both jobs build the shared Firedancer/Tickoni library set via `.github/actions/build-fd-tk-libs`, which delegates to `just build-fd-tk-libs`, before running checks. The `detect-changes` step creates a local `main` branch so diff-based quality scripts have a comparison ref.
+Each job runs on `ubuntu-24.04` and is wrapped in a matrix so that one failure does not block the others. The `detect-changes` step creates a local `main` branch so diff-based quality scripts have a comparison ref.
 
 The Proto Check matrix entry installs `buf` via the GitHub Actions cache, then runs `just quality-proto-check-all` which:
 1. Regenerates protobuf from JSON schemas via `gen_events.py --skip-check`

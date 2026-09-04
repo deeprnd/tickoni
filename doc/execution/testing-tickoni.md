@@ -512,8 +512,19 @@ Preferred validation commands in order:
 - `just quality-lint-check-fd` runs Firedancer-derived lint checks and
   `shellcheck` when that tool is installed.
 - `just quality-lint-check-all` runs both lint lanes.
+- `just quality-yaml-check-linux-x86` runs `yamllint` with a relaxed profile
+  across the entire repository (all `.yaml`/`.yml` files). The config is in
+  `.yamllint`. It excludes `opt/`, `node_modules/`, `.zig-global-cache/`,
+  `build/`, `target/`, and `zig-out/`. Initially scoped to `.github/`, it was
+  later expanded to the full repo.
+- `just quality-spell-check-linux-x86` runs `cspell lint --no-progress` across
+  the repository. The domain dictionary and ignored paths are configured in
+  `.cspell.json`. It checks markdown, yaml, bash, python, and json files while
+  excluding compiled/source trees under `src/`, `config/`, `.github/`, and
+  build artefact directories.
 - `just quality-check-all` runs the main repository quality bundle:
-  format-check all lanes, then lint-check all lanes.
+  format-check all lanes, lint-check all lanes, proto-check, yaml-check,
+  and spell-check.
 - `just security-gitleaks-check-all` scans the current Tickoni and
   Firedancer-owned source scopes for secret leaks.
 - `just security-codeql-check-all` runs the configured CodeQL recipe variants.
