@@ -18,7 +18,7 @@ from contrib.setup.install.strategies import apt
 def test_windows_msvc_install_requests_vctools_workload(monkeypatch):
     commands = []
 
-    monkeypatch.setattr(apt, "_find_winget_shell", lambda: "winget.exe")
+    monkeypatch.setattr(apt, "_require_winget", lambda: "winget.exe")
 
     def run(command, **kwargs):
         commands.append(command)
