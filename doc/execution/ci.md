@@ -24,9 +24,11 @@ This document describes the GitHub Actions CI workflows for Tickoni.
 - [Build](#build)
 - [Quality](#quality)
 - [Security](#security)
-- [Tests / Short](#tests--short)
-- [Tests / Long](#tests--long)
-- [Tests / XLong](#tests--xlong)
+- [Tests / Unit](#tests--unit)
+- [Tests / Integration](#tests--integration)
+- [Tests / System](#tests--system)
+- [Tests / Demo](#tests--demo)
+- [Tests / Conformance](#tests--conformance)
 - [Optional Workflows](#optional-workflows)
 - [Zig Toolchain Policy](#zig-toolchain-policy)
 - [Centralized Firedancer Lib Machinery](#centralized-firedancer-lib-machinery)
@@ -35,9 +37,9 @@ This document describes the GitHub Actions CI workflows for Tickoni.
 
 ## Overview
 
-All seven Tickoni workflows trigger on pull requests targeting `main` and are also dispatchable manually via `workflow_dispatch`. Every workflow uses GitHub-hosted runners only — no self-hosted infrastructure is required.
+All eleven Tickoni CI workflows (`ci.yml` plus ten sub-workflow YAML files) trigger on pull requests targeting `main` and are also dispatchable manually via `workflow_dispatch`. Every workflow uses GitHub-hosted runners only — no self-hosted infrastructure is required.
 
-This CI surface is intentionally **not** a coexist-with-upstream layout. Tickoni replaces the broad upstream Firedancer workflow set with a smaller Tickoni-owned workflow surface that keeps the PR lanes relevant to the harness, removes Firedancer-only/self-hosted jobs, and rewrites duplicated checks into the Tickoni workflow files below. In other words: macOS support here was added alongside an intentional shrink/re-shape of the upstream CI surface, not while retaining the full upstream workflow topology unchanged.
+This CI surface is intentionally **not** a coexist-with-upstream layout. Tickoni replaces the broad upstream Firedancer workflow set with a consolidated S8 pipeline: a single `ci.yml` orchestrator that delegates to ten sub-workflow files (`_ci-build.yml`, `_ci-unit.yml`, `_ci-integration.yml`, `_ci-system.yml`, `_ci-demo.yml`, `_ci-quality.yml`, `_ci-security-secrets.yml`, `_ci-security-deep.yml`, `_ci-conformance.yml`, `tests-dev-setup.yml`). The consolidation eliminates per-workflow setup duplication and enforces a cascading gate model. macOS support was added alongside this intentional shrink/re-shape of the upstream CI surface.
 
 The retained workflows run only their checked-in triggers; retired benchmark and
 book workflows are not part of the CI surface.
@@ -48,15 +50,17 @@ book workflows are not part of the CI surface.
 
 || Workflow                  | Runner(s)                           | Jobs                                                         | Timeout |
 | ------------------------- | ----------------------------------- | ------------------------------------------------------------ | ------- |
-| `build-fd.yml`            | `ubuntu-24.04`, `ubuntu-24.04-arm`  | Engine Build (GCC, Clang, ARM)                               | 20–30 m |
-| `build-fd.yml`            | `windows-2025-vs2026`, `windows-11-vs2026-arm` | Engine Build / Windows x86_64, Engine Build / Windows ARM64  | 20–45 m |
-| `build-tk.yml`            | `ubuntu-24.04`                      | Harness Build                                                | 20–30 m |
-| `build-tk.yml`            | `windows-2025-vs2026`, `windows-11-vs2026-arm` | Harness Build / Windows x86_64, Harness Build / Windows ARM64 | 20–45 m |
-| `quality.yml`             | `ubuntu-24.04`                      | Format Check, Lint Check, Proto Check                        | 20–30 m |
-| `security.yml`            | `ubuntu-24.04`                      | Gitleaks, Sanitizers, SecComp                                | 20–45 m |
-| `tests-short.yml`         | `ubuntu-24.04`                      | Harness Unit Tests, Harness Integration Tests, Harness Coverage | 20 m    |
-| `tests-long.yml`          | `ubuntu-24.04`                      | Engine Unit Tests, Engine Coverage                           | 45–90 m |
-| `tests-xlong.yml`         | `ubuntu-latest`                     | Engine E2E Tests (disabled), LLM System Tests                | 60–90 m |
+| `ci.yml`                  | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025-vs2026`, `windows-11-vs2026-arm`, `ubuntu-latest` | Orchestrator + 11 jobs (build, quality, unit, integration, system, demo, conformance, security-secrets, security-deep, docs-only, ci-required) | 20–60 m |
+| `_ci-build.yml`           | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025-vs2026`, `windows-11-vs2026-arm` | Engine Build (GCC, Clang, ARM, Windows x86, Windows ARM) + Harness Build | 20–45 m |
+| `_ci-unit.yml`            | `ubuntu-24.04`                      | Harness Unit Tests                                           | 20 m    |
+| `_ci-integration.yml`     | `ubuntu-24.04`                      | Harness Integration Tests                                    | 20 m    |
+| `_ci-system.yml`          | `ubuntu-latest`                     | LLM System Tests                                             | 60–90 m |
+| `_ci-demo.yml`            | `ubuntu-24.04`, `windows-2025-vs2026`, `windows-11-vs2026-arm` | Deterministic Demo Conformance                               | 20 m    |
+| `_ci-quality.yml`         | `ubuntu-24.04`                      | Format Check, Lint Check, Proto Check                        | 20–30 m |
+| `_ci-security-secrets.yml`| `ubuntu-24.04`                      | Gitleaks                                                     | 20–30 m |
+| `_ci-security-deep.yml`   | `ubuntu-24.04`                      | Sanitizers, SecComp                                          | 20–45 m |
+| `_ci-conformance.yml`     | `ubuntu-24.04`                      | Cross-platform conformance comparison                        | 20 m    |
+| `tests-dev-setup.yml`     | `ubuntu-24.04`                      | Full dev lifecycle validation (setup → build → test)         | 45–60 m |
 
 All `detect-changes` jobs run on `ubuntu-slim`.
 
@@ -68,11 +72,9 @@ Each workflow begins with a `detect-changes` job that compares the PR diff again
 
 || Workflow          | Paths that trigger jobs                                                                                  |
 | ----------------- | -------------------------------------------------------------------------------------------------------- |
-| `build-fd.yml`    | `src/`, `config/`, `contrib/setup/helpers/deps.sh`, `contrib/build/deps-bundle.sh`, `justfile`, `.github/actions/`, workflow file   |
-| `quality.yml`     | `src/`, `build.zig`, `build.zig.zon`, `justfile`, `contrib/quality/quality.sh`, lint script, `.github/actions/`, workflow file |
-| `security.yml`    | `src/`, `build.zig`, `build.zig.zon`, `justfile`, `contrib/security/security.sh`, gitleaks config, CodeQL config, `.github/actions/`, workflow file |
-| `tests-short.yml` | `src/app/tickoni/`, `src/tickoni/`, `build.zig`, `build.zig.zon`, `justfile`, quality/security scripts, coverage configs, `.github/actions/`, workflow file |
-| `tests-xlong.yml` | `src/`, `build.zig`, `build.zig.zon`, `justfile`, `contrib/test/`, `contrib/build/make-j`, `.github/actions/`, workflow file |
+| `ci.yml`          | `src/`, `config/`, `build.zig`, `build.zig.zon`, `justfile`, `.github/actions/`, workflow file          |
+
+The orchestrator `ci.yml` is the single change detection entry point. It delegates to sub-workflows via `workflow_call`, and each sub-workflow runs its own `detect-changes` job when applicable. Path filtering is applied at the orchestrator level to avoid unnecessary sub-workflow invocations.
 
 ---
 
@@ -84,10 +86,10 @@ Planned first-pass native Windows jobs:
 
 | Workflow | Job | Runner | Entrypoint |
 | --- | --- | --- | --- |
-| `build-fd.yml` | `Engine Build / Windows 2025` | `windows-2025-vs2026` | `just build-fd-windows-x86` |
-| `build-fd.yml` | `Engine Build / Windows 11 ARM` | `windows-11-vs2026-arm` | `just build-fd-windows-arm` |
-| `build-tk.yml` | `Harness Build / Windows 2025` | `windows-2025-vs2026` | `just build-tk` |
-| `build-tk.yml` | `Harness Build / Windows 11 ARM` | `windows-11-vs2026-arm` | `just build-tk` |
+| `_ci-build.yml` | `Engine Build / Windows 2025` | `windows-2025-vs2026` | `just build-fd-windows-x86` |
+| `_ci-build.yml` | `Engine Build / Windows 11 ARM` | `windows-11-vs2026-arm` | `just build-fd-windows-arm` |
+| `_ci-build.yml` | `Harness Build / Windows 2025` | `windows-2025-vs2026` | `just build-tk-windows-x86` |
+| `_ci-build.yml` | `Harness Build / Windows 11 ARM` | `windows-11-vs2026-arm` | `just build-tk-windows-arm` |
 
 These are native Windows runner lanes only. The frozen first-pass contract explicitly excludes WSL, container, or VM fallback lanes as the official support path, and does not claim seccomp, sanitizer, replay, or full runtime parity on Windows.
 
@@ -141,19 +143,23 @@ It defines:
 
 ## Build
 
-Two separate workflows build the Firedancer engine and the Tickoni Zig harness, so each can track its own change set.
+The S8 consolidated pipeline delegates engine and harness builds to a single workflow:
+
+**File:** `_ci-build.yml` (called by `ci.yml`)
 
 ### Engine Build
 
-**File:** `.github/workflows/build-fd.yml`
-
-Compiles the Firedancer engine (scoped to the 5 harness libraries). Four parallel build jobs run after `detect-changes`:
+Compiles the Firedancer engine (scoped to the 5 harness libraries). Five parallel build jobs run on Linux x86, Linux ARM, macOS x86, macOS ARM, and Windows x86/ARM:
 
 ||| Job                      | Runner             | Compiler        | Command              |
 | ------------------------ | ------------------ | --------------- | -------------------- |
-| Engine Build / GCC       | `ubuntu-24.04`     | GCC 12          | `just build-fd-gcc`  |
-| Engine Build / Clang     | `ubuntu-24.04`     | Clang 18        | `just build-fd-clang`|
-| Engine Build / ARM       | `ubuntu-24.04-arm` | GCC 14          | `just build-fd-arm`  |
+| Engine Build / GCC       | `ubuntu-24.04`     | GCC 12          | `just build-fd-linux-x86-gcc`  |
+| Engine Build / Clang     | `ubuntu-24.04`     | Clang 18        | `just build-fd-linux-x86-clang`|
+| Engine Build / ARM       | `ubuntu-24.04-arm` | GCC 14          | `just build-fd-linux-arm-gcc`  |
+| Engine Build / macOS x86   | `macos-15`         | Clang           | `just build-fd-macos-x86`  |
+| Engine Build / macOS ARM   | `macos-15-arm`     | Clang           | `just build-fd-macos-arm`  |
+| Engine Build / Windows x86 | `windows-2025-vs2026` | Clang        | `just build-fd-windows-x86` |
+| Engine Build / Windows ARM | `windows-11-vs2026-arm` | Clang     | `just build-fd-windows-arm` |
 
 The engine builds use the `tickoni_fd` machine profile, which scopes the Firedancer build to only the 5 libraries Tickoni reuses (`fd_tango`, `fd_util`, `fd_ballet`, `fd_disco`, `fd_waltz`). This replaces the previous full-tree build and significantly reduces compile time.
 
@@ -161,9 +167,7 @@ The ARM job uses the `ubuntu-24.04-arm` GitHub-hosted runner to catch architectu
 
 ### Harness Build
 
-**File:** `.github/workflows/build-tk.yml`
-
-Compiles the Tickoni Zig harness (`just build-tk`). Runs on `ubuntu-24.04`, `windows-2025-vs2026`, and `windows-11-vs2026-arm`.
+Compiles the Tickoni Zig harness (`just build-tk-linux-x86` or platform-specific variant). Runs on `ubuntu-24.04`, `windows-2025-vs2026`, and `windows-11-vs2026-arm`.
 
 The Windows build CI contract is documented in the branch history and CI workflows.
 
@@ -171,7 +175,7 @@ The Windows build CI contract is documented in the branch history and CI workflo
 
 ## Quality
 
-**File:** `.github/workflows/quality.yml`
+**File:** `_ci-quality.yml` (called by `ci.yml`)
 
 Static quality checks run as a matrix so they report independently and do not fail-fast:
 
@@ -192,13 +196,18 @@ The Proto Check matrix entry installs `buf` via the GitHub Actions cache, then r
 
 ## Security
 
-**File:** `.github/workflows/security.yml`
+Security checks are split across two sub-workflows for independent timeout and isolation:
 
-Security checks run as a matrix with independent reporting:
+**File:** `_ci-security-secrets.yml` (called by `ci.yml`)
 
 || Job        | Compiler | Command                           | What it checks                          |
 | ---------- | -------- | --------------------------------- | --------------------------------------- |
 | Gitleaks   | GCC      | `just security-gitleaks-check-all`| Secret scanning via gitleaks            |
+
+**File:** `_ci-security-deep.yml` (called by `ci.yml`)
+
+|| Job        | Compiler | Command                           | What it checks                          |
+| ---------- | -------- | --------------------------------- | --------------------------------------- |
 | Sanitizers | Clang 18 | `just security-sanitize-check-all`| ASan/UBSan on Firedancer and Tickoni C/Zig code |
 | SecComp    | GCC      | `just security-seccomp-check-fd`  | Seccomp policy generation + drift check |
 
@@ -206,49 +215,39 @@ The Sanitizers job installs Clang 18, builds shared libs, then runs `just securi
 
 ---
 
-## Tests / Short
+## Tests / Unit
 
-**File:** `.github/workflows/tests-short.yml`
+**File:** `_ci-unit.yml` (called by `ci.yml`)
 
-Covers the Tickoni Zig harness (`src/app/tickoni/`, `src/tickoni/`). Path filter is scoped to Tickoni sources only so these jobs do not re-run on pure Firedancer C changes.
+Covers the Tickoni Zig harness unit tests. Path filter is scoped to Tickoni sources only so these jobs do not re-run on pure Firedancer C changes.
 
 || Job                       | Command                    | Output artifact                               |
 | ------------------------- | -------------------------- | --------------------------------------------- |
-| Harness Unit Tests        | `just test-unit-tk`        | —                                             |
-| Harness Integration Tests | `just test-integration-tk` | —                                             |
-| Harness Tests Coverage    | `just test-cov-tk`         | `coverage-tk` — `build/coverage/tk/coverage-summary.json` |
-
-Coverage artifact is uploaded even on failure (`if: always()`).
+| Harness Unit Tests        | `just test-unit-tk-linux-x86`        | —                                             |
 
 ---
 
-## Tests / Long
+## Tests / Integration
 
-**File:** `.github/workflows/tests-long.yml`
+**File:** `_ci-integration.yml` (called by `ci.yml`)
 
-Covers the Firedancer engine test suite and produces engine coverage using LLVM tooling.
+Covers the Tickoni integration test lane.
 
-|| Job                   | Compiler | Command             | Timeout | Output artifact                               |
-| --------------------- | -------- | ------------------- | ------- | --------------------------------------------- |
-| Engine Unit Tests     | GCC      | `just test-unit-fd` | 45 m    | —                                             |
-| Engine Tests Coverage | Clang 18 | `just test-cov-fd`  | 90 m    | `coverage-fd` — `build/coverage/fd/coverage-summary.json` |
-
-The coverage job installs `llvm-18` and sets up `llvm-profdata`, `llvm-objdump`, `llvm-ar`, and `llvm-cov` via `update-alternatives` before running.
+|| Job                       | Command                    | Output artifact                               |
+| ------------------------- | -------------------------- | --------------------------------------------- |
+| Harness Integration Tests | `just test-integration-tk-linux-x86` | —                                             |
 
 ---
 
-## Tests / XLong
+## Tests / System
 
-**File:** `.github/workflows/tests-xlong.yml`
+**File:** `_ci-system.yml` (called by `ci.yml`)
 
-Contains long-running tests that require additional infrastructure or model assets.
+Contains long-running system tests that require additional infrastructure or model assets.
 
 || Job              | Runner          | Command              | Timeout | Status                     |
 | ---------------- | --------------- | -------------------- | ------- | -------------------------- |
-| Engine E2E Tests | `ubuntu-24.04`  | `just test-e2e-fd`   | 60 m    | **Disabled** (`if: false`) |
 | LLM System Tests | `ubuntu-latest` | see steps below      | 90 m    | Active                     |
-
-**Engine E2E Tests** — condition is hard-coded `if: false && …`, so it never runs. Remove `false &&` to re-enable. When enabled it configures pages via the Tickoni-owned `.github/actions/memory-management` action (not the upstream `.github/actions/hugepages` action). The `memory-management` action wraps the `just mem-*` recipes and degrades gracefully when a free GitHub-hosted runner cannot reserve all requested gigantic/huge pages, whereas upstream `hugepages` targets persistent self-hosted runners and fails the step on a short reservation. Keeping a separate action lets the shared `hugepages` file track Firedancer upstream without merge conflicts.
 
 **LLM System Tests** — runs the explicit system live-model lane against a real local `llama.cpp` server. Steps in order:
 
@@ -259,6 +258,22 @@ Contains long-running tests that require additional infrastructure or model asse
 The llama.cpp path and model path can be overridden with `TK_LLAMA_CPP_DIR`,
 `TK_HF_MODEL_DIR`, and `TK_HF_MODEL_FILE` environment variables
 (see `contrib/test/run_live_investment_demo.sh`).
+
+---
+
+## Tests / Demo
+
+**File:** `_ci-demo.yml` (called by `ci.yml`)
+
+Deterministic offline investment conformance suite — fixture-backed, no llama.cpp required. Runs on Linux, macOS, and Windows to produce cross-platform conformance artifacts.
+
+---
+
+## Tests / Conformance
+
+**File:** `_ci-conformance.yml` (called by `ci.yml`)
+
+Cross-platform conformance comparison. Accepts 2+ conformance JSON files and does pairwise comparison. Platform-specific fields are normalized out so bundles from different OS/arch pairs can be compared cleanly.
 
 ---
 
@@ -282,13 +297,13 @@ The following upstream Firedancer workflows were removed from Tickoni intentiona
 
 | Deleted file | Reason |
 |-------------|--------|
-| `on_pull_request.yml`, `on_main_push.yml`, `on_nightly.yml` | Orchestration-only; replaced by ci.md model |
-| `tests.yml` | Reusable template; replaced by tests-short/long/xlong.yml |
-| `backtest.yml`, `builds.yml` | FD-specific; replaced by build-fd.yml + build-tk.yml |
+| `on_pull_request.yml`, `on_main_push.yml`, `on_nightly.yml` | Orchestration-only; replaced by ci.yml model |
+| `tests.yml` | Reusable template; replaced by _ci-unit.yml + _ci-integration.yml |
+| `backtest.yml`, `builds.yml` | FD-specific; replaced by _ci-build.yml |
 | `coverage_report.yml`, `coverage_test_vectors.yml` | FD GCS coverage infrastructure |
-| `trailing_whitespace.yml` | Duplicated in quality.yml |
-| `proto_check.yml` | Proto check is a matrix job in quality.yml |
-| `check_seccomp.yml` | SecComp check is a matrix job in security.yml |
+| `trailing_whitespace.yml` | Duplicated in _ci-quality.yml |
+| `proto_check.yml` | Proto check is a matrix job in _ci-quality.yml |
+| `check_seccomp.yml` | SecComp check is a matrix job in _ci-security-deep.yml |
 | `doxygen.yml` | Requires GCloud + rocky9 self-hosted runner |
 | `codeql.yml` | Requires CodeQL runner group |
 | `cbmc.yml` | Requires self-hosted X64 + CBMC toolchain |

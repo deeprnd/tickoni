@@ -110,7 +110,7 @@ Aggregates:
 - `just test-system-all` — system lane (requires llama.cpp)
 - `just test-all` — unit + integration + system + e2e
 - `just test-cov-tk` — Tickoni harness coverage
-- `just test-cov-fd` — Firedancer coverage (pre-optional, toolchain may be missing)
+- `just test-cov-fd` — Firedancer coverage (no-op locally; CI coverage is pre-existing and requires LLVM toolchain)
 - `just test-cov-all` — both coverage lanes
 - `just tests-all` — build + quality + security + tests (full handoff gate)
 
@@ -122,7 +122,7 @@ Current placeholder test recipes:
   `test-demo-tk` and `test-e2e-fd`.
 - `just test-system-fd` — no-op (`@true`). Firedancer system testing uses
   `test-e2e-fd` (Firedancer's integration-test target).
-- `just test-cov-fd` — no-op (pre-existing llvm-cov toolchain not installed).
+- `just test-cov-fd` — no-op (pre-existing llvm-cov toolchain not installed locally).
 
 Placeholder commands return `@true` in the `justfile`, following the repo
 tooling rule that no-op component variants live in the `justfile` and not in
@@ -538,8 +538,8 @@ Preferred validation commands in order:
 - `just test-e2e-all` runs the Firedancer e2e/system lane plus the current
   Tickoni e2e placeholder.
 - `just test-cov-tk` runs Tickoni harness coverage.
-- `just test-cov-fd` runs Firedancer-derived C coverage with reduced
-  parallelism for local and CI memory limits.
+- `just test-cov-fd` runs Firedancer-derived C coverage (no-op locally; requires
+  LLVM toolchain not installed on host).
 - `just test-cov-all` runs both coverage lanes.
 - `just test-all` runs the broad test bundle: unit, integration, system, e2e.
 - `just tests-all` runs the full local handoff gate: build, quality, security,
