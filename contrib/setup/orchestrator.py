@@ -95,7 +95,7 @@ def main():
     # Load .env file into environment if it exists (local dev credentials).
     # CI: secrets (QT_USERNAME, QT_PASSWORD) are already in the runner env.
     _repo_root = os.path.dirname(os.path.dirname(_script_dir))
-    dotenv.load_dotenv(os.path.join(_repo_root, '.env'), override=False)
+    load_dotenv(os.path.join(_repo_root, '.env'), override=False)
 
     parser = argparse.ArgumentParser(description='CI tool orchestrator')
     parser.add_argument('categories', nargs='?', help='Comma-separated category list')

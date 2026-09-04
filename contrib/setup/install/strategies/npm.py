@@ -39,6 +39,17 @@ def _find_npm_bin_dir() -> str | None:
     return npm_bin
 
 
+def _npm_env() -> dict:
+    """Return env overlay for subprocesses so nvm shims find node."""
+    nvm_dir = os.environ.get('NVM_DIR') or os.path.expanduser('~/.nvm')
+    node_bin = _find_npm_bin_dir()
+    env = os.environ.copy()
+    env['NVM_DIR'] = nvm_dir
+    if node_bin and 'PATH' in env:
+        env['PATH'] = node_bin + os.pathsep + env['PATH']
+    return env
+
+
 @register('npm')
 class NpmInstallStrategy(InstallStrategy):
     """Install via npm global install."""
@@ -60,6 +71,7 @@ class NpmInstallStrategy(InstallStrategy):
         result = subprocess.run(
             [npm, 'install', '-g', package],
             capture_output=True, text=True,
+            env=_npm_env(),
         )
         if result.returncode != 0:
             print(f"ERROR: npm install failed for {package}", file=sys.stderr)
