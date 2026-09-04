@@ -140,6 +140,9 @@
           "windows-arm": "3c4635366059172b52fe5776b164bc4c56a36772cf01122e0473619a48463e32"
         }
       }
+    },
+    "nodejs": {
+      "version": "22.23.0"
     }
   },
   "categories": {
@@ -283,6 +286,17 @@
         "huggingface-cli",
         "hf-model"
       ]
+    },
+    "nodejs": {
+      "description": "Node.js runtime for npm packages",
+      "tools": [
+        "nodejs"
+      ],
+      "platforms": [
+        "linux",
+        "macos",
+        "windows"
+      ]
     }
   },
   "dependencies": {
@@ -312,7 +326,8 @@
       "core",
       "build",
       "go",
-      "zig"
+      "zig",
+      "nodejs"
     ],
     "secrets": [
       "core"
@@ -344,6 +359,10 @@
       "core",
       "build",
       "math-libs"
+    ],
+    "nodejs": [
+      "core",
+      "essential"
     ]
   },
   "tools": {
@@ -778,6 +797,29 @@
         "version_ref": "qt-installer"
       },
       "idempotent_check": "command -v qmake"
+    },
+    "nodejs": {
+      "category": "nodejs",
+      "platform": "all",
+      "install_method": "binary_download",
+      "parameters": {
+        "url_pattern": "https://nodejs.org/dist/v{version}/node-v{version}-{{.os}}-{{.arch}}.tar.gz",
+        "install_dir": "$HOME/.local",
+        "version_ref": "nodejs",
+        "bin_dirs": [
+          "$HOME/.local/bin"
+        ]
+      },
+      "idempotent_check": "command -v node"
+    },
+    "cspell": {
+      "category": "quality",
+      "platform": "all",
+      "install_method": "npm",
+      "parameters": {
+        "package": "cspell"
+      },
+      "idempotent_check": "command -v cspell"
     }
   }
 }
