@@ -170,9 +170,24 @@ class QtInstallerStrategy(InstallStrategy):
             if not _is_platform_windows(platform_str):
                 os.chmod(canonical, 0o755)
 
-            # 5. Run the installer
-            install_cmd = [str(canonical), f'--root {install_dir}', flags, qt_module]
-            print(f'[INSTALLER] {" ".join(install_cmd)}')
+            # ── Build install command with unattended flags ───────────────────
+            # Credentials: QT_USERNAME + QT_PASSWORD env vars (CI-friendly).
+            # Falls back to --email/--pw only when both are set.
+            qt_username = os.environ.get('QT_USERNAME', '')
+            qt_password = os.environ.get('QT_PASSWORD', '')
+
+            parts = [
+                str(canonical),
+                f'--root {install_dir}',
+                flags,
+            ]
+            if qt_username and qt_password:
+                parts.extend(['--email', qt_username, '--pw', qt_password])
+            parts.append(qt_module)
+
+            install_cmd = parts
+            install_str = " ".join(install_cmd)
+            print(f'[INSTALLER] {install_str}')
             result = _run_cmd(install_cmd, capture=True)
             if result.returncode != 0:
                 print(f'ERROR: Qt installer exited with code {result.returncode}', file=sys.stderr)
