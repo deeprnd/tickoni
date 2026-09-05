@@ -555,9 +555,11 @@ test-integration-tk-linux-x86:
 
 test-integration-tk-linux-arm: test-integration-tk-linux-x86
 
-test-integration-tk-macos-x86: test-integration-tk-linux-x86
+test-integration-tk-macos-x86:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
 
-test-integration-tk-macos-arm: test-integration-tk-linux-x86
+test-integration-tk-macos-arm:
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
 
 test-integration-tk:
     #!/usr/bin/env bash
