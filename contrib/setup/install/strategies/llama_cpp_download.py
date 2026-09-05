@@ -21,6 +21,13 @@ class LlamaCppDownloadStrategy(InstallStrategy):
     """Download pre-built llama.cpp binaries with SHA256 verification."""
 
     @staticmethod
+    def _validate_base_url(base_url: str) -> None:
+        """Reject empty or whitespace-only base_url."""
+        if not base_url or not base_url.strip():
+            print("ERROR: base_url is required and must not be empty", file=sys.stderr)
+            sys.exit(1)
+
+    @staticmethod
     def _resolve_from_config(platform_str: str, config: dict) -> dict:
         """Read artifact metadata from tool-versions.json."""
         llama_entry = config.get('versions', {}).get('llama-cpp', {})
@@ -42,6 +49,9 @@ class LlamaCppDownloadStrategy(InstallStrategy):
         if filename is None:
             print(f"ERROR: no llama.cpp filename for platform {platform_str}", file=sys.stderr)
             sys.exit(1)
+
+        # Validate base_url (Finding 1.1)
+        LlamaCppDownloadStrategy._validate_base_url(base_url)
 
         return {
             'sha256': sha256,
