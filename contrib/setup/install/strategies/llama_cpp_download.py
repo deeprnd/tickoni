@@ -82,6 +82,11 @@ class LlamaCppDownloadStrategy(InstallStrategy):
             url = params['download_url']
             sha256 = params.get('sha256', sha256)
 
+        # Enforce SHA256 (Finding 1.3: deny-by-default verification)
+        if not sha256:
+            print("ERROR: SHA256 required for production artifacts", file=sys.stderr)
+            sys.exit(1)
+
         install_dir = _expand_home(params.get('install_dir', '~/work/models/llama.cpp'))
         server_path = os.path.join(install_dir, resolved['server_bin'])
 
