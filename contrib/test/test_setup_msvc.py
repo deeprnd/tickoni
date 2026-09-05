@@ -12,21 +12,21 @@ platform_spec = importlib.util.spec_from_file_location("platform", setup_dir / "
 platform_module = importlib.util.module_from_spec(platform_spec)
 sys.modules["platform"] = platform_module
 platform_spec.loader.exec_module(platform_module)
-from contrib.setup.install.strategies import system_package
+from contrib.setup.install.strategies import winget
 
 
 def test_windows_msvc_install_requests_vctools_workload(monkeypatch):
     commands = []
 
-    monkeypatch.setattr(system_package, "_require_winget", lambda: "winget.exe")
+    monkeypatch.setattr(winget, "_require_winget", lambda: "winget.exe")
 
     def run(command, **kwargs):
         commands.append(command)
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
-    monkeypatch.setattr(system_package.subprocess, "run", run)
+    monkeypatch.setattr(winget.subprocess, "run", run)
 
-    system_package.WingetInstallStrategy().execute(
+    winget.WingetInstallStrategy().execute(
         {
             "name": "msvc",
             "parameters": {
@@ -54,7 +54,7 @@ def test_windows_msvc_install_requests_vctools_workload(monkeypatch):
 def test_windows_msvc_absolute_winget_path_is_invoked_directly(monkeypatch):
     commands = []
     monkeypatch.setattr(
-        system_package, "_require_winget",
+        winget, "_require_winget",
         lambda: r"C:\Program Files\WindowsApps\AppInstaller\winget.exe",
     )
 
@@ -62,8 +62,8 @@ def test_windows_msvc_absolute_winget_path_is_invoked_directly(monkeypatch):
         commands.append(command)
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
-    monkeypatch.setattr(system_package.subprocess, "run", run)
-    system_package.WingetInstallStrategy().execute(
+    monkeypatch.setattr(winget.subprocess, "run", run)
+    winget.WingetInstallStrategy().execute(
         {"name": "ccache", "parameters": {"package": "Ccache.Ccache"}},
         {}, "windows-arm", False,
     )
