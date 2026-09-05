@@ -27,7 +27,19 @@ usage() {
 Usage: bash contrib/security/security.sh <command>
 
 Commands:
-  codeql-check-fd     CodeQL analysis on C source
+  # Firedancer (clang + ASan/UBSan)
+  sanitize-check-fd   Build fd with Clang ASan + UBSan
+
+  # Tickoni (gcc + Zig ReleaseSafe)
+  sanitize-check-tk   Build tk with ReleaseSafe (Zig built-in safety checks)
+
+  # Qt terminal (cmake + clang + Qt6)
+  sanitize-check-qt   Build Qt terminal with Clang ASan + UBSan via CMake
+
+  # Convenience: runs all three sequentially
+  sanitize-check-all  Runs sanitize-check-fd, sanitize-check-tk, sanitize-check-qt
+
+  # Secret scanning
   gitleaks-check-fd   Secret scanning on fd source tree
   gitleaks-check-tk   Secret scanning on tk source tree
   seccomp-check-fd    Verify seccomp policies for fd tiles
@@ -166,6 +178,11 @@ case "${1:-}" in
   sanitize-check-fd) cmd_sanitize_check_fd ;;
   sanitize-check-tk) cmd_sanitize_check_tk ;;
   sanitize-check-qt) cmd_sanitize_check_qt ;;
+  sanitize-check-all)
+    cmd_sanitize_check_fd
+    cmd_sanitize_check_tk
+    cmd_sanitize_check_qt
+    ;;
   ""|-h|--help|help)
     usage
     ;;

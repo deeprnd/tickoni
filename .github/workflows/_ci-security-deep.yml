@@ -1,7 +1,7 @@
 ---
 # Reusable Security/Deep workflow: sanitizers, seccomp, formal verification.
 # Heavy checks that run after the main test stages.
-# Called from ci.yml with a 'check' input: sanitize | seccomp | proof | engine
+# Called from ci.yml with a 'check' input: sanitize-fd|sanitize-tk|sanitize-qt|seccomp|proof|engine
 
 name: Security Deep Stage
 
@@ -11,7 +11,7 @@ name: Security Deep Stage
       check:
         type: string
         required: true
-        description: "Which check to run (sanitize|sanitize-qt|seccomp|proof|engine)"
+        description: "Which check to run (sanitize-fd|sanitize-tk|sanitize-qt|seccomp|proof|engine)"
 
 jobs:
   security-deep:
@@ -32,44 +32,75 @@ jobs:
       - name: Install just
         uses: taiki-e/install-action@just
 
-      - name: Setup build toolchain
+      # ── Sanitize: Firedancer (clang + ASan/UBSan) ─────────────────────
+      - name: Setup build toolchain (sanitize-fd)
+        if: inputs.check == 'sanitize-fd'
         run: just setup-build-linux-x86-gcc
 
-      - name: Setup coverage/sanitizer toolchain (sanitize only)
-        if: inputs.check == 'sanitize'
+      - name: Setup coverage/sanitizer toolchain (sanitize-fd)
+        if: inputs.check == 'sanitize-fd'
         run: just setup-coverage-linux-x86-clang
 
-      - name: Setup Firedancer deps (zig + SSL)
-        if: inputs.check != 'engine'
+      - name: Setup Firedancer deps (sanitize-fd)
+        if: inputs.check == 'sanitize-fd'
+        run: just setup-fd-linux-x86-gcc
+
+      - name: Run Firedancer sanitizer check
+        if: inputs.check == 'sanitize-fd'
+        run: just security-sanitize-check-fd
+
+      # ── Sanitize: Tickoni (gcc + Zig ReleaseSafe) ─────────────────────
+      - name: Setup build toolchain (sanitize-tk)
+        if: inputs.check == 'sanitize-tk'
+        run: just setup-build-linux-x86-gcc
+
+      - name: Setup Firedancer deps (sanitize-tk)
+        if: inputs.check == 'sanitize-tk'
+        run: just setup-fd-linux-x86-gcc
+
+      - name: Run Tickoni sanitizer check
+        if: inputs.check == 'sanitize-tk'
+        run: just security-sanitize-check-tk
+
+      # ── Sanitize: Qt terminal (cmake + clang + Qt6) ───────────────────
+      - name: Setup Qt6 for sanitizer build
+        if: inputs.check == 'sanitize-qt'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qt6-base-dev qt6-qmake qt6-base-dev-tools
+          just setup-qt-linux-x86
+
+      - name: Run Qt sanitizer checks
+        if: inputs.check == 'sanitize-qt'
+        run: just security-sanitize-check-qt
+
+      # ── Seccomp ───────────────────────────────────────────────────────
+      - name: Setup Firedancer deps (seccomp)
+        if: inputs.check == 'seccomp'
+        run: just setup-fd-linux-x86-gcc
+
+      - name: Run seccomp checks
+        if: inputs.check == 'seccomp'
+        run: just security-seccomp-check-all
+
+      # ── Proof ─────────────────────────────────────────────────────────
+      - name: Setup build toolchain (proof)
+        if: inputs.check == 'proof'
+        run: just setup-build-linux-x86-gcc
+
+      - name: Setup Firedancer deps (proof)
+        if: inputs.check == 'proof'
         run: just setup-fd-linux-x86-gcc
 
       - name: Setup security proof toolchain
         if: inputs.check == 'proof'
         run: just setup-security-linux-x86
 
-      - name: Run sanitizer checks
-        if: inputs.check == 'sanitize'
-        run: just security-sanitize-check-all
-
-      - name: Run seccomp checks
-        if: inputs.check == 'seccomp'
-        run: just security-seccomp-check-all
-
       - name: Run proof checks
         if: inputs.check == 'proof'
         run: just security-proof-check-all
 
+      # ── Engine ────────────────────────────────────────────────────────
       - name: Run engine checks
         if: inputs.check == 'engine'
         run: just security-engine-check-all
-
-      - name: Setup Qt6 for sanitizer build
-        if: inputs.check == 'sanitize-qt'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qtbase5-dev qtbase5-dev-tools qtmultimedia5-dev
-          just setup-qt-linux-x86
-
-      - name: Run Qt sanitizer checks
-        if: inputs.check == 'sanitize-qt'
-        run: just security-sanitize-check-qt
