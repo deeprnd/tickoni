@@ -50,9 +50,6 @@ class LlamaCppDownloadStrategy(InstallStrategy):
             print(f"ERROR: no llama.cpp filename for platform {platform_str}", file=sys.stderr)
             sys.exit(1)
 
-        # Validate base_url (Finding 1.1)
-        LlamaCppDownloadStrategy._validate_base_url(base_url)
-
         return {
             'sha256': sha256,
             'filename': filename,
@@ -64,6 +61,9 @@ class LlamaCppDownloadStrategy(InstallStrategy):
     def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool) -> None:
         resolved = self._resolve_from_config(platform_str, config)
         params = tool.get('parameters', {})
+
+        # Validate base_url (Finding 1.1)
+        self._validate_base_url(resolved['base_url'])
 
         # Version from tool-versions.json via resolve_version
         version = resolve_version(config, 'llama-cpp')
