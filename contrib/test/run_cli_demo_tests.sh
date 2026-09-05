@@ -25,7 +25,7 @@ version_output="$($cli_binary --version)" || exit 1
 python3 - <<'PY' "$version_output"
 import sys
 text = sys.argv[1]
-assert text.lower().startswith('tickoni '), text
+assert text.startswith('Tickoni '), text
 for needle in [
     'Build ID:',
     'Git:',
