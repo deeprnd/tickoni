@@ -216,6 +216,7 @@
     "quality": {
       "description": "Lint, format, and quality checks",
       "tools": [
+        "clang-format",
         "shellcheck",
         "actionlint",
         "yamllint",

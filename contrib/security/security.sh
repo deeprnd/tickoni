@@ -34,6 +34,13 @@ Commands:
   proof-check-fd      CBMC proof checks on C source
   sanitize-check-fd   Build fd with Clang ASan + UBSan
   sanitize-check-tk   Build tk with ReleaseSafe (Zig built-in safety checks)
+
+  # Qt checks
+  gitleaks-check-qt   Secret scanning on Qt terminal source tree
+  sanitize-check-qt   Build Qt terminal with Clang ASan + UBSan
+  seccomp-check-qt    N/A — Qt not in financial event path
+  proof-check-qt      N/A — no CBMC for Qt
+  codeql-check-qt     N/A — no CodeQL
 EOF
 }
 
@@ -107,14 +114,58 @@ cmd_sanitize_check_tk() {
     zig build -Dtest=true test -Dfd-lib-dir=build/fd-tickoni-fd/lib -Doptimize=ReleaseSafe
 }
 
+# ── Qt Security Checks ────────────────────────────────────────────────────────
+
+cmd_gitleaks_check_qt() {
+  run_step "gitleaks qt" \
+    gitleaks detect --no-git --verbose --source src/tickoni/terminal
+}
+
+cmd_sanitize_check_qt() {
+  if ! command -v cmake >/dev/null 2>&1; then
+    echo "sanitize-check-qt requires cmake on PATH" >&2
+    return 1
+  fi
+  if ! command -v clang >/dev/null 2>&1; then
+    echo "sanitize-check-qt requires clang on PATH" >&2
+    return 1
+  fi
+
+  rm -rf build/tickoni-terminal-sanitize
+  run_step "qt cmake sanitize configure" \
+    cmake -S src/tickoni/terminal -B build/tickoni-terminal-sanitize \
+      -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+      -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -g" \
+      -DCMAKE_C_FLAGS="-fsanitize=address,undefined -g"
+  run_step "qt cmake build" \
+    cmake --build build/tickoni-terminal-sanitize -j "$(nproc)"
+}
+
+cmd_seccomp_check_qt() {
+  echo "N/A — Qt terminal is not in the financial event path"
+}
+
+cmd_proof_check_qt() {
+  echo "N/A — no CBMC formal verification for Qt"
+}
+
+cmd_codeql_check_qt() {
+  echo "N/A — no CodeQL"
+}
+
 case "${1:-}" in
   codeql-check-fd)   cmd_codeql_check_fd ;;
+  codeql-check-qt)   cmd_codeql_check_qt ;;
   gitleaks-check-fd) cmd_gitleaks_check_fd ;;
   gitleaks-check-tk) cmd_gitleaks_check_tk ;;
+  gitleaks-check-qt) cmd_gitleaks_check_qt ;;
   seccomp-check-fd)  cmd_seccomp_check_fd ;;
+  seccomp-check-qt)  cmd_seccomp_check_qt ;;
   proof-check-fd)    cmd_proof_check_fd ;;
-  sanitize-check-fd)  cmd_sanitize_check_fd ;;
-  sanitize-check-tk)  cmd_sanitize_check_tk ;;
+  proof-check-qt)    cmd_proof_check_qt ;;
+  sanitize-check-fd) cmd_sanitize_check_fd ;;
+  sanitize-check-tk) cmd_sanitize_check_tk ;;
+  sanitize-check-qt) cmd_sanitize_check_qt ;;
   ""|-h|--help|help)
     usage
     ;;
