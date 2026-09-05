@@ -396,7 +396,11 @@
     "curl": {
       "category": "core",
       "platform": "all",
-      "install_method": "system_package",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "curl",
         "winget_id": "curl.curl"
@@ -406,7 +410,11 @@
     "git": {
       "category": "core",
       "platform": "all",
-      "install_method": "system_package",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "git",
         "winget_id": "Git.Git"
@@ -436,7 +444,11 @@
     "python3": {
       "category": "essential",
       "platform": "all",
-      "install_method": "system_package",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "python3",
         "winget_id": "Python.Python.3.12"
@@ -455,7 +467,11 @@
     "minisign": {
       "category": "essential",
       "platform": "all",
-      "install_method": "system_package",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "minisign",
         "winget_id": "jedisct1.minisign"
@@ -465,7 +481,7 @@
     "gcc": {
       "category": "toolchain",
       "platform": "linux",
-      "install_method": "system_package",
+      "install_method": "apt",
       "parameters": {
         "package": "gcc",
         "version_key": "gcc"
@@ -475,7 +491,7 @@
     "clang-llvm": {
       "category": "toolchain",
       "platform": "linux",
-      "install_method": "system_package",
+      "install_method": "apt",
       "parameters": {
         "packages": [
           "clang-18",
@@ -508,7 +524,11 @@
     "make": {
       "category": "build",
       "platform": "all",
-      "install_method": "system_package",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "make",
         "winget_id": "GnuWin32.Make"
@@ -519,7 +539,11 @@
     "cmake": {
       "category": "build",
       "platform": "all",
-      "install_method": "system_package",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "cmake",
         "winget_id": "Kitware.CMake"
@@ -529,7 +553,11 @@
     "zstd": {
       "category": "build",
       "platform": "all",
-      "install_method": "system_package",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "zstd",
         "winget_id": "Meta.Zstandard"
@@ -539,7 +567,11 @@
     "pkg-config": {
       "category": "build",
       "platform": "all",
-      "install_method": "system_package",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "pkg-config",
         "winget_id": "bloodrock.pkg-config-lite"
@@ -606,7 +638,7 @@
     "shellcheck": {
       "category": "quality",
       "platform": "linux",
-      "install_method": "system_package",
+      "install_method": "apt",
       "parameters": {
         "package": "shellcheck"
       },
@@ -722,7 +754,7 @@
     "universal-ctags": {
       "category": "security",
       "platform": "linux",
-      "install_method": "system_package",
+      "install_method": "apt",
       "parameters": {
         "package": "universal-ctags"
       },
@@ -749,7 +781,11 @@
     "pwsh": {
       "category": "ops",
       "platform": "all",
-      "install_method": "system_package",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "powershell",
         "fallback": "snap"
@@ -800,7 +836,7 @@
     "openblas-linux": {
       "category": "math-libs",
       "platform": "linux",
-      "install_method": "system_package",
+      "install_method": "apt",
       "parameters": {
         "package": "libopenblas-dev"
       },
@@ -818,7 +854,7 @@
     "graphics-libs": {
       "category": "graphics-libs",
       "platform": "linux",
-      "install_method": "system_package",
+      "install_method": "apt",
       "parameters": {
         "packages": [
           "libgl1-mesa-dev",

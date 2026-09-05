@@ -53,6 +53,32 @@ def _activate_path(bin_dirs):
             print(f'[activation] add to PATH with:\n  export PATH="{bin_dir}:$PATH"')
 
 
+def _log_version(tool_name, pkg_name):
+    """Log the installed version of a tool after installation.
+
+    Shared by the apt and brew strategies; only a handful of toolchain tools
+    are mapped, everything else is a silent no-op.
+    """
+    version_map = {
+        'gcc': 'gcc',
+        'clang-llvm': 'clang',
+        'make': 'make',
+        'cmake': 'cmake',
+    }
+    binary = version_map.get(tool_name)
+    if not binary:
+        return
+    try:
+        result = subprocess.run(
+            [binary, '--version'],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0:
+            print(f"[VERSION] {binary}: {result.stdout.splitlines()[0].strip()}")
+    except Exception:
+        pass
+
+
 def _run_cmd(cmd, capture=True, shell=False, **kwargs):
     """Run a command and print its output."""
     cmd = [str(c) for c in cmd]
