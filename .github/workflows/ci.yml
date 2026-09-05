@@ -191,6 +191,20 @@ jobs:
     with:
       check: engine
 
+  security-deep-sanitize-qt:
+    name: Security / Deep — sanitize-qt
+    needs: [plan, build, integration, system, demo]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.integration.result == 'success' &&
+      needs.system.result == 'success' &&
+      needs.demo.result == 'success'
+    uses: ./.github/workflows/_ci-security-deep.yml
+    with:
+      check: sanitize-qt
+
 
   # ── CI / Required: aggregating gate for branch protection ────────────────
   ci-required:
@@ -199,7 +213,8 @@ jobs:
       [plan, quality, security-secrets, build,
        unit, integration, system, demo, conformance,
        security-deep-sanitize, security-deep-seccomp,
-       security-deep-proof, security-deep-engine]
+       security-deep-proof, security-deep-engine,
+       security-deep-sanitize-qt]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -216,7 +231,8 @@ jobs:
               build unit integration system demo \
               conformance \
               security-deep-sanitize security-deep-seccomp \
-              security-deep-proof security-deep-engine; do
+              security-deep-proof security-deep-engine \
+              security-deep-sanitize-qt; do
             case "$job" in
               plan) status="${{ needs.plan.result }}" ;;
               quality) status="${{ needs.quality.result }}" ;;
@@ -236,6 +252,8 @@ jobs:
                 status="${{ needs.security-deep-proof.result }}" ;;
               security-deep-engine) \
                 status="${{ needs.security-deep-engine.result }}" ;;
+              security-deep-sanitize-qt) \
+                status="${{ needs.security-deep-sanitize-qt.result }}" ;;
             esac
             results="$results $job=$status"
             if [ "$status" = "success" ] || \
@@ -249,7 +267,7 @@ jobs:
 
           # If core=false, all non-plan jobs should be skipped.
           if [ "${{ needs.plan.outputs.core }}" = "false" ]; then
-            expected_skipped=$((13 - 1)) # all except plan
+            expected_skipped=$((14 - 1)) # all except plan
             if [ "$skipped" -ge "$expected_skipped" ]; then
               echo "docs-only PR: $skipped jobs skipped as expected"
               exit 0
@@ -268,5 +286,5 @@ jobs:
           fi
 
           echo "CI / Required: all \
-            $((13 - skipped)) active jobs passed, $skipped skipped"
+            $((14 - skipped)) active jobs passed, $skipped skipped"
           exit 0

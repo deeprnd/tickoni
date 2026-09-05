@@ -11,7 +11,7 @@ name: Security Deep Stage
       check:
         type: string
         required: true
-        description: "Which check to run (sanitize|seccomp|proof|engine)"
+        description: "Which check to run (sanitize|sanitize-qt|seccomp|proof|engine)"
 
 jobs:
   security-deep:
@@ -62,3 +62,14 @@ jobs:
       - name: Run engine checks
         if: inputs.check == 'engine'
         run: just security-engine-check-all
+
+      - name: Setup Qt6 for sanitizer build
+        if: inputs.check == 'sanitize-qt'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qtbase5-dev qtbase5-dev-tools qtmultimedia5-dev
+          just setup-qt-linux-x86
+
+      - name: Run Qt sanitizer checks
+        if: inputs.check == 'sanitize-qt'
+        run: just security-sanitize-check-qt
