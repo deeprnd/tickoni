@@ -96,5 +96,8 @@ jobs:
       - name: Build Firedancer libs
         run: just ${{ matrix.build-recipe }}
 
+      - name: Run Python unit tests (pytest)
+        run: just test-unit-setup
+
       - name: Run unit tests
         run: just ${{ matrix.test-recipe }}
