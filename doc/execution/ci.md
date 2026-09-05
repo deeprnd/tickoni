@@ -23,6 +23,7 @@ This document describes the GitHub Actions CI workflows for Tickoni.
 - [Change Detection](#change-detection)
 - [Build](#build)
 - [Quality](#quality)
+- [Qt Quality](#qt-quality)
 - [Security](#security)
 - [Tests / Unit](#tests--unit)
 - [Tests / Integration](#tests--integration)
@@ -44,6 +45,10 @@ This CI surface is intentionally **not** a coexist-with-upstream layout. Tickoni
 The retained workflows run only their checked-in triggers; retired benchmark and
 book workflows are not part of the CI surface.
 
+### Qt Flow
+
+In addition to the Firedancer/Zig CI surface, Tickoni runs a parallel Qt quality and security lane for the Qt terminal scaffold (`src/tickoni/terminal/`). Qt quality is a matrix job inside `_ci-quality.yml` (currently off by default — `skip: true` — until Qt6 is available on CI runners). Qt security runs as a `sanitize-qt` sub-check in the deep security stage (`_ci-security-deep.yml`), which installs Qt6 via apt and runs Clang ASan/UBSan on the CMake build. The Qt sanitize-qt check runs in parallel with the four deep security sub-checks (sanitize, seccomp, proof, engine) and is included in the `ci-required` aggregation gate.
+
 ### Dispatch Tree
 
 ```mermaid
@@ -51,10 +56,14 @@ flowchart TD
     A["ci.yml (orchestrator)"] --> B["plan — change classifier"]
     A --> Q["quality (_ci-quality.yml)"]
     A --> S["security-secrets (_ci-security-secrets.yml)"]
+    A --> QTQ["qt-quality (_ci-quality.yml)"]
     B --> Q
     B --> S
+    B --> QTQ
     Q --> Bld["build (_ci-build.yml)"]
     S --> Bld
+    QTQ --> QtSec["security-deep-qt (_ci-security-deep.yml)"]
+    QtSec --> QtSec1["_ci-security-deep.yml check=sanitize-qt"]
     Bld --> U["unit (_ci-unit.yml)"]
     U --> I["integration (_ci-integration.yml)"]
     U --> Sys["system (_ci-system.yml)"]
@@ -71,8 +80,11 @@ flowchart TD
     SD2 --> R
     SD3 --> R
     SD4 --> R
+    QtSec1 --> R
     Q --> R
     S --> R
+    QTQ --> R
+    QtSec --> R
     Bld --> R
     U --> R
     I --> R
@@ -88,7 +100,7 @@ flowchart TD
 
 || Workflow                  | Runner(s)                           | Jobs                                                         | Timeout |
 | ------------------------- | ----------------------------------- | ------------------------------------------------------------ | ------- |
-| `ci.yml`                  | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025-vs2026`, `windows-11-vs2026-arm`, `ubuntu-latest` | Orchestrator + 11 jobs (build, quality, unit, integration, system, demo, conformance, security-secrets, security-deep, docs-only, ci-required) | 20–60 m |
+| `ci.yml`                  | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025-vs2026`, `windows-11-vs2026-arm`, `ubuntu-latest` | Orchestrator + 12 jobs (build, quality, Qt quality, unit, integration, system, demo, conformance, security-secrets, security-deep, docs-only, ci-required) | 20–60 m |
 | `_ci-build.yml`           | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025-vs2026`, `windows-11-vs2026-arm` | Engine Build (GCC, Clang, ARM, Windows x86, Windows ARM) + Harness Build | 20–45 m |
 | `_ci-unit.yml`            | `ubuntu-24.04`                      | Harness Unit Tests                                           | 20 m    |
 | `_ci-integration.yml`     | `ubuntu-24.04`                      | Harness Integration Tests                                    | 20 m    |
@@ -110,7 +122,7 @@ Each workflow begins with a `detect-changes` job that compares the PR diff again
 
 || Workflow          | Paths that trigger jobs                                                                                  |
 | ----------------- | -------------------------------------------------------------------------------------------------------- |
-| `ci.yml`          | `src/`, `config/`, `build.zig`, `build.zig.zon`, `justfile`, `.github/actions/`, workflow file          |
+| `ci.yml`          | `src/`, `config/`, `build.zig`, `build.zig.zon`, `justfile`, `.github/actions/`, workflow file, `src/tickoni/terminal/` |
 
 The orchestrator `ci.yml` is the single change detection entry point. It delegates to sub-workflows via `workflow_call`, and each sub-workflow runs its own `detect-changes` job when applicable. Path filtering is applied at the orchestrator level to avoid unnecessary sub-workflow invocations.
 
@@ -231,6 +243,45 @@ The Proto Check matrix entry installs `buf` via the GitHub Actions cache, then r
 1. Regenerates protobuf from JSON schemas via `gen_events.py --skip-check`
 2. Runs `buf lint src/disco/events/schema`
 3. Checks for uncommitted generated files (fails if `src/disco/events/generated/` or `events.proto` is dirty)
+
+---
+
+## Qt Quality
+
+**File:** `_ci-quality.yml` (called by `ci.yml`)
+
+Qt quality checks run as a matrix job alongside the Firedancer/Zig quality checks. The Qt quality gate validates clang-format compliance and lint rules for the Qt terminal source tree under `src/tickoni/terminal/`.
+
+| Job | Command | What it checks |
+| --- | --- | --- |
+| Qt Quality Check | `just quality-format-check-qt && just quality-lint-check-qt` | `clang-format` check, Qt C++ lint (style, include guards) |
+
+The Qt quality job runs on `ubuntu-24.04` and is currently **off by default** (`skip: true`) because Qt6 is not available on GitHub-hosted runners. To enable it, remove the `skip: true` flag from the Qt Quality Check matrix entry in `_ci-quality.yml` and add `qtbase6-dev qml6-module-qtquick` to the `setup-quality-linux-x86` recipe.
+
+**justfile commands:**
+- `quality-format-check-qt` — runs `clang-format --dry-run --Werror` on all `.cpp` and `.qml` files under `src/tickoni/terminal/`
+- `quality-lint-check-qt` — checks Qt C++ source for style rules and include guards
+- `quality-format-fix-qt` — runs `clang-format -i` on the same files
+
+---
+
+## Qt Security
+
+**File:** `_ci-security-deep.yml` (called by `ci.yml`)
+
+Qt security runs as a separate deep security sub-check alongside the four Firedancer/Zig deep checks (sanitize, seccomp, proof, engine). The `sanitize-qt` check installs Qt6 via apt and runs Clang ASan/UBSan on the CMake build.
+
+| Job | Compiler | Command | What it checks |
+| --- | --- | --- | --- |
+| sanitize-qt | Clang | `just security-sanitize-check-qt` | Clang ASan/UBSan on Qt terminal C++ source |
+| gitleaks-check-qt | — | `just security-gitleaks-check-qt` | Secret scanning on Qt terminal source tree |
+| seccomp-check-qt | — | N/A | N/A — Qt not in financial event path |
+| proof-check-qt | — | N/A | N/A — no CBMC for Qt |
+| codeql-check-qt | — | N/A | N/A — no CodeQL for Qt |
+
+The `sanitize-qt` check runs in `_ci-security-deep.yml` with `check: sanitize-qt`. It installs Qt6 (`qtbase5-dev`, `qtbase5-dev-tools`, `qtmultimedia5-dev`) via apt, then runs `just setup-qt-linux-x86` followed by `just security-sanitize-check-qt`, which builds the CMake project with Clang sanitizer flags and runs the resulting binary against fixture data.
+
+The Qt deep security check is included in the `ci-required` aggregation gate in `ci.yml` alongside the other four deep checks.
 
 ---
 
