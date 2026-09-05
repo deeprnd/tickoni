@@ -44,6 +44,44 @@ This CI surface is intentionally **not** a coexist-with-upstream layout. Tickoni
 The retained workflows run only their checked-in triggers; retired benchmark and
 book workflows are not part of the CI surface.
 
+### Dispatch Tree
+
+```mermaid
+flowchart TD
+    A["ci.yml (orchestrator)"] --> B["plan — change classifier"]
+    A --> Q["quality (_ci-quality.yml)"]
+    A --> S["security-secrets (_ci-security-secrets.yml)"]
+    B --> Q
+    B --> S
+    Q --> Bld["build (_ci-build.yml)"]
+    S --> Bld
+    Bld --> U["unit (_ci-unit.yml)"]
+    U --> I["integration (_ci-integration.yml)"]
+    U --> Sys["system (_ci-system.yml)"]
+    U --> D["demo (_ci-demo.yml)"]
+    I --> C["conformance (_ci-conformance.yml)"]
+    Sys --> C
+    D --> C
+    C --> SD["security-deep (4 parallel)"]
+    SD --> SD1["_ci-security-deep.yml check=sanitize"]
+    SD --> SD2["_ci-security-deep.yml check=seccomp"]
+    SD --> SD3["_ci-security-deep.yml check=proof"]
+    SD --> SD4["_ci-security-deep.yml check=engine"]
+    SD1 --> R["ci-required (aggregator)"]
+    SD2 --> R
+    SD3 --> R
+    SD4 --> R
+    Q --> R
+    S --> R
+    Bld --> R
+    U --> R
+    I --> R
+    Sys --> R
+    D --> R
+    C --> R
+    SD --> R
+```
+
 ---
 
 ## Workflow Summary
