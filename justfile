@@ -736,10 +736,23 @@ quality-format-fix-tk-linux-x86: quality-format-fix-tk
 quality-format-check-all:
     @just quality-format-check-fd
     @just quality-format-check-tk
+    @just quality-format-check-qt
 
 quality-format-fix-all:
     @just quality-format-fix-fd
     @just quality-format-fix-tk
+    @just quality-format-fix-qt
+
+# ── Quality: Format Qt ──────────────────────────────────────────────────────
+
+quality-format-check-qt:
+    bash contrib/quality/quality.sh format-check-qt
+
+quality-format-fix-qt:
+    bash contrib/quality/quality.sh format-fix-qt
+
+quality-format-check-qt-linux-x86: quality-format-check-qt
+quality-format-fix-qt-linux-x86: quality-format-fix-qt
 
 # ── Quality: Lint ──────────────────────────────────────────────────────────
 
@@ -764,6 +777,14 @@ quality-lint-check-all:
     @just quality-lint-check-fd
     @just quality-lint-check-tk
     @just quality-lint-check-actions
+    @just quality-lint-check-qt
+
+# ── Quality: Lint Qt ────────────────────────────────────────────────────────
+
+quality-lint-check-qt:
+    bash contrib/quality/quality.sh lint-check-qt
+
+quality-lint-check-qt-linux-x86: quality-lint-check-qt
 
 quality-yaml-check-linux:
     find . -name '*.yaml' -o -name '*.yml' | grep -vE '^./(opt|node_modules|.zig-global-cache|build|target|zig-out|\\.git)/' | xargs yamllint -f parsable
@@ -812,6 +833,7 @@ security-codeql-check-tk-linux-x86: security-codeql-check-tk
 security-codeql-check-all:
     @just security-codeql-check-fd
     @just security-codeql-check-tk
+    @just security-codeql-check-qt
 
 # ── Security: Gitleaks ─────────────────────────────────────────────────────
 
@@ -831,6 +853,14 @@ security-gitleaks-check-linux-x86:
 security-gitleaks-check-all:
     @just security-gitleaks-check-fd
     @just security-gitleaks-check-tk
+    @just security-gitleaks-check-qt
+
+# ── Security: Gitleaks Qt ───────────────────────────────────────────────────
+
+security-gitleaks-check-qt:
+    bash contrib/security/security.sh gitleaks-check-qt
+
+security-gitleaks-check-qt-linux-x86: security-gitleaks-check-qt
 
 # ── Security: SecComp ──────────────────────────────────────────────────────
 
@@ -848,6 +878,14 @@ security-seccomp-check-linux-x86: security-seccomp-check-fd-linux-x86
 security-seccomp-check-all:
     @just security-seccomp-check-fd
     @just security-seccomp-check-tk
+    @just security-seccomp-check-qt
+
+# ── Security: SecComp Qt (no-op) ───────────────────────────────────────────
+
+security-seccomp-check-qt:
+    @true ## N/A — Qt terminal is not in the financial event path
+
+security-seccomp-check-qt-linux-x86: security-seccomp-check-qt
 
 # ── Security: Proof ────────────────────────────────────────────────────────
 
@@ -867,6 +905,14 @@ security-proof-check-linux-x86:
 security-proof-check-all:
     @just security-proof-check-fd
     @just security-proof-check-tk
+    @just security-proof-check-qt
+
+# ── Security: Proof Qt (no-op) ──────────────────────────────────────────────
+
+security-proof-check-qt:
+    @true ## N/A — no CBMC formal verification for Qt
+
+security-proof-check-qt-linux-x86: security-proof-check-qt
 
 # ── Security: ASan/UBSan ───────────────────────────────────────────────────
 
@@ -886,6 +932,14 @@ security-sanitize-check-linux-x86:
 security-sanitize-check-all:
     @just security-sanitize-check-fd
     @just security-sanitize-check-tk
+    @just security-sanitize-check-qt
+
+# ── Security: ASan/UBSan Qt ─────────────────────────────────────────────────
+
+security-sanitize-check-qt:
+    bash contrib/security/security.sh sanitize-check-qt
+
+security-sanitize-check-qt-linux-x86: security-sanitize-check-qt
 
 # ── Security: All ──────────────────────────────────────────────────────────
 
