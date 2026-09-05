@@ -117,6 +117,21 @@ def _app_installer_present(ps: str) -> bool:
     return result.returncode == 0 and bool(result.stdout.strip())
 
 
+def _appx_winget_path(ps: str) -> str | None:
+    """Return the registered App Installer package's real winget.exe path."""
+    result = subprocess.run(
+        [ps, '-NoProfile', '-Command',
+         "$package = Get-AppxPackage -Name Microsoft.DesktopAppInstaller "
+         "| Select-Object -First 1; "
+         "if ($package) { Join-Path $package.InstallLocation 'winget.exe' }"],
+        capture_output=True, text=True, timeout=10,
+    )
+    if result.returncode != 0:
+        return None
+    path = result.stdout.strip().splitlines()
+    return path[0].strip() if path else None
+
+
 def _find_winget_shell() -> WingetResolution:
     """Resolve WinGet and report why resolution failed when it is unavailable."""
     _refresh_winget_path()
@@ -140,6 +155,22 @@ def _find_winget_shell() -> WingetResolution:
             pass
 
     powershells = [ps for ps in ('pwsh', 'powershell') if shutil.which(ps)]
+    # On hosted Windows ARM runners the WindowsApps execution alias can be
+    # registered but unavailable to the runner account.  Resolve and verify
+    # the executable inside the registered App Installer package directly.
+    for ps in powershells:
+        try:
+            candidate = _appx_winget_path(ps)
+            if candidate:
+                result = subprocess.run(
+                    [candidate, '--version'],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if result.returncode == 0:
+                    return WingetResolution(candidate, 'appx', 'verified App Installer executable')
+        except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+            pass
+
     for ps in powershells:
         try:
             if _probe_winget_power_shell(ps):
@@ -195,6 +226,11 @@ def _require_winget() -> str:
         sys.exit(1)
     print(f"[WINGET] Using {resolution.command} ({resolution.status})")
     return resolution.command
+
+
+def _is_winget_executable(command: str) -> bool:
+    """Return whether *command* is winget.exe, including an absolute path."""
+    return os.path.basename(command).lower() == 'winget.exe'
 
 
 def _winget_already_installed(output: str) -> bool:
@@ -343,7 +379,7 @@ class AptInstallStrategy(InstallStrategy):
                     if override:
                         winget_cmd += f' --override {shlex.quote(override)}'
                     cmd = [shell, '-NoProfile', '-Command', winget_cmd]
-                elif shell == 'winget.exe':
+                elif _is_winget_executable(shell):
                     cmd = [
                         shell, 'install', '--id', winget_id,
                         '--accept-package-agreements', '--accept-source-agreements',
@@ -416,7 +452,7 @@ class WingetInstallStrategy(InstallStrategy):
             if override:
                 winget_cmd += f' --override {shlex.quote(override)}'
             cmd = [shell, '-NoProfile', '-Command', winget_cmd]
-        elif shell == 'winget.exe':
+        elif _is_winget_executable(shell):
             cmd = [
                 shell, 'install', '--exact', '--id', pkg,
                 '--accept-package-agreements', '--accept-source-agreements',

@@ -45,6 +45,18 @@ def test_winget_resolution_reports_app_installer_missing():
     assert resolution.status == 'app_installer_missing'
 
 
+def test_winget_resolution_uses_registered_appx_executable():
+    with patch.object(apt, '_refresh_winget_path'), \
+         patch.object(apt.shutil, 'which', side_effect=lambda name: 'pwsh' if name == 'pwsh' else None), \
+         patch.object(apt, '_appx_winget_path', return_value='C:/WindowsApps/AppInstaller/winget.exe'), \
+         patch.object(apt.subprocess, 'run', return_value=SimpleNamespace(
+             returncode=0, stdout='v1.29.290\n', stderr='')):
+        resolution = apt._find_winget_shell()
+
+    assert resolution.command == 'C:/WindowsApps/AppInstaller/winget.exe'
+    assert resolution.status == 'appx'
+
+
 def test_winget_path_refresh_does_not_append_entire_package_tree(monkeypatch):
     monkeypatch.setenv('LOCALAPPDATA', 'C:/Users/runner/AppData/Local')
     monkeypatch.setenv('PATH', 'C:/Windows/System32')
