@@ -4,6 +4,27 @@ make := `command -v gmake || command -v make`
 # Resolve one usable Python command for all recipes, including Windows CI.
 python := `bash contrib/setup/python.sh`
 
+# ── Justfile Recipe Alias Convention ───────────────────────────────────────────
+# Every recipe category (build, test, setup, quality, security, etc.) has:
+#   1. A bare dispatcher (e.g. `build-tk:`) with a bash `case` that routes
+#      to the correct platform recipe based on `{{ os }}-{{ arch }}`.
+#   2. One canonical implementation per platform (e.g. `build-tk-linux-x86:`).
+#   3. Platform aliases that use make's `target: dependency` syntax to
+#      forward to a single canonical implementation — e.g.
+#        test-unit-tk-macos-x86: test-unit-tk-linux-x86
+#      This relies on GNU make recipe inheritance (not `just` alias syntax).
+#
+# RULES:
+#   - When adding a new platform, update the bare dispatcher's `case` AND
+#     create aliases for every existing category that has platform variants.
+#   - Only the canonical implementation has actual commands; aliases are
+#     zero-body forwarding lines of the form `alias-name: canonical-name`.
+#   - The `: alias` syntax here is make's target-dependency, NOT just's
+#     `alias = recipe` syntax — the distinction matters for shellcheck.
+#
+# To list all aliases in a category: just --list | grep '<category>'
+#
+
 # Firedancer/Tickoni build natively on Linux, macOS, and Windows.
 
 # Shared Firedancer lib definitions — used by contrib/build/fd-build-lib.sh and
