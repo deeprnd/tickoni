@@ -878,7 +878,14 @@
     "yellowgreen",
     "mymodule",
     "sbpf",
-    "Wconversion"
+    "Wconversion",
+    "powershells",
+    "libgl",
+    "libx",
+    "libxext",
+    "libxcb",
+    "dpkg",
+    "pyproject"
   ],
   "ignorePaths": [
     "opt/",
