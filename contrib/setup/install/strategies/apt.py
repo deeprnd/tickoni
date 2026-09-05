@@ -71,18 +71,24 @@ class WingetResolution:
 
 
 def _refresh_winget_path() -> None:
-    """Expose the per-user WindowsApps and WinGet package directories."""
+    """Expose the per-user WindowsApps and WinGet package directories.
+
+    Do not add every directory below ``WinGet\\Packages``.  Hosted Windows
+    runners can have a large package tree, and putting all of it on PATH can
+    exceed Windows' 32K environment-variable limit before WinGet is probed.
+    """
     local_app_data = os.environ.get('LOCALAPPDATA')
     if not local_app_data:
         return
 
+    package_root = os.path.join(local_app_data, 'Microsoft', 'WinGet', 'Packages')
     candidates = [os.path.join(local_app_data, 'Microsoft', 'WindowsApps')]
-    candidates.extend(glob.glob(os.path.join(
-        local_app_data, 'Microsoft', 'WinGet', 'Packages', '**', 'bin'
-    ), recursive=True))
-    candidates.extend(glob.glob(os.path.join(
-        local_app_data, 'Microsoft', 'WinGet', 'Packages', '**'
-    ), recursive=True))
+    # Portable packages generally place binaries in their package root or a
+    # bin subdirectory.  Keep discovery shallow and bounded; _find_winget_shell
+    # still searches recursively when it specifically needs winget.exe.
+    candidates.extend(glob.glob(os.path.join(package_root, '*')))
+    candidates.extend(glob.glob(os.path.join(package_root, '*', 'bin')))
+    candidates.extend(glob.glob(os.path.join(package_root, '*', '*', 'bin')))
 
     path_entries = os.environ.get('PATH', '').split(os.pathsep)
     for candidate in candidates:

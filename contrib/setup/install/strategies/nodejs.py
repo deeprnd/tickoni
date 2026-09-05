@@ -36,7 +36,7 @@ def _persist_nvm_path(nvm_sh: str) -> None:
     lines = (
         '\n# nvm (managed by Hermes setup)\n'
         'export NVM_DIR="$HOME/.nvm"\n'
-        f'[ -s "{nvm_sh}" ] && \. "{nvm_sh}"\n'
+        f'[ -s "{nvm_sh}" ] && \\. "{nvm_sh}"\n'
     )
     with open(shell_rc, 'a') as f:
         f.write(lines)

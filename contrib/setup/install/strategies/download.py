@@ -9,7 +9,12 @@ from pathlib import Path
 from ..base import DownloadInstallStrategy, _activate_path, _run_cmd, _download_file
 from .. import register
 from config import resolve_version
-from ...platform import get_platform_from_string
+try:
+    from ...platform import get_platform_from_string
+except ImportError:
+    # orchestrator.py is also executed directly, with contrib/setup on
+    # sys.path rather than imported as the contrib.setup package.
+    from platform import get_platform_from_string
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 

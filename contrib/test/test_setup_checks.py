@@ -45,6 +45,33 @@ def test_winget_resolution_reports_app_installer_missing():
     assert resolution.status == 'app_installer_missing'
 
 
+def test_winget_path_refresh_does_not_append_entire_package_tree(monkeypatch):
+    monkeypatch.setenv('LOCALAPPDATA', 'C:/Users/runner/AppData/Local')
+    monkeypatch.setenv('PATH', 'C:/Windows/System32')
+    calls = []
+
+    def fake_glob(pattern, recursive=False):
+        calls.append((pattern, recursive))
+        normalized = pattern.replace(chr(92), '/')
+        if normalized.endswith('Packages/*'):
+            return ['C:/package-root/ccache']
+        if normalized.endswith('Packages/*/bin'):
+            return ['C:/package-root/ccache/bin']
+        if normalized.endswith('Packages/*/*/bin'):
+            return ['C:/package-root/ccache/version/bin']
+        return []
+
+    monkeypatch.setattr(apt.glob, 'glob', fake_glob)
+    monkeypatch.setattr(apt.os.path, 'isdir', lambda path: True)
+
+    apt._refresh_winget_path()
+
+    path_entries = apt.os.environ['PATH'].split(apt.os.pathsep)
+    assert len(path_entries) == 5
+    assert all(not recursive for _, recursive in calls)
+    assert all('Packages/**' not in pattern for pattern, _ in calls)
+
+
 def test_winget_failure_classifies_missing_package():
     assert apt._winget_failure_status(
         'No package found matching input criteria.'
