@@ -1,4 +1,10 @@
-"""Apt, brew, and winget strategies."""
+"""System package-manager install strategies: apt (Linux), brew (macOS), winget (Windows).
+
+``SystemPackageInstallStrategy`` is registered as ``system_package`` and dispatches
+on the target platform, so a single cross-platform tool entry installs via apt,
+brew, or winget as appropriate. ``BrewInstallStrategy`` and
+``WingetInstallStrategy`` remain available for platform-specific tool entries.
+"""
 from dataclasses import dataclass
 import glob
 import os
@@ -61,6 +67,13 @@ def _log_version(tool_name, pkg_name):
         pass
 
 
+# WinGet discovery and invocation only ever run on Windows, but this script may
+# be exercised (and unit-tested) from a POSIX host, where ``os.pathsep`` and
+# ``os.path`` use POSIX semantics.  Pin the Windows values so the logic behaves
+# identically regardless of the interpreter's host platform.
+_WINDOWS_PATH_SEP = ';'
+
+
 @dataclass(frozen=True)
 class WingetResolution:
     """Result of resolving an executable WinGet invocation."""
@@ -90,11 +103,11 @@ def _refresh_winget_path() -> None:
     candidates.extend(glob.glob(os.path.join(package_root, '*', 'bin')))
     candidates.extend(glob.glob(os.path.join(package_root, '*', '*', 'bin')))
 
-    path_entries = os.environ.get('PATH', '').split(os.pathsep)
+    path_entries = os.environ.get('PATH', '').split(_WINDOWS_PATH_SEP)
     for candidate in candidates:
         if os.path.isdir(candidate) and candidate not in path_entries:
             path_entries.insert(0, candidate)
-    os.environ['PATH'] = os.pathsep.join(path_entries)
+    os.environ['PATH'] = _WINDOWS_PATH_SEP.join(path_entries)
 
 
 def _probe_winget_power_shell(ps: str) -> bool:
@@ -229,8 +242,12 @@ def _require_winget() -> str:
 
 
 def _is_winget_executable(command: str) -> bool:
-    """Return whether *command* is winget.exe, including an absolute path."""
-    return os.path.basename(command).lower() == 'winget.exe'
+    """Return whether *command* is winget.exe, including an absolute path.
+
+    Windows paths use either separator; split on both rather than relying on
+    ``os.path.basename``, which ignores backslashes on a POSIX host.
+    """
+    return re.split(r'[\\/]', command)[-1].lower() == 'winget.exe'
 
 
 def _winget_already_installed(output: str) -> bool:
@@ -260,10 +277,11 @@ def _winget_failure_status(output: str) -> str:
     return 'install_failed'
 
 
-@register('apt')
-class AptInstallStrategy(InstallStrategy):
-    """Install via apt-get, with fallback to brew (macOS) / winget (Windows).
-    
+@register('system_package')
+class SystemPackageInstallStrategy(InstallStrategy):
+    """Install via the platform's system package manager: apt-get (Linux),
+    brew (macOS), or winget (Windows).
+
     Version resolution:
     - For tools with platform-scoped versions in config.versions (e.g. gcc),
       the package name is constructed as <name>-<version>.
@@ -408,7 +426,7 @@ class AptInstallStrategy(InstallStrategy):
                     sys.exit(1)
             return
 
-        print(f"ERROR: unknown platform '{platform_str}' for apt install",
+        print(f"ERROR: unknown platform '{platform_str}' for system_package install",
               file=sys.stderr)
         sys.exit(1)
 

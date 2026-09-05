@@ -32,7 +32,7 @@ The JSON file is the complete source of truth:
 - **`tools`** — each tool declares:
   - `category`: owning category.
   - `platform`: `all`, `linux-x86`, `macos-arm`, etc.
-  - `install_method`: `apt`, `brew`, `winget`, `pip`, `pipx`, `go_install`, `github_release`, `binary_download`, `python_script`, `install_zig`, `build_from_source`, `none`.
+  - `install_method`: `system_package`, `brew`, `winget`, `pip`, `pipx`, `go_install`, `github_release`, `binary_download`, `python_script`, `install_zig`, `build_from_source`, `none`.
   - `parameters`: method-specific (e.g., `package`, `module`, `owner`/`repo` for GitHub releases).
   - `idempotent_check`: shell command to verify installation (e.g., `command -v zig`).
   - `version_ref`: optional reference to `versions` section.
@@ -41,9 +41,9 @@ The JSON file is the complete source of truth:
 
 | Method | Description | Parameters |
 |--------|-------------|------------|
-| `apt` | `apt-get install` | `package`: apt package name |
-| `brew` | `brew install` | `package`: brew formula name |
-| `winget` | `winget install` | `package`: winget package ID |
+| `system_package` | Platform's system package manager: `apt-get` (Linux), `brew` (macOS), `winget` (Windows) | `package`: apt package name; `winget_id`: winget package ID for Windows |
+| `brew` | `brew install` (macOS-only tool entries) | `package`: brew formula name |
+| `winget` | `winget install` (Windows-only tool entries) | `package`: winget package ID |
 | `pip` | `pip install` | `package`: pip package name |
 | `pipx` | `pipx install` | `package`: pipx package name |
 | `go_install` | `go install` | `module`: Go module path |
