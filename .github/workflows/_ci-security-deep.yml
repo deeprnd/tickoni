@@ -63,12 +63,13 @@ jobs:
         run: just security-sanitize-check-tk
 
       # ── Sanitize: Qt terminal (cmake + clang + Qt6) ───────────────────
-      - name: Setup Qt6 for sanitizer build
+      - name: Setup sanitizer toolchain
         if: inputs.check == 'sanitize-qt'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qt6-base-dev qt6-qmake qt6-base-dev-tools
-          just setup-qt-linux-x86
+        run: just setup-coverage-linux-x86-clang
+
+      - name: Setup Qt6
+        if: inputs.check == 'sanitize-qt'
+        run: just setup-qt-linux-x86
 
       - name: Run Qt sanitizer checks
         if: inputs.check == 'sanitize-qt'
