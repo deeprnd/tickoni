@@ -202,6 +202,12 @@ class QtInstallerStrategy(InstallStrategy):
         qt_sub_dir = self._extract_qt_subdir(qt_module)
 
         # Build download URL
+        if not base_url or not base_url.strip():
+            print(
+                "ERROR: base_url is required and must not be empty",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         download_url = f'{base_url}/{asset_name}'
 
         install_dir = _expand_home(params.get('install_dir', '~/Qt'))
@@ -271,7 +277,7 @@ class QtInstallerStrategy(InstallStrategy):
 
             # Credential flags: only valid in CLI (headless) mode
             if qt_username and qt_password:
-                parts.extend(['--email', qt_username, '--pw', qt_password])
+                parts.extend(['--email', qt_username, '--pw', '***'])
 
             parts.append(qt_module)
 

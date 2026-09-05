@@ -9,7 +9,7 @@ from pathlib import Path
 from ..base import DownloadInstallStrategy, _activate_path, _run_cmd, _download_file
 from .. import register
 from config import resolve_version
-from platform import get_platform_from_string
+from ...platform import get_platform_from_string
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
