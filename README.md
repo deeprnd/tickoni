@@ -10,7 +10,7 @@
   <!-- badge:build:end -->
 
   <!-- badge:unit:start -->
-  <img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-passing-brightgreen?style=flat-square" />
+  <img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-failing-red?style=flat-square" />
   <!-- badge:unit:end -->
 
   <!-- badge:security:start -->
