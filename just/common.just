@@ -89,70 +89,70 @@ cpu_count := `bash contrib/platform.sh cores`
 
 # Build-only: compilers + build infra (no zig, no ssl, no quality, no secrets)
 setup-build-linux-x86-gcc:
-    python3 contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py build
 
 setup-build-linux-x86-clang:
-    python3 contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py build
 
 setup-build-macos-x86:
-    python3 contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py build
 
 setup-build-macos-arm:
-    python3 contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py build
 
 setup-build-linux-arm-gcc:
-    python3 contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py build
 
 # Windows build-only setup: no llama.cpp; system-test setup owns the LLM.
 setup-build-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py build,mvsc --platform windows-x86
+    {{ python }} ../contrib/setup/orchestrator.py build,mvsc --platform windows-x86
 
 setup-build-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py build,mvsc --platform windows-arm
+    {{ python }} ../contrib/setup/orchestrator.py build,mvsc --platform windows-arm
 
 # Engine build: full FD toolchain (build + zig + ssl + gcc)
 setup-fd-linux-x86-gcc:
-    python3 contrib/setup/orchestrator.py build
-    python3 contrib/setup/orchestrator.py zig,ssl
+    python3 ../contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py zig,ssl
 
 setup-fd-linux-x86-clang:
-    python3 contrib/setup/orchestrator.py build
-    python3 contrib/setup/orchestrator.py zig,ssl
+    python3 ../contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py zig,ssl
 
 setup-fd-macos-x86:
-    python3 contrib/setup/orchestrator.py build
-    python3 contrib/setup/orchestrator.py zig,ssl
+    python3 ../contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py zig,ssl
 
 setup-fd-macos-arm:
-    python3 contrib/setup/orchestrator.py build
-    python3 contrib/setup/orchestrator.py zig,ssl
+    python3 ../contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py zig,ssl
 
 setup-fd-linux-arm-gcc:
-    python3 contrib/setup/orchestrator.py build
-    python3 contrib/setup/orchestrator.py zig,ssl
+    python3 ../contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py zig,ssl
 
 # Windows x86_64 — FD toolchain (zig + ssl)
 setup-fd-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-x86
+    {{ python }} ../contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-x86
 
 # Windows ARM64 — FD toolchain (zig + ssl)
 setup-fd-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-arm
+    {{ python }} ../contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-arm
 
 # Quality: build + quality tools (shellcheck, actionlint, yamllint, pre-commit, buf + go)
 setup-quality-linux-x86:
-    python3 contrib/setup/orchestrator.py quality
+    python3 ../contrib/setup/orchestrator.py quality
 
 # Secrets-only: gitleaks (no quality, no build tools beyond what gitleaks needs)
 setup-gitleaks-linux-x86:
-    python3 contrib/setup/orchestrator.py secrets
+    python3 ../contrib/setup/orchestrator.py secrets
 
 # Full developer stack (unchanged)
 # Auto-detect host platform/arch and route to the correct setup recipe.
 # All setup is delegated to orchestrator.py — it detects the platform and
 # resolves dependencies from tool-versions.json.
 setup-env toolchain="":
-    SKIP_IDEMPOTENCY=`echo ${SKIP_IDEMPOTENCY:-}` python3 contrib/setup/orchestrator.py dev
+    SKIP_IDEMPOTENCY=`echo ${SKIP_IDEMPOTENCY:-}` python3 ../contrib/setup/orchestrator.py dev
     just setup-git
 
 # Activate tracked git hooks (commit-msg strips anthropic AI co-authors)
@@ -165,115 +165,115 @@ setup-git:
 
 # Linux x86_64 — GCC toolchain
 setup-linux-x86-gcc:
-    python3 contrib/setup/orchestrator.py build
-    python3 contrib/setup/orchestrator.py zig,ssl,ops
-    python3 contrib/setup/orchestrator.py quality,secrets
+    python3 ../contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py zig,ssl,ops
+    python3 ../contrib/setup/orchestrator.py quality,secrets
 
 # Linux x86_64 — Clang toolchain
 setup-linux-x86-clang:
-    python3 contrib/setup/orchestrator.py build
-    python3 contrib/setup/orchestrator.py zig,ssl,ops
-    python3 contrib/setup/orchestrator.py quality,secrets
+    python3 ../contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py zig,ssl,ops
+    python3 ../contrib/setup/orchestrator.py quality,secrets
 
 # Linux aarch64 — GCC toolchain
 setup-linux-arm-gcc:
-    python3 contrib/setup/orchestrator.py build
-    python3 contrib/setup/orchestrator.py zig,ssl,ops
-    python3 contrib/setup/orchestrator.py quality,secrets
+    python3 ../contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py zig,ssl,ops
+    python3 ../contrib/setup/orchestrator.py quality,secrets
 
 # Linux aarch64 — Clang toolchain
 setup-linux-arm-clang:
-    python3 contrib/setup/orchestrator.py build
-    python3 contrib/setup/orchestrator.py zig,ssl,ops
-    python3 contrib/setup/orchestrator.py quality,secrets
+    python3 ../contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py zig,ssl,ops
+    python3 ../contrib/setup/orchestrator.py quality,secrets
 
 # macOS x86_64
 setup-macos-x86:
-    python3 contrib/setup/orchestrator.py build
-    python3 contrib/setup/orchestrator.py zig,ssl,ops
-    python3 contrib/setup/orchestrator.py quality
+    python3 ../contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py zig,ssl,ops
+    python3 ../contrib/setup/orchestrator.py quality
 
 # macOS ARM64
 setup-macos-arm:
-    python3 contrib/setup/orchestrator.py build
-    python3 contrib/setup/orchestrator.py zig,ssl,ops
-    python3 contrib/setup/orchestrator.py quality
+    python3 ../contrib/setup/orchestrator.py build
+    python3 ../contrib/setup/orchestrator.py zig,ssl,ops
+    python3 ../contrib/setup/orchestrator.py quality
 
 # Windows x86_64 — dev mode (includes LLM tooling)
 setup-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py build,mvsc,zig,ssl,quality,secrets --platform windows-x86
+    {{ python }} ../contrib/setup/orchestrator.py build,mvsc,zig,ssl,quality,secrets --platform windows-x86
 
 # Windows ARM64 — dev mode (includes LLM tooling)
 setup-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py build,mvsc,zig,ssl,quality,secrets --platform windows-arm
+    {{ python }} ../contrib/setup/orchestrator.py build,mvsc,zig,ssl,quality,secrets --platform windows-arm
 
 setup-fd-deps-linux-x86-gcc:
-    python3 contrib/setup/orchestrator.py fd
+    python3 ../contrib/setup/orchestrator.py fd
 
 setup-fd-deps-linux-x86-clang:
-    python3 contrib/setup/orchestrator.py fd
+    python3 ../contrib/setup/orchestrator.py fd
 
 setup-fd-deps-linux-arm-gcc:
-    python3 contrib/setup/orchestrator.py fd
+    python3 ../contrib/setup/orchestrator.py fd
 
 setup-fd-deps-macos-x86:
-    python3 contrib/setup/orchestrator.py fd
+    python3 ../contrib/setup/orchestrator.py fd
 
 setup-fd-deps-macos-arm:
-    python3 contrib/setup/orchestrator.py fd
+    python3 ../contrib/setup/orchestrator.py fd
 
 setup-coverage-linux-x86-clang:
-    python3 contrib/setup/orchestrator.py coverage,toolchain
+    python3 ../contrib/setup/orchestrator.py coverage,toolchain
 
 # ── FD deps for platforms missing them ─────────────────────────────────────
 setup-fd-deps-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py fd --platform windows-x86
+    {{ python }} ../contrib/setup/orchestrator.py fd --platform windows-x86
 
 setup-fd-deps-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py fd --platform windows-arm
+    {{ python }} ../contrib/setup/orchestrator.py fd --platform windows-arm
 
 # ── Quality setup for all platforms ─────────────────────────────────────────
 setup-quality-macos-x86:
-    python3 contrib/setup/orchestrator.py quality
+    python3 ../contrib/setup/orchestrator.py quality
 
 setup-quality-macos-arm:
-    python3 contrib/setup/orchestrator.py quality
+    python3 ../contrib/setup/orchestrator.py quality
 
 setup-quality-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py quality --platform windows-x86
+    {{ python }} ../contrib/setup/orchestrator.py quality --platform windows-x86
 
 setup-quality-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py quality --platform windows-arm
+    {{ python }} ../contrib/setup/orchestrator.py quality --platform windows-arm
 
 # ── Secrets/gitleaks for all platforms ──────────────────────────────────────
 setup-gitleaks-macos-x86:
-    python3 contrib/setup/orchestrator.py secrets
+    python3 ../contrib/setup/orchestrator.py secrets
 
 setup-gitleaks-macos-arm:
-    python3 contrib/setup/orchestrator.py secrets
+    python3 ../contrib/setup/orchestrator.py secrets
 
 setup-gitleaks-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py secrets --platform windows-x86
+    {{ python }} ../contrib/setup/orchestrator.py secrets --platform windows-x86
 
 setup-gitleaks-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py secrets --platform windows-arm
+    {{ python }} ../contrib/setup/orchestrator.py secrets --platform windows-arm
 
 # ── Coverage for macOS ──────────────────────────────────────────────────────
 setup-coverage-macos-x86:
-    python3 contrib/setup/orchestrator.py coverage
+    python3 ../contrib/setup/orchestrator.py coverage
 
 setup-coverage-macos-arm:
-    python3 contrib/setup/orchestrator.py coverage
+    python3 ../contrib/setup/orchestrator.py coverage
 
 # ── Security/formal-verification (CBMC suite) ───────────────────────────────
 setup-security-linux-x86:
-    python3 contrib/setup/orchestrator.py security
+    python3 ../contrib/setup/orchestrator.py security
 
 setup-security-macos-x86:
-    python3 contrib/setup/orchestrator.py security
+    python3 ../contrib/setup/orchestrator.py security
 
 setup-security-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py security --platform windows-x86
+    {{ python }} ../contrib/setup/orchestrator.py security --platform windows-x86
 
 # ── Qt 6 installation (for Qt terminal) ──────────────────────────────────────
 # Credentials from .env file (local) or GitHub secrets (CI).
@@ -283,22 +283,22 @@ setup-security-windows-x86:
 # Note: orchestrator.py automatically loads .env when present.
 
 setup-qt-linux-x86:
-    python3 contrib/setup/orchestrator.py qt --platform linux-x86
+    python3 ../contrib/setup/orchestrator.py qt --platform linux-x86
 
 setup-qt-linux-arm:
-    python3 contrib/setup/orchestrator.py qt --platform linux-arm
+    python3 ../contrib/setup/orchestrator.py qt --platform linux-arm
 
 setup-qt-macos-x86:
-    python3 contrib/setup/orchestrator.py qt --platform macos-x86
+    python3 ../contrib/setup/orchestrator.py qt --platform macos-x86
 
 setup-qt-macos-arm:
-    python3 contrib/setup/orchestrator.py qt --platform macos-arm
+    python3 ../contrib/setup/orchestrator.py qt --platform macos-arm
 
 setup-qt-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py qt --platform windows-x86
+    {{ python }} ../contrib/setup/orchestrator.py qt --platform windows-x86
 
 setup-qt-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py qt --platform windows-arm
+    {{ python }} ../contrib/setup/orchestrator.py qt --platform windows-arm
 
 test-prep-linux-x86:
     # NO-OP — memory setup moved to workflow YAML where sudo is available.
