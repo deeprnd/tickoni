@@ -1,0 +1,41 @@
+{
+  "build-tk": {
+    "linux-x86": "build-tk-linux-x86",
+    "linux-arm": "build-tk-linux-arm",
+    "macos-x86": "build-tk-macos-x86",
+    "macos-arm": "build-tk-macos-arm",
+    "windows-x86": "build-tk-windows-x86",
+    "windows-arm": "build-tk-windows-arm"
+  },
+  "build-fd": {
+    "linux-x86": "build-fd-linux-x86-gcc",
+    "linux-arm": "build-fd-linux-arm-gcc",
+    "macos-x86": "build-fd-macos-x86",
+    "macos-arm": "build-fd-macos-arm",
+    "windows-x86": "build-fd-windows-x86",
+    "windows-arm": "build-fd-windows-arm"
+  },
+  "test-unit-tk": {
+    "linux-x86": "test-unit-tk-linux-x86",
+    "linux-arm": "test-unit-tk-linux-arm",
+    "macos-x86": "test-unit-tk-macos-x86",
+    "macos-arm": "test-unit-tk-macos-arm",
+    "windows-x86": "test-unit-tk-windows-x86",
+    "windows-arm": "test-unit-tk-windows-arm"
+  },
+  "test-unit-fd": {
+    "linux-x86": "test-unit-fd-linux-x86-gcc",
+    "macos-x86": "test-unit-fd-macos-x86",
+    "macos-arm": "test-unit-fd-macos-arm",
+    "windows-x86": "test-unit-fd-windows-x86",
+    "windows-arm": "test-unit-fd-windows-arm"
+  },
+  "test-integration-tk": {
+    "linux-x86": "test-integration-tk-linux-x86",
+    "linux-arm": "test-integration-tk-linux-arm",
+    "macos-x86": "test-integration-tk-macos-x86",
+    "macos-arm": "test-integration-tk-macos-arm",
+    "windows-x86": "test-integration-tk-windows-x86",
+    "windows-arm": "test-integration-tk-windows-arm"
+  }
+}
