@@ -9,17 +9,17 @@ Tickoni repository.
   <!-- badge:build:end -->
 
   <!-- badge:quality:start -->
-  <img alt="Quality" src="https://img.shields.io/badge/quality-passing-brightgreen?style=flat-square" />
+  <img alt="Quality" src="https://img.shields.io/badge/quality-failing-red?style=flat-square" />
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
-  <img alt="Security" src="https://img.shields.io/badge/security-failing-red?style=flat-square" />
+  <img alt="Security" src="https://img.shields.io/badge/security-unknown-lightgrey?style=flat-square" />
   <!-- badge:security:end -->
 </p>
 
 <p align="center">
   <!-- badge:unit:start -->
-  <img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-passing-brightgreen?style=flat-square" />
+  <img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-failing-red?style=flat-square" />
   <!-- badge:unit:end -->
 
   <!-- badge:integration:start -->
@@ -71,6 +71,7 @@ The repository currently has:
 - Harness unit tests for Tickoni-owned supervisor, topology, queue, sandbox,
   Phase 0 payment pipeline, audit, case, disp, schema, model, adapter, and
   evidence module behavior
+- Qt harness tests for the Qt terminal CMake build tree
 - **Deterministic demo conformance suite** — fixture-backed, no llama.cpp or
   live tiles required. Verifies `tickoni --version`, `tickoni doctor`, and
   `tickoni-supervisor demo investment` against a known manifest. Produces
@@ -96,6 +97,11 @@ Tickoni-owned Zig:
 - `just test-demo-tk` — **Deterministic demo conformance suite** (fixture-backed, no llama.cpp)
 - `just test-integration-tk` — Tickoni integration tests (Zig `zig build integration-test`)
 - `just test-system-tk` — System tests with live llama.cpp server
+
+Qt terminal:
+
+- `just test-qt` — Qt CMake build and smoke test
+- `just test-qt-linux-x86` — Qt build + smoke on Linux x86
 
 Firedancer-derived C:
 
@@ -223,6 +229,7 @@ commands from the repository root unless noted otherwise.
   (also run `contrib/test/compare_demo_conformance.py` manually to verify
   cross-platform coherence)
 - Cross-boundary Tickoni/Firedancer unit-impacting change: `just test-unit-all`
+- Qt terminal C++ or QML change: `just test-qt`
 - Runtime topology, workspace setup, local process startup, Firedancer dev path,
   or e2e/system behavior change: `just test-e2e-fd`
 - Live `tkmodl` HTTP compatibility, llama.cpp startup, GGUF model wiring, or
@@ -295,6 +302,13 @@ files rather than live tools. It is therefore a system-level test that is
 deterministic and fast enough to run on every CI commit across all platforms.
 It sits between integration and system in the spectrum: real code, stubbed
 external effects.
+
+**Qt terminal** is a CMake build tree (`src/tickoni/terminal/`) with no
+Firedancer, Zig, or Tickoni runtime dependency. Qt tests are build-and-smoke:
+they compile with Clang, run the binary to verify it launches and renders
+correctly, and apply clang-format and lint checks in quality gates. The Qt
+terminal does not call model/adapter/execution backends, so it does not need
+fixture substitution or mock servers.
 
 Firedancer does not map cleanly onto the three-layer application-test split
 used by many service repos. Its C tests are mostly:
@@ -387,6 +401,34 @@ as `build-fd` — the justfile auto-detects the host platform.
 
 This wrapper is the preferred repo-facing Firedancer unit-test command. Do not
 invoke raw compiler commands for Firedancer tests.
+
+## Qt Test
+
+`just test-qt` builds the Qt terminal CMake project and runs the resulting binary
+to verify it launches without crash or QML error. On Linux x86 the command is
+
+```bash
+cmake -S src/tickoni/terminal -B build/qt --fresh -DCMAKE_BUILD_TYPE=Release && \
+cmake --build build/qt --parallel $(nproc) && \
+./build/qt/tickoni-terminal --platform offscreen
+```
+
+On non-Linux platforms, `just test-qt` delegates to the platform-specific recipe
+(e.g. `test-qt-macos-x86`). The Qt test does not require llama.cpp, live tiles,
+or the Firedancer/Zig build — it only needs `cmake`, a C++17 compiler, and Qt 6
+with the Quick component installed.
+
+The boundary for this lane is the directory: every file under
+`src/tickoni/terminal/` (`CMakeLists.txt`, `app/main.cpp`,
+`qml/Tickoni/Main.qml`) runs here. Qt tests are build-and-smoke — there are no
+unit tests for Qt terminal code yet. The primary verification is compilation
+success and a clean launch with `--platform offscreen`.
+
+Qt quality checks (clang-format and lint) run in the quality gate
+`_ci-quality.yml` and are documented in [Qt Quality](./ci.md#qt-quality).
+Qt security (sanitizer check) runs in the deep security stage
+`_ci-security-deep.yml` with `check: sanitize-qt` and is documented in
+[Qt Security](./ci.md#qt-security).
 
 ## Engine E2E
 
@@ -512,12 +554,12 @@ Preferred validation commands in order:
 - `just quality-lint-check-fd` runs Firedancer-derived lint checks and
   `shellcheck` when that tool is installed.
 - `just quality-lint-check-all` runs both lint lanes.
-- `just quality-yaml-check-linux-x86` runs `yamllint` with a relaxed profile
+- `just quality-yaml-check-linux` runs `yamllint` with a relaxed profile
   across the entire repository (all `.yaml`/`.yml` files). The config is in
   `.yamllint`. It excludes `opt/`, `node_modules/`, `.zig-global-cache/`,
   `build/`, `target/`, and `zig-out/`. Initially scoped to `.github/`, it was
   later expanded to the full repo.
-- `just quality-spell-check-linux-x86` runs `cspell lint --no-progress` across
+- `just quality-spell-check-linux` runs `cspell lint --no-progress` across
   the repository. The domain dictionary and ignored paths are configured in
   `.cspell.json`. It checks markdown, yaml, bash, python, and json files while
   excluding compiled/source trees under `src/`, `config/`, `.github/`, and

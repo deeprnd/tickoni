@@ -1,7 +1,7 @@
----
 # Reusable System Test workflow: live-LLM tests per platform.
 # Builds FD libs locally on the same runner that runs tests.
-
+# Reference: doc/execution/plans/v2.10-s8-5.md
+---
 name: System Test Stage
 
 'on':
@@ -38,7 +38,7 @@ jobs:
             test-recipe: test-system-tk-linux-arm
             build-recipe: build-fd-linux-arm-gcc
             fd-deps: setup-fd-linux-arm-gcc
-            setup-recipe: setup-build-linux-x86-gcc
+            setup-recipe: setup-build-linux-arm-gcc
             llamacpp: infra-ensure-llamacpp
           - platform-name: macOS 15 (x86_64)
             runner: macos-15-intel

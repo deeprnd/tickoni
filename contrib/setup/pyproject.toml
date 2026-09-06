@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tickoni-python-dev-tools"
+version = "0.1.0"
+description = "Python dependency manifest for Tickoni developer tooling"
+requires-python = ">=3.11"
+dependencies = [
+  "python-dotenv>=1.0,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "base58>=2.1,<3",
+  "black>=24.0,<26",
+  "deepdiff>=8.0,<9",
+  "edn_format>=0.7,<1",
+  "netaddr>=1.3,<2",
+  "pre-commit>=3.7,<5",
+  "pyelftools>=0.31,<1",
+  "pytest>=8.0,<9",
+  "requests>=2.31,<3",
+  "websockets>=12,<16",
+  "zstandard>=0.23,<1",
+]
+protobuf = [
+  "grpcio-tools>=1.65,<2",
+  "protobuf>=5,<7",
+]
+mathgen = [
+  "galois>=0.4,<1",
+  "numpy>=1.26,<3",
+]
+sim = [
+  "cocotb>=1.9,<2",
+  "pypcap>=1.3,<2",
+]
+solana = [
+  "solders>=0.21,<1",
+]
+agave-cluster = [
+  "click>=8,<9",
+]
+
+[tool.setuptools]
+py-modules = []

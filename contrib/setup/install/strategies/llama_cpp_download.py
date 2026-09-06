@@ -21,6 +21,13 @@ class LlamaCppDownloadStrategy(InstallStrategy):
     """Download pre-built llama.cpp binaries with SHA256 verification."""
 
     @staticmethod
+    def _validate_base_url(base_url: str) -> None:
+        """Reject empty or whitespace-only base_url."""
+        if not base_url or not base_url.strip():
+            print("ERROR: base_url is required and must not be empty", file=sys.stderr)
+            sys.exit(1)
+
+    @staticmethod
     def _resolve_from_config(platform_str: str, config: dict) -> dict:
         """Read artifact metadata from tool-versions.json."""
         llama_entry = config.get('versions', {}).get('llama-cpp', {})
@@ -55,6 +62,9 @@ class LlamaCppDownloadStrategy(InstallStrategy):
         resolved = self._resolve_from_config(platform_str, config)
         params = tool.get('parameters', {})
 
+        # Validate base_url (Finding 1.1)
+        self._validate_base_url(resolved['base_url'])
+
         # Version from tool-versions.json via resolve_version
         version = resolve_version(config, 'llama-cpp')
         if not version:
@@ -71,6 +81,11 @@ class LlamaCppDownloadStrategy(InstallStrategy):
         if params.get('download_url'):
             url = params['download_url']
             sha256 = params.get('sha256', sha256)
+
+        # Enforce SHA256 (Finding 1.3: deny-by-default verification)
+        if not sha256:
+            print("ERROR: SHA256 required for production artifacts", file=sys.stderr)
+            sys.exit(1)
 
         install_dir = _expand_home(params.get('install_dir', '~/work/models/llama.cpp'))
         server_path = os.path.join(install_dir, resolved['server_bin'])

@@ -110,6 +110,42 @@
           "windows-arm": "llama-server.exe"
         }
       }
+    },
+    "qt-installer": {
+      "version": "4.11.0",
+      "options": {
+        "base_url": "https://qt.mirror.constant.com/archive/online_installers/4.11",
+        "qt_module": {
+          "linux-x86": "qt.qt6.6112.linux_gcc_64",
+          "linux-arm": "qt.qt6.6112.linux_arm",
+          "macos-x86": "qt.qt6.6112.macOS_clang_64",
+          "macos-arm": "qt.qt6.6112.macOS_clang_64",
+          "windows-x86": "qt.qt6.6112.win64_msvc2022_64",
+          "windows-arm": "qt.qt6.6112.win64_msvc2022_64"
+        },
+        "asset_name": {
+          "linux-x86": "qt-online-installer-linux-x64-{version}.run",
+          "linux-arm": "qt-online-installer-linux-arm64-{version}.run",
+          "macos-x86": "qt-online-installer-macOS-universal-{version}.dmg",
+          "macos-arm": "qt-online-installer-macOS-universal-{version}.dmg",
+          "windows-x86": "qt-online-installer-windows-x64-{version}.exe",
+          "windows-arm": "qt-online-installer-windows-arm64-{version}.exe"
+        },
+        "sha256": {
+          "linux-x86": "40b76bdf74f6a396341efb70ae2e754fcd878474babb6cd9d7f07eff12a85c62",
+          "linux-arm": "7f2a9be88098c1e2e0a608458252dc9864be513a16be6af7190769922536b3f5",
+          "macos-x86": "917fb4048226db081b780b751138c896165f66df523f3b0f4385bcfb4a1c59da",
+          "macos-arm": "917fb4048226db081b780b751138c896165f66df523f3b0f4385bcfb4a1c59da",
+          "windows-x86": "ae919bc9b224b8ccdada69ec787a9f69330001f227f3fcbfb4a11a4adb3786f6",
+          "windows-arm": "3c4635366059172b52fe5776b164bc4c56a36772cf01122e0473619a48463e32"
+        }
+      }
+    },
+    "nodejs": {
+      "version": "22.23.0"
+    },
+    "nvm": {
+      "version": "0.40.7"
     }
   },
   "categories": {
@@ -180,6 +216,7 @@
     "quality": {
       "description": "Lint, format, and quality checks",
       "tools": [
+        "clang-format",
         "shellcheck",
         "actionlint",
         "yamllint",
@@ -235,12 +272,43 @@
         "go"
       ]
     },
+    "graphics-libs": {
+      "description": "Linux graphics dev libraries (OpenGL, X11) needed by Qt6",
+      "tools": [
+        "graphics-libs"
+      ],
+      "platforms": [
+        "linux"
+      ]
+    },
+    "qt": {
+      "description": "Qt 6 framework and build tools",
+      "tools": [
+        "qt-installer"
+      ],
+      "platforms": [
+        "linux",
+        "macos",
+        "windows"
+      ]
+    },
     "llm-server": {
       "description": "LLM server toolchain",
       "tools": [
         "llama-cpp",
         "huggingface-cli",
         "hf-model"
+      ]
+    },
+    "nodejs": {
+      "description": "Node.js runtime for npm packages",
+      "tools": [
+        "nodejs"
+      ],
+      "platforms": [
+        "linux",
+        "macos",
+        "windows"
       ]
     }
   },
@@ -271,7 +339,8 @@
       "core",
       "build",
       "go",
-      "zig"
+      "zig",
+      "nodejs"
     ],
     "secrets": [
       "core"
@@ -294,17 +363,44 @@
     "go": [
       "core"
     ],
+    "qt": [
+      "core",
+      "build",
+      "toolchain",
+      "graphics-libs"
+    ],
     "llm-server": [
       "core",
       "build",
       "math-libs"
+    ],
+    "nodejs": [
+      "core",
+      "essential"
+    ],
+    "dev": [
+      "build",
+      "toolchain",
+      "zig",
+      "ssl",
+      "ops",
+      "quality",
+      "secrets",
+      "coverage",
+      "security",
+      "fd",
+      "graphics-libs"
     ]
   },
   "tools": {
     "curl": {
       "category": "core",
       "platform": "all",
-      "install_method": "apt",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "curl",
         "winget_id": "curl.curl"
@@ -314,7 +410,11 @@
     "git": {
       "category": "core",
       "platform": "all",
-      "install_method": "apt",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "git",
         "winget_id": "Git.Git"
@@ -344,7 +444,11 @@
     "python3": {
       "category": "essential",
       "platform": "all",
-      "install_method": "apt",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "python3",
         "winget_id": "Python.Python.3.12"
@@ -363,7 +467,11 @@
     "minisign": {
       "category": "essential",
       "platform": "all",
-      "install_method": "apt",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "minisign",
         "winget_id": "jedisct1.minisign"
@@ -416,7 +524,11 @@
     "make": {
       "category": "build",
       "platform": "all",
-      "install_method": "apt",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "make",
         "winget_id": "GnuWin32.Make"
@@ -427,7 +539,11 @@
     "cmake": {
       "category": "build",
       "platform": "all",
-      "install_method": "apt",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "cmake",
         "winget_id": "Kitware.CMake"
@@ -437,7 +553,11 @@
     "zstd": {
       "category": "build",
       "platform": "all",
-      "install_method": "apt",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "zstd",
         "winget_id": "Meta.Zstandard"
@@ -447,7 +567,11 @@
     "pkg-config": {
       "category": "build",
       "platform": "all",
-      "install_method": "apt",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "pkg-config",
         "winget_id": "bloodrock.pkg-config-lite"
@@ -657,7 +781,11 @@
     "pwsh": {
       "category": "ops",
       "platform": "all",
-      "install_method": "apt",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
       "parameters": {
         "package": "powershell",
         "fallback": "snap"
@@ -722,6 +850,47 @@
         "package": "openblas"
       },
       "idempotent_check": "brew list openblas"
+    },
+    "graphics-libs": {
+      "category": "graphics-libs",
+      "platform": "linux",
+      "install_method": "apt",
+      "parameters": {
+        "packages": [
+          "libgl1-mesa-dev",
+          "libx11-dev",
+          "libxext-dev",
+          "libxcb1-dev"
+        ]
+      },
+      "idempotent_check": "pkg-config --libs gl x11"
+    },
+    "qt-installer": {
+      "category": "qt",
+      "platform": "all",
+      "install_method": "qt_installer",
+      "parameters": {
+        "install_dir": "~/Qt",
+        "version_ref": "qt-installer"
+      },
+      "idempotent_check": "command -v qmake"
+    },
+    "nodejs": {
+      "category": "nodejs",
+      "platform": "all",
+      "install_method": "nodejs",
+      "parameters": {},
+      "idempotent_check": "command -v node",
+      "version_ref": "nodejs"
+    },
+    "cspell": {
+      "category": "quality",
+      "platform": "all",
+      "install_method": "npm",
+      "parameters": {
+        "package": "cspell"
+      },
+      "idempotent_check": "command -v cspell"
     }
   }
 }

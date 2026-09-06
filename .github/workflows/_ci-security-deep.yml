@@ -1,15 +1,21 @@
 ---
 # Reusable Security/Deep workflow: sanitizers, seccomp, formal verification.
 # Heavy checks that run after the main test stages.
+# Called from ci.yml with a 'check' input: sanitize | seccomp | proof | engine
 
 name: Security Deep Stage
 
 'on':
   workflow_call:
+    inputs:
+      check:
+        type: string
+        required: true
+        description: "Which check to run (sanitize|sanitize-qt|seccomp|proof|engine)"
 
 jobs:
   security-deep:
-    name: Security / Deep
+    name: "Security / Deep — ${{ inputs.check }}"
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -29,23 +35,41 @@ jobs:
       - name: Setup build toolchain
         run: just setup-build-linux-x86-gcc
 
-      - name: Setup coverage/sanitizer toolchain
+      - name: Setup coverage/sanitizer toolchain (sanitize only)
+        if: inputs.check == 'sanitize'
         run: just setup-coverage-linux-x86-clang
 
       - name: Setup Firedancer deps (zig + SSL)
+        if: inputs.check != 'engine'
         run: just setup-fd-linux-x86-gcc
 
       - name: Setup security proof toolchain
+        if: inputs.check == 'proof'
         run: just setup-security-linux-x86
 
       - name: Run sanitizer checks
+        if: inputs.check == 'sanitize'
         run: just security-sanitize-check-all
 
       - name: Run seccomp checks
+        if: inputs.check == 'seccomp'
         run: just security-seccomp-check-all
 
       - name: Run proof checks
+        if: inputs.check == 'proof'
         run: just security-proof-check-all
 
       - name: Run engine checks
+        if: inputs.check == 'engine'
         run: just security-engine-check-all
+
+      - name: Setup Qt6 for sanitizer build
+        if: inputs.check == 'sanitize-qt'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qtbase5-dev qtbase5-dev-tools qtmultimedia5-dev
+          just setup-qt-linux-x86
+
+      - name: Run Qt sanitizer checks
+        if: inputs.check == 'sanitize-qt'
+        run: just security-sanitize-check-qt

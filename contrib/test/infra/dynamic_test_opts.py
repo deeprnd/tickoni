@@ -17,7 +17,13 @@ import sys
 
 
 def _detect_memory_bytes() -> int:
-    """Detect available physical memory in bytes."""
+    """Detect available physical memory in bytes.
+
+    Bounded: rejects values below 1 GB (1_073_741_824 bytes) to guard
+    against misparse or poisoned output.
+    """
+    MIN_MEMORY = 1_073_741_824  # 1 GB
+
     # Try `free -b` (Linux)
     try:
         result = subprocess.run(
@@ -29,7 +35,9 @@ def _detect_memory_bytes() -> int:
                     parts = line.split()
                     # columns: total used free shared buff/cache available
                     if len(parts) >= 7:
-                        return int(parts[6])
+                        val = int(parts[6])
+                        if val >= MIN_MEMORY:
+                            return val
     except (FileNotFoundError, ValueError, subprocess.TimeoutExpired):
         pass
 
@@ -41,7 +49,9 @@ def _detect_memory_bytes() -> int:
             timeout=10,
         )
         if result.returncode == 0:
-            return int(result.stdout.strip())
+            val = int(result.stdout.strip())
+            if val >= MIN_MEMORY:
+                return val
     except (FileNotFoundError, ValueError, subprocess.TimeoutExpired):
         pass
 
