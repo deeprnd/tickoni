@@ -11,9 +11,10 @@ a canonical form (``qt-installer.run``/``.dmg``/``.exe``) so the
 invocation command is always the same regardless of vendor naming
 conventions.
 """
+import glob
 import os
-import sys
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 from ..base import InstallStrategy, _download_file, _run_cmd
@@ -285,14 +286,66 @@ class QtInstallerStrategy(InstallStrategy):
             install_str = " ".join(install_cmd)
             print(f'[INSTALLER] {install_str}')
 
-            # Force CLI/headless mode on platforms with display servers (local dev).
-            # CI runners have no display, so this is harmless there too.
-            run_env = os.environ.copy()
-            if not _is_platform_windows(platform_str):
+            # ── macOS DMG: mount it, then run the .app inside ────────────────
+            if platform_str.startswith('macos'):
+                # Mount the DMG in a temp location
+                mount_point = tmpdir / 'qt-installer-mount'
+                mount_point.mkdir()
+                mount_result = _run_cmd(
+                    ['hdiutil', 'attach', '-quiet', '-mountpoint', str(mount_point), str(canonical)],
+                    capture=True,
+                )
+                if mount_result.returncode != 0:
+                    print(
+                        f'ERROR: failed to mount Qt installer DMG',
+                        file=sys.stderr,
+                    )
+                    if mount_result.stderr:
+                        print(f'[hdiutil stderr] {mount_result.stderr}', file=sys.stderr)
+                    sys.exit(1)
+
+                try:
+                    # Find the .app bundle inside the mounted DMG
+                    import glob
+                    apps = glob.glob(str(mount_point / '*.app'))
+                    if not apps:
+                        # Try one level deeper
+                        apps = glob.glob(str(mount_point / '*/*.app'))
+                    if not apps:
+                        print(
+                            f'ERROR: no .app bundle found in mounted DMG at {mount_point}',
+                            file=sys.stderr,
+                        )
+                        sys.exit(1)
+
+                    app_path = Path(apps[0])
+                    app_binary = app_path / 'Contents' / 'MacOS' / app_path.stem
+
+                    if not app_binary.exists():
+                        print(
+                            f'ERROR: binary not found at {app_binary}',
+                            file=sys.stderr,
+                        )
+                        sys.exit(1)
+
+                    # Force CLI/headless mode on platforms with display servers.
+                    run_env = os.environ.copy()
+                    run_env.pop('DISPLAY', None)
+                    run_env.pop('WAYLAND_DISPLAY', None)
+
+                    result = _run_cmd([str(app_binary)] + install_cmd[1:], capture=True, env=run_env)
+                finally:
+                    _run_cmd(['hdiutil', 'detach', '-quiet', str(mount_point)], capture=True)
+
+            else:
+                # Linux: .run files are executables, run directly.
+                # Force CLI/headless mode on platforms with display servers.
+                run_env = os.environ.copy()
                 run_env.pop('DISPLAY', None)
                 run_env.pop('WAYLAND_DISPLAY', None)
 
-            result = _run_cmd(install_cmd, capture=True, env=run_env)
+                result = _run_cmd(install_cmd, capture=True, env=run_env)
+
             if result.returncode != 0:
                 print(f'ERROR: Qt installer exited with code {result.returncode}', file=sys.stderr)
                 if result.stderr:
