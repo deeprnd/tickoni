@@ -108,6 +108,18 @@ just build-all
 `build-all` badge-wraps `just build-tk && just build-fd` through
 `contrib/tool/readme/run-badged-command.py`.
 
+Qt terminal:
+
+```bash
+just setup-qt-linux-x86   # install Qt 6 first
+just build-qt             # compile the Qt terminal
+```
+
+Before building the Qt terminal, install Qt 6 via the setup recipe for your
+platform (`setup-qt-linux-x86`, `setup-qt-macos-arm`, etc.). The installer
+needs credentials for unattended CI runs — see `.env.example` for the local
+template, and set `QT_USERNAME` + `QT_TOKEN` as repository secrets for CI.
+
 ## Run
 
 Print the Phase 0 Tickoni topology:
@@ -258,12 +270,12 @@ Lint:
 
 YAML lint:
 
-- `just quality-yaml-check-linux-x86` — `yamllint` with relaxed profile across
+- `just quality-yaml-check-linux` — `yamllint` with relaxed profile across
   the repo (`.yamllint` config)
 
 Spell check:
 
-- `just quality-spell-check-linux-x86` — `cspell` with domain dictionary
+- `just quality-spell-check-linux` — `cspell` with domain dictionary
   (`.cspell.json`)
 
 Aggregate:

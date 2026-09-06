@@ -1,7 +1,7 @@
----
 # Reusable Unit Test workflow: component tests per platform.
 # Builds FD libs locally on the same runner that runs tests.
-
+# Reference: doc/execution/plans/v2.10-s8-5.md
+---
 name: Unit Test Stage
 
 'on':
@@ -95,6 +95,9 @@ jobs:
 
       - name: Build Firedancer libs
         run: just ${{ matrix.build-recipe }}
+
+      - name: Run Python unit tests (pytest)
+        run: just test-unit-setup
 
       - name: Run unit tests
         run: just ${{ matrix.test-recipe }}

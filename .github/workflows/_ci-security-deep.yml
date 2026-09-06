@@ -1,15 +1,21 @@
 ---
 # Reusable Security/Deep workflow: sanitizers, seccomp, formal verification.
 # Heavy checks that run after the main test stages.
+# Called from ci.yml with a 'check' input: sanitize-fd|sanitize-tk|sanitize-qt|seccomp|proof|engine
 
 name: Security Deep Stage
 
 'on':
   workflow_call:
+    inputs:
+      check:
+        type: string
+        required: true
+        description: "Which check to run (sanitize-fd|sanitize-tk|sanitize-qt|seccomp|proof|engine)"
 
 jobs:
   security-deep:
-    name: Security / Deep
+    name: "Security / Deep — ${{ inputs.check }}"
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -26,26 +32,75 @@ jobs:
       - name: Install just
         uses: taiki-e/install-action@just
 
-      - name: Setup build toolchain
+      # ── Sanitize: Firedancer (clang + ASan/UBSan) ─────────────────────
+      - name: Setup build toolchain (sanitize-fd)
+        if: inputs.check == 'sanitize-fd'
         run: just setup-build-linux-x86-gcc
 
-      - name: Setup coverage/sanitizer toolchain
+      - name: Setup coverage/sanitizer toolchain (sanitize-fd)
+        if: inputs.check == 'sanitize-fd'
         run: just setup-coverage-linux-x86-clang
 
-      - name: Setup Firedancer deps (zig + SSL)
+      - name: Setup Firedancer deps (sanitize-fd)
+        if: inputs.check == 'sanitize-fd'
+        run: just setup-fd-linux-x86-gcc
+
+      - name: Run Firedancer sanitizer check
+        if: inputs.check == 'sanitize-fd'
+        run: just security-sanitize-check-fd
+
+      # ── Sanitize: Tickoni (gcc + Zig ReleaseSafe) ─────────────────────
+      - name: Setup build toolchain (sanitize-tk)
+        if: inputs.check == 'sanitize-tk'
+        run: just setup-build-linux-x86-gcc
+
+      - name: Setup Firedancer deps (sanitize-tk)
+        if: inputs.check == 'sanitize-tk'
+        run: just setup-fd-linux-x86-gcc
+
+      - name: Run Tickoni sanitizer check
+        if: inputs.check == 'sanitize-tk'
+        run: just security-sanitize-check-tk
+
+      # ── Sanitize: Qt terminal (cmake + clang + Qt6) ───────────────────
+      - name: Setup sanitizer toolchain
+        if: inputs.check == 'sanitize-qt'
+        run: just setup-coverage-linux-x86-clang
+
+      - name: Run Qt sanitizer checks
+        if: inputs.check == 'sanitize-qt'
+        env:
+          QT_USERNAME: ${{ secrets.QT_USERNAME }}
+          QT_PASSWORD: ${{ secrets.QT_PASSWORD }}
+        run: just security-sanitize-check-qt
+
+      # ── Seccomp ───────────────────────────────────────────────────────
+      - name: Setup Firedancer deps (seccomp)
+        if: inputs.check == 'seccomp'
+        run: just setup-fd-linux-x86-gcc
+
+      - name: Run seccomp checks
+        if: inputs.check == 'seccomp'
+        run: just security-seccomp-check-all
+
+      # ── Proof ─────────────────────────────────────────────────────────
+      - name: Setup build toolchain (proof)
+        if: inputs.check == 'proof'
+        run: just setup-build-linux-x86-gcc
+
+      - name: Setup Firedancer deps (proof)
+        if: inputs.check == 'proof'
         run: just setup-fd-linux-x86-gcc
 
       - name: Setup security proof toolchain
+        if: inputs.check == 'proof'
         run: just setup-security-linux-x86
 
-      - name: Run sanitizer checks
-        run: just security-sanitize-check-all
-
-      - name: Run seccomp checks
-        run: just security-seccomp-check-all
-
       - name: Run proof checks
+        if: inputs.check == 'proof'
         run: just security-proof-check-all
 
+      # ── Engine ────────────────────────────────────────────────────────
       - name: Run engine checks
+        if: inputs.check == 'engine'
         run: just security-engine-check-all

@@ -4,6 +4,27 @@ make := `command -v gmake || command -v make`
 # Resolve one usable Python command for all recipes, including Windows CI.
 python := `bash contrib/setup/python.sh`
 
+# ── Justfile Recipe Alias Convention ───────────────────────────────────────────
+# Every recipe category (build, test, setup, quality, security, etc.) has:
+#   1. A bare dispatcher (e.g. `build-tk:`) with a bash `case` that routes
+#      to the correct platform recipe based on `{{ os }}-{{ arch }}`.
+#   2. One canonical implementation per platform (e.g. `build-tk-linux-x86:`).
+#   3. Platform aliases that use make's `target: dependency` syntax to
+#      forward to a single canonical implementation — e.g.
+#        test-unit-tk-macos-x86: test-unit-tk-linux-x86
+#      This relies on GNU make recipe inheritance (not `just` alias syntax).
+#
+# RULES:
+#   - When adding a new platform, update the bare dispatcher's `case` AND
+#     create aliases for every existing category that has platform variants.
+#   - Only the canonical implementation has actual commands; aliases are
+#     zero-body forwarding lines of the form `alias-name: canonical-name`.
+#   - The `: alias` syntax here is make's target-dependency, NOT just's
+#     `alias = recipe` syntax — the distinction matters for shellcheck.
+#
+# To list all aliases in a category: just --list | grep '<category>'
+#
+
 # Firedancer/Tickoni build natively on Linux, macOS, and Windows.
 
 # Shared Firedancer lib definitions — used by contrib/build/fd-build-lib.sh and
@@ -57,64 +78,63 @@ help:
 
 # Build-only: compilers + build infra (no zig, no ssl, no quality, no secrets)
 setup-build-linux-x86-gcc:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
 
 setup-build-linux-x86-clang:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
 
 setup-build-macos-x86:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
 
 setup-build-macos-arm:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
 
 setup-build-linux-arm-gcc:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
 
 # Windows build-only setup: no llama.cpp; system-test setup owns the LLM.
 setup-build-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc --platform windows-x86
+    {{ python }} contrib/setup/orchestrator.py build,mvsc --platform windows-x86
 
 setup-build-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc --platform windows-arm
+    {{ python }} contrib/setup/orchestrator.py build,mvsc --platform windows-arm
 
 # Engine build: full FD toolchain (build + zig + ssl + gcc)
 setup-fd-linux-x86-gcc:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
     python3 contrib/setup/orchestrator.py zig,ssl
 
 setup-fd-linux-x86-clang:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
     python3 contrib/setup/orchestrator.py zig,ssl
 
 setup-fd-macos-x86:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
     python3 contrib/setup/orchestrator.py zig,ssl
 
 setup-fd-macos-arm:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
     python3 contrib/setup/orchestrator.py zig,ssl
 
 setup-fd-linux-arm-gcc:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
     python3 contrib/setup/orchestrator.py zig,ssl
 
 # Windows x86_64 — FD toolchain (zig + ssl)
 setup-fd-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc,zig,ssl --platform windows-x86
+    {{ python }} contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-x86
 
 # Windows ARM64 — FD toolchain (zig + ssl)
 setup-fd-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc,zig,ssl --platform windows-arm
+    {{ python }} contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-arm
 
 # Quality: build + quality tools (shellcheck, actionlint, yamllint, pre-commit, buf + go)
 setup-quality-linux-x86:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
     python3 contrib/setup/orchestrator.py quality
 
 # Secrets-only: gitleaks (no quality, no build tools beyond what gitleaks needs)
 setup-gitleaks-linux-x86:
-    python3 contrib/setup/orchestrator.py core,essential,secrets
+    python3 contrib/setup/orchestrator.py secrets
 
 # Full developer stack (unchanged)
 # ── Platform Detection ────────────────────────────────────────────────────────
@@ -138,7 +158,7 @@ cpu_count := `bash contrib/platform.sh cores`
 # All setup is delegated to orchestrator.py — it detects the platform and
 # resolves dependencies from tool-versions.json.
 setup-env toolchain="":
-    SKIP_IDEMPOTENCY=`echo ${SKIP_IDEMPOTENCY:-}` python3 contrib/setup/orchestrator.py core,essential,toolchain,build,zig,ssl,fd,quality,secrets,coverage,security,ops
+    SKIP_IDEMPOTENCY=`echo ${SKIP_IDEMPOTENCY:-}` python3 contrib/setup/orchestrator.py dev
     just setup-git
 
 # Activate tracked git hooks (commit-msg strips anthropic AI co-authors)
@@ -151,47 +171,47 @@ setup-git:
 
 # Linux x86_64 — GCC toolchain
 setup-linux-x86-gcc:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
     python3 contrib/setup/orchestrator.py zig,ssl,ops
     python3 contrib/setup/orchestrator.py quality,secrets
 
 # Linux x86_64 — Clang toolchain
 setup-linux-x86-clang:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
     python3 contrib/setup/orchestrator.py zig,ssl,ops
     python3 contrib/setup/orchestrator.py quality,secrets
 
 # Linux aarch64 — GCC toolchain
 setup-linux-arm-gcc:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
     python3 contrib/setup/orchestrator.py zig,ssl,ops
     python3 contrib/setup/orchestrator.py quality,secrets
 
 # Linux aarch64 — Clang toolchain
 setup-linux-arm-clang:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
     python3 contrib/setup/orchestrator.py zig,ssl,ops
     python3 contrib/setup/orchestrator.py quality,secrets
 
 # macOS x86_64
 setup-macos-x86:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
     python3 contrib/setup/orchestrator.py zig,ssl,ops
     python3 contrib/setup/orchestrator.py quality
 
 # macOS ARM64
 setup-macos-arm:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
+    python3 contrib/setup/orchestrator.py build
     python3 contrib/setup/orchestrator.py zig,ssl,ops
     python3 contrib/setup/orchestrator.py quality
 
 # Windows x86_64 — dev mode (includes LLM tooling)
 setup-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc,zig,ssl,quality,secrets --platform windows-x86
+    {{ python }} contrib/setup/orchestrator.py build,mvsc,zig,ssl,quality,secrets --platform windows-x86
 
 # Windows ARM64 — dev mode (includes LLM tooling)
 setup-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,mvsc,zig,ssl,quality,secrets --platform windows-arm
+    {{ python }} contrib/setup/orchestrator.py build,mvsc,zig,ssl,quality,secrets --platform windows-arm
 
 setup-fd-deps-linux-x86-gcc:
     python3 contrib/setup/orchestrator.py fd
@@ -220,50 +240,83 @@ setup-fd-deps-windows-arm:
 
 # ── Quality setup for all platforms ─────────────────────────────────────────
 setup-quality-macos-x86:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
     python3 contrib/setup/orchestrator.py quality
 
 setup-quality-macos-arm:
-    python3 contrib/setup/orchestrator.py core,essential,toolchain,build
     python3 contrib/setup/orchestrator.py quality
 
 setup-quality-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
     {{ python }} contrib/setup/orchestrator.py quality --platform windows-x86
 
 setup-quality-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
     {{ python }} contrib/setup/orchestrator.py quality --platform windows-arm
 
 # ── Secrets/gitleaks for all platforms ──────────────────────────────────────
 setup-gitleaks-macos-x86:
-    python3 contrib/setup/orchestrator.py core,essential,secrets
+    python3 contrib/setup/orchestrator.py secrets
 
 setup-gitleaks-macos-arm:
-    python3 contrib/setup/orchestrator.py core,essential,secrets
+    python3 contrib/setup/orchestrator.py secrets
 
 setup-gitleaks-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py core,essential,secrets --platform windows-x86
+    {{ python }} contrib/setup/orchestrator.py secrets --platform windows-x86
 
 setup-gitleaks-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py core,essential,secrets --platform windows-arm
+    {{ python }} contrib/setup/orchestrator.py secrets --platform windows-arm
 
 # ── Coverage for macOS ──────────────────────────────────────────────────────
 setup-coverage-macos-x86:
-    python3 contrib/setup/orchestrator.py core,build,toolchain,coverage
+    python3 contrib/setup/orchestrator.py coverage
 
 setup-coverage-macos-arm:
-    python3 contrib/setup/orchestrator.py core,build,toolchain,coverage
+    python3 contrib/setup/orchestrator.py coverage
 
 # ── Security/formal-verification (CBMC suite) ───────────────────────────────
 setup-security-linux-x86:
-    python3 contrib/setup/orchestrator.py core,security
+    python3 contrib/setup/orchestrator.py security
 
 setup-security-macos-x86:
-    python3 contrib/setup/orchestrator.py core,security
+    python3 contrib/setup/orchestrator.py security
 
 setup-security-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py core,security --platform windows-x86
+    {{ python }} contrib/setup/orchestrator.py security --platform windows-x86
+
+# ── Qt 6 installation (for Qt terminal) ──────────────────────────────────────
+# Credentials from .env file (local) or GitHub secrets (CI).
+# Local: copy .env.example → .env and fill in QT_USERNAME and QT_PASSWORD
+# CI: set QT_USERNAME and QT_PASSWORD as repository secrets
+#   → they propagate to the runner env automatically.
+# Note: orchestrator.py automatically loads .env when present.
+
+setup-qt-linux-x86:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    QT_USERNAME=${QT_USERNAME:-} QT_PASSWORD=${QT_PASSWORD:-} \
+    python3 contrib/setup/orchestrator.py qt --platform linux-x86
+
+setup-qt-linux-arm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    QT_USERNAME=${QT_USERNAME:-} QT_PASSWORD=${QT_PASSWORD:-} \
+    python3 contrib/setup/orchestrator.py qt --platform linux-arm
+
+setup-qt-macos-x86:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    QT_USERNAME=${QT_USERNAME:-} QT_PASSWORD=${QT_PASSWORD:-} \
+    python3 contrib/setup/orchestrator.py qt --platform macos-x86
+
+setup-qt-macos-arm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    QT_USERNAME=${QT_USERNAME:-} QT_PASSWORD=${QT_PASSWORD:-} \
+    python3 contrib/setup/orchestrator.py qt --platform macos-arm
+
+setup-qt-windows-x86:
+    {{ python }} contrib/setup/orchestrator.py qt --platform windows-x86
+
+setup-qt-windows-arm:
+    {{ python }} contrib/setup/orchestrator.py qt --platform windows-arm
 
 test-prep-linux-x86:
     # NO-OP — memory setup moved to workflow YAML where sudo is available.
@@ -273,9 +326,7 @@ test-prep-linux-x86:
 
 tests-all:
     @just build-all
-    @just quality-format-check-all
-    @just quality-lint-check-tk
-    @just quality-proto-check-all
+    @just quality-check-all
     @just security-check-all
     @just security-engine-check-changes
     @just test-all
@@ -382,6 +433,63 @@ build-fd-dev:
 build-all:
     {{ python }} contrib/tool/readme/run-badged-command.py build bash -c "just build-fd && just build-tk"
 
+# Platform-specific Qt terminal build recipes (self-contained: setup + build).
+build-qt-linux-x86:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just setup-qt-linux-x86
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+
+build-qt-linux-arm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just setup-qt-linux-arm
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+
+build-qt-macos-x86:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just setup-qt-macos-x86
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+
+build-qt-macos-arm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just setup-qt-macos-arm
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+
+build-qt-windows-x86:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just setup-qt-windows-x86
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+
+build-qt-windows-arm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just setup-qt-windows-arm
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+
+# Bare dispatcher; canonical platform recipes above are the implementation.
+build-qt:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ os }}-{{ arch }}" in
+      linux-x86) exec just build-qt-linux-x86 ;;
+      linux-arm) exec just build-qt-linux-arm ;;
+      macos-x86) exec just build-qt-macos-x86 ;;
+      macos-arm) exec just build-qt-macos-arm ;;
+      windows-x86) exec just build-qt-windows-x86 ;;
+      windows-arm) exec just build-qt-windows-arm ;;
+      *) echo "unsupported host platform for build-qt: {{ os }}-{{ arch }}" >&2; exit 1 ;;
+    esac
+
 # ── Clean ────────────────────────────────────────────────────────────────────
 
 # Clean all Firedancer and Zig/Tickoni build artifacts.
@@ -480,8 +588,14 @@ gen-audit-fixtures:
     TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true test 2>&1
     TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true integration-test 2>&1
 
+# Run Python unit tests for contrib/test/* (pytest, no FD build required).
+test-unit-setup:
+    {{ python }} -m pip install -q --upgrade pip
+    {{ python }} -m pip install -q --upgrade pytest
+    cd contrib/test && {{ python }} -m pytest test_dynamic_test_opts.py test_llama_server.py test_build_orchestrator.py test_setup_asset_resolution.py test_setup_checks.py test_setup_install_method.py test_setup_msvc.py test_setup_shell.py test_windows_uuid_link.py --tb=short -v
+
 test-unit-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-tk && just test-unit-fd"
+    {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-setup && just test-unit-tk && just test-unit-fd"
 
 test-e2e-fd:
     @true
@@ -686,16 +800,32 @@ quality-format-fix-tk-linux-x86: quality-format-fix-tk
 quality-format-check-all:
     @just quality-format-check-fd
     @just quality-format-check-tk
+    @just quality-format-check-qt
 
 quality-format-fix-all:
     @just quality-format-fix-fd
     @just quality-format-fix-tk
+    @just quality-format-fix-qt
+
+# ── Quality: Format Qt ──────────────────────────────────────────────────────
+
+quality-format-check-qt:
+    bash contrib/quality/quality.sh format-check-qt
+
+quality-format-fix-qt:
+    bash contrib/quality/quality.sh format-fix-qt
+
+quality-format-check-qt-linux-x86: quality-format-check-qt
+quality-format-fix-qt-linux-x86: quality-format-fix-qt
 
 # ── Quality: Lint ──────────────────────────────────────────────────────────
 
 quality-lint-check-fd:
     bash contrib/quality/quality.sh lint-check-fd
     command -v shellcheck >/dev/null || exit 0; bash contrib/quality/quality.sh lint-shellcheck-fd
+
+quality-lint-check-actions:
+    @command -v actionlint >/dev/null || exit 0; actionlint -ignore 'label "windows-11-vs2026-arm" is unknown' .github/workflows/*.yml
 
 quality-lint-check-tk:
     bash contrib/quality/quality.sh lint-check-tk
@@ -710,11 +840,20 @@ quality-lint-check-linux-x86:
 quality-lint-check-all:
     @just quality-lint-check-fd
     @just quality-lint-check-tk
+    @just quality-lint-check-actions
+    @just quality-lint-check-qt
 
-quality-yaml-check-linux-x86:
+# ── Quality: Lint Qt ────────────────────────────────────────────────────────
+
+quality-lint-check-qt:
+    bash contrib/quality/quality.sh lint-check-qt
+
+quality-lint-check-qt-linux-x86: quality-lint-check-qt
+
+quality-yaml-check-linux:
     find . -name '*.yaml' -o -name '*.yml' | grep -vE '^./(opt|node_modules|.zig-global-cache|build|target|zig-out|\\.git)/' | xargs yamllint -f parsable
 
-quality-spell-check-linux-x86:
+quality-spell-check-linux:
     cspell lint --no-progress .
 
 # ── Quality: Proto ─────────────────────────────────────────────────────────
@@ -742,7 +881,7 @@ quality-proto-check-all:
 # ── Quality: All ───────────────────────────────────────────────────────────
 
 quality-check-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py quality bash -c "just quality-format-check-all && just quality-lint-check-all && just quality-proto-check-all && just quality-yaml-check-linux-x86 && just quality-spell-check-linux-x86"
+    {{ python }} contrib/tool/readme/run-badged-command.py quality bash -c "just quality-format-check-all && just quality-lint-check-all && just quality-proto-check-all && just quality-yaml-check-linux && just quality-spell-check-linux"
 
 # ── Security: CodeQL ───────────────────────────────────────────────────────
 
@@ -758,6 +897,7 @@ security-codeql-check-tk-linux-x86: security-codeql-check-tk
 security-codeql-check-all:
     @just security-codeql-check-fd
     @just security-codeql-check-tk
+    @just security-codeql-check-qt
 
 # ── Security: Gitleaks ─────────────────────────────────────────────────────
 
@@ -777,6 +917,14 @@ security-gitleaks-check-linux-x86:
 security-gitleaks-check-all:
     @just security-gitleaks-check-fd
     @just security-gitleaks-check-tk
+    @just security-gitleaks-check-qt
+
+# ── Security: Gitleaks Qt ───────────────────────────────────────────────────
+
+security-gitleaks-check-qt:
+    bash contrib/security/security.sh gitleaks-check-qt
+
+security-gitleaks-check-qt-linux-x86: security-gitleaks-check-qt
 
 # ── Security: SecComp ──────────────────────────────────────────────────────
 
@@ -794,6 +942,14 @@ security-seccomp-check-linux-x86: security-seccomp-check-fd-linux-x86
 security-seccomp-check-all:
     @just security-seccomp-check-fd
     @just security-seccomp-check-tk
+    @just security-seccomp-check-qt
+
+# ── Security: SecComp Qt (no-op) ───────────────────────────────────────────
+
+security-seccomp-check-qt:
+    @true ## N/A — Qt terminal is not in the financial event path
+
+security-seccomp-check-qt-linux-x86: security-seccomp-check-qt
 
 # ── Security: Proof ────────────────────────────────────────────────────────
 
@@ -813,6 +969,14 @@ security-proof-check-linux-x86:
 security-proof-check-all:
     @just security-proof-check-fd
     @just security-proof-check-tk
+    @just security-proof-check-qt
+
+# ── Security: Proof Qt (no-op) ──────────────────────────────────────────────
+
+security-proof-check-qt:
+    @true ## N/A — no CBMC formal verification for Qt
+
+security-proof-check-qt-linux-x86: security-proof-check-qt
 
 # ── Security: ASan/UBSan ───────────────────────────────────────────────────
 
@@ -832,6 +996,14 @@ security-sanitize-check-linux-x86:
 security-sanitize-check-all:
     @just security-sanitize-check-fd
     @just security-sanitize-check-tk
+    @just security-sanitize-check-qt
+
+# ── Security: ASan/UBSan Qt ─────────────────────────────────────────────────
+
+security-sanitize-check-qt:
+    bash contrib/security/security.sh sanitize-check-qt
+
+security-sanitize-check-qt-linux-x86: security-sanitize-check-qt
 
 # ── Security: All ──────────────────────────────────────────────────────────
 
