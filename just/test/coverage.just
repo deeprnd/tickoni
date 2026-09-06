@@ -8,7 +8,7 @@ test-cov-fd:
 test-cov-fd-linux-x86-clang: test-cov-fd
 
 test-cov-tk:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache {{ python }} contrib/tool/readme/run-badged-command.py cov-tk bash contrib/test/coverage.sh coverage-tk
+    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache {{ python }} ../../contrib/tool/readme/run-badged-command.py cov-tk bash contrib/test/coverage.sh coverage-tk
 
 test-cov-tk-linux-x86: test-cov-tk
 
