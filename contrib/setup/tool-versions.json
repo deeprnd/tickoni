@@ -117,7 +117,7 @@
         "base_url": "https://qt.mirror.constant.com/archive/online_installers/4.11",
         "qt_module": {
           "linux-x86": "qt.qt6.6112.linux_gcc_64",
-          "linux-arm": "qt.qt6.6112.linux_arm",
+          "linux-arm": "qt.qt6.6112.linux_arm64",
           "macos-x86": "qt.qt6.6112.macOS_clang_64",
           "macos-arm": "qt.qt6.6112.macOS_arm64",
           "windows-x86": "qt.qt6.6112.win64_msvc2022_64",
