@@ -437,32 +437,44 @@ build-all:
 build-qt-linux-x86:
     #!/usr/bin/env bash
     set -euo pipefail
-    just setup-qt-linux-x86 && CMAKE_PREFIX_PATH=~/Qt cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+    just setup-qt-linux-x86
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
 
 build-qt-linux-arm:
     #!/usr/bin/env bash
     set -euo pipefail
-    just setup-qt-linux-arm && CMAKE_PREFIX_PATH=~/Qt cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+    just setup-qt-linux-arm
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
 
 build-qt-macos-x86:
     #!/usr/bin/env bash
     set -euo pipefail
-    just setup-qt-macos-x86 && CMAKE_PREFIX_PATH=~/Qt cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+    just setup-qt-macos-x86
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
 
 build-qt-macos-arm:
     #!/usr/bin/env bash
     set -euo pipefail
-    just setup-qt-macos-arm && CMAKE_PREFIX_PATH=~/Qt cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+    just setup-qt-macos-arm
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
 
 build-qt-windows-x86:
     #!/usr/bin/env bash
     set -euo pipefail
-    just setup-qt-windows-x86 && CMAKE_PREFIX_PATH=~/Qt cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+    just setup-qt-windows-x86
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
 
 build-qt-windows-arm:
     #!/usr/bin/env bash
     set -euo pipefail
-    just setup-qt-windows-arm && CMAKE_PREFIX_PATH=~/Qt cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+    just setup-qt-windows-arm
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
 
 # Bare dispatcher; canonical platform recipes above are the implementation.
 build-qt:
