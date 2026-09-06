@@ -143,6 +143,14 @@ cmd_sanitize_check_qt() {
     return 1
   fi
 
+  # Ensure Qt6 is installed (self-contained — CI no longer needs a separate setup step)
+  case "$(uname -s)" in
+    Linux)   case "$(uname -m)" in x86_64) qt_setup="setup-qt-linux-x86" ;; aarch64) qt_setup="setup-qt-linux-arm" ;; *) echo "unsupported arch $(uname -m)"; exit 1 ;; esac ;;
+    Darwin)  case "$(uname -m)" in x86_64) qt_setup="setup-qt-macos-x86" ;; arm64) qt_setup="setup-qt-macos-arm" ;; *) echo "unsupported arch $(uname -m)"; exit 1 ;; esac ;;
+    *) echo "unsupported OS $(uname -s)"; exit 1 ;;
+  esac
+  run_step "setup qt6" just "$qt_setup"
+
   rm -rf build/tickoni-terminal-sanitize
   run_step "qt cmake sanitize configure" \
     cmake -S src/tickoni/terminal -B build/tickoni-terminal-sanitize \

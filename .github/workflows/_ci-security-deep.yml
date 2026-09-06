@@ -67,10 +67,6 @@ jobs:
         if: inputs.check == 'sanitize-qt'
         run: just setup-coverage-linux-x86-clang
 
-      - name: Setup Qt6
-        if: inputs.check == 'sanitize-qt'
-        run: just setup-qt-linux-x86
-
       - name: Run Qt sanitizer checks
         if: inputs.check == 'sanitize-qt'
         run: just security-sanitize-check-qt
