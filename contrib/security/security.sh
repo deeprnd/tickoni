@@ -5,6 +5,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
+# Source platform.sh for cross-platform OS/arch detection
+source "${ROOT_DIR}/contrib/platform.sh"
+
 MAKE_RUNNER=(python3 ./contrib/build/orchestrator.py make)
 # CODEQL_THRESHOLD_CHECK and CODEQL_HIGH_SECURITY_THRESHOLD were part of a
 # previous codeql-threshold-check design that was never wired into a command.
@@ -144,10 +147,15 @@ cmd_sanitize_check_qt() {
   fi
 
   # Ensure Qt6 is installed (self-contained — CI no longer needs a separate setup step)
-  case "$(uname -s)" in
-    Linux)   case "$(uname -m)" in x86_64) qt_setup="setup-qt-linux-x86" ;; aarch64) qt_setup="setup-qt-linux-arm" ;; *) echo "unsupported arch $(uname -m)"; exit 1 ;; esac ;;
-    Darwin)  case "$(uname -m)" in x86_64) qt_setup="setup-qt-macos-x86" ;; arm64) qt_setup="setup-qt-macos-arm" ;; *) echo "unsupported arch $(uname -m)"; exit 1 ;; esac ;;
-    *) echo "unsupported OS $(uname -s)"; exit 1 ;;
+  local _os
+  _os="$(tk_os)"
+  local _arch
+  _arch="$(tk_arch)"
+  local qt_setup
+  case "${_os}" in
+    linux)   case "${_arch}" in x86) qt_setup="setup-qt-linux-x86" ;; arm) qt_setup="setup-qt-linux-arm" ;; *) echo "unsupported arch $_arch"; exit 1 ;; esac ;;
+    macos)   case "${_arch}" in x86) qt_setup="setup-qt-macos-x86" ;; arm) qt_setup="setup-qt-macos-arm" ;; *) echo "unsupported arch $_arch"; exit 1 ;; esac ;;
+    *) echo "unsupported OS $_os"; exit 1 ;;
   esac
   run_step "setup qt6" just "$qt_setup"
 
