@@ -118,8 +118,8 @@
         "qt_module": {
           "linux-x86": "qt.qt6.6112.linux_gcc_64",
           "linux-arm": "qt.qt6.6112.linux_arm64_v8",
-          "macos-x86": "qt.qt6.6112.clang_644",
-          "macos-arm": "qt.qt6.6112.clang_644",
+          "macos-x86": "qt.qt6.6112.clang_64",
+          "macos-arm": "qt.qt6.6112.clang_64",
           "windows-x86": "qt.qt6.6112.win64_msvc2022_64",
           "windows-arm": "qt.qt6.6112.win64_msvc2022_64"
         },
