@@ -140,6 +140,9 @@ jobs:
         run: just ${{ matrix.build-tk-recipe }}
 
       - name: Build Qt terminal
+        env:
+          QT_USERNAME: ${{ secrets.QT_USERNAME }}
+          QT_PASSWORD: ${{ secrets.QT_PASSWORD }}
         run: just ${{ matrix.build-qt-recipe }}
 
       - name: Export demo conformance bundle (Unix)
