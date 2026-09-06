@@ -1,18 +1,8 @@
 # FD/Tickoni build dispatcher and aggregate recipes
 
-# Bare dispatcher; canonical platform/compiler recipes above are the implementation.
+# Bare dispatcher; canonical platform/compiler recipes are in dispatch map.
 build-tk:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case "{{ os }}-{{ arch }}" in
-      linux-x86) exec just build-tk-linux-x86 ;;
-      linux-arm) exec just build-tk-linux-arm ;;
-      macos-x86) exec just build-tk-macos-x86 ;;
-      macos-arm) exec just build-tk-macos-arm ;;
-      windows-x86) exec just build-tk-windows-x86 ;;
-      windows-arm) exec just build-tk-windows-arm ;;
-      *) echo "unsupported host platform for build-tk: {{ os }}-{{ arch }}" >&2; exit 1 ;;
-    esac
+    bash scripts/dispatch build-tk
 
 # tickoni_fd machine profile: builds only the 5 Firedancer libraries
 # Tickoni reuses (tango, util, ballet, disco, waltz). Excludes
@@ -27,19 +17,9 @@ build-fd-tk-libs: build-fd
 # pick up the change automatically.
 # ── Public build recipes ─────────────────────────────────────────────────────
 
-# Bare dispatcher; canonical platform/compiler recipes above are the implementation.
+# Bare dispatcher; canonical platform/compiler recipes are in dispatch map.
 build-fd:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case "{{ os }}-{{ arch }}" in
-      linux-x86) exec just build-fd-linux-x86-gcc ;;
-      linux-arm) exec just build-fd-linux-arm-gcc ;;
-      macos-x86) exec just build-fd-macos-x86 ;;
-      macos-arm) exec just build-fd-macos-arm ;;
-      windows-x86) exec just build-fd-windows-x86 ;;
-      windows-arm) exec just build-fd-windows-arm ;;
-      *) echo "unsupported host platform for build-fd: {{ os }}-{{ arch }}" >&2; exit 1 ;;
-    esac
+    bash scripts/dispatch build-fd
 
 # Compatibility aliases retained for S6/documentation migration.
 build-fd-gcc: build-fd-linux-x86-gcc

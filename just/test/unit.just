@@ -15,28 +15,10 @@ test-unit-setup:
 test-unit-all:
     {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-setup && just test-unit-tk && just test-unit-fd"
 
-# Bare dispatcher; canonical platform recipes are in build/linux.just, build/macos.just, build/windows.just.
+# Bare dispatcher; canonical platform recipes are in dispatch map.
 test-unit-tk:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case "{{ os }}-{{ arch }}" in
-      linux-x86) exec just test-unit-tk-linux-x86 ;;
-      linux-arm) exec just test-unit-tk-linux-arm ;;
-      macos-x86) exec just test-unit-tk-macos-x86 ;;
-      macos-arm) exec just test-unit-tk-macos-arm ;;
-      windows-x86) exec just test-unit-tk-windows-x86 ;;
-      windows-arm) exec just test-unit-tk-windows-arm ;;
-      *) echo "unsupported host platform for test-unit-tk: {{ os }}-{{ arch }}" >&2; exit 1 ;;
-    esac
+    bash scripts/dispatch test-unit-tk
 
+# Bare dispatcher; canonical platform recipes are in dispatch map.
 test-unit-fd:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case "{{ os }}-{{ arch }}" in
-      linux-x86) exec just test-unit-fd-linux-x86-gcc ;;
-      macos-x86) exec just test-unit-fd-macos-x86 ;;
-      macos-arm) exec just test-unit-fd-macos-arm ;;
-      windows-x86) exec just test-unit-fd-windows-x86 ;;
-      windows-arm) exec just test-unit-fd-windows-arm ;;
-      *) echo "unsupported host platform for test-unit-fd: {{ os }}-{{ arch }}" >&2; exit 1 ;;
-    esac
+    bash scripts/dispatch test-unit-fd
