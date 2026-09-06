@@ -291,25 +291,25 @@ setup-security-windows-x86:
 setup-qt-linux-x86:
     #!/usr/bin/env bash
     set -euo pipefail
-    QT_USERNAME=$QT_USERNAME QT_PASSWORD=$QT_PASSWORD \
+    QT_USERNAME=${QT_USERNAME:-} QT_PASSWORD=${QT_PASSWORD:-} \
     python3 contrib/setup/orchestrator.py qt --platform linux-x86
 
 setup-qt-linux-arm:
     #!/usr/bin/env bash
     set -euo pipefail
-    QT_USERNAME=$QT_USERNAME QT_PASSWORD=$QT_PASSWORD \
+    QT_USERNAME=${QT_USERNAME:-} QT_PASSWORD=${QT_PASSWORD:-} \
     python3 contrib/setup/orchestrator.py qt --platform linux-arm
 
 setup-qt-macos-x86:
     #!/usr/bin/env bash
     set -euo pipefail
-    QT_USERNAME=$QT_USERNAME QT_PASSWORD=$QT_PASSWORD \
+    QT_USERNAME=${QT_USERNAME:-} QT_PASSWORD=${QT_PASSWORD:-} \
     python3 contrib/setup/orchestrator.py qt --platform macos-x86
 
 setup-qt-macos-arm:
     #!/usr/bin/env bash
     set -euo pipefail
-    QT_USERNAME=$QT_USERNAME QT_PASSWORD=$QT_PASSWORD \
+    QT_USERNAME=${QT_USERNAME:-} QT_PASSWORD=${QT_PASSWORD:-} \
     python3 contrib/setup/orchestrator.py qt --platform macos-arm
 
 setup-qt-windows-x86:
