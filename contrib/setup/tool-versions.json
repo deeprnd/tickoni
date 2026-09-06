@@ -860,7 +860,8 @@
           "libgl1-mesa-dev",
           "libx11-dev",
           "libxext-dev",
-          "libxcb1-dev"
+          "libxcb1-dev",
+          "libxkbcommon-x11-dev"
         ]
       },
       "idempotent_check": "pkg-config --libs gl x11"
