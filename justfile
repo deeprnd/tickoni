@@ -421,10 +421,50 @@ build-fd-dev:
 build-all:
     {{ python }} contrib/tool/readme/run-badged-command.py build bash -c "just build-fd && just build-tk"
 
-# Qt terminal — CMake-based, independent of build.zig
+# Platform-specific Qt terminal build recipes (self-contained: setup + build).
+build-qt-linux-x86:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just setup-qt-linux-x86 && cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+
+build-qt-linux-arm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just setup-qt-linux-arm && cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+
+build-qt-macos-x86:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just setup-qt-macos-x86 && cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+
+build-qt-macos-arm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just setup-qt-macos-arm && cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+
+build-qt-windows-x86:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just setup-qt-windows-x86 && cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+
+build-qt-windows-arm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just setup-qt-windows-arm && cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+
+# Bare dispatcher; canonical platform recipes above are the implementation.
 build-qt:
-    cmake -S src/tickoni/terminal -B build/tickoni-terminal
-    cmake --build build/tickoni-terminal -j {{ cpu_count }}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ os }}-{{ arch }}" in
+      linux-x86) exec just build-qt-linux-x86 ;;
+      linux-arm) exec just build-qt-linux-arm ;;
+      macos-x86) exec just build-qt-macos-x86 ;;
+      macos-arm) exec just build-qt-macos-arm ;;
+      windows-x86) exec just build-qt-windows-x86 ;;
+      windows-arm) exec just build-qt-windows-arm ;;
+      *) echo "unsupported host platform for build-qt: {{ os }}-{{ arch }}" >&2; exit 1 ;;
+    esac
 
 # ── Clean ────────────────────────────────────────────────────────────────────
 

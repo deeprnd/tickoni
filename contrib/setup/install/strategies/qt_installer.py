@@ -266,7 +266,7 @@ class QtInstallerStrategy(InstallStrategy):
 
             parts = [
                 str(canonical),
-                f'--root {install_dir}',
+                f'--target-dir={install_dir}',
             ]
 
             # Global flags (must come before subcommand)
@@ -277,7 +277,7 @@ class QtInstallerStrategy(InstallStrategy):
 
             # Credential flags: only valid in CLI (headless) mode
             if qt_username and qt_password:
-                parts.extend(['--email', qt_username, '--pw', '***'])
+                parts.extend(['--username', qt_username, '--password', qt_password])
 
             parts.append(qt_module)
 

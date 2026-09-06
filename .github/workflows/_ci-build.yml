@@ -31,6 +31,7 @@ jobs:
             setup-fd: setup-fd-linux-x86-gcc
             build-recipe: build-fd-tk-libs
             build-tk-recipe: build-tk-linux-x86
+            build-qt-recipe: build-qt-linux-x86
           # Linux x86_64 (clang) — no conformance export
           - platform-name: Linux x86_64 (clang)
             runner: ubuntu-24.04
@@ -40,15 +41,18 @@ jobs:
             setup-fd: setup-fd-linux-x86-clang
             build-recipe: build-fd-tk-libs
             build-tk-recipe: build-tk-linux-x86
+            build-qt-recipe: build-qt-linux-x86
           # Linux ARM64 — no conformance export
           - platform-name: Linux ARM64
             runner: ubuntu-24.04-arm
             timeout_minutes: 30
             artifact-name: build-linux-arm
+            conformance-dir: linux
             setup-recipe: setup-build-linux-arm-gcc
             setup-fd: setup-fd-linux-arm-gcc
             build-recipe: build-fd-tk-libs
             build-tk-recipe: build-tk-linux-arm
+            build-qt-recipe: build-qt-linux-arm
           # macOS 15
           - platform-name: macOS 15 (x86_64)
             runner: macos-15-intel
@@ -59,6 +63,7 @@ jobs:
             setup-fd: setup-fd-macos-x86
             build-recipe: build-fd-macos-x86
             build-tk-recipe: build-tk-macos-x86
+            build-qt-recipe: build-qt-macos-x86
           - platform-name: macOS 15 (ARM)
             runner: macos-15
             timeout_minutes: 30
@@ -68,6 +73,7 @@ jobs:
             setup-fd: setup-fd-macos-arm
             build-recipe: build-fd-macos-arm
             build-tk-recipe: build-tk-macos-arm
+            build-qt-recipe: build-qt-macos-arm
           # macOS 26
           - platform-name: macOS 26 (x86_64)
             runner: macos-26-intel
@@ -78,6 +84,7 @@ jobs:
             setup-fd: setup-fd-macos-x86
             build-recipe: build-fd-macos-x86
             build-tk-recipe: build-tk-macos-x86
+            build-qt-recipe: build-qt-macos-x86
           - platform-name: macOS 26 (ARM)
             runner: macos-26
             timeout_minutes: 30
@@ -87,6 +94,7 @@ jobs:
             setup-fd: setup-fd-macos-arm
             build-recipe: build-fd-macos-arm
             build-tk-recipe: build-tk-macos-arm
+            build-qt-recipe: build-qt-macos-arm
           # Windows x86_64 — conformance uses x86 alias (matches justfile)
           - platform-name: Windows x86_64
             runner: windows-2025-vs2026
@@ -97,6 +105,7 @@ jobs:
             setup-fd: setup-fd-windows-x86
             build-recipe: build-fd-windows-x86
             build-tk-recipe: build-tk-windows-x86
+            build-qt-recipe: build-qt-windows-x86
           # Windows ARM64
           - platform-name: Windows ARM64
             runner: windows-11-vs2026-arm
@@ -107,6 +116,7 @@ jobs:
             setup-fd: setup-fd-windows-arm
             build-recipe: build-fd-windows-arm
             build-tk-recipe: build-tk-windows-arm
+            build-qt-recipe: build-qt-windows-arm
 
     steps:
       - name: Checkout
@@ -128,6 +138,9 @@ jobs:
 
       - name: Build Tickoni supervisor
         run: just ${{ matrix.build-tk-recipe }}
+
+      - name: Build Qt terminal
+        run: just ${{ matrix.build-qt-recipe }}
 
       - name: Export demo conformance bundle (Unix)
         if: matrix.conformance-dir != '' && runner.os != 'Windows'
