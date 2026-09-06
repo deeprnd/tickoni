@@ -25,19 +25,9 @@ test-integration-tk-macos-x86:
 test-integration-tk-macos-arm:
     ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
 
-# Bare dispatcher; canonical platform recipes are in build/linux.just, build/macos.just, build/windows.just.
+# Bare dispatcher; canonical platform recipes are in dispatch map.
 test-integration-tk:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case "{{ os }}-{{ arch }}" in
-      linux-x86) exec just test-integration-tk-linux-x86 ;;
-      linux-arm) exec just test-integration-tk-linux-arm ;;
-      macos-x86) exec just test-integration-tk-macos-x86 ;;
-      macos-arm) exec just test-integration-tk-macos-arm ;;
-      windows-x86) exec just test-integration-tk-windows-x86 ;;
-      windows-arm) exec just test-integration-tk-windows-arm ;;
-      *) echo "unsupported host platform for test-integration-tk: {{ os }}-{{ arch }}" >&2; exit 1 ;;
-    esac
+    bash scripts/dispatch test-integration-tk
 
 test-integration-all:
     {{ python }} contrib/tool/readme/run-badged-command.py integration bash -c "just test-integration-fd && just test-integration-tk"
