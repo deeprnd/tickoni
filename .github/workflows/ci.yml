@@ -203,6 +203,7 @@ jobs:
       needs.system.result == 'success' &&
       needs.demo.result == 'success'
     uses: ./.github/workflows/_ci-security-deep.yml
+    secrets: inherit
     with:
       check: sanitize-qt
 
