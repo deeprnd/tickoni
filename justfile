@@ -1,69 +1,4 @@
-# Prefer GNU Make 4.x (Homebrew installs it as `gmake` on macOS); fall back to `make`.
-# Firedancer's GNUmakefile uses `undefine`, which needs GNU Make >= 3.82.
-make := `command -v gmake || command -v make`
-# Resolve one usable Python command for all recipes, including Windows CI.
-python := `bash contrib/setup/python.sh`
-
-# ── Justfile Recipe Alias Convention ───────────────────────────────────────────
-# Every recipe category (build, test, setup, quality, security, etc.) has:
-#   1. A bare dispatcher (e.g. `build-tk:`) with a bash `case` that routes
-#      to the correct platform recipe based on `{{ os }}-{{ arch }}`.
-#   2. One canonical implementation per platform (e.g. `build-tk-linux-x86:`).
-#   3. Platform aliases that use make's `target: dependency` syntax to
-#      forward to a single canonical implementation — e.g.
-#        test-unit-tk-macos-x86: test-unit-tk-linux-x86
-#      This relies on GNU make recipe inheritance (not `just` alias syntax).
-#
-# RULES:
-#   - When adding a new platform, update the bare dispatcher's `case` AND
-#     create aliases for every existing category that has platform variants.
-#   - Only the canonical implementation has actual commands; aliases are
-#     zero-body forwarding lines of the form `alias-name: canonical-name`.
-#   - The `: alias` syntax here is make's target-dependency, NOT just's
-#     `alias = recipe` syntax — the distinction matters for shellcheck.
-#
-# To list all aliases in a category: just --list | grep '<category>'
-#
-
-# Firedancer/Tickoni build natively on Linux, macOS, and Windows.
-
-# Shared Firedancer lib definitions — used by contrib/build/fd-build-lib.sh and
-# contrib/security/security.sh. It provides:
-#   FD_TK_LIB_SRCS          source dirs for the 5 harness libs
-#   FD_TK_LIB_TEST_SRCS     + picohttpparser, blst, lz4, zstd, nanopb (for tests)
-#   FD_TK_LIB_COV_SRCS      core + cjson only (coverage)
-#   FD_TK_LIB_EXCLUDES      grep -vE pattern for non-linked subdirs
-#   FD_TK_LIBS              libfd_tango.a libfd_util.a libfd_ballet.a libfd_disco.a libfd_waltz.a
-#   FD_TK_LIBS_EXTRA        libfd_blst.a libfd_zstd.a libfd_lz4.a
-#   fd_compute_mks()        produce LOCAL_MKS from a source-dir list
-
-# Per-compiler build directories (kept for CI compatibility). Each Firedancer
-# build profile compiles to a different BUILDDIR/lib/ subtree.  *_build is the
-# short name passed to `make` as BUILDDIR (Firedancer prefixes `build/`); *_dir
-# is the complete path (used in `mkdir -p` and archive targets); *_lib is the
-# full lib/ subtree path.
-#
-# CI recipes (test-*, quality-*, security-*) reference these by name, so the
-# defaults here must stay in sync with what the CI workflows expect.
-fd_tickoni_build := "fd-tickoni-fd"
-fd_tickoni_dir := "build/fd-tickoni-fd"
-fd_tickoni_lib := "build/fd-tickoni-fd/lib"
-
-fd_gcc_build := "fd-gcc"
-fd_gcc_dir := "build/fd-gcc"
-fd_gcc_lib := "build/fd-gcc/lib"
-
-fd_clang_build := "fd-clang"
-fd_clang_dir := "build/fd-clang"
-fd_clang_lib := "build/fd-clang/lib"
-
-fd_arm_build := "fd-arm"
-fd_arm_dir := "build/fd-arm"
-fd_arm_lib := "build/fd-arm/lib"
-
-fd_cov_build := "fd-cov"
-fd_cov_dir := "build/fd-cov"
-fd_cov_lib := "build/fd-cov/lib"
+#!/usr/bin/env just
 
 default:
     @just --list
@@ -71,20 +6,20 @@ default:
 help:
     @just --list
 
-# ── Minimal CI setup recipes ─────────────────────────────────────────────────
-# Each workflow calls the minimal recipe that installs only what it needs.
-# This avoids over-installing tools like quality/lint/Go when only gitleaks
-# or a build toolchain is required.
+set export
 
-# Build-only: compilers + build infra (no zig, no ssl, no quality, no secrets)
-setup-build-linux-x86-gcc:
-    python3 contrib/setup/orchestrator.py build
+import "just/common.just"
 
-setup-build-linux-x86-clang:
-    python3 contrib/setup/orchestrator.py build
+import "just/build/linux.just"
+import "just/build/macos.just"
+import "just/build/windows.just"
+import "just/build/all.just"
 
-setup-build-macos-x86:
-    python3 contrib/setup/orchestrator.py build
+import "just/test/unit.just"
+import "just/test/integration.just"
+import "just/test/demo.just"
+import "just/test/system.just"
+import "just/test/coverage.just"
 
 setup-build-macos-arm:
     python3 contrib/setup/orchestrator.py build
@@ -1123,3 +1058,6 @@ kill-test:
         exit 1
         ;;
     esac
+
+import "just/quality.just"
+import "just/security.just"
