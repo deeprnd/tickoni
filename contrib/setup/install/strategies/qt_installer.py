@@ -278,7 +278,7 @@ class QtInstallerStrategy(InstallStrategy):
 
             # Credential flags: only valid in CLI (headless) mode
             if qt_username and qt_password:
-                parts.extend(['--username', qt_username, '--pw', qt_password])
+                parts.extend(['--email', qt_username, '--pw', qt_password])
 
             parts.append(qt_module)
 
