@@ -2,7 +2,7 @@
 
 # Bare dispatcher; canonical platform/compiler recipes are in dispatch map.
 build-tk:
-    bash scripts/dispatch build-tk
+    python3 scripts/dispatch build-tk
 
 # tickoni_fd machine profile: builds only the 5 Firedancer libraries
 # Tickoni reuses (tango, util, ballet, disco, waltz). Excludes
@@ -19,7 +19,7 @@ build-fd-tk-libs: build-fd
 
 # Bare dispatcher; canonical platform/compiler recipes are in dispatch map.
 build-fd:
-    bash scripts/dispatch build-fd
+    python3 scripts/dispatch build-fd
 
 # Compatibility aliases retained for S6/documentation migration.
 build-fd-gcc: build-fd-linux-x86-gcc

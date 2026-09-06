@@ -27,7 +27,7 @@ test-integration-tk-macos-arm:
 
 # Bare dispatcher; canonical platform recipes are in dispatch map.
 test-integration-tk:
-    bash scripts/dispatch test-integration-tk
+    python3 scripts/dispatch test-integration-tk
 
 test-integration-all:
     {{ python }} contrib/tool/readme/run-badged-command.py integration bash -c "just test-integration-fd && just test-integration-tk"

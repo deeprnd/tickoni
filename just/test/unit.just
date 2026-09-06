@@ -17,8 +17,8 @@ test-unit-all:
 
 # Bare dispatcher; canonical platform recipes are in dispatch map.
 test-unit-tk:
-    bash scripts/dispatch test-unit-tk
+    python3 scripts/dispatch test-unit-tk
 
 # Bare dispatcher; canonical platform recipes are in dispatch map.
 test-unit-fd:
-    bash scripts/dispatch test-unit-fd
+    python3 scripts/dispatch test-unit-fd
