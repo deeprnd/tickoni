@@ -261,13 +261,13 @@ class QtInstallerStrategy(InstallStrategy):
             # ── Build install command with unattended flags ───────────────────
             # Credentials: QT_USERNAME + QT_PASSWORD env vars (CI/local).
             # --pw expects the Qt Online Installer password, not an API token.
-            # Qt CLI syntax: installer --root DIR --accept-licenses ... install --email user --pw pass MODULE
+            # Qt CLI syntax: installer --root DIR --accept-licenses ... install --username user --pw pass MODULE
             qt_username = os.environ.get('QT_USERNAME', '')
             qt_password = os.environ.get('QT_PASSWORD', '')
 
             parts = [
                 str(canonical),
-                f'--target-dir={install_dir}',
+                f'--root={install_dir}',
             ]
 
             # Global flags (must come before subcommand)
@@ -278,7 +278,7 @@ class QtInstallerStrategy(InstallStrategy):
 
             # Credential flags: only valid in CLI (headless) mode
             if qt_username and qt_password:
-                parts.extend(['--username', qt_username, '--password', qt_password])
+                parts.extend(['--username', qt_username, '--pw', qt_password])
 
             parts.append(qt_module)
 
