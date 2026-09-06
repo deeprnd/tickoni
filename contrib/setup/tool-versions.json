@@ -861,7 +861,18 @@
           "libx11-dev",
           "libxext-dev",
           "libxcb1-dev",
-          "libxkbcommon-x11-dev"
+          "libxkbcommon-x11-dev",
+          "libxcb-cursor0",
+          "libxcb-icccm1",
+          "libxcb-image0",
+          "libxcb-keysyms1",
+          "libxcb-render-util0",
+          "libxcb-randr0",
+          "libxcb-shape0",
+          "libxcb-util1",
+          "libxcb-xfixes0",
+          "libxcb-xinerama0",
+          "libxcb-xkb1"
         ]
       },
       "idempotent_check": "pkg-config --libs gl x11"
