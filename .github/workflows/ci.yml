@@ -76,6 +76,7 @@ jobs:
       needs.quality.result == 'success' &&
       needs.security-secrets.result == 'success'
     uses: ./.github/workflows/_ci-build.yml
+    secrets: inherit
 
   # ── UNIT: component tests per platform (downloads build artifact) ────────
   unit:
