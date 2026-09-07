@@ -1,0 +1,44 @@
+# Badge Update workflow — triggered after ci.yml completes on main.
+# Reads CI check-run statuses via GitHub REST API, constructs dynamic
+# shields.io URLs, and rewrites README.md between marker comments.
+#
+# Uses workflow_run (not push) to avoid infinite commit loops.
+# Parent-commit walk finds last successful merge, not just the latest.
+#
+# Reference: doc/execution/plans/v2.10-s10.md
+#
+---
+name: Badge Update
+
+'on':
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  update-badges:
+    name: Update Badges
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: >-
+      github.event.workflow_run.conclusion == 'success' ||
+      github.event.workflow_run.conclusion == 'failure'
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update badges
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 contrib/tool/readme/badge_updater.py \
+            "${{ github.event.workflow_run.head_sha }}"
