@@ -238,6 +238,16 @@ def cmd_build_fd(args, config: dict) -> None:
         if mode != "libs":
             print("[+] retrying without EXTRAS", file=sys.stderr)
             cmd_no_extras = [c for c in cmd if not c.startswith("EXTRAS=")]
+            # Strip extra-lib targets (blst/zstd/lz4) that require EXTRAS
+            # to define their custom build rules.  Without EXTRAS those
+            # with-*.mk fragments are not included and make falls back to
+            # the generic %.a rule with zero prerequisites, causing
+            # "ar: no archive members specified".
+            extra_set = set(config["libs"]["test"])
+            cmd_no_extras = [
+                c for c in cmd_no_extras
+                if not any(c.endswith(f"/{lib}") for lib in extra_set)
+            ]
             # Remove stale libs again for retry
             for lib in config["libs"]["test"] + libs:
                 fp = os.path.join(lib_dir, lib)
