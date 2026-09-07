@@ -1,8 +1,4 @@
-#if FD_HAS_THREADS /* THREADS implies HOSTED */
-#define _GNU_SOURCE
-#endif
-
-/* Platform compat stubs for mmap constants — needed before sys/mman.h on macOS */
+/* Platform compat stubs for mmap constants — before any includes that might pull sys/mman.h */
 #ifndef MAP_ANONYMOUS
 #define MAP_ANONYMOUS 0x1000
 #endif
@@ -16,6 +12,7 @@
 #define MAP_HUGE_1GB (30 << 26)
 #endif
 
+/* Feature-test macros are defined in fd_shmem_private.h */
 #include "fd_shmem_private.h"
 
 /* Portable APIs */
