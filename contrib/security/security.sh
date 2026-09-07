@@ -159,20 +159,21 @@ cmd_sanitize_check_qt() {
   esac
   run_step "setup qt6" just "$qt_setup"
 
-  rm -rf build/tickoni-terminal-sanitize
+  rm -rf build/tickoni-terminal
   local _qt6_dir
   _qt6_dir="$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)"
   if [ -z "$_qt6_dir" ]; then
     echo "sanitize-check-qt: could not find Qt6 install prefix" >&2
     exit 1
   fi
+  export CMAKE_PREFIX_PATH="$_qt6_dir"
   run_step "qt cmake sanitize configure" \
-    CMAKE_PREFIX_PATH="$_qt6_dir" cmake -S src/tickoni/terminal -B build/tickoni-terminal-sanitize \
+    cmake -S src/tickoni/terminal -B build/tickoni-terminal \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo \
       -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -g" \
       -DCMAKE_C_FLAGS="-fsanitize=address,undefined -g"
   run_step "qt cmake build" \
-    cmake --build build/tickoni-terminal-sanitize -j "$(nproc)"
+    cmake --build build/tickoni-terminal -j "$(nproc)"
 }
 
 cmd_seccomp_check_qt() {
