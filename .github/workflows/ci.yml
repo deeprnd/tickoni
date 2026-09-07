@@ -4,8 +4,9 @@
 #
 # Execution order:
 #   (quality, security-secrets) -> build (matrix) -> project-build (aggregate)
-#     -> unit tests -> (integration, system, demo) -> project-tests (aggregate)
-#     -> (conformance, coverage, security-deep) -> project-security (aggregate)
+#     -> unit tests -> (integration, system, demo, coverage in parallel)
+#     -> conformance (after demo) + project-tests (after integration+system+demo)
+#     -> security-deep (after project-tests) -> project-security (aggregate)
 #     -> ci-required
 #
 # Dev Setup Validation runs standalone: weekly on Mondays + on-demand via
@@ -128,6 +129,26 @@ jobs:
       needs.unit.result == 'success'
     uses: ./.github/workflows/_ci-demo.yml
 
+  # ── COVERAGE: Tickoni harness coverage (parallel with integration/system/demo) ──
+  coverage:
+    name: Tests / Coverage
+    needs: [plan, project-build]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.project-build.result == 'success'
+    uses: ./.github/workflows/_ci-coverage.yml
+
+  # ── CONFORMANCE: cross-platform binary comparison (after demo) ───────────
+  conformance:
+    name: Tests / Conformance
+    needs: [plan, demo]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.demo.result == 'success'
+    uses: ./.github/workflows/_ci-conformance.yml
+
   # ── PROJECT TESTS: aggregated test gate ───────────────────────────────────
   project-tests:
     name: Project Tests
@@ -145,28 +166,6 @@ jobs:
     steps:
       - name: Project Tests aggregated
         run: echo done
-
-  # ── CONFORMANCE: cross-platform binary comparison ────────────────────────
-  conformance:
-    name: Tests / Conformance
-    needs: [plan, project-build, project-tests]
-    if: >-
-      always() &&
-      needs.plan.outputs.core == 'true' &&
-      needs.project-build.result == 'success' &&
-      needs.project-tests.result == 'success'
-    uses: ./.github/workflows/_ci-conformance.yml
-
-  # ── COVERAGE: Tickoni harness coverage ────────────────────────────────────
-  coverage:
-    name: Tests / Coverage
-    needs: [plan, project-build, project-tests]
-    if: >-
-      always() &&
-      needs.plan.outputs.core == 'true' &&
-      needs.project-build.result == 'success' &&
-      needs.project-tests.result == 'success'
-    uses: ./.github/workflows/_ci-coverage.yml
 
   # ── SECURITY / DEEP: 4 parallel sub-checks (sanitize, seccomp, proof, engine) ──
   security-deep-sanitize:
@@ -297,8 +296,7 @@ jobs:
           # If core=false, all non-plan jobs should be skipped.
           if [ "${{ needs.plan.outputs.core }}" = "false" ]; then
             expected_skipped=5 # quality, security-secrets, project-build, project-tests, project-security
-            # Count skipped: quality + security-secrets + project-build +
-            #               project-tests + project-security
+            # Count skipped
             skipped=0
             for job in quality security-secrets project-build project-tests project-security; do
               case "$job" in
