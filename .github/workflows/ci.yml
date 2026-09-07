@@ -140,12 +140,14 @@ jobs:
   # ── COVERAGE: Tickoni harness coverage (parallel with security-deep) ─────
   coverage:
     name: Tests / Coverage
-    needs: [plan, build, unit]
+    needs: [plan, build, integration, system, demo]
     if: >-
       always() &&
       needs.plan.outputs.core == 'true' &&
       needs.build.result == 'success' &&
-      needs.unit.result == 'success'
+      needs.integration.result == 'success' &&
+      needs.system.result == 'success' &&
+      needs.demo.result == 'success'
     uses: ./.github/workflows/_ci-coverage.yml
 
   # ── SECURITY / DEEP: 4 parallel sub-checks (sanitize, seccomp, proof, engine) ──
@@ -239,10 +241,11 @@ jobs:
   # ── PROJECT TESTS: aggregated test badge ──────────────────────────────────
   project-tests:
     name: Project Tests
-    needs: [plan, unit, integration, system, demo, conformance, coverage]
+    needs: [plan, project-build, unit, integration, system, demo, conformance, coverage]
     if: >-
       always() &&
       needs.plan.outputs.core == 'true' &&
+      needs.project-build.result == 'success' &&
       needs.unit.result == 'success' &&
       needs.integration.result == 'success' &&
       needs.system.result == 'success' &&
