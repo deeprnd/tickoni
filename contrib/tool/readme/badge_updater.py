@@ -16,6 +16,7 @@ Usage (reset all badges to unknown):
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import urllib.error
@@ -409,6 +410,12 @@ def main() -> None:
 
     if not args.sha:
         print("Usage: badge_updater.py <commit-sha> [--dry-run]", file=sys.stderr)
+        sys.exit(1)
+
+    # Validate SHA format (SEC-03 remediation)
+    if not re.match(r'^[0-9a-f]{40}$', args.sha):
+        print(f"ERROR: Invalid SHA format: {args.sha!r}", file=sys.stderr)
+        print("SHA must be a 40-character lowercase hex string.", file=sys.stderr)
         sys.exit(1)
 
     # Read repo info from environment (set by GitHub Actions)
