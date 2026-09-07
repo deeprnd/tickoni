@@ -687,13 +687,15 @@ pub fn build(b: *std.Build) void {
         // This avoids Zig's --listen=- parallel coordination which panics
         // with EndOfStream when 48+ test binaries communicate over the same pipe.
         const run_tests_cmd = std.Build.Step.Run.create(b, "run-tests");
-        // Use absolute path from build_root so the script works regardless of zig's working directory.
-        // b.build_root is already absolute (set during graph construction).
+        // Use absolute path so the script works regardless of zig's working directory.
+        // In Zig 0.17, b.root is a Cache.Path; use toString() to get a string path.
+        const build_root_str = b.root.toString(b.allocator) catch unreachable;
+        defer b.allocator.free(build_root_str);
         var script_buf: [4096]u8 = undefined;
         const full_script_path = std.fmt.bufPrint(
             &script_buf,
             "{s}/contrib/test/run_test_series.sh",
-            .{b.build_root},
+            .{build_root_str},
         ) catch unreachable;
         run_tests_cmd.addArgs(&[_][]const u8{
             "bash",
