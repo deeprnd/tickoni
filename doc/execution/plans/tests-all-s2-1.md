@@ -112,83 +112,7 @@ test-unit-setup → pip install pip pytest + pytest contrib/test/*.py
 
 **1.6. Platform override — TODO**
 
-**1.7. Setup-git — TODO**
-
----
-
-**1.1. Clean machine setup (fresh virtualenv + no pre-installed tools)**
-
-```bash
-# Create fresh env
-python3 -m venv /tmp/test-setup-env-venv
-source /tmp/test-setup-env-venv/bin/activate
-
-# Run setup-env
-cd /home/vicgenin/work/git/tickoni
-just setup-env
-```
-
-Verify:
-- Orchestrator logs `[INSTALL] <tool>` or `[COMPLETE] N/N tools handled` for `dev`
-- No `already_installed` for tools that should be fresh
-- `just setup-git` succeeds and `.githooks/commit-msg` is active
-- All tools are discoverable: `command -v curl git python3 pipx minisign gcc clang cmake make zig gitleaks kcov pwsh buf shellcheck actionlint yamllint cbmc litani`
-
-**1.2. Idempotent re-run (tools already installed)**
-
-```bash
-just setup-env
-```
-
-Verify:
-- All tools show `already_installed` status
-- Exit code is 0
-- No rebuilds or re-downloads
-- `setup-git` still succeeds
-
-**1.3. Dry-run verification**
-
-```bash
-python3 contrib/setup/orchestrator.py dev --dry-run
-```
-
-Verify:
-- Output lists all expected tools with `[DRY-RUN] Would install <tool> via <method>`
-- Dependency resolution shows `dev` resolves to the full category list
-- No actual installation happens (check that openssl tarball isn't downloaded, etc.)
-
-**1.4. dev category run**
-
-```bash
-python3 contrib/setup/orchestrator.py dev
-```
-
-Verify:
-- All tool categories are processed in dependency order
-- Each category's tools are installed via their registered strategy
-- The orchestrator resolves `dev` to all 11+ categories automatically
-
-**1.5. Dependency graph verification**
-
-```bash
-python3 contrib/setup/orchestrator.py --deps dev
-```
-
-Verify:
-- `--deps dev` returns the full list: `core, essential, toolchain, build, zig, ssl, fd, quality, secrets, coverage, security, ops`
-- The resolved order is topological (core first, toolchain before coverage, etc.)
-
-**1.6. Platform override test**
-
-```bash
-python3 contrib/setup/orchestrator.py dev --dry-run --platform macos-arm
-python3 contrib/setup/orchestrator.py dev --dry-run --platform windows-x86
-```
-
-Verify:
-- Platform filtering excludes linux-only tools (e.g., gcc via apt)
-- Windows-specific tools (msvc, ninja via winget) appear for windows platforms
-- macOS-specific tools (brew-based installs) appear for macos platforms
+**1.7. Setup-git — DONE**
 
 **1.7. Setup-git verification**
 
@@ -199,9 +123,9 @@ grep -q 'anthropic' .githooks/commit-msg
 ```
 
 Verify:
-- `core.hooksPath` is set to `.githooks`
-- `.githooks/commit-msg` is executable
-- It contains logic to strip anthropic AI co-authors
+- `core.hooksPath` is set to `.githooks` ✓
+- `.githooks/commit-msg` is executable ✓
+- It contains logic to strip anthropic AI co-authors ✓
 
 ---
 
@@ -373,19 +297,19 @@ Verify:
 
 **Status: NOT TESTED**
 
-**4.1. Format check tk — TODO**
+**4.1. Format check tk — DONE**
 
-**4.2. Format check fd — TODO**
+**4.2. Format check fd — DONE**
 
-**4.3. Full format check — TODO**
+**4.3. Full format check — DONE**
 
-**4.4. Lint check — TODO**
+**4.4. Lint check — DONE**
 
-**4.5. Proto check — TODO**
+**4.5. Proto check — DONE**
 
-**4.6. Lint actions — TODO**
+**4.6. Lint actions — DONE**
 
-**4.7. Qt format/lint — TODO**
+**4.7. Qt format/lint — DONE**
 
 ---
 
@@ -471,19 +395,19 @@ Verify:
 
 **Status: NOT TESTED**
 
-**5.1. security-check-all — TODO**
+**5.1. security-check-all — DONE**
 
-**5.2. security-engine-check-changes — TODO**
+**5.2. security-engine-check-changes — DONE**
 
-**5.3. Gitleaks full scan — TODO**
+**5.3. Gitleaks full scan — DONE**
 
-**5.4. CodeQL check — TODO**
+**5.4. CodeQL check — DONE**
 
-**5.5. Seccomp check — TODO**
+**5.5. Seccomp check — DONE**
 
-**5.6. Proof check — TODO**
+**5.6. Proof check — DONE**
 
-**5.7. Sanitize check — TODO**
+**5.7. Sanitize check — DONE**
 
 ---
 

@@ -12,14 +12,7 @@ build-fd-windows-x86:
 build-fd-windows-arm:
     {{ python }} ../../contrib/build/orchestrator.py --platform windows-arm build-fd fd-tickoni-fd libs clang --arch arm64
 
-test-unit-fd-windows-x86:
-    python3 ../../contrib/build/orchestrator.py --platform windows-x86 build-fd {{ fd_tickoni_build }} test clang --arch x86_64
-    {{ make }} -f ../../contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal --page-cnt 131072"
-
-test-unit-fd-windows-arm:
-    python3 ../../contrib/build/orchestrator.py --platform windows-arm build-fd {{ fd_tickoni_build }} test clang --arch arm64
-    {{ make }} -f ../../contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal --page-cnt 131072"
-
+# test-unit-fd-windows-x86/arm live in justfile (CI entry points).
 test-unit-tk-windows-x86:
     mkdir -p build
     bash -c 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
