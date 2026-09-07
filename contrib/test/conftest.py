@@ -1,6 +1,6 @@
 """Monkey-patch pytest bestrelpath to avoid a crash on Windows CI.
 
-In pytest 8.3.4 the terminal reporter calls ``bestrelpath(invocation_params.dir,
+In pytest 8.3.x the terminal reporter calls ``bestrelpath(invocation_params.dir,
 fullpath)`` to build the location line.  When both resolve to the same
 absolute path (which happens when ``pytest contrib/test/`` is invoked from the
 repo root on Windows), ``Path.relative_to`` raises::
