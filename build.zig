@@ -687,9 +687,18 @@ pub fn build(b: *std.Build) void {
         // This avoids Zig's --listen=- parallel coordination which panics
         // with EndOfStream when 48+ test binaries communicate over the same pipe.
         const run_tests_cmd = std.Build.Step.Run.create(b, "run-tests");
-        run_tests_cmd.addArgs(&.{ "bash", "contrib/test/run_test_series.sh" });
-        run_tests_cmd.step.dependOn(test_step);
-        run_tests_step.dependOn(&run_tests_cmd.step);
+        // Use absolute path from build_root so the script works regardless of zig's working directory.
+        // b.build_root is already absolute (set during graph construction).
+        var script_buf: [4096]u8 = undefined;
+        const full_script_path = std.fmt.bufPrint(
+            &script_buf,
+            "{s}/contrib/test/run_test_series.sh",
+            .{b.build_root},
+        ) catch unreachable;
+        run_tests_cmd.addArgs(&[_][]const u8{
+            "bash",
+            full_script_path,
+        });
 
         // Files with no cross-module imports: standalone test binaries.
         for ([_][]const u8{
