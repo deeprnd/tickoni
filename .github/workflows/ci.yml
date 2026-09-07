@@ -228,11 +228,7 @@ jobs:
   project-build:
     name: Project Build
     needs: [plan, build]
-    if: >-
-      always() &&
-      needs.plan.outputs.core == 'true' &&
-      needs.build.result == 'success' ||
-      (needs.plan.outputs.core == 'false' && needs.build.result == 'skipped')
+    if: ${{ always() && ((needs.plan.outputs.core == 'true' && needs.build.result == 'success') || (needs.plan.outputs.core == 'false' && needs.build.result == 'skipped')) }}
     runs-on: ubuntu-24.04
     steps:
       - name: Project Build aggregated
@@ -242,17 +238,7 @@ jobs:
   project-tests:
     name: Project Tests
     needs: [plan, project-build, unit, integration, system, demo, conformance, coverage]
-    if: >-
-      always() &&
-      needs.plan.outputs.core == 'true' &&
-      needs.project-build.result == 'success' &&
-      needs.unit.result == 'success' &&
-      needs.integration.result == 'success' &&
-      needs.system.result == 'success' &&
-      needs.demo.result == 'success' &&
-      needs.conformance.result == 'success' &&
-      needs.coverage.result == 'success' ||
-      (needs.plan.outputs.core == 'false' && needs.unit.result == 'skipped')
+    if: ${{ always() && ((needs.plan.outputs.core == 'true' && needs.project-build.result == 'success' && needs.unit.result == 'success' && needs.integration.result == 'success' && needs.system.result == 'success' && needs.demo.result == 'success' && needs.conformance.result == 'success' && needs.coverage.result == 'success') || (needs.plan.outputs.core == 'false' && needs.unit.result == 'skipped')) }}
     runs-on: ubuntu-24.04
     steps:
       - name: Project Tests aggregated
@@ -266,16 +252,7 @@ jobs:
        security-deep-sanitize, security-deep-seccomp,
        security-deep-proof, security-deep-engine,
        security-deep-sanitize-qt]
-    if: >-
-      always() &&
-      needs.plan.outputs.core == 'true' &&
-      needs.security-secrets.result == 'success' &&
-      needs.security-deep-sanitize.result == 'success' &&
-      needs.security-deep-seccomp.result == 'success' &&
-      needs.security-deep-proof.result == 'success' &&
-      needs.security-deep-engine.result == 'success' &&
-      needs.security-deep-sanitize-qt.result == 'success' ||
-      (needs.plan.outputs.core == 'false' && needs.security-secrets.result == 'skipped')
+    if: ${{ always() && ((needs.plan.outputs.core == 'true' && needs.security-secrets.result == 'success' && needs.security-deep-sanitize.result == 'success' && needs.security-deep-seccomp.result == 'success' && needs.security-deep-proof.result == 'success' && needs.security-deep-engine.result == 'success' && needs.security-deep-sanitize-qt.result == 'success') || (needs.plan.outputs.core == 'false' && needs.security-secrets.result == 'skipped')) }}
     runs-on: ubuntu-24.04
     steps:
       - name: Project Security aggregated
