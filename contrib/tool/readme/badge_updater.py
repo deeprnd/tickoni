@@ -168,8 +168,8 @@ def find_last_successful_sha(
 # ── badge resolution ─────────────────────────────────────────────────────────
 
 def _encode_segment(value: str) -> str:
-    """Percent-encode a badge URL segment (space and percent only)."""
-    return value.replace(" ", "%20").replace("%", "%25")
+    """Percent-encode a badge URL segment (percent, then space)."""
+    return value.replace("%", "%25").replace(" ", "%20")
 
 
 def _coverage_color(pct: float) -> str:
