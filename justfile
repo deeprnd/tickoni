@@ -29,7 +29,7 @@ import "just/test/coverage.just"
 test-unit-fd-linux-x86-gcc:
     #!/usr/bin/env bash
     set -euo pipefail
-    ulimit -l 2097152
+    ulimit -l 2097152 || true
     timeout=600
     python3 contrib/build/orchestrator.py --platform linux-x86 build-fd {{ fd_tickoni_build }} test gcc-12
     eval "$(python3 contrib/test/orchestrator.py dynamic-test-opts | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
@@ -40,7 +40,7 @@ test-unit-fd-linux-x86-gcc:
 test-unit-fd-linux-arm-gcc:
     #!/usr/bin/env bash
     set -euo pipefail
-    ulimit -l 2097152
+    ulimit -l 2097152 || true
     timeout=600
     python3 contrib/build/orchestrator.py --platform linux-arm build-fd {{ fd_tickoni_build }} test gcc-14
     eval "$(python3 contrib/test/orchestrator.py dynamic-test-opts | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
