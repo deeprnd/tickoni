@@ -35,6 +35,21 @@ def start_server(llama_dir, model_dir, model_file, endpoint, port):
     pid_file = pid_file_path()
     log_file = log_file_path()
 
+    # Canonicalize paths to resolve symlinks and prevent traversal outside
+    # expected directories (CVE-style path-canonicalization guard).
+    server_bin_real = os.path.realpath(server_bin)
+    model_path_real = os.path.realpath(model_path)
+    llama_dir_real = os.path.realpath(llama_dir)
+    model_dir_real = os.path.realpath(model_dir)
+
+    if not server_bin_real.startswith(llama_dir_real + os.sep) and server_bin_real != llama_dir_real:
+        print(f"ERROR: server binary path escapes llama_dir ({server_bin_real!r})", file=sys.stderr)
+        return 1
+
+    if not model_path_real.startswith(model_dir_real + os.sep) and model_path_real != model_dir_real:
+        print(f"ERROR: model path escapes model_dir ({model_path_real!r})", file=sys.stderr)
+        return 1
+
     if not os.path.isfile(server_bin):
         print(f"ERROR: llama-server binary not found at {server_bin}", file=sys.stderr)
         print("Run: python3 ../setup/orchestrator.py llm-server", file=sys.stderr)

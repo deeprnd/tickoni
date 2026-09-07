@@ -1,6 +1,9 @@
 """Regression tests for native setup shell selection."""
 
-from pathlib import Path
+import sys
+from pathlib import Path, PureWindowsPath
+
+import pytest
 
 from contrib.setup import shell
 
@@ -11,14 +14,11 @@ def test_non_windows_uses_bash(monkeypatch):
     assert shell.bash_command() == "bash"
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="requires Windows pathlib")
 def test_windows_skips_wsl_launcher(monkeypatch, tmp_path):
-    git_root = tmp_path / "Git"
+    git_root = PureWindowsPath("C:\\Program Files\\Git")
     git_bash = git_root / "usr" / "bin" / "bash.exe"
-    git_bash.parent.mkdir(parents=True)
-    git_bash.touch()
     git_exe = git_root / "cmd" / "git.exe"
-    git_exe.parent.mkdir()
-    git_exe.touch()
 
     def which(command):
         if command in ("bash.exe", "bash"):

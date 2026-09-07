@@ -28,12 +28,16 @@ jobs:
             command: just quality-proto-check-linux-x86
             timeout_minutes: 10
           - name: YAML Check
-            command: just quality-yaml-check-linux-x86
+            command: just quality-yaml-check-linux
             timeout_minutes: 10
           - name: Spell Check
-            command: just quality-spell-check-linux-x86
+            command: just quality-spell-check-linux
             timeout_minutes: 10
             skip: true
+          - name: Qt Quality Check
+            command: just quality-format-check-qt && just quality-lint-check-qt
+            timeout_minutes: 15
+            skip: true  # off by default until Qt6 is available on CI runners
     steps:
       - name: Checkout
         uses: actions/checkout@v7

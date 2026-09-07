@@ -7,7 +7,9 @@ name = "tickoni-python-dev-tools"
 version = "0.1.0"
 description = "Python dependency manifest for Tickoni developer tooling"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+  "python-dotenv>=1.0,<2",
+]
 
 [project.optional-dependencies]
 dev = [

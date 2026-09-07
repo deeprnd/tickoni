@@ -32,8 +32,8 @@ The JSON file is the complete source of truth:
 - **`tools`** — each tool declares:
   - `category`: owning category.
   - `platform`: `all`, `linux-x86`, `macos-arm`, etc.
-  - `install_method`: `apt`, `brew`, `winget`, `pip`, `pipx`, `go_install`, `github_release`, `binary_download`, `python_script`, `install_zig`, `build_from_source`, `none`.
-  - `parameters`: method-specific (e.g., `package`, `module`, `owner`/`repo` for GitHub releases).
+  - `install_method`: a strategy name (`apt`, `brew`, `winget`, `pip`, `pipx`, `go_install`, `github_release`, `binary_download`, `python_script`, `install_zig`, `build_from_source`, `none`), **or** an OS→strategy map for a cross-platform tool installed by a different package manager per platform, e.g. `{ "linux": "apt", "macos": "brew", "windows": "winget" }`. The orchestrator selects the entry for the target platform.
+  - `parameters`: method-specific (e.g., `package`, `module`, `owner`/`repo` for GitHub releases). For an OS→strategy map, `package` is the apt/brew name and `winget_id` is the WinGet package ID.
   - `idempotent_check`: shell command to verify installation (e.g., `command -v zig`).
   - `version_ref`: optional reference to `versions` section.
 
@@ -41,9 +41,9 @@ The JSON file is the complete source of truth:
 
 | Method | Description | Parameters |
 |--------|-------------|------------|
-| `apt` | `apt-get install` | `package`: apt package name |
-| `brew` | `brew install` | `package`: brew formula name |
-| `winget` | `winget install` | `package`: winget package ID |
+| `apt` | `apt-get install` (Linux) | `package` / `packages`: apt package name(s) |
+| `brew` | `brew install --formula` (macOS) | `package` / `packages`: Homebrew formula name(s) |
+| `winget` | `winget install` (Windows) | `winget_id` (falls back to `package`): WinGet package ID; `override`: raw installer args |
 | `pip` | `pip install` | `package`: pip package name |
 | `pipx` | `pipx install` | `package`: pipx package name |
 | `go_install` | `go install` | `module`: Go module path |

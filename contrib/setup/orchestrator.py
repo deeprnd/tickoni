@@ -15,6 +15,11 @@ import argparse
 import os
 import sys
 
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = lambda *a, **k: None
+
 
 # Ensure the setup directory is on sys.path so that
 # `import config`, `import install`, etc. work regardless of cwd.
@@ -27,9 +32,34 @@ if _script_dir not in sys.path:
 
 from config import load_config, env_flag
 from resolver import DependencyResolver
-from platform import matches_platform, detect_platform
+from platform import matches_platform, detect_platform, get_platform_from_string
 from install import get as get_strategy
 from install.checks import build_check
+
+
+def _resolve_install_method(method, platform_str: str, tool_name: str) -> str:
+    """Pick the concrete install strategy for the target platform.
+
+    ``install_method`` is normally a strategy name (``"apt"``, ``"brew"``,
+    ``"winget"``, ``"pip"``, ...). A tool available on several platforms via
+    different system package managers instead maps OS → strategy, e.g.
+    ``{"linux": "apt", "macos": "brew", "windows": "winget"}``. Choosing one for
+    this run is orchestrator logic; the strategies stay single-purpose.
+    """
+    if isinstance(method, str):
+        return method
+    if not isinstance(method, dict):
+        raise KeyError(f"{tool_name}: install_method must be a string or an OS map")
+    os_name, _ = get_platform_from_string(platform_str)
+    if os_name == 'darwin':
+        os_name = 'macos'
+    selected = method.get(os_name)
+    if not selected:
+        raise KeyError(
+            f"{tool_name}: install_method has no entry for '{os_name}' "
+            f"(platform '{platform_str}'); has {sorted(method)}"
+        )
+    return selected
 
 
 # ── Orchestrator Facade ──────────────────────────────────────────────────────
@@ -55,7 +85,11 @@ class Orchestrator:
     def _install_tool(self, tool: dict, platform_str: str, dry_run: bool, skip_idempotency: bool = False) -> dict:
         """Install a single tool using the strategy registry and command pattern."""
         name = tool['name']
-        method = tool['install_method']
+        try:
+            method = _resolve_install_method(tool['install_method'], platform_str, name)
+        except KeyError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return {'tool': name, 'status': 'error', 'error': str(e)}
 
         # Idempotency check via Command pattern.
         # For install_zig, skip the idempotency shortcut — we need to write
@@ -63,7 +97,7 @@ class Orchestrator:
         # installed. build_from_source and binary_download use their
         # idempotent_check like normal methods.
         skip_path = method not in ('install_zig',)
-        check_cmd = build_check(tool)
+        check_cmd = build_check(tool, platform_str)
         if check_cmd and check_cmd.is_satisfied() and skip_path and not skip_idempotency:
             return {'tool': name, 'status': 'already_installed'}
 
@@ -87,6 +121,11 @@ class Orchestrator:
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
+    # Load .env file into environment if it exists (local dev credentials).
+    # CI: secrets (QT_USERNAME, QT_PASSWORD) are already in the runner env.
+    _repo_root = os.path.dirname(os.path.dirname(_script_dir))
+    load_dotenv(os.path.join(_repo_root, '.env'), override=False)
+
     parser = argparse.ArgumentParser(description='CI tool orchestrator')
     parser.add_argument('categories', nargs='?', help='Comma-separated category list')
     parser.add_argument('--deps', help='Show resolved dependency graph for a category')

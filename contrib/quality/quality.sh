@@ -28,6 +28,11 @@ Commands:
   lint-check-fd        Lint C source (style, include guards)
   lint-shellcheck-fd   Shellcheck shell scripts in changed files
   lint-check-tk        Lint Zig source (compilation check)
+
+  # Qt checks
+  format-check-qt      Check Qt C++ source formatting (clang-format)
+  format-fix-qt        Fix Qt C++ source formatting (clang-format)
+  lint-check-qt        Lint Qt C++ source (style, include guards)
 EOF
 }
 
@@ -136,14 +141,51 @@ cmd_lint_check_tk() {
   run_step "zig build check" zig build check
 }
 
+# ── Qt Quality Checks ─────────────────────────────────────────────────────────
+
+cmd_format_check_qt() {
+  if ! command -v clang-format >/dev/null 2>&1; then
+    echo "format-check-qt requires clang-format on PATH" >&2
+    return 1
+  fi
+  local qt_files
+  mapfile -t qt_files < <(find src/tickoni/terminal -name '*.cpp' -o -name '*.h' -o -name '*.hpp' | sort)
+  [ "${#qt_files[@]}" -gt 0 ] || { echo "no Qt C++ files found"; return 0; }
+  run_step "clang-format check" clang-format --dry-run --Werror --style=file "${qt_files[@]}"
+}
+
+cmd_format_fix_qt() {
+  if ! command -v clang-format >/dev/null 2>&1; then
+    echo "format-fix-qt requires clang-format on PATH" >&2
+    return 1
+  fi
+  local qt_files
+  mapfile -t qt_files < <(find src/tickoni/terminal -name '*.cpp' -o -name '*.h' -o -name '*.hpp' | sort)
+  [ "${#qt_files[@]}" -gt 0 ] || { echo "no Qt C++ files found"; return 0; }
+  run_step "clang-format fix" clang-format -i "${qt_files[@]}"
+}
+
+cmd_lint_check_qt() {
+  local qt_files
+  mapfile -t qt_files < <(find src/tickoni/terminal -name '*.cpp' -o -name '*.h' -o -name '*.hpp' | sort)
+  [ "${#qt_files[@]}" -gt 0 ] || { echo "no Qt C++ files found"; return 0; }
+
+  # Qt is C++ — skip C-specific style checks (CONTRIBUTING.md §3.2, §4.1, §4.2).
+  # Only check include guards for Qt.
+  run_step "include guards" run_include_guard_check "${qt_files[@]}"
+}
+
 case "${1:-}" in
   format-check-fd) cmd_format_check_fd ;;
   format-fix-fd)   cmd_format_fix_fd ;;
+  format-check-qt) cmd_format_check_qt ;;
+  format-fix-qt)   cmd_format_fix_qt ;;
   format-check-tk) cmd_format_check_tk ;;
   format-fix-tk)   cmd_format_fix_tk ;;
   lint-check-fd)      cmd_lint_check_fd ;;
   lint-shellcheck-fd) cmd_lint_shellcheck_fd ;;
   lint-check-tk)      cmd_lint_check_tk ;;
+  lint-check-qt)      cmd_lint_check_qt ;;
   ""|-h|--help|help)
     usage
     ;;

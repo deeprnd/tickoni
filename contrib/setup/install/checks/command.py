@@ -1,5 +1,7 @@
 """Check commands for idempotency checks."""
 from abc import ABC, abstractmethod
+import re
+import shutil
 import subprocess
 
 
@@ -26,6 +28,16 @@ class ShellCheckCommand(CheckCommand):
             return result.returncode == 0
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             return False
+
+
+class ExecutableCheck(CheckCommand):
+    """Check a simple executable lookup using the host platform's PATH."""
+
+    def __init__(self, executable: str):
+        self.executable = executable
+
+    def is_satisfied(self) -> bool:
+        return shutil.which(self.executable) is not None
 
 
 class WingetInstalledCommand(CheckCommand):
@@ -55,9 +67,17 @@ _REGISTRY: dict[str, type[CheckCommand]] = {
 }
 
 
-def build_check(tool: dict) -> CheckCommand | None:
+def build_check(tool: dict, platform_str: str = '') -> CheckCommand | None:
     """Create the right check command from tool's idempotent_check field."""
     check = tool.get('idempotent_check', '')
     if not check:
         return None
+    # The shared manifest uses POSIX `command -v`, but shell=True invokes
+    # cmd.exe on native Windows, where `command` is not valid.  Resolve the
+    # simple executable form directly so preinstalled runner tools are not
+    # needlessly sent to winget.
+    if 'windows' in platform_str:
+        match = re.fullmatch(r'command -v ([A-Za-z0-9_.+-]+)', check.strip())
+        if match:
+            return ExecutableCheck(match.group(1))
     return ShellCheckCommand(check)

@@ -6,13 +6,13 @@
 #
 # Execution order:
 #   (all build) → (all unit) → (integration, system, demo)
-#     → security-deep
+#     → security-deep (4 parallel sub-checks)
 #
 # Stage 1: quality + security-secrets (parallel, cheap pre-build gates)
 # Stage 2: build (all platforms, after quality + secrets)
 # Stage 3: unit tests (all platforms, after build)
 # Stage 4: integration + system + demo (parallel, after unit)
-# Stage 5: security-deep (after integration/system/demo)
+# Stage 5: security-deep (4 parallel checks after integration/system/demo)
 #
 # Dev Setup Validation runs standalone: weekly on Mondays + on-demand via
 # .github/workflows/tests-dev-setup.yml
@@ -76,6 +76,7 @@ jobs:
       needs.quality.result == 'success' &&
       needs.security-secrets.result == 'success'
     uses: ./.github/workflows/_ci-build.yml
+    secrets: inherit
 
   # ── UNIT: component tests per platform (downloads build artifact) ────────
   unit:
@@ -133,10 +134,10 @@ jobs:
       needs.demo.result == 'success'
     uses: ./.github/workflows/_ci-conformance.yml
 
-  # ── SECURITY / DEEP: sanitizers, seccomp, formal verification ────────────
-  # Only runs after integration, system, and demo succeed
-  security-deep:
-    name: Security / Deep
+  # ── SECURITY / DEEP: 4 parallel sub-checks (sanitize, seccomp, proof, engine) ──
+  # Each sub-check runs in parallel after integration, system, and demo succeed.
+  security-deep-sanitize:
+    name: Security / Deep — sanitize
     needs: [plan, build, integration, system, demo]
     if: >-
       always() &&
@@ -146,6 +147,65 @@ jobs:
       needs.system.result == 'success' &&
       needs.demo.result == 'success'
     uses: ./.github/workflows/_ci-security-deep.yml
+    with:
+      check: sanitize
+
+  security-deep-seccomp:
+    name: Security / Deep — seccomp
+    needs: [plan, build, integration, system, demo]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.integration.result == 'success' &&
+      needs.system.result == 'success' &&
+      needs.demo.result == 'success'
+    uses: ./.github/workflows/_ci-security-deep.yml
+    with:
+      check: seccomp
+
+  security-deep-proof:
+    name: Security / Deep — proof
+    needs: [plan, build, integration, system, demo]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.integration.result == 'success' &&
+      needs.system.result == 'success' &&
+      needs.demo.result == 'success'
+    uses: ./.github/workflows/_ci-security-deep.yml
+    with:
+      check: proof
+
+  security-deep-engine:
+    name: Security / Deep — engine
+    needs: [plan, build, integration, system, demo]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.integration.result == 'success' &&
+      needs.system.result == 'success' &&
+      needs.demo.result == 'success'
+    uses: ./.github/workflows/_ci-security-deep.yml
+    with:
+      check: engine
+
+  security-deep-sanitize-qt:
+    name: Security / Deep — sanitize-qt
+    needs: [plan, build, integration, system, demo]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.integration.result == 'success' &&
+      needs.system.result == 'success' &&
+      needs.demo.result == 'success'
+    uses: ./.github/workflows/_ci-security-deep.yml
+    secrets: inherit
+    with:
+      check: sanitize-qt
 
 
   # ── CI / Required: aggregating gate for branch protection ────────────────
@@ -153,7 +213,10 @@ jobs:
     name: CI / Required
     needs:
       [plan, quality, security-secrets, build,
-       unit, integration, system, demo, conformance, security-deep]
+       unit, integration, system, demo, conformance,
+       security-deep-sanitize, security-deep-seccomp,
+       security-deep-proof, security-deep-engine,
+       security-deep-sanitize-qt]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -168,7 +231,10 @@ jobs:
 
           for job in plan quality security-secrets \
               build unit integration system demo \
-              conformance security-deep; do
+              conformance \
+              security-deep-sanitize security-deep-seccomp \
+              security-deep-proof security-deep-engine \
+              security-deep-sanitize-qt; do
             case "$job" in
               plan) status="${{ needs.plan.result }}" ;;
               quality) status="${{ needs.quality.result }}" ;;
@@ -180,7 +246,16 @@ jobs:
               system) status="${{ needs.system.result }}" ;;
               demo) status="${{ needs.demo.result }}" ;;
               conformance) status="${{ needs.conformance.result }}" ;;
-              security-deep) status="${{ needs.security-deep.result }}" ;;
+              security-deep-sanitize) \
+                status="${{ needs.security-deep-sanitize.result }}" ;;
+              security-deep-seccomp) \
+                status="${{ needs.security-deep-seccomp.result }}" ;;
+              security-deep-proof) \
+                status="${{ needs.security-deep-proof.result }}" ;;
+              security-deep-engine) \
+                status="${{ needs.security-deep-engine.result }}" ;;
+              security-deep-sanitize-qt) \
+                status="${{ needs.security-deep-sanitize-qt.result }}" ;;
             esac
             results="$results $job=$status"
             if [ "$status" = "success" ] || \
@@ -194,7 +269,7 @@ jobs:
 
           # If core=false, all non-plan jobs should be skipped.
           if [ "${{ needs.plan.outputs.core }}" = "false" ]; then
-            expected_skipped=$((10 - 1)) # all except plan
+            expected_skipped=$((14 - 1)) # all except plan
             if [ "$skipped" -ge "$expected_skipped" ]; then
               echo "docs-only PR: $skipped jobs skipped as expected"
               exit 0
@@ -213,5 +288,5 @@ jobs:
           fi
 
           echo "CI / Required: all \
-            $((10 - skipped)) active jobs passed, $skipped skipped"
+            $((14 - skipped)) active jobs passed, $skipped skipped"
           exit 0
