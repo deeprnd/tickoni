@@ -25,6 +25,7 @@
   },
   "test-unit-fd": {
     "linux-x86": "test-unit-fd-linux-x86-gcc",
+    "linux-arm": "test-unit-fd-linux-arm-gcc",
     "macos-x86": "test-unit-fd-macos-x86",
     "macos-arm": "test-unit-fd-macos-arm",
     "windows-x86": "test-unit-fd-windows-x86",

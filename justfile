@@ -37,6 +37,17 @@ test-unit-fd-linux-x86-gcc:
     {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
         LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-12 LD=gcc-12 run-unit-test TEST_OPTS="$TEST_OPTS"
 
+test-unit-fd-linux-arm-gcc:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ulimit -l 2097152
+    timeout=600
+    python3 contrib/build/orchestrator.py --platform linux-arm build-fd {{ fd_tickoni_build }} test gcc-14
+    eval "$(python3 contrib/test/orchestrator.py dynamic-test-opts | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
+    echo "Running unit tests with: $TEST_OPTS"
+    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
+        LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-14 LD=gcc-14 run-unit-test TEST_OPTS="$TEST_OPTS"
+
 test-unit-fd-macos-x86:
     python3 contrib/build/orchestrator.py --platform macos-x86 build-fd {{ fd_tickoni_build }} test clang
     JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal --page-cnt 131072"
@@ -58,6 +69,7 @@ test-unit-fd:
     set -euo pipefail
     case "{{ os }}-{{ arch }}" in
       linux-x86) exec just test-unit-fd-linux-x86-gcc ;;
+      linux-arm) exec just test-unit-fd-linux-arm-gcc ;;
       macos-x86) exec just test-unit-fd-macos-x86 ;;
       macos-arm) exec just test-unit-fd-macos-arm ;;
       windows-x86) exec just test-unit-fd-windows-x86 ;;
