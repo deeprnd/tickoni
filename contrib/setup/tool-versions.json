@@ -146,6 +146,9 @@
     },
     "nvm": {
       "version": "0.40.7"
+    },
+    "pytest": {
+      "version": "8.3.4"
     }
   },
   "categories": {
@@ -310,6 +313,17 @@
         "macos",
         "windows"
       ]
+    },
+    "test-tools": {
+      "description": "Python testing tools for contrib/test/ unit tests",
+      "tools": [
+        "pytest"
+      ],
+      "platforms": [
+        "linux",
+        "macos",
+        "windows"
+      ]
     }
   },
   "dependencies": {
@@ -390,6 +404,10 @@
       "security",
       "fd",
       "graphics-libs"
+    ],
+    "test-tools": [
+      "core",
+      "essential"
     ]
   },
   "tools": {
@@ -894,6 +912,15 @@
       "parameters": {},
       "idempotent_check": "command -v node",
       "version_ref": "nodejs"
+    },
+    "pytest": {
+      "category": "test-tools",
+      "platform": "all",
+      "install_method": "pip",
+      "parameters": {
+        "package": "pytest==8.3.4"
+      },
+      "idempotent_check": "command -v pytest"
     },
     "cspell": {
       "category": "quality",
