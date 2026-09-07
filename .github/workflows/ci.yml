@@ -133,11 +133,12 @@ jobs:
   # ── COVERAGE: Tickoni harness coverage (parallel with integration/system/demo) ──
   coverage:
     name: Tests / Coverage
-    needs: [plan, project-build]
+    needs: [plan, project-build, unit]
     if: >-
       always() &&
       needs.plan.outputs.core == 'true' &&
-      needs.project-build.result == 'success'
+      needs.project-build.result == 'success' &&
+      needs.unit.result == 'success'
     uses: ./.github/workflows/_ci-coverage.yml
 
   # ── CONFORMANCE: cross-platform binary comparison (after demo) ───────────
