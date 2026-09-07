@@ -109,14 +109,19 @@ def handle_space_in_path(cc: str) -> tuple[str, dict[str, str]]:
     if " " not in cc:
         return cc, {}
 
-    # Use cygpath if available to convert to Unix path
+    # Use cygpath if available to convert to Unix path.
+    # cygpath preserves spaces; make's shell still splits on spaces
+    # in recipes (e.g. "-D" becomes a shell option), so only use it
+    # when spaces are eliminated (uncommon edge case).  Otherwise
+    # fall through to the symlink approach which avoids spaces.
     cygpath = shutil.which("cygpath")
     if cygpath:
         try:
             cc_unix = subprocess.check_output(
                 [cygpath, "-u", cc], text=True,
                 stderr=subprocess.DEVNULL).strip()
-            return cc_unix, {}
+            if " " not in cc_unix:
+                return cc_unix, {}
         except Exception:
             pass
 
