@@ -83,7 +83,7 @@ quality-lint-check-fd:
     command -v shellcheck >/dev/null || exit 0; bash contrib/quality/quality.sh lint-shellcheck-fd
 
 quality-lint-check-actions:
-    @command -v actionlint >/dev/null || exit 0; actionlint -ignore 'label "windows-11-vs2026-arm" is unknown' ../.github/workflows/*.yml
+    @command -v actionlint >/dev/null || exit 0; actionlint -ignore 'label "windows-11-vs2026-arm" is unknown' .github/workflows/*.yml
 
 quality-lint-check-tk:
     bash contrib/quality/quality.sh lint-check-tk
@@ -129,21 +129,21 @@ quality-lint-check-qt-windows-x86: quality-lint-check-qt
 quality-lint-check-qt-windows-arm: quality-lint-check-qt
 
 quality-yaml-check-linux:
-    cd ../ && find . -name '*.yaml' -o -name '*.yml' | grep -vE '^(./opt|./node_modules|./.zig-global-cache|./build|./target|./zig-out|\\.git)/' | xargs yamllint -f parsable
+    find . -name '*.yaml' -o -name '*.yml' | grep -vE '^(./opt|./node_modules|./.zig-global-cache|./build|./target|./zig-out|\\.git)/' | xargs yamllint -f parsable
 
 quality-spell-check-linux:
-    cd ../ && cspell lint --no-progress .
+    cspell lint --no-progress .
 
 # ── Quality: Proto ─────────────────────────────────────────────────────────
 
 quality-proto-check-fd:
-    @cd ../src/disco/events && {{ python }} gen_events.py --skip-check
-    @PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" command -v buf >/dev/null || { if [ -n "$(git status --porcelain ../src/disco/events/generated/ ../src/disco/events/schema/events.proto)" ]; then echo "Generated proto files are out of date. Please run 'just quality-proto-check-fd' and commit the changes." >&2; git --no-pager diff -- ../src/disco/events/; exit 1; fi; exit 0; }
-    PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" buf lint ../src/disco/events/schema
-    @if [ -n "$(git status --porcelain ../src/disco/events/generated/ ../src/disco/events/schema/events.proto)" ]; then echo "Generated proto files are out of date. Please run 'just quality-proto-check-fd' and commit the changes." >&2; git --no-pager diff -- ../src/disco/events/; exit 1; fi
+    @cd firedancer/src/disco/events && {{ python }} gen_events.py --skip-check
+    @PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" command -v buf >/dev/null || { if [ -n "$(git status --porcelain firedancer/src/disco/events/generated/ firedancer/src/disco/events/schema/events.proto)" ]; then echo "Generated proto files are out of date. Please run 'just quality-proto-check-fd' and commit the changes." >&2; git --no-pager diff -- firedancer/src/disco/events/; exit 1; fi; exit 0; }
+    PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" buf lint firedancer/src/disco/events/schema
+    @if [ -n "$(git status --porcelain firedancer/src/disco/events/generated/ firedancer/src/disco/events/schema/events.proto)" ]; then echo "Generated proto files are out of date. Please run 'just quality-proto-check-fd' and commit the changes." >&2; git --no-pager diff -- firedancer/src/disco/events/; exit 1; fi
 
 quality-proto-check-tk:
-    bash -c 'PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}"; command -v buf >/dev/null || exit 0; buf lint ../src/tickoni/schema'
+    bash -c 'PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}"; command -v buf >/dev/null || exit 0; buf lint src/tickoni/schema'
 
 quality-proto-check-fd-linux-x86: quality-proto-check-fd
 quality-proto-check-tk-linux-x86: quality-proto-check-tk
