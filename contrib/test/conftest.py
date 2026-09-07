@@ -5,21 +5,35 @@ fullpath)`` to build the location line.  When both resolve to the same
 absolute path (which happens when ``pytest contrib/test/`` is invoked from the
 repo root on Windows), ``Path.relative_to`` raises::
 
-    ValueError: 'D:\\a\\tickoni\\tickoni' is not in the subpath of ...
+    ValueError: 'D:\\\\a\\\\tickoni\\\\tickoni' is not in the subpath of ...
 
 This patch intercepts that ``ValueError`` and returns the directory itself,
 which is the correct identity fallback.
+
+Why patch in multiple modules?  ``pytest.config.__init__`` does
+``from _pytest.pathlib import bestrelpath``, so patching only the module
+attribute doesn't update that local binding — we must patch every module
+that imported it.
 """
 
-from _pytest import pathlib as _pytest_pathlib
+import sys
 from pathlib import Path
 
 
-def _patched_bestrelpath(directory: Path, base: Path) -> Path:
+def _patched_bestrelpath(directory: Path, base: Path) -> str:
     try:
-        return directory.relative_to(base)
+        return str(directory.relative_to(base))
     except ValueError:
-        return directory
+        return str(directory)
 
 
-_pytest_pathlib.bestrelpath = _patched_bestrelpath
+# Patch the source module.
+_pytest_pathlib = sys.modules.get("_pytest.pathlib")
+if _pytest_pathlib is not None:
+    _pytest_pathlib.bestrelpath = _patched_bestrelpath
+
+# Patch modules that did ``from _pytest.pathlib import bestrelpath``.
+for _mod_name in ("_pytest.config", "_pytest.terminal"):
+    _mod = sys.modules.get(_mod_name)
+    if _mod is not None:
+        _mod.bestrelpath = _patched_bestrelpath
