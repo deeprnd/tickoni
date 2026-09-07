@@ -8,6 +8,7 @@
    into every caller, which would bloat compile time and code size. */
 
 #include "./fd_bn254_internal.h"
+#include <stdint.h>
 #include "../../third_party/fiat-crypto/bn254_64.c"
 #if FD_HAS_S2NBIGNUM
 #include "../../third_party/s2n-bignum/include/s2n-bignum.h"
@@ -100,14 +101,14 @@ fd_bn254_fp_eq( fd_bn254_fp_t const * r,
 static inline fd_bn254_fp_t *
 fd_bn254_fp_from_mont( fd_bn254_fp_t * r,
                        fd_bn254_fp_t const * a ) {
-  fiat_bn254_from_montgomery( (uint64_t *)r->limbs, (uint64_t const *)a->limbs );
+  fiat_bn254_from_montgomery( (uint64_t *)(uintptr_t)r->limbs, (uint64_t const *)(uintptr_t)a->limbs );
   return r;
 }
 
 static inline fd_bn254_fp_t *
 fd_bn254_fp_to_mont( fd_bn254_fp_t * r,
                      fd_bn254_fp_t const * a ) {
-  fiat_bn254_to_montgomery( (uint64_t *)r->limbs, (uint64_t const *)a->limbs );
+  fiat_bn254_to_montgomery( (uint64_t *)(uintptr_t)r->limbs, (uint64_t const *)(uintptr_t)a->limbs );
   return r;
 }
 
@@ -144,7 +145,7 @@ INLINE fd_bn254_fp_t *
 fd_bn254_fp_add( fd_bn254_fp_t * r,
                  fd_bn254_fp_t const * a,
                  fd_bn254_fp_t const * b ) {
-  fiat_bn254_add( (uint64_t *)r->limbs, (uint64_t const *)a->limbs, (uint64_t const *)b->limbs );
+  fiat_bn254_add( (uint64_t *)(uintptr_t)r->limbs, (uint64_t const *)(uintptr_t)a->limbs, (uint64_t const *)(uintptr_t)b->limbs );
   return r;
 }
 
@@ -179,14 +180,14 @@ INLINE fd_bn254_fp_t *
 fd_bn254_fp_sub( fd_bn254_fp_t * r,
                  fd_bn254_fp_t const * a,
                  fd_bn254_fp_t const * b ) {
-  fiat_bn254_sub( (uint64_t *)r->limbs, (uint64_t const *)a->limbs, (uint64_t const *)b->limbs );
+  fiat_bn254_sub( (uint64_t *)(uintptr_t)r->limbs, (uint64_t const *)(uintptr_t)a->limbs, (uint64_t const *)(uintptr_t)b->limbs );
   return r;
 }
 
 INLINE fd_bn254_fp_t *
 fd_bn254_fp_neg( fd_bn254_fp_t * r,
                  fd_bn254_fp_t const * a ) {
-  fiat_bn254_opp( (uint64_t *)r->limbs, (uint64_t const *)a->limbs );
+  fiat_bn254_opp( (uint64_t *)(uintptr_t)r->limbs, (uint64_t const *)(uintptr_t)a->limbs );
   return r;
 }
 
@@ -223,8 +224,8 @@ fd_bn254_fp_inv( fd_bn254_fp_t * r,
   ulong tmp[12];
   ulong z[4];
   bignum_modinv( 4, z, a->limbs, fd_bn254_const_p->limbs, tmp );
-  fiat_bn254_to_montgomery( (uint64_t *)r->limbs, (uint64_t const *)z );
-  fiat_bn254_to_montgomery( (uint64_t *)r->limbs, (uint64_t const *)r->limbs );
+  fiat_bn254_to_montgomery( (uint64_t *)(uintptr_t)r->limbs, (uint64_t const *)(uintptr_t)z );
+  fiat_bn254_to_montgomery( (uint64_t *)(uintptr_t)r->limbs, (uint64_t const *)(uintptr_t)r->limbs );
   return r;
 #else
   fd_uint256_t p_minus_2[1];
