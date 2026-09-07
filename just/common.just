@@ -157,8 +157,8 @@ setup-env toolchain="":
 
 # Activate tracked git hooks (commit-msg strips anthropic AI co-authors)
 setup-git:
-    git config core.hooksPath .githooks
-    chmod +x .githooks/commit-msg
+    git config core.hooksPath ../.githooks
+    chmod +x ../.githooks/commit-msg
 
 # All setup is delegated to orchestrator.py — it detects the platform and
 # resolves dependencies from tool-versions.json.
