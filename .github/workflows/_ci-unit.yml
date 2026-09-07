@@ -4,6 +4,9 @@
 ---
 name: Unit Test Stage
 
+permissions:
+  contents: read
+
 'on':
   workflow_call:
 
