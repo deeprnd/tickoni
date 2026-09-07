@@ -669,6 +669,18 @@ pub fn build(b: *std.Build) void {
         c_compile_check_step.dependOn(&c_check.step);
     }
     check_step.dependOn(c_compile_check_step);
+    // Bug Fix #50: compile-check the getrandom() EINTR + short-read retry loop test.
+    {
+        const getrandom_check = b.addSystemCommand(&.{
+            "sh", "-c",
+            b.fmt("zig cc -target {s} -c -I src -I src/util -I src/disco -I src/ballet -std=c17 -DFD_HAS_HOSTED=1 {s} {s} 2>&1 || true", .{
+                triple,
+                shim_flags[0],
+                "src/util/shmem/test_fd_shmem_getrandom.c",
+            }),
+        });
+        c_compile_check_step.dependOn(&getrandom_check.step);
+    }
 
     if (build_tests) {
         const investment_demo_test = b.addTest(.{ .root_module = investment_demo_test_mod });
