@@ -232,7 +232,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Project Build aggregated
-        run: echo "Build aggregated"
+        run: |
+          echo "Build aggregated"
 
   # ── PROJECT TESTS: aggregated test badge ──────────────────────────────────
   project-tests:
@@ -242,7 +243,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Project Tests aggregated
-        run: echo "Tests aggregated: success"
+        run: |
+          echo "Tests aggregated: success"
 
   # ── PROJECT SECURITY: aggregated security badge ───────────────────────────
   project-security:
@@ -256,7 +258,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Project Security aggregated
-        run: echo "Security aggregated"
+        run: |
+          echo "Security aggregated"
 
 
   # ── CI / Required: aggregating gate for branch protection ────────────────
