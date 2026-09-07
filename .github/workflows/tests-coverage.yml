@@ -1,0 +1,46 @@
+# Standalone Coverage Validation workflow
+# Runs coverage for Tickoni harness on a schedule (weekly Monday 09:00 UTC)
+# or on demand via workflow_dispatch.
+#
+# This is the invocable workflow for manual/weekly runs on any branch.
+# It builds from scratch and writes coverage results to the repo.
+#
+# Reference: doc/execution/plans/v2.10-s10.md
+#
+---
+name: Coverage Validation
+
+'on':
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday at 09:00 UTC
+  workflow_dispatch:
+
+jobs:
+  coverage:
+    name: Tests / Coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: taiki-e/install-action@just
+
+      - name: Setup build toolchain for coverage
+        run: just setup-build-linux-x86-gcc
+
+      - name: Build Tickoni
+        run: just build-tk
+
+      - name: Run coverage test
+        run: just test-cov-tk
+
+      - name: Generate coverage summary JSON
+        run: |
+          python3 contrib/tool/readme/coverage_report.py coverage-tk \
+            build/coverage/tk \
+            build/coverage/tk/coverage-summary.json \
+            --config contrib/test/coverage-tk.json

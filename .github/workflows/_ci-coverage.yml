@@ -1,0 +1,44 @@
+# Reusable Coverage workflow: called by ci.yml as a DAG node.
+# Runs parallel with security-deep after unit tests complete.
+# Downloads build artifact from the build job (faster than rebuilding).
+#
+# Reference: doc/execution/plans/v2.10-s10.md
+#
+---
+name: Coverage Stage
+
+'on':
+  workflow_call:
+
+jobs:
+  coverage:
+    name: Tests / Coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install just
+        uses: taiki-e/install-action@just
+
+      - name: Setup build toolchain for coverage
+        run: just setup-build-linux-x86-gcc
+
+      - name: Download build artifact (build job output)
+        uses: actions/download-artifact@v5
+        with:
+          name: tickoni-build
+          path: build/
+
+      - name: Run coverage test
+        run: just test-cov-tk
+
+      - name: Generate coverage summary JSON
+        run: |
+          python3 contrib/tool/readme/coverage_report.py coverage-tk \
+            build/coverage/tk \
+            build/coverage/tk/coverage-summary.json \
+            --config contrib/test/coverage-tk.json
