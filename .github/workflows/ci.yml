@@ -5,7 +5,8 @@
 # Execution order:
 #   (quality, security-secrets) -> build (matrix) -> project-build (aggregate)
 #     -> unit tests -> (integration, system, demo, coverage in parallel)
-#     -> conformance (after demo) + project-tests (after integration+system+demo)
+#     -> conformance (after demo)
+#     -> project-tests (after integration+system+demo+conformance+coverage)
 #     -> security-deep (after project-tests) -> project-security (aggregate)
 #     -> ci-required
 #
@@ -153,7 +154,7 @@ jobs:
   project-tests:
     name: Project Tests
     needs:
-      [plan, project-build, unit, integration, system, demo]
+      [plan, project-build, unit, integration, system, demo, conformance, coverage]
     if: >-
       always() &&
       needs.plan.outputs.core == 'true' &&
@@ -161,7 +162,9 @@ jobs:
       needs.unit.result == 'success' &&
       needs.integration.result == 'success' &&
       needs.system.result == 'success' &&
-      needs.demo.result == 'success'
+      needs.demo.result == 'success' &&
+      needs.conformance.result == 'success' &&
+      needs.coverage.result == 'success'
     runs-on: ubuntu-24.04
     steps:
       - name: Project Tests aggregated
