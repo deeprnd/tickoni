@@ -18,6 +18,7 @@ import argparse
 import json
 import subprocess
 import sys
+import urllib.error
 from pathlib import Path
 
 # ── constants ────────────────────────────────────────────────────────────────
@@ -45,33 +46,52 @@ def _api_headers(token: str) -> dict:
     }
 
 
+_API_TIMEOUT = 10  # seconds per API call (DH-1)
+
+
+def _api_request(url: str, headers: dict, max_retries: int = 3) -> bytes | None:
+    """GET request with retry-on-failure and backoff (DH-1)."""
+    import urllib.request
+    import time
+
+    for attempt in range(max_retries):
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=_API_TIMEOUT) as resp:
+                return resp.read()
+        except (urllib.error.URLError, urllib.error.HTTPError) as exc:
+            # Retry on 403/404/502/503/504 and transient network errors
+            if isinstance(exc, urllib.error.HTTPError):
+                if exc.code not in (403, 404, 502, 503, 504):
+                    return None
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+            else:
+                return None
+    return None
+
+
 def get_check_runs(repo_owner: str, repo_name: str, sha: str, token: str) -> list:
     """List check-runs for a commit. Returns list of dicts with 'name' and 'conclusion'."""
     import urllib.request
 
     url = f"{API_BASE}/repos/{repo_owner}/{repo_name}/commits/{sha}/check-runs"
-    req = urllib.request.Request(url, headers=_api_headers(token))
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode())
-            return data.get("check_runs", [])
-    except Exception:
+    raw = _api_request(url, _api_headers(token))
+    if raw is None:
         return []
+    data = json.loads(raw.decode())
+    return data.get("check_runs", [])
 
 
 def get_commit_parents(repo_owner: str, repo_name: str, sha: str, token: str) -> list:
     """Get parent commit SHAs for a commit."""
-    import urllib.request
-
     url = f"{API_BASE}/repos/{repo_owner}/{repo_name}/commits/{sha}"
-    req = urllib.request.Request(url, headers=_api_headers(token))
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode())
-            parents = data.get("parents", [])
-            return [{"sha": p["sha"]} for p in parents]
-    except Exception:
+    raw = _api_request(url, _api_headers(token))
+    if raw is None:
         return []
+    data = json.loads(raw.decode())
+    parents = data.get("parents", [])
+    return [{"sha": p["sha"]} for p in parents]
 
 
 def get_blob_content(repo_owner: str, repo_name: str, sha: str, path: str, token: str) -> str | None:
@@ -104,12 +124,14 @@ def find_last_successful_sha(
     """Walk backwards from start_sha, returning the first SHA where all
     aggregated jobs report 'success'.  Returns None if none found."""
     sha = start_sha
-    for _ in range(max_parents):
+    for i in range(max_parents):
         check_runs = get_check_runs(repo_owner, repo_name, sha, token)
         if not check_runs:
-            # No check-runs for this SHA — skip to parent
+            # No check-runs for this SHA — skip to parent (A-1)
+            print(f"[walk] no check-runs for SHA {sha}, skipping to parent")
             parents = get_commit_parents(repo_owner, repo_name, sha, token)
             if not parents:
+                print(f"[walk] no parents for SHA {sha}, stopping walk")
                 break
             sha = parents[0]["sha"]
             continue
@@ -120,18 +142,23 @@ def find_last_successful_sha(
         ]
 
         if not aggregated:
-            # Aggregated jobs don't exist yet for this SHA — skip
+            # Aggregated jobs don't exist yet for this SHA — skip (A-1)
+            print(f"[walk] SHA {sha}: no aggregated jobs found, skipping")
             parents = get_commit_parents(repo_owner, repo_name, sha, token)
             if not parents:
+                print(f"[walk] no parents for SHA {sha}, stopping walk")
                 break
             sha = parents[0]["sha"]
             continue
 
         if all(cr["conclusion"] == "success" for cr in aggregated):
+            print(f"[walk] SHA {sha} (iteration {i+1}/{max_parents}): all aggregated jobs passed")
             return sha
 
+        print(f"[walk] SHA {sha} (iteration {i+1}/{max_parents}): aggregated jobs not all passing")
         parents = get_commit_parents(repo_owner, repo_name, sha, token)
         if not parents:
+            print(f"[walk] no parents for SHA {sha}, stopping walk")
             break
         sha = parents[0]["sha"]
 
@@ -182,6 +209,38 @@ def _read_coverage_pct() -> float | None:
     return round(covered / total_count * 100, 1)
 
 
+# Data-driven badge configuration (A-3/D-1)
+_BADGE_DEFS = [
+    # (badge_key, job_name, label, fallback_label, fallback_alt)
+    ("build", "Project Build", "build", "Build", "Build"),
+    ("unit", "Project Tests", "unit tests", "Unit Tests", "Unit Tests"),
+    ("security", "Project Security", "security", "Security", "Security"),
+]
+
+
+def _resolve_simple_badge(
+    badge_key: str,
+    job_name: str,
+    label: str,
+    fallback_label: str,
+    fallback_alt: str,
+    aggregated: dict,
+) -> dict:
+    """Resolve a simple passing/failing/unknown badge."""
+    conclusion = aggregated.get(job_name)
+    if conclusion == "success":
+        status, color, msg = "passing", "brightgreen", "passing"
+    elif conclusion == "failure":
+        status, color, msg = "failing", "red", "failing"
+    else:
+        status, color, msg = "unknown", "lightgrey", "unknown"
+    return {
+        "status": status,
+        "color": color,
+        "url": badge_url(label, msg, color),
+    }
+
+
 def resolve_badges(
     repo_owner: str,
     repo_name: str,
@@ -193,74 +252,20 @@ def resolve_badges(
     """
     # Get aggregated check-run statuses for this SHA
     check_runs = get_check_runs(repo_owner, repo_name, sha, token)
-    aggregated = {}
+    aggregated: dict[str, str] = {}
     for cr in check_runs:
         if cr["name"] in AGGREGATED_JOBS:
             aggregated[cr["name"]] = cr["conclusion"]
 
     results = {}
 
-    # ── build badge ──
-    if aggregated.get("Project Build") == "success":
-        results["build"] = {
-            "status": "passing",
-            "color": "brightgreen",
-            "url": badge_url("build", "passing", "brightgreen"),
-        }
-    elif aggregated.get("Project Build") in ("failure",):
-        results["build"] = {
-            "status": "failing",
-            "color": "red",
-            "url": badge_url("build", "failing", "red"),
-        }
-    else:
-        results["build"] = {
-            "status": "unknown",
-            "color": "lightgrey",
-            "url": badge_url("build", "unknown", "lightgrey"),
-        }
+    # ── build/unit/security badges (data-driven loop, A-3/D-1) ──
+    for badge_key, job_name, label, fallback_label, fallback_alt in _BADGE_DEFS:
+        results[badge_key] = _resolve_simple_badge(
+            badge_key, job_name, label, fallback_label, fallback_alt, aggregated,
+        )
 
-    # ── unit badge ──
-    if aggregated.get("Project Tests") == "success":
-        results["unit"] = {
-            "status": "passing",
-            "color": "brightgreen",
-            "url": badge_url("unit tests", "passing", "brightgreen"),
-        }
-    elif aggregated.get("Project Tests") in ("failure",):
-        results["unit"] = {
-            "status": "failing",
-            "color": "red",
-            "url": badge_url("unit tests", "failing", "red"),
-        }
-    else:
-        results["unit"] = {
-            "status": "unknown",
-            "color": "lightgrey",
-            "url": badge_url("unit tests", "unknown", "lightgrey"),
-        }
-
-    # ── security badge ──
-    if aggregated.get("Project Security") == "success":
-        results["security"] = {
-            "status": "passing",
-            "color": "brightgreen",
-            "url": badge_url("security", "passing", "brightgreen"),
-        }
-    elif aggregated.get("Project Security") in ("failure",):
-        results["security"] = {
-            "status": "failing",
-            "color": "red",
-            "url": badge_url("security", "failing", "red"),
-        }
-    else:
-        results["security"] = {
-            "status": "unknown",
-            "color": "lightgrey",
-            "url": badge_url("security", "unknown", "lightgrey"),
-        }
-
-    # ── cov-tk badge ──
+    # ── cov-tk badge (coverage-aware, not data-driven) ──
     cov_ok = aggregated.get("Tests / Coverage") == "success"
     if cov_ok:
         pct = _read_coverage_pct()
@@ -329,10 +334,8 @@ def update_readme(readme_text: str, badges: dict, dry_run: bool = False) -> str:
     for badge_key, readme_key in badge_map.items():
         if badge_key in badges:
             url = badges[badge_key]["url"]
-            img_tag = f'<img alt="{readme_key.title()} Tests" src="{url}" />'
-            # Use appropriate alt text for each badge
-            if badge_key == "cov-tk":
-                img_tag = f'<img alt="AI Harness Coverage" src="{url}" />'
+            # N-1: use badge name as alt text consistently
+            img_tag = f'<img alt="{badge_key}" src="{url}" />'
             readme_text = replace_badge_block(readme_text, badge_key, img_tag)
 
     return readme_text
