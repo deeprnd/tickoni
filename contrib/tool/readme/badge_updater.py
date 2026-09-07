@@ -19,7 +19,7 @@ import json
 import re
 import subprocess
 import sys
-import urllib.error
+from urllib import error as urllib_error
 from pathlib import Path
 
 # ── constants ────────────────────────────────────────────────────────────────
@@ -51,7 +51,11 @@ _API_TIMEOUT = 10  # seconds per API call (DH-1)
 
 
 def _api_request(url: str, headers: dict, max_retries: int = 3) -> bytes | None:
-    """GET request with retry-on-failure and backoff (DH-1)."""
+    """GET request with retry-on-failure and backoff (DH-1).
+
+    Retries on HTTP 429 (rate limit) and 5xx errors with exponential backoff.
+    Does NOT catch KeyboardInterrupt or SystemExit (SEC-04 remediation).
+    """
     import urllib.request
     import time
 
@@ -60,13 +64,20 @@ def _api_request(url: str, headers: dict, max_retries: int = 3) -> bytes | None:
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=_API_TIMEOUT) as resp:
                 return resp.read()
-        except (urllib.error.URLError, urllib.error.HTTPError) as exc:
-            # Retry on 403/404/502/503/504 and transient network errors
-            if isinstance(exc, urllib.error.HTTPError):
-                if exc.code not in (403, 404, 502, 503, 504):
+        except (urllib_error.HTTPError, urllib_error.URLError) as exc:
+            # Retry on 429 (rate limit) and 5xx (server errors)
+            if isinstance(exc, urllib_error.HTTPError):
+                if exc.code not in (429, 403, 404, 500, 502, 503, 504):
                     return None
+                # Rate limit: read Retry-After header if present
+                retry_after = exc.headers.get("Retry-After")
+                wait = int(retry_after) if retry_after else 2 ** attempt
+                print(f"[API] Rate limited (HTTP {exc.code}), waiting {wait}s")
+            else:
+                wait = 2 ** attempt
+                print(f"[API] Connection error: {exc}, retrying in {wait}s")
             if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)
+                time.sleep(wait)
             else:
                 return None
     return None
@@ -96,9 +107,18 @@ def get_commit_parents(repo_owner: str, repo_name: str, sha: str, token: str) ->
 
 
 def get_blob_content(repo_owner: str, repo_name: str, sha: str, path: str, token: str) -> str | None:
-    """Download a file from the repo at a given commit SHA."""
+    """Download a file from the repo at a given commit SHA.
+
+    Validates path against allowlist (SEC-02 remediation) and uses
+    specific exception types (SEC-04 remediation).
+    """
     import urllib.request
     import base64
+
+    # SEC-02: Restrict to known safe paths
+    ALLOWED_PATHS = {"README.md"}
+    if path not in ALLOWED_PATHS:
+        raise ValueError(f"Path not allowed: {path!r} (allowed: {sorted(ALLOWED_PATHS)})")
 
     url = f"{API_BASE}/repos/{repo_owner}/{repo_name}/contents/{path}"
     headers = {**_api_headers(token), "If-None-Match": ""}
@@ -109,7 +129,7 @@ def get_blob_content(repo_owner: str, repo_name: str, sha: str, path: str, token
             content = data.get("content", "")
             import base64 as _b64
             return _b64.b64decode(content).decode("utf-8")
-    except Exception:
+    except (urllib_error.URLError, json.JSONDecodeError, OSError):
         return None
 
 
@@ -345,7 +365,10 @@ def update_readme(readme_text: str, badges: dict, dry_run: bool = False) -> str:
 # ── git commit & push ────────────────────────────────────────────────────────
 
 def git_commit_and_push(readme_path: Path, sha: str, dry_run: bool = False) -> None:
-    """Stage, commit, and push README.md to origin main."""
+    """Stage, commit, and push README.md to origin main.
+
+    Performs pre-push fetch to detect remote-ahead condition (SEC-01 remediation).
+    """
     if dry_run:
         print(f"[dry-run] Would commit and push README.md for SHA {sha}")
         return
@@ -360,6 +383,31 @@ def git_commit_and_push(readme_path: Path, sha: str, dry_run: bool = False) -> N
         check=True,
         capture_output=True,
     )
+
+    # SEC-01: Pre-push check — fetch origin main and compare
+    fetch_result = subprocess.run(
+        ["git", "fetch", "origin", "main"],
+        capture_output=True,
+        timeout=30,
+    )
+    if fetch_result.returncode != 0:
+        print(f"[SEC-01] git fetch origin main failed: {fetch_result.stderr.decode().strip()}")
+        return
+
+    # Compare local main vs origin/main
+    compare = subprocess.run(
+        ["git", "rev-list", "--left-right", "--count", "HEAD...origin/main"],
+        capture_output=True,
+        text=True,
+    )
+    if compare.returncode == 0:
+        parts = compare.stdout.strip().split()
+        if len(parts) == 2:
+            ahead, behind = int(parts[0]), int(parts[1])
+            if behind > 0:
+                print(f"[SEC-01] Remote is {behind} commit(s) ahead — skipping push to avoid conflict")
+                return
+
     subprocess.run(
         ["git", "push", "origin", "main"],
         check=True,
