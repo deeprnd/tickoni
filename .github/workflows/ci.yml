@@ -5,18 +5,14 @@
 # Reference: doc/execution/plans/v2.10-s8-5.md
 #
 # Execution order:
-#   plan → security-deep-sanitize-qt → (quality, security-secrets, build)
-#     → unit → (integration, system, demo) → conformance
-#       → (sanitize-fd, sanitize-tk, seccomp, proof, engine)
+#   (all build) → (all unit) → (integration, system, demo)
+#     → security-deep (4 parallel sub-checks)
 #
-# Stage 0: plan (fail-open change classifier)
-# Stage 1: security-deep-sanitize-qt (fast Qt sanitizer, starts after plan)
-# Stage 2: quality + security-secrets (parallel, only if sanitize-qt succeeds)
-# Stage 3: build (all platforms, after quality + secrets)
-# Stage 4: unit tests (all platforms, after build)
-# Stage 5: integration + system + demo (parallel, after unit)
-# Stage 6: conformance (after demo)
-# Stage 7: security-deep remaining checks (sanitize-fd, sanitize-tk, seccomp, proof, engine)
+# Stage 1: quality + security-secrets (parallel, cheap pre-build gates)
+# Stage 2: build (all platforms, after quality + secrets)
+# Stage 3: unit tests (all platforms, after build)
+# Stage 4: integration + system + demo (parallel, after unit)
+# Stage 5: security-deep (4 parallel checks after integration/system/demo)
 #
 # Dev Setup Validation runs standalone: weekly on Mondays + on-demand via
 # .github/workflows/tests-dev-setup.yml
@@ -57,37 +53,18 @@ jobs:
           base_ref: ${{ github.base_ref }}
           event_name: ${{ github.event_name }}
 
-  # ── SECURITY / DEEP — sanitize-qt (starts right after plan) ────────────────
-  # Fast Qt sanitizer runs first; quality gates depend on it.
-  security-deep-sanitize-qt:
-    name: Security / Deep — sanitize-qt
-    needs: plan
-    if: >-
-      always() &&
-      needs.plan.outputs.core == 'true'
-    uses: ./.github/workflows/_ci-security-deep.yml
-    secrets: inherit
-    with:
-      check: sanitize-qt
-
   # ── QUALITY: format, lint, proto — no FD build needed ─────────────────────
   quality:
     name: Quality
-    needs: [plan, security-deep-sanitize-qt]
-    if: >-
-      always() &&
-      needs.plan.outputs.core == 'true' &&
-      needs.security-deep-sanitize-qt.result == 'success'
+    needs: plan
+    if: needs.plan.outputs.core == 'true'
     uses: ./.github/workflows/_ci-quality.yml
 
   # ── SECURITY/SECRETS: gitleaks — runs in parallel with quality ───────────
   security-secrets:
     name: Security / Secrets
-    needs: [plan, security-deep-sanitize-qt]
-    if: >-
-      always() &&
-      needs.plan.outputs.core == 'true' &&
-      needs.security-deep-sanitize-qt.result == 'success'
+    needs: plan
+    if: needs.plan.outputs.core == 'true'
     uses: ./.github/workflows/_ci-security-secrets.yml
 
   # ── BUILD: all platforms in parallel (depends on quality + secrets) ──────
@@ -215,15 +192,31 @@ jobs:
     with:
       check: engine
 
+  security-deep-sanitize-qt:
+    name: Security / Deep — sanitize-qt
+    needs: [plan, build, integration, system, demo]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success' &&
+      needs.integration.result == 'success' &&
+      needs.system.result == 'success' &&
+      needs.demo.result == 'success'
+    uses: ./.github/workflows/_ci-security-deep.yml
+    secrets: inherit
+    with:
+      check: sanitize-qt
+
 
   # ── CI / Required: aggregating gate for branch protection ────────────────
   ci-required:
     name: CI / Required
     needs:
-      [plan, security-deep-sanitize-qt, quality, security-secrets, build,
+      [plan, quality, security-secrets, build,
        unit, integration, system, demo, conformance,
        security-deep-sanitize, security-deep-seccomp,
-       security-deep-proof, security-deep-engine]
+       security-deep-proof, security-deep-engine,
+       security-deep-sanitize-qt]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -236,15 +229,14 @@ jobs:
           failures=""
           skipped=0
 
-          for job in plan security-deep-sanitize-qt quality security-secrets \
+          for job in plan quality security-secrets \
               build unit integration system demo \
               conformance \
               security-deep-sanitize security-deep-seccomp \
-              security-deep-proof security-deep-engine; do
+              security-deep-proof security-deep-engine \
+              security-deep-sanitize-qt; do
             case "$job" in
               plan) status="${{ needs.plan.result }}" ;;
-              security-deep-sanitize-qt) \
-                status="${{ needs.security-deep-sanitize-qt.result }}" ;;
               quality) status="${{ needs.quality.result }}" ;;
               security-secrets) \
                 status="${{ needs.security-secrets.result }}" ;;
@@ -262,6 +254,8 @@ jobs:
                 status="${{ needs.security-deep-proof.result }}" ;;
               security-deep-engine) \
                 status="${{ needs.security-deep-engine.result }}" ;;
+              security-deep-sanitize-qt) \
+                status="${{ needs.security-deep-sanitize-qt.result }}" ;;
             esac
             results="$results $job=$status"
             if [ "$status" = "success" ] || \
