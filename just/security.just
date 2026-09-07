@@ -48,10 +48,11 @@ security-codeql-check-all:
 # ── Security: Gitleaks ─────────────────────────────────────────────────────
 
 security-gitleaks-check-fd:
-    bash contrib/security/security.sh gitleaks-check-fd
+    gitleaks detect --no-git --verbose --source src/ --config contrib/security/gitleaks-fd.toml
 
 security-gitleaks-check-tk:
-    bash contrib/security/security.sh gitleaks-check-tk
+    gitleaks detect --no-git --verbose --source src/tickoni
+    gitleaks detect --no-git --verbose --source src/app/tickoni
 
 security-gitleaks-check-fd-linux-x86: security-gitleaks-check-fd
 security-gitleaks-check-tk-linux-x86: security-gitleaks-check-tk
@@ -80,7 +81,7 @@ security-gitleaks-check-all:
 # ── Security: Gitleaks Qt ───────────────────────────────────────────────────
 
 security-gitleaks-check-qt:
-    bash contrib/security/security.sh gitleaks-check-qt
+    gitleaks detect --no-git --verbose --source src/tickoni/terminal
 
 security-gitleaks-check-qt-linux-x86: security-gitleaks-check-qt
 
@@ -148,7 +149,7 @@ security-seccomp-check-qt-linux-x86: security-seccomp-check-qt
 # ── Security: Proof ────────────────────────────────────────────────────────
 
 security-proof-check-fd:
-    bash contrib/security/security.sh proof-check-fd
+    @bash contrib/security/security.sh proof-check-fd
 
 security-proof-check-tk:
     @true
@@ -203,10 +204,10 @@ security-proof-check-qt-linux-x86: security-proof-check-qt
 # ── Security: ASan/UBSan ───────────────────────────────────────────────────
 
 security-sanitize-check-fd:
-    bash contrib/security/security.sh sanitize-check-fd
+    @bash contrib/security/security.sh sanitize-check-fd
 
 security-sanitize-check-tk:
-    bash contrib/security/security.sh sanitize-check-tk
+    @bash contrib/security/security.sh sanitize-check-tk
 
 security-sanitize-check-fd-linux-x86: security-sanitize-check-fd
 security-sanitize-check-tk-linux-x86: security-sanitize-check-tk
@@ -251,7 +252,7 @@ security-sanitize-check-all:
 # ── Security: ASan/UBSan Qt ─────────────────────────────────────────────────
 
 security-sanitize-check-qt:
-    bash contrib/security/security.sh sanitize-check-qt
+    @bash contrib/security/security.sh sanitize-check-qt
 
 security-sanitize-check-qt-linux-x86: security-sanitize-check-qt
 
