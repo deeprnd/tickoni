@@ -328,9 +328,9 @@ main( int     argc,
 
   char const * name      = fd_env_strip_cmdline_cstr ( &argc, &argv, "--wksp",      NULL,            NULL );
   char const * _page_sz  = fd_env_strip_cmdline_cstr ( &argc, &argv, "--page-sz",   NULL,      "gigantic" );
-  ulong        page_cnt  = fd_env_strip_cmdline_ulong( &argc, &argv, "--page-cnt",  NULL,         524288UL );
+  ulong        page_cnt  = fd_env_strip_cmdline_ulong( &argc, &argv, "--page-cnt",  NULL,        1048576UL );
   ulong        near_cpu  = fd_env_strip_cmdline_ulong( &argc, &argv, "--near-cpu",  NULL, fd_log_cpu_id() );
-  ulong        alloc_cnt = fd_env_strip_cmdline_ulong( &argc, &argv, "--alloc-cnt", NULL,        131072UL );
+  ulong        alloc_cnt = fd_env_strip_cmdline_ulong( &argc, &argv, "--alloc-cnt", NULL,          8192UL );
   ulong        align_max = fd_env_strip_cmdline_ulong( &argc, &argv, "--align-max", NULL,           256UL );
   ulong        sz_max    = fd_env_strip_cmdline_ulong( &argc, &argv, "--sz-max",    NULL,  sz_max_default );
   ulong        tag       = fd_env_strip_cmdline_ulong( &argc, &argv, "--tag",       NULL,          1234UL );
