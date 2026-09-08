@@ -1,3 +1,4 @@
+#define _DARWIN_C_SOURCE /* POSIX/C99 extensions on macOS */
 #include "fd_http_server.h"
 #include "fd_http_server_private.h"
 #include "../../util/fd_util.h"
