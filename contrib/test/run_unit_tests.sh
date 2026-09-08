@@ -72,6 +72,19 @@ if [[ ! -f "$TESTS_FILE" ]]; then
   exit 0
 fi
 
+# Report available memory for debugging OOM failures
+echo "  System memory:"
+if [ -f /proc/meminfo ]; then
+  MEM_TOTAL=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+  MEM_AVAIL=$(grep MemAvailable /proc/meminfo | awk '{print $2}')
+  echo "    total:   $(( MEM_TOTAL / 1024 / 1024 )) GiB"
+  echo "    available: $(( MEM_AVAIL / 1024 / 1024 )) GiB"
+fi
+echo "    page-sz: $PAGE_SZ"
+echo "    page-cnt: ${PAGE_CNT:-<default>}"
+echo "    workspace: $(( ${PAGE_CNT:-65536} * 4096 / 1024 / 1024 )) MiB"
+echo "    jobs: $JOBS"
+
 failures=0
 passed=0
 total=0
