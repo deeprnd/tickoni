@@ -111,6 +111,14 @@ jobs:
       - name: Run Python unit tests (pytest)
         run: just test-unit-setup
 
+      - name: Configure hugepages and memory limits (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo prlimit --pid $$ --nofile=65536 --memlock=unlimited
+          sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || true
+          sudo src/util/shmem/fd_shmem_cfg init 0700 "$USER" ""
+          sudo src/util/shmem/fd_shmem_cfg alloc-auto 0
+
       - name: Run Firedancer unit tests
         run: just ${{ matrix.fd-test-recipe }}
 
