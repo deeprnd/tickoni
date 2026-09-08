@@ -185,8 +185,8 @@ main( int     argc,
   fd_boot( &argc, &argv );
 
   char const * name       = fd_env_strip_cmdline_cstr ( &argc, &argv, "--wksp",      NULL,            NULL );
-  char const * _page_sz   = fd_env_strip_cmdline_cstr ( &argc, &argv, "--page-sz",   NULL,      "gigantic" );
-  ulong        page_cnt   = fd_env_strip_cmdline_ulong( &argc, &argv, "--page-cnt",  NULL,         524288UL );
+  char const * _page_sz   = fd_env_strip_cmdline_cstr ( &argc, &argv, "--page-sz",   NULL,      "normal"   );
+  ulong        page_cnt   = fd_env_strip_cmdline_ulong( &argc, &argv, "--page-cnt",  NULL,          65536UL );
   ulong        near_cpu   = fd_env_strip_cmdline_ulong( &argc, &argv, "--near-cpu",  NULL, fd_log_cpu_id() );
   uint         seed       = fd_env_strip_cmdline_uint ( &argc, &argv, "--seed",      NULL,              0U );
   ulong        part_max   = fd_env_strip_cmdline_ulong( &argc, &argv, "--part-max",  NULL,             0UL );
