@@ -78,7 +78,7 @@ def cmd_build_fd(args, config: dict) -> None:
     target_name = args.target
     mode = args.mode  # libs, test, cov
     compiler = args.compiler or "gcc"
-    extras = args.extras or ""
+    extras = args.extras or ("lz4 blst zstd" if mode in ("test", "cov") else "")
     ldflags_exe = args.ldflags or ""
     build_target = args.build_target or ""
     builddir = args.builddir or "fd-tickoni-fd"
