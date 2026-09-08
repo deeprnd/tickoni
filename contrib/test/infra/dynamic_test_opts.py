@@ -101,7 +101,7 @@ def run_dynamic_test_opts() -> dict:
     # ── Constants ──────────────────────────────────────────────────────
     page_sz_normal = 4096       # FD_SHMEM_NORMAL_PAGE_SZ
     os_reserve_gb = 16          # GB to reserve for OS + other processes
-    overhead_mult = 8           # FD workspaces typically use 2-6x raw page space
+    overhead_mult = 4           # FD workspaces typically use 2-6x raw page space
     min_jobs = 1
     max_jobs = 6                # cap to avoid fork-bomb on many-core machines
     min_page_cnt = 65536        # minimum pages (256 MB workspace)
