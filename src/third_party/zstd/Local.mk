@@ -61,6 +61,9 @@ $(OBJDIR)/obj/third_party/zstd/lib/decompress/huf_decompress_amd64.o : src/third
 $(CC) $(ZSTD_CFLAGS_NOWARN) -c $< -o $@
 
 $(OBJDIR)/lib/libfd_zstd.a: $(patsubst %,$(OBJDIR)/obj/third_party/zstd/lib/%.o,$(ZSTD_OBJS)) $(ZSTD_ASM_OBJS)
+	@echo -e "AR\t$(notdir $@)"
+	$(Q)$(MKDIR) $(dir $@) && \
+	$(AR) $(ARFLAGS) $@ $^
 
 lib: $(OBJDIR)/lib/libfd_zstd.a
 
