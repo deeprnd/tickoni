@@ -1,3 +1,5 @@
+#if defined(__linux__)
+
 #define _GNU_SOURCE
 #include "../fd_util.h"
 #include "fd_tile_private.h"
