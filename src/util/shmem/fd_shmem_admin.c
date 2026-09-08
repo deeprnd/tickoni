@@ -616,10 +616,22 @@ fd_shmem_acquire_multi( ulong         page_sz,
       ERROR( unmap );
     }
 
+    /* For normal anonymous pages, mlock and mbind are best-effort.
+       After hugepage allocation (mem-alloc-auto), the target NUMA node
+       may not have enough normal 4KB pages for strict mlock/mbind.
+       Pages are already mapped by mmap above — if NUMA binding fails,
+       the kernel still provides them (possibly cross-NUMA, which is
+       acceptable for tests and non-critical paths). */
     if( FD_UNLIKELY( fd_numa_mlock( sub_mem, sub_sz ) ) ) {
-      FD_LOG_WARNING(( "sub[%lu]: fd_numa_mlock(anon,%lu KiB) failed (%i-%s)",
-                       sub_idx, sub_sz>>10, errno, fd_io_strerror( errno ) ));
-      ERROR( unmap );
+      if( FD_UNLIKELY( page_sz != FD_SHMEM_NORMAL_PAGE_SZ ) ) {
+        /* For huge/gigantic pages, mlock is mandatory (hugetlbfs pages
+           must be resident to avoid SIGBUS). Fail the allocation. */
+        FD_LOG_WARNING(( "sub[%lu]: fd_numa_mlock(anon,%lu KiB) failed (%i-%s)",
+                         sub_idx, sub_sz>>10, errno, fd_io_strerror( errno ) ));
+        ERROR( unmap );
+      }
+      FD_LOG_DEBUG(( "sub[%lu]: fd_numa_mlock(anon,%lu KiB) best-effort skipped (%i-%s)",
+                     sub_idx, sub_sz>>10, errno, fd_io_strerror( errno ) ));
     }
 
     /* FIXME: NUMA TOUCH HERE (ALSO WOULD A LOCAL TOUCH WORK GIVEN THE
@@ -628,10 +640,16 @@ fd_shmem_acquire_multi( ulong         page_sz,
     fd_memset( nodemask, 0, 8UL*((FD_SHMEM_NUMA_MAX+63UL)/64UL) );
     nodemask[ sub_numa_idx >> 6 ] = 1UL << (sub_numa_idx & 63UL);
 
-    if( FD_UNLIKELY( fd_numa_mbind( sub_mem, sub_sz, MPOL_BIND, nodemask, FD_SHMEM_NUMA_MAX, MPOL_MF_MOVE|MPOL_MF_STRICT ) ) ) {
-      FD_LOG_WARNING(( "sub[%lu]: fd_numa_mbind(anon,%lu KiB,MPOL_BIND,1UL<<%lu,MPOL_MF_MOVE|MPOL_MF_STRICT) failed (%i-%s)",
-                       sub_idx, sub_sz>>10, sub_numa_idx, errno, fd_io_strerror( errno ) ));
-      ERROR( unmap );
+    if( FD_UNLIKELY( fd_numa_mbind( sub_mem, sub_sz, MPOL_BIND, nodemask, FD_SHMEM_NUMA_MAX, MPOL_MF_MOVE ) ) ) {
+      if( FD_UNLIKELY( page_sz != FD_SHMEM_NORMAL_PAGE_SZ ) ) {
+        /* For huge/gigantic pages, mbind with strict is mandatory.
+           Normal pages tolerate cross-NUMA allocation. */
+        FD_LOG_WARNING(( "sub[%lu]: fd_numa_mbind(anon,%lu KiB,MPOL_BIND,1UL<<%lu) failed (%i-%s)",
+                         sub_idx, sub_sz>>10, sub_numa_idx, errno, fd_io_strerror( errno ) ));
+        ERROR( unmap );
+      }
+      FD_LOG_DEBUG(( "sub[%lu]: fd_numa_mbind(anon,%lu KiB) best-effort skipped (%i-%s)",
+                     sub_idx, sub_sz>>10, errno, fd_io_strerror( errno ) ));
     }
 
     int warn = fd_shmem_numa_validate( sub_mem, page_sz, sub_page_cnt, sub_cpu_idx ); /* logs details */
