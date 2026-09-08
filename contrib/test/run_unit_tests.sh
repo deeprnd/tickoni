@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Run FD C unit-test binaries sequentially.
 # Usage: run_unit_tests.sh --tests <file> [--page-sz <sz>] [--page-cnt <cnt>] [-j <n>]
+# NOTE: TEST_OPTS is parsed from the environment (not make variable expansion,
+# which does NOT word-split) so that --page-sz / --page-cnt / -j reach the tests.
 set -uo pipefail
 
 if [ $# -lt 1 ]; then
@@ -12,6 +14,47 @@ TESTS_FILE=""
 PAGE_SZ="normal"
 PAGE_CNT=""
 JOBS=1
+
+# Parse TEST_OPTS from environment (make $(TEST_OPTS) is NOT word-split in
+# recipes, so the entire string arrives as one positional arg. We tokenize
+# it locally without touching the script's own $@).
+if [ -n "${TEST_OPTS:-}" ]; then
+  _parse_test_opts() {
+    local _line="$1" _tok _val _rest
+    while [ -n "$_line" ]; do
+      _tok="${_line%%[[:space:]]*}"
+      if [ "$_tok" = "$_line" ]; then
+        # Last token — skip unknown flags
+        _line=""
+      else
+        _rest="${_line#*[[:space:]]}"
+        case "$_tok" in
+          --page-sz)
+            _val="${_rest%%[[:space:]]*}"
+            if [ "$_val" = "$_rest" ]; then PAGE_SZ="$_val"; _line=""
+            else PAGE_SZ="$_val"; _line="${_rest#*[[:space:]]}"; fi
+            ;;
+          --page-cnt)
+            _val="${_rest%%[[:space:]]*}"
+            if [ "$_val" = "$_rest" ]; then PAGE_CNT="$_val"; _line=""
+            else PAGE_CNT="$_val"; _line="${_rest#*[[:space:]]}"; fi
+            ;;
+          -j)
+            _val="${_rest%%[[:space:]]*}"
+            if [ "$_val" = "$_rest" ]; then JOBS="$_val"; _line=""
+            else JOBS="$_val"; _line="${_rest#*[[:space:]]}"; fi
+            ;;
+          *)
+            # Skip this token and its value
+            _line="${_rest#*[[:space:]]}"
+            ;;
+        esac
+      fi
+    done
+  }
+  _parse_test_opts "$TEST_OPTS"
+  unset -f _parse_test_opts
+fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
