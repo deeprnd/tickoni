@@ -228,6 +228,13 @@
 #define FD_HAS_DEEPASAN 0
 #endif
 
+/* FD_HAS_OPENSSL indicates that OpenSSL is available for TLS/crypto
+   operations. Defined by the build system (build.zig / Makefile). */
+
+#ifndef FD_HAS_OPENSSL
+#define FD_HAS_OPENSSL 0
+#endif
+
 /* Base development environment ***************************************/
 
 /* The functionality provided by these vanilla headers are always

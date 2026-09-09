@@ -2267,13 +2267,21 @@ fn addPlainTestRun(b: *std.Build, test_compile: *std.Build.Step.Compile) *std.Bu
     return run_step;
 }
 
-/// Links the Firedancer substrate used by Tickoni runtime wrappers. Tickoni
-/// code crosses Firedancer only through src/tickoni/c_abi/shim/**, so this
-/// compiles the required Tickoni-owned shim files alongside upstream libs.
+/// shimCFlagsFor returns the C compiler flags for Tickoni shim files.
+/// These flags match what the GNUmakefile's with-openssl.mk / with-x86-64.mk
+/// would define for the same target platform.
 fn shimCFlagsFor(target: std.Target) []const []const u8 {
     return switch (target.os.tag) {
-        .linux => &.{ "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1", "-DFD_HAS_LINUX=1" },
-        .macos => &.{ "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1", "-DFD_HAS_MACOS=1" },
+        .linux => &.{
+            "-std=c17", "-U__BMI2__", "-U__LZCNT__",
+            "-DFD_HAS_HOSTED=1", "-DFD_HAS_LINUX=1",
+            "-DFD_HAS_OPENSSL=1",
+        },
+        .macos => &.{
+            "-std=c17", "-U__BMI2__", "-U__LZCNT__",
+            "-DFD_HAS_HOSTED=1", "-DFD_HAS_MACOS=1",
+            "-DFD_HAS_OPENSSL=1",
+        },
         .windows => switch (target.cpu.arch) {
             .aarch64 => &.{
                 "-std=c17",                  "-U__BMI2__",        "-U__LZCNT__",       "-DFD_HAS_HOSTED=1",  "-DFD_HAS_WINDOWS=1",
@@ -2341,6 +2349,14 @@ fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_l
     step.root_module.addLibraryPath(b.path(fd_lib_dir));
     const os_tag = step.root_module.resolved_target.?.result.os.tag;
     const cpu_arch = step.root_module.resolved_target.?.result.cpu.arch;
+
+    // OpenSSL: add include path from FD_PREFIX env var if set, otherwise
+    // rely on system default (/usr/include for OpenSSL 3.x). Link libcrypto.
+    if (std.fs.environ.get("FD_PREFIX")) |prefix| {
+        step.root_module.addIncludePath(b.path(std.fs.path.join(b.allocator, &.{ prefix, "include" }) catch b.path("include")));
+    }
+    step.root_module.linkSystemLibrary("crypto", .{});
+
     if (os_tag == .windows or (os_tag == .linux and cpu_arch == .aarch64)) {
         // Windows and ARM64 Linux: use explicit archive paths. On Windows this avoids
         // pkg-config.BAT probing; on ARM64 Linux it preserves link order with ld.lld,
