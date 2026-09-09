@@ -219,6 +219,13 @@ def cmd_build_fd(args, config: dict) -> None:
         cmd.append(make_assignment("AR", ar_tool, platform_name))
     if extras:
         cmd.append(f"EXTRAS={extras}")
+
+    # Wire OPT so with-openssl.mk activates (check for $(OPT)/lib/libssl.a)
+    # and with-x86-64.mk / with-arm.mk include it. Without this,
+    # FD_HAS_OPENSSL is undefined and AES-GCM compilation fails because
+    # the reference implementation was removed in v2.10-s2-5.
+    cmd.append("OPT=build/opt")
+
     cmd.extend(targets)
     if build_target:
         cmd.append(build_target)
