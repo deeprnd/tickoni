@@ -40,16 +40,7 @@
 
 #else
 
-  /* Fallback: portable C reference implementation (used when
-     FD_HAS_OPENSSL is not defined, e.g. non-x86 targets or minimal
-     builds). */
-
-  #include "fd_aes_gcm_ref.h"
-
-  typedef fd_aes_gcm_ref_t        fd_aes_gcm_t;
-  #define fd_aes_128_gcm_init fd_aes_128_gcm_init_ref
-  #define fd_aes_gcm_encrypt  fd_aes_gcm_encrypt_ref
-  #define fd_aes_gcm_decrypt  fd_aes_gcm_decrypt_ref
+  #error "AES-GCM requires FD_HAS_OPENSSL; the reference implementation was removed in v2.10-s2-5"
 
 #endif
 
