@@ -248,15 +248,11 @@ test_aes_128_gcm_bounds( fd_rng_t * rng ) {
      out-of-bounds accesses.  ASan is uneffective here because memory
      accesses occur from uninstrumented assembly blobs. */
 
-  /* AVX10 read-ahead: the main loop reads 4*VL bytes from SRC/DST
-     (128 for VL=32, 256 for VL=64) for aligned vector loads.  We map
-     one page + read-ahead, then add an unmapped guard page after so
-     that *actual* overreads (beyond declared datalen + alignment)
-     still trap.  64 KiB per region stays within tight VMA limits. */
-  ulong read_ahead  = 256UL;  /* max(128, 256) — worst-case VL=64 */
-  ulong mapped_sz   = FD_SHMEM_NORMAL_PAGE_SZ + read_ahead;
-  ulong region_sz   = mapped_sz + 4096UL;  /* 1-page guard after data */
-
+  /* Region size of 64 KiB is plenty to land the page boundary with
+     unmapped guard space while staying within tight VMA/memory limits.
+     The mapped portion is exactly 1 page; the rest is immediately
+     munmap'd so no physical memory is consumed. */
+  ulong region_sz  = 64UL * 1024UL;
   uchar * ptr_p     = mmap( NULL, region_sz, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0 );
   uchar * ptr_c     = mmap( NULL, region_sz, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0 );
   uchar * state_mem = mmap( NULL, region_sz, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0 );
@@ -264,24 +260,22 @@ test_aes_128_gcm_bounds( fd_rng_t * rng ) {
   FD_TEST( ptr_c    !=MAP_FAILED );
   FD_TEST( state_mem!=MAP_FAILED );
 
-  /* Guard page after data+read-ahead */
-  FD_TEST( 0==mmap( (void *)((uchar *)ptr_p + mapped_sz), 4096, PROT_NONE,
-                    MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0 ) );
-  FD_TEST( 0==mmap( (void *)((uchar *)ptr_c + mapped_sz), 4096, PROT_NONE,
-                    MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0 ) );
-  FD_TEST( 0==mmap( (void *)((uchar *)state_mem + mapped_sz), 4096, PROT_NONE,
-                    MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0 ) );
+  uchar * ptr_p_end = ptr_p     + FD_SHMEM_NORMAL_PAGE_SZ;
+  uchar * ptr_c_end = ptr_c     + FD_SHMEM_NORMAL_PAGE_SZ;
+  uchar * state_end = state_mem + FD_SHMEM_NORMAL_PAGE_SZ;
+  FD_TEST( 0==munmap( ptr_p_end, region_sz - FD_SHMEM_NORMAL_PAGE_SZ ) );
+  FD_TEST( 0==munmap( ptr_c_end, region_sz - FD_SHMEM_NORMAL_PAGE_SZ ) );
+  FD_TEST( 0==munmap( state_end, region_sz - FD_SHMEM_NORMAL_PAGE_SZ ) );
 
   fd_memset( ptr_p,     0, FD_SHMEM_NORMAL_PAGE_SZ );
   fd_memset( ptr_c,     0, FD_SHMEM_NORMAL_PAGE_SZ );
   fd_memset( state_mem, 0, FD_SHMEM_NORMAL_PAGE_SZ );
 
-  uchar * ptr_p_end = ptr_p + FD_SHMEM_NORMAL_PAGE_SZ;
-  uchar * ptr_c_end = ptr_c + FD_SHMEM_NORMAL_PAGE_SZ;
-  uchar * state_end = state_mem + FD_SHMEM_NORMAL_PAGE_SZ;
-
   fd_aes_gcm_t * aes_gcm = fd_type_pun( state_end - sizeof(fd_aes_gcm_t) );
   FD_TEST( fd_ulong_is_aligned( (ulong)aes_gcm, FD_AES_GCM_ALIGN ) );
+
+  uchar const key[ FD_AES_128_KEY_SZ ] = {0};
+  uchar const iv [ FD_AES_GCM_IV_SZ  ] = {0};
 
   /* The GHASH AAD update reads from the AAD buffer with alignment
      padding beyond the declared length.  When sz==FD_SHMEM_NORMAL_PAGE_SZ
@@ -289,9 +283,6 @@ test_aes_128_gcm_bounds( fd_rng_t * rng ) {
      update reads past ptr_p into unmapped memory.  Limit sz to one page
      minus the max alignment padding (16 bytes for GHASH block size). */
   ulong max_sz = FD_SHMEM_NORMAL_PAGE_SZ - 16UL;
-
-  uchar const key[ FD_AES_128_KEY_SZ ] = {0};
-  uchar const iv [ FD_AES_GCM_IV_SZ  ] = {0};
 
   for( ulong sz=0UL; sz<=max_sz; sz++ ) {
     uchar * p = ptr_p_end - sz;
