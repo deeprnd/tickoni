@@ -248,7 +248,11 @@ test_aes_128_gcm_bounds( fd_rng_t * rng ) {
      out-of-bounds accesses.  ASan is uneffective here because memory
      accesses occur from uninstrumented assembly blobs. */
 
-  ulong region_sz = (1UL<<30);
+  /* Region size of 64 KiB is plenty to land the page boundary with
+     unmapped guard space while staying within tight VMA/memory limits.
+     The mapped portion is exactly 1 page; the rest is immediately
+     munmap'd so no physical memory is consumed. */
+  ulong region_sz  = 64UL * 1024UL;
   uchar * ptr_p     = mmap( NULL, region_sz, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0 );
   uchar * ptr_c     = mmap( NULL, region_sz, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0 );
   uchar * state_mem = mmap( NULL, region_sz, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0 );
