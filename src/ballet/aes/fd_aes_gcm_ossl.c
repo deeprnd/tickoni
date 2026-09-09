@@ -33,6 +33,12 @@ struct fd_aes_gcm_ossl {
     EVP_CIPHER_CTX *ctx;
 };
 
+/* Key and IV are stored here so encrypt/decrypt can re-init the
+   context without the caller passing them again.  Firedancer is
+   single-threaded per tile, so static is safe. */
+static uchar _ossl_key[16];
+static uchar _ossl_iv[12];
+
 void
 fd_aes_128_gcm_init(fd_aes_gcm_t *aes_gcm,
                     uchar const    key[16],
@@ -40,15 +46,23 @@ fd_aes_128_gcm_init(fd_aes_gcm_t *aes_gcm,
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     FD_TEST(ctx);
 
-    int ok = EVP_EncryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL);
+    /* Store key and iv in static storage so encrypt/decrypt can
+       re-init the context without the caller passing them again.
+       Firedancer is single-threaded per tile, so this is safe. */
+    memcpy(_ossl_key, key, 16);
+    memcpy(_ossl_iv, iv, 12);
+
+    /* Reset context (clears any previous state) */
+    EVP_CIPHER_CTX_reset(ctx);
+
+    /* Initialize for decrypt with key+IV in one call.  This sets the
+       context to decrypt mode so that EVP_CTRL_GCM_SET_TAG works.
+       Encryption will reset and re-initialize in fd_aes_gcm_encrypt(). */
+    int ok = EVP_DecryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, _ossl_key, _ossl_iv);
     FD_TEST(ok);
 
-    // Set IV length (12 bytes for GCM)
+    /* Set IV length (12 bytes for GCM) */
     ok = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 12, NULL);
-    FD_TEST(ok);
-
-    // Set key and IV
-    ok = EVP_EncryptInit_ex(ctx, NULL, NULL, key, iv);
     FD_TEST(ok);
 
     aes_gcm->ctx = ctx;
@@ -62,24 +76,38 @@ fd_aes_gcm_encrypt(fd_aes_gcm_t *aes_gcm,
                    uchar const *  aad,
                    ulong          aad_sz,
                    uchar          tag[16]) {
-    EVP_CIPHER_CTX *ctx = aes_gcm->ctx;
+    EVP_CIPHER_CTX *ctx = (EVP_CIPHER_CTX *)aes_gcm->ctx;
     int outlen = 0;
-    int taglen = 16;
 
-    // Process AAD first (if present)
+    /* Reset and re-initialize for encryption.  The context was set up
+       for decrypt in fd_aes_128_gcm_init(), but encryption needs its own
+       initialization.  Use the stored key and iv. */
+    EVP_CIPHER_CTX_reset(ctx);
+    int ok = EVP_EncryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL);
+    FD_TEST(ok);
+
+    /* Set IV length (12 bytes for GCM) */
+    ok = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 12, NULL);
+    FD_TEST(ok);
+
+    /* Set key and IV for encrypt */
+    ok = EVP_EncryptInit_ex(ctx, NULL, NULL, _ossl_key, _ossl_iv);
+    FD_TEST(ok);
+
+    /* Process AAD first (if present) */
     if (aad && aad_sz) {
-        int ok = EVP_EncryptUpdate(ctx, NULL, &outlen, aad, (int)aad_sz);
+        ok = EVP_EncryptUpdate(ctx, NULL, &outlen, aad, (int)aad_sz);
         FD_TEST(ok);
     }
 
     // Encrypt data
     if (sz) {
-        int ok = EVP_EncryptUpdate(ctx, c, &outlen, p, (int)sz);
+        ok = EVP_EncryptUpdate(ctx, c, &outlen, p, (int)sz);
         FD_TEST(ok);
     }
 
     // Finalize — writes the authentication tag to c + outlen
-    int ok = EVP_EncryptFinal_ex(ctx, c + outlen, &outlen);
+    ok = EVP_EncryptFinal_ex(ctx, c + outlen, &outlen);
     FD_TEST(ok);
 
     // Retrieve the tag
@@ -95,28 +123,31 @@ fd_aes_gcm_decrypt(fd_aes_gcm_t *aes_gcm,
                    uchar const *  aad,
                    ulong          aad_sz,
                    uchar const    tag[16]) {
-    EVP_CIPHER_CTX *ctx = aes_gcm->ctx;
+    EVP_CIPHER_CTX *ctx = (EVP_CIPHER_CTX *)aes_gcm->ctx;
     int outlen = 0;
     int ok;
 
-    // Set expected tag BEFORE finalizing (required for verification)
+    /* Set expected tag BEFORE finalizing (required for verification).
+       The context was already initialized with key and IV by
+       fd_aes_128_gcm_init(), so we only need to set the tag and then
+       proceed with decrypt. */
     ok = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16, (void *)tag);
     FD_TEST(ok);
 
-    // Process AAD first (if present)
+    /* Process AAD first (if present) */
     if (aad && aad_sz) {
         ok = EVP_DecryptUpdate(ctx, NULL, &outlen, aad, (int)aad_sz);
         FD_TEST(ok);
     }
 
-    // Decrypt data
+    /* Decrypt data */
     if (sz) {
         ok = EVP_DecryptUpdate(ctx, p, &outlen, c, (int)sz);
         FD_TEST(ok);
     }
 
-    // Finalize — verifies the tag
-    // Returns 1 if tag matches, 0 if authentication fails
+    /* Finalize — verifies the tag.
+       Returns 1 if tag matches, 0 if authentication fails */
     ok = EVP_DecryptFinal_ex(ctx, p + outlen, &outlen);
     return ok;
 }

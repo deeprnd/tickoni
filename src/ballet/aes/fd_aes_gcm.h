@@ -31,13 +31,12 @@
 
 #if FD_HAS_OPENSSL
 
-  /* OpenSSL EVP backend: opaque struct wrapping EVP_CIPHER_CTX*.
+  /* OpenSSL EVP backend: opaque struct storing EVP_CIPHER_CTX* as void*
+     to avoid exposing OpenSSL internals in the header.
      Defined in fd_aes_gcm_ossl.c. Uses hardware-accelerated AES-NI/GCM
      on x86_64, NEON crypto on ARM. */
 
-  struct fd_aes_gcm_ossl; /* forward decl, defined in fd_aes_gcm_ossl.c */
-
-  typedef struct fd_aes_gcm_ossl  fd_aes_gcm_t;
+  typedef struct { void *ctx; }  __attribute__((aligned(64))) fd_aes_gcm_t;
 
 #else
 

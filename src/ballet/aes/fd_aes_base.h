@@ -71,7 +71,9 @@ FD_PROTOTYPES_END
 
 /* Backend selection **************************************************/
 
-#if FD_HAS_AESNI
+/* When OpenSSL is available, use portable C reference for ECB (AESNI .S files removed).
+   AES-GCM uses OpenSSL EVP via fd_aes_gcm_ossl.c. */
+#if FD_HAS_AESNI && !FD_HAS_OPENSSL
 #define FD_AES_IMPL 1 /* AESNI */
 #else
 #define FD_AES_IMPL 0 /* Portable */
