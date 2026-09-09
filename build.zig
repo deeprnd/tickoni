@@ -2350,13 +2350,7 @@ fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_l
     const os_tag = step.root_module.resolved_target.?.result.os.tag;
     const cpu_arch = step.root_module.resolved_target.?.result.cpu.arch;
 
-    // OpenSSL: add include path from FD_PREFIX env var if set, otherwise
-    // rely on system default (/usr/include for OpenSSL 3.x). Link libcrypto.
-    if (b.graph.environ_map.get("FD_PREFIX")) |prefix| {
-        step.root_module.addIncludePath(b.path(prefix + "/include"));
-    } else {
-        // Rely on system default (/usr/include for OpenSSL 3.x).
-    }
+    // OpenSSL: link libcrypto; include path is handled by system defaults.
     step.root_module.linkSystemLibrary("crypto", .{});
 
     if (os_tag == .windows or (os_tag == .linux and cpu_arch == .aarch64)) {
