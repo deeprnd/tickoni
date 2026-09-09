@@ -101,14 +101,14 @@ setup-build-macos-arm:
     python3 contrib/setup/orchestrator.py build
 
 setup-build-linux-arm-gcc:
-    python3 contrib/setup/orchestrator.py build
+    python3 contrib/setup/orchestrator.py build,ssl
 
 # Windows build-only setup: no llama.cpp; system-test setup owns the LLM.
 setup-build-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py build,mvsc --platform windows-x86
+    {{ python }} contrib/setup/orchestrator.py build,mvsc,ssl --platform windows-x86
 
 setup-build-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py build,mvsc --platform windows-arm
+    {{ python }} contrib/setup/orchestrator.py build,mvsc,ssl --platform windows-arm
 
 # Engine build: full FD toolchain (build + zig + ssl + gcc)
 setup-fd-linux-x86-gcc:
