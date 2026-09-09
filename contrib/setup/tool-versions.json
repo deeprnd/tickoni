@@ -712,7 +712,8 @@
       "platform": "all",
       "install_method": "go_install",
       "parameters": {
-        "module": "github.com/bufbuild/buf/cmd/buf"
+        "module": "github.com/bufbuild/buf/cmd/buf",
+        "version": "1.38.0"
       },
       "idempotent_check": "command -v buf"
     },

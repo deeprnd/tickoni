@@ -141,8 +141,10 @@ class GoInstallStrategy(InstallStrategy):
 
     def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool) -> None:
         module = tool['parameters'].get('module', '')
+        version = tool['parameters'].get('version', '')
         if dry_run:
-            print(f"  [DRY-RUN] Would go install {module}")
+            tag = f"@v{version}" if version else "@latest"
+            print(f"  [DRY-RUN] Would go install {module}{tag}")
             return
         print(f"[GO] Installing {module}...")
         go = _go_binary()
@@ -155,8 +157,9 @@ class GoInstallStrategy(InstallStrategy):
             sys.exit(1)
         env = os.environ.copy()
         env['PATH'] = f"{os.path.dirname(go)}{os.pathsep}{env.get('PATH', '')}"
+        tag = f"@v{version}" if version else "@latest"
         result = subprocess.run(
-            [go, 'install', f'{module}@latest'],
+            [go, 'install', f'{module}{tag}'],
             capture_output=True, text=True, env=env,
         )
         if result.returncode != 0:
