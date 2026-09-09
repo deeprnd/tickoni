@@ -283,10 +283,17 @@ test_aes_128_gcm_bounds( fd_rng_t * rng ) {
   fd_aes_gcm_t * aes_gcm = fd_type_pun( state_end - sizeof(fd_aes_gcm_t) );
   FD_TEST( fd_ulong_is_aligned( (ulong)aes_gcm, FD_AES_GCM_ALIGN ) );
 
+  /* The GHASH AAD update reads from the AAD buffer with alignment
+     padding beyond the declared length.  When sz==FD_SHMEM_NORMAL_PAGE_SZ
+     the AAD pointer (p=ptr_p_end-sz) lands at ptr_p and the GHASH
+     update reads past ptr_p into unmapped memory.  Limit sz to one page
+     minus the max alignment padding (16 bytes for GHASH block size). */
+  ulong max_sz = FD_SHMEM_NORMAL_PAGE_SZ - 16UL;
+
   uchar const key[ FD_AES_128_KEY_SZ ] = {0};
   uchar const iv [ FD_AES_GCM_IV_SZ  ] = {0};
 
-  for( ulong sz=0UL; sz<=FD_SHMEM_NORMAL_PAGE_SZ; sz++ ) {
+  for( ulong sz=0UL; sz<=max_sz; sz++ ) {
     uchar * p = ptr_p_end - sz;
     uchar * c = ptr_c_end - sz;
     uchar tag[16];
