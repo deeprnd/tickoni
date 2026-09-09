@@ -101,7 +101,7 @@ setup-build-macos-arm:
     python3 contrib/setup/orchestrator.py build
 
 setup-build-linux-arm-gcc:
-    python3 contrib/setup/orchestrator.py build,ssl
+    python3 contrib/setup/orchestrator.py build
 
 # Windows build-only setup: no llama.cpp; system-test setup owns the LLM.
 setup-build-windows-x86:
