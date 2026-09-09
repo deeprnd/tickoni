@@ -40,7 +40,6 @@
    compatible API */
 
 #include <stdlib.h>
-#include "fd_aes_gcm_ref.h"
 
 typedef union {
   uchar b[8];
