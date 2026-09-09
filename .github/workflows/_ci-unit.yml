@@ -30,7 +30,7 @@ jobs:
           - platform-name: Linux x86_64 Clang
             runner: ubuntu-24.04
             timeout_minutes: 30
-            fd-test-recipe: test-unit-fd-linux-x86-gcc
+            fd-test-recipe: test-unit-fd-linux-x86-clang
             test-recipe: test-unit-tk-linux-x86
             build-recipe: build-fd-linux-x86-clang
             fd-deps: setup-fd-linux-x86-clang

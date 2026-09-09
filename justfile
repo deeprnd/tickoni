@@ -37,6 +37,17 @@ test-unit-fd-linux-x86-gcc:
     {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
         LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-12 LD=gcc-12 run-unit-test TEST_OPTS="$TEST_OPTS"
 
+test-unit-fd-linux-x86-clang:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ulimit -l 2097152 || true
+    timeout=600
+    python3 contrib/build/orchestrator.py --platform linux-x86 build-fd {{ fd_tickoni_build }} test clang-18
+    eval "$(python3 contrib/test/orchestrator.py dynamic-test-opts | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
+    echo "Running unit tests with: $TEST_OPTS"
+    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
+        LDFLAGS_EXE="$LDFLAGS_EXE" CC=clang-18 LD=clang-18 run-unit-test TEST_OPTS="$TEST_OPTS"
+
 test-unit-fd-linux-arm-gcc:
     #!/usr/bin/env bash
     set -euo pipefail
