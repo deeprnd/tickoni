@@ -220,11 +220,11 @@ def cmd_build_fd(args, config: dict) -> None:
     if extras:
         cmd.append(f"EXTRAS={extras}")
 
-    # Wire OPT so with-openssl.mk activates (check for $(OPT)/lib/libssl.a)
-    # and with-x86-64.mk / with-arm.mk include it. Without this,
-    # FD_HAS_OPENSSL is undefined and AES-GCM compilation fails because
-    # the reference implementation was removed in v2.10-s2-5.
-    cmd.append("OPT=build/opt")
+    # Wire OPT so with-openssl.mk activates (check for $(OPT)/lib/libssl.a).
+    # Pass via environment variable — MSYS2 path translation mangles
+    # POSIX-style '/' into ',' on command-line make assignments, so
+    # 'OPT=build/opt' becomes 'OPT=build,opt' which fails wildcard.
+    env["OPT"] = "build/opt"
 
     cmd.extend(targets)
     if build_target:
