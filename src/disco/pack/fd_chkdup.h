@@ -590,8 +590,7 @@ fd_chkdup_check_fast( fd_chkdup_t          * chkdup,
   (void)chkdup;
   (void)list0;
   (void)list1;
-  (void)list0_cnt;
-  (void)list1_cnt;
+  if( FD_UNLIKELY( list0_cnt+list1_cnt<=1UL ) ) return 0;
   return 1;
 }
 
