@@ -121,4 +121,17 @@ fd_aes_gcm_decrypt(fd_aes_gcm_t *aes_gcm,
     return ok;
 }
 
+/* fd_aes_gcm_cleanup releases the OpenSSL context allocated by
+   fd_aes_128_gcm_init.  Callers that allocate fd_aes_gcm_t on the stack
+   (fd_aes_gcm_t aes_gcm[1]) should call this before the object goes
+   out of scope. */
+
+void
+fd_aes_gcm_cleanup( fd_aes_gcm_t *aes_gcm ) {
+#if FD_HAS_OPENSSL
+    EVP_CIPHER_CTX_free( aes_gcm->ctx );
+    aes_gcm->ctx = NULL;
+#endif
+}
+
 #endif /* FD_HAS_OPENSSL */
