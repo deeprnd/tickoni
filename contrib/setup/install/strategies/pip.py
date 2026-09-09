@@ -157,6 +157,9 @@ class GoInstallStrategy(InstallStrategy):
             sys.exit(1)
         env = os.environ.copy()
         env['PATH'] = f"{os.path.dirname(go)}{os.pathsep}{env.get('PATH', '')}"
+        # Disable module sum verification — CI sum.golang.org is unreliable
+        # (stream errors / INTERNAL_ERROR) and blocks go install.
+        env['GONOSUMCHECK'] = '*'
         tag = f"@v{version}" if version else "@latest"
         result = subprocess.run(
             [go, 'install', f'{module}{tag}'],
