@@ -103,7 +103,11 @@ Key design principles:
 
 ## 4. Five Function Panels — UX Detail
 
+Story mapping: S1 (shell navigation), S2 (CASE), S8 (POLICY), S4 (IMPACT), S5 (PROOF), S6 (SYSTEM).
+
 ### CASE (Investment Workbench)
+
+**Story: V3.19.S2**
 
 This is the default screen. It shows everything needed to make an investment decision in one view.
 
@@ -145,6 +149,8 @@ Band 3 — DECISION (full width, bottom)
 
 ### POLICY
 
+**Story: V3.19.S8**
+
 Deep dive into why the decision was made.
 
 ```
@@ -183,6 +189,8 @@ Design rules:
 - One scrollable table. No cards.
 
 ### IMPACT
+
+**Story: V3.19.S4**
 
 Before/after consequence view.
 
@@ -226,6 +234,8 @@ Design rules:
 - Alerts at bottom right — compact bullet list, not cards
 
 ### PROOF
+
+**Story: V3.19.S5**
 
 The black box. Every auditor wants this screen.
 
@@ -271,6 +281,8 @@ Design rules:
 - Attribution is separate from the timeline — it's metadata about the decision, not a step in it.
 
 ### SYSTEM
+
+**Story: V3.19.S6**
 
 Compact availability. Not a dashboard.
 
@@ -407,27 +419,29 @@ Bloomberg shows watchlists and screeners. Yahoo Finance shows watchlists. FinCha
 
 ### What Needs Improvement
 
+The recommendations below were the original UX plan's findings. They are now **captured in story scope** (S1, S2, S5) as noted in the second column. See each story file for the full implementation detail.
+
 #### 1. The CASE Panel Has Too Many Concepts
 
-The current CASE design tries to show thesis, account state, basket, rejected, ticket, policy decision, exposure, and action affordance all in one view. That's 8 concepts. Even Bloomberg doesn't do that on one screen.
+**Story: V3.19.S2 — two-tier CASE view.**
 
-**Recommendation:** Split CASE into a two-tier view.
-- Tier 1 (default): thesis + basket + rejected (the investment decision)
-- Tier 2 (toggle or /show): account + ticket + policy + exposure + action (the governance context)
+The current CASE design tries to show thesis, account state, basket, rejected, ticket, policy decision, exposure, and action all in one view. That's 8 concepts. Even Bloomberg doesn't do that on one screen.
 
-The operator should see the investment first, then drill into governance. Not both simultaneously. Use a toggle or a second function key (F6 = INVEST / F7 = GOVERNANCE) within the CASE function, or use the command bar to toggle between "investment view" and "governance view."
+**Implementation:** Split CASE into two tiers. Tier 1 (default): thesis + basket + rejected (the investment decision). Tier 2 (toggle or /show): account + ticket + policy + exposure + action (the governance context). S2 owns this.
 
 #### 2. Missing: Multi-Case Workflow
 
-The roadmap assumes one case per terminal session. Real operators work with multiple cases simultaneously. A Bloomberg operator has 5-10 screens open. Phase 0 should support at least a **case list** — a way to switch between cases without losing context.
+**Deferred.** Not captured in any Phase 0 story. A Bloomberg operator has 5-10 screens open. Phase 0 should support at least a **case list** — a way to switch between cases without losing context.
 
-**Recommendation:** Add a collapsible case list sidebar (left edge, 3 cases visible) or a /case N command. At minimum, the status bar should show how many cases are loaded and allow navigation.
+**Decision:** Out of scope for Phase 0. Add `/case N` navigation to S2 (status bar case count + `/case N` command) for single-session navigation. A collapsible case list sidebar is a future story.
 
 #### 3. Missing: The "So What?" Layer
 
+**Story: V3.19.S2 — guidance strip.**
+
 The IMPACT panel shows "Technology exposure 22% → 31%." But what should the operator *do* about that? Bloomberg doesn't show data without context. FinChat shows data without guidance. Tickoni has the policy system to provide guidance.
 
-**Recommendation:** Add a **guidance strip** below the main content that translates data into action:
+**Implementation:** Add a **guidance strip** below the main content that translates data into action:
 ```
   GUIDANCE
   ──────────────────────────────────────────────────────────────────────────
@@ -436,41 +450,48 @@ The IMPACT panel shows "Technology exposure 22% → 31%." But what should the op
   [✓] Rebalancing not required.
   [i] Cash buffer USD 3,240.18. Min target: USD 2,000.00.
 ```
-This is Bloomberg's "what to think about" — not automated advice, but structured guidance based on policy. It's the difference between "here's data" and "here's what matters."
+This is Bloomberg's "what to think about" — not automated advice, but structured guidance based on policy. It's the difference between "here's data" and "here's what matters." S2 owns this.
 
 #### 4. Missing: Thesis Health Status
 
+**Story: V3.19.S2 — thesis health indicator.**
+
 V1.3 defines thesis drift conditions: allocation breach, sector exposure breach, concentration breach, instrument no longer eligible, buying-power change. These are computed by the runtime but only shown in the IMPACT panel as post-hoc deltas.
 
-**Recommendation:** Add a **thesis health indicator** on the THESIS band (CASE view):
+**Implementation:** Add a **thesis health indicator** on the THESIS band (CASE view):
 ```
   THESIS STATUS: HEALTHY    Last checked: 03:14:02Z
   ── Allocation within limits. Sector exposure nominal.
 ```
-Status colors: HEALTHY (green), DRIFT (amber — near threshold), BREACH (red — limit exceeded). This is what makes Tickoni feel alive — not a static snapshot, but a continuously evaluated thesis.
+Status colors: HEALTHY (green), DRIFT (amber — near threshold), BREACH (red — limit exceeded). This is what makes Tickoni feel alive — not a static snapshot, but a continuously evaluated thesis. S2 owns this.
 
 #### 5. The Status Bar Is Too Sparse
+
+**Story: V3.19.S2 — case count in status strip.**
 
 Current status bar: `TKNI | PAPER | CASE 493 | POLICY v1.11 | DATA 12s | BUS OK | REPLAY MATCH`
 
 This is good but missing critical context for an operator deciding whether to act.
 
-**Recommendation:** Add environment badge, case count, and action state:
+**Implementation:** Add case count and action state:
 ```
   TKNI  [PAPER]  CASE 493  CASES:3  POLICY v1.11  DATA 12s  BUS OK  REPLAY MATCH  ACTION: ENABLED
 ```
+S2 owns this. S1 owns the status strip frame.
 
 #### 6. No "Default View" Mental Model for New Operators
 
+**Story: V3.19.S2 — guided default state.**
+
 A Bloomberg operator knows the terminal because they use it every day. A new operator opening Tickoni needs to know: "what am I supposed to do first?"
 
-**Recommendation:** The default CASE view should have a **guided state** for the first interaction:
+**Implementation:** The default CASE view should have a **guided state** for the first interaction:
 ```
   ──────────────────────────────────────────────────────────────────────────
   Welcome. Type a thesis to begin, or /show policy to inspect rules.
   ──────────────────────────────────────────────────────────────────────────
 ```
-Once a thesis is entered, the guided state is replaced by the actual investment view. This is the "onboarding without onboarding" approach — the terminal guides without leaving the terminal paradigm.
+Once a thesis is entered, the guided state is replaced by the actual investment view. This is the "onboarding without onboarding" approach — the terminal guides without leaving the terminal paradigm. S2 owns this.
 
 ---
 
@@ -554,31 +575,90 @@ Switch to POLICY (F2) for the deep policy check table. Switch to IMPACT (F3) for
 
 ---
 
-## 10. Summary of Recommendations
+## 10. Summary of Recommendations — Story Mapping
 
 ### Must-Do (Phase 0)
 
-1. **Add guidance strip to CASE view.** Translates data into structured recommendations. Bloomberg-equivalent of "what to think about."
-2. **Split CASE into two tiers.** Default: thesis + basket + rejected. Toggle: account + ticket + policy + exposure + action. Reduces cognitive load.
-3. **Add thesis health status.** HEALTHY/DRIFT/BREACH indicator on the THESIS band. Continuous evaluation, not static snapshot.
-4. **Add case count to status bar.** /case N navigation. Multi-case support at minimum.
-5. **Guided default state.** "Type a thesis to begin" message for empty state. Replaced by actual content once thesis is entered.
+| # | Recommendation | Story | Notes |
+|---|---|---|---|
+| 1 | Guidance strip on CASE view | S2 | Translates data into structured recommendations. |
+| 2 | Split CASE into two tiers | S2 | Default: thesis + basket + rejected. Toggle: account + ticket + policy + exposure + action. |
+| 3 | Thesis health status | S2 | HEALTHY/DRIFT/BREACH indicator on THESIS band. |
+| 4 | Case count in status bar | S2 | `/case N` navigation. Multi-case support at minimum. |
+| 5 | Guided default state | S1 | "Type a thesis to begin" message for empty state. |
+| **MISSING** | **POLICY function panel** | **S8** | **Dedicated policy check table — was a gap, now captured.** |
 
-### Should-Do (Phase 0 if time permits)
+### Should-Do (Phase 0)
 
-6. **Multi-case sidebar.** Collapsible case list. Not full multi-window — just a way to switch cases without losing context.
-7. **Hash expand/collapse.** Truncated hashes with click-to-expand. Terminal-appropriate density.
-8. **Empty/unavailable states.** What does each panel look like when data is unavailable? "UNAVAILABLE — evidence required" not "blank."
+| # | Recommendation | Story | Notes |
+|---|---|---|---|
+| 6 | Multi-case sidebar | **Deferred** | Collapsible case list sidebar is a future story. `/case N` navigation is in S2. |
+| 7 | Hash expand/collapse | S5 | Truncated hashes with click-to-expand. Terminal-appropriate density. |
 
-### Don't Do (Phase 0)
+### Not In Scope (Phase 0)
 
-- Charts (line, candlestick, area, bar) — this is a terminal, not a dashboard
-- Heatmaps — decorative, not decision-critical
-- Portfolio optimization suggestions — autonomous or semi-autonomous
-- Live market data feeds — Phase 0 is fixture-based
-- News/research panels — out of scope
-- Multi-window full screen — keep it single-window, five panels
-- Animations beyond focus transitions — no celebratory motion, no loading spinners (use status indicators instead)
+| Recommendation | Decision |
+|---|---|
+| Multi-case sidebar | Deferred — `/case N` in S2 is sufficient for Phase 0. Full sidebar is a future story. |
+| Thesis drift computation | Runtime does this (drift.zig). UI only displays the health status (S2). |
+
+### Ticket Blinking — Section 12 of This Plan
+
+Ticket blinking (Section 12) is a **non-negotiable Phase 0 requirement**. It is captured in **S2** (CASE function) as a visual alive signal. The model update loop, 200ms luminance pulse, coalescing, and stress test modes (Section 12) and the high-refresh-rate wiring (Section 13) are all part of S2's implementation context.
+
+---
+
+## 10a. Feature Inventory — Story Mapping
+
+This section maps the feature inventory (Section 1) to story ownership. Every row has a story owner.
+
+| Feature | Owner | Story |
+|---|---|---|
+| Thesis input & normalization | S2 | CASE function |
+| Catalog with denylist | S2 | CASE function |
+| Basket construction | S2 | CASE function |
+| Portfolio & affordability | S2 | CASE function |
+| Trade ticket generation | S2 | CASE function |
+| Paper-only execution | S2 | CASE function |
+| Before/after impact | S4 | IMPACT function |
+| Thesis drift conditions | S2 (health status) | CASE function |
+| Rebalance suggestion | S2 (guidance strip) | CASE function |
+| Classification awareness | S2 | CASE function |
+| Capability envelopes | S2, S8 | CASE + POLICY functions |
+| Policy decisions | S8 | POLICY function |
+| USD 25,000 denial | S2 | CASE function |
+| SOXL restricted-instrument denial | S2, S8 | CASE + POLICY functions |
+| 9-step audit timeline | S5 | PROOF function |
+| Hash fields | S5 | PROOF function |
+| Replay status | S5 | PROOF function |
+| Tamper check | S5 | PROOF function |
+| Model route & adapter attribution | S5 | PROOF function |
+| Proof bundle export affordance | S5 | PROOF function |
+| Data freshness indicators | S6 | SYSTEM function |
+| Fixture vs runtime mode | S6 | SYSTEM function |
+| 5-function navigation | S1 | Shell |
+| Command bar | S1 | Shell |
+| Midnight Oni visual system | S1 | Shell |
+| Keyboard navigation | S1 | Shell |
+| Before/after portfolio comparison | S4 | IMPACT function |
+| Thesis card | S2 | CASE function |
+| Demo command | All | Cross-story |
+| Policy tile | S8 | POLICY function |
+| Rebalance suggestion status | S2 | CASE function |
+| Ticket blinking | S2 | CASE function |
+| Guided default state | S1 | Shell |
+| Case count in status bar | S2 | CASE function |
+| Multi-case `/case N` | S2 | CASE function |
+| **`tk_ui` tile boundary** | **S7** | **UI tile** |
+| **`tk_api` ↔ `tk_ui` communication contract** | **S7** | **UI tile** |
+| **Channel definitions (ui_cmd, ui_rsp, ui_evt, ui_lval, ui_bulk, ui_diag)** | **S7** | **UI tile** |
+| **Overflow policies, gap detection, resynchronization** | **S7** | **UI tile** |
+| **`InvestmentCaseView` schema** | **S7** | **UI tile** |
+| **Unit test harness (per-story tests)** | **S7** | **Testing** |
+| **Integration test harness (bus-transport, cross-platform, blocked-flow)** | **S7** | **Testing** |
+| **Fixture file paths and schemas** | **S7** | **Testing** |
+| **Screenshot checklist** | **S7** | **Testing** |
+| **Blocked-flow examples** | **S7** | **Testing** |
 
 ---
 
