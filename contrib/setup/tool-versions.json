@@ -535,7 +535,8 @@
       "install_method": "winget",
       "parameters": {
         "package": "Microsoft.VisualStudio.2022.BuildTools",
-        "override": "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait --norestart"
+        "components": ["Microsoft.VisualStudio.Component.VC.Tools.ARM64"],
+        "override": "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --includeRecommended --quiet --norestart"
       },
       "idempotent_check": "command -v cl"
     },

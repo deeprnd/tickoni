@@ -291,13 +291,21 @@ build_windows() {
   runner_cmd="${src_dir}/fd-openssl-build.cmd"
   cat >"${runner_cmd}" <<EOF
 @echo off
+echo [openssl] Loading MSVC ${vc_target} environment...
 call "${vcvars_win}" ${vc_target}
 if errorlevel 1 exit /b %errorlevel%
 rem Use the selected nmake by absolute path: adding its directory to PATH can
 rem shadow the target cl.exe with a host/other-target cl.exe from that directory.
+rem OpenSSL invokes \$(MAKE) recursively; replace Git Bash's POSIX gmake path.
+rem Preserve quotes because NMAKE expands \$(MAKE) into a command line.
+set MAKE="${nmake_win}"
+echo [openssl] Building OpenSSL libraries...
 "${nmake_win}" /NOLOGO build_libs
 if errorlevel 1 exit /b %errorlevel%
+echo [openssl] Installing OpenSSL development files...
 "${nmake_win}" /NOLOGO install_dev
+if errorlevel 1 exit /b %errorlevel%
+exit /b 0
 EOF
 
   echo "[openssl] Activating MSVC environment (${vc_target}) via ${vcvars_path##*/}..."

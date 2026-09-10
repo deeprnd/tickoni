@@ -12,6 +12,8 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
+import urllib.request
 from ..base import InstallStrategy
 from .. import register
 
@@ -233,6 +235,7 @@ def _winget_install_command(shell: str, winget_id: str, override: str) -> list[s
         '--accept-package-agreements', '--accept-source-agreements',
         '--disable-interactivity', '--source', 'winget',
     ]
+
     if shell in ('pwsh', 'powershell'):
         winget_cmd = 'winget install ' + ' '.join(flags)
         if override:
@@ -244,6 +247,77 @@ def _winget_install_command(shell: str, winget_id: str, override: str) -> list[s
     if override:
         argv += ['--override', override]
     return argv
+
+
+def _has_arm64_msvc_compiler(install_path: str) -> bool:
+    """Return whether a Build Tools instance has an ARM64 target compiler."""
+    return bool(glob.glob(os.path.join(
+        install_path, 'VC', 'Tools', 'MSVC', '*', 'bin', 'Host*', 'arm64', 'cl.exe',
+    )))
+
+
+_VS_BUILD_TOOLS_BOOTSTRAPPER_URL = 'https://aka.ms/vs/17/release/vs_buildtools.exe'
+
+
+def _run_build_tools_bootstrapper(install_path: str, components: list[str]) -> None:
+    """Run the official bootstrapper synchronously to reconcile Build Tools."""
+    bootstrapper = os.path.join(tempfile.gettempdir(), 'tickoni-vs-buildtools.exe')
+    if not os.path.isfile(bootstrapper):
+        print('[MSVC] Downloading the Visual Studio Build Tools bootstrapper...')
+        try:
+            urllib.request.urlretrieve(_VS_BUILD_TOOLS_BOOTSTRAPPER_URL, bootstrapper)
+        except OSError as exc:
+            print(f'ERROR: could not download Visual Studio Build Tools bootstrapper: {exc}', file=sys.stderr)
+            sys.exit(1)
+
+    command = [
+        bootstrapper, '--quiet', '--wait', '--norestart',
+        '--installPath', install_path,
+    ]
+    for component in components:
+        command += ['--add', component]
+    command += ['--includeRecommended']
+    print('[MSVC] Reconciling Visual Studio ARM64 build tools...')
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        output = (result.stdout or '') + (result.stderr or '')
+        if output:
+            print(output, file=sys.stderr, end='')
+        print('ERROR: Visual Studio Build Tools bootstrapper failed.', file=sys.stderr)
+        sys.exit(1)
+
+
+def _ensure_visual_studio_components(components: list[str]) -> None:
+    """Synchronously reconcile requested components through the VS bootstrapper."""
+    if not components:
+        return
+
+    installer_dir = os.path.join(
+        os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
+        'Microsoft Visual Studio', 'Installer',
+    )
+    vswhere = os.path.join(installer_dir, 'vswhere.exe')
+    instance = subprocess.run(
+        [vswhere, '-products', 'Microsoft.VisualStudio.Product.BuildTools',
+         '-property', 'installationPath'],
+        capture_output=True, text=True,
+    )
+    install_path = instance.stdout.strip()
+    if instance.returncode != 0 or not install_path:
+        print('ERROR: could not locate the Visual Studio Build Tools instance', file=sys.stderr)
+        sys.exit(1)
+
+    arm64_requested = 'Microsoft.VisualStudio.Component.VC.Tools.ARM64' in components
+    if not arm64_requested or _has_arm64_msvc_compiler(install_path):
+        return
+
+    _run_build_tools_bootstrapper(install_path, components)
+    if not _has_arm64_msvc_compiler(install_path):
+        print(
+            'ERROR: the synchronous Visual Studio bootstrapper completed but ARM64 cl.exe is absent.',
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 @register('winget')
@@ -259,6 +333,7 @@ class WingetInstallStrategy(InstallStrategy):
         params = tool.get('parameters', {})
         winget_id = params.get('winget_id') or params.get('package', '')
         override = params.get('override', '')
+        components = params.get('components', [])
 
         if dry_run:
             print(f"  [DRY-RUN] Would winget install {winget_id}")
@@ -278,3 +353,4 @@ class WingetInstallStrategy(InstallStrategy):
                 file=sys.stderr,
             )
             sys.exit(1)
+        _ensure_visual_studio_components(components)
