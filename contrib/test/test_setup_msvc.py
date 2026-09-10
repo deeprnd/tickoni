@@ -127,7 +127,7 @@ def test_unregistered_build_tools_are_bootstrapped_at_standard_location(monkeypa
     monkeypatch.setattr(winget.subprocess, "run", run)
     monkeypatch.setattr(winget.glob, "glob", lambda pattern: next(compiler_checks))
     monkeypatch.setattr(winget.tempfile, "gettempdir", lambda: r"C:\Temp")
-    monkeypatch.setattr(winget.os.path, "isfile", lambda path: True)
+    monkeypatch.setattr(winget.ntpath, "isfile", lambda path: True)
 
     winget._ensure_visual_studio_components([
         "Microsoft.VisualStudio.Workload.VCTools",

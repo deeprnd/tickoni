@@ -6,6 +6,7 @@ real ``winget.exe`` (or a PowerShell that can reach it) before installing.
 """
 from dataclasses import dataclass
 import glob
+import ntpath
 import os
 import re
 import shlex
@@ -45,18 +46,18 @@ def _refresh_winget_path() -> None:
     if not local_app_data:
         return
 
-    package_root = os.path.join(local_app_data, 'Microsoft', 'WinGet', 'Packages')
-    candidates = [os.path.join(local_app_data, 'Microsoft', 'WindowsApps')]
+    package_root = ntpath.join(local_app_data, 'Microsoft', 'WinGet', 'Packages')
+    candidates = [ntpath.join(local_app_data, 'Microsoft', 'WindowsApps')]
     # Portable packages generally place binaries in their package root or a
     # bin subdirectory.  Keep discovery shallow and bounded; _find_winget_shell
     # still searches recursively when it specifically needs winget.exe.
-    candidates.extend(glob.glob(os.path.join(package_root, '*')))
-    candidates.extend(glob.glob(os.path.join(package_root, '*', 'bin')))
-    candidates.extend(glob.glob(os.path.join(package_root, '*', '*', 'bin')))
+    candidates.extend(glob.glob(ntpath.join(package_root, '*')))
+    candidates.extend(glob.glob(ntpath.join(package_root, '*', 'bin')))
+    candidates.extend(glob.glob(ntpath.join(package_root, '*', '*', 'bin')))
 
     path_entries = os.environ.get('PATH', '').split(_WINDOWS_PATH_SEP)
     for candidate in candidates:
-        if os.path.isdir(candidate) and candidate not in path_entries:
+        if ntpath.isdir(candidate) and candidate not in path_entries:
             path_entries.insert(0, candidate)
     os.environ['PATH'] = _WINDOWS_PATH_SEP.join(path_entries)
 
@@ -102,7 +103,7 @@ def _find_winget_shell() -> WingetResolution:
 
     # A real package-local executable is preferable to the WindowsApps UWP
     # alias, which may be visible to PATH but cannot be launched by CreateProcess.
-    package_candidates = glob.glob(os.path.join(
+    package_candidates = glob.glob(ntpath.join(
         os.environ.get('LOCALAPPDATA', ''), 'Microsoft', 'WinGet',
         'Packages', '**', 'winget.exe'
     ), recursive=True)
@@ -251,7 +252,7 @@ def _winget_install_command(shell: str, winget_id: str, override: str) -> list[s
 
 def _has_msvc_compiler(install_path: str, target_arch: str) -> bool:
     """Return whether a Build Tools instance has the requested target compiler."""
-    return bool(glob.glob(os.path.join(
+    return bool(glob.glob(ntpath.join(
         install_path, 'VC', 'Tools', 'MSVC', '*', 'bin', 'Host*', target_arch, 'cl.exe',
     )))
 
@@ -261,7 +262,7 @@ _VS_BUILD_TOOLS_BOOTSTRAPPER_URL = 'https://aka.ms/vs/17/release/vs_buildtools.e
 
 def _run_build_tools_modifier(install_path: str, components: list[str], target_arch: str) -> None:
     """Synchronously add components to an existing Build Tools instance."""
-    setup = os.path.join(
+    setup = ntpath.join(
         os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
         'Microsoft Visual Studio', 'Installer', 'setup.exe',
     )
@@ -291,8 +292,8 @@ def _run_build_tools_modifier(install_path: str, components: list[str], target_a
 
 def _run_build_tools_bootstrapper(install_path: str, components: list[str], target_arch: str) -> None:
     """Run the official bootstrapper synchronously to reconcile Build Tools."""
-    bootstrapper = os.path.join(tempfile.gettempdir(), 'tickoni-vs-buildtools.exe')
-    if not os.path.isfile(bootstrapper):
+    bootstrapper = ntpath.join(tempfile.gettempdir(), 'tickoni-vs-buildtools.exe')
+    if not ntpath.isfile(bootstrapper):
         print('[MSVC] Downloading the Visual Studio Build Tools bootstrapper...')
         try:
             urllib.request.urlretrieve(_VS_BUILD_TOOLS_BOOTSTRAPPER_URL, bootstrapper)
@@ -322,11 +323,11 @@ def _ensure_visual_studio_components(components: list[str], target_arch: str = '
     if not components:
         return
 
-    installer_dir = os.path.join(
+    installer_dir = ntpath.join(
         os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
         'Microsoft Visual Studio', 'Installer',
     )
-    vswhere = os.path.join(installer_dir, 'vswhere.exe')
+    vswhere = ntpath.join(installer_dir, 'vswhere.exe')
     instance = subprocess.run(
         [vswhere, '-products', 'Microsoft.VisualStudio.Product.BuildTools',
          '-property', 'installationPath'],
@@ -339,7 +340,7 @@ def _ensure_visual_studio_components(components: list[str], target_arch: str = '
         # new instance.  The official bootstrapper owns initial installation as
         # well as modification, so reconcile the standard Build Tools location
         # instead of failing on that transient discovery gap.
-        install_path = os.path.join(
+        install_path = ntpath.join(
             os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
             'Microsoft Visual Studio', '2022', 'BuildTools',
         )
