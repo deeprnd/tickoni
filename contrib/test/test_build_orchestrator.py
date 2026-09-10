@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from contrib.build.orchestrator import make_assignment, make_path
+from contrib.build.orchestrator import clear_object_dir, make_assignment, make_path
 
 
 def test_make_path_uses_forward_slashes():
@@ -27,6 +27,18 @@ def test_non_windows_compiler_assignment_is_not_quoted():
     assert make_assignment("CC", compiler, "linux-x86") == (
         "CC=/opt/llvm/bin/clang"
     )
+
+
+def test_clear_object_dir_removes_nested_stale_objects(tmp_path):
+    obj_dir = tmp_path / "obj"
+    stale_object = obj_dir / "third_party" / "cjson" / "cJSON.o"
+    stale_object.parent.mkdir(parents=True)
+    stale_object.write_bytes(b"x86-64 COFF")
+
+    clear_object_dir(str(obj_dir))
+
+    assert obj_dir.is_dir()
+    assert not stale_object.exists()
 
 
 def test_windows_make_profile_detects_absolute_clang_path():

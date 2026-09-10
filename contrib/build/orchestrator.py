@@ -53,6 +53,17 @@ def make_assignment(name: str, value: str, platform_name: str) -> str:
     return f"{name}={value}"
 
 
+def clear_object_dir(obj_dir: str) -> None:
+    """Remove all object outputs, including nested source-directory outputs.
+
+    Firedancer emits objects under paths such as ``obj/third_party/cjson``.
+    Clearing only direct children leaves an old Windows x86_64 object available
+    to a later ARM64 build sharing the same BUILDDIR.
+    """
+    shutil.rmtree(obj_dir, ignore_errors=True)
+    os.makedirs(obj_dir, exist_ok=True)
+
+
 def platform_from_args(args) -> str:
     """Resolve the platform string from command args or justfile variables."""
     # Try explicit --platform override first
@@ -164,10 +175,7 @@ def cmd_build_fd(args, config: dict) -> None:
 
     if mode == "test":
         # Remove stale objects from prior build without EXTRAS
-        for f in os.listdir(obj_dir):
-            fp = os.path.join(obj_dir, f)
-            if os.path.isfile(fp):
-                os.remove(fp)
+        clear_object_dir(obj_dir)
         # Delete empty extra-libs from prior MODE=libs build
         for lib in extra_libs:
             fp = os.path.join(lib_dir, lib)
@@ -179,20 +187,14 @@ def cmd_build_fd(args, config: dict) -> None:
             if os.path.isfile(fp):
                 os.remove(fp)
     elif mode == "cov":
-        for f in os.listdir(obj_dir):
-            fp = os.path.join(obj_dir, f)
-            if os.path.isfile(fp):
-                os.remove(fp)
+        clear_object_dir(obj_dir)
         for lib in config["libs"]["test"] + libs:
             fp = os.path.join(lib_dir, lib)
             if os.path.isfile(fp):
                 os.remove(fp)
     else:
         # libs mode: clean stale objects from different target/ABI
-        for f in os.listdir(obj_dir):
-            fp = os.path.join(obj_dir, f)
-            if os.path.isfile(fp):
-                os.remove(fp)
+        clear_object_dir(obj_dir)
         for lib in config["libs"]["test"] + libs:
             fp = os.path.join(lib_dir, lib)
             if os.path.isfile(fp):
@@ -271,10 +273,7 @@ def cmd_build_fd(args, config: dict) -> None:
                 fp = os.path.join(lib_dir, lib)
                 if os.path.isfile(fp):
                     os.remove(fp)
-            for f in os.listdir(obj_dir):
-                fp = os.path.join(obj_dir, f)
-                if os.path.isfile(fp):
-                    os.remove(fp)
+            clear_object_dir(obj_dir)
             # targets already in cmd_no_extras from line 199, no need to append again
             if build_target:
                 cmd_no_extras.append(build_target)
@@ -285,10 +284,7 @@ def cmd_build_fd(args, config: dict) -> None:
     # Post-build: cov mode runs unit-test with coverage
     if mode == "cov":
         # Clean again for cov test
-        for f in os.listdir(obj_dir):
-            fp = os.path.join(obj_dir, f)
-            if os.path.isfile(fp):
-                os.remove(fp)
+        clear_object_dir(obj_dir)
         for lib in config["libs"]["test"] + libs:
             fp = os.path.join(lib_dir, lib)
             if os.path.isfile(fp):

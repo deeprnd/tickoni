@@ -2350,8 +2350,15 @@ fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_l
     const os_tag = step.root_module.resolved_target.?.result.os.tag;
     const cpu_arch = step.root_module.resolved_target.?.result.cpu.arch;
 
-    // OpenSSL: link libcrypto; include path is handled by system defaults.
-    step.root_module.linkSystemLibrary("crypto", .{});
+    // Windows setup builds OpenSSL into build/opt/lib as a COFF archive. Link
+    // that concrete archive rather than asking Zig to discover a system
+    // `crypto` library through pkg-config.BAT or fd_lib_dir.
+    if (os_tag == .windows) {
+        step.root_module.addObjectFile(.{ .cwd_relative = "build/opt/lib/libcrypto.a" });
+    } else {
+        // OpenSSL: link libcrypto; include path is handled by system defaults.
+        step.root_module.linkSystemLibrary("crypto", .{});
+    }
 
     if (os_tag == .windows or (os_tag == .linux and cpu_arch == .aarch64)) {
         // Windows and ARM64 Linux: use explicit archive paths. On Windows this avoids
