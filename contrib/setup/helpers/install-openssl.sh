@@ -285,24 +285,35 @@ build_windows() {
     exit 1
   fi
 
-  local nmake_dir_win
-  nmake_dir_win="$(cygpath -aw "$(dirname "${nmake_path}")")"
+  local nmake_win
+  nmake_win="$(cygpath -aw "${nmake_path}")"
   local runner_cmd
   runner_cmd="${src_dir}/fd-openssl-build.cmd"
   cat >"${runner_cmd}" <<EOF
 @echo off
 call "${vcvars_win}" ${vc_target}
 if errorlevel 1 exit /b %errorlevel%
-set "PATH=${nmake_dir_win};%PATH%"
-nmake /NOLOGO build_libs
+rem Use the selected nmake by absolute path: adding its directory to PATH can
+rem shadow the target cl.exe with a host/other-target cl.exe from that directory.
+"${nmake_win}" /NOLOGO build_libs
 if errorlevel 1 exit /b %errorlevel%
-nmake /NOLOGO install_dev
+"${nmake_win}" /NOLOGO install_dev
 EOF
 
   echo "[openssl] Activating MSVC environment (${vc_target}) via ${vcvars_path##*/}..."
   # Run nmake inside a cmd session with vcvarsall activated;
-  # capture stdout/stderr so failures show in CI logs.
-  cmd.exe /c "$(cygpath -aw "${runner_cmd}")" 2>&1 || { echo "[openssl] OpenSSL build failed" >&2; rm -f "${runner_cmd}"; exit 1; }
+  # capture stdout/stderr so failures show in CI logs.  Invoke the batch file
+  # through cmd's `call` command rather than passing its quoted path as the
+  # complete /c command.  On Git Bash hosted ARM runners, the latter can start
+  # an empty interactive cmd session, return success, and skip both nmake steps.
+  local runner_win
+  runner_win="$(cygpath -aw "${runner_cmd}")"
+  if [[ -z "${runner_win}" ]]; then
+    echo "[openssl] ERROR: could not convert MSVC build runner path" >&2
+    rm -f "${runner_cmd}"
+    exit 1
+  fi
+  cmd.exe /d /c call "${runner_win}" 2>&1 || { echo "[openssl] OpenSSL build failed" >&2; rm -f "${runner_cmd}"; exit 1; }
   rm -f "${runner_cmd}"
 
   # The MSVC build emits COFF archives with a .lib suffix, while Firedancer's
