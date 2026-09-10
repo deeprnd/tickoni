@@ -259,6 +259,36 @@ def _has_arm64_msvc_compiler(install_path: str) -> bool:
 _VS_BUILD_TOOLS_BOOTSTRAPPER_URL = 'https://aka.ms/vs/17/release/vs_buildtools.exe'
 
 
+def _run_build_tools_modifier(install_path: str, components: list[str]) -> None:
+    """Synchronously add components to an existing Build Tools instance."""
+    setup = os.path.join(
+        os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
+        'Microsoft Visual Studio', 'Installer', 'setup.exe',
+    )
+    command = [
+        setup, 'modify', '--quiet', '--norestart',
+        '--installPath', install_path,
+    ]
+    for component in components:
+        command += ['--add', component]
+    command += ['--includeRecommended']
+    print('[MSVC] Reconciling Visual Studio ARM64 build tools...')
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        output = (result.stdout or '') + (result.stderr or '')
+        if output:
+            print(output, file=sys.stderr, end='')
+        if result.returncode == 5007:
+            print(
+                'ERROR: Visual Studio component reconciliation requires elevation. '
+                'Rerun this just setup recipe from an elevated terminal.',
+                file=sys.stderr,
+            )
+        else:
+            print('ERROR: Visual Studio Build Tools component reconciliation failed.', file=sys.stderr)
+        sys.exit(1)
+
+
 def _run_build_tools_bootstrapper(install_path: str, components: list[str]) -> None:
     """Run the official bootstrapper synchronously to reconcile Build Tools."""
     bootstrapper = os.path.join(tempfile.gettempdir(), 'tickoni-vs-buildtools.exe')
@@ -303,15 +333,26 @@ def _ensure_visual_studio_components(components: list[str]) -> None:
         capture_output=True, text=True,
     )
     install_path = instance.stdout.strip()
-    if instance.returncode != 0 or not install_path:
-        print('ERROR: could not locate the Visual Studio Build Tools instance', file=sys.stderr)
-        sys.exit(1)
+    instance_found = instance.returncode == 0 and bool(install_path)
+    if not instance_found:
+        # WinGet can return before the Visual Studio Installer has registered a
+        # new instance.  The official bootstrapper owns initial installation as
+        # well as modification, so reconcile the standard Build Tools location
+        # instead of failing on that transient discovery gap.
+        install_path = os.path.join(
+            os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
+            'Microsoft Visual Studio', '2022', 'BuildTools',
+        )
+        print('[MSVC] Build Tools instance not registered; bootstrapping the standard location...')
 
     arm64_requested = 'Microsoft.VisualStudio.Component.VC.Tools.ARM64' in components
     if not arm64_requested or _has_arm64_msvc_compiler(install_path):
         return
 
-    _run_build_tools_bootstrapper(install_path, components)
+    if instance_found:
+        _run_build_tools_modifier(install_path, components)
+    else:
+        _run_build_tools_bootstrapper(install_path, components)
     if not _has_arm64_msvc_compiler(install_path):
         print(
             'ERROR: the synchronous Visual Studio bootstrapper completed but ARM64 cl.exe is absent.',
@@ -339,6 +380,13 @@ class WingetInstallStrategy(InstallStrategy):
             print(f"  [DRY-RUN] Would winget install {winget_id}")
             return
 
+        # Visual Studio's bootstrapper owns both initial installation and
+        # component modification. Running winget first races its asynchronous
+        # installer against a second reconciliation attempt.
+        if components:
+            _ensure_visual_studio_components(components)
+            return
+
         print(f"[WINGET] Installing {winget_id}...")
         shell = _require_winget()
         cmd = _winget_install_command(shell, winget_id, override)
@@ -353,4 +401,3 @@ class WingetInstallStrategy(InstallStrategy):
                 file=sys.stderr,
             )
             sys.exit(1)
-        _ensure_visual_studio_components(components)

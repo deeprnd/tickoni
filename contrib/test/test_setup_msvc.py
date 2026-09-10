@@ -36,7 +36,10 @@ def test_windows_msvc_install_requests_vctools_and_arm64_toolsets(monkeypatch):
             "name": "msvc",
             "parameters": {
                 "package": "Microsoft.VisualStudio.2022.BuildTools",
-                "components": ["Microsoft.VisualStudio.Component.VC.Tools.ARM64"],
+                "components": [
+                    "Microsoft.VisualStudio.Workload.VCTools",
+                    "Microsoft.VisualStudio.Component.VC.Tools.ARM64",
+                ],
                 "override": (
                     "--add Microsoft.VisualStudio.Workload.VCTools "
                     "--add Microsoft.VisualStudio.Component.VC.Tools.ARM64 "
@@ -49,18 +52,14 @@ def test_windows_msvc_install_requests_vctools_and_arm64_toolsets(monkeypatch):
         False,
     )
 
-    assert commands == [[
-        "winget.exe", "install", "--exact", "--id", "Microsoft.VisualStudio.2022.BuildTools",
-        "--accept-package-agreements", "--accept-source-agreements",
-        "--disable-interactivity", "--source", "winget", "--override",
-        "--add Microsoft.VisualStudio.Workload.VCTools "
-        "--add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --includeRecommended "
-        "--quiet --norestart",
+    assert commands == []
+    assert component_calls == [[
+        "Microsoft.VisualStudio.Workload.VCTools",
+        "Microsoft.VisualStudio.Component.VC.Tools.ARM64",
     ]]
-    assert component_calls == [["Microsoft.VisualStudio.Component.VC.Tools.ARM64"]]
 
 
-def test_missing_msvc_component_is_reconciled_by_synchronous_bootstrapper(monkeypatch):
+def test_missing_msvc_component_is_reconciled_by_synchronous_modifier(monkeypatch):
     commands = []
 
     def run(command, **kwargs):
@@ -76,16 +75,65 @@ def test_missing_msvc_component_is_reconciled_by_synchronous_bootstrapper(monkey
     compiler_checks = iter([[], [r"C:\\compiler\\cl.exe"]])
     monkeypatch.setattr(winget.subprocess, "run", run)
     monkeypatch.setattr(winget.glob, "glob", lambda pattern: next(compiler_checks))
+
+    winget._ensure_visual_studio_components([
+        "Microsoft.VisualStudio.Workload.VCTools",
+        "Microsoft.VisualStudio.Component.VC.Tools.ARM64",
+    ])
+
+    assert commands[1] == [
+        r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe",
+        "modify", "--quiet", "--norestart",
+        "--installPath", r"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools",
+        "--add", "Microsoft.VisualStudio.Workload.VCTools",
+        "--add", "Microsoft.VisualStudio.Component.VC.Tools.ARM64", "--includeRecommended",
+    ]
+
+
+def test_unregistered_build_tools_are_bootstrapped_at_standard_location(monkeypatch):
+    commands = []
+
+    def run(command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    compiler_checks = iter([[], [r"C:\\compiler\\cl.exe"]])
+    monkeypatch.setattr(winget.subprocess, "run", run)
+    monkeypatch.setattr(winget.glob, "glob", lambda pattern: next(compiler_checks))
     monkeypatch.setattr(winget.tempfile, "gettempdir", lambda: r"C:\Temp")
     monkeypatch.setattr(winget.os.path, "isfile", lambda path: True)
 
-    winget._ensure_visual_studio_components(["Microsoft.VisualStudio.Component.VC.Tools.ARM64"])
+    winget._ensure_visual_studio_components([
+        "Microsoft.VisualStudio.Workload.VCTools",
+        "Microsoft.VisualStudio.Component.VC.Tools.ARM64",
+    ])
 
     assert commands[1] == [
         r"C:\Temp\tickoni-vs-buildtools.exe", "--quiet", "--wait", "--norestart",
         "--installPath", r"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools",
+        "--add", "Microsoft.VisualStudio.Workload.VCTools",
         "--add", "Microsoft.VisualStudio.Component.VC.Tools.ARM64", "--includeRecommended",
     ]
+
+
+def test_msvc_modifier_reports_elevation_requirement(monkeypatch, capsys):
+    monkeypatch.setattr(
+        winget.subprocess,
+        "run",
+        lambda command, **kwargs: SimpleNamespace(returncode=5007, stdout="", stderr=""),
+    )
+
+    try:
+        winget._run_build_tools_modifier(
+            r"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools",
+            ["Microsoft.VisualStudio.Component.VC.Tools.ARM64"],
+        )
+    except SystemExit as exc:
+        assert exc.code == 1
+    else:
+        raise AssertionError("expected component reconciliation to exit")
+
+    assert "requires elevation" in capsys.readouterr().err
 
 
 def test_windows_msvc_absolute_winget_path_is_invoked_directly(monkeypatch):
