@@ -321,7 +321,13 @@ EOF
     rm -f "${runner_cmd}"
     exit 1
   fi
-  cmd.exe /d /c call "${runner_win}" 2>&1 || { echo "[openssl] OpenSSL build failed" >&2; rm -f "${runner_cmd}"; exit 1; }
+  # Pass the batch path through cmd's environment rather than as a Git Bash
+  # argument.  On hosted runners, MSYS argument conversion can drop a native
+  # drive path after `/c`, leaving cmd at an interactive prompt and returning
+  # success without running either nmake command.
+  export FD_OPENSSL_RUNNER="${runner_win}"
+  cmd.exe /d /c call "%FD_OPENSSL_RUNNER%" 2>&1 || { echo "[openssl] OpenSSL build failed" >&2; rm -f "${runner_cmd}"; exit 1; }
+  unset FD_OPENSSL_RUNNER
   rm -f "${runner_cmd}"
 
   # The MSVC build emits COFF archives with a .lib suffix, while Firedancer's
