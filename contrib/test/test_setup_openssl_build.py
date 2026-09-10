@@ -19,6 +19,12 @@ platform_spec.loader.exec_module(platform_module)
 from install.strategies import openssl_build  # noqa: E402
 
 
+def test_windows_helper_disables_msys_argument_conversion_for_cmd():
+    helper = (setup_dir / "helpers" / "install-openssl.sh").read_text(encoding="utf-8")
+
+    assert 'MSYS_NO_PATHCONV=1 cmd.exe /d /c call "%FD_OPENSSL_RUNNER%"' in helper
+
+
 @pytest.mark.parametrize(
     ("platform_str", "expected_arch"),
     [("windows-x86", "x86"), ("windows-arm", "arm")],

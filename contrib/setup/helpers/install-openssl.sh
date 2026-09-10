@@ -322,11 +322,11 @@ EOF
     exit 1
   fi
   # Pass the batch path through cmd's environment rather than as a Git Bash
-  # argument.  On hosted runners, MSYS argument conversion can drop a native
-  # drive path after `/c`, leaving cmd at an interactive prompt and returning
-  # success without running either nmake command.
+  # argument.  Disable MSYS argument conversion for cmd itself: conversion of
+  # `/d` or `/c` can leave cmd at an interactive prompt that returns success
+  # without running either nmake command on hosted ARM runners.
   export FD_OPENSSL_RUNNER="${runner_win}"
-  cmd.exe /d /c call "%FD_OPENSSL_RUNNER%" 2>&1 || { echo "[openssl] OpenSSL build failed" >&2; rm -f "${runner_cmd}"; exit 1; }
+  MSYS_NO_PATHCONV=1 cmd.exe /d /c call "%FD_OPENSSL_RUNNER%" 2>&1 || { echo "[openssl] OpenSSL build failed" >&2; rm -f "${runner_cmd}"; exit 1; }
   unset FD_OPENSSL_RUNNER
   rm -f "${runner_cmd}"
 
