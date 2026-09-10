@@ -249,17 +249,17 @@ def _winget_install_command(shell: str, winget_id: str, override: str) -> list[s
     return argv
 
 
-def _has_arm64_msvc_compiler(install_path: str) -> bool:
-    """Return whether a Build Tools instance has an ARM64 target compiler."""
+def _has_msvc_compiler(install_path: str, target_arch: str) -> bool:
+    """Return whether a Build Tools instance has the requested target compiler."""
     return bool(glob.glob(os.path.join(
-        install_path, 'VC', 'Tools', 'MSVC', '*', 'bin', 'Host*', 'arm64', 'cl.exe',
+        install_path, 'VC', 'Tools', 'MSVC', '*', 'bin', 'Host*', target_arch, 'cl.exe',
     )))
 
 
 _VS_BUILD_TOOLS_BOOTSTRAPPER_URL = 'https://aka.ms/vs/17/release/vs_buildtools.exe'
 
 
-def _run_build_tools_modifier(install_path: str, components: list[str]) -> None:
+def _run_build_tools_modifier(install_path: str, components: list[str], target_arch: str) -> None:
     """Synchronously add components to an existing Build Tools instance."""
     setup = os.path.join(
         os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
@@ -272,7 +272,7 @@ def _run_build_tools_modifier(install_path: str, components: list[str]) -> None:
     for component in components:
         command += ['--add', component]
     command += ['--includeRecommended']
-    print('[MSVC] Reconciling Visual Studio ARM64 build tools...')
+    print(f'[MSVC] Reconciling Visual Studio {target_arch.upper()} build tools...')
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
         output = (result.stdout or '') + (result.stderr or '')
@@ -289,7 +289,7 @@ def _run_build_tools_modifier(install_path: str, components: list[str]) -> None:
         sys.exit(1)
 
 
-def _run_build_tools_bootstrapper(install_path: str, components: list[str]) -> None:
+def _run_build_tools_bootstrapper(install_path: str, components: list[str], target_arch: str) -> None:
     """Run the official bootstrapper synchronously to reconcile Build Tools."""
     bootstrapper = os.path.join(tempfile.gettempdir(), 'tickoni-vs-buildtools.exe')
     if not os.path.isfile(bootstrapper):
@@ -307,7 +307,7 @@ def _run_build_tools_bootstrapper(install_path: str, components: list[str]) -> N
     for component in components:
         command += ['--add', component]
     command += ['--includeRecommended']
-    print('[MSVC] Reconciling Visual Studio ARM64 build tools...')
+    print(f'[MSVC] Reconciling Visual Studio {target_arch.upper()} build tools...')
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
         output = (result.stdout or '') + (result.stderr or '')
@@ -317,7 +317,7 @@ def _run_build_tools_bootstrapper(install_path: str, components: list[str]) -> N
         sys.exit(1)
 
 
-def _ensure_visual_studio_components(components: list[str]) -> None:
+def _ensure_visual_studio_components(components: list[str], target_arch: str = 'arm64') -> None:
     """Synchronously reconcile requested components through the VS bootstrapper."""
     if not components:
         return
@@ -345,17 +345,16 @@ def _ensure_visual_studio_components(components: list[str]) -> None:
         )
         print('[MSVC] Build Tools instance not registered; bootstrapping the standard location...')
 
-    arm64_requested = 'Microsoft.VisualStudio.Component.VC.Tools.ARM64' in components
-    if not arm64_requested or _has_arm64_msvc_compiler(install_path):
+    if _has_msvc_compiler(install_path, target_arch):
         return
 
     if instance_found:
-        _run_build_tools_modifier(install_path, components)
+        _run_build_tools_modifier(install_path, components, target_arch)
     else:
-        _run_build_tools_bootstrapper(install_path, components)
-    if not _has_arm64_msvc_compiler(install_path):
+        _run_build_tools_bootstrapper(install_path, components, target_arch)
+    if not _has_msvc_compiler(install_path, target_arch):
         print(
-            'ERROR: the synchronous Visual Studio bootstrapper completed but ARM64 cl.exe is absent.',
+            f'ERROR: the synchronous Visual Studio bootstrapper completed but {target_arch.upper()} cl.exe is absent.',
             file=sys.stderr,
         )
         sys.exit(1)
@@ -375,6 +374,12 @@ class WingetInstallStrategy(InstallStrategy):
         winget_id = params.get('winget_id') or params.get('package', '')
         override = params.get('override', '')
         components = params.get('components', [])
+        target_arch = 'arm64' if platform_str == 'windows-arm' else 'x64'
+        if target_arch != 'arm64':
+            components = [
+                component for component in components
+                if component != 'Microsoft.VisualStudio.Component.VC.Tools.ARM64'
+            ]
 
         if dry_run:
             print(f"  [DRY-RUN] Would winget install {winget_id}")
@@ -384,7 +389,7 @@ class WingetInstallStrategy(InstallStrategy):
         # component modification. Running winget first races its asynchronous
         # installer against a second reconciliation attempt.
         if components:
-            _ensure_visual_studio_components(components)
+            _ensure_visual_studio_components(components, target_arch)
             return
 
         print(f"[WINGET] Installing {winget_id}...")

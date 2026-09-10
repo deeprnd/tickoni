@@ -22,7 +22,7 @@ def test_windows_msvc_install_requests_vctools_and_arm64_toolsets(monkeypatch):
     monkeypatch.setattr(winget, "_require_winget", lambda: "winget.exe")
     monkeypatch.setattr(
         winget, "_ensure_visual_studio_components",
-        lambda components: component_calls.append(components),
+        lambda components, target_arch: component_calls.append((components, target_arch)),
     )
 
     def run(command, **kwargs):
@@ -53,10 +53,36 @@ def test_windows_msvc_install_requests_vctools_and_arm64_toolsets(monkeypatch):
     )
 
     assert commands == []
-    assert component_calls == [[
+    assert component_calls == [([
         "Microsoft.VisualStudio.Workload.VCTools",
         "Microsoft.VisualStudio.Component.VC.Tools.ARM64",
-    ]]
+    ], "arm64")]
+
+
+def test_windows_x86_msvc_install_excludes_arm64_toolset(monkeypatch):
+    component_calls = []
+    monkeypatch.setattr(
+        winget,
+        "_ensure_visual_studio_components",
+        lambda components, target_arch: component_calls.append((components, target_arch)),
+    )
+
+    winget.WingetInstallStrategy().execute(
+        {
+            "name": "msvc",
+            "parameters": {
+                "components": [
+                    "Microsoft.VisualStudio.Workload.VCTools",
+                    "Microsoft.VisualStudio.Component.VC.Tools.ARM64",
+                ],
+            },
+        },
+        {},
+        "windows-x86",
+        False,
+    )
+
+    assert component_calls == [(["Microsoft.VisualStudio.Workload.VCTools"], "x64")]
 
 
 def test_missing_msvc_component_is_reconciled_by_synchronous_modifier(monkeypatch):
@@ -127,6 +153,7 @@ def test_msvc_modifier_reports_elevation_requirement(monkeypatch, capsys):
         winget._run_build_tools_modifier(
             r"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools",
             ["Microsoft.VisualStudio.Component.VC.Tools.ARM64"],
+            "arm64",
         )
     except SystemExit as exc:
         assert exc.code == 1
