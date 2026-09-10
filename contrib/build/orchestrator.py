@@ -122,6 +122,10 @@ def cmd_build_fd(args, config: dict) -> None:
         if fixed_cc != cc:
             cc = fixed_cc
             print(f"[+] clang path has spaces, using LLVM tree alias: {cc}")
+        # llvm-ar lives beside clang.  Use its executable name rather than a
+        # native Windows path so Make's MSYS shell resolves it through the
+        # same no-space LLVM tree alias as clang.
+        ar_tool = "llvm-ar"
     else:
         env_extra = {}
         cc = strat.resolve_cc(platform_name, cc)

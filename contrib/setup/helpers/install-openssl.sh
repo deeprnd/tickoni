@@ -305,6 +305,18 @@ EOF
   cmd.exe /c "$(cygpath -aw "${runner_cmd}")" 2>&1 || { echo "[openssl] OpenSSL build failed" >&2; rm -f "${runner_cmd}"; exit 1; }
   rm -f "${runner_cmd}"
 
+  # The MSVC build emits COFF archives with a .lib suffix, while Firedancer's
+  # portable OpenSSL make fragment and setup idempotency contract expect .a.
+  # A COFF archive is accepted by clang/lld regardless of this filename suffix;
+  # copy the produced archives into that cross-platform contract.
+  for name in ssl crypto; do
+    if [[ ! -f "${PREFIX}/lib/lib${name}.lib" ]]; then
+      echo "[openssl] ERROR: expected ${PREFIX}/lib/lib${name}.lib was not installed" >&2
+      exit 1
+    fi
+    cp -f "${PREFIX}/lib/lib${name}.lib" "${PREFIX}/lib/lib${name}.a"
+  done
+
   echo "[openssl] Installed to ${PREFIX}"
 }
 
