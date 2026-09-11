@@ -733,7 +733,7 @@
         },
         "bin_name": "buf"
       },
-      "idempotent_check": "command -v buf"
+      "idempotent_check": "buf --version"
     },
     "gitleaks": {
       "category": "secrets",
