@@ -57,7 +57,7 @@ test-unit-fd-linux-arm-gcc:
     eval "$(python3 contrib/test/orchestrator.py dynamic-test-opts | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
     echo "Running unit tests with: $TEST_OPTS"
     {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
-        EXTRAS=zstd,lz4 LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-14 LD=gcc-14 run-unit-test TEST_OPTS="$TEST_OPTS"
+        EXTRAS="zstd lz4" LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-14 LD=gcc-14 run-unit-test TEST_OPTS="$TEST_OPTS"
 
 test-unit-fd-macos-x86:
     # DISABLED: lz4 needs more porting before macOS can run.
