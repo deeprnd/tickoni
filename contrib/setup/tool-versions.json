@@ -714,9 +714,10 @@
       "platform": "all",
       "install_method": "go_install",
       "parameters": {
-        "module": "github.com/bufbuild/buf/cmd/buf"
+        "module": "github.com/bufbuild/buf/cmd/buf",
+        "version": "1.73.0"
       },
-      "idempotent_check": "command -v buf"
+      "idempotent_check": "buf --version"
     },
     "gitleaks": {
       "category": "secrets",
