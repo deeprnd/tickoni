@@ -56,7 +56,7 @@ def find_clang(requested: str, arch: str) -> str:
         target = target_map.get(arch, "x86_64-pc-windows-msvc")
         try:
             out = subprocess.check_output(
-                [path, "--target", target,
+                [path, "-target", target,
                  "-print-file-name=include/x86intrin.h"],
                 stderr=subprocess.DEVNULL, text=True).strip()
             if out and os.path.isfile(out):
@@ -65,6 +65,10 @@ def find_clang(requested: str, arch: str) -> str:
             pass
         return False
 
+    # An explicit compiler is useful on native-Windows Python, whose PATH can
+    # differ from the Git-Bash PATH used by Make.
+    requested = os.environ.get("TK_WINDOWS_CC", requested)
+
     # Try PATH first
     current = shutil.which(requested)
     if current and header_check(current):
@@ -72,7 +76,10 @@ def find_clang(requested: str, arch: str) -> str:
 
     # Try LLVM WinGet packages
     local_appdata = os.environ.get("LOCALAPPDATA", "")
-    llvm_paths: list[str] = [r"/c/Program Files/LLVM/bin"]
+    llvm_paths: list[str] = [
+        r"C:\Program Files\LLVM\bin",
+        r"/c/Program Files/LLVM/bin",
+    ]
     if local_appdata:
         import glob
         for root in glob.glob(
@@ -86,9 +93,12 @@ def find_clang(requested: str, arch: str) -> str:
     for llvm_path in llvm_paths:
         if not os.path.isdir(llvm_path):
             continue
-        candidate = os.path.join(llvm_path, requested)
-        if os.access(candidate, os.X_OK) and header_check(candidate):
-            return candidate
+        candidates = [os.path.join(llvm_path, requested)]
+        if not requested.lower().endswith(".exe"):
+            candidates.append(os.path.join(llvm_path, f"{requested}.exe"))
+        for candidate in candidates:
+            if os.access(candidate, os.X_OK) and header_check(candidate):
+                return candidate
 
     # Fallback: PATH clang even without header check
     if current:
@@ -109,14 +119,19 @@ def handle_space_in_path(cc: str) -> tuple[str, dict[str, str]]:
     if " " not in cc:
         return cc, {}
 
-    # Use cygpath if available to convert to Unix path
+    # Use cygpath if available to convert to Unix path.
+    # cygpath preserves spaces; make's shell still splits on spaces
+    # in recipes (e.g. "-D" becomes a shell option), so only use it
+    # when spaces are eliminated (uncommon edge case).  Otherwise
+    # fall through to the symlink approach which avoids spaces.
     cygpath = shutil.which("cygpath")
     if cygpath:
         try:
             cc_unix = subprocess.check_output(
                 [cygpath, "-u", cc], text=True,
                 stderr=subprocess.DEVNULL).strip()
-            return cc_unix, {}
+            if " " not in cc_unix:
+                return cc_unix, {}
         except Exception:
             pass
 
@@ -131,8 +146,10 @@ def handle_space_in_path(cc: str) -> tuple[str, dict[str, str]]:
     except (FileExistsError, OSError):
         pass
 
-    # Prepend symlink bin to PATH and use just "clang"
-    env = {"PATH": os.path.dirname(symlink_root) + os.pathsep + os.environ.get("PATH", "")}
+    # Prepend the aliased LLVM bin directory to PATH and use just "clang".
+    # Adding its parent would leave the compiler undiscoverable and can select
+    # an unrelated clang earlier in the inherited PATH.
+    env = {"PATH": os.path.join(symlink_root, "bin") + os.pathsep + os.environ.get("PATH", "")}
     return "clang", env
 
 
@@ -176,6 +193,8 @@ def compile_libuuid_stub(
         # discovered through an MSYS PATH entry such as /c/Program Files/LLVM.
         # Native CreateProcess cannot execute that MSYS spelling directly.
         cc_for_process = cc
+        if not os.path.isabs(cc_for_process):
+            cc_for_process = find_clang(cc_for_process, arch)
         cygpath = shutil.which("cygpath")
         if cygpath and cc.startswith("/"):
             cc_for_process = subprocess.check_output(

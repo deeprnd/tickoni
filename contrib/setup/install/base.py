@@ -115,16 +115,18 @@ class DownloadInstallStrategy(InstallStrategy):
         ...
 
     def _find_binary(self, tmpdir: str, bin_name: str) -> str | None:
-        """Walk extracted tree to find a binary by name."""
-        for root, dirs, files in __import__('os').walk(tmpdir):
+        """Walk extracted tree to find a binary by name, preferring executable files."""
+        import os
+        for root, dirs, files in os.walk(tmpdir):
             for f in files:
                 if f == bin_name:
-                    return __import__('os').path.join(root, f)
-            # Early exit if found
-            if __import__('os').path.join(root, bin_name) in [
-                __import__('os').path.join(root, x) for x in files
-            ]:
-                return __import__('os').path.join(root, bin_name)
+                    path = os.path.join(root, f)
+                    if os.access(path, os.X_OK):
+                        return path
+        for root, dirs, files in os.walk(tmpdir):
+            for f in files:
+                if f == bin_name:
+                    return os.path.join(root, f)
         return None
 
     def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool) -> None:

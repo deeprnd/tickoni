@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""Cross-platform dispatcher: routes to the correct just recipe via dispatch map.
+
+Usage:
+    scripts/dispatch <dispatcher-name>
+
+Reads os/arch from contrib/platform.sh, looks up the target command in
+scripts/dispatch-map.json, then exec-justs into it.
+
+Exit codes:
+    0 — success
+    1 — unknown dispatcher, unknown platform, or platform.sh failure
+"""
+
+import json
+import os
+import subprocess
+import sys
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_MAP_PATH = os.path.join(_SCRIPT_DIR, "dispatch-map.json")
+_PLATFORM_SH = os.path.join(
+    os.path.dirname(_SCRIPT_DIR), "contrib", "platform.sh"
+)
+
+
+def get_platform():
+    """Return (os, arch) tuple by sourcing contrib/platform.sh."""
+    try:
+        result = subprocess.run(
+            ["bash", _PLATFORM_SH, "os"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        os_name = result.stdout.strip()
+    except subprocess.CalledProcessError as exc:
+        print(f"error: platform.sh os failed: {exc.stderr.strip()}", file=sys.stderr)
+        sys.exit(1)
+    except FileNotFoundError:
+        print(f"error: platform.sh not found at {_PLATFORM_SH}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        result = subprocess.run(
+            ["bash", _PLATFORM_SH, "arch"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        arch_name = result.stdout.strip()
+    except subprocess.CalledProcessError as exc:
+        print(f"error: platform.sh arch failed: {exc.stderr.strip()}", file=sys.stderr)
+        sys.exit(1)
+
+    return os_name, arch_name
+
+
+def main():
+    if len(sys.argv) != 2:
+        print(f"usage: {sys.argv[0]} <dispatcher-name>", file=sys.stderr)
+        sys.exit(1)
+
+    dispatcher = sys.argv[1]
+
+    with open(_MAP_PATH, "r") as f:
+        dispatch_map = json.load(f)
+
+    if dispatcher not in dispatch_map:
+        print(f"error: unknown dispatcher '{dispatcher}' — available: {', '.join(sorted(dispatch_map))}", file=sys.stderr)
+        sys.exit(1)
+
+    platform_map = dispatch_map[dispatcher]
+
+    os_name, arch_name = get_platform()
+    key = f"{os_name}-{arch_name}"
+
+    if key not in platform_map:
+        print(
+            f"error: unsupported host platform for {dispatcher}: {key} — available: {', '.join(sorted(platform_map))}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    target = platform_map[key]
+    subprocess.run(["just", target], check=True)
+
+
+if __name__ == "__main__":
+    main()

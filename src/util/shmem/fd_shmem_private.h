@@ -1,6 +1,26 @@
 #ifndef HEADER_fd_src_util_shmem_fd_shmem_private_h
 #define HEADER_fd_src_util_shmem_fd_shmem_private_h
 
+/* Feature-test macros — must precede ALL includes.
+ * _DARWIN_C_SOURCE + _DEFAULT_SOURCE for macOS: getentropy, MAP_ANONYMOUS,
+ * madvise, arc4random_buf() (Xcode 16+/macOS 15+).
+ * _GNU_SOURCE for hosted POSIX: syscall API, strndup, etc.
+ */
+#if defined(__APPLE__)
+#ifndef _DARWIN_C_SOURCE
+#define _DARWIN_C_SOURCE
+#endif
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE
+#endif
+#endif
+
+#if FD_HAS_HOSTED
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#endif
+
 #include "fd_shmem.h"
 
 #if FD_HAS_THREADS

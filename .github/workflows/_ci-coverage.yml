@@ -1,0 +1,38 @@
+# Reusable Coverage workflow: called by ci.yml as a DAG node.
+# Builds FD libs locally on the same runner that runs coverage,
+# mirroring the unit test pattern — no artifact downloads.
+#
+# Reference: doc/execution/plans/v2.10-s10.md
+#
+---
+name: Coverage Stage
+
+'on':
+  workflow_call:
+
+jobs:
+  coverage:
+    name: Tests / Coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup toolchain and coverage tools (just, kcov, zig, ssl, gcc)
+        run: just setup-coverage-linux-x86-gcc
+
+      - name: Build Firedancer libs locally
+        run: just build-fd-linux-x86-gcc
+
+      - name: Run coverage test
+        run: just test-cov-tk
+
+      - name: Generate coverage summary JSON
+        run: |
+          python3 contrib/tool/readme/coverage_report.py coverage-tk \
+            build/coverage/tk \
+            build/coverage/tk/coverage-summary.json \
+            --config contrib/test/coverage-tk.json

@@ -129,7 +129,7 @@ def update_badge(name: str, exit_code: int, doc_path: Path | None = None) -> Non
     if name not in BADGE_SPECS:
         raise ValueError(f'Unknown badge "{name}". Expected one of: {", ".join(BADGE_SPECS)}')
 
-    doc_path = doc_path or TESTING_DOC_PATH
+    doc_path = doc_path or README_PATH
     doc_text = doc_path.read_text(encoding="utf-8")
     alt, label, badge_type, cov_path = BADGE_SPECS[name]
     if badge_type == "coverage":
@@ -144,7 +144,7 @@ def update_badge_unknown(name: str, doc_path: Path | None = None) -> None:
     if name not in BADGE_SPECS:
         raise ValueError(f'Unknown badge "{name}". Expected one of: {", ".join(BADGE_SPECS)}')
 
-    doc_path = doc_path or TESTING_DOC_PATH
+    doc_path = doc_path or README_PATH
     doc_text = doc_path.read_text(encoding="utf-8")
     alt, label, _badge_type, _cov_path = BADGE_SPECS[name]
     badge_line = badge_unknown(alt, label)
@@ -153,7 +153,7 @@ def update_badge_unknown(name: str, doc_path: Path | None = None) -> None:
 
 
 def reset_all_badges(doc_path: Path | None = None) -> None:
-    doc_path = doc_path or TESTING_DOC_PATH
+    doc_path = doc_path or README_PATH
     doc_text = doc_path.read_text(encoding="utf-8")
     for name, (alt, label, _badge_type, _cov_path) in BADGE_SPECS.items():
         start_marker = f"<!-- badge:{name}:start -->"

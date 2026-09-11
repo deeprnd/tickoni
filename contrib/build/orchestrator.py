@@ -53,6 +53,17 @@ def make_assignment(name: str, value: str, platform_name: str) -> str:
     return f"{name}={value}"
 
 
+def clear_object_dir(obj_dir: str) -> None:
+    """Remove all object outputs, including nested source-directory outputs.
+
+    Firedancer emits objects under paths such as ``obj/third_party/cjson``.
+    Clearing only direct children leaves an old Windows x86_64 object available
+    to a later ARM64 build sharing the same BUILDDIR.
+    """
+    shutil.rmtree(obj_dir, ignore_errors=True)
+    os.makedirs(obj_dir, exist_ok=True)
+
+
 def platform_from_args(args) -> str:
     """Resolve the platform string from command args or justfile variables."""
     # Try explicit --platform override first
@@ -78,7 +89,14 @@ def cmd_build_fd(args, config: dict) -> None:
     target_name = args.target
     mode = args.mode  # libs, test, cov
     compiler = args.compiler or "gcc"
-    extras = args.extras or ""
+    # OpenSSL is required for AES-GCM (always compiled into libfd_ballet.a).
+    # "lz4 blst zstd" are only needed for test/cov modes.
+    if args.extras:
+        extras = args.extras
+    elif mode in ("test", "cov"):
+        extras = "openssl lz4 blst zstd"
+    else:
+        extras = "openssl"
     ldflags_exe = args.ldflags or ""
     build_target = args.build_target or ""
     builddir = args.builddir or "fd-tickoni-fd"
@@ -115,6 +133,10 @@ def cmd_build_fd(args, config: dict) -> None:
         if fixed_cc != cc:
             cc = fixed_cc
             print(f"[+] clang path has spaces, using LLVM tree alias: {cc}")
+        # llvm-ar lives beside clang.  Use its executable name rather than a
+        # native Windows path so Make's MSYS shell resolves it through the
+        # same no-space LLVM tree alias as clang.
+        ar_tool = "llvm-ar"
     else:
         env_extra = {}
         cc = strat.resolve_cc(platform_name, cc)
@@ -153,10 +175,7 @@ def cmd_build_fd(args, config: dict) -> None:
 
     if mode == "test":
         # Remove stale objects from prior build without EXTRAS
-        for f in os.listdir(obj_dir):
-            fp = os.path.join(obj_dir, f)
-            if os.path.isfile(fp):
-                os.remove(fp)
+        clear_object_dir(obj_dir)
         # Delete empty extra-libs from prior MODE=libs build
         for lib in extra_libs:
             fp = os.path.join(lib_dir, lib)
@@ -168,20 +187,14 @@ def cmd_build_fd(args, config: dict) -> None:
             if os.path.isfile(fp):
                 os.remove(fp)
     elif mode == "cov":
-        for f in os.listdir(obj_dir):
-            fp = os.path.join(obj_dir, f)
-            if os.path.isfile(fp):
-                os.remove(fp)
+        clear_object_dir(obj_dir)
         for lib in config["libs"]["test"] + libs:
             fp = os.path.join(lib_dir, lib)
             if os.path.isfile(fp):
                 os.remove(fp)
     else:
         # libs mode: clean stale objects from different target/ABI
-        for f in os.listdir(obj_dir):
-            fp = os.path.join(obj_dir, f)
-            if os.path.isfile(fp):
-                os.remove(fp)
+        clear_object_dir(obj_dir)
         for lib in config["libs"]["test"] + libs:
             fp = os.path.join(lib_dir, lib)
             if os.path.isfile(fp):
@@ -219,6 +232,13 @@ def cmd_build_fd(args, config: dict) -> None:
         cmd.append(make_assignment("AR", ar_tool, platform_name))
     if extras:
         cmd.append(f"EXTRAS={extras}")
+
+    # Wire OPT so with-openssl.mk activates (check for $(OPT)/lib/libssl.a).
+    # Pass via environment variable — MSYS2 path translation mangles
+    # POSIX-style '/' into ',' on command-line make assignments, so
+    # 'OPT=build/opt' becomes 'OPT=build,opt' which fails wildcard.
+    env["OPT"] = "build/opt"
+
     cmd.extend(targets)
     if build_target:
         cmd.append(build_target)
@@ -238,15 +258,22 @@ def cmd_build_fd(args, config: dict) -> None:
         if mode != "libs":
             print("[+] retrying without EXTRAS", file=sys.stderr)
             cmd_no_extras = [c for c in cmd if not c.startswith("EXTRAS=")]
+            # Strip extra-lib targets (blst/zstd/lz4) that require EXTRAS
+            # to define their custom build rules.  Without EXTRAS those
+            # with-*.mk fragments are not included and make falls back to
+            # the generic %.a rule with zero prerequisites, causing
+            # "ar: no archive members specified".
+            extra_set = set(config["libs"]["test"])
+            cmd_no_extras = [
+                c for c in cmd_no_extras
+                if not any(c.endswith(f"/{lib}") for lib in extra_set)
+            ]
             # Remove stale libs again for retry
             for lib in config["libs"]["test"] + libs:
                 fp = os.path.join(lib_dir, lib)
                 if os.path.isfile(fp):
                     os.remove(fp)
-            for f in os.listdir(obj_dir):
-                fp = os.path.join(obj_dir, f)
-                if os.path.isfile(fp):
-                    os.remove(fp)
+            clear_object_dir(obj_dir)
             # targets already in cmd_no_extras from line 199, no need to append again
             if build_target:
                 cmd_no_extras.append(build_target)
@@ -257,10 +284,7 @@ def cmd_build_fd(args, config: dict) -> None:
     # Post-build: cov mode runs unit-test with coverage
     if mode == "cov":
         # Clean again for cov test
-        for f in os.listdir(obj_dir):
-            fp = os.path.join(obj_dir, f)
-            if os.path.isfile(fp):
-                os.remove(fp)
+        clear_object_dir(obj_dir)
         for lib in config["libs"]["test"] + libs:
             fp = os.path.join(lib_dir, lib)
             if os.path.isfile(fp):

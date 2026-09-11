@@ -27,80 +27,20 @@
    processing can still be vectorized by processing independent packets
    in parallel. */
 
-/* Reference backend internals ****************************************/
-
-#include "fd_aes_gcm_ref.h"
-
-/* AES-NI backend internals *******************************************/
-
-struct fd_aes_gcm_aesni_key {
-  uchar key_enc[ 240 ];
-  uchar key_dec[ 240 ];
-  uint  key_sz; /* 16 */
-};
-typedef struct fd_aes_gcm_aesni_key fd_aes_gcm_aesni_key_t;
-
-/* Do not change. These offsets are hardcoded in fd_aes_gcm_aesni.S. */
-struct fd_aes_gcm_aesni_state {
-  fd_aes_gcm_aesni_key_t key;
-  uchar pad1[  12 ];
-  uchar gcm [ 208 ];
-  uchar iv  [  12 ];
-  uchar pad2[  52 ];
-};
-typedef struct fd_aes_gcm_aesni_state fd_aes_gcm_aesni_t;
-
-/* AVX10 backend internals ********************************************/
-
-/* Do not change. These offsets are hardcoded in fd_aes_gcm_avx10.S. */
-struct fd_aes_gcm_avx10_state {
-  fd_aes_gcm_aesni_key_t key;
-  uchar pad1[  28 ];
-  uchar gcm [ 320 ];
-  uchar iv  [  12 ];
-  uchar pad2[  52 ];
-};
-typedef struct fd_aes_gcm_avx10_state fd_aes_gcm_avx10_t;
-
 /* Backend selection **************************************************/
 
-#if FD_HAS_AVX512 && FD_HAS_GFNI && FD_HAS_AESNI
-#define FD_AES_GCM_IMPL 3 /* AVX10.1/512, VAES, VPCLMUL */
-#elif FD_HAS_AVX && FD_HAS_AESNI
-#define FD_AES_GCM_IMPL 2 /* AVX2, VAES */
-#elif FD_HAS_AESNI
-#define FD_AES_GCM_IMPL 1 /* AESNI */
+#if FD_HAS_OPENSSL
+
+  /* OpenSSL EVP backend: opaque struct storing EVP_CIPHER_CTX* as void*
+     to avoid exposing OpenSSL internals in the header.
+     Defined in fd_aes_gcm_ossl.c. Uses hardware-accelerated AES-NI/GCM
+     on x86_64, NEON crypto on ARM. */
+
+  typedef struct { void *ctx; }  __attribute__((aligned(64))) fd_aes_gcm_t;
+
 #else
-#define FD_AES_GCM_IMPL 0 /* Portable */
-#endif
 
-#if FD_AES_GCM_IMPL == 0
-
-  typedef fd_aes_gcm_ref_t    fd_aes_gcm_t;
-  #define fd_aes_128_gcm_init fd_aes_128_gcm_init_ref
-  #define fd_aes_gcm_encrypt  fd_aes_gcm_encrypt_ref
-  #define fd_aes_gcm_decrypt  fd_aes_gcm_decrypt_ref
-
-#elif FD_AES_GCM_IMPL == 1
-
-  typedef fd_aes_gcm_aesni_t  fd_aes_gcm_t;
-  #define fd_aes_128_gcm_init fd_aes_128_gcm_init_aesni
-  #define fd_aes_gcm_encrypt  fd_aes_gcm_encrypt_aesni
-  #define fd_aes_gcm_decrypt  fd_aes_gcm_decrypt_aesni
-
-#elif FD_AES_GCM_IMPL == 2
-
-  typedef fd_aes_gcm_aesni_t  fd_aes_gcm_t;
-  #define fd_aes_128_gcm_init fd_aes_128_gcm_init_avx2
-  #define fd_aes_gcm_encrypt  fd_aes_gcm_encrypt_avx2
-  #define fd_aes_gcm_decrypt  fd_aes_gcm_decrypt_avx2
-
-#elif FD_AES_GCM_IMPL == 3
-
-  typedef fd_aes_gcm_avx10_t  fd_aes_gcm_t;
-  #define fd_aes_128_gcm_init fd_aes_128_gcm_init_avx10_512
-  #define fd_aes_gcm_encrypt  fd_aes_gcm_encrypt_avx10_512
-  #define fd_aes_gcm_decrypt  fd_aes_gcm_decrypt_avx10_512
+  #error "AES-GCM requires FD_HAS_OPENSSL; the reference implementation was removed in v2.10-s2-5"
 
 #endif
 
@@ -166,6 +106,11 @@ fd_aes_gcm_decrypt( fd_aes_gcm_t * aes_gcm,
 
 #define FD_AES_GCM_DECRYPT_FAIL (0)
 #define FD_AES_GCM_DECRYPT_OK   (1)
+
+/* fd_aes_gcm_cleanup releases the OpenSSL EVP_CIPHER_CTX* allocated by
+   fd_aes_128_gcm_init.  Callers that allocate fd_aes_gcm_t on the stack
+   (fd_aes_gcm_t aes_gcm[1]) should call this before the object goes
+   out of scope. */
 
 FD_PROTOTYPES_END
 

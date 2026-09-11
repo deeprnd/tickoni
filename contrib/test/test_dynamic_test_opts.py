@@ -14,7 +14,7 @@ subprocess.TimeoutExpired exception.
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -187,91 +187,83 @@ class TestRunDynamicTestOpts:
                 return _FakeResult(stdout=_free_mem_line(mem_bytes))
             if cmd and cmd[0] == "nproc":
                 return _FakeResult(stdout=f"{cores_val}\n")
+            # macOS fallback: sysctl -n hw.memsize / hw.ncpu
+            if cmd and len(cmd) > 1 and cmd[0] == "sysctl":
+                if cmd[1] == "-n" and cmd[2] == "hw.memsize":
+                    return _FakeResult(stdout=str(mem_bytes))
+                if cmd[1] == "-n" and cmd[2] == "hw.ncpu":
+                    return _FakeResult(stdout=f"{cores_val}\n")
             raise FileNotFoundError(cmd[0] if cmd else "unknown")
 
         return fake_run
 
     def test_16gb_4cores(self):
         runner = self._make_runner(memory_bytes=16 * 1024 * 1024 * 1024, cores=4)
-        mock_sp = _MockSubprocess()
-        mock_sp.run.side_effect = runner
-        old_sp = d.subprocess
-        d.subprocess = mock_sp
-        try:
+        with patch.object(d, "subprocess", spec=True) as mock_sp:
+            mock_sp.TimeoutExpired = subprocess.TimeoutExpired
+            mock_sp.run.side_effect = runner
             result = run_dynamic_test_opts()
-        finally:
-            d.subprocess = old_sp
 
         # avail = 16 GB == os_reserve → remaining = avail//2 = 8 GB
-        # safe_budget = 8 GB // 2 = 4 GB; page_cnt = 4 GB // (4096*4*8) = 32768
-        # 32768 < 65536 → clamp to 65536, max_j = min_jobs = 1
-        assert result["TEST_OPTS"] == "--page-sz normal --page-cnt 65536 -j 1"
+        # safe_budget = 8 GB // 2 = 4 GB; page_cnt = 4 GB // (4096*4*4) = 65536
+        # 65536 >= 65536 → no clamp, max_j = 4
+        assert result["TEST_OPTS"] == "--page-sz normal --page-cnt 65536 -j 4"
         assert result["LDFLAGS_EXE"] == "-Wl,-z,shstk"
 
     def test_64gb_8cores(self):
         runner = self._make_runner(memory_bytes=64 * 1024 * 1024 * 1024, cores=8)
-        mock_sp = _MockSubprocess()
-        mock_sp.run.side_effect = runner
-        old_sp = d.subprocess
-        d.subprocess = mock_sp
-        try:
+        with patch.object(d, "subprocess", spec=True) as mock_sp:
+            mock_sp.TimeoutExpired = subprocess.TimeoutExpired
+            mock_sp.run.side_effect = runner
             result = run_dynamic_test_opts()
-        finally:
-            d.subprocess = old_sp
 
-        assert result["TEST_OPTS"] == "--page-sz normal --page-cnt 131072 -j 6"
+        # avail = 64 GB → remaining = 64 - 16 = 48 GB
+        # safe_budget = 48 GB // 2 = 24 GB; max_j = min(8, 6) = 6
+        # page_cnt = 24 GB // (4096 * 6 * 4) = 262144
+        # 262144 >= 65536 → no clamp
+        assert result["TEST_OPTS"] == "--page-sz normal --page-cnt 262144 -j 6"
         assert result["LDFLAGS_EXE"] == "-Wl,-z,shstk"
 
     def test_32gb_2cores(self):
         runner = self._make_runner(memory_bytes=32 * 1024 * 1024 * 1024, cores=2)
-        mock_sp = _MockSubprocess()
-        mock_sp.run.side_effect = runner
-        old_sp = d.subprocess
-        d.subprocess = mock_sp
-        try:
+        with patch.object(d, "subprocess", spec=True) as mock_sp:
+            mock_sp.TimeoutExpired = subprocess.TimeoutExpired
+            mock_sp.run.side_effect = runner
             result = run_dynamic_test_opts()
-        finally:
-            d.subprocess = old_sp
 
-        assert result["TEST_OPTS"] == "--page-sz normal --page-cnt 131072 -j 2"
+        # avail = 32 GB → remaining = 32 - 16 = 16 GB
+        # safe_budget = 16 GB // 2 = 8 GB; max_j = min(2, 6) = 2
+        # page_cnt = 8 GB // (4096 * 2 * 4) = 262144
+        # 262144 >= 65536 → no clamp
+        assert result["TEST_OPTS"] == "--page-sz normal --page-cnt 262144 -j 2"
         assert result["LDFLAGS_EXE"] == "-Wl,-z,shstk"
 
     def test_min_page_cnt_enforcement(self):
-        runner = self._make_runner(memory_bytes=5 * 1024 * 1024 * 1024, cores=1)
-        mock_sp = _MockSubprocess()
-        mock_sp.run.side_effect = runner
-        old_sp = d.subprocess
-        d.subprocess = mock_sp
-        try:
+        runner = self._make_runner(memory_bytes=4 * 1024 * 1024 * 1024, cores=1)
+        with patch.object(d, "subprocess", spec=True) as mock_sp:
+            mock_sp.TimeoutExpired = subprocess.TimeoutExpired
+            mock_sp.run.side_effect = runner
             result = run_dynamic_test_opts()
-        finally:
-            d.subprocess = old_sp
 
+        # avail = 4 GB → remaining = 4 // 2 = 2 GB; safe_budget = 1 GB
+        # page_cnt = 1 GB // (4096 * 1 * 4) = 65536 (exactly at min)
         assert "--page-cnt 65536" in result["TEST_OPTS"]
         assert "-j 1" in result["TEST_OPTS"]
 
     def test_high_core_cap(self):
         runner = self._make_runner(memory_bytes=256 * 1024 * 1024 * 1024, cores=64)
-        mock_sp = _MockSubprocess()
-        mock_sp.run.side_effect = runner
-        old_sp = d.subprocess
-        d.subprocess = mock_sp
-        try:
+        with patch.object(d, "subprocess", spec=True) as mock_sp:
+            mock_sp.TimeoutExpired = subprocess.TimeoutExpired
+            mock_sp.run.side_effect = runner
             result = run_dynamic_test_opts()
-        finally:
-            d.subprocess = old_sp
 
         assert "-j 6" in result["TEST_OPTS"]
 
     def test_ldflags_always_shstk(self):
         runner = self._make_runner(memory_bytes=16 * 1024 * 1024 * 1024, cores=4)
-        mock_sp = _MockSubprocess()
-        mock_sp.run.side_effect = runner
-        old_sp = d.subprocess
-        d.subprocess = mock_sp
-        try:
+        with patch.object(d, "subprocess", spec=True) as mock_sp:
+            mock_sp.TimeoutExpired = subprocess.TimeoutExpired
+            mock_sp.run.side_effect = runner
             result = run_dynamic_test_opts()
-        finally:
-            d.subprocess = old_sp
 
         assert result["LDFLAGS_EXE"] == "-Wl,-z,shstk"

@@ -13,4 +13,5 @@ title = "Gitleaks config for Firedancer (fd) source tree"
   regexes = [
     '''\b\w+_b58\b''',
     '''-1UL''',
+    '''dGhlIHNhbXBsZSBub25jZQ==''',  # RFC 6455 WebSocket example nonce
   ]

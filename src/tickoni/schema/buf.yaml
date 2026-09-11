@@ -5,7 +5,7 @@ breaking:
     - FILE
 lint:
   use:
-    - STANDARD
+    - DEFAULT
   except:
     - PACKAGE_DIRECTORY_MATCH
     - PACKAGE_SAME_DIRECTORY

@@ -4,6 +4,9 @@
 ---
 name: Unit Test Stage
 
+permissions:
+  contents: read
+
 'on':
   workflow_call:
 
@@ -19,6 +22,7 @@ jobs:
           - platform-name: Linux x86_64
             runner: ubuntu-24.04
             timeout_minutes: 30
+            fd-test-recipe: test-unit-fd-linux-x86-gcc
             test-recipe: test-unit-tk-linux-x86
             build-recipe: build-fd-linux-x86-gcc
             fd-deps: setup-fd-linux-x86-gcc
@@ -26,6 +30,7 @@ jobs:
           - platform-name: Linux x86_64 Clang
             runner: ubuntu-24.04
             timeout_minutes: 30
+            fd-test-recipe: test-unit-fd-linux-x86-clang
             test-recipe: test-unit-tk-linux-x86
             build-recipe: build-fd-linux-x86-clang
             fd-deps: setup-fd-linux-x86-clang
@@ -33,6 +38,7 @@ jobs:
           - platform-name: Linux ARM
             runner: ubuntu-24.04-arm
             timeout_minutes: 30
+            fd-test-recipe: test-unit-fd-linux-arm-gcc
             test-recipe: test-unit-tk-linux-arm
             build-recipe: build-fd-linux-arm-gcc
             fd-deps: setup-fd-linux-arm-gcc
@@ -40,6 +46,7 @@ jobs:
           - platform-name: macOS 15 (x86_64)
             runner: macos-15-intel
             timeout_minutes: 30
+            fd-test-recipe: test-unit-fd-macos-x86
             test-recipe: test-unit-tk-macos-x86
             build-recipe: build-fd-macos-x86
             fd-deps: setup-fd-macos-x86
@@ -47,6 +54,7 @@ jobs:
           - platform-name: macOS 15 (ARM)
             runner: macos-15
             timeout_minutes: 30
+            fd-test-recipe: test-unit-fd-macos-arm
             test-recipe: test-unit-tk-macos-arm
             build-recipe: build-fd-macos-arm
             fd-deps: setup-fd-macos-arm
@@ -54,6 +62,7 @@ jobs:
           - platform-name: macOS 26 (x86_64)
             runner: macos-26-intel
             timeout_minutes: 30
+            fd-test-recipe: test-unit-fd-macos-x86
             test-recipe: test-unit-tk-macos-x86
             build-recipe: build-fd-macos-x86
             fd-deps: setup-fd-macos-x86
@@ -61,6 +70,7 @@ jobs:
           - platform-name: macOS 26 (ARM)
             runner: macos-26
             timeout_minutes: 30
+            fd-test-recipe: test-unit-fd-macos-arm
             test-recipe: test-unit-tk-macos-arm
             build-recipe: build-fd-macos-arm
             fd-deps: setup-fd-macos-arm
@@ -68,6 +78,7 @@ jobs:
           - platform-name: Windows x86_64
             runner: windows-2025-vs2026
             timeout_minutes: 30
+            fd-test-recipe: test-unit-fd-windows-x86
             test-recipe: test-unit-tk-windows-x86
             build-recipe: build-fd-windows-x86
             fd-deps: setup-fd-windows-x86
@@ -75,6 +86,7 @@ jobs:
           - platform-name: Windows ARM
             runner: windows-11-vs2026-arm
             timeout_minutes: 30
+            fd-test-recipe: test-unit-fd-windows-arm
             test-recipe: test-unit-tk-windows-arm
             build-recipe: build-fd-windows-arm
             fd-deps: setup-fd-windows-arm
@@ -99,5 +111,16 @@ jobs:
       - name: Run Python unit tests (pytest)
         run: just test-unit-setup
 
-      - name: Run unit tests
+      - name: Configure hugepages and memory limits (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo prlimit --pid $$ --nofile=65536 --memlock=unlimited
+          sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || true
+          sudo src/util/shmem/fd_shmem_cfg init 0700 "$USER" ""
+          just mem-alloc-auto || true
+
+      - name: Run Firedancer unit tests
+        run: just ${{ matrix.fd-test-recipe }}
+
+      - name: Run Tickoni unit tests
         run: just ${{ matrix.test-recipe }}

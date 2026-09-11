@@ -45,7 +45,7 @@ jobs:
           sudo src/util/shmem/fd_shmem_cfg alloc-auto 0
 
       - name: Run validation test suite
-        run: just build-all test-unit-tk test-integration-all \
+        run: just build-all test-unit-tk test-unit-fd test-integration-all \
             test-system-all
 
   dev-setup-linux-arm:
@@ -70,7 +70,7 @@ jobs:
           sudo src/util/shmem/fd_shmem_cfg alloc-auto 0
 
       - name: Run validation test suite
-        run: just build-all test-unit-tk test-integration-all \
+        run: just build-all test-unit-tk test-unit-fd test-integration-all \
             test-system-all
 
   dev-setup-macos-15-x86:
@@ -88,7 +88,7 @@ jobs:
         run: just setup-macos-x86
 
       - name: Run validation test suite
-        run: just build-all test-unit-tk test-integration-all \
+        run: just build-all test-unit-tk test-unit-fd test-integration-all \
             test-system-all
 
   dev-setup-macos-15-arm:
@@ -106,7 +106,7 @@ jobs:
         run: just setup-macos-arm
 
       - name: Run validation test suite
-        run: just build-all test-unit-tk test-integration-all \
+        run: just build-all test-unit-tk test-unit-fd test-integration-all \
             test-system-all
 
   dev-setup-macos-26-x86:
@@ -124,7 +124,7 @@ jobs:
         run: just setup-macos-x86
 
       - name: Run validation test suite
-        run: just build-all test-unit-tk test-integration-all \
+        run: just build-all test-unit-tk test-unit-fd test-integration-all \
             test-system-all
 
   dev-setup-macos-26-arm:
@@ -142,7 +142,7 @@ jobs:
         run: just setup-macos-arm
 
       - name: Run validation test suite
-        run: just build-all test-unit-tk test-integration-all \
+        run: just build-all test-unit-tk test-unit-fd test-integration-all \
             test-system-all
 
   dev-setup-windows-x86:
@@ -160,7 +160,7 @@ jobs:
         run: just setup-windows-x86
 
       - name: Run validation test suite
-        run: just build-all test-unit-tk test-integration-all \
+        run: just build-all test-unit-tk test-unit-fd test-integration-all \
             test-system-all
 
   dev-setup-windows-arm:
@@ -178,5 +178,5 @@ jobs:
         run: just setup-windows-arm
 
       - name: Run validation test suite
-        run: just build-all test-unit-tk test-integration-all \
+        run: just build-all test-unit-tk test-unit-fd test-integration-all \
             test-system-all

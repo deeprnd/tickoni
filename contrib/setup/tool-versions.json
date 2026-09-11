@@ -146,6 +146,9 @@
     },
     "nvm": {
       "version": "0.40.7"
+    },
+    "pytest": {
+      "version": "8.3.5"
     }
   },
   "categories": {
@@ -191,7 +194,8 @@
         "zstd",
         "pkg-config",
         "ninja",
-        "ccache"
+        "ccache",
+        "just"
       ]
     },
     "zig": {
@@ -310,6 +314,17 @@
         "macos",
         "windows"
       ]
+    },
+    "test-tools": {
+      "description": "Python testing tools for contrib/test/ unit tests",
+      "tools": [
+        "pytest"
+      ],
+      "platforms": [
+        "linux",
+        "macos",
+        "windows"
+      ]
     }
   },
   "dependencies": {
@@ -390,6 +405,10 @@
       "security",
       "fd",
       "graphics-libs"
+    ],
+    "test-tools": [
+      "core",
+      "essential"
     ]
   },
   "tools": {
@@ -517,7 +536,8 @@
       "install_method": "winget",
       "parameters": {
         "package": "Microsoft.VisualStudio.2022.BuildTools",
-        "override": "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait --norestart"
+        "components": ["Microsoft.VisualStudio.Workload.VCTools", "Microsoft.VisualStudio.Component.VC.Tools.ARM64"],
+        "override": "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --includeRecommended --quiet --norestart"
       },
       "idempotent_check": "command -v cl"
     },
@@ -694,9 +714,10 @@
       "platform": "all",
       "install_method": "go_install",
       "parameters": {
-        "module": "github.com/bufbuild/buf/cmd/buf"
+        "module": "github.com/bufbuild/buf/cmd/buf",
+        "version": "1.73.0"
       },
-      "idempotent_check": "command -v buf"
+      "idempotent_check": "buf --version"
     },
     "gitleaks": {
       "category": "secrets",
@@ -894,6 +915,15 @@
       "parameters": {},
       "idempotent_check": "command -v node",
       "version_ref": "nodejs"
+    },
+    "pytest": {
+      "category": "test-tools",
+      "platform": "all",
+      "install_method": "pip",
+      "parameters": {
+        "package": "pytest==8.3.4"
+      },
+      "idempotent_check": "command -v pytest"
     },
     "cspell": {
       "category": "quality",

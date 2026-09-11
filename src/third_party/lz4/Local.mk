@@ -17,6 +17,9 @@ $(CC) $(LZ4_CFLAGS_NOWARN) -c $< -o $@
 # Conditionally build lz4 archive
 LZ4_OBJS := $(OBJDIR)/obj/third_party/lz4/lib/lz4.o $(OBJDIR)/obj/third_party/lz4/lib/lz4hc.o
 $(OBJDIR)/lib/libfd_lz4.a: $(LZ4_OBJS)
+	@echo -e "AR\t$(notdir $@)"
+	$(Q)$(MKDIR) $(dir $@) && \
+	$(AR) $(ARFLAGS) $@ $^
 
 lib: $(OBJDIR)/lib/libfd_lz4.a
 

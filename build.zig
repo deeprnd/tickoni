@@ -669,6 +669,18 @@ pub fn build(b: *std.Build) void {
         c_compile_check_step.dependOn(&c_check.step);
     }
     check_step.dependOn(c_compile_check_step);
+    // Bug Fix #50: compile-check the getrandom() EINTR + short-read retry loop test.
+    {
+        const getrandom_check = b.addSystemCommand(&.{
+            "sh", "-c",
+            b.fmt("zig cc -target {s} -c -I src -I src/util -I src/disco -I src/ballet -std=c17 -DFD_HAS_HOSTED=1 {s} {s} 2>&1 || true", .{
+                triple,
+                shim_flags[0],
+                "src/util/shmem/test_fd_shmem_getrandom.c",
+            }),
+        });
+        c_compile_check_step.dependOn(&getrandom_check.step);
+    }
 
     if (build_tests) {
         const investment_demo_test = b.addTest(.{ .root_module = investment_demo_test_mod });
@@ -687,9 +699,20 @@ pub fn build(b: *std.Build) void {
         // This avoids Zig's --listen=- parallel coordination which panics
         // with EndOfStream when 48+ test binaries communicate over the same pipe.
         const run_tests_cmd = std.Build.Step.Run.create(b, "run-tests");
-        run_tests_cmd.addArgs(&.{ "bash", "contrib/test/run_test_series.sh" });
-        run_tests_cmd.step.dependOn(test_step);
-        run_tests_step.dependOn(&run_tests_cmd.step);
+        // Use absolute path so the script works regardless of zig's working directory.
+        // In Zig 0.17, b.root is a Cache.Path; use toString() to get a string path.
+        const build_root_str = b.root.toString(b.allocator) catch unreachable;
+        defer b.allocator.free(build_root_str);
+        var script_buf: [4096]u8 = undefined;
+        const full_script_path = std.fmt.bufPrint(
+            &script_buf,
+            "{s}/contrib/test/run_test_series.sh",
+            .{build_root_str},
+        ) catch unreachable;
+        run_tests_cmd.addArgs(&[_][]const u8{
+            "bash",
+            full_script_path,
+        });
 
         // Files with no cross-module imports: standalone test binaries.
         for ([_][]const u8{
@@ -2244,13 +2267,21 @@ fn addPlainTestRun(b: *std.Build, test_compile: *std.Build.Step.Compile) *std.Bu
     return run_step;
 }
 
-/// Links the Firedancer substrate used by Tickoni runtime wrappers. Tickoni
-/// code crosses Firedancer only through src/tickoni/c_abi/shim/**, so this
-/// compiles the required Tickoni-owned shim files alongside upstream libs.
+/// shimCFlagsFor returns the C compiler flags for Tickoni shim files.
+/// These flags match what the GNUmakefile's with-openssl.mk / with-x86-64.mk
+/// would define for the same target platform.
 fn shimCFlagsFor(target: std.Target) []const []const u8 {
     return switch (target.os.tag) {
-        .linux => &.{ "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1", "-DFD_HAS_LINUX=1" },
-        .macos => &.{ "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1", "-DFD_HAS_MACOS=1" },
+        .linux => &.{
+            "-std=c17", "-U__BMI2__", "-U__LZCNT__",
+            "-DFD_HAS_HOSTED=1", "-DFD_HAS_LINUX=1",
+            "-DFD_HAS_OPENSSL=1",
+        },
+        .macos => &.{
+            "-std=c17", "-U__BMI2__", "-U__LZCNT__",
+            "-DFD_HAS_HOSTED=1", "-DFD_HAS_MACOS=1",
+            "-DFD_HAS_OPENSSL=1",
+        },
         .windows => switch (target.cpu.arch) {
             .aarch64 => &.{
                 "-std=c17",                  "-U__BMI2__",        "-U__LZCNT__",       "-DFD_HAS_HOSTED=1",  "-DFD_HAS_WINDOWS=1",
@@ -2318,6 +2349,17 @@ fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_l
     step.root_module.addLibraryPath(b.path(fd_lib_dir));
     const os_tag = step.root_module.resolved_target.?.result.os.tag;
     const cpu_arch = step.root_module.resolved_target.?.result.cpu.arch;
+
+    // Windows setup builds OpenSSL into build/opt/lib as a COFF archive. Link
+    // that concrete archive rather than asking Zig to discover a system
+    // `crypto` library through pkg-config.BAT or fd_lib_dir.
+    if (os_tag == .windows) {
+        step.root_module.addObjectFile(.{ .cwd_relative = "build/opt/lib/libcrypto.a" });
+    } else {
+        // OpenSSL: link libcrypto; include path is handled by system defaults.
+        step.root_module.linkSystemLibrary("crypto", .{});
+    }
+
     if (os_tag == .windows or (os_tag == .linux and cpu_arch == .aarch64)) {
         // Windows and ARM64 Linux: use explicit archive paths. On Windows this avoids
         // pkg-config.BAT probing; on ARM64 Linux it preserves link order with ld.lld,

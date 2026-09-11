@@ -185,14 +185,14 @@ main( int     argc,
   fd_boot( &argc, &argv );
 
   char const * name       = fd_env_strip_cmdline_cstr ( &argc, &argv, "--wksp",      NULL,            NULL );
-  char const * _page_sz   = fd_env_strip_cmdline_cstr ( &argc, &argv, "--page-sz",   NULL,      "gigantic" );
-  ulong        page_cnt   = fd_env_strip_cmdline_ulong( &argc, &argv, "--page-cnt",  NULL,         262144UL );
+  char const * _page_sz   = fd_env_strip_cmdline_cstr ( &argc, &argv, "--page-sz",   NULL,      "normal"   );
+  ulong        page_cnt   = fd_env_strip_cmdline_ulong( &argc, &argv, "--page-cnt",  NULL,          65536UL );
   ulong        near_cpu   = fd_env_strip_cmdline_ulong( &argc, &argv, "--near-cpu",  NULL, fd_log_cpu_id() );
   uint         seed       = fd_env_strip_cmdline_uint ( &argc, &argv, "--seed",      NULL,              0U );
   ulong        part_max   = fd_env_strip_cmdline_ulong( &argc, &argv, "--part-max",  NULL,             0UL );
-  /**/         _alloc_cnt = fd_env_strip_cmdline_ulong( &argc, &argv, "--alloc-cnt", NULL,         65536UL );
+  /**/         _alloc_cnt = fd_env_strip_cmdline_ulong( &argc, &argv, "--alloc-cnt", NULL,          8192UL );
   /**/         _align_max = fd_env_strip_cmdline_ulong( &argc, &argv, "--align-max", NULL,          4096UL );
-  /**/         _sz_max    = fd_env_strip_cmdline_ulong( &argc, &argv, "--sz-max",    NULL,        262144UL );
+  /**/         _sz_max    = fd_env_strip_cmdline_ulong( &argc, &argv, "--sz-max",    NULL,        16384UL );
 
   if( FD_UNLIKELY( !_alloc_cnt                     ) ) FD_LOG_ERR(( "--alloc-cnt should be positive"     ));
   if( FD_UNLIKELY( !fd_ulong_is_pow2( _align_max ) ) ) FD_LOG_ERR(( "--align-max should be a power of 2" ));

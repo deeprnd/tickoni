@@ -229,3 +229,43 @@ Related docs
 - [Security](./security.md)
 - [Observability](./observability.md)
 - [Telemetry](./telemetry.md)
+- [CI](./ci.md)
+
+## README Badges
+
+The README displays four dynamic badges that reflect the current CI status:
+
+| Badge | CI source | Status values |
+|-------|-----------|---------------|
+| build | `project-build` aggregated job | passing / failing / unknown |
+| unit | `project-tests` aggregated job | passing / failing / unknown |
+| security | `project-security` aggregated job | passing / failing / unknown |
+| cov-tk | `Tests / Coverage` check + `coverage-summary.json` | `72.3%` with color |
+
+### Badge update mechanism
+
+Badges are updated automatically by `badge-update.yml`, which triggers via `workflow_run` after `ci.yml` completes on main. The update script (`contrib/tool/readme/badge_updater.py`) walks parent commits on main to find the last SHA where all aggregated jobs report `success`, then constructs shields.io URLs and rewrites README.md between marker comments (`<!-- badge:X:start -->` / `<!-- badge:X:end -->`).
+
+No `push` triggers exist in badge-update.yml — the workflow only fires on `workflow_run` from ci.yml, eliminating infinite commit loop risk.
+
+### Coverage CI job
+
+Coverage runs as a CI job parallel with `security-deep` (after unit tests). The standalone invocable workflow is `tests-coverage.yml` (runs weekly on Mondays + manual dispatch); the internal reusable workflow `_ci-coverage.yml` is called by ci.yml. Both produce `build/coverage/tk/coverage-summary.json`, which `badge_updater.py` reads for the cov-tk percentage badge.
+
+### Local experimentation
+
+For local testing, use `contrib/tool/readme/refresh-badges.py`:
+
+```bash
+# Update a specific badge
+python3 contrib/tool/readme/refresh-badges.py build 0
+python3 contrib/tool/readme/refresh-badges.py unit 1
+
+# Reset all badges to unknown
+python3 contrib/tool/readme/refresh-badges.py reset-all
+
+# Target the testing doc instead of README
+python3 contrib/tool/readme/refresh-badges.py build 0 --doc doc/execution/testing-tickoni.md
+```
+
+The script's default target is README.md. Pass `--doc` to write to another document.

@@ -1,19 +1,4 @@
-/* macOS needs _DARWIN_C_SOURCE for getentropy, MAP_ANONYMOUS, and madvise;
- * _DEFAULT_SOURCE for arc4random_buf() on newer SDKs (Xcode 16+/macOS 15+).
- * This MUST precede ALL includes (fd_shmem_private.h -> unistd.h, etc.) */
-#ifdef __APPLE__
-#ifndef _DARWIN_C_SOURCE
-#define _DARWIN_C_SOURCE
-#endif
-#ifndef _DEFAULT_SOURCE
-#define _DEFAULT_SOURCE
-#endif
-#endif
-
-#if FD_HAS_HOSTED
-#define _GNU_SOURCE
-#endif
-
+/* Feature-test macros are defined in fd_shmem_private.h */
 #include "fd_shmem_private.h"
 
 /* ── Platform compat includes ─────────────────────────────────────── */
@@ -39,14 +24,39 @@
 #endif
 
 /* ── Platform compat wrapper ── */
-static inline int fd_shmem_private_getrandom( void *buf __attribute__((unused)), size_t buflen __attribute__((unused)), unsigned int flags __attribute__((unused)) ) {
+static inline int fd_shmem_private_getrandom( void *buf, size_t buflen, unsigned int flags ) {
 #if defined(FD_HAS_LINUX)
-  long n = syscall( SYS_getrandom, buf, buflen, flags );
-  (void)n;
-  return (int)n;
+  {
+    long n;
+    do {
+      n = syscall( SYS_getrandom, buf, buflen, flags );
+    } while ( n < 0 && errno == EINTR );
+    if ( n < 0 ) {
+      errno = (int)-n;
+      return -1;
+    }
+    /* Short read: retry for remaining bytes */
+    char *p = (char *)buf;
+    size_t off = (size_t)n;
+    while ( off < buflen ) {
+      long m = syscall( SYS_getrandom, p + off, buflen - off, flags );
+      if ( m < 0 ) {
+        if ( errno == EINTR ) continue;
+        errno = (int)-m;
+        return -1;
+      }
+      off += (size_t)m;
+    }
+    return (int)buflen;
+  }
 #elif defined(FD_HAS_MACOS)
   /* arc4random_buf() is always available on macOS (since 10.7)
-   * and needs no feature test macro (unlike getentropy()). */
+   * and needs no feature test macro (unlike getentropy()).
+   * It is documented as never failing (OpenBSD source). */
+  if ( FD_UNLIKELY( buflen == 0 ) ) {
+    errno = EINVAL;
+    return -1;
+  }
   (void)flags;
   arc4random_buf( buf, buflen );
   return (int)buflen;

@@ -74,7 +74,7 @@ def test_winget_path_refresh_does_not_append_entire_package_tree(monkeypatch):
         return []
 
     monkeypatch.setattr(winget.glob, 'glob', fake_glob)
-    monkeypatch.setattr(winget.os.path, 'isdir', lambda path: True)
+    monkeypatch.setattr(winget.ntpath, 'isdir', lambda path: True)
 
     winget._refresh_winget_path()
 

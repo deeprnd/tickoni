@@ -119,6 +119,10 @@ class OpenSSLBuildStrategy(InstallStrategy):
         print(f"[BUILD] Running {script}...")
         env = os.environ.copy()
         env['TK_PLATFORM'] = platform_str
+        if platform_str == 'windows-arm':
+            env['FD_WINDOWS_ARCH'] = 'arm'
+        elif platform_str == 'windows-x86':
+            env['FD_WINDOWS_ARCH'] = 'x86'
 
         result = subprocess.run([bash_command(), script_path], env=env, capture_output=True, text=True)
         if result.returncode != 0:
