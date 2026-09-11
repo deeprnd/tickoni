@@ -712,10 +712,26 @@
     "buf": {
       "category": "quality",
       "platform": "all",
-      "install_method": "go_install",
+      "install_method": "github_release",
       "parameters": {
-        "module": "github.com/bufbuild/buf/cmd/buf",
-        "version": "1.38.0"
+        "owner": "bufbuild",
+        "repo": "buf",
+        "version_ref": "v{version}",
+        "asset_pattern_os_map": {
+          "linux": {
+            "amd64": "buf-Linux-x86_64",
+            "arm64": "buf-Linux-aarch64"
+          },
+          "darwin": {
+            "amd64": "buf-Darwin-x86_64",
+            "arm64": "buf-Darwin-arm64"
+          },
+          "windows": {
+            "amd64": "buf-Windows-x86_64.exe",
+            "arm64": "buf-Windows-arm64.exe"
+          }
+        },
+        "bin_name": "buf"
       },
       "idempotent_check": "command -v buf"
     },
