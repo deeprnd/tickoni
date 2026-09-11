@@ -7,10 +7,10 @@ build-tk-windows-arm:
     ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }}
 
 build-fd-windows-x86:
-    {{ python }} contrib/build/orchestrator.py --platform windows-x86 build-fd fd-tickoni-fd libs clang --arch x86_64
+    {{ python }} ../contrib/build/orchestrator.py --platform windows-x86 build-fd fd-tickoni-fd libs clang --arch x86_64
 
 build-fd-windows-arm:
-    {{ python }} contrib/build/orchestrator.py --platform windows-arm build-fd fd-tickoni-fd libs clang --arch arm64
+    {{ python }} ../contrib/build/orchestrator.py --platform windows-arm build-fd fd-tickoni-fd libs clang --arch arm64
 
 # test-unit-fd-windows-x86/arm live in justfile (CI entry points).
 test-unit-tk-windows-x86:

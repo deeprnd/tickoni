@@ -8,7 +8,7 @@ gen-audit-fixtures:
 
 # Run Python unit tests for contrib/test/* (pytest, no FD build required).
 test-unit-setup:
-    {{ python }} contrib/setup/orchestrator.py test-tools
+    {{ python }} ../contrib/setup/orchestrator.py test-tools
     {{ python }} -m pytest contrib/test/
 
 test-unit-all:
