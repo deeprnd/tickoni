@@ -7,7 +7,7 @@ test-e2e-tk:
     @true
 
 test-e2e-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py e2e bash -c "just test-e2e-fd && just test-e2e-tk"
+    {{ python }} {{ justfile_directory() }}/contrib/tool/readme/run-badged-command.py e2e bash -c "just test-e2e-fd && just test-e2e-tk"
 
 test-integration-fd:
     @true
@@ -30,4 +30,4 @@ test-integration-tk:
     python3 scripts/dispatch test-integration-tk
 
 test-integration-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py integration bash -c "just test-integration-fd && just test-integration-tk"
+    {{ python }} {{ justfile_directory() }}/contrib/tool/readme/run-badged-command.py integration bash -c "just test-integration-fd && just test-integration-tk"
