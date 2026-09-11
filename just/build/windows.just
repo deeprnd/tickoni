@@ -7,10 +7,10 @@ build-tk-windows-arm:
     ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dfd-lib-dir={{ fd_tickoni_lib }}
 
 build-fd-windows-x86:
-    {{ python }} contrib/build/orchestrator.py --platform windows-x86 build-fd fd-tickoni-fd libs clang --arch x86_64
+    {{ python }} {{ justfile_directory() }}/contrib/build/orchestrator.py --platform windows-x86 build-fd fd-tickoni-fd libs clang --arch x86_64
 
 build-fd-windows-arm:
-    {{ python }} contrib/build/orchestrator.py --platform windows-arm build-fd fd-tickoni-fd libs clang --arch arm64
+    {{ python }} {{ justfile_directory() }}/contrib/build/orchestrator.py --platform windows-arm build-fd fd-tickoni-fd libs clang --arch arm64
 
 # test-unit-fd-windows-x86/arm live in justfile (CI entry points).
 test-unit-tk-windows-x86:
@@ -39,9 +39,9 @@ test-integration-tk-windows-arm:
 test-system-tk-windows-x86:
     mkdir -p build
     bash -c 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
-    bash contrib/test/run_live_investment_demo_win.sh windows-x86
+    bash {{ justfile_directory() }}/contrib/test/run_live_investment_demo_win.sh windows-x86
 
 test-system-tk-windows-arm:
     mkdir -p build
     bash -c 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
-    bash contrib/test/run_live_investment_demo_win.sh windows-arm
+    bash {{ justfile_directory() }}/contrib/test/run_live_investment_demo_win.sh windows-arm

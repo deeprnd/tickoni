@@ -34,7 +34,7 @@ build-fd-dev:
     make -j"$(nproc)" all
 
 build-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py build bash -c "just build-fd && just build-tk"
+    {{ python }} {{ justfile_directory() }}/contrib/tool/readme/run-badged-command.py build bash -c "just build-fd && just build-tk"
 
 # Qt terminal — CMake-based, independent of build.zig
 build-qt:
