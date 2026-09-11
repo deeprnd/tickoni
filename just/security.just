@@ -48,7 +48,7 @@ security-codeql-check-all:
 # ── Security: Gitleaks ─────────────────────────────────────────────────────
 
 security-gitleaks-check-fd:
-    gitleaks detect --no-git --verbose --source src/ --config contrib/security/gitleaks-fd.toml
+    gitleaks detect --no-git --verbose --source src/ --config {{ justfile_directory() }}/contrib/security/gitleaks-fd.toml
 
 security-gitleaks-check-tk:
     gitleaks detect --no-git --verbose --source src/tickoni
@@ -263,10 +263,10 @@ security-engine-check-all:
     @just security-engine-check-orchestration
 
 security-engine-check-changes:
-    {{ python }} contrib/quality/engine/engine_check_changes.py
+    {{ python }} {{ justfile_directory() }}/contrib/quality/engine/engine_check_changes.py
 
 security-engine-check-orchestration:
-    {{ python }} contrib/quality/engine/linter.py contrib/quality/engine/checks/ --root {{ justfile_directory() }} --severity ERROR
+    {{ python }} {{ justfile_directory() }}/contrib/quality/engine/linter.py {{ justfile_directory() }}/contrib/quality/engine/checks/ --root {{ justfile_directory() }} --severity ERROR
 
 security-engine-check-changes-linux-x86: security-engine-check-changes
 security-engine-check-orchestration-linux-x86: security-engine-check-orchestration
@@ -292,4 +292,4 @@ security-engine-check-orchestration-windows-arm:
 # ── Security: All ──────────────────────────────────────────────────────────
 
 security-check-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py security bash -c "just security-engine-check-all && just security-codeql-check-all && just security-gitleaks-check-all && just security-seccomp-check-all && just security-proof-check-all && just security-sanitize-check-all"
+    {{ python }} {{ justfile_directory() }}/contrib/tool/readme/run-badged-command.py security bash -c "just security-engine-check-all && just security-codeql-check-all && just security-gitleaks-check-all && just security-seccomp-check-all && just security-proof-check-all && just security-sanitize-check-all"

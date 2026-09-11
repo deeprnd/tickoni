@@ -1,16 +1,16 @@
 # ── Quality: Format ────────────────────────────────────────────────────────
 
 quality-format-check-fd:
-    bash contrib/quality/quality.sh format-check-fd
+    bash {{ justfile_directory() }}/contrib/quality/quality.sh format-check-fd
 
 quality-format-fix-fd:
-    bash contrib/quality/quality.sh format-fix-fd
+    bash {{ justfile_directory() }}/contrib/quality/quality.sh format-fix-fd
 
 quality-format-check-tk:
-    bash contrib/quality/quality.sh format-check-tk
+    bash {{ justfile_directory() }}/contrib/quality/quality.sh format-check-tk
 
 quality-format-fix-tk:
-    bash contrib/quality/quality.sh format-fix-tk
+    bash {{ justfile_directory() }}/contrib/quality/quality.sh format-fix-tk
 
 # Linux/x86 qualified aliases; quality scope remains unchanged.
 quality-format-check-fd-linux-x86: quality-format-check-fd
@@ -79,14 +79,14 @@ quality-format-fix-qt-windows-arm: quality-format-fix-qt
 # ── Quality: Lint ──────────────────────────────────────────────────────────
 
 quality-lint-check-fd:
-    bash contrib/quality/quality.sh lint-check-fd
-    command -v shellcheck >/dev/null || exit 0; bash contrib/quality/quality.sh lint-shellcheck-fd
+    bash {{ justfile_directory() }}/contrib/quality/quality.sh lint-check-fd
+    command -v shellcheck >/dev/null || exit 0; bash {{ justfile_directory() }}/contrib/quality/quality.sh lint-shellcheck-fd
 
 quality-lint-check-actions:
     @command -v actionlint >/dev/null || exit 0; actionlint -ignore 'label "windows-11-vs2026-arm" is unknown' .github/workflows/*.yml
 
 quality-lint-check-tk:
-    bash contrib/quality/quality.sh lint-check-tk
+    bash {{ justfile_directory() }}/contrib/quality/quality.sh lint-check-tk
 
 quality-lint-check-fd-linux-x86: quality-lint-check-fd
 quality-lint-check-tk-linux-x86: quality-lint-check-tk
@@ -116,7 +116,7 @@ quality-lint-check-all:
 # ── Quality: Lint Qt ────────────────────────────────────────────────────────
 
 quality-lint-check-qt:
-    bash contrib/quality/quality.sh lint-check-qt
+    bash {{ justfile_directory() }}/contrib/quality/quality.sh lint-check-qt
 
 quality-lint-check-qt-linux-x86: quality-lint-check-qt
 
@@ -171,4 +171,4 @@ quality-proto-check-all:
 # ── Quality: All ───────────────────────────────────────────────────────────
 
 quality-check-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py quality bash -c "just quality-format-check-all && just quality-lint-check-all && just quality-proto-check-all && just quality-yaml-check-linux && just quality-spell-check-linux"
+    {{ python }} {{ justfile_directory() }}/contrib/tool/readme/run-badged-command.py quality bash -c "just quality-format-check-all && just quality-lint-check-all && just quality-proto-check-all && just quality-yaml-check-linux && just quality-spell-check-linux"
