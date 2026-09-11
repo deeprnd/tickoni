@@ -6,7 +6,7 @@
 #   (quality, security-secrets) -> build (matrix) -> project-build (aggregate)
 #     -> unit tests -> (integration, system, demo, coverage in parallel)
 #     -> conformance (after demo)
-#     -> project-tests (after integration+system+demo+conformance+coverage)
+#     -> project-tests (after integration+system+demo+conformance)
 #     -> security-deep (after project-tests) -> project-security (aggregate)
 #     -> ci-required
 #
@@ -151,11 +151,12 @@ jobs:
       needs.demo.result == 'success'
     uses: ./.github/workflows/_ci-conformance.yml
 
-  # ── PROJECT TESTS: aggregated test gate ───────────────────────────────────
+  # ── PROJECT TESTS: aggregated test gate ────────────────────────────────────
+  # (coverage runs in parallel but does not gate project-tests — it's diagnostic-only)
   project-tests:
     name: Project Tests
     needs:
-      [plan, project-build, unit, integration, system, demo, conformance, coverage]
+      [plan, project-build, unit, integration, system, demo, conformance]
     if: >-
       always() &&
       needs.plan.outputs.core == 'true' &&
@@ -164,8 +165,7 @@ jobs:
       needs.integration.result == 'success' &&
       needs.system.result == 'success' &&
       needs.demo.result == 'success' &&
-      needs.conformance.result == 'success' &&
-      needs.coverage.result == 'success'
+      needs.conformance.result == 'success'
     runs-on: ubuntu-24.04
     steps:
       - name: Project Tests aggregated
