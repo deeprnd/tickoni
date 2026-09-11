@@ -30,7 +30,7 @@ jobs:
       - name: Download build artifact (build job output)
         uses: actions/download-artifact@v5
         with:
-          name: tickoni-build
+          name: build-linux-x86
           path: build/
 
       - name: Run coverage test
