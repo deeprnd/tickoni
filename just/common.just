@@ -222,8 +222,11 @@ setup-fd-deps-macos-x86:
 setup-fd-deps-macos-arm:
     python3 contrib/setup/orchestrator.py fd
 
+setup-coverage-linux-x86-gcc:
+    python3 contrib/setup/orchestrator.py coverage,toolchain,zig,ssl
+
 setup-coverage-linux-x86-clang:
-    python3 contrib/setup/orchestrator.py coverage,toolchain
+    python3 contrib/setup/orchestrator.py coverage,toolchain,zig,ssl
 
 # ── FD deps for platforms missing them ─────────────────────────────────────
 setup-fd-deps-windows-x86:

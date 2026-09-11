@@ -194,7 +194,8 @@
         "zstd",
         "pkg-config",
         "ninja",
-        "ccache"
+        "ccache",
+        "just"
       ]
     },
     "zig": {
