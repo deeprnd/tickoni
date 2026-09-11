@@ -719,16 +719,16 @@
         "version_ref": "v{version}",
         "asset_pattern_os_map": {
           "linux": {
-            "amd64": "buf-Linux-x86_64",
-            "arm64": "buf-Linux-aarch64"
+            "amd64": "buf-Linux-x86_64.tar.gz",
+            "arm64": "buf-Linux-aarch64.tar.gz"
           },
           "darwin": {
-            "amd64": "buf-Darwin-x86_64",
-            "arm64": "buf-Darwin-arm64"
+            "amd64": "buf-Darwin-x86_64.tar.gz",
+            "arm64": "buf-Darwin-arm64.tar.gz"
           },
           "windows": {
-            "amd64": "buf-Windows-x86_64.exe",
-            "arm64": "buf-Windows-arm64.exe"
+            "amd64": "buf-Windows-x86_64.tar.gz",
+            "arm64": "buf-Windows-arm64.tar.gz"
           }
         },
         "bin_name": "buf"
