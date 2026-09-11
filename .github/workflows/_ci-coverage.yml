@@ -1,6 +1,6 @@
 # Reusable Coverage workflow: called by ci.yml as a DAG node.
-# Runs parallel with security-deep after unit tests complete.
-# Downloads build artifact from the build job (faster than rebuilding).
+# Builds FD libs locally on the same runner that runs coverage,
+# mirroring the unit test pattern — no artifact downloads.
 #
 # Reference: doc/execution/plans/v2.10-s10.md
 #
@@ -14,7 +14,7 @@ jobs:
   coverage:
     name: Tests / Coverage
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -24,14 +24,17 @@ jobs:
       - name: Install just
         uses: taiki-e/install-action@just
 
-      - name: Setup build toolchain for coverage
+      - name: Install kcov
+        run: sudo apt-get install -y kcov
+
+      - name: Setup toolchain
         run: just setup-build-linux-x86-gcc
 
-      - name: Download build artifact (build job output)
-        uses: actions/download-artifact@v5
-        with:
-          name: build-linux-x86
-          path: build/
+      - name: Setup Firedancer deps (zig + SSL)
+        run: just setup-fd-linux-x86-gcc
+
+      - name: Build Firedancer libs locally
+        run: just build-fd-linux-x86-gcc
 
       - name: Run coverage test
         run: just test-cov-tk
