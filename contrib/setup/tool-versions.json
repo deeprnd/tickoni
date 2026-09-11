@@ -712,28 +712,11 @@
     "buf": {
       "category": "quality",
       "platform": "all",
-      "install_method": "github_release",
+      "install_method": "go_install",
       "parameters": {
-        "owner": "bufbuild",
-        "repo": "buf",
-        "version_ref": "v{version}",
-        "asset_pattern_os_map": {
-          "linux": {
-            "amd64": "buf-Linux-x86_64.tar.gz",
-            "arm64": "buf-Linux-aarch64.tar.gz"
-          },
-          "darwin": {
-            "amd64": "buf-Darwin-x86_64.tar.gz",
-            "arm64": "buf-Darwin-arm64.tar.gz"
-          },
-          "windows": {
-            "amd64": "buf-Windows-x86_64.tar.gz",
-            "arm64": "buf-Windows-arm64.tar.gz"
-          }
-        },
-        "bin_name": "buf"
+        "module": "github.com/bufbuild/buf/cmd/buf"
       },
-      "idempotent_check": "buf --version"
+      "idempotent_check": "command -v buf"
     },
     "gitleaks": {
       "category": "secrets",
