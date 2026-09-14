@@ -40,29 +40,38 @@ pub fn resolveFixturePath(
     io: Io,
     path: []const u8,
 ) ![]u8 {
-    if (std.mem.startsWith(u8, path, "src/")) {
-        const exe_dir = try std.process.executableDirPathAlloc(io, allocator);
-        defer allocator.free(exe_dir);
-        var current = std.fs.path.dirname(exe_dir) orelse return error.InvalidPath;
-        var repo_root_path: ?[]u8 = null;
-        defer {
-            if (repo_root_path) |rp| allocator.free(rp);
-        }
-        for (0..20) |_| {
-            var p: [1024]u8 = undefined;
-            const path_str = try std.fmt.bufPrint(&p, "{s}/src", .{current});
-            Dir.access(Dir.cwd(), io, path_str, .{}) catch continue;
+    if (!std.mem.startsWith(u8, path, "src/")) {
+        return allocator.dupe(u8, path);
+    }
+
+    const exe_dir = try std.process.executableDirPathAlloc(io, allocator);
+    defer allocator.free(exe_dir);
+    var current: []const u8 = std.fs.path.dirname(exe_dir) orelse return error.InvalidPath;
+
+    var repo_root_path: ?[]u8 = null;
+    errdefer {
+        if (repo_root_path) |rp| allocator.free(rp);
+    }
+
+    var depth: usize = 0;
+    while (depth < 20) : (depth += 1) {
+        var p: [1024]u8 = undefined;
+        const path_str = try std.fmt.bufPrint(&p, "{s}/src", .{current});
+        if (Dir.access(Dir.cwd(), io, path_str, .{}) catch false) {
             repo_root_path = try allocator.dupe(u8, current);
             break;
         }
-        const root = repo_root_path orelse return error.InvalidPath;
-        const resolved = try allocator.alloc(u8, root.len + 1 + path.len);
-        @memcpy(resolved[0 .. root.len], root);
-        resolved[root.len] = '/';
-        @memcpy(resolved[root.len + 1 ..], path);
-        return resolved;
+        const next = std.fs.path.dirname(current);
+        if (next == null) break;
+        current = next.?;
     }
-    return allocator.dupe(u8, path);
+
+    const root = repo_root_path orelse return error.InvalidPath;
+    const resolved = try allocator.alloc(u8, root.len + 1 + path.len);
+    @memcpy(resolved[0 .. root.len], root);
+    resolved[root.len] = '/';
+    @memcpy(resolved[root.len + 1 ..], path);
+    return resolved;
 }
 
 /// Resolve a full file path (directory + filename) for fixture loading.
