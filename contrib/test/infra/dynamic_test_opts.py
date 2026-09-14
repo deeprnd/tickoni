@@ -103,7 +103,7 @@ def run_dynamic_test_opts() -> dict:
     os_reserve_gb = 16          # GB to reserve for OS + other processes
     overhead_mult = 4           # FD workspaces typically use 2-6x raw page space
     min_jobs = 1
-    max_jobs = 6                # cap to avoid fork-bomb on many-core machines
+    max_jobs = 1                # sequential: avoids workspace memory contention across parallel tests
     min_page_cnt = 65536        # minimum pages (256 MB workspace)
 
     # ── Detect resources ───────────────────────────────────────────────
