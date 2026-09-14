@@ -527,6 +527,7 @@ pub fn build(b: *std.Build) void {
             .{ .name = "model_messages", .module = model_messages_mod },
             .{ .name = "mock_model", .module = mock_model_mod },
             .{ .name = "c_abi", .module = c_abi_mod },
+            .{ .name = "fixture_paths", .module = fixture_paths_mod },
         },
     });
     const adapter_int_mod = b.createModule(.{
@@ -539,6 +540,7 @@ pub fn build(b: *std.Build) void {
             .{ .name = "fixture_portfolio", .module = fixture_portfolio_mod },
             .{ .name = "trade_ticket", .module = trade_ticket_mod },
             .{ .name = "adapter_messages", .module = adapter_messages_mod },
+            .{ .name = "fixture_paths", .module = fixture_paths_mod },
         },
     });
     const tool_int_mod = b.createModule(.{
@@ -594,6 +596,7 @@ pub fn build(b: *std.Build) void {
             .{ .name = "portfolio", .module = portfolio_mod },
             .{ .name = "tkpoly", .module = tkpoly_int_mod },
             .{ .name = "trade_ticket", .module = trade_ticket_mod },
+            .{ .name = "fixture_paths", .module = fixture_paths_mod },
         },
     });
     const investment_audit_int_mod = b.createModule(.{
