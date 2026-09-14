@@ -51,7 +51,7 @@ pub fn resolveFixturePath(
         for (0..20) |_| {
             var p: [1024]u8 = undefined;
             const path_str = try std.fmt.bufPrint(&p, "{s}/src", .{current});
-            if (Dir.access(Dir.cwd(), io, path_str, .{})) {
+            if (Dir.access(Dir.cwd(), io, path_str, .{}) catch false) {
                 repo_root_path = try allocator.dupe(u8, current);
                 break;
             }
