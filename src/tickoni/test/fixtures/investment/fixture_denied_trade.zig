@@ -1,5 +1,6 @@
 const std = @import("std");
 const thesis = @import("thesis");
+const fixture_paths = @import("fixture_paths");
 
 const operations_account_id: u32 = 2001;
 
@@ -36,10 +37,11 @@ fn operationsThesisInputWithTarget(target_notional_cents: i64) thesis.ThesisInpu
 }
 
 fn loadRestrictedTicketFixture(allocator: std.mem.Allocator, io: std.Io) !LoadedRestrictedTicketFixture {
-    const raw = try std.Io.Dir.cwd().readFileAlloc(
-        io,
-        "src/tickoni/test/fixtures/investment/scenarios/fixture_ticket_restricted_instrument_blocked.json",
+    const raw = try fixture_paths.readFixtureFile(
         allocator,
+        io,
+        fixture_paths.investment_scenarios,
+        "fixture_ticket_restricted_instrument_blocked.json",
         .limited(16 * 1024),
     );
     errdefer allocator.free(raw);

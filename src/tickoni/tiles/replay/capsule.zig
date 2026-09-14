@@ -8,6 +8,7 @@ const basket = @import("basket");
 const trade_ticket = @import("trade_ticket");
 const tkpoly = @import("tkpoly");
 const hash = @import("hash.zig");
+const fixture_paths = @import("fixture_paths");
 
 /// Wire schema version of the replay capsule JSON format itself, distinct
 /// from thesis/basket/catalog schema versions since the capsule is its own
@@ -90,12 +91,14 @@ pub fn loadReplayCapsule(
     io: std.Io,
     path: []const u8,
 ) !LoadedReplayCapsule {
-    const raw = try std.Io.Dir.cwd().readFileAlloc(
+    const resolved = try fixture_paths.resolveFixtureFile(allocator, io, "", path);
+    const raw = try std.fs.cwd().readFileAlloc(
         io,
-        path,
+        resolved,
         allocator,
         .limited(16 * 1024),
     );
+    allocator.free(resolved);
     errdefer allocator.free(raw);
     const parsed = try std.json.parseFromSlice(ReplayCapsuleWire, allocator, raw, .{
         .ignore_unknown_fields = true,
@@ -172,9 +175,9 @@ pub fn loadModelFixtureContent(
     fixture_dir: []const u8,
     filename: []const u8,
 ) !ModelFixtureContent {
-    var path_buf: [512]u8 = undefined;
-    const path = try std.fmt.bufPrint(&path_buf, "{s}/{s}", .{ fixture_dir, filename });
-    const raw = try std.Io.Dir.cwd().readFileAlloc(io, path, allocator, .limited(32 * 1024));
+    const resolved = try fixture_paths.resolveFixtureFile(allocator, io, fixture_dir, filename);
+    const raw = try std.fs.cwd().readFileAlloc(io, resolved, allocator, .limited(32 * 1024));
+    defer allocator.free(resolved);
     defer allocator.free(raw);
     const parsed = try std.json.parseFromSlice(ModelFixtureContentWire, allocator, raw, .{
         .ignore_unknown_fields = true,
@@ -230,9 +233,9 @@ pub fn loadPaperFixture(
     filename: []const u8,
     account_id: u32,
 ) !trade_ticket.PaperExecutionResult {
-    var path_buf: [512]u8 = undefined;
-    const path = try std.fmt.bufPrint(&path_buf, "{s}/{s}", .{ fixture_dir, filename });
-    const raw = try std.Io.Dir.cwd().readFileAlloc(io, path, allocator, .limited(32 * 1024));
+    const resolved = try fixture_paths.resolveFixtureFile(allocator, io, fixture_dir, filename);
+    const raw = try std.fs.cwd().readFileAlloc(io, resolved, allocator, .limited(32 * 1024));
+    defer allocator.free(resolved);
     defer allocator.free(raw);
     const parsed = try std.json.parseFromSlice(PaperFixtureWire, allocator, raw, .{
         .ignore_unknown_fields = true,

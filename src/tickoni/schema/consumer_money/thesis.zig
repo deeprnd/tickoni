@@ -19,7 +19,7 @@
 const std = @import("std");
 const c_abi = @import("c_abi");
 const cls = @import("classification");
-const thesis_proto_path = "src/tickoni/schema/proto/consumer_money/thesis.proto";
+const fixture_paths = @import("fixture_paths");
 
 pub const classification = cls;
 pub const Market = cls.Market;
@@ -806,7 +806,12 @@ test "schema version matches codec constant" {
 }
 
 test "thesis proto message contract stays aligned with zig definitions" {
-    const thesis_proto = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, thesis_proto_path, std.testing.allocator, .limited(32 * 1024));
+    const thesis_proto = try fixture_paths.readFixturePath(
+        std.testing.allocator,
+        std.testing.io,
+        fixture_paths.thesis_proto,
+        .limited(32 * 1024),
+    );
     defer std.testing.allocator.free(thesis_proto);
 
     const required_lines = [_][]const u8{

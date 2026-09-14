@@ -1,6 +1,7 @@
 const std = @import("std");
 const c_abi = @import("c_abi");
 const schema = @import("model_messages");
+const fixture_paths = @import("fixture_paths");
 
 pub const ProviderRequest = schema.ProviderRequest;
 pub const ModelResponse = schema.ModelResponse;
@@ -52,10 +53,9 @@ pub const FixtureBackend = struct {
         io: std.Io,
         fixture_dir: []const u8,
     ) !FixtureBackend {
-        var path_buf: [512]u8 = undefined;
-        const path = try std.fmt.bufPrint(&path_buf, "{s}/fixture_model_response_gemma4.json", .{fixture_dir});
-        const raw = try std.Io.Dir.cwd().readFileAlloc(io, path, allocator, .limited(32 * 1024));
-        defer allocator.free(raw);
+        const resolved = try fixture_paths.resolveFixtureFile(allocator, io, fixture_dir, "fixture_model_response_gemma4.json");
+        const raw = try std.fs.cwd().readFileAlloc(io, resolved, allocator, .limited(32 * 1024));
+        defer allocator.free(resolved);
         const parsed = try std.json.parseFromSlice(ModelResponseFileWire, allocator, raw, .{ .ignore_unknown_fields = true });
         defer parsed.deinit();
         const w = parsed.value;

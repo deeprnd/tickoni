@@ -148,6 +148,28 @@ pub fn build(b: *std.Build) void {
             .{ .name = "build_options", .module = version_opts.createModule() },
         },
     });
+
+    // ---------------------------------------------------------------------------
+    // Fixture path constants — comptime-resolved paths so no CWD-relative
+    // reads happen at runtime.  This eliminates `std.Io.Dir.cwd().readFileAlloc`
+    // in tile/test code that fails when the binary runs from `.zig-cache/o/...`.
+    // See doc/execution/plans/v2.10-s2-6.md.
+    // ---------------------------------------------------------------------------
+    const fixture_paths = b.addOptions();
+    fixture_paths.addOption([]const u8, "FIXTURE_INVESTMENT_SCENARIOS", "src/tickoni/test/fixtures/investment/scenarios");
+    fixture_paths.addOption([]const u8, "FIXTURE_AUDIT", "src/tickoni/test/fixtures/audit");
+    fixture_paths.addOption([]const u8, "FIXTURE_PORTFOLIO", "src/tickoni/test/fixtures/portfolio");
+    fixture_paths.addOption([]const u8, "FIXTURE_CLASSIFICATION_PROTO", "src/tickoni/schema/proto/classification/classification.proto");
+    fixture_paths.addOption([]const u8, "FIXTURE_THESIS_PROTO", "src/tickoni/schema/proto/consumer_money/thesis.proto");
+    fixture_paths.addOption([]const u8, "FIXTURE_BASKET_PROTO", "src/tickoni/schema/proto/consumer_money/basket.proto");
+    const fixture_paths_mod = b.addModule("fixture_paths", .{
+        .root_source_file = b.path("src/tickoni/test/fixtures/fixture_paths.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "build_options", .module = fixture_paths.createModule() },
+        },
+    });
     const doctor_checks_mod = b.addModule("doctor_checks", .{
         .root_source_file = b.path("src/tickoni/doctor/checks.zig"),
         .target = target,
@@ -237,6 +259,9 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/tickoni/schema/classification/classification.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{
+            .{ .name = "fixture_paths", .module = fixture_paths_mod },
+        },
     });
     const capability_mod = b.addModule("capability", .{
         .root_source_file = b.path("src/tickoni/schema/capability/capability.zig"),
@@ -250,6 +275,7 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "classification", .module = classification_mod },
             .{ .name = "c_abi", .module = c_abi_mod },
+            .{ .name = "fixture_paths", .module = fixture_paths_mod },
         },
     });
     const catalog_schema_mod = b.addModule("catalog_schema", .{
@@ -278,6 +304,7 @@ pub fn build(b: *std.Build) void {
             .{ .name = "thesis", .module = thesis_mod },
             .{ .name = "catalog", .module = catalog_mod },
             .{ .name = "c_abi", .module = c_abi_mod },
+            .{ .name = "fixture_paths", .module = fixture_paths_mod },
         },
     });
     const portfolio_mod = b.addModule("portfolio", .{
@@ -713,6 +740,7 @@ pub fn build(b: *std.Build) void {
             "bash",
             full_script_path,
         });
+        run_tests_cmd.setCwd(b.path("."));
 
         // Files with no cross-module imports: standalone test binaries.
         for ([_][]const u8{
@@ -2264,6 +2292,7 @@ fn addPlainTestRun(b: *std.Build, test_compile: *std.Build.Step.Compile) *std.Bu
     run_step.producer = test_compile;
     run_step.addArtifactArg(test_compile);
     run_step.has_side_effects = true;
+    run_step.setCwd(b.path("."));
     return run_step;
 }
 

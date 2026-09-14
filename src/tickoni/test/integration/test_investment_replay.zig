@@ -21,6 +21,37 @@ fn hasEnv(key: []const u8) bool {
     return false;
 }
 
+/// Resolve a repo-relative path (starting with "src/") against the
+/// source-file directory so it works regardless of CWD (.zig-cache).
+fn resolveFixturePath(allocator: std.mem.Allocator, path: []const u8, io: std.Io) ![]u8 {
+    _ = io;
+    if (std.mem.startsWith(u8, path, "src/")) {
+        // Walk up from the test binary's dir to find the repo root (dir containing src/).
+        var exe_dir = std.fs.selfExeDirPath();
+        var current = std.fs.path.dirname(exe_dir) orelse return error.InvalidPath;
+        var repo_root_path: ?[]u8 = null;
+        for (0..20) |_| {
+            var p: [1024]u8 = undefined;
+            const path_str = try std.fmt.bufPrint(&p, "{s}/src", .{current});
+            if (std.fs.cwd().access(path_str, .{})) {
+                repo_root_path = try allocator.dupe(u8, current);
+                break;
+            }
+            const next = std.fs.path.dirname(current);
+            if (next == null) break;
+            current = next.?;
+        }
+        const root = repo_root_path orelse return error.InvalidPath;
+        const resolved = try allocator.alloc(u8, root.len + 1 + path.len);
+        @memcpy(resolved[0 .. root.len], root);
+        resolved[root.len] = '/';
+        @memcpy(resolved[root.len + 1 ..], path);
+        allocator.free(root);
+        return resolved;
+    }
+    return allocator.dupe(u8, path);
+}
+
 test "investment_replay_integration: succeeds with fixture substitutions and no live effects" {
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
@@ -308,12 +339,11 @@ test "investment_replay_integration: audit jsonl hash chain is consistent" {
     const thesis_id = thesis.computeThesisInputHash(input);
     const run_id = tkcase.deriveSyntheticRunId(thesis_id);
 
-    const raw = try std.Io.Dir.cwd().readFileAlloc(
-        std.testing.io,
-        "src/tickoni/test/fixtures/investment/scenarios/fixture_audit_allowed_2000.jsonl",
-        allocator,
-        .limited(64 * 1024),
-    );
+    // Resolve repo-relative path against source dir so it works from .zig-cache.
+    const raw = resolveFixturePath(allocator, "src/tickoni/test/fixtures/investment/scenarios/fixture_audit_allowed_2000.jsonl", std.testing.io) catch |err| return switch (err) {
+        error.FileNotFound => return error.SkipZigTest,
+        else => return err,
+    };
     defer allocator.free(raw);
 
     const AuditLine = struct { run_id: u64, tile_id: []const u8, prev_hash: u64, record_hash: u64 };

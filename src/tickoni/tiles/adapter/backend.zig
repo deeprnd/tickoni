@@ -4,6 +4,7 @@ const portfolio = @import("portfolio");
 const fixture_portfolio = @import("fixture_portfolio");
 const trade_ticket = @import("trade_ticket");
 const schema = @import("adapter_messages");
+const fixture_paths = @import("fixture_paths");
 
 fn tickerBuf(comptime s: []const u8) [portfolio.max_ticker_len]u8 {
     var buf = std.mem.zeroes([portfolio.max_ticker_len]u8);
@@ -139,9 +140,7 @@ fn readFixtureFile(
     fixture_dir: []const u8,
     filename: []const u8,
 ) ![]u8 {
-    var path_buf: [512]u8 = undefined;
-    const path = try std.fmt.bufPrint(&path_buf, "{s}/{s}", .{ fixture_dir, filename });
-    return std.Io.Dir.cwd().readFileAlloc(io, path, allocator, .limited(32 * 1024));
+    return fixture_paths.readFixtureFile(allocator, io, fixture_dir, filename, .limited(32 * 1024));
 }
 
 fn loadAccountFromDir(
