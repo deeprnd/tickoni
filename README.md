@@ -13,6 +13,10 @@
   <img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-failing-red?style=flat-square" />
   <!-- badge:unit:end -->
 
+  <!-- badge:quality:start -->
+  <img alt="Quality" src="https://img.shields.io/badge/quality-passing-brightgreen?style=flat-square" />
+  <!-- badge:quality:end -->
+
   <!-- badge:security:start -->
   <img alt="Security" src="https://img.shields.io/badge/security-failing-red?style=flat-square" />
   <!-- badge:security:end -->
