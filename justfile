@@ -121,44 +121,56 @@ test-unit-tk:
 build-qt-linux-x86:
     #!/usr/bin/env bash
     set -euo pipefail
-    just setup-qt-linux-x86
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    cd "$REPO_ROOT"
+    just -C "$REPO_ROOT" setup-qt-linux-x86
     QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
-    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S "$REPO_ROOT/src/tickoni/terminal" -B "$REPO_ROOT/build/tickoni-terminal" && cmake --build "$REPO_ROOT/build/tickoni-terminal" -j {{ cpu_count }}
 
 build-qt-linux-arm:
     #!/usr/bin/env bash
     set -euo pipefail
-    just setup-qt-linux-arm
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    cd "$REPO_ROOT"
+    just -C "$REPO_ROOT" setup-qt-linux-arm
     QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
-    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S "$REPO_ROOT/src/tickoni/terminal" -B "$REPO_ROOT/build/tickoni-terminal" && cmake --build "$REPO_ROOT/build/tickoni-terminal" -j {{ cpu_count }}
 
 build-qt-macos-x86:
     #!/usr/bin/env bash
     set -euo pipefail
-    just setup-qt-macos-x86
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    cd "$REPO_ROOT"
+    just -C "$REPO_ROOT" setup-qt-macos-x86
     QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
-    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S "$REPO_ROOT/src/tickoni/terminal" -B "$REPO_ROOT/build/tickoni-terminal" && cmake --build "$REPO_ROOT/build/tickoni-terminal" -j {{ cpu_count }}
 
 build-qt-macos-arm:
     #!/usr/bin/env bash
     set -euo pipefail
-    just setup-qt-macos-arm
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    cd "$REPO_ROOT"
+    just -C "$REPO_ROOT" setup-qt-macos-arm
     QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
-    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S "$REPO_ROOT/src/tickoni/terminal" -B "$REPO_ROOT/build/tickoni-terminal" && cmake --build "$REPO_ROOT/build/tickoni-terminal" -j {{ cpu_count }}
 
 build-qt-windows-x86:
     #!/usr/bin/env bash
     set -euo pipefail
-    just setup-qt-windows-x86
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    cd "$REPO_ROOT"
+    just -C "$REPO_ROOT" setup-qt-windows-x86
     QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
-    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S "$REPO_ROOT/src/tickoni/terminal" -B "$REPO_ROOT/build/tickoni-terminal" && cmake --build "$REPO_ROOT/build/tickoni-terminal" -j {{ cpu_count }}
 
 build-qt-windows-arm:
     #!/usr/bin/env bash
     set -euo pipefail
-    just setup-qt-windows-arm
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    cd "$REPO_ROOT"
+    just -C "$REPO_ROOT" setup-qt-windows-arm
     QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
-    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S src/tickoni/terminal -B build/tickoni-terminal && cmake --build build/tickoni-terminal -j {{ cpu_count }}
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S "$REPO_ROOT/src/tickoni/terminal" -B "$REPO_ROOT/build/tickoni-terminal" && cmake --build "$REPO_ROOT/build/tickoni-terminal" -j {{ cpu_count }}
 
 
 
