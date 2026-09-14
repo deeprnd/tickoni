@@ -83,7 +83,8 @@ quality-lint-check-fd:
     command -v shellcheck >/dev/null || exit 0; bash ../contrib/quality/quality.sh lint-shellcheck-fd
 
 quality-lint-check-actions:
-    @if command -v actionlint >/dev/null; then actionlint -ignore 'label "windows-11-vs2026-arm" is unknown' .github/workflows/*.yml; fi
+    @command -v actionlint >/dev/null || exit 0
+    @cd .. && find .github/workflows -name '*.yml' -type f -print0 | xargs -0 actionlint -ignore 'label "windows-11-vs2026-arm" is unknown'
 
 quality-lint-check-tk:
     bash ../contrib/quality/quality.sh lint-check-tk
