@@ -99,7 +99,8 @@ run_style_grep() {
 }
 
 our_changed_files() {
-  { git diff --diff-filter=AM --name-only
+  { git diff origin/main --diff-filter=AM --name-only
+    git diff --diff-filter=AM --name-only
     git diff --cached --diff-filter=AM --name-only
     git ls-files --others --exclude-standard; } | sort -u
 }
