@@ -130,7 +130,7 @@ quality-lint-check-qt-windows-x86: quality-lint-check-qt
 quality-lint-check-qt-windows-arm: quality-lint-check-qt
 
 quality-yaml-check-linux:
-    find . -name '*.yaml' -o -name '*.yml' | grep -vE '^(./opt|./node_modules|./.zig-global-cache|./build|./target|./zig-out|\\.git)/' | xargs yamllint -f parsable
+    find . -name '*.yaml' -o -name '*.yml' | grep -vE '^(./opt|./node_modules|./.zig-global-cache|./build|./target|./zig-out|\\.git)/' | xargs -r yamllint -f parsable
 
 quality-spell-check-linux:
     cspell lint --no-progress .
