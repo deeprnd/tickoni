@@ -95,13 +95,13 @@ fd_aes_gcm_encrypt(fd_aes_gcm_t *aes_gcm,
     FD_TEST(ok);
 
     /* Process AAD first (if present) */
-    if (aad && aad_sz) {
+    if(aad && aad_sz) {
         ok = EVP_EncryptUpdate(ctx, NULL, &outlen, aad, (int)aad_sz);
         FD_TEST(ok);
     }
 
     // Encrypt data
-    if (sz) {
+    if(sz) {
         ok = EVP_EncryptUpdate(ctx, c, &outlen, p, (int)sz);
         FD_TEST(ok);
     }
@@ -135,13 +135,13 @@ fd_aes_gcm_decrypt(fd_aes_gcm_t *aes_gcm,
     FD_TEST(ok);
 
     /* Process AAD first (if present) */
-    if (aad && aad_sz) {
+    if(aad && aad_sz) {
         ok = EVP_DecryptUpdate(ctx, NULL, &outlen, aad, (int)aad_sz);
         FD_TEST(ok);
     }
 
     /* Decrypt data */
-    if (sz) {
+    if(sz) {
         ok = EVP_DecryptUpdate(ctx, p, &outlen, c, (int)sz);
         FD_TEST(ok);
     }

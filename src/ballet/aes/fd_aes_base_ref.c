@@ -411,7 +411,7 @@ ShiftRows( ulong * state ) {
   int r;
 
   s0 = (uchar *)state;
-  for (r = 0; r < 4; r++) {
+  for(r = 0; r < 4; r++) {
     s[0] = s0[0*4 + r];
     s[1] = s0[1*4 + r];
     s[2] = s0[2*4 + r];
@@ -430,7 +430,7 @@ InvShiftRows( ulong * state ) {
   int r;
 
   s0 = (uchar *)state;
-  for (r = 0; r < 4; r++) {
+  for(r = 0; r < 4; r++) {
     s[0] = s0[0*4 + r];
     s[1] = s0[1*4 + r];
     s[2] = s0[2*4 + r];
@@ -448,7 +448,7 @@ MixColumns( ulong * state ) {
   uni s;
   int c;
 
-  for (c = 0; c < 2; c++) {
+  for(c = 0; c < 2; c++) {
     s1.d = state[c];
     s.d = s1.d;
     s.d ^= ((s.d & (0xFFFF0000FFFF0000UL)) >> 16)
@@ -476,7 +476,7 @@ static void InvMixColumns(ulong * state)
   uni s;
   int c;
 
-  for (c = 0; c < 2; c++) {
+  for(c = 0; c < 2; c++) {
     s1.d = state[c];
     s.d = s1.d;
     s.d ^= ((s.d & (0xFFFF0000FFFF0000UL)) >> 16)
@@ -525,7 +525,7 @@ Cipher( uchar const * in,
 
   AddRoundKey(state, w);
 
-  for (i = 1; i < nr; i++) {
+  for(i = 1; i < nr; i++) {
     SubLong(&state[0]);
     SubLong(&state[1]);
     ShiftRows(state);
@@ -553,7 +553,7 @@ InvCipher( uchar const * in,
 
   AddRoundKey(state, w + nr*2);
 
-  for (i = nr - 1; i > 0; i--) {
+  for(i = nr - 1; i > 0; i--) {
     InvShiftRows(state);
     InvSubLong(&state[0]);
     InvSubLong(&state[1]);
@@ -596,14 +596,14 @@ KeyExpansion( uchar const * key,
   memcpy( &rcon, "\1\0\0\0", 4  );
   n = nk/2;
   prev.d = w[n-1];
-  for (i = n; i < (nr+1)*2; i++) {
+  for(i = n; i < (nr+1)*2; i++) {
     temp = prev.w[1];
-    if (i % n == 0) {
+    if(i % n == 0) {
       RotWord(&temp);
       SubWord(&temp);
       temp ^= rcon;
       XtimeWord(&rcon);
-    } else if (nk > 6 && i % n == 2) {
+    } else if(nk > 6 && i % n == 2) {
       SubWord(&temp);
     }
     prev.d = w[i-n];
@@ -622,16 +622,16 @@ fd_aes_ref_set_encrypt_key( uchar const *      userKey,
                             fd_aes_key_ref_t * key ) {
   ulong *rk;
 
-  if (!userKey || !key)
+  if(!userKey || !key)
       return -1;
-  if (bits != 128 && bits != 192 && bits != 256)
+  if(bits != 128 && bits != 192 && bits != 256)
       return -2;
 
   rk = (ulong *)fd_type_pun( key->rd_key );  /* strict aliasing violation */
 
-  if (bits == 128)
+  if(bits == 128)
       key->rounds = 10;
-  else if (bits == 192)
+  else if(bits == 192)
       key->rounds = 12;
   else
       key->rounds = 14;

@@ -856,7 +856,7 @@ typedef struct {
   ulong                      bundle_cnt;
 } test_bundle_list_t;
 
-static bool
+static inline int
 encode_test_packet_list( pb_ostream_t *     stream,
                          pb_field_t const * field,
                          void * const *     arg ) {
@@ -869,14 +869,14 @@ encode_test_packet_list( pb_ostream_t *     stream,
     packet.data.size = (pb_size_t)desc->payload_sz;
     fd_memcpy( packet.data.bytes, desc->payload, desc->payload_sz );
 
-    if( FD_UNLIKELY( !pb_encode_tag_for_field( stream, field ) ) ) return false;
-    if( FD_UNLIKELY( !pb_encode_submessage( stream, &packet_Packet_msg, &packet ) ) ) return false;
+    if( FD_UNLIKELY( !pb_encode_tag_for_field( stream, field ) ) ) return 0;
+    if( FD_UNLIKELY( !pb_encode_submessage( stream, &packet_Packet_msg, &packet ) ) ) return 0;
   }
 
-  return true;
+  return 1;
 }
 
-static bool
+static inline int
 encode_test_bundle_list( pb_ostream_t *     stream,
                          pb_field_t const * field,
                          void * const *     arg ) {

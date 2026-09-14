@@ -3,7 +3,7 @@
 #endif
 
 #include "../../fd_ballet_base.h"
-#include <stdint.h>
+#include "../util/fd_util_base.h"
 
 #define USE_FIAT_32 0
 #if USE_FIAT_32
@@ -36,7 +36,7 @@ FD_25519_INLINE fd_f25519_t *
 fd_f25519_mul( fd_f25519_t * r,
                fd_f25519_t const * a,
                fd_f25519_t const * b ) {
-  fiat_25519_carry_mul( (uint64_t *)(uintptr_t)r->el, (uint64_t *)(uintptr_t)a->el, (uint64_t *)(uintptr_t)b->el );
+  fiat_25519_carry_mul( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el, (ulong *)(uintptr_t)b->el );
   return r;
 }
 
@@ -44,7 +44,7 @@ fd_f25519_mul( fd_f25519_t * r,
 FD_25519_INLINE fd_f25519_t *
 fd_f25519_sqr( fd_f25519_t * r,
                fd_f25519_t const * a ) {
-  fiat_25519_carry_square( (uint64_t *)(uintptr_t)r->el, (uint64_t *)(uintptr_t)a->el );
+  fiat_25519_carry_square( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el );
   return r;
 }
 
@@ -53,8 +53,8 @@ FD_25519_INLINE fd_f25519_t *
 fd_f25519_add( fd_f25519_t * r,
                fd_f25519_t const * a,
                fd_f25519_t const * b ) {
-  fiat_25519_add( (uint64_t *)(uintptr_t)r->el, (uint64_t *)(uintptr_t)a->el, (uint64_t *)(uintptr_t)b->el );
-  fiat_25519_carry( (uint64_t *)(uintptr_t)r->el, (uint64_t *)(uintptr_t)r->el );
+  fiat_25519_add( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el, (ulong *)(uintptr_t)b->el );
+  fiat_25519_carry( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)r->el );
   return r;
 }
 
@@ -63,8 +63,8 @@ FD_25519_INLINE fd_f25519_t *
 fd_f25519_sub( fd_f25519_t * r,
                fd_f25519_t const * a,
                fd_f25519_t const * b ) {
-  fiat_25519_sub( (uint64_t *)(uintptr_t)r->el, (uint64_t *)(uintptr_t)a->el, (uint64_t *)(uintptr_t)b->el );
-  fiat_25519_carry( (uint64_t *)(uintptr_t)r->el, (uint64_t *)(uintptr_t)r->el );
+  fiat_25519_sub( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el, (ulong *)(uintptr_t)b->el );
+  fiat_25519_carry( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)r->el );
   return r;
 }
 
@@ -75,7 +75,7 @@ FD_25519_INLINE fd_f25519_t *
 fd_f25519_add_nr( fd_f25519_t * r,
                   fd_f25519_t const * a,
                   fd_f25519_t const * b ) {
-  fiat_25519_add( (uint64_t *)(uintptr_t)r->el, (uint64_t *)(uintptr_t)a->el, (uint64_t *)(uintptr_t)b->el );
+  fiat_25519_add( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el, (ulong *)(uintptr_t)b->el );
   return r;
 }
 
@@ -86,7 +86,7 @@ FD_25519_INLINE fd_f25519_t *
 fd_f25519_sub_nr( fd_f25519_t * r,
                   fd_f25519_t const * a,
                   fd_f25519_t const * b ) {
-  fiat_25519_sub( (uint64_t *)(uintptr_t)r->el, (uint64_t *)(uintptr_t)a->el, (uint64_t *)(uintptr_t)b->el );
+  fiat_25519_sub( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el, (ulong *)(uintptr_t)b->el );
   return r;
 }
 
@@ -94,7 +94,7 @@ fd_f25519_sub_nr( fd_f25519_t * r,
 FD_25519_INLINE fd_f25519_t *
 fd_f25519_neg( fd_f25519_t * r,
                fd_f25519_t const * a ) {
-  fiat_25519_opp( (uint64_t *)(uintptr_t)r->el, (uint64_t *)(uintptr_t)a->el );
+  fiat_25519_opp( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el );
   return r;
 }
 
@@ -102,7 +102,7 @@ fd_f25519_neg( fd_f25519_t * r,
 FD_25519_INLINE fd_f25519_t *
 fd_f25519_mul_121666( fd_f25519_t * r,
                       fd_f25519_t const * a ) {
-  fiat_25519_carry_scmul_121666( (uint64_t *)(uintptr_t)r->el, (uint64_t *)(uintptr_t)a->el );
+  fiat_25519_carry_scmul_121666( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el );
   return r;
 }
 
@@ -113,7 +113,7 @@ fd_f25519_mul_121666( fd_f25519_t * r,
 FD_25519_INLINE fd_f25519_t *
 fd_f25519_frombytes( fd_f25519_t * r,
                      uchar const   buf[ 32 ] ) {
-  fiat_25519_from_bytes( (uint64_t *)(uintptr_t)r->el, buf );
+  fiat_25519_from_bytes( (ulong *)(uintptr_t)r->el, buf );
   return r;
 }
 
@@ -124,7 +124,7 @@ fd_f25519_frombytes( fd_f25519_t * r,
 FD_25519_INLINE uchar *
 fd_f25519_tobytes( uchar               out[ 32 ],
                    fd_f25519_t const * a ) {
-  fiat_25519_to_bytes( out, (uint64_t *)(uintptr_t)a->el );
+  fiat_25519_to_bytes( out, (ulong *)(uintptr_t)a->el );
   return out;
 }
 
@@ -136,7 +136,7 @@ fd_f25519_if( fd_f25519_t *       r,
               int const           cond, /* 0, 1 */
               fd_f25519_t const * a0,
               fd_f25519_t const * a1 ) {
-  fiat_25519_selectznz( (uint64_t *)(uintptr_t)r->el, (uchar)cond, (uint64_t *)(uintptr_t)a1->el, (uint64_t *)(uintptr_t)a0->el );
+  fiat_25519_selectznz( (ulong *)(uintptr_t)r->el, (uchar)cond, (ulong *)(uintptr_t)a1->el, (ulong *)(uintptr_t)a0->el );
   return r;
 }
 
@@ -219,7 +219,7 @@ fd_f25519_set( fd_f25519_t * r,
 FD_25519_INLINE int
 fd_f25519_is_zero( fd_f25519_t const * a ) {
   // fiat_25519_tight_field_element x;
-  // fiat_25519_carry( x, (uint64_t *)a->el );
+  // fiat_25519_carry( x, (ulong *)a->el );
 #if USE_FIAT_32
   uint const * x = a->el;
   if(( x[0] == 0

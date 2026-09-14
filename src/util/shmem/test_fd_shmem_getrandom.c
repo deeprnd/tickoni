@@ -64,23 +64,23 @@ test_linux_getrandom_compile( void ) {
   /* Verify errno can be assigned from negative syscall result.
    * This mirrors the errno = (int)-n pattern in the fix. */
   long result = -1;
-  if (result < 0) {
+  if(result < 0) {
     errno = (int)-result;
   }
 
   /* Verify short-read loop variables compile:
-   * char *p, size_t off, long m
+   * char *p, ulong off, long m
    * These are the types used in the short-read retry loop. */
   char *p = NULL;
-  size_t off = 0;
-  size_t buflen = 100;
-  while (off < buflen) {
+  ulong off = 0;
+  ulong buflen = 100;
+  while(off < buflen) {
     long m = 10; /* simulated short read */
-    if (m < 0) {
-      if (errno == EINTR) continue;
+    if(m < 0) {
+      if(errno == EINTR) continue;
       break;
     }
-    off += (size_t)m;
+    off += (ulong)m;
   }
 
   (void)p; /* silence unused warning */
@@ -100,9 +100,9 @@ test_linux_getrandom_compile( void ) {
 static void
 test_macos_getrandom_compile( void ) {
   /* Verify the buflen==0 guard pattern:
-   *   if (buflen == 0) { errno = EINVAL; return -1; } */
-  size_t buflen = 0;
-  if (buflen == 0) {
+   *   if(buflen == 0) { errno = EINVAL; return -1; } */
+  ulong buflen = 0;
+  if(buflen == 0) {
     errno = EINVAL;
   }
 }

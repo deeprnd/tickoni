@@ -24,28 +24,28 @@
 #endif
 
 /* ── Platform compat wrapper ── */
-static inline int fd_shmem_private_getrandom( void *buf, size_t buflen, unsigned int flags ) {
+static inline int fd_shmem_private_getrandom( void *buf, ulong buflen, unsigned int flags ) {
 #if defined(FD_HAS_LINUX)
   {
     long n;
     do {
       n = syscall( SYS_getrandom, buf, buflen, flags );
-    } while ( n < 0 && errno == EINTR );
-    if ( n < 0 ) {
+    } while(n < 0 && errno == EINTR );
+    if(n < 0) {
       errno = (int)-n;
       return -1;
     }
     /* Short read: retry for remaining bytes */
     char *p = (char *)buf;
-    size_t off = (size_t)n;
-    while ( off < buflen ) {
+    ulong off = (ulong)n;
+    while(off < buflen) {
       long m = syscall( SYS_getrandom, p + off, buflen - off, flags );
-      if ( m < 0 ) {
-        if ( errno == EINTR ) continue;
+      if(m < 0) {
+        if(errno == EINTR) continue;
         errno = (int)-m;
         return -1;
       }
-      off += (size_t)m;
+      off += (ulong)m;
     }
     return (int)buflen;
   }
@@ -53,7 +53,7 @@ static inline int fd_shmem_private_getrandom( void *buf, size_t buflen, unsigned
   /* arc4random_buf() is always available on macOS (since 10.7)
    * and needs no feature test macro (unlike getentropy()).
    * It is documented as never failing (OpenBSD source). */
-  if ( FD_UNLIKELY( buflen == 0 ) ) {
+  if( FD_UNLIKELY( buflen == 0 ) ) {
     errno = EINVAL;
     return -1;
   }
