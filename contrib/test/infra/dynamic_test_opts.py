@@ -102,8 +102,8 @@ def run_dynamic_test_opts() -> dict:
     page_sz_normal = 4096       # FD_SHMEM_NORMAL_PAGE_SZ
     os_reserve_gb = 16          # GB to reserve for OS + other processes
     overhead_mult = 4           # FD workspaces typically use 2-6x raw page space
+    max_parallel_cap = 6        # upper bound on parallel test jobs
     min_jobs = 1
-    max_jobs = 1                # sequential: avoids workspace memory contention across parallel tests
     min_page_cnt = 65536        # minimum pages (256 MB workspace)
 
     # ── Detect resources ───────────────────────────────────────────────
@@ -126,11 +126,12 @@ def run_dynamic_test_opts() -> dict:
     # Safe budget for ONE test: half of remaining RAM
     safe_budget = remaining_bytes // 2
 
-    # Max threads we want to use
-    max_j = min(cores, max_jobs)
+    # Max threads: cores - 1, capped
+    max_jobs = min(cores - 1, max_parallel_cap)
+    max_jobs = max(max_jobs, min_jobs)  # at least min_jobs
 
-    # page_cnt = safe_budget / (page_sz * max_j * overhead_mult)
-    page_cnt = safe_budget // (page_sz_normal * max_j * overhead_mult)
+    # page_cnt = safe_budget / (page_sz * max_jobs * overhead_mult)
+    page_cnt = safe_budget // (page_sz_normal * max_jobs * overhead_mult)
 
     # Round down to nearest 1024 (page boundary alignment)
     page_cnt = (page_cnt // 1024) * 1024
@@ -138,10 +139,10 @@ def run_dynamic_test_opts() -> dict:
     # Enforce minimum
     if page_cnt < min_page_cnt:
         page_cnt = min_page_cnt
-        max_j = min_jobs
+        max_jobs = min_jobs
 
     # ── Build output ───────────────────────────────────────────────────
-    test_opts = f"--page-sz normal --page-cnt {page_cnt} -j {max_j}"
+    test_opts = f"--page-sz normal --page-cnt {page_cnt} -j {max_jobs}"
     ldflags_exe = "-Wl,-z,shstk"
 
     # ── Output (source-friendly: clean KEY=VALUE lines) ────────────────
