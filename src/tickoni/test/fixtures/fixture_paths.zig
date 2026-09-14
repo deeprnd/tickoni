@@ -38,7 +38,7 @@ pub fn resolveFixturePath(
 ) ![]u8 {
     _ = io;
     if (std.mem.startsWith(u8, path, "src/")) {
-        var exe_dir = std.fs.selfExeDirPath();
+        const exe_dir = std.fs.selfExeDirPath();
         var current = std.fs.path.dirname(exe_dir) orelse return error.InvalidPath;
         var repo_root_path: ?[]u8 = null;
         defer {
@@ -86,11 +86,11 @@ pub fn readFixtureFile(
     io: std.Io,
     fixture_dir: []const u8,
     filename: []const u8,
-    limit: std.Io.Count.Limited,
+    limit: usize,
 ) ![]u8 {
     const resolved = try resolveFixtureFile(allocator, io, fixture_dir, filename);
     defer allocator.free(resolved);
-    return std.fs.cwd().readFileAlloc(io, resolved, allocator, limit);
+    return std.fs.cwd().readFileAlloc(io, resolved, allocator, .limited(limit));
 }
 
 /// Read a fixture file given a full repo-relative path (e.g. "src/.../file.proto").
@@ -100,9 +100,9 @@ pub fn readFixturePath(
     allocator: std.mem.Allocator,
     io: std.Io,
     path: []const u8,
-    limit: std.Io.Count.Limited,
+    limit: usize,
 ) ![]u8 {
     const resolved = try resolveFixturePath(allocator, io, path);
     defer allocator.free(resolved);
-    return std.fs.cwd().readFileAlloc(io, resolved, allocator, limit);
+    return std.fs.cwd().readFileAlloc(io, resolved, allocator, .limited(limit));
 }

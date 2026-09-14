@@ -643,7 +643,7 @@ test "basket proto contract stays aligned with zig definitions" {
         std.testing.allocator,
         std.testing.io,
         fixture_paths.basket_proto,
-        .limited(32 * 1024),
+        32 * 1024,
     );
     defer std.testing.allocator.free(basket_proto);
 

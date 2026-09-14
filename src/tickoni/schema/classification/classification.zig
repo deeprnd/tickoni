@@ -615,7 +615,7 @@ test "classification proto enum contract stays aligned with zig definitions" {
         std.testing.allocator,
         std.testing.io,
         fixture_paths.classification_proto,
-        .limited(32 * 1024),
+        32 * 1024,
     );
     defer std.testing.allocator.free(classification_proto);
 
@@ -631,7 +631,7 @@ test "classification proto message contract stays aligned with zig definitions" 
         std.testing.allocator,
         std.testing.io,
         fixture_paths.classification_proto,
-        .limited(32 * 1024),
+        32 * 1024,
     );
     defer std.testing.allocator.free(classification_proto);
 

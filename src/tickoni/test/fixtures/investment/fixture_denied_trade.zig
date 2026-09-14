@@ -42,7 +42,7 @@ fn loadRestrictedTicketFixture(allocator: std.mem.Allocator, io: std.Io) !Loaded
         io,
         fixture_paths.investment_scenarios,
         "fixture_ticket_restricted_instrument_blocked.json",
-        .limited(16 * 1024),
+        16 * 1024,
     );
     errdefer allocator.free(raw);
     const parsed = try std.json.parseFromSlice(RestrictedTicketWire, allocator, raw, .{

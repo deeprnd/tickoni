@@ -140,7 +140,7 @@ fn readFixtureFile(
     fixture_dir: []const u8,
     filename: []const u8,
 ) ![]u8 {
-    return fixture_paths.readFixtureFile(allocator, io, fixture_dir, filename, .limited(32 * 1024));
+    return fixture_paths.readFixtureFile(allocator, io, fixture_dir, filename, 32 * 1024);
 }
 
 fn loadAccountFromDir(
