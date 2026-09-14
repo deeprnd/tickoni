@@ -73,6 +73,7 @@ pub fn resolveFixturePath(
     const root = repo_root_path orelse return error.InvalidPath;
     const resolved = try allocator.alloc(u8, root.len + 1 + path.len);
     @memcpy(resolved[0 .. root.len], root);
+    allocator.free(root);
     resolved[root.len] = '/';
     @memcpy(resolved[root.len + 1 ..], path);
     return resolved;

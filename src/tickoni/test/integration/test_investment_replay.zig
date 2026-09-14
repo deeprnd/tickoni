@@ -21,19 +21,31 @@ fn hasEnv(key: []const u8) bool {
     return false;
 }
 
+
 /// Resolve a repo-relative path (starting with "src/") against the
-/// source-file directory so it works regardless of CWD (.zig-cache).
+/// executable's location by walking up the tree to find the repo root
+/// (a directory whose child is "src/").  Caller must free the returned
+/// slice.
 fn resolveFixturePath(allocator: std.mem.Allocator, path: []const u8, io: std.Io) ![]u8 {
-    _ = io;
     if (std.mem.startsWith(u8, path, "src/")) {
-        // Walk up from the test binary's dir to find the repo root (dir containing src/).
-        var exe_dir = std.fs.selfExeDirPath();
-        var current = std.fs.path.dirname(exe_dir) orelse return error.InvalidPath;
+        const exe_dir = try std.process.executableDirPathAlloc(io, allocator);
+        defer allocator.free(exe_dir);
+        var current: []const u8 = std.fs.path.dirname(exe_dir) orelse return error.InvalidPath;
+
         var repo_root_path: ?[]u8 = null;
-        for (0..20) |_| {
+        errdefer {
+            if (repo_root_path) |rp| allocator.free(rp);
+        }
+
+        var depth: usize = 0;
+        while (depth < 20) : (depth += 1) {
             var p: [1024]u8 = undefined;
             const path_str = try std.fmt.bufPrint(&p, "{s}/src", .{current});
-            if (std.fs.cwd().access(path_str, .{})) {
+            const exists = blk: {
+                std.Io.Dir.access(std.Io.Dir.cwd(), io, path_str, .{}) catch break :blk false;
+                break :blk true;
+            };
+            if (exists) {
                 repo_root_path = try allocator.dupe(u8, current);
                 break;
             }
@@ -41,6 +53,7 @@ fn resolveFixturePath(allocator: std.mem.Allocator, path: []const u8, io: std.Io
             if (next == null) break;
             current = next.?;
         }
+
         const root = repo_root_path orelse return error.InvalidPath;
         const resolved = try allocator.alloc(u8, root.len + 1 + path.len);
         @memcpy(resolved[0 .. root.len], root);
@@ -339,8 +352,14 @@ test "investment_replay_integration: audit jsonl hash chain is consistent" {
     const thesis_id = thesis.computeThesisInputHash(input);
     const run_id = tkcase.deriveSyntheticRunId(thesis_id);
 
-    // Resolve repo-relative path against source dir so it works from .zig-cache.
-    const raw = resolveFixturePath(allocator, "src/tickoni/test/fixtures/investment/scenarios/fixture_audit_allowed_2000.jsonl", std.testing.io) catch |err| return switch (err) {
+    const path = "src/tickoni/test/fixtures/investment/scenarios/fixture_audit_allowed_2000.jsonl";
+    const resolved = resolveFixturePath(allocator, path, std.testing.io) catch |err| return switch (err) {
+        error.InvalidPath => return error.SkipZigTest,
+        else => return err,
+    };
+    defer allocator.free(resolved);
+
+    const raw = std.Io.Dir.cwd().readFileAlloc(std.testing.io, resolved, allocator, .limited(16 * 1024)) catch |err| return switch (err) {
         error.FileNotFound => return error.SkipZigTest,
         else => return err,
     };
@@ -358,6 +377,7 @@ test "investment_replay_integration: audit jsonl hash chain is consistent" {
     var idx: usize = 0;
     var prev_record_hash: u64 = 0;
     while (lines.next()) |line| {
+        if (line.len == 0) continue;
         const parsed = try std.json.parseFromSlice(AuditLine, allocator, line, .{ .ignore_unknown_fields = true });
         defer parsed.deinit();
         try std.testing.expectEqual(run_id, parsed.value.run_id);
