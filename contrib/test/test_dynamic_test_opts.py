@@ -205,10 +205,10 @@ class TestRunDynamicTestOpts:
             result = run_dynamic_test_opts()
 
         # avail = 16 GB == os_reserve → remaining = avail//2 = 8 GB
-        # safe_budget = 8 GB // 2 = 4 GB; max_j = 1 (sequential)
-        # page_cnt = 4 GB // (4096*1*4) = 262144
-        # 262144 >= 65536 → no clamp
-        assert result["TEST_OPTS"] == "--page-sz normal --page-cnt 262144 -j 1"
+        # safe_budget = 8 GB // 2 = 4 GB; max_jobs = min(3, 6) = 3
+        # page_cnt = 4 GB // (4096*3*4) = 87040
+        # 87040 >= 65536 → no clamp
+        assert result["TEST_OPTS"] == "--page-sz normal --page-cnt 87040 -j 3"
         assert result["LDFLAGS_EXE"] == "-Wl,-z,shstk"
 
     def test_64gb_8cores(self):
@@ -219,10 +219,10 @@ class TestRunDynamicTestOpts:
             result = run_dynamic_test_opts()
 
         # avail = 64 GB → remaining = 64 - 16 = 48 GB
-        # safe_budget = 48 GB // 2 = 24 GB; max_j = 1 (sequential)
-        # page_cnt = 24 GB // (4096 * 1 * 4) = 1572864
-        # 1572864 >= 65536 → no clamp
-        assert result["TEST_OPTS"] == "--page-sz normal --page-cnt 1572864 -j 1"
+        # safe_budget = 48 GB // 2 = 24 GB; max_jobs = min(7, 6) = 6
+        # page_cnt = 24 GB // (4096 * 6 * 4) = 262144
+        # 262144 >= 65536 → no clamp
+        assert result["TEST_OPTS"] == "--page-sz normal --page-cnt 262144 -j 6"
         assert result["LDFLAGS_EXE"] == "-Wl,-z,shstk"
 
     def test_32gb_2cores(self):
@@ -246,6 +246,7 @@ class TestRunDynamicTestOpts:
             mock_sp.run.side_effect = runner
             result = run_dynamic_test_opts()
 
+        # cores=1 → max_jobs = min(0, 6)=0 → clamped to min_jobs=1
         # avail = 4 GB → remaining = 4 // 2 = 2 GB; safe_budget = 1 GB
         # page_cnt = 1 GB // (4096 * 1 * 4) = 65536 (exactly at min)
         assert "--page-cnt 65536" in result["TEST_OPTS"]
@@ -258,7 +259,7 @@ class TestRunDynamicTestOpts:
             mock_sp.run.side_effect = runner
             result = run_dynamic_test_opts()
 
-        assert "-j 1" in result["TEST_OPTS"]
+        assert "-j 6" in result["TEST_OPTS"]
 
     def test_ldflags_always_shstk(self):
         runner = self._make_runner(memory_bytes=16 * 1024 * 1024 * 1024, cores=4)
