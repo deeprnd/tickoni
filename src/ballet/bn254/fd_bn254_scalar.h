@@ -12,7 +12,7 @@
 
 #include "../fd_ballet_base.h"
 #include "../bigint/fd_uint256.h"
-#include "../util/fd_util_base.h"
+#include "../../util/fd_util_base.h"
 #include "../../third_party/fiat-crypto/bn254_scalar_64.c"
 
 /* The implementation is based on fiat-crypto.

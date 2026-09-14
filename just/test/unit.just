@@ -8,10 +8,10 @@ gen-audit-fixtures:
 
 # Run Python unit tests for contrib/test/* (pytest, no FD build required).
 test-unit-setup:
-    {{ python }} contrib/setup/orchestrator.py test-tools
-    {{ python }} -m pytest contrib/test/
+    {{ python }} ../../contrib/setup/orchestrator.py test-tools
+    {{ python }} -m pytest ../../contrib/test/
 
 test-unit-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-setup && just test-unit-tk && just test-unit-fd"
+    {{ python }} ../../contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-setup && just test-unit-tk && just test-unit-fd"
 
 # Note: test-unit-tk and test-unit-fd dispatchers are defined in justfile.
