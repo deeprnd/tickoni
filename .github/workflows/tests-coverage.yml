@@ -29,8 +29,8 @@ jobs:
 
       - uses: taiki-e/install-action@just
 
-      - name: Setup build toolchain for coverage
-        run: just setup-build-linux-x86-gcc
+      - name: Setup coverage toolchain
+        run: just setup-coverage-linux-x86-clang
 
       - name: Build Tickoni
         run: just build-tk

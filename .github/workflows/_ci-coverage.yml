@@ -24,8 +24,8 @@ jobs:
       - name: Install just
         uses: taiki-e/install-action@just
 
-      - name: Setup build toolchain for coverage
-        run: just setup-build-linux-x86-gcc
+      - name: Setup coverage toolchain for coverage
+        run: just setup-coverage-linux-x86-clang
 
       - name: Download build artifact (build job output)
         uses: actions/download-artifact@v5
