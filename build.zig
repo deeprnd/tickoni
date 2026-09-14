@@ -480,6 +480,28 @@ pub fn build(b: *std.Build) void {
     const check_step = b.step("check", "Check Zig + C compilation without full link dependencies");
 
     // ---------------------------------------------------------------------------
+    // Fixture path verification step — ensures all fixture directories and
+    // proto files referenced by fixture_paths build_options actually exist on
+    // disk at build time.  Catches missing fixtures before running tests.
+    // ---------------------------------------------------------------------------
+    const verify_fixture_step = b.step("verify-fixture-paths", "Verify all fixture paths exist");
+
+    const fixture_dirs = &.{
+        "src/tickoni/test/fixtures/investment/scenarios",
+        "src/tickoni/test/fixtures/audit",
+        "src/tickoni/test/fixtures/portfolio",
+        "src/tickoni/schema/proto/classification/classification.proto",
+        "src/tickoni/schema/proto/consumer_money/thesis.proto",
+        "src/tickoni/schema/proto/consumer_money/basket.proto",
+    };
+
+    for (fixture_dirs) |path| {
+        const exists = b.addSystemCommand(&.{ "test", "-e", path });
+        exists.step.depend_on(b.step("check", ""));
+        verify_fixture_step.dependOn(&exists.step);
+    }
+
+    // ---------------------------------------------------------------------------
     // Test / integration / system / coverage steps — gated behind -Dtest=true
     // so `zig build` alone never compiles test binaries (important for macOS
     // CI where we only need the exe).  Use `zig build -Dtest=true ...` to compile + run
