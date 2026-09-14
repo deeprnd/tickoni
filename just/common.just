@@ -89,191 +89,208 @@ cpu_count := `bash contrib/platform.sh cores`
 
 # Build-only: compilers + build infra (no zig, no ssl, no quality, no secrets)
 setup-build-linux-x86-gcc:
-    python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py build
 
 setup-build-linux-x86-clang:
-    python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py build
 
 setup-build-macos-x86:
-    python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py build
 
 setup-build-macos-arm:
-    python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py build
 
 setup-build-linux-arm-gcc:
-    python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py build
 
 # Windows build-only setup: no llama.cpp; system-test setup owns the LLM.
 setup-build-windows-x86:
-    {{ python }} ../contrib/setup/orchestrator.py build,mvsc,ssl --platform windows-x86
+	{{ python }} ../contrib/setup/orchestrator.py build,mvsc,ssl --platform windows-x86
 
 setup-build-windows-arm:
-    {{ python }} ../contrib/setup/orchestrator.py build,mvsc,ssl --platform windows-arm
+	{{ python }} ../contrib/setup/orchestrator.py build,mvsc,ssl --platform windows-arm
 
 # Engine build: full FD toolchain (build + zig + ssl + gcc)
 setup-fd-linux-x86-gcc:
-    python3 ../contrib/setup/orchestrator.py build
-    python3 ../contrib/setup/orchestrator.py zig,ssl
+	python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py zig,ssl
 
 setup-fd-linux-x86-clang:
-    python3 ../contrib/setup/orchestrator.py build
-    python3 ../contrib/setup/orchestrator.py zig,ssl
+	python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py zig,ssl
 
 setup-fd-macos-x86:
-    python3 ../contrib/setup/orchestrator.py build
-    python3 ../contrib/setup/orchestrator.py zig,ssl
+	python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py zig,ssl
 
 setup-fd-macos-arm:
-    python3 ../contrib/setup/orchestrator.py build
-    python3 ../contrib/setup/orchestrator.py zig,ssl
+	python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py zig,ssl
 
 setup-fd-linux-arm-gcc:
-    python3 ../contrib/setup/orchestrator.py build
-    python3 ../contrib/setup/orchestrator.py zig,ssl
+	python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py zig,ssl
 
 # Windows x86_64 — FD toolchain (zig + ssl)
 setup-fd-windows-x86:
-    {{ python }} ../contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-x86
+	{{ python }} ../contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-x86
 
 # Windows ARM64 — FD toolchain (zig + ssl)
 setup-fd-windows-arm:
-    {{ python }} ../contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-arm
+	{{ python }} ../contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-arm
 
-# Quality: build + quality tools (shellcheck, actionlint, yamllint, pre-commit, buf + go)
+# Quality: bare dispatcher — routes to platform-specific recipe.
+# All quality setup sinks to orchestrator.py quality; platform-specific
+# recipes exist for CI workflows that call the exact platform recipe.
+setup-quality:
+	#!/usr/bin/env bash
+	set -euo pipefail
+	case "{{ os }}-{{ arch }}" in
+		linux-x86) just setup-quality-linux-x86 ;;
+		linux-arm) just setup-quality-linux-arm ;;
+		macos-x86) just setup-quality-macos-x86 ;;
+		macos-arm) just setup-quality-macos-arm ;;
+		windows-x86) just setup-quality-windows-x86 ;;
+		windows-arm) just setup-quality-windows-arm ;;
+		*) echo "setup-quality: unsupported platform {{ os }}-{{ arch }}" >&2; exit 1 ;;
+	esac
+
 setup-quality-linux-x86:
-    python3 ../contrib/setup/orchestrator.py quality
+	python3 ../contrib/setup/orchestrator.py quality
+
+setup-quality-linux-arm:
+	python3 ../contrib/setup/orchestrator.py quality
+
+setup-quality-macos-x86:
+	python3 ../contrib/setup/orchestrator.py quality
+
+setup-quality-macos-arm:
+	python3 ../contrib/setup/orchestrator.py quality
+
+setup-quality-windows-x86:
+	{{ python }} ../contrib/setup/orchestrator.py quality --platform windows-x86
+
+setup-quality-windows-arm:
+	{{ python }} ../contrib/setup/orchestrator.py quality --platform windows-arm
 
 # Secrets-only: gitleaks (no quality, no build tools beyond what gitleaks needs)
 setup-gitleaks-linux-x86:
-    python3 ../contrib/setup/orchestrator.py secrets
+	python3 ../contrib/setup/orchestrator.py secrets
 
 # Full developer stack (unchanged)
 # Auto-detect host platform/arch and route to the correct setup recipe.
 # All setup is delegated to orchestrator.py — it detects the platform and
 # resolves dependencies from tool-versions.json.
 setup-env toolchain="":
-    SKIP_IDEMPOTENCY=`echo ${SKIP_IDEMPOTENCY:-}` python3 ../contrib/setup/orchestrator.py dev
-    just setup-git
+	SKIP_IDEMPOTENCY=`echo ${SKIP_IDEMPOTENCY:-}` python3 ../contrib/setup/orchestrator.py dev
+	just setup-git
 
 # Activate tracked git hooks (commit-msg strips anthropic AI co-authors)
 setup-git:
-    git config core.hooksPath .githooks
-    chmod +x .githooks/commit-msg
+	git config core.hooksPath .githooks
+	chmod +x .githooks/commit-msg
 
 # All setup is delegated to orchestrator.py — it detects the platform and
 # resolves dependencies from tool-versions.json.
 
 # Linux x86_64 — GCC toolchain
 setup-linux-x86-gcc:
-    python3 ../contrib/setup/orchestrator.py build
-    python3 ../contrib/setup/orchestrator.py zig,ssl,ops
-    python3 ../contrib/setup/orchestrator.py quality,secrets
+	python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py zig,ssl,ops
+	python3 ../contrib/setup/orchestrator.py quality,secrets
 
 # Linux x86_64 — Clang toolchain
 setup-linux-x86-clang:
-    python3 ../contrib/setup/orchestrator.py build
-    python3 ../contrib/setup/orchestrator.py zig,ssl,ops
-    python3 ../contrib/setup/orchestrator.py quality,secrets
+	python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py zig,ssl,ops
+	python3 ../contrib/setup/orchestrator.py quality,secrets
 
 # Linux aarch64 — GCC toolchain
 setup-linux-arm-gcc:
-    python3 ../contrib/setup/orchestrator.py build
-    python3 ../contrib/setup/orchestrator.py zig,ssl,ops
-    python3 ../contrib/setup/orchestrator.py quality,secrets
+	python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py zig,ssl,ops
+	python3 ../contrib/setup/orchestrator.py quality,secrets
 
 # Linux aarch64 — Clang toolchain
 setup-linux-arm-clang:
-    python3 ../contrib/setup/orchestrator.py build
-    python3 ../contrib/setup/orchestrator.py zig,ssl,ops
-    python3 ../contrib/setup/orchestrator.py quality,secrets
+	python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py zig,ssl,ops
+	python3 ../contrib/setup/orchestrator.py quality,secrets
 
 # macOS x86_64
 setup-macos-x86:
-    python3 ../contrib/setup/orchestrator.py build
-    python3 ../contrib/setup/orchestrator.py zig,ssl,ops
-    python3 ../contrib/setup/orchestrator.py quality
+	python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py zig,ssl,ops
+	python3 ../contrib/setup/orchestrator.py quality
 
 # macOS ARM64
 setup-macos-arm:
-    python3 ../contrib/setup/orchestrator.py build
-    python3 ../contrib/setup/orchestrator.py zig,ssl,ops
-    python3 ../contrib/setup/orchestrator.py quality
+	python3 ../contrib/setup/orchestrator.py build
+	python3 ../contrib/setup/orchestrator.py zig,ssl,ops
+	python3 ../contrib/setup/orchestrator.py quality
 
 # Windows x86_64 — dev mode (includes LLM tooling)
 setup-windows-x86:
-    {{ python }} ../contrib/setup/orchestrator.py build,mvsc,zig,ssl,quality,secrets --platform windows-x86
+	{{ python }} ../contrib/setup/orchestrator.py build,mvsc,zig,ssl,quality,secrets --platform windows-x86
 
 # Windows ARM64 — dev mode (includes LLM tooling)
 setup-windows-arm:
-    {{ python }} ../contrib/setup/orchestrator.py build,mvsc,zig,ssl,quality,secrets --platform windows-arm
+	{{ python }} ../contrib/setup/orchestrator.py build,mvsc,zig,ssl,quality,secrets --platform windows-arm
 
 setup-fd-deps-linux-x86-gcc:
-    python3 ../contrib/setup/orchestrator.py fd
+	python3 ../contrib/setup/orchestrator.py fd
 
 setup-fd-deps-linux-x86-clang:
-    python3 ../contrib/setup/orchestrator.py fd
+	python3 ../contrib/setup/orchestrator.py fd
 
 setup-fd-deps-linux-arm-gcc:
-    python3 ../contrib/setup/orchestrator.py fd
+	python3 ../contrib/setup/orchestrator.py fd
 
 setup-fd-deps-macos-x86:
-    python3 ../contrib/setup/orchestrator.py fd
+	python3 ../contrib/setup/orchestrator.py fd
 
 setup-fd-deps-macos-arm:
-    python3 ../contrib/setup/orchestrator.py fd
+	python3 ../contrib/setup/orchestrator.py fd
 
 setup-coverage-linux-x86-clang:
-    python3 ../contrib/setup/orchestrator.py coverage,toolchain
+	python3 ../contrib/setup/orchestrator.py coverage,toolchain
 
 # ── FD deps for platforms missing them ─────────────────────────────────────
 setup-fd-deps-windows-x86:
-    {{ python }} ../contrib/setup/orchestrator.py fd --platform windows-x86
+	{{ python }} ../contrib/setup/orchestrator.py fd --platform windows-x86
 
 setup-fd-deps-windows-arm:
-    {{ python }} ../contrib/setup/orchestrator.py fd --platform windows-arm
-
-# ── Quality setup for all platforms ─────────────────────────────────────────
-setup-quality-macos-x86:
-    python3 ../contrib/setup/orchestrator.py quality
-
-setup-quality-macos-arm:
-    python3 ../contrib/setup/orchestrator.py quality
-
-setup-quality-windows-x86:
-    {{ python }} ../contrib/setup/orchestrator.py quality --platform windows-x86
-
-setup-quality-windows-arm:
-    {{ python }} ../contrib/setup/orchestrator.py quality --platform windows-arm
+	{{ python }} ../contrib/setup/orchestrator.py fd --platform windows-arm
 
 # ── Secrets/gitleaks for all platforms ──────────────────────────────────────
 setup-gitleaks-macos-x86:
-    python3 ../contrib/setup/orchestrator.py secrets
+	python3 ../contrib/setup/orchestrator.py secrets
 
 setup-gitleaks-macos-arm:
-    python3 ../contrib/setup/orchestrator.py secrets
+	python3 ../contrib/setup/orchestrator.py secrets
 
 setup-gitleaks-windows-x86:
-    {{ python }} ../contrib/setup/orchestrator.py secrets --platform windows-x86
+	{{ python }} ../contrib/setup/orchestrator.py secrets --platform windows-x86
 
 setup-gitleaks-windows-arm:
-    {{ python }} ../contrib/setup/orchestrator.py secrets --platform windows-arm
+	{{ python }} ../contrib/setup/orchestrator.py secrets --platform windows-arm
 
 # ── Coverage for macOS ──────────────────────────────────────────────────────
 setup-coverage-macos-x86:
-    python3 ../contrib/setup/orchestrator.py coverage
+	python3 ../contrib/setup/orchestrator.py coverage
 
 setup-coverage-macos-arm:
-    python3 ../contrib/setup/orchestrator.py coverage
+	python3 ../contrib/setup/orchestrator.py coverage
 
 # ── Security/formal-verification (CBMC suite) ───────────────────────────────
 setup-security-linux-x86:
-    python3 ../contrib/setup/orchestrator.py security
+	python3 ../contrib/setup/orchestrator.py security
 
 setup-security-macos-x86:
-    python3 ../contrib/setup/orchestrator.py security
+	python3 ../contrib/setup/orchestrator.py security
 
 setup-security-windows-x86:
-    {{ python }} ../contrib/setup/orchestrator.py security --platform windows-x86
+	{{ python }} ../contrib/setup/orchestrator.py security --platform windows-x86
 
 # ── Qt 6 installation (for Qt terminal) ──────────────────────────────────────
 # Credentials from .env file (local) or GitHub secrets (CI).
@@ -283,128 +300,128 @@ setup-security-windows-x86:
 # Note: orchestrator.py automatically loads .env when present.
 
 setup-qt-linux-x86:
-    python3 ../contrib/setup/orchestrator.py qt --platform linux-x86
+	python3 ../contrib/setup/orchestrator.py qt --platform linux-x86
 
 setup-qt-linux-arm:
-    python3 ../contrib/setup/orchestrator.py qt --platform linux-arm
+	python3 ../contrib/setup/orchestrator.py qt --platform linux-arm
 
 setup-qt-macos-x86:
-    python3 ../contrib/setup/orchestrator.py qt --platform macos-x86
+	python3 ../contrib/setup/orchestrator.py qt --platform macos-x86
 
 setup-qt-macos-arm:
-    python3 ../contrib/setup/orchestrator.py qt --platform macos-arm
+	python3 ../contrib/setup/orchestrator.py qt --platform macos-arm
 
 setup-qt-windows-x86:
-    {{ python }} ../contrib/setup/orchestrator.py qt --platform windows-x86
+	{{ python }} ../contrib/setup/orchestrator.py qt --platform windows-x86
 
 setup-qt-windows-arm:
-    {{ python }} ../contrib/setup/orchestrator.py qt --platform windows-arm
+	{{ python }} ../contrib/setup/orchestrator.py qt --platform windows-arm
 
 test-prep-linux-x86:
-    # NO-OP — memory setup moved to workflow YAML where sudo is available.
+	# NO-OP — memory setup moved to workflow YAML where sudo is available.
 
 # ── Cross-category dispatchers ────────────────────────────────────────────────
 
 tests-all:
-    @just build-all
-    @just quality-check-all
-    @just security-check-all
-    @just security-engine-check-changes
-    @just test-all
+	@just build-all
+	@just quality-check-all
+	@just security-check-all
+	@just security-engine-check-changes
+	@just test-all
 
 test-all:
-    @just test-unit-all
-    @just test-integration-all
-    @just test-cov-all
-    @just test-system-all
-    @just test-e2e-all
+	@just test-unit-all
+	@just test-integration-all
+	@just test-cov-all
+	@just test-system-all
+	@just test-e2e-all
 
-# ── Memory (hugepages) ─────────────────────────────────────────────────────
+# ── Memory (hugepages) ──────────────────────────────────────────────────────
 
 mem-init mode="0700" user="":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    owner="{{ user }}"
-    if [ -z "$owner" ]; then owner="$USER"; fi
-    sudo src/util/shmem/fd_shmem_cfg init {{ mode }} "$owner" ""
+	#!/usr/bin/env bash
+	set -euo pipefail
+	owner="{{ user }}"
+	if [ -z "$owner" ]; then owner="$USER"; fi
+	sudo src/util/shmem/fd_shmem_cfg init {{ mode }} "$owner" ""
 
 mem-query:
-    sudo src/util/shmem/fd_shmem_cfg query
+	sudo src/util/shmem/fd_shmem_cfg query
 
 mem-reset:
-    sudo src/util/shmem/fd_shmem_cfg reset
+	sudo src/util/shmem/fd_shmem_cfg reset
 
 mem-fini:
-    sudo src/util/shmem/fd_shmem_cfg fini
+	sudo src/util/shmem/fd_shmem_cfg fini
 
 mem-alloc pages="24" page_type="gigantic" numa="0":
-    sudo src/util/shmem/fd_shmem_cfg alloc {{ pages }} {{ page_type }} {{ numa }}
+	sudo src/util/shmem/fd_shmem_cfg alloc {{ pages }} {{ page_type }} {{ numa }}
 
 mem-alloc-auto numa="0":
-    pages="$(( ((( $(awk '/MemTotal:/ {print $2}' /proc/meminfo) * 1024 )) - (4 * 1024 * 1024 * 1024)) / (6 * 1024 * 1024 * 1024) * 6 ))"; \
-    if [ "$pages" -lt 0 ]; then pages=0; fi; \
-    echo "allocating $pages gigantic pages on NUMA {{ numa }}"; \
-    sudo src/util/shmem/fd_shmem_cfg alloc "$pages" gigantic {{ numa }}
+	pages="$(( ((( $(awk '/MemTotal:/ {print $2}' /proc/meminfo) * 1024 )) - (4 * 1024 * 1024 * 1024)) / (6 * 1024 * 1024 * 1024) * 6 ))"; \
+	if [ "$pages" -lt 0 ]; then pages=0; fi; \
+	echo "allocating $pages gigantic pages on NUMA {{ numa }}"; \
+	sudo src/util/shmem/fd_shmem_cfg alloc "$pages" gigantic {{ numa }}
 
 mem-free page_type="gigantic" numa="0":
-    sudo src/util/shmem/fd_shmem_cfg free {{ page_type }} {{ numa }}
-    just mem-drop-caches
+	sudo src/util/shmem/fd_shmem_cfg free {{ page_type }} {{ numa }}
+	just mem-drop-caches
 
 mem-drop-caches:
-    # Free page cache, dentries, and inodes so tests can mlock memory.
-    # sync alone does not free memory — drop_caches is required.
-    sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || echo "mem-drop-caches: could not free caches (may be read-only or non-root)"
+	# Free page cache, dentries, and inodes so tests can mlock memory.
+	# sync alone does not free memory — drop_caches is required.
+	sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || echo "mem-drop-caches: could not free caches (may be read-only or non-root)"
 
 # ── Kill test processes ──────────────────────────────────────────────────────
 
 kill-test:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo "killing test processes (user: $USER)..."
-    case "{{ os }}" in
-      linux)
-        # Phase 1: kill child tile processes first (tkings, tknorm, tkdedu, etc.)
-        pkill -u "$USER" -f 'zig-out/bin/tk[a-z]\+ ' 2>/dev/null || true
-        pkill -u "$USER" -f 'target/debug/tk[a-z]\+ ' 2>/dev/null || true
-        pkill -u "$USER" -f 'target/release/tk[a-z]\+ ' 2>/dev/null || true
-        # Phase 1b: kill test-* binaries
-        pkill -u "$USER" -f 'zig-out/bin/test-' 2>/dev/null || true
-        pkill -u "$USER" -f 'target/debug/test-' 2>/dev/null || true
-        pkill -u "$USER" -f 'target/release/test-' 2>/dev/null || true
-        # Phase 2: kill tickoni-supervisor (parent of tile processes)
-        pkill -u "$USER" -f 'tickoni-supervisor' 2>/dev/null || true
-        # Phase 3: kill any remaining orphans still children of a supervisor
-        for pid in $(pgrep -u "$USER" -f 'tickoni-supervisor' 2>/dev/null || true); do
-          pkill -u "$USER" -P "$pid" 2>/dev/null || true
-        done
-        echo "done."
-        ;;
-      macos)
-        pkill -u "$USER" -f 'tickoni-supervisor' 2>/dev/null || true
-        pkill -u "$USER" -f 'zig-out/bin/tk[a-z]\+ ' 2>/dev/null || true
-        pkill -u "$USER" -f 'target/debug/tk[a-z]\+ ' 2>/dev/null || true
-        pkill -u "$USER" -f 'target/release/tk[a-z]\+ ' 2>/dev/null || true
-        pkill -u "$USER" -f 'zig-out/bin/test-' 2>/dev/null || true
-        echo "done."
-        ;;
-      windows)
-        # Windows: use taskkill with image-name filters for tk* and test-*
-        # taskkill /FI "IMAGENAME eq ..." matches the image name only
-        # We also try WMIC for broader matching on full command line
-        for img in tkings tknorm tkdedu tkcase tkpoly tkaudt tkrepl tkmetr tkdiag tkdisp tkagnt tkmodl tktool tkadpt tkapi tickoni-supervisor; do
-          taskkill /F /FI "IMAGENAME eq ${img}.exe" /T > /dev/null 2>&1 || true
-        done
-        # Kill any zig-out/test-* processes by matching the path
-        taskkill /F /FI "CMDLINE eq *zig-out/bin/test-*" /T > /dev/null 2>&1 || true
-        taskkill /F /FI "CMDLINE eq *target/debug/test-*" /T > /dev/null 2>&1 || true
-        # Kill any remaining tickoni-* processes
-        for img in $(wmic process where "name like '%tickoni%'" get name /value 2>/dev/null | grep -oP '[a-z-]+\.exe' | sort -u || true); do
-          taskkill /F /FI "IMAGENAME eq $img" /T > /dev/null 2>&1 || true
-        done
-        echo "done."
-        ;;
-      *)
-        echo "unsupported OS for kill-test: {{ os }}" >&2
-        exit 1
-        ;;
-    esac
+	#!/usr/bin/env bash
+	set -euo pipefail
+	echo "killing test processes (user: $USER)..."
+	case "{{ os }}" in
+	  linux)
+	    # Phase 1: kill child tile processes first (tkings, tknorm, tkdedu, etc.)
+	    pkill -u "$USER" -f 'zig-out/bin/tk[a-z]\+ ' 2>/dev/null || true
+	    pkill -u "$USER" -f 'target/debug/tk[a-z]\+ ' 2>/dev/null || true
+	    pkill -u "$USER" -f 'target/release/tk[a-z]\+ ' 2>/dev/null || true
+	    # Phase 1b: kill test-* binaries
+	    pkill -u "$USER" -f 'zig-out/bin/test-' 2>/dev/null || true
+	    pkill -u "$USER" -f 'target/debug/test-' 2>/dev/null || true
+	    pkill -u "$USER" -f 'target/release/test-' 2>/dev/null || true
+	    # Phase 2: kill tickoni-supervisor (parent of tile processes)
+	    pkill -u "$USER" -f 'tickoni-supervisor' 2>/dev/null || true
+	    # Phase 3: kill any remaining orphans still children of a supervisor
+	    for pid in $(pgrep -u "$USER" -f 'tickoni-supervisor' 2>/dev/null || true); do
+	      pkill -u "$USER" -P "$pid" 2>/dev/null || true
+	    done
+	    echo "done."
+	    ;;
+	  macos)
+	    pkill -u "$USER" -f 'tickoni-supervisor' 2>/dev/null || true
+	    pkill -u "$USER" -f 'zig-out/bin/tk[a-z]\+ ' 2>/dev/null || true
+	    pkill -u "$USER" -f 'target/debug/tk[a-z]\+ ' 2>/dev/null || true
+	    pkill -u "$USER" -f 'target/release/tk[a-z]\+ ' 2>/dev/null || true
+	    pkill -u "$USER" -f 'zig-out/bin/test-' 2>/dev/null || true
+	    echo "done."
+	    ;;
+	  windows)
+	    # Windows: use taskkill with image-name filters for tk* and test-*
+	    # taskkill /FI "IMAGENAME eq ..." matches the image name only
+	    # We also try WMIC for broader matching on full command line
+	    for img in tkings tknorm tkdedu tkcase tkpoly tkaudt tkrepl tkmetr tkdiag tkdisp tkagnt tkmodl tktool tkadpt tkapi tickoni-supervisor; do
+	      taskkill /F /FI "IMAGENAME eq ${img}.exe" /T > /dev/null 2>&1 || true
+	    done
+	    # Kill any zig-out/test-* processes by matching the path
+	    taskkill /F /FI "CMDLINE eq *zig-out/bin/test-*" /T > /dev/null 2>&1 || true
+	    taskkill /F /FI "CMDLINE eq *target/debug/test-*" /T > /dev/null 2>&1 || true
+	    # Kill any remaining tickoni-* processes
+	    for img in $(wmic process where "name like '%tickoni%'" get name /value 2>/dev/null | grep -oP '[a-z-]+\.exe' | sort -u || true); do
+	      taskkill /F /FI "IMAGENAME eq $img" /T > /dev/null 2>&1 || true
+	    done
+	    echo "done."
+	    ;;
+	  *)
+	    echo "unsupported OS for kill-test: {{ os }}" >&2
+	    exit 1
+	    ;;
+	esac

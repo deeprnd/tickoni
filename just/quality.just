@@ -56,10 +56,10 @@ quality-format-fix-all:
 # ── Quality: Format Qt ──────────────────────────────────────────────────────
 
 quality-format-check-qt:
-    @if command -v clang-format >/dev/null; then bash ../contrib/quality/quality.sh format-check-qt; else echo "skipping (clang-format not on PATH)"; fi
+    bash ../contrib/quality/quality.sh format-check-qt
 
 quality-format-fix-qt:
-    @if command -v clang-format >/dev/null; then bash ../contrib/quality/quality.sh format-fix-qt; else echo "skipping (clang-format not on PATH)"; fi
+    bash ../contrib/quality/quality.sh format-fix-qt
 
 quality-format-check-qt-linux-x86: quality-format-check-qt
 quality-format-fix-qt-linux-x86: quality-format-fix-qt
@@ -140,11 +140,11 @@ quality-spell-check-linux:
 quality-proto-check-fd:
     @cd ../src/disco/events && {{ python }} gen_events.py --skip-check
     @PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" command -v buf >/dev/null || { if [ -n "$(git status --porcelain src/disco/events/generated/ src/disco/events/schema/events.proto)" ]; then echo "Generated proto files are out of date. Please run 'just quality-proto-check-fd' and commit the changes." >&2; git --no-pager diff -- src/disco/events/; exit 1; fi; exit 0; }
-    PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" buf lint ../src/disco/events/schema
+    @PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" cd ../src/disco/events/schema && buf lint .
     @if [ -n "$(git status --porcelain src/disco/events/generated/ src/disco/events/schema/events.proto)" ]; then echo "Generated proto files are out of date. Please run 'just quality-proto-check-fd' and commit the changes." >&2; git --no-pager diff -- src/disco/events/; exit 1; fi
 
 quality-proto-check-tk:
-    bash -c 'PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}"; command -v buf >/dev/null || exit 0; buf lint src/tickoni/schema' || true
+    bash -c 'PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}"; command -v buf >/dev/null || exit 0; cd src/tickoni/schema && buf lint . 2>/dev/null || true'
 
 quality-proto-check-fd-linux-x86: quality-proto-check-fd
 quality-proto-check-tk-linux-x86: quality-proto-check-tk
