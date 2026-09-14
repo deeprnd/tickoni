@@ -486,7 +486,8 @@ pub fn build(b: *std.Build) void {
     // ---------------------------------------------------------------------------
     const verify_fixture_step = b.step("verify-fixture-paths", "Verify all fixture paths exist");
 
-    const fixture_dirs = &.{
+    // Fixture directories and proto files to verify at build time.
+    comptime const fixture_dirs = [_][]const u8{
         "src/tickoni/test/fixtures/investment/scenarios",
         "src/tickoni/test/fixtures/audit",
         "src/tickoni/test/fixtures/portfolio",
@@ -495,7 +496,7 @@ pub fn build(b: *std.Build) void {
         "src/tickoni/schema/proto/consumer_money/basket.proto",
     };
 
-    for (fixture_dirs) |path| {
+    inline for (fixture_dirs) |path| {
         const exists = b.addSystemCommand(&.{ "test", "-e", path });
         exists.step.depend_on(b.step("check", ""));
         verify_fixture_step.dependOn(&exists.step);
