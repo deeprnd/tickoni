@@ -157,7 +157,6 @@ pub fn build(b: *std.Build) void {
     // ---------------------------------------------------------------------------
     const fixture_paths = b.addOptions();
     fixture_paths.addOption([]const u8, "FIXTURE_INVESTMENT_SCENARIOS", "src/tickoni/test/fixtures/investment/scenarios");
-    fixture_paths.addOption([]const u8, "FIXTURE_AUDIT", "src/tickoni/test/fixtures/audit");
     fixture_paths.addOption([]const u8, "FIXTURE_PORTFOLIO", "src/tickoni/test/fixtures/portfolio");
     fixture_paths.addOption([]const u8, "FIXTURE_CLASSIFICATION_PROTO", "src/tickoni/schema/proto/classification/classification.proto");
     fixture_paths.addOption([]const u8, "FIXTURE_THESIS_PROTO", "src/tickoni/schema/proto/consumer_money/thesis.proto");
@@ -485,9 +484,10 @@ pub fn build(b: *std.Build) void {
     // disk at build time.  Catches missing fixtures before running tests.
     // ---------------------------------------------------------------------------
     const verify_fixture_step = b.step("verify-fixture-paths", "Verify all fixture paths exist");
+    verify_fixture_step.dependOn(check_step);
 
     // Fixture directories and proto files to verify at build time.
-    comptime const fixture_dirs = [_][]const u8{
+    const fixture_dirs = comptime [_][]const u8{
         "src/tickoni/test/fixtures/investment/scenarios",
         "src/tickoni/test/fixtures/audit",
         "src/tickoni/test/fixtures/portfolio",
@@ -498,7 +498,7 @@ pub fn build(b: *std.Build) void {
 
     inline for (fixture_dirs) |path| {
         const exists = b.addSystemCommand(&.{ "test", "-e", path });
-        exists.step.depend_on(b.step("check", ""));
+        exists.step.dependOn(check_step);
         verify_fixture_step.dependOn(&exists.step);
     }
 

@@ -16,7 +16,6 @@ const build_options = @import("build_options");
 // ---------------------------------------------------------------------------
 
 pub const investment_scenarios = build_options.FIXTURE_INVESTMENT_SCENARIOS;
-pub const audit = build_options.FIXTURE_AUDIT;
 pub const portfolio = build_options.FIXTURE_PORTFOLIO;
 
 // Proto files used by schema tests
