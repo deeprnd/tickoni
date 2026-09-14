@@ -1,4 +1,0 @@
-test:
-    pwd
-    echo "exists: " && test -f contrib/quality/quality.sh && echo "YES" || echo "NO"
-    bash contrib/quality/quality.sh format-check-fd 2>&1 | tail -3
