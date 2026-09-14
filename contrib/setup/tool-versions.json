@@ -932,6 +932,20 @@
         "package": "cspell"
       },
       "idempotent_check": "command -v cspell"
+    },
+    "clang-format": {
+      "category": "quality",
+      "platform": "all",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
+      "parameters": {
+        "package": "clang-format",
+        "winget_id": "LLVM.LLVM"
+      },
+      "idempotent_check": "command -v clang-format"
     }
   }
 }
