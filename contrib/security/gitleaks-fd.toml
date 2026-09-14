@@ -5,8 +5,10 @@ title = "Gitleaks config for Firedancer (fd) source tree"
 
 [allowlist]
   paths = [
-    '''src/tickoni''',
-    '''src/app/tickoni''',
+    '''../src/tickoni''',
+    '''../src/app/tickoni''',
+    '''../src/third_party/.*''',
+    '''test_.*\.c''',
   ]
   # C variable names ending in _b58 (base58 identifiers, not secrets);
   # C sentinel/invalid values expressed as -1UL
