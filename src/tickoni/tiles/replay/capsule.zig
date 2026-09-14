@@ -92,7 +92,7 @@ pub fn loadReplayCapsule(
     path: []const u8,
 ) !LoadedReplayCapsule {
     const resolved = try fixture_paths.resolveFixtureFile(allocator, io, "", path);
-    const raw = try std.fs.cwd().readFileAlloc(
+    const raw = try std.Io.Dir.cwd().readFileAlloc(
         io,
         resolved,
         allocator,
