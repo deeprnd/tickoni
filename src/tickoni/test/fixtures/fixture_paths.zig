@@ -36,9 +36,8 @@ pub fn resolveFixturePath(
     io: std.Io,
     path: []const u8,
 ) ![]u8 {
-    _ = io;
     if (std.mem.startsWith(u8, path, "src/")) {
-        const exe_dir = try std.process.executableDirPathAlloc(allocator, io);
+        const exe_dir = try std.process.executableDirPathAlloc(io, allocator);
         defer allocator.free(exe_dir);
         var current = std.fs.path.dirname(exe_dir) orelse return error.InvalidPath;
         var repo_root_path: ?[]u8 = null;
