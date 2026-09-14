@@ -3,7 +3,7 @@
 #endif
 
 #include "../../fd_ballet_base.h"
-#include "../util/fd_util_base.h"
+#include "../../../util/fd_util_base.h"
 
 #define USE_FIAT_32 0
 #if USE_FIAT_32
