@@ -11,6 +11,10 @@
 const std = @import("std");
 const build_options = @import("build_options");
 
+const Io = std.Io;
+const Allocator = std.mem.Allocator;
+const Dir = std.Io.Dir;
+
 // ---------------------------------------------------------------------------
 // Comptime fixture directory constants
 // ---------------------------------------------------------------------------
@@ -32,8 +36,8 @@ pub const basket_proto = build_options.FIXTURE_BASKET_PROTO;
 /// (a directory whose child is "src/").  Caller must free the returned
 /// slice.
 pub fn resolveFixturePath(
-    allocator: std.mem.Allocator,
-    io: std.Io,
+    allocator: Allocator,
+    io: Io,
     path: []const u8,
 ) ![]u8 {
     if (std.mem.startsWith(u8, path, "src/")) {
@@ -47,7 +51,7 @@ pub fn resolveFixturePath(
         for (0..20) |_| {
             var p: [1024]u8 = undefined;
             const path_str = try std.fmt.bufPrint(&p, "{s}/src", .{current});
-            if (std.fs.cwd().access(path_str, .{})) {
+            if (Dir.access(Dir.cwd(), io, path_str, .{})) {
                 repo_root_path = try allocator.dupe(u8, current);
                 break;
             }
@@ -68,8 +72,8 @@ pub fn resolveFixturePath(
 /// Resolve a full file path (directory + filename) for fixture loading.
 /// Returns the absolute path; caller must free.
 pub fn resolveFixtureFile(
-    allocator: std.mem.Allocator,
-    io: std.Io,
+    allocator: Allocator,
+    io: Io,
     fixture_dir: []const u8,
     filename: []const u8,
 ) ![]u8 {
@@ -82,27 +86,29 @@ pub fn resolveFixtureFile(
 /// Same semantics as std.Io.Dir.cwd().readFileAlloc but works when the
 /// binary runs from .zig-cache/o/...
 pub fn readFixtureFile(
-    allocator: std.mem.Allocator,
-    io: std.Io,
+    allocator: Allocator,
+    io: Io,
     fixture_dir: []const u8,
     filename: []const u8,
     limit: usize,
 ) ![]u8 {
     const resolved = try resolveFixtureFile(allocator, io, fixture_dir, filename);
     defer allocator.free(resolved);
-    return std.fs.cwd().readFileAlloc(io, resolved, allocator, .limited(limit));
+    const cwd = Dir.cwd();
+    return Dir.readFileAlloc(cwd, io, resolved, allocator, .limited(limit));
 }
 
 /// Read a fixture file given a full repo-relative path (e.g. "src/.../file.proto").
 /// Same semantics as std.Io.Dir.cwd().readFileAlloc but works when the
 /// binary runs from .zig-cache/o/...
 pub fn readFixturePath(
-    allocator: std.mem.Allocator,
-    io: std.Io,
+    allocator: Allocator,
+    io: Io,
     path: []const u8,
     limit: usize,
 ) ![]u8 {
     const resolved = try resolveFixturePath(allocator, io, path);
     defer allocator.free(resolved);
-    return std.fs.cwd().readFileAlloc(io, resolved, allocator, .limited(limit));
+    const cwd = Dir.cwd();
+    return Dir.readFileAlloc(cwd, io, resolved, allocator, .limited(limit));
 }
