@@ -57,7 +57,7 @@ pub fn resolveFixturePath(
     while (depth < 20) : (depth += 1) {
         var p: [1024]u8 = undefined;
         const path_str = try std.fmt.bufPrint(&p, "{s}/src", .{current});
-        const exists = blk: bool {
+        const exists = blk: {
             Dir.access(Dir.cwd(), io, path_str, .{}) catch break :blk false;
             break :blk true;
         };
