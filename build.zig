@@ -489,7 +489,6 @@ pub fn build(b: *std.Build) void {
     // Fixture directories and proto files to verify at build time.
     const fixture_dirs = comptime [_][]const u8{
         "src/tickoni/test/fixtures/investment/scenarios",
-        "src/tickoni/test/fixtures/audit",
         "src/tickoni/test/fixtures/portfolio",
         "src/tickoni/schema/proto/classification/classification.proto",
         "src/tickoni/schema/proto/consumer_money/thesis.proto",
