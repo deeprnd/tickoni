@@ -176,7 +176,7 @@ pub fn loadModelFixtureContent(
     filename: []const u8,
 ) !ModelFixtureContent {
     const resolved = try fixture_paths.resolveFixtureFile(allocator, io, fixture_dir, filename);
-    const raw = try std.fs.cwd().readFileAlloc(io, resolved, allocator, .limited(32 * 1024));
+    const raw = try std.Io.Dir.cwd().readFileAlloc(io, resolved, allocator, .limited(32 * 1024));
     defer allocator.free(resolved);
     defer allocator.free(raw);
     const parsed = try std.json.parseFromSlice(ModelFixtureContentWire, allocator, raw, .{
@@ -234,7 +234,7 @@ pub fn loadPaperFixture(
     account_id: u32,
 ) !trade_ticket.PaperExecutionResult {
     const resolved = try fixture_paths.resolveFixtureFile(allocator, io, fixture_dir, filename);
-    const raw = try std.fs.cwd().readFileAlloc(io, resolved, allocator, .limited(32 * 1024));
+    const raw = try std.Io.Dir.cwd().readFileAlloc(io, resolved, allocator, .limited(32 * 1024));
     defer allocator.free(resolved);
     defer allocator.free(raw);
     const parsed = try std.json.parseFromSlice(PaperFixtureWire, allocator, raw, .{
