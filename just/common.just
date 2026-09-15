@@ -105,10 +105,10 @@ setup-build-linux-arm-gcc:
 
 # Windows build-only setup: no llama.cpp; system-test setup owns the LLM.
 setup-build-windows-x86:
-	{{ python }} contrib/setup/orchestrator.py build,mvsc,ssl --platform windows-x86
+	{{ python }} contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-x86
 
 setup-build-windows-arm:
-	{{ python }} contrib/setup/orchestrator.py build,mvsc,ssl --platform windows-arm
+	{{ python }} contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-arm
 
 # Engine build: full FD toolchain (build + zig + ssl + gcc)
 setup-fd-linux-x86-gcc:
@@ -133,11 +133,11 @@ setup-fd-linux-arm-gcc:
 
 # Windows x86_64 — FD toolchain (zig + ssl)
 setup-fd-windows-x86:
-	{{ python }} {{ justfile_directory() }}/contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-x86
+	{{ python }} contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-x86
 
 # Windows ARM64 — FD toolchain (zig + ssl)
 setup-fd-windows-arm:
-	{{ python }} {{ justfile_directory() }}/contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-arm
+	{{ python }} contrib/setup/orchestrator.py build,mvsc,zig,ssl --platform windows-arm
 
 # Quality: bare dispatcher — routes to platform-specific recipe.
 # All quality setup sinks to orchestrator.py quality; platform-specific
@@ -168,10 +168,10 @@ setup-quality-macos-arm:
 	python3 {{ justfile_directory() }}/contrib/setup/orchestrator.py quality
 
 setup-quality-windows-x86:
-	{{ python }} {{ justfile_directory() }}/contrib/setup/orchestrator.py quality --platform windows-x86
+	{{ python }} contrib/setup/orchestrator.py quality --platform windows-x86
 
 setup-quality-windows-arm:
-	{{ python }} {{ justfile_directory() }}/contrib/setup/orchestrator.py quality --platform windows-arm
+	{{ python }} contrib/setup/orchestrator.py quality --platform windows-arm
 
 # Secrets-only: gitleaks (no quality, no build tools beyond what gitleaks needs)
 setup-gitleaks-linux-x86:
@@ -231,11 +231,11 @@ setup-macos-arm:
 
 # Windows x86_64 — dev mode (includes LLM tooling)
 setup-windows-x86:
-	{{ python }} {{ justfile_directory() }}/contrib/setup/orchestrator.py build,mvsc,zig,ssl,quality,secrets --platform windows-x86
+	{{ python }} contrib/setup/orchestrator.py build,mvsc,zig,ssl,quality,secrets --platform windows-x86
 
 # Windows ARM64 — dev mode (includes LLM tooling)
 setup-windows-arm:
-	{{ python }} {{ justfile_directory() }}/contrib/setup/orchestrator.py build,mvsc,zig,ssl,quality,secrets --platform windows-arm
+	{{ python }} contrib/setup/orchestrator.py build,mvsc,zig,ssl,quality,secrets --platform windows-arm
 
 setup-fd-deps-linux-x86-gcc:
 	python3 {{ justfile_directory() }}/contrib/setup/orchestrator.py fd
@@ -257,10 +257,10 @@ setup-coverage-linux-x86-clang:
 
 # ── FD deps for platforms missing them ─────────────────────────────────────
 setup-fd-deps-windows-x86:
-	{{ python }} {{ justfile_directory() }}/contrib/setup/orchestrator.py fd --platform windows-x86
+	{{ python }} contrib/setup/orchestrator.py fd --platform windows-x86
 
 setup-fd-deps-windows-arm:
-	{{ python }} {{ justfile_directory() }}/contrib/setup/orchestrator.py fd --platform windows-arm
+	{{ python }} contrib/setup/orchestrator.py fd --platform windows-arm
 
 # ── Secrets/gitleaks for all platforms ──────────────────────────────────────
 setup-gitleaks-macos-x86:
@@ -290,7 +290,7 @@ setup-security-macos-x86:
 	python3 {{ justfile_directory() }}/contrib/setup/orchestrator.py security
 
 setup-security-windows-x86:
-	{{ python }} {{ justfile_directory() }}/contrib/setup/orchestrator.py security --platform windows-x86
+	{{ python }} contrib/setup/orchestrator.py security --platform windows-x86
 
 # ── Qt 6 installation (for Qt terminal) ──────────────────────────────────────
 # Credentials from .env file (local) or GitHub secrets (CI).
@@ -312,10 +312,10 @@ setup-qt-macos-arm:
 	python3 {{ justfile_directory() }}/contrib/setup/orchestrator.py qt --platform macos-arm
 
 setup-qt-windows-x86:
-	{{ python }} {{ justfile_directory() }}/contrib/setup/orchestrator.py qt --platform windows-x86
+	{{ python }} contrib/setup/orchestrator.py qt --platform windows-x86
 
 setup-qt-windows-arm:
-	{{ python }} {{ justfile_directory() }}/contrib/setup/orchestrator.py qt --platform windows-arm
+	{{ python }} contrib/setup/orchestrator.py qt --platform windows-arm
 
 test-prep-linux-x86:
 	# NO-OP — memory setup moved to workflow YAML where sudo is available.
