@@ -28,9 +28,9 @@ jobs:
         run: just setup-coverage-linux-x86-clang
 
       - name: Download build artifact (build job output)
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
-          name: tickoni-build
+          name: build-linux-x86-clang
           path: build/
 
       - name: Run coverage test
