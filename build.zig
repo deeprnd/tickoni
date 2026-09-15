@@ -2141,6 +2141,7 @@ pub fn build(b: *std.Build) void {
             .imports = &.{
                 .{ .name = "classification", .module = classification_mod },
                 .{ .name = "c_abi", .module = c_abi_mod },
+                .{ .name = "fixture_paths", .module = fixture_paths_mod },
             },
         }),
     });
@@ -2262,6 +2263,7 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "thesis", .module = thesis_mod },
                 .{ .name = "catalog", .module = catalog_mod },
                 .{ .name = "c_abi", .module = c_abi_mod },
+                .{ .name = "fixture_paths", .module = fixture_paths_mod },
             },
         }),
     });
