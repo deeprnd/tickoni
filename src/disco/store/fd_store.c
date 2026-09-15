@@ -35,7 +35,7 @@ fd_store_new( void * shmem,
     return NULL;
   }
 
-  if( FD_UNLIKELY( !fd_ulong_is_aligned( (ulong)shmem, fd_store_align() ) ) ) {
+  if( FD_UNLIKELY( !fd_ulong_is_aligned( (ulong)shmem, fd_store_pool_align() ) ) ) {
     FD_LOG_WARNING(( "misaligned mem" ));
     return NULL;
   }
