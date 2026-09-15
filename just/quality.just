@@ -1,16 +1,16 @@
 # ── Quality: Format ────────────────────────────────────────────────────────
 
 quality-format-check-fd:
-    bash {{ justfile_directory() }}/contrib/quality/quality.sh format-check-fd
+    bash {{ justfile_dir }}/contrib/quality/quality.sh format-check-fd
 
 quality-format-fix-fd:
-    bash {{ justfile_directory() }}/contrib/quality/quality.sh format-fix-fd
+    bash {{ justfile_dir }}/contrib/quality/quality.sh format-fix-fd
 
 quality-format-check-tk:
-    bash {{ justfile_directory() }}/contrib/quality/quality.sh format-check-tk
+    bash {{ justfile_dir }}/contrib/quality/quality.sh format-check-tk
 
 quality-format-fix-tk:
-    bash {{ justfile_directory() }}/contrib/quality/quality.sh format-fix-tk
+    bash {{ justfile_dir }}/contrib/quality/quality.sh format-fix-tk
 
 # Linux/x86 qualified aliases; quality scope remains unchanged.
 quality-format-check-fd-linux-x86: quality-format-check-fd
@@ -56,10 +56,10 @@ quality-format-fix-all:
 # ── Quality: Format Qt ──────────────────────────────────────────────────────
 
 quality-format-check-qt:
-    bash {{ justfile_directory() }}/contrib/quality/quality.sh format-check-qt
+    bash {{ justfile_dir }}/contrib/quality/quality.sh format-check-qt
 
 quality-format-fix-qt:
-    bash {{ justfile_directory() }}/contrib/quality/quality.sh format-fix-qt
+    bash {{ justfile_dir }}/contrib/quality/quality.sh format-fix-qt
 
 quality-format-check-qt-linux-x86: quality-format-check-qt
 quality-format-fix-qt-linux-x86: quality-format-fix-qt
@@ -79,15 +79,15 @@ quality-format-fix-qt-windows-arm: quality-format-fix-qt
 # ── Quality: Lint ──────────────────────────────────────────────────────────
 
 quality-lint-check-fd:
-    bash {{ justfile_directory() }}/contrib/quality/quality.sh lint-check-fd
-    command -v shellcheck >/dev/null || exit 0; bash {{ justfile_directory() }}/contrib/quality/quality.sh lint-shellcheck-fd
+    bash {{ justfile_dir }}/contrib/quality/quality.sh lint-check-fd
+    command -v shellcheck >/dev/null || exit 0; bash {{ justfile_dir }}/contrib/quality/quality.sh lint-shellcheck-fd
 
 quality-lint-check-actions:
     @command -v actionlint >/dev/null || exit 0
-    @cd {{ justfile_directory() }} && find .github/workflows -name '*.yml' -type f -print0 | xargs -0 actionlint -ignore 'label "windows-11-vs2026-arm" is unknown'
+    @cd {{ justfile_dir }} && find .github/workflows -name '*.yml' -type f -print0 | xargs -0 actionlint -ignore 'label "windows-11-vs2026-arm" is unknown'
 
 quality-lint-check-tk:
-    bash {{ justfile_directory() }}/contrib/quality/quality.sh lint-check-tk
+    bash {{ justfile_dir }}/contrib/quality/quality.sh lint-check-tk
 
 quality-lint-check-fd-linux-x86: quality-lint-check-fd
 quality-lint-check-tk-linux-x86: quality-lint-check-tk
@@ -117,7 +117,7 @@ quality-lint-check-all:
 # ── Quality: Lint Qt ────────────────────────────────────────────────────────
 
 quality-lint-check-qt:
-    bash {{ justfile_directory() }}/contrib/quality/quality.sh lint-check-qt
+    bash {{ justfile_dir }}/contrib/quality/quality.sh lint-check-qt
 
 quality-lint-check-qt-linux-x86: quality-lint-check-qt
 
@@ -138,13 +138,13 @@ quality-spell-check-linux:
 # ── Quality: Proto ─────────────────────────────────────────────────────────
 
 quality-proto-check-fd:
-    @cd {{ justfile_directory() }}/src/disco/events && {{ python }} gen_events.py --skip-check
+    @cd {{ justfile_dir }}/src/disco/events && {{ python }} gen_events.py --skip-check
     @PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" command -v buf >/dev/null || { if [ -n "$(git status --porcelain src/disco/events/generated/ src/disco/events/schema/events.proto)" ]; then echo "Generated proto files are out of date. Please run 'just quality-proto-check-fd' and commit the changes." >&2; git --no-pager diff -- src/disco/events/; exit 1; fi; exit 0; }
-    @PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" cd {{ justfile_directory() }}/src/disco/events/schema && buf lint .
+    @PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" cd {{ justfile_dir }}/src/disco/events/schema && buf lint .
     @if [ -n "$(git status --porcelain src/disco/events/generated/ src/disco/events/schema/events.proto)" ]; then echo "Generated proto files are out of date. Please run 'just quality-proto-check-fd' and commit the changes." >&2; git --no-pager diff -- src/disco/events/; exit 1; fi
 
 quality-proto-check-tk:
-    bash -c 'PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}"; command -v buf >/dev/null || exit 0; cd {{ justfile_directory() }}/src/tickoni/schema && buf lint . 2>/dev/null || true'
+    bash -c 'PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}"; command -v buf >/dev/null || exit 0; cd {{ justfile_dir }}/src/tickoni/schema && buf lint . 2>/dev/null || true'
 
 quality-proto-check-fd-linux-x86: quality-proto-check-fd
 quality-proto-check-tk-linux-x86: quality-proto-check-tk
@@ -172,4 +172,4 @@ quality-proto-check-all:
 # ── Quality: All ───────────────────────────────────────────────────────────
 
 quality-check-all:
-    {{ python }} {{ justfile_directory() }}/contrib/tool/readme/run-badged-command.py quality bash -c "just quality-format-check-all && just quality-lint-check-all && just quality-proto-check-all && just quality-yaml-check-linux && just quality-spell-check-linux"
+    {{ python }} {{ justfile_dir }}/contrib/tool/readme/run-badged-command.py quality bash -c "just quality-format-check-all && just quality-lint-check-all && just quality-proto-check-all && just quality-yaml-check-linux && just quality-spell-check-linux"
