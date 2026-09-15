@@ -2,7 +2,7 @@
 
 # Bare dispatcher; canonical platform/compiler recipes are in dispatch map.
 build-tk:
-	{{ python }} {{ justfile_directory() }}/contrib/build/orchestrator.py build-tk
+	{{ python }} {{ justfile_directory() }}/scripts/dispatch build-tk
 
 # tickoni_fd machine profile: builds only the 5 Firedancer libraries
 # Tickoni reuses (tango, util, ballet, disco, waltz). Excludes
