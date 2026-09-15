@@ -25,6 +25,10 @@
   <img alt="Security" src="https://img.shields.io/badge/security-passing-brightgreen?style=flat-square" />
   <!-- badge:security:end -->
 
+  <!-- badge:system:start -->
+  <img alt="System Tests" src="https://img.shields.io/badge/system%20tests-passing-brightgreen?style=flat-square" />
+  <!-- badge:system:end -->
+
   <!-- badge:cov-tk:start -->
   <img alt="AI Harness Coverage" src="https://img.shields.io/badge/harness%20coverage-unknown-lightgrey?style=flat-square" />
   <!-- badge:cov-tk:end -->
