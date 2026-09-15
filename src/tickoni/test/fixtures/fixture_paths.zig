@@ -7,7 +7,6 @@
 /// Strategy: walk up from the executable's directory to find the repo root
 /// (a directory whose child is `src/`), then prepend it to the comptime
 /// fixture path.
-
 const std = @import("std");
 const build_options = @import("build_options");
 
@@ -72,7 +71,7 @@ pub fn resolveFixturePath(
 
     const root = repo_root_path orelse return error.InvalidPath;
     const resolved = try allocator.alloc(u8, root.len + 1 + path.len);
-    @memcpy(resolved[0 .. root.len], root);
+    @memcpy(resolved[0..root.len], root);
     allocator.free(root);
     resolved[root.len] = '/';
     @memcpy(resolved[root.len + 1 ..], path);

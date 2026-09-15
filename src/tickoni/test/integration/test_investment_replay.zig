@@ -21,7 +21,6 @@ fn hasEnv(key: []const u8) bool {
     return false;
 }
 
-
 /// Resolve a repo-relative path (starting with "src/") against the
 /// executable's location by walking up the tree to find the repo root
 /// (a directory whose child is "src/").  Caller must free the returned
@@ -56,7 +55,7 @@ fn resolveFixturePath(allocator: std.mem.Allocator, path: []const u8, io: std.Io
 
         const root = repo_root_path orelse return error.InvalidPath;
         const resolved = try allocator.alloc(u8, root.len + 1 + path.len);
-        @memcpy(resolved[0 .. root.len], root);
+        @memcpy(resolved[0..root.len], root);
         resolved[root.len] = '/';
         @memcpy(resolved[root.len + 1 ..], path);
         allocator.free(root);
