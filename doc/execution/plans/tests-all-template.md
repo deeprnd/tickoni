@@ -1,4 +1,4 @@
-# Story 8.3.3 — Test `just setup-env` and `just tests-all` from all sides
+# Test `just setup-env` and `just tests-all` from all sides
 
 ## Goal
 
