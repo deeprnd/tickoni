@@ -72,7 +72,7 @@
       "version": "8.0.0"
     },
     "buf": {
-      "version": "1.38.0"
+      "version": "1.72.0"
     },
     "pre-commit": {
       "version": "4.0.1"
@@ -146,6 +146,9 @@
     },
     "nvm": {
       "version": "0.40.7"
+    },
+    "pytest": {
+      "version": "8.3.5"
     }
   },
   "categories": {
@@ -310,6 +313,17 @@
         "macos",
         "windows"
       ]
+    },
+    "test-tools": {
+      "description": "Python testing tools for contrib/test/ unit tests",
+      "tools": [
+        "pytest"
+      ],
+      "platforms": [
+        "linux",
+        "macos",
+        "windows"
+      ]
     }
   },
   "dependencies": {
@@ -390,6 +404,10 @@
       "security",
       "fd",
       "graphics-libs"
+    ],
+    "test-tools": [
+      "core",
+      "essential"
     ]
   },
   "tools": {
@@ -517,7 +535,8 @@
       "install_method": "winget",
       "parameters": {
         "package": "Microsoft.VisualStudio.2022.BuildTools",
-        "override": "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait --norestart"
+        "components": ["Microsoft.VisualStudio.Workload.VCTools", "Microsoft.VisualStudio.Component.VC.Tools.ARM64"],
+        "override": "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --includeRecommended --quiet --norestart"
       },
       "idempotent_check": "command -v cl"
     },
@@ -694,7 +713,8 @@
       "platform": "all",
       "install_method": "go_install",
       "parameters": {
-        "module": "github.com/bufbuild/buf/cmd/buf"
+        "module": "github.com/bufbuild/buf/cmd/buf",
+        "version": "1.72.0"
       },
       "idempotent_check": "command -v buf"
     },
@@ -895,6 +915,15 @@
       "idempotent_check": "command -v node",
       "version_ref": "nodejs"
     },
+    "pytest": {
+      "category": "test-tools",
+      "platform": "all",
+      "install_method": "pip",
+      "parameters": {
+        "package": "pytest==8.3.4"
+      },
+      "idempotent_check": "command -v pytest"
+    },
     "cspell": {
       "category": "quality",
       "platform": "all",
@@ -903,6 +932,20 @@
         "package": "cspell"
       },
       "idempotent_check": "command -v cspell"
+    },
+    "clang-format": {
+      "category": "quality",
+      "platform": "all",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "winget"
+      },
+      "parameters": {
+        "package": "clang-format",
+        "winget_id": "LLVM.LLVM"
+      },
+      "idempotent_check": "command -v clang-format"
     }
   }
 }

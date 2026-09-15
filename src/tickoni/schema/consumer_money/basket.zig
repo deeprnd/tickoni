@@ -18,7 +18,7 @@ const std = @import("std");
 const c_abi = @import("c_abi");
 const thesis = @import("thesis");
 const cat = @import("catalog");
-const basket_proto_path = "src/tickoni/schema/proto/consumer_money/basket.proto";
+const fixture_paths = @import("fixture_paths");
 
 pub const catalog = cat;
 
@@ -639,7 +639,12 @@ test "basket_schema_version is 1" {
 }
 
 test "basket proto contract stays aligned with zig definitions" {
-    const basket_proto = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, basket_proto_path, std.testing.allocator, .limited(32 * 1024));
+    const basket_proto = try fixture_paths.readFixturePath(
+        std.testing.allocator,
+        std.testing.io,
+        fixture_paths.basket_proto,
+        32 * 1024,
+    );
     defer std.testing.allocator.free(basket_proto);
 
     const required_lines = [_][]const u8{

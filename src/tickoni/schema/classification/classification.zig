@@ -4,7 +4,7 @@
 /// classification primitives that are shared across thesis intent, catalog
 /// facts, basket construction, and policy screening.
 const std = @import("std");
-const classification_proto_path = "src/tickoni/schema/proto/classification/classification.proto";
+const fixture_paths = @import("fixture_paths");
 
 comptime {
     @setEvalBranchQuota(50_000);
@@ -611,7 +611,12 @@ test "themeIdList rejects duplicate canonical ids" {
 }
 
 test "classification proto enum contract stays aligned with zig definitions" {
-    const classification_proto = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, classification_proto_path, std.testing.allocator, .limited(32 * 1024));
+    const classification_proto = try fixture_paths.readFixturePath(
+        std.testing.allocator,
+        std.testing.io,
+        fixture_paths.classification_proto,
+        32 * 1024,
+    );
     defer std.testing.allocator.free(classification_proto);
 
     try expectProtoEnumMatchesZigEnum(classification_proto, Market, "Market", "MARKET_");
@@ -622,7 +627,12 @@ test "classification proto enum contract stays aligned with zig definitions" {
 }
 
 test "classification proto message contract stays aligned with zig definitions" {
-    const classification_proto = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, classification_proto_path, std.testing.allocator, .limited(32 * 1024));
+    const classification_proto = try fixture_paths.readFixturePath(
+        std.testing.allocator,
+        std.testing.io,
+        fixture_paths.classification_proto,
+        32 * 1024,
+    );
     defer std.testing.allocator.free(classification_proto);
 
     try expectProtoMessageFields(classification_proto, "CanonicalId", &.{

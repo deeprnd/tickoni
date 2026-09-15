@@ -6,12 +6,15 @@ real ``winget.exe`` (or a PowerShell that can reach it) before installing.
 """
 from dataclasses import dataclass
 import glob
+import ntpath
 import os
 import re
 import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
+import urllib.request
 from ..base import InstallStrategy
 from .. import register
 
@@ -43,18 +46,18 @@ def _refresh_winget_path() -> None:
     if not local_app_data:
         return
 
-    package_root = os.path.join(local_app_data, 'Microsoft', 'WinGet', 'Packages')
-    candidates = [os.path.join(local_app_data, 'Microsoft', 'WindowsApps')]
+    package_root = ntpath.join(local_app_data, 'Microsoft', 'WinGet', 'Packages')
+    candidates = [ntpath.join(local_app_data, 'Microsoft', 'WindowsApps')]
     # Portable packages generally place binaries in their package root or a
     # bin subdirectory.  Keep discovery shallow and bounded; _find_winget_shell
     # still searches recursively when it specifically needs winget.exe.
-    candidates.extend(glob.glob(os.path.join(package_root, '*')))
-    candidates.extend(glob.glob(os.path.join(package_root, '*', 'bin')))
-    candidates.extend(glob.glob(os.path.join(package_root, '*', '*', 'bin')))
+    candidates.extend(glob.glob(ntpath.join(package_root, '*')))
+    candidates.extend(glob.glob(ntpath.join(package_root, '*', 'bin')))
+    candidates.extend(glob.glob(ntpath.join(package_root, '*', '*', 'bin')))
 
     path_entries = os.environ.get('PATH', '').split(_WINDOWS_PATH_SEP)
     for candidate in candidates:
-        if os.path.isdir(candidate) and candidate not in path_entries:
+        if ntpath.isdir(candidate) and candidate not in path_entries:
             path_entries.insert(0, candidate)
     os.environ['PATH'] = _WINDOWS_PATH_SEP.join(path_entries)
 
@@ -100,7 +103,7 @@ def _find_winget_shell() -> WingetResolution:
 
     # A real package-local executable is preferable to the WindowsApps UWP
     # alias, which may be visible to PATH but cannot be launched by CreateProcess.
-    package_candidates = glob.glob(os.path.join(
+    package_candidates = glob.glob(ntpath.join(
         os.environ.get('LOCALAPPDATA', ''), 'Microsoft', 'WinGet',
         'Packages', '**', 'winget.exe'
     ), recursive=True)
@@ -233,6 +236,7 @@ def _winget_install_command(shell: str, winget_id: str, override: str) -> list[s
         '--accept-package-agreements', '--accept-source-agreements',
         '--disable-interactivity', '--source', 'winget',
     ]
+
     if shell in ('pwsh', 'powershell'):
         winget_cmd = 'winget install ' + ' '.join(flags)
         if override:
@@ -244,6 +248,117 @@ def _winget_install_command(shell: str, winget_id: str, override: str) -> list[s
     if override:
         argv += ['--override', override]
     return argv
+
+
+def _has_msvc_compiler(install_path: str, target_arch: str) -> bool:
+    """Return whether a Build Tools instance has the requested target compiler."""
+    return bool(glob.glob(ntpath.join(
+        install_path, 'VC', 'Tools', 'MSVC', '*', 'bin', 'Host*', target_arch, 'cl.exe',
+    )))
+
+
+_VS_BUILD_TOOLS_BOOTSTRAPPER_URL = 'https://aka.ms/vs/17/release/vs_buildtools.exe'
+
+
+def _run_build_tools_modifier(install_path: str, components: list[str], target_arch: str) -> None:
+    """Synchronously add components to an existing Build Tools instance."""
+    setup = ntpath.join(
+        os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
+        'Microsoft Visual Studio', 'Installer', 'setup.exe',
+    )
+    command = [
+        setup, 'modify', '--quiet', '--norestart',
+        '--installPath', install_path,
+    ]
+    for component in components:
+        command += ['--add', component]
+    command += ['--includeRecommended']
+    print(f'[MSVC] Reconciling Visual Studio {target_arch.upper()} build tools...')
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        output = (result.stdout or '') + (result.stderr or '')
+        if output:
+            print(output, file=sys.stderr, end='')
+        if result.returncode == 5007:
+            print(
+                'ERROR: Visual Studio component reconciliation requires elevation. '
+                'Rerun this just setup recipe from an elevated terminal.',
+                file=sys.stderr,
+            )
+        else:
+            print('ERROR: Visual Studio Build Tools component reconciliation failed.', file=sys.stderr)
+        sys.exit(1)
+
+
+def _run_build_tools_bootstrapper(install_path: str, components: list[str], target_arch: str) -> None:
+    """Run the official bootstrapper synchronously to reconcile Build Tools."""
+    bootstrapper = ntpath.join(tempfile.gettempdir(), 'tickoni-vs-buildtools.exe')
+    if not ntpath.isfile(bootstrapper):
+        print('[MSVC] Downloading the Visual Studio Build Tools bootstrapper...')
+        try:
+            urllib.request.urlretrieve(_VS_BUILD_TOOLS_BOOTSTRAPPER_URL, bootstrapper)
+        except OSError as exc:
+            print(f'ERROR: could not download Visual Studio Build Tools bootstrapper: {exc}', file=sys.stderr)
+            sys.exit(1)
+
+    command = [
+        bootstrapper, '--quiet', '--wait', '--norestart',
+        '--installPath', install_path,
+    ]
+    for component in components:
+        command += ['--add', component]
+    command += ['--includeRecommended']
+    print(f'[MSVC] Reconciling Visual Studio {target_arch.upper()} build tools...')
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        output = (result.stdout or '') + (result.stderr or '')
+        if output:
+            print(output, file=sys.stderr, end='')
+        print('ERROR: Visual Studio Build Tools bootstrapper failed.', file=sys.stderr)
+        sys.exit(1)
+
+
+def _ensure_visual_studio_components(components: list[str], target_arch: str = 'arm64') -> None:
+    """Synchronously reconcile requested components through the VS bootstrapper."""
+    if not components:
+        return
+
+    installer_dir = ntpath.join(
+        os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
+        'Microsoft Visual Studio', 'Installer',
+    )
+    vswhere = ntpath.join(installer_dir, 'vswhere.exe')
+    instance = subprocess.run(
+        [vswhere, '-products', 'Microsoft.VisualStudio.Product.BuildTools',
+         '-property', 'installationPath'],
+        capture_output=True, text=True,
+    )
+    install_path = instance.stdout.strip()
+    instance_found = instance.returncode == 0 and bool(install_path)
+    if not instance_found:
+        # WinGet can return before the Visual Studio Installer has registered a
+        # new instance.  The official bootstrapper owns initial installation as
+        # well as modification, so reconcile the standard Build Tools location
+        # instead of failing on that transient discovery gap.
+        install_path = ntpath.join(
+            os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
+            'Microsoft Visual Studio', '2022', 'BuildTools',
+        )
+        print('[MSVC] Build Tools instance not registered; bootstrapping the standard location...')
+
+    if _has_msvc_compiler(install_path, target_arch):
+        return
+
+    if instance_found:
+        _run_build_tools_modifier(install_path, components, target_arch)
+    else:
+        _run_build_tools_bootstrapper(install_path, components, target_arch)
+    if not _has_msvc_compiler(install_path, target_arch):
+        print(
+            f'ERROR: the synchronous Visual Studio bootstrapper completed but {target_arch.upper()} cl.exe is absent.',
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 @register('winget')
@@ -259,9 +374,23 @@ class WingetInstallStrategy(InstallStrategy):
         params = tool.get('parameters', {})
         winget_id = params.get('winget_id') or params.get('package', '')
         override = params.get('override', '')
+        components = params.get('components', [])
+        target_arch = 'arm64' if platform_str == 'windows-arm' else 'x64'
+        if target_arch != 'arm64':
+            components = [
+                component for component in components
+                if component != 'Microsoft.VisualStudio.Component.VC.Tools.ARM64'
+            ]
 
         if dry_run:
             print(f"  [DRY-RUN] Would winget install {winget_id}")
+            return
+
+        # Visual Studio's bootstrapper owns both initial installation and
+        # component modification. Running winget first races its asynchronous
+        # installer against a second reconciliation attempt.
+        if components:
+            _ensure_visual_studio_components(components, target_arch)
             return
 
         print(f"[WINGET] Installing {winget_id}...")

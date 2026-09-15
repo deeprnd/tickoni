@@ -23,7 +23,7 @@ update_badge = _mod.update_badge
 update_badge_unknown = _mod.update_badge_unknown
 README_PATH = _mod.README_PATH
 
-README_BADGES = frozenset({"build", "unit", "security", "cov-tk"})
+README_BADGES = frozenset({"build", "unit", "integration", "quality", "security", "system", "cov-tk"})
 
 
 def _update_readme(name: str, exit_code: int) -> None:

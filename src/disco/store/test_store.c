@@ -19,7 +19,7 @@
 void
 test_api( fd_wksp_t * wksp ) {
   ulong  fec_max     = 8;
-  void * mem         = fd_wksp_alloc_laddr( wksp, fd_store_align(), fd_store_footprint( fec_max, 31840UL ), 1UL );
+  void * mem         = fd_wksp_alloc_laddr( wksp, fd_store_pool_align(), fd_store_footprint( fec_max, 31840UL ), 1UL );
   fd_store_t * store = fd_store_join( fd_store_new( mem, 1UL, fec_max, 31840UL ) );
   FD_TEST( store );
 
@@ -70,7 +70,7 @@ test_api( fd_wksp_t * wksp ) {
 void
 test_api2( fd_wksp_t * wksp ) {
   ulong  fec_max     = 16;
-  void * mem         = fd_wksp_alloc_laddr( wksp, fd_store_align(), fd_store_footprint( fec_max, 31840UL ), 1UL );
+  void * mem         = fd_wksp_alloc_laddr( wksp, fd_store_pool_align(), fd_store_footprint( fec_max, 31840UL ), 1UL );
   fd_store_t * store = fd_store_join( fd_store_new( mem, 2UL, fec_max, 31840UL ) );
   FD_TEST( store );
 
@@ -144,7 +144,7 @@ test_api2( fd_wksp_t * wksp ) {
 void
 test_hash( fd_wksp_t * wksp ) {
   ulong  fec_max     = 16;
-  void * mem         = fd_wksp_alloc_laddr( wksp, fd_store_align(), fd_store_footprint( fec_max, 31840UL ), 1UL );
+  void * mem         = fd_wksp_alloc_laddr( wksp, fd_store_pool_align(), fd_store_footprint( fec_max, 31840UL ), 1UL );
   fd_store_t * store = fd_store_join( fd_store_new( mem, 2UL, fec_max, 31840UL ) );
 
 
@@ -238,7 +238,7 @@ shred_tile_insert( int argc, char ** argv ) {
 void
 test_part( fd_wksp_t * wksp ) {
   ulong  fec_max  = 64;
-  void * mem      = fd_wksp_alloc_laddr( wksp, fd_store_align(), fd_store_footprint( fec_max, 31840UL ), 1UL );
+  void * mem      = fd_wksp_alloc_laddr( wksp, fd_store_pool_align(), fd_store_footprint( fec_max, 31840UL ), 1UL );
   ulong  tile_cnt = fd_tile_cnt(); /* use actual available tile count, capped at our desired max */
   store           = fd_store_join( fd_store_new( mem, tile_cnt, fec_max, 31840UL ) );
   FD_TEST( store );
@@ -288,7 +288,7 @@ test_fec_data_max( fd_wksp_t * wksp ) {
   FD_TEST( fp_var - fp_fixed == (63985UL - 31840UL) * fec_max );
 
   /* Exercise fec_data_max = 63985 (variable-length FEC sets) */
-  void * mem         = fd_wksp_alloc_laddr( wksp, fd_store_align(), fp_var, 1UL );
+  void * mem         = fd_wksp_alloc_laddr( wksp, fd_store_pool_align(), fp_var, 1UL );
   fd_store_t * store = fd_store_join( fd_store_new( mem, 1UL, fec_max, 63985UL ) );
   FD_TEST( store );
   FD_TEST( store->fec_data_max == 63985UL );
@@ -319,7 +319,7 @@ test_fec_data_max( fd_wksp_t * wksp ) {
   fd_wksp_free_laddr( fd_store_delete( fd_store_leave( store ) ) );
 
   /* Exercise fec_data_max = 31840 (fixed FEC sets) */
-  mem   = fd_wksp_alloc_laddr( wksp, fd_store_align(), fp_fixed, 1UL );
+  mem   = fd_wksp_alloc_laddr( wksp, fd_store_pool_align(), fp_fixed, 1UL );
   store = fd_store_join( fd_store_new( mem, 1UL, fec_max, 31840UL ) );
   FD_TEST( store );
   FD_TEST( store->fec_data_max == 31840UL );
@@ -344,7 +344,7 @@ int
 main( int argc, char ** argv ) {
   fd_boot( &argc, &argv );
 
-  char const * _page_sz = fd_env_strip_cmdline_cstr ( &argc, &argv, "--page-sz",  NULL, "gigantic"              );
+  char const * _page_sz = fd_env_strip_cmdline_cstr ( &argc, &argv, "--page-sz",  NULL, "normal"              );
   ulong        page_cnt = fd_env_strip_cmdline_ulong( &argc, &argv, "--page-cnt", NULL, 10000UL );
   ulong        numa_idx = fd_env_strip_cmdline_ulong( &argc, &argv, "--numa-idx", NULL, fd_shmem_numa_idx( 0UL ) );
   fd_wksp_t * wksp      = fd_wksp_new_anonymous( fd_cstr_to_shmem_page_sz( _page_sz ), page_cnt, fd_shmem_cpu_idx( numa_idx ), "wksp", 0UL );

@@ -148,6 +148,27 @@ pub fn build(b: *std.Build) void {
             .{ .name = "build_options", .module = version_opts.createModule() },
         },
     });
+
+    // ---------------------------------------------------------------------------
+    // Fixture path constants — comptime-resolved paths so no CWD-relative
+    // reads happen at runtime.  This eliminates `std.Io.Dir.cwd().readFileAlloc`
+    // in tile/test code that fails when the binary runs from `.zig-cache/o/...`.
+    // See doc/execution/plans/v2.10-s2-6.md.
+    // ---------------------------------------------------------------------------
+    const fixture_paths = b.addOptions();
+    fixture_paths.addOption([]const u8, "FIXTURE_INVESTMENT_SCENARIOS", "src/tickoni/test/fixtures/investment/scenarios");
+    fixture_paths.addOption([]const u8, "FIXTURE_PORTFOLIO", "src/tickoni/test/fixtures/portfolio");
+    fixture_paths.addOption([]const u8, "FIXTURE_CLASSIFICATION_PROTO", "src/tickoni/schema/proto/classification/classification.proto");
+    fixture_paths.addOption([]const u8, "FIXTURE_THESIS_PROTO", "src/tickoni/schema/proto/consumer_money/thesis.proto");
+    fixture_paths.addOption([]const u8, "FIXTURE_BASKET_PROTO", "src/tickoni/schema/proto/consumer_money/basket.proto");
+    const fixture_paths_mod = b.addModule("fixture_paths", .{
+        .root_source_file = b.path("src/tickoni/test/fixtures/fixture_paths.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "build_options", .module = fixture_paths.createModule() },
+        },
+    });
     const doctor_checks_mod = b.addModule("doctor_checks", .{
         .root_source_file = b.path("src/tickoni/doctor/checks.zig"),
         .target = target,
@@ -237,6 +258,9 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/tickoni/schema/classification/classification.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{
+            .{ .name = "fixture_paths", .module = fixture_paths_mod },
+        },
     });
     const capability_mod = b.addModule("capability", .{
         .root_source_file = b.path("src/tickoni/schema/capability/capability.zig"),
@@ -250,6 +274,7 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "classification", .module = classification_mod },
             .{ .name = "c_abi", .module = c_abi_mod },
+            .{ .name = "fixture_paths", .module = fixture_paths_mod },
         },
     });
     const catalog_schema_mod = b.addModule("catalog_schema", .{
@@ -278,6 +303,7 @@ pub fn build(b: *std.Build) void {
             .{ .name = "thesis", .module = thesis_mod },
             .{ .name = "catalog", .module = catalog_mod },
             .{ .name = "c_abi", .module = c_abi_mod },
+            .{ .name = "fixture_paths", .module = fixture_paths_mod },
         },
     });
     const portfolio_mod = b.addModule("portfolio", .{
@@ -453,6 +479,29 @@ pub fn build(b: *std.Build) void {
     const check_step = b.step("check", "Check Zig + C compilation without full link dependencies");
 
     // ---------------------------------------------------------------------------
+    // Fixture path verification step — ensures all fixture directories and
+    // proto files referenced by fixture_paths build_options actually exist on
+    // disk at build time.  Catches missing fixtures before running tests.
+    // ---------------------------------------------------------------------------
+    const verify_fixture_step = b.step("verify-fixture-paths", "Verify all fixture paths exist");
+    verify_fixture_step.dependOn(check_step);
+
+    // Fixture directories and proto files to verify at build time.
+    const fixture_dirs = comptime [_][]const u8{
+        "src/tickoni/test/fixtures/investment/scenarios",
+        "src/tickoni/test/fixtures/portfolio",
+        "src/tickoni/schema/proto/classification/classification.proto",
+        "src/tickoni/schema/proto/consumer_money/thesis.proto",
+        "src/tickoni/schema/proto/consumer_money/basket.proto",
+    };
+
+    inline for (fixture_dirs) |path| {
+        const exists = b.addSystemCommand(&.{ "test", "-e", path });
+        exists.step.dependOn(check_step);
+        verify_fixture_step.dependOn(&exists.step);
+    }
+
+    // ---------------------------------------------------------------------------
     // Test / integration / system / coverage steps — gated behind -Dtest=true
     // so `zig build` alone never compiles test binaries (important for macOS
     // CI where we only need the exe).  Use `zig build -Dtest=true ...` to compile + run
@@ -478,6 +527,7 @@ pub fn build(b: *std.Build) void {
             .{ .name = "model_messages", .module = model_messages_mod },
             .{ .name = "mock_model", .module = mock_model_mod },
             .{ .name = "c_abi", .module = c_abi_mod },
+            .{ .name = "fixture_paths", .module = fixture_paths_mod },
         },
     });
     const adapter_int_mod = b.createModule(.{
@@ -490,6 +540,7 @@ pub fn build(b: *std.Build) void {
             .{ .name = "fixture_portfolio", .module = fixture_portfolio_mod },
             .{ .name = "trade_ticket", .module = trade_ticket_mod },
             .{ .name = "adapter_messages", .module = adapter_messages_mod },
+            .{ .name = "fixture_paths", .module = fixture_paths_mod },
         },
     });
     const tool_int_mod = b.createModule(.{
@@ -545,6 +596,7 @@ pub fn build(b: *std.Build) void {
             .{ .name = "portfolio", .module = portfolio_mod },
             .{ .name = "tkpoly", .module = tkpoly_int_mod },
             .{ .name = "trade_ticket", .module = trade_ticket_mod },
+            .{ .name = "fixture_paths", .module = fixture_paths_mod },
         },
     });
     const investment_audit_int_mod = b.createModule(.{
@@ -669,6 +721,18 @@ pub fn build(b: *std.Build) void {
         c_compile_check_step.dependOn(&c_check.step);
     }
     check_step.dependOn(c_compile_check_step);
+    // Bug Fix #50: compile-check the getrandom() EINTR + short-read retry loop test.
+    {
+        const getrandom_check = b.addSystemCommand(&.{
+            "sh", "-c",
+            b.fmt("zig cc -target {s} -c -I src -I src/util -I src/disco -I src/ballet -std=c17 -DFD_HAS_HOSTED=1 {s} {s} 2>&1 || true", .{
+                triple,
+                shim_flags[0],
+                "src/util/shmem/test_fd_shmem_getrandom.c",
+            }),
+        });
+        c_compile_check_step.dependOn(&getrandom_check.step);
+    }
 
     if (build_tests) {
         const investment_demo_test = b.addTest(.{ .root_module = investment_demo_test_mod });
@@ -687,9 +751,21 @@ pub fn build(b: *std.Build) void {
         // This avoids Zig's --listen=- parallel coordination which panics
         // with EndOfStream when 48+ test binaries communicate over the same pipe.
         const run_tests_cmd = std.Build.Step.Run.create(b, "run-tests");
-        run_tests_cmd.addArgs(&.{ "bash", "contrib/test/run_test_series.sh" });
-        run_tests_cmd.step.dependOn(test_step);
-        run_tests_step.dependOn(&run_tests_cmd.step);
+        // Use absolute path so the script works regardless of zig's working directory.
+        // In Zig 0.17, b.root is a Cache.Path; use toString() to get a string path.
+        const build_root_str = b.root.toString(b.allocator) catch unreachable;
+        defer b.allocator.free(build_root_str);
+        var script_buf: [4096]u8 = undefined;
+        const full_script_path = std.fmt.bufPrint(
+            &script_buf,
+            "{s}/contrib/test/run_test_series.sh",
+            .{build_root_str},
+        ) catch unreachable;
+        run_tests_cmd.addArgs(&[_][]const u8{
+            "bash",
+            full_script_path,
+        });
+        run_tests_cmd.setCwd(b.path("."));
 
         // Files with no cross-module imports: standalone test binaries.
         for ([_][]const u8{
@@ -964,6 +1040,7 @@ pub fn build(b: *std.Build) void {
                 .imports = &.{
                     .{ .name = "classification", .module = classification_mod },
                     .{ .name = "c_abi", .module = c_abi_mod },
+                    .{ .name = "fixture_paths", .module = fixture_paths_mod },
                 },
             }),
         });
@@ -1028,6 +1105,7 @@ pub fn build(b: *std.Build) void {
                     .{ .name = "thesis", .module = thesis_mod },
                     .{ .name = "catalog", .module = catalog_mod },
                     .{ .name = "c_abi", .module = c_abi_mod },
+                    .{ .name = "fixture_paths", .module = fixture_paths_mod },
                 },
             }),
         });
@@ -1248,6 +1326,7 @@ pub fn build(b: *std.Build) void {
                     .{ .name = "model_messages", .module = model_messages_mod },
                     .{ .name = "mock_model", .module = mock_model_mod },
                     .{ .name = "c_abi", .module = c_abi_mod },
+                    .{ .name = "fixture_paths", .module = fixture_paths_mod },
                 },
             }),
         });
@@ -1276,6 +1355,7 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "fixture_portfolio", .module = fixture_portfolio_mod },
                 .{ .name = "trade_ticket", .module = trade_ticket_mod },
                 .{ .name = "adapter_messages", .module = adapter_messages_mod },
+                .{ .name = "fixture_paths", .module = fixture_paths_mod },
             },
         });
         const adapter_test = b.addTest(.{
@@ -1379,6 +1459,7 @@ pub fn build(b: *std.Build) void {
                 .imports = &.{
                     .{ .name = "thesis", .module = thesis_mod },
                     .{ .name = "basket", .module = basket_mod },
+                    .{ .name = "fixture_paths", .module = fixture_paths_mod },
                 },
             }),
         });
@@ -1445,6 +1526,7 @@ pub fn build(b: *std.Build) void {
                     .{ .name = "portfolio", .module = portfolio_mod },
                     .{ .name = "tkpoly", .module = tkpoly_test_mod },
                     .{ .name = "trade_ticket", .module = trade_ticket_mod },
+                    .{ .name = "fixture_paths", .module = fixture_paths_mod },
                 },
             }),
         });
@@ -2059,6 +2141,7 @@ pub fn build(b: *std.Build) void {
             .imports = &.{
                 .{ .name = "classification", .module = classification_mod },
                 .{ .name = "c_abi", .module = c_abi_mod },
+                .{ .name = "fixture_paths", .module = fixture_paths_mod },
             },
         }),
     });
@@ -2180,6 +2263,7 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "thesis", .module = thesis_mod },
                 .{ .name = "catalog", .module = catalog_mod },
                 .{ .name = "c_abi", .module = c_abi_mod },
+                .{ .name = "fixture_paths", .module = fixture_paths_mod },
             },
         }),
     });
@@ -2241,16 +2325,25 @@ fn addPlainTestRun(b: *std.Build, test_compile: *std.Build.Step.Compile) *std.Bu
     run_step.producer = test_compile;
     run_step.addArtifactArg(test_compile);
     run_step.has_side_effects = true;
+    run_step.setCwd(b.path("."));
     return run_step;
 }
 
-/// Links the Firedancer substrate used by Tickoni runtime wrappers. Tickoni
-/// code crosses Firedancer only through src/tickoni/c_abi/shim/**, so this
-/// compiles the required Tickoni-owned shim files alongside upstream libs.
+/// shimCFlagsFor returns the C compiler flags for Tickoni shim files.
+/// These flags match what the GNUmakefile's with-openssl.mk / with-x86-64.mk
+/// would define for the same target platform.
 fn shimCFlagsFor(target: std.Target) []const []const u8 {
     return switch (target.os.tag) {
-        .linux => &.{ "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1", "-DFD_HAS_LINUX=1" },
-        .macos => &.{ "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1", "-DFD_HAS_MACOS=1" },
+        .linux => &.{
+            "-std=c17", "-U__BMI2__", "-U__LZCNT__",
+            "-DFD_HAS_HOSTED=1", "-DFD_HAS_LINUX=1",
+            "-DFD_HAS_OPENSSL=1",
+        },
+        .macos => &.{
+            "-std=c17", "-U__BMI2__", "-U__LZCNT__",
+            "-DFD_HAS_HOSTED=1", "-DFD_HAS_MACOS=1",
+            "-DFD_HAS_OPENSSL=1",
+        },
         .windows => switch (target.cpu.arch) {
             .aarch64 => &.{
                 "-std=c17",                  "-U__BMI2__",        "-U__LZCNT__",       "-DFD_HAS_HOSTED=1",  "-DFD_HAS_WINDOWS=1",
@@ -2318,6 +2411,17 @@ fn linkTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_l
     step.root_module.addLibraryPath(b.path(fd_lib_dir));
     const os_tag = step.root_module.resolved_target.?.result.os.tag;
     const cpu_arch = step.root_module.resolved_target.?.result.cpu.arch;
+
+    // Windows setup builds OpenSSL into build/opt/lib as a COFF archive. Link
+    // that concrete archive rather than asking Zig to discover a system
+    // `crypto` library through pkg-config.BAT or fd_lib_dir.
+    if (os_tag == .windows) {
+        step.root_module.addObjectFile(.{ .cwd_relative = "build/opt/lib/libcrypto.a" });
+    } else {
+        // OpenSSL: link libcrypto; include path is handled by system defaults.
+        step.root_module.linkSystemLibrary("crypto", .{});
+    }
+
     if (os_tag == .windows or (os_tag == .linux and cpu_arch == .aarch64)) {
         // Windows and ARM64 Linux: use explicit archive paths. On Windows this avoids
         // pkg-config.BAT probing; on ARM64 Linux it preserves link order with ld.lld,

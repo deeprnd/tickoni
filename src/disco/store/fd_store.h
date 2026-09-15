@@ -221,19 +221,16 @@ fd_store_align( void ) {
 FD_FN_CONST static inline ulong
 fd_store_footprint( ulong fec_max,
                     ulong fec_data_max ) {
-  return FD_LAYOUT_FINI(
-    FD_LAYOUT_APPEND(
-    FD_LAYOUT_APPEND(
-    FD_LAYOUT_APPEND(
-    FD_LAYOUT_APPEND(
-    FD_LAYOUT_APPEND(
-    FD_LAYOUT_INIT,
-      alignof(fd_store_t),     sizeof(fd_store_t)                    ),
-      fd_store_map_align(),    fd_store_map_footprint( fd_store_map_chain_cnt_est( fec_max ) ) ),
-      fd_store_pool_align(),   fd_store_pool_footprint()             ),
-      alignof(fd_store_fec_t), sizeof(fd_store_fec_t)*fec_max        ),
-      FD_STORE_ALIGN,          fec_data_max*fec_max                  ),
-    fd_store_align() );
+  /* Reconstruct the footprint using scratch-style offset alignment.
+     FD_LAYOUT_* rounds up the SIZE while FD_SCRATCH_ALLOC_APPEND rounds
+     up the OFFSET. This version matches fd_store_new() exactly. */
+  ulong l = 0;
+  l = ( ulong )( ( l + fd_store_align() - 1 ) & ~( fd_store_align() - 1 ) ) + sizeof(fd_store_t);
+  l = ( ulong )( ( l + fd_store_map_align() - 1 ) & ~( fd_store_map_align() - 1 ) ) + fd_store_map_footprint( fd_store_map_chain_cnt_est( fec_max ) );
+  l = ( ulong )( ( l + fd_store_pool_align() - 1 ) & ~( fd_store_pool_align() - 1 ) ) + fd_store_pool_footprint();
+  l = ( ulong )( ( l + alignof(fd_store_fec_t) - 1 ) & ~( alignof(fd_store_fec_t) - 1 ) ) + sizeof(fd_store_fec_t)*fec_max;
+  l = ( ulong )( ( l + FD_STORE_ALIGN - 1 ) & ~( FD_STORE_ALIGN - 1 ) ) + fec_data_max*fec_max;
+  return l;
 }
 
 /* fd_store_new formats an unused memory region for use as a store.

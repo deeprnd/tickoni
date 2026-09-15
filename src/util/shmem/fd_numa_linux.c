@@ -1,5 +1,4 @@
-/* syscall API requires _GNU_SOURCE */
-#define _GNU_SOURCE
+/* Feature-test macros are defined in fd_shmem_private.h */
 #include "fd_shmem_private.h"
 #include "../sanitize/fd_msan.h"
 #include <errno.h>

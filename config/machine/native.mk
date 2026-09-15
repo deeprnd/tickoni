@@ -66,4 +66,8 @@ FD_ARCH_SUPPORTS_SANDBOX:=1
 # (FD_HAS_ARM is deliberately left unset: it selects an RCPC3 ldiapp fast path
 # that GitHub's Neoverse-N2 ARM runners cannot assemble or execute.)
 CPPFLAGS+=-mno-outline-atomics
+# OpenSSL support — included on x86_64 via with-x86-64.mk, needs explicit include on ARM
+ifndef FD_NODEPS
+include config/extra/with-openssl.mk
+endif
 endif

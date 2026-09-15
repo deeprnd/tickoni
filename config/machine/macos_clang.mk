@@ -54,6 +54,9 @@ FD_HAS_ALLOCA:=1
 FD_HAS_THREADS:=1
 CPPFLAGS+=-mcpu=apple-m1
 CPPFLAGS+=-DFD_HAS_ARM64=1 -DFD_HAS_INT128=1 -DFD_HAS_DOUBLE=1 -DFD_HAS_ALLOCA=1 -DFD_HAS_THREADS=1
+ifndef FD_NODEPS
+include config/extra/with-openssl.mk
+endif
 else
 # x86_64 — macOS runners are 2018-era Intel (Coffee Lake/Skylake)
 # with AVX2 but no AVX-512. Use skylake to match GitHub Actions runners.
@@ -67,6 +70,9 @@ FD_HAS_AVX:=1
 FD_HAS_AVX2:=1
 FD_HAS_AESNI:=1
 FD_IS_X86_64:=1
+ifndef FD_NODEPS
+include config/extra/with-openssl.mk
+endif
 CPPFLAGS+=-march=skylake
 CPPFLAGS+=-DFD_HAS_X86=1 -DFD_HAS_SSE=1 -DFD_HAS_AVX=1 -DFD_HAS_AVX2=1 -DFD_HAS_AESNI=1 -DFD_IS_X86_64=1 -DFD_HAS_INT128=1 -DFD_HAS_DOUBLE=1 -DFD_HAS_ALLOCA=1 -DFD_HAS_THREADS=1
 endif

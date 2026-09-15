@@ -13,9 +13,21 @@
   <img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-passing-brightgreen?style=flat-square" />
   <!-- badge:unit:end -->
 
+  <!-- badge:integration:start -->
+  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-passing-brightgreen?style=flat-square" />
+  <!-- badge:integration:end -->
+
+  <!-- badge:quality:start -->
+  <img alt="Quality" src="https://img.shields.io/badge/quality-passing-brightgreen?style=flat-square" />
+  <!-- badge:quality:end -->
+
   <!-- badge:security:start -->
-  <img alt="Security" src="https://img.shields.io/badge/security-failing-red?style=flat-square" />
+  <img alt="Security" src="https://img.shields.io/badge/security-passing-brightgreen?style=flat-square" />
   <!-- badge:security:end -->
+
+  <!-- badge:system:start -->
+  <img alt="System Tests" src="https://img.shields.io/badge/system%20tests-passing-brightgreen?style=flat-square" />
+  <!-- badge:system:end -->
 
   <!-- badge:cov-tk:start -->
   <img alt="AI Harness Coverage" src="https://img.shields.io/badge/harness%20coverage-unknown-lightgrey?style=flat-square" />

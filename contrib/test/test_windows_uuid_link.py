@@ -29,6 +29,17 @@ def test_windows_supervisor_links_all_firedancer_archives():
     ) in supervisor_branch
 
 
+def test_windows_links_setup_openssl_archive_without_pkg_config():
+    text = BUILD_ZIG.read_text()
+
+    link_helper = text.split("fn linkTickoniSystemLibraries", 1)[1].split(
+        "fn linkTickoniTopoRun", 1
+    )[0]
+    assert "if (os_tag == .windows)" in link_helper
+    assert 'addObjectFile(.{ .cwd_relative = "build/opt/lib/libcrypto.a" })' in link_helper
+    assert 'linkSystemLibrary("crypto", .{})' in link_helper
+
+
 def test_windows_uuid_stub_build_uses_canonical_arm64_target_and_fails_loudly():
     windows_strategy = (
         Path(__file__).resolve().parents[1] / "build" / "strategies" / "windows.py"

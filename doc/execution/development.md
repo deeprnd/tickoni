@@ -370,3 +370,16 @@ Generated outputs are checked into the repository.
 - [CI](./ci.md)
 - [Security](./security.md)
 - [Observability](./observability.md)
+
+## Badge Automation
+
+The README displays four dynamic badges (build, unit tests, security, harness coverage) that update automatically after every PR merge to main. The badge update mechanism consists of:
+
+1. **Aggregated CI jobs** in `ci.yml` (`project-build`, `project-tests`, `project-security`, `coverage`) that produce single check-runs per concern for badge resolution.
+2. **`badge-update.yml`** — a `workflow_run` trigger that fires after ci.yml completes, runs `badge_updater.py` to walk parent commits on main, resolve CI statuses, and rewrite README badges.
+3. **`badge_updater.py`** — implements a parent-commit walk: starts at the merge SHA, queries GitHub's check-runs API for each parent, and finds the first SHA where all aggregated jobs report `success`. If none found within 50 parents, all badges show `unknown/lightgrey`.
+4. **`tests-coverage.yml`** — standalone workflow that runs coverage on a schedule (weekly) or on demand. Produces `build/coverage/tk/coverage-summary.json` for the cov-tk percentage badge.
+
+No `push` triggers exist in badge-update.yml, eliminating infinite commit loop risk. The badge-update commit never re-triggers the workflow.
+
+`refresh-badges.py` (`contrib/tool/readme/refresh-badges.py`) is for **local experimentation only**. It updates badge markers in README.md (or any target document passed via `--doc`). The script's default target is README.md.

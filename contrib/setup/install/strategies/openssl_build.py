@@ -63,7 +63,12 @@ class OpenSSLBuildStrategy(InstallStrategy):
         url = f"{base_url}/{filename}"
         sha256 = resolved['sha256']
 
-        install_dir = _expand_home(params.get('install_dir', './build/opt'))
+        # Resolve install_dir relative to the repo root (not cwd) so the
+        # extracted source and install-openssl.sh's PREFIX land in the same
+        # directory regardless of which subdirectory `just` runs from.
+        repo_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+        raw_dir = params.get('install_dir', './build/opt')
+        install_dir = _expand_home(str(repo_root / raw_dir.lstrip('./')))
         install_path = Path(install_dir)
 
         # Idempotency check (respect SKIP_IDEMPOTENCY env var)
@@ -119,6 +124,10 @@ class OpenSSLBuildStrategy(InstallStrategy):
         print(f"[BUILD] Running {script}...")
         env = os.environ.copy()
         env['TK_PLATFORM'] = platform_str
+        if platform_str == 'windows-arm':
+            env['FD_WINDOWS_ARCH'] = 'arm'
+        elif platform_str == 'windows-x86':
+            env['FD_WINDOWS_ARCH'] = 'x86'
 
         result = subprocess.run([bash_command(), script_path], env=env, capture_output=True, text=True)
         if result.returncode != 0:

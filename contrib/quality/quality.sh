@@ -72,20 +72,34 @@ run_style_grep() {
   if grep -n '#pragma once' "$@"; then fail=1; fi
 
   # Use fd_util_base.h integer types; stdint.h types are forbidden (CONTRIBUTING.md §4.1)
-  if grep -nwE '(u?int(8|16|32|64)_t|size_t|ptrdiff_t)' "$@"; then fail=1; fi
+  if grep -nwE 'u?int(8|16|32|64)_t|size_t|ptrdiff_t' "$@"; then fail=1; fi
   if grep -n '#include <stdint.h>' "$@"; then fail=1; fi
 
   # Use int instead of bool; stdbool.h is forbidden (CONTRIBUTING.md §4.2)
   # Exclude macro invocations like CFG_POP( bool, ...) where bool is a token
   # argument used for function-name concatenation, not the C bool type.
-  if grep -nw 'bool' "$@" | grep -Ev '[[:upper:]_]+[[:space:]]*\([[:space:]]*bool'; then fail=1; fi
+  # Also exclude protobuf callback signatures (files with pb_ostream_t / pb_field_t).
+  local bool_fail=0
+  local pb_files
+  pb_files=$(grep -rl 'pb_ostream_t\|pb_field_t' "$@" 2>/dev/null || true)
+  local filtered_files=()
+  for f in "$@"; do
+    if [ -z "$pb_files" ] || ! echo "$pb_files" | grep -qF "$f"; then
+      filtered_files+=("$f")
+    fi
+  done
+  if [ ${#filtered_files[@]} -gt 0 ]; then
+    if grep -nw 'bool' "${filtered_files[@]}" | grep -Ev '[[:upper:]_]+[[:space:]]*\([[:space:]]*bool'; then bool_fail=1; fi
+  fi
+  if [ "$bool_fail" = "1" ]; then fail=1; fi
+
   if grep -n '#include <stdbool.h>' "$@"; then fail=1; fi
 
   return "$fail"
 }
 
 our_changed_files() {
-  { git log --first-parent --no-merges --diff-filter=AM --name-only --format="" main..HEAD
+  { git diff origin/main --diff-filter=AM --name-only
     git diff --diff-filter=AM --name-only
     git diff --cached --diff-filter=AM --name-only
     git ls-files --others --exclude-standard; } | sort -u

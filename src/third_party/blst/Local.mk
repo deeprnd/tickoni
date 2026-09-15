@@ -30,6 +30,9 @@ else
 BLST_OBJS := $(OBJDIR)/obj/third_party/blst/server.o $(OBJDIR)/obj/third_party/blst/assembly.o
 endif
 $(OBJDIR)/lib/libfd_blst.a: $(BLST_OBJS)
+	@echo -e "AR\t$(notdir $@)"
+	$(Q)$(MKDIR) $(dir $@) && \
+	$(AR) $(ARFLAGS) $@ $^
 
 lib: $(OBJDIR)/lib/libfd_blst.a
 

@@ -80,6 +80,10 @@ class Orchestrator:
         for tool in tools:
             result = self._install_tool(tool, platform_str, dry_run, skip_idempotency)
             results.append(result)
+            # Later tools can depend on this tool (for example, OpenSSL relies on
+            # the MSVC compiler). Do not mask an installer failure by continuing.
+            if result['status'] in ('error', 'failed'):
+                break
         return results
 
     def _install_tool(self, tool: dict, platform_str: str, dry_run: bool, skip_idempotency: bool = False) -> dict:

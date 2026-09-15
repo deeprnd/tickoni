@@ -11,7 +11,8 @@ main( int     argc,
       char ** argv ) {
   fd_boot( &argc, &argv );
 
-  /* Test normal resolv.conf */
+#if defined(__linux__)
+  /* Test normal resolv.conf using memfd_create (Linux-only) */
 
   fd_etc_resolv_conf_fd = memfd_create( "resolv.conf", 0 );
   FD_TEST( fd_etc_resolv_conf_fd>=0 );
@@ -31,6 +32,10 @@ main( int     argc,
   FD_TEST( 0==lseek( fd_etc_resolv_conf_fd, 0, SEEK_SET ) );
   FD_TEST( 0==fd_get_resolv_conf( &conf ) );
   FD_TEST( 0==close( fd_etc_resolv_conf_fd ) );
+#else
+  /* macOS/other: skip memfd-based tests (not available) */
+  FD_LOG_NOTICE(( "skip: memfd_create unavailable on this platform" ));
+#endif
 
   FD_LOG_NOTICE(( "pass" ));
   fd_halt();

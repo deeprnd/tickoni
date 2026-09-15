@@ -23,7 +23,7 @@ platform_spec.loader.exec_module(platform_module)
 
 from platform import matches_platform  # noqa: E402
 from install import get as get_strategy  # noqa: E402
-from orchestrator import _resolve_install_method  # noqa: E402
+from orchestrator import Orchestrator, _resolve_install_method  # noqa: E402
 
 _OS_MAP = {"linux": "apt", "macos": "brew", "windows": "winget"}
 
@@ -77,3 +77,27 @@ def test_no_system_package_pseudo_method_in_config():
         method = tool["install_method"]
         methods.update(method.values() if isinstance(method, dict) else [method])
     assert "system_package" not in methods
+
+
+def test_setup_stops_before_dependent_tools_after_install_failure():
+    class Resolver:
+        def resolve(self, categories):
+            return categories
+
+        def collect(self, resolved, categories, tools):
+            return [{"name": "msvc"}, {"name": "openssl"}]
+
+    orchestrator = object.__new__(Orchestrator)
+    orchestrator.config = {"categories": {}, "tools": {}}
+    orchestrator.resolver = Resolver()
+    attempted = []
+
+    def install(tool, *args):
+        attempted.append(tool["name"])
+        return {"tool": tool["name"], "status": "failed"}
+
+    orchestrator._install_tool = install
+    results = orchestrator.setup(["build"], "windows-arm", dry_run=False)
+
+    assert attempted == ["msvc"]
+    assert results == [{"tool": "msvc", "status": "failed"}]

@@ -293,6 +293,19 @@ fd_log_cpu_id( void ) {
   return fd_log_private_cpu_id;
 }
 
+void
+fd_log_private_cpu_id_set( ulong cpu_id ) {
+  fd_log_private_cpu_id      = cpu_id;
+  fd_log_private_cpu_id_init = 1;
+}
+
+char const *
+fd_log_cpu( void ) {
+  static char cpu[ FD_LOG_NAME_MAX ];
+  snprintf( cpu, sizeof(cpu), "%lu", fd_log_cpu_id() );
+  return cpu;
+}
+
 /* Group */
 void
 fd_log_private_group_id_set( ulong group_id ) {
