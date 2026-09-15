@@ -1,7 +1,7 @@
 # ── Security: CodeQL ───────────────────────────────────────────────────────
 
 security-codeql-check-fd:
-    @true ## bash ../contrib/security/security.sh codeql-check-fd, opened issue https://github.com/firedancer-io/firedancer/issues/10058
+    @true ## bash {{ justfile_directory() }}/contrib/security/security.sh codeql-check-fd, opened issue https://github.com/firedancer-io/firedancer/issues/10058
 
 security-codeql-check-tk:
     @true
@@ -48,11 +48,11 @@ security-codeql-check-all:
 # ── Security: Gitleaks ─────────────────────────────────────────────────────
 
 security-gitleaks-check-fd:
-    gitleaks detect --no-git --verbose --source ../src/ --config ../contrib/security/gitleaks-fd.toml
+    gitleaks detect --no-git --verbose --source {{ justfile_directory() }}/src/ --config {{ justfile_directory() }}/contrib/security/gitleaks-fd.toml
 
 security-gitleaks-check-tk:
-    gitleaks detect --no-git --verbose --source ../src/tickoni
-    gitleaks detect --no-git --verbose --source ../src/app/tickoni
+    gitleaks detect --no-git --verbose --source {{ justfile_directory() }}/src/tickoni
+    gitleaks detect --no-git --verbose --source {{ justfile_directory() }}/src/app/tickoni
 
 security-gitleaks-check-fd-linux-x86: security-gitleaks-check-fd
 security-gitleaks-check-tk-linux-x86: security-gitleaks-check-tk
@@ -81,7 +81,7 @@ security-gitleaks-check-all:
 # ── Security: Gitleaks Qt ───────────────────────────────────────────────────
 
 security-gitleaks-check-qt:
-    gitleaks detect --no-git --verbose --source ../src/tickoni/terminal
+    gitleaks detect --no-git --verbose --source {{ justfile_directory() }}/src/tickoni/terminal
 
 security-gitleaks-check-qt-linux-x86: security-gitleaks-check-qt
 
@@ -96,7 +96,7 @@ security-gitleaks-check-qt-windows-arm: security-gitleaks-check-qt
 # ── Security: SecComp ──────────────────────────────────────────────────────
 
 security-seccomp-check-fd:
-    @bash ../contrib/security/security.sh seccomp-check-fd
+    @bash {{ justfile_directory() }}/contrib/security/security.sh seccomp-check-fd
 
 security-seccomp-check-tk:
     @true
@@ -149,7 +149,7 @@ security-seccomp-check-qt-linux-x86: security-seccomp-check-qt
 # ── Security: Proof ────────────────────────────────────────────────────────
 
 security-proof-check-fd:
-    @bash ../contrib/security/security.sh proof-check-fd
+    @bash {{ justfile_directory() }}/contrib/security/security.sh proof-check-fd
 
 security-proof-check-tk:
     @true
@@ -204,10 +204,10 @@ security-proof-check-qt-linux-x86: security-proof-check-qt
 # ── Security: ASan/UBSan ───────────────────────────────────────────────────
 
 security-sanitize-check-fd:
-    @bash ../contrib/security/security.sh sanitize-check-fd
+    @bash {{ justfile_directory() }}/contrib/security/security.sh sanitize-check-fd
 
 security-sanitize-check-tk:
-    @bash ../contrib/security/security.sh sanitize-check-tk
+    @bash {{ justfile_directory() }}/contrib/security/security.sh sanitize-check-tk
 
 security-sanitize-check-fd-linux-x86: security-sanitize-check-fd
 security-sanitize-check-tk-linux-x86: security-sanitize-check-tk
@@ -252,7 +252,7 @@ security-sanitize-check-all:
 # ── Security: ASan/UBSan Qt ─────────────────────────────────────────────────
 
 security-sanitize-check-qt:
-    @bash ../contrib/security/security.sh sanitize-check-qt
+    @bash {{ justfile_directory() }}/contrib/security/security.sh sanitize-check-qt
 
 security-sanitize-check-qt-linux-x86: security-sanitize-check-qt
 
@@ -263,10 +263,10 @@ security-engine-check-all:
     @just security-engine-check-orchestration
 
 security-engine-check-changes:
-    {{ python }} ../contrib/quality/engine/engine_check_changes.py
+    {{ python }} {{ justfile_directory() }}/contrib/quality/engine/engine_check_changes.py
 
 security-engine-check-orchestration:
-    {{ python }} ../contrib/quality/engine/linter.py ../contrib/quality/engine/checks/ --root {{ justfile_directory() }} --severity ERROR
+    {{ python }} {{ justfile_directory() }}/contrib/quality/engine/linter.py {{ justfile_directory() }}/contrib/quality/engine/checks/ --root {{ justfile_directory() }} --severity ERROR
 
 security-engine-check-changes-linux-x86: security-engine-check-changes
 security-engine-check-orchestration-linux-x86: security-engine-check-orchestration
@@ -292,4 +292,4 @@ security-engine-check-orchestration-windows-arm:
 # ── Security: All ──────────────────────────────────────────────────────────
 
 security-check-all:
-    {{ python }} ../contrib/tool/readme/run-badged-command.py security bash -c "just security-engine-check-all && just security-codeql-check-all && just security-gitleaks-check-all && just security-seccomp-check-all && just security-proof-check-all && just security-sanitize-check-all"
+    {{ python }} {{ justfile_directory() }}/contrib/tool/readme/run-badged-command.py security bash -c "just security-engine-check-all && just security-codeql-check-all && just security-gitleaks-check-all && just security-seccomp-check-all && just security-proof-check-all && just security-sanitize-check-all"
