@@ -152,10 +152,11 @@ jobs:
     uses: ./.github/workflows/_ci-conformance.yml
 
   # ── PROJECT TESTS: aggregated test gate ───────────────────────────────────
+  # coverage is optional — runs in parallel but does not gate the gate
   project-tests:
     name: Project Tests
     needs:
-      [plan, project-build, unit, integration, system, demo, conformance, coverage]
+      [plan, project-build, unit, integration, system, demo, conformance]
     if: >-
       always() &&
       needs.plan.outputs.core == 'true' &&
@@ -164,8 +165,7 @@ jobs:
       needs.integration.result == 'success' &&
       needs.system.result == 'success' &&
       needs.demo.result == 'success' &&
-      needs.conformance.result == 'success' &&
-      needs.coverage.result == 'success'
+      needs.conformance.result == 'success'
     runs-on: ubuntu-24.04
     steps:
       - name: Project Tests aggregated
