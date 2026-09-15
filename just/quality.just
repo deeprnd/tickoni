@@ -138,9 +138,9 @@ quality-spell-check-linux:
 # ── Quality: Proto ─────────────────────────────────────────────────────────
 
 quality-proto-check-fd:
-    @cd src/disco/events && {{ python }} gen_events.py --skip-check
+    @cd {{ justfile_dir }}/src/disco/events && {{ python }} gen_events.py --skip-check
     @PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" command -v buf >/dev/null || { if [ -n "$(git status --porcelain src/disco/events/generated/ src/disco/events/schema/events.proto)" ]; then echo "Generated proto files are out of date. Please run 'just quality-proto-check-fd' and commit the changes." >&2; git --no-pager diff -- src/disco/events/; exit 1; fi; exit 0; }
-    @PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" cd src/disco/events/schema && buf lint .
+    @PATH="${HOME}/go/bin:/usr/local/go/bin:${PATH}" cd {{ justfile_dir }}/src/disco/events/schema && buf lint .
     @if [ -n "$(git status --porcelain src/disco/events/generated/ src/disco/events/schema/events.proto)" ]; then echo "Generated proto files are out of date. Please run 'just quality-proto-check-fd' and commit the changes." >&2; git --no-pager diff -- src/disco/events/; exit 1; fi
 
 quality-proto-check-tk:
