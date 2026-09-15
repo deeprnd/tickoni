@@ -7,7 +7,7 @@ python := `bash contrib/setup/python.sh`
 # Normalize justfile_directory() — on Windows it returns backslashes which
 # bash interprets as escape sequences (\t -> tab, etc.). Convert to forward
 # slashes so all recipes work identically on every platform.
-justfile_dir := `printf '%s' '{{ justfile_dir }}' | sed 's/\\/\//g'`
+justfile_dir := `bash contrib/justfile.sh`
 
 # ── Justfile Recipe Alias Convention ───────────────────────────────────────────
 # Every recipe category (build, test, setup, quality, security, etc.) has:
