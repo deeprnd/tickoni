@@ -15,6 +15,18 @@ set -euo pipefail
 # ── Internal ──────────────────────────────────────────────────────────────────
 
 jf_repo_path() {
+  # Resolve repo root from the script's own location so it works from any cwd.
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  # Walk up from script_dir to find the .git directory (repo root).
+  local dir="$script_dir"
+  while [[ "$dir" != "/" ]]; do
+    if [[ -d "$dir/.git" ]]; then
+      cd "$dir"
+      break
+    fi
+    dir="$(cd "$dir/.." && pwd)"
+  done
   git rev-parse --show-toplevel 2>/dev/null | sed 's|\\|/|g'
 }
 

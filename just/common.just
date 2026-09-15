@@ -1,7 +1,6 @@
 # Prefer GNU Make 4.x (Homebrew installs it as `gmake` on macOS); fall back to `make`.
 # Firedancer's GNUmakefile uses `undefine`, which needs GNU Make >= 3.82.
-# Resolve via justfile.sh for cross-platform consistency.
-make := `bash contrib/justfile.sh make`
+make := `command -v gmake || command -v make`
 # Resolve one usable Python command for all recipes, including Windows CI.
 python := `bash contrib/setup/python.sh`
 
