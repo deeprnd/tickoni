@@ -12,7 +12,7 @@ python3 "$(dirname "$SCRIPT_DIR")/setup/orchestrator.py" llm-server
 python3 "$(dirname "$SCRIPT_DIR")/test/orchestrator.py" llm-server-start
 
 # Phase 3: Run system test (test)
-bash contrib/test/run_system_model_tests.sh
+bash "$SCRIPT_DIR/run_system_model_tests.sh"
 
 # Phase 4: Cleanup (stop server)
 python3 "$(dirname "$SCRIPT_DIR")/test/orchestrator.py" llm-server-stop
