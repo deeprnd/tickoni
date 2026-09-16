@@ -37,7 +37,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
         // depend on the exe install step so this path is always
         // up to date. See ProcessPipelineConfig.tile_exe_path's doc
         // comment in src/app/tickoni/supervisor.zig.
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
 
     // Poll for the real completion signal (audited count reaches
@@ -95,7 +95,7 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
         .event_count = event_count,
         .heartbeat_interval_ns = 20 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 1 * std.time.ns_per_ms,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
 
     const max_polls: u32 = 400;

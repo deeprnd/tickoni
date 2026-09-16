@@ -52,7 +52,7 @@ test "process_topology_linux: every tile is a distinct OS process parented by th
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
 
     const supervisor_pid = c_abi.sandbox.getpid();
@@ -100,7 +100,7 @@ test "process_topology_linux: supervisor marks a truly stuck tile stale within t
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_ms,
         .stuck_tile_idx = 0,
         .stuck_after_messages = 0,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
 
     const max_polls: u32 = 200;
@@ -143,7 +143,7 @@ test "process_topology_linux: SIGKILL on one tile is reported by identity withou
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
 
     const tkrepl_idx = 5;
@@ -194,7 +194,7 @@ test "process_topology_linux: a self-exiting tile is reported crashed via exit_c
         .run_dir = run_dir,
         .event_count = event_count,
         .crash_after_heartbeats = crash_after_heartbeats,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
     try std.testing.expectEqualStrings("tkrepl", topo.tiles[tkrepl_idx].id.slice());
 
