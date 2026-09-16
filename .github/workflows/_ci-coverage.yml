@@ -31,7 +31,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: build-linux-x86-clang
-          path: build/
+          path: .
 
       - name: Run coverage test
         run: just test-cov-tk
