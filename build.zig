@@ -24,8 +24,6 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const fd_lib_dir = b.option([]const u8, "fd-lib-dir", "Firedancer lib dir (default: build/fd-tickoni-fd/lib)") orelse "build/fd-tickoni-fd/lib";
     const build_tests = b.option(bool, "test", "Compile and run Tickoni test binaries") orelse false;
-    const clap_dep = b.dependency("clap", .{});
-    const clap_mod = clap_dep.module("clap");
 
     // Shared modules — delegated to build/mod/modules.zig
     const shared = build_mod.modules(b, target, optimize);
@@ -1598,7 +1596,6 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "clap", .module = clap_mod },
             .{ .name = "investment_demo", .module = investment_demo_mod },
             .{ .name = "tier", .module = shared.tier },
             .{ .name = "doctor_output", .module = shared.doctor_output },
