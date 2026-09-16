@@ -7,12 +7,17 @@ set -uo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root" || exit 1
 
-export ZIG_GLOBAL_CACHE_DIR="$repo_root/build/.zig-global-cache"
-export ZIG_LOCAL_CACHE_DIR="$repo_root/build/.zig-cache"
-build_cmd=(zig build -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all)
+export ZIG_GLOBAL_CACHE_DIR="${ZIG_GLOBAL_CACHE_DIR:-$repo_root/build/.zig-global-cache}"
+export ZIG_LOCAL_CACHE_DIR="${ZIG_LOCAL_CACHE_DIR:-$repo_root/build/.zig-cache}"
+
+# Zig prefix: use passed ZIG_PREFIX (absolute, from justfile), fall back to build/zig-out.
+# Single source of truth for zig-out location: defined in just/common.just.
+ZIG_PREFIX="${ZIG_PREFIX:-$repo_root/${ZIG_PREFIX_REL:-build/zig-out}}"
+
+build_cmd=(zig build -p "$ZIG_PREFIX" -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all)
 manifest="src/tickoni/demo/fixtures/demo.manifest.json"
-cli_binary="build/zig-out/bin/tickoni"
-binary="build/zig-out/bin/tickoni-supervisor"
+cli_binary="$ZIG_PREFIX/bin/tickoni"
+binary="$ZIG_PREFIX/bin/tickoni-supervisor"
 
 printf 'building tickoni and tickoni-supervisor with fixture-backed demo modules\n'
 if ! "${build_cmd[@]}"; then
