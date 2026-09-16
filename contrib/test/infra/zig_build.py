@@ -19,7 +19,7 @@ def run_zig_build(target, run_tests):
     Returns exit code.
     """
     env = os.environ.copy()
-    env.setdefault("ZIG_GLOBAL_CACHE_DIR", ".zig-global-cache")
+    env.setdefault("ZIG_GLOBAL_CACHE_DIR", os.path.join(os.environ.get("TICKONI_ROOT", os.getcwd()), "build", ".zig-global-cache"))
 
     cmd = ["zig", "build"]
     if run_tests:
