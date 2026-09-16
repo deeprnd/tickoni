@@ -4,6 +4,7 @@ from pathlib import Path
 
 
 BUILD_ZIG = Path(__file__).resolve().parents[2] / "build.zig"
+CODEC_ZIG = Path(__file__).resolve().parents[2] / "build" / "lib" / "codec.zig"
 
 
 def test_windows_supervisor_links_uuid_archive_from_fd_lib_dir():
@@ -12,9 +13,9 @@ def test_windows_supervisor_links_uuid_archive_from_fd_lib_dir():
     supervisor_branch = text.split(
         "if (target.result.os.tag == .windows) {", 1
     )[1].split("    } else if (target.result.cpu.arch == .aarch64) {", 1)[0]
-    assert "linkTickoniSystemLibraries(b, exe, fd_lib_dir," in supervisor_branch
-    assert "fn linkTickoniWindowsUuid" in text
-    assert '"{s}/libuuid.a"' in text
+    assert "codec.addTickoniSystemLibraries(b, exe, fd_lib_dir," in supervisor_branch
+    assert "fn linkTickoniWindowsUuid" in CODEC_ZIG.read_text()
+    assert '"{s}/libuuid.a"' in CODEC_ZIG.read_text()
 
 
 def test_windows_supervisor_links_all_firedancer_archives():
@@ -24,16 +25,16 @@ def test_windows_supervisor_links_all_firedancer_archives():
         "if (target.result.os.tag == .windows) {", 1
     )[1].split("    } else if (target.result.cpu.arch == .aarch64) {", 1)[0]
     assert (
-        'linkTickoniSystemLibraries(b, exe, fd_lib_dir, '
+        'codec.addTickoniSystemLibraries(b, exe, fd_lib_dir, '
         '&.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });'
     ) in supervisor_branch
 
 
 def test_windows_links_setup_openssl_archive_without_pkg_config():
-    text = BUILD_ZIG.read_text()
+    text = CODEC_ZIG.read_text()
 
-    link_helper = text.split("fn linkTickoniSystemLibraries", 1)[1].split(
-        "fn linkTickoniTopoRun", 1
+    link_helper = text.split("pub fn addTickoniSystemLibraries", 1)[1].split(
+        "fn linkTickoniWindowsUuid", 1
     )[0]
     assert "if (os_tag == .windows)" in link_helper
     assert 'addObjectFile(.{ .cwd_relative = "build/opt/lib/libcrypto.a" })' in link_helper
