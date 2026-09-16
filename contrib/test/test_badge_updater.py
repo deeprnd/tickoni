@@ -245,7 +245,7 @@ class TestUpdateReadme:
             "  <img alt=\"Security\" src=\"old-security\" />\n"
             "<!-- badge:security:end -->\n\n"
             "<!-- badge:cov-tk:start -->\n"
-            "  <img alt=\"AI Harness Coverage\" src=\"old-cov\" />\n"
+            "  <img alt=\"Tests Coverage\" src=\"old-cov\" />\n"
             "<!-- badge:cov-tk:end -->\n"
         )
 
@@ -295,4 +295,4 @@ class TestUpdateReadme:
         assert 'alt="Build"' not in result
         assert 'alt="Unit Tests"' not in result
         assert 'alt="Security"' not in result
-        assert 'alt="AI Harness Coverage"' not in result
+        assert 'alt="Tests Coverage"' not in result
