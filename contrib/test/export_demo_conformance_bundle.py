@@ -14,7 +14,7 @@ def main() -> int:
     repo = pathlib.Path(sys.argv[1]).resolve()
     out_dir = pathlib.Path(sys.argv[2]).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
-    binary = repo / "zig-out/bin/tickoni-supervisor"
+    binary = repo / "build/zig-out/bin/tickoni-supervisor"
     manifest = repo / "src/tickoni/demo/fixtures/demo.manifest.json"
 
     proc = subprocess.run(
