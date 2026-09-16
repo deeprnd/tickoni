@@ -14,7 +14,7 @@
   <!-- badge:unit:end -->
 
   <!-- badge:integration:start -->
-  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-passing-brightgreen?style=flat-square" />
+  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-unknown-lightgrey?style=flat-square" />
   <!-- badge:integration:end -->
 
   <!-- badge:quality:start -->
@@ -30,7 +30,7 @@
   <!-- badge:system:end -->
 
   <!-- badge:cov-tk:start -->
-  <img alt="AI Harness Coverage" src="https://img.shields.io/badge/harness%20coverage-unknown-lightgrey?style=flat-square" />
+  <img alt="AI Harness Coverage" src="https://img.shields.io/badge/harness%20coverage-failing-red?style=flat-square" />
   <!-- badge:cov-tk:end -->
     
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-blue?style=flat-square" />
