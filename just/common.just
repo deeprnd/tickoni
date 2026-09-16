@@ -73,12 +73,12 @@ fd_cov_lib := "build/fd-cov/lib"
 # ── Zig local cache ───────────────────────────────────────────────────────────
 # Redirect .zig-cache from repo root into build/ to keep the root clean.
 # Every zig build invocation uses ZIG_LOCAL_CACHE_DIR pointing here.
-ZIG_CACHE := "/home/vicgenin/work/git/tickoni/build/.zig-cache"
+ZIG_CACHE := "$(bash contrib/justfile.sh)/build/.zig-cache"
 
 # ── Zig prefix (install dir) ─────────────────────────────────────────────────
-# All zig build --prefix (via -Dprefix) installs here: executables, modules,
+# All zig build --prefix installs here: executables, modules,
 # and test artifacts.  Mirrors ZIG_CACHE — defined once, referenced everywhere.
-ZIG_PREFIX := "/home/vicgenin/work/git/tickoni/build/zig-out"
+ZIG_PREFIX := "$(bash contrib/justfile.sh)/build/zig-out"
 
 # ── Platform Detection ────────────────────────────────────────────────────────
 # All recipes use {{ os }} and {{ arch }} from here — never call uname directly.
