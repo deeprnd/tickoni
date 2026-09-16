@@ -11,13 +11,13 @@
 ///
 /// The existing GNUmakefile (C/Firedancer build) is unchanged.
 const std = @import("std");
-const shims = @import("build/lib/shims.zig");
-const codec = @import("build/lib/codec.zig");
-const firedancer = @import("build/lib/firedancer.zig");
-const topo_run = @import("build/lib/topo_run.zig");
-const tile_run = @import("build/lib/tile_run.zig");
-const build_mod = @import("build/mod/modules.zig");
-const test_mod = @import("build/mod/test_modules.zig");
+const shims = @import("build-lib/lib/shims.zig");
+const codec = @import("build-lib/lib/codec.zig");
+const firedancer = @import("build-lib/lib/firedancer.zig");
+const topo_run = @import("build-lib/lib/topo_run.zig");
+const tile_run = @import("build-lib/lib/tile_run.zig");
+const build_mod = @import("build-lib/mod/modules.zig");
+const test_mod = @import("build-lib/mod/test_modules.zig");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
