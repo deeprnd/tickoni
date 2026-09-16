@@ -56,7 +56,7 @@ def _coverage_color(pct: float) -> str:
 
 
 def _read_coverage_pct(path: Path) -> float | None:
-    """Return branch coverage percentage, or None if nothing was measured."""
+    """Return branch coverage percentage if measured, else lines coverage."""
     if not path.exists():
         raise FileNotFoundError(f"Missing coverage summary: {path}")
     try:
@@ -66,12 +66,16 @@ def _read_coverage_pct(path: Path) -> float | None:
     total = data.get("total", {})
     branches = total.get("branches", {})
     total_count = branches.get("total", 0)
-    if total_count == 0:
-        return None
-    pct = branches.get("pct", None)
-    if pct is None:
-        return None
-    return round(float(pct), 1)
+    if total_count > 0:
+        pct = branches.get("pct", None)
+        if pct is not None:
+            return round(float(pct), 1)
+    # Fall back to lines coverage when branches not measured.
+    lines = total.get("lines", {})
+    pct = lines.get("pct", None)
+    if pct is not None:
+        return round(float(pct), 1)
+    return None
 
 
 def badge_for_exit_code(alt: str, label: str, exit_code: int) -> str:
