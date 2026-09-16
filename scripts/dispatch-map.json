@@ -38,5 +38,13 @@
     "macos-arm": "test-integration-tk-macos-arm",
     "windows-x86": "test-integration-tk-windows-x86",
     "windows-arm": "test-integration-tk-windows-arm"
+  },
+  "test-demo-tk": {
+    "linux-x86": "test-demo-tk-linux-x86",
+    "linux-arm": "test-demo-tk-linux-arm",
+    "macos-x86": "test-demo-tk-macos-x86",
+    "macos-arm": "test-demo-tk-macos-arm",
+    "windows-x86": "test-demo-tk-windows-x86",
+    "windows-arm": "test-demo-tk-windows-arm"
   }
 }
