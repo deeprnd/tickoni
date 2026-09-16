@@ -54,7 +54,7 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) 
     try sup.startPaymentPipelineProcess(io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
 
     const max_polls: u32 = 400; // 2s bound at 5ms per poll

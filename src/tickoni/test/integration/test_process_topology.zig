@@ -26,7 +26,7 @@ test "process_topology_integration: every tile is a distinct OS process parented
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
 
     var seen_pids: [8]std.process.Child.Id = undefined;
@@ -76,7 +76,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
         .heartbeat_stale_after_ns = 2 * std.time.ns_per_s,
         .stuck_tile_idx = 0,
         .stuck_after_messages = 0,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
 
     const max_polls: u32 = 600;
@@ -127,7 +127,7 @@ test "process_topology_integration: SIGKILL on one tile is reported by identity 
         .event_count = event_count,
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
 
     const tkrepl_pid = sup.monitor()[tkrepl_idx].pid orelse return error.MissingPid;
@@ -183,7 +183,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
         .crash_after_heartbeats = crash_after_heartbeats,
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
 
     const max_polls: u32 = 400;
@@ -234,7 +234,7 @@ test "process_topology_integration: process mode refuses to start a heap_dev-bac
 
     try std.testing.expectError(error.ProcessModeRequiresTangoShm, sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     }));
     for (sup.monitor()) |h| try std.testing.expect(h.pid == null);
 }

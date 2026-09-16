@@ -49,7 +49,7 @@ test "process_cpu_placement_integration: two tiles sharing one cpu get distinct 
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
 
     const report = sup.processPlacementReport().?;
@@ -110,7 +110,7 @@ test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails
 
     try std.testing.expectError(error.CpuIdMalformed, sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     }));
 
     // Fail-closed means no partial topology: no process was spawned and
@@ -204,7 +204,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     try floating_sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = floating_run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
 
     const floating_max_polls: u32 = 400;
@@ -245,7 +245,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     try shared_sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = shared_run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
 
     const shared_max_polls: u32 = 400;
