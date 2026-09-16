@@ -302,13 +302,21 @@ pub fn build(b: *std.Build) void {
 
     // Diagnostic C compile-check: compiles each shim file individually and
     // prints errors to stdout (not stderr) so CI can surface them.
+    // Output .o files go into build/.zig-cache/o to keep the repo root clean.
     const c_compile_check_step = b.step("check-c-compile", "Compile-check all C shim files and print errors to stdout");
+    const cache_o_dir = "build/.zig-cache/o";
+    {
+        const ensure_dir = b.addSystemCommand(&.{"mkdir", "-p", cache_o_dir});
+        c_compile_check_step.dependOn(&ensure_dir.step);
+    }
     inline for (shims.shim_c_files) |shim_file| {
         const c_check = b.addSystemCommand(&.{
             "sh", "-c",
-            b.fmt("zig cc -target {s} -c -I src -std=c17 -UBMI2 -ULZCNT -DFD_HAS_HOSTED=1 {s} {s} 2>&1 || true", .{
+            b.fmt("zig cc -target {s} -c -I src -std=c17 -UBMI2 -ULZCNT -DFD_HAS_HOSTED=1 {s} -o {s}/{s}.o {s} 2>&1 || true", .{
                 shims.buildTriple(b, target),
                 shims.shimCFlagsFor(target.result)[0],
+                cache_o_dir,
+                shim_file,
                 b.fmt("src/tickoni/c_abi/shim/{s}", .{shim_file}),
             }),
         });
@@ -318,9 +326,10 @@ pub fn build(b: *std.Build) void {
     {
         const getrandom_check = b.addSystemCommand(&.{
             "sh", "-c",
-            b.fmt("zig cc -target {s} -c -I src -I src/util -I src/disco -I src/ballet -std=c17 -DFD_HAS_HOSTED=1 {s} {s} 2>&1 || true", .{
+            b.fmt("zig cc -target {s} -c -I src -I src/util -I src/disco -I src/ballet -std=c17 -DFD_HAS_HOSTED=1 {s} -o {s}/test_fd_shmem_getrandom.o {s} 2>&1 || true", .{
                 shims.buildTriple(b, target),
                 shims.shimCFlagsFor(target.result)[0],
+                cache_o_dir,
                 "src/util/shmem/test_fd_shmem_getrandom.c",
             }),
         });
@@ -333,18 +342,6 @@ pub fn build(b: *std.Build) void {
     // cross-imports. Test modules that need codec/Firedancer linkage get it
     // via linkTickoniCodec / linkTickoniFiredancer calls below.
     // ---------------------------------------------------------------------------
-    // Bug Fix #50: compile-check the getrandom() EINTR + short-read retry loop test.
-    {
-        const getrandom_check = b.addSystemCommand(&.{
-            "sh", "-c",
-            b.fmt("zig cc -target {s} -c -I src -I src/util -I src/disco -I src/ballet -std=c17 -DFD_HAS_HOSTED=1 {s} {s} 2>&1 || true", .{
-                shims.buildTriple(b, target),
-                shims.shimCFlagsFor(target.result)[0],
-                "src/util/shmem/test_fd_shmem_getrandom.c",
-            }),
-        });
-        c_compile_check_step.dependOn(&getrandom_check.step);
-    }
 
     if (build_tests) {
         const investment_demo_test = b.addTest(.{ .root_module = investment_demo_test_mod });
