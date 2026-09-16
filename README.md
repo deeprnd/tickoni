@@ -18,7 +18,7 @@
   <!-- badge:integration:end -->
 
   <!-- badge:quality:start -->
-  <img alt="Quality" src="https://img.shields.io/badge/quality-unknown-lightgrey?style=flat-square" />
+  <img alt="Quality" src="https://img.shields.io/badge/quality-passing-brightgreen?style=flat-square" />
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
