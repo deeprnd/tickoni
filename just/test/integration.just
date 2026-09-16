@@ -5,16 +5,16 @@ test-integration-fd:
 
 # Tickoni integration lane: transport and boundary wiring against local mocks.
 test-integration-tk-linux-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
 
 test-integration-tk-linux-arm:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
 
 test-integration-tk-macos-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
 
 test-integration-tk-macos-arm:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
 
 # Bare dispatcher; canonical platform recipes are in dispatch map.
 test-integration-tk:
