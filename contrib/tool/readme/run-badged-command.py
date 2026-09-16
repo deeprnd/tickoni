@@ -111,11 +111,13 @@ def main() -> None:
     command_argv = args[1:]
 
     # Route badges that live in testing-tickoni.md
+    _testing_update_badge = lambda name, exit_code=None: _mod.update_badge(name, exit_code, _TESTING_DOC_PATH)
+    _testing_update_badge_unknown = lambda name: _mod.update_badge_unknown(name, _TESTING_DOC_PATH)
     update_badge = _mod.update_badge
     update_badge_unknown = _mod.update_badge_unknown
     if badge_name in TESTING_BADGES:
-        update_badge = lambda name, exit_code=None, doc_path=None: _mod.update_badge(name, exit_code, _TESTING_DOC_PATH)
-        update_badge_unknown = lambda name, doc_path=None: _mod.update_badge_unknown(name, _TESTING_DOC_PATH)
+        update_badge = _testing_update_badge
+        update_badge_unknown = _testing_update_badge_unknown
 
     def _cleanup(signum, frame):
         release_lock()

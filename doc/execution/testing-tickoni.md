@@ -43,6 +43,10 @@ Tickoni repository.
   <!-- badge:cov-tk:start -->
   <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-unknown-lightgrey?style=flat-square" />
   <!-- badge:cov-tk:end -->
+
+  <!-- badge:demo:start -->
+  <img alt="Demo Tests" src="https://img.shields.io/badge/demo%20tests-passing-brightgreen?style=flat-square" />
+  <!-- badge:demo:end -->
 </p>
 
 The [Testing Firedancer](../testing.md) page is the Firedancer-style test
