@@ -354,6 +354,7 @@ test-all:
 	@just test-cov-all
 	@just test-system-all
 	@just test-e2e-all
+	@just test-demo-all
 
 # ── Memory (hugepages) ──────────────────────────────────────────────────────
 

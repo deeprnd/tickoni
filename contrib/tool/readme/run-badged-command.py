@@ -23,7 +23,19 @@ update_badge = _mod.update_badge
 update_badge_unknown = _mod.update_badge_unknown
 README_PATH = _mod.README_PATH
 
-README_BADGES = frozenset({"build", "unit", "integration", "quality", "security", "system", "e2e", "cov-tk"})
+README_BADGES = frozenset({"build", "unit", "integration", "security", "system", "cov-tk"})
+TESTING_BADGES = frozenset({"demo", "quality", "e2e"})
+
+# Path for badges that live in testing-tickoni.md instead of README.md
+_TESTING_DOC_PATH = REPO_ROOT / "doc/execution/testing-tickoni.md"
+
+
+def _update_testing(name: str, exit_code: int) -> None:
+    _mod.update_badge(name, exit_code, _TESTING_DOC_PATH)
+
+
+def _update_testing_unknown(name: str) -> None:
+    _mod.update_badge_unknown(name, _TESTING_DOC_PATH)
 
 
 def _update_readme(name: str, exit_code: int) -> None:
@@ -98,6 +110,13 @@ def main() -> None:
     badge_name = args[0]
     command_argv = args[1:]
 
+    # Route badges that live in testing-tickoni.md
+    update_badge = _mod.update_badge
+    update_badge_unknown = _mod.update_badge_unknown
+    if badge_name in TESTING_BADGES:
+        update_badge = lambda name, exit_code=None, doc_path=None: _mod.update_badge(name, exit_code, _TESTING_DOC_PATH)
+        update_badge_unknown = lambda name, doc_path=None: _mod.update_badge_unknown(name, _TESTING_DOC_PATH)
+
     def _cleanup(signum, frame):
         release_lock()
         signal.signal(signum, signal.SIG_DFL)
@@ -113,6 +132,8 @@ def main() -> None:
     badge_status |= update_badge_with_lock(update_badge, badge_name, command_status)
 
     if badge_name in README_BADGES:
+        badge_status |= update_badge_with_lock(_update_testing_unknown, badge_name)
+        badge_status |= update_badge_with_lock(_update_testing, badge_name, command_status)
         badge_status |= update_badge_with_lock(_update_readme_unknown, badge_name)
         badge_status |= update_badge_with_lock(_update_readme, badge_name, command_status)
 
