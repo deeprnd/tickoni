@@ -16,6 +16,7 @@ import "just/build/windows.just"
 import "just/build/all.just"
 
 import "just/test/unit.just"
+import "just/test/e2e.just"
 import "just/test/integration.just"
 import "just/test/demo.just"
 import "just/test/system.just"
