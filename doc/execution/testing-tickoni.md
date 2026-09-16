@@ -9,17 +9,17 @@ Tickoni repository.
   <!-- badge:build:end -->
 
   <!-- badge:quality:start -->
-  <img alt="Quality" src="https://img.shields.io/badge/quality-failing-red?style=flat-square" />
+  <img alt="Quality" src="https://img.shields.io/badge/quality-passing-brightgreen?style=flat-square" />
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
-  <img alt="Security" src="https://img.shields.io/badge/security-unknown-lightgrey?style=flat-square" />
+  <img alt="Security" src="https://img.shields.io/badge/security-passing-brightgreen?style=flat-square" />
   <!-- badge:security:end -->
 </p>
 
 <p align="center">
   <!-- badge:unit:start -->
-  <img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-failing-red?style=flat-square" />
+  <img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-passing-brightgreen?style=flat-square" />
   <!-- badge:unit:end -->
 
   <!-- badge:integration:start -->
@@ -41,7 +41,7 @@ Tickoni repository.
   <!-- badge:cov-fd:end -->
 
   <!-- badge:cov-tk:start -->
-  <img alt="AI Harness Coverage" src="https://img.shields.io/badge/harness%20coverage-unknown-lightgrey?style=flat-square" />
+  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-unknown-lightgrey?style=flat-square" />
   <!-- badge:cov-tk:end -->
 </p>
 

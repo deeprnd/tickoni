@@ -295,19 +295,19 @@ def resolve_badges(
             results["cov-tk"] = {
                 "status": f"{pct:.1f}%",
                 "color": color,
-                "url": badge_url("harness coverage", f"{pct:.1f}%", color),
+                "url": badge_url("tests coverage", f"{pct:.1f}%", color),
             }
         else:
             results["cov-tk"] = {
                 "status": "unknown",
                 "color": "lightgrey",
-                "url": badge_url("harness coverage", "unknown", "lightgrey"),
+                "url": badge_url("tests coverage", "unknown", "lightgrey"),
             }
     else:
         results["cov-tk"] = {
             "status": "unknown",
             "color": "lightgrey",
-            "url": badge_url("harness coverage", "unknown", "lightgrey"),
+            "url": badge_url("tests coverage", "unknown", "lightgrey"),
         }
 
     return results
@@ -446,7 +446,7 @@ def main() -> None:
         for name in badge_names:
             img_tag = f'<img alt="{name.title()}" src="https://img.shields.io/badge/{name}-unknown-lightgrey?style=flat-square" />'
             if name == "cov-tk":
-                img_tag = f'<img alt="AI Harness Coverage" src="https://img.shields.io/badge/harness%20coverage-unknown-lightgrey?style=flat-square" />'
+                img_tag = f'<img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-unknown-lightgrey?style=flat-square" />'
             if name == "unit":
                 img_tag = f'<img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-unknown-lightgrey?style=flat-square" />'
             readme_text = replace_badge_block(readme_text, name, img_tag)
