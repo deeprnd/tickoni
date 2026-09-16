@@ -123,11 +123,15 @@ cmd_format_fix_fd() {
 }
 
 cmd_format_check_tk() {
-  run_step "zig fmt check" zig fmt --check src/app/tickoni src/tickoni
+  local cache_dir
+  cache_dir="$(git rev-parse --show-toplevel)/build/.zig-cache"
+  run_step "zig fmt check" env ZIG_LOCAL_CACHE_DIR="$cache_dir" zig fmt --check src/app/tickoni src/tickoni
 }
 
 cmd_format_fix_tk() {
-  run_step "zig fmt" zig fmt src/app/tickoni src/tickoni
+  local cache_dir
+  cache_dir="$(git rev-parse --show-toplevel)/build/.zig-cache"
+  run_step "zig fmt" env ZIG_LOCAL_CACHE_DIR="$cache_dir" zig fmt src/app/tickoni src/tickoni
 }
 
 cmd_lint_check_fd() {
@@ -152,7 +156,9 @@ cmd_lint_shellcheck_fd() {
 }
 
 cmd_lint_check_tk() {
-  run_step "zig build check" zig build check
+  local cache_dir
+  cache_dir="$(git rev-parse --show-toplevel)/build/.zig-cache"
+  run_step "zig build check" env ZIG_LOCAL_CACHE_DIR="$cache_dir" zig build check
 }
 
 # ── Qt Quality Checks ─────────────────────────────────────────────────────────

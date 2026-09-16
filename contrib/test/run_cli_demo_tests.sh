@@ -7,12 +7,12 @@ set -uo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root" || exit 1
 
+export ZIG_GLOBAL_CACHE_DIR=.zig-global-cache
+export ZIG_LOCAL_CACHE_DIR="$repo_root/build/.zig-cache"
 build_cmd=(zig build -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all)
 manifest="src/tickoni/demo/fixtures/demo.manifest.json"
 cli_binary="zig-out/bin/tickoni"
 binary="zig-out/bin/tickoni-supervisor"
-
-export ZIG_GLOBAL_CACHE_DIR=.zig-global-cache
 
 printf 'building tickoni and tickoni-supervisor with fixture-backed demo modules\n'
 if ! "${build_cmd[@]}"; then
