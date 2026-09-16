@@ -1,8 +1,9 @@
 # Test: Demo conformance recipes
 
 # Deterministic offline investment conformance suite — fixture-backed, no llama.cpp required.
+# Passes ZIG_PREFIX so run_cli_demo_tests.sh puts zig-out inside build/.
 test-demo-tk:
-	bash {{ justfile_dir }}/contrib/test/run_cli_demo_tests.sh
+	ZIG_PREFIX={{ ZIG_PREFIX }} ZIG_PREFIX_REL={{ ZIG_PREFIX_REL }} bash {{ justfile_dir }}/contrib/test/run_cli_demo_tests.sh
 
 test-demo-tk-linux-x86: test-demo-tk
 test-demo-tk-linux-arm: test-demo-tk

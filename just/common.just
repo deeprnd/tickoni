@@ -83,7 +83,9 @@ ZIG_GLOBAL_CACHE := "$(git rev-parse --show-toplevel)/build/.zig-global-cache"
 # ── Zig prefix (install dir) ─────────────────────────────────────────────────
 # All zig build --prefix installs here: executables, modules,
 # and test artifacts.  Mirrors ZIG_CACHE — defined once, referenced everywhere.
+# Absolute (for justfile recipes); relative (for shell scripts).
 ZIG_PREFIX := "$(git rev-parse --show-toplevel)/build/zig-out"
+ZIG_PREFIX_REL := "build/zig-out"
 
 # ── Platform Detection ────────────────────────────────────────────────────────
 # All recipes use {{ os }} and {{ arch }} from here — never call uname directly.
