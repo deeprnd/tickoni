@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 BUILD_ZIG = Path(__file__).resolve().parents[2] / "build.zig"
-CODEC_ZIG = Path(__file__).resolve().parents[2] / "build" / "lib" / "codec.zig"
+CODEC_ZIG = Path(__file__).resolve().parents[2] / "build-lib" / "lib" / "codec.zig"
 
 
 def test_windows_supervisor_links_uuid_archive_from_fd_lib_dir():
