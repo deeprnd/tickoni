@@ -114,6 +114,18 @@ def cmd_build_fd(args, config: dict) -> None:
         lib_dir = target["lib_dir"]
         obj_dir = target["obj_dir"]
 
+    # Resolve relative paths against ROOT_DIR so they work regardless
+    # of the recipe's current working directory (just runs imported
+    # recipes from the imported file's directory).
+    if not os.path.isabs(lib_dir):
+        lib_dir = os.path.join(ROOT_DIR, lib_dir)
+    if not os.path.isabs(obj_dir):
+        obj_dir = os.path.join(ROOT_DIR, obj_dir)
+
+    # Compute make targets as relative paths (Firedancer makefile
+    # computes OBJDIR=build/fd-tickoni-fd and can't match absolute targets).
+    lib_dir_rel = os.path.relpath(lib_dir, ROOT_DIR)
+
     platform_name = platform_from_args(args)
     strategies = __import__("contrib.build.strategies", fromlist=["load"])
     strat = strategies.load(platform_name)
@@ -162,12 +174,13 @@ def cmd_build_fd(args, config: dict) -> None:
                 local_mks_paths.append(path)
     local_mks = " ".join(sorted(local_mks_paths))
 
-    # Determine targets
+    # Determine targets — use relative path so Firedancer makefile
+    # (OBJDIR=build/fd-tickoni-fd) can match them.
     libs = config["libs"]["core"]
     extra_libs = config["libs"]["test"]
-    targets = [make_path(os.path.join(lib_dir, lib)) for lib in libs]
+    targets = [make_path(os.path.join(lib_dir_rel, lib)) for lib in libs]
     if mode in ("test", "cov"):
-        targets.extend([make_path(os.path.join(lib_dir, lib)) for lib in extra_libs])
+        targets.extend([make_path(os.path.join(lib_dir_rel, lib)) for lib in extra_libs])
 
     # Clean stale objects and archives for rebuild
     os.makedirs(obj_dir, exist_ok=True)
