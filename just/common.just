@@ -7,7 +7,7 @@ python := `bash contrib/setup/python.sh`
 # Normalize justfile_directory() — on Windows it returns backslashes which
 # bash interprets as escape sequences (\t -> tab, etc.). Convert to forward
 # slashes so all recipes work identically on every platform.
-justfile_dir := `bash contrib/justfile.sh`
+justfile_dir := `git rev-parse --show-toplevel`
 
 # ── Justfile Recipe Alias Convention ───────────────────────────────────────────
 # Every recipe category (build, test, setup, quality, security, etc.) has:
@@ -73,12 +73,17 @@ fd_cov_lib := "build/fd-cov/lib"
 # ── Zig local cache ───────────────────────────────────────────────────────────
 # Redirect .zig-cache from repo root into build/ to keep the root clean.
 # Every zig build invocation uses ZIG_LOCAL_CACHE_DIR pointing here.
-ZIG_CACHE := "$(bash contrib/justfile.sh)/build/.zig-cache"
+ZIG_CACHE := "$(git rev-parse --show-toplevel)/build/.zig-cache"
+
+# ── Zig global cache ──────────────────────────────────────────────────────────
+# Redirect Zig global cache from repo root into build/ to keep the root clean.
+# Every zig build invocation uses ZIG_GLOBAL_CACHE_DIR pointing here.
+ZIG_GLOBAL_CACHE := "$(git rev-parse --show-toplevel)/build/.zig-global-cache"
 
 # ── Zig prefix (install dir) ─────────────────────────────────────────────────
 # All zig build --prefix installs here: executables, modules,
 # and test artifacts.  Mirrors ZIG_CACHE — defined once, referenced everywhere.
-ZIG_PREFIX := "$(bash contrib/justfile.sh)/build/zig-out"
+ZIG_PREFIX := "$(git rev-parse --show-toplevel)/build/zig-out"
 
 # ── Platform Detection ────────────────────────────────────────────────────────
 # All recipes use {{ os }} and {{ arch }} from here — never call uname directly.
