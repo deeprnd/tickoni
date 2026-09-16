@@ -14,11 +14,11 @@
   <!-- badge:unit:end -->
 
   <!-- badge:integration:start -->
-  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-unknown-lightgrey?style=flat-square" />
+  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-passing-brightgreen?style=flat-square" />
   <!-- badge:integration:end -->
 
   <!-- badge:quality:start -->
-  <img alt="Quality" src="https://img.shields.io/badge/quality-passing-brightgreen?style=flat-square" />
+  <img alt="Quality" src="https://img.shields.io/badge/quality-unknown-lightgrey?style=flat-square" />
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
@@ -29,8 +29,12 @@
   <img alt="System Tests" src="https://img.shields.io/badge/system%20tests-passing-brightgreen?style=flat-square" />
   <!-- badge:system:end -->
 
+  <!-- badge:e2e:start -->
+  <img alt="E2E Tests" src="https://img.shields.io/badge/e2e%20tests-passing-brightgreen?style=flat-square" />
+  <!-- badge:e2e:end -->
+
   <!-- badge:cov-tk:start -->
-  <img alt="AI Harness Coverage" src="https://img.shields.io/badge/harness%20coverage-failing-red?style=flat-square" />
+  <img alt="AI Harness Coverage" src="https://img.shields.io/badge/harness%20coverage-unknown-lightgrey?style=flat-square" />
   <!-- badge:cov-tk:end -->
     
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-blue?style=flat-square" />

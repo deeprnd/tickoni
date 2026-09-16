@@ -1,14 +1,5 @@
 # Test: Integration recipes
 
-test-e2e-fd:
-    @true
-
-test-e2e-tk:
-    @true
-
-test-e2e-all:
-	{{ python }} {{ justfile_dir }}/contrib/tool/readme/run-badged-command.py e2e bash -c "just test-e2e-fd && just test-e2e-tk"
-
 test-integration-fd:
     @true
 
