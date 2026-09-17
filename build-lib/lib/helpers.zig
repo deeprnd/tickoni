@@ -11,6 +11,20 @@ const tile_run = @import("tile_run.zig");
 // Re-export the canonical Shared from modules.zig so helpers can use it.
 pub const Shared = @import("../mod/modules.zig").Shared;
 
+/// Link the common Firedancer + Tickoni shim libraries for a supervisor
+/// executable. Both x86_64 and aarch64 use the same 5 linkage calls;
+/// aarch64 additionally links libc's `atomic` library.
+fn linkSupervisorTarget(b: *std.Build, exe: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, fd_lib_dir: []const u8) void {
+    codec.linkTickoniCodec(b, exe, fd_lib_dir);
+    firedancer.linkTickoniFiredancer(b, exe, fd_lib_dir);
+    topo_run.linkTickoniTopoRun(b, exe, fd_lib_dir);
+    tile_run.linkTickoniTileRun(b, exe, fd_lib_dir);
+    codec.addTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
+    if (target.result.cpu.arch == .aarch64) {
+        exe.root_module.linkSystemLibrary("atomic", .{});
+    }
+}
+
 /// Create the supervisor executable.
 pub fn createSupervisorExe(
     b: *std.Build,

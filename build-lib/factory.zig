@@ -274,7 +274,7 @@ pub const ModuleFactory = struct {
             },
         });
 
-        const supervisor_named_mod = self.b.addModule("supervisor", .{
+        const supervisor_named_mod = self.b.createModule(.{
             .root_source_file = self.b.path("src/app/tickoni/supervisor.zig"),
             .target = self.target,
             .optimize = self.optimize,
