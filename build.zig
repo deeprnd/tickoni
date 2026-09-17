@@ -400,39 +400,9 @@ pub fn build(b: *std.Build) void {
         // ---------------------------------------------------------------------------
         const integration_step = b.step("integration-test", "Run Tickoni mock-backed integration tests");
 
-        // Delegate integration test registration to lane strategy.
-        const int_mods = integration_lane.IntegrationModules{
-            .tkpoly_int_mod = tkpoly_int_mod,
-            .model_int_mod = model_int_mod,
-            .adapter_int_mod = adapter_int_mod,
-            .tool_int_mod = tool_int_mod,
-            .case_int_mod = case_int_mod,
-            .disp_int_mod = disp_int_mod,
-            .agent_int_mod = agent_int_mod,
-            .replay_int_mod = replay_int_mod,
-            .investment_audit_int_mod = investment_audit_int_mod,
-            .investment_support_int_mod = investment_support_int_mod,
-            .investment_demo_test_mod = investment_demo_test_mod,
-            .supervisor_named_mod = supervisor_named_mod,
-            .exe = exe,
-            // Shared schema modules — match build.zig shared instances to
-            // avoid Zig 0.17 "file exists in modules X and X0" error.
-            .shared_audit_tile = shared.audit_tile,
-            .shared_basket = shared.basket,
-            .shared_portfolio = shared.portfolio,
-            .shared_thesis = shared.thesis,
-            .shared_trade_ticket = tm.trade_ticket,
-            .shared_runtime = shared.runtime,
-            .shared_c_abi = shared.c_abi,
-            .shared_util = shared.util,
-            .shared_topologies = shared.topologies,
-        };
-        integration_lane.strategy(b, int_mods, target, optimize, fd_lib_dir, integration_step);
-
         // Mock HTTP servers (test/mocks): self-tests of the mock
-        // infrastructure itself, no tile schema imports required. Wired to
-        // test_step (not integration_step): src/tickoni/test/integration is the
-        // integration-test boundary, and this root lives under test/mocks.
+        // infrastructure itself. Created before int_mods so they can
+        // be referenced.
         const mock_http_support_mod = b.createModule(.{
             .root_source_file = b.path("src/tickoni/test/mocks/mock_http_support.zig"),
             .target = target,
@@ -454,78 +424,39 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "mock_http_support", .module = mock_http_support_mod },
             },
         });
-        const mock_servers_test = b.addTest(.{
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("src/tickoni/test/mocks/mock_servers.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "mock_http_support", .module = mock_http_support_mod },
-                    .{ .name = "mock_broker_market_server", .module = mock_broker_market_server_mod },
-                    .{ .name = "mock_openai_server", .module = mock_openai_server_mod },
-                },
-            }),
-        });
-        test_step.dependOn(&mock_servers_test.step);
 
-        const model_tile_http_test = b.addTest(.{
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("src/tickoni/test/integration/test_model_tile_http.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "model", .module = model_int_mod },
-                    .{ .name = "mock_http_support", .module = mock_http_support_mod },
-                    .{ .name = "mock_openai_server", .module = mock_openai_server_mod },
-                },
-            }),
-        });
-        integration_step.dependOn(&b.addRunArtifact(model_tile_http_test).step);
-
-        const replay_integration_test = b.addTest(.{
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("src/tickoni/test/integration/test_investment_replay.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "adapter", .module = adapter_int_mod },
-                    .{ .name = "audit_tile", .module = shared.audit_tile },
-                    .{ .name = "basket", .module = shared.basket },
-                    .{ .name = "investment_demo", .module = investment_demo_mod },
-                    .{ .name = "investment_audit", .module = investment_audit_int_mod },
-                    .{ .name = "investment_support", .module = investment_support_int_mod },
-                    .{ .name = "model", .module = model_int_mod },
-                    .{ .name = "portfolio", .module = shared.portfolio },
-                    .{ .name = "replay", .module = replay_int_mod },
-                    .{ .name = "thesis", .module = shared.thesis },
-                    .{ .name = "tkpoly", .module = tkpoly_int_mod },
-                    .{ .name = "tool", .module = tool_int_mod },
-                    .{ .name = "trade_ticket", .module = tm.trade_ticket },
-                    .{ .name = "tkcase", .module = case_int_mod },
-                    .{ .name = "tkdisp", .module = disp_int_mod },
-                    .{ .name = "tkagnt", .module = agent_int_mod },
-                },
-            }),
-        });
-        // Imported modules do not propagate their root-module link settings to
-        // this test binary. Reuse the codec seam directly so Windows links the
-        // concrete archives instead of invoking pkg-config for fd_ballet/fd_util.
-        codec.linkTickoniCodec(b, replay_integration_test, fd_lib_dir);
-        integration_step.dependOn(&b.addRunArtifact(replay_integration_test).step);
-
-        const decision_cards_integration_test = b.addTest(.{
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("src/tickoni/test/integration/test_investment_decision_cards.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "investment_demo", .module = investment_demo_mod },
-                    .{ .name = "investment_support", .module = investment_support_int_mod },
-                },
-            }),
-        });
-        codec.linkTickoniCodec(b, decision_cards_integration_test, fd_lib_dir);
-        integration_step.dependOn(&b.addRunArtifact(decision_cards_integration_test).step);
+        // Delegate integration test registration to lane strategy.
+        const int_mods = integration_lane.IntegrationModules{
+            .tkpoly_int_mod = tkpoly_int_mod,
+            .model_int_mod = model_int_mod,
+            .adapter_int_mod = adapter_int_mod,
+            .tool_int_mod = tool_int_mod,
+            .case_int_mod = case_int_mod,
+            .disp_int_mod = disp_int_mod,
+            .agent_int_mod = agent_int_mod,
+            .replay_int_mod = replay_int_mod,
+            .investment_audit_int_mod = investment_audit_int_mod,
+            .investment_support_int_mod = investment_support_int_mod,
+            .investment_demo_test_mod = investment_demo_test_mod,
+            .investment_demo_mod = investment_demo_mod,
+            .supervisor_named_mod = supervisor_named_mod,
+            .mock_http_support_mod = mock_http_support_mod,
+            .mock_broker_market_server_mod = mock_broker_market_server_mod,
+            .mock_openai_server_mod = mock_openai_server_mod,
+            .exe = exe,
+            // Shared schema modules — match build.zig shared instances to
+            // avoid Zig 0.17 "file exists in modules X and X0" error.
+            .shared_audit_tile = shared.audit_tile,
+            .shared_basket = shared.basket,
+            .shared_portfolio = shared.portfolio,
+            .shared_thesis = shared.thesis,
+            .shared_trade_ticket = tm.trade_ticket,
+            .shared_runtime = shared.runtime,
+            .shared_c_abi = shared.c_abi,
+            .shared_util = shared.util,
+            .shared_topologies = shared.topologies,
+        };
+        integration_lane.strategy(b, int_mods, target, optimize, fd_lib_dir, integration_step);
 
         // System step — every root under src/tickoni/test/system, run with
         // `zig build system-test` (`just test-system-tk`). This includes both the

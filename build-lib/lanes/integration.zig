@@ -22,7 +22,11 @@ pub const IntegrationModules = struct {
     investment_audit_int_mod: *std.Build.Module,
     investment_support_int_mod: *std.Build.Module,
     investment_demo_test_mod: *std.Build.Module,
+    investment_demo_mod: *std.Build.Module,
     supervisor_named_mod: *std.Build.Module,
+    mock_http_support_mod: *std.Build.Module,
+    mock_broker_market_server_mod: *std.Build.Module,
+    mock_openai_server_mod: *std.Build.Module,
     exe: *std.Build.Step.Compile,
     // Shared schema modules — must match build.zig shared module instances
     // to avoid Zig 0.17 "file exists in modules X and X0" error.
@@ -135,4 +139,81 @@ pub fn strategy(
             integration_step.dependOn(&run_proc_test.step);
         }
     }
+
+    // Mock HTTP server self-tests — verify mock infrastructure works.
+    const mock_servers_test = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/tickoni/test/mocks/mock_servers.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "mock_http_support", .module = int_mods.mock_http_support_mod },
+                .{ .name = "mock_broker_market_server", .module = int_mods.mock_broker_market_server_mod },
+                .{ .name = "mock_openai_server", .module = int_mods.mock_openai_server_mod },
+            },
+        }),
+    });
+    integration_step.dependOn(&mock_servers_test.step);
+
+    // Model tile HTTP integration test — uses mock OpenAI server.
+    const model_tile_http_test = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/tickoni/test/integration/test_model_tile_http.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "model", .module = int_mods.model_int_mod },
+                .{ .name = "mock_http_support", .module = int_mods.mock_http_support_mod },
+                .{ .name = "mock_openai_server", .module = int_mods.mock_openai_server_mod },
+            },
+        }),
+    });
+    integration_step.dependOn(&b.addRunArtifact(model_tile_http_test).step);
+
+    // Investment replay integration test — full replay with mock-backed
+    // adapters. Imported modules do not propagate their root-module link
+    // settings; wire the codec seam explicitly so Windows links concrete
+    // archives instead of pkg-config.
+    const replay_integration_test = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/tickoni/test/integration/test_investment_replay.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "adapter", .module = int_mods.adapter_int_mod },
+                .{ .name = "audit_tile", .module = int_mods.shared_audit_tile },
+                .{ .name = "basket", .module = int_mods.shared_basket },
+                .{ .name = "investment_demo", .module = int_mods.investment_demo_mod },
+                .{ .name = "investment_audit", .module = int_mods.investment_audit_int_mod },
+                .{ .name = "investment_support", .module = int_mods.investment_support_int_mod },
+                .{ .name = "model", .module = int_mods.model_int_mod },
+                .{ .name = "portfolio", .module = int_mods.shared_portfolio },
+                .{ .name = "replay", .module = int_mods.replay_int_mod },
+                .{ .name = "thesis", .module = int_mods.shared_thesis },
+                .{ .name = "tkpoly", .module = int_mods.tkpoly_int_mod },
+                .{ .name = "tool", .module = int_mods.tool_int_mod },
+                .{ .name = "trade_ticket", .module = int_mods.shared_trade_ticket },
+                .{ .name = "tkcase", .module = int_mods.case_int_mod },
+                .{ .name = "tkdisp", .module = int_mods.disp_int_mod },
+                .{ .name = "tkagnt", .module = int_mods.agent_int_mod },
+            },
+        }),
+    });
+    codec.linkTickoniCodec(b, replay_integration_test, fd_lib_dir);
+    integration_step.dependOn(&b.addRunArtifact(replay_integration_test).step);
+
+    // Investment decision cards integration test — fixture-backed, codec-linked.
+    const decision_cards_integration_test = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/tickoni/test/integration/test_investment_decision_cards.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "investment_demo", .module = int_mods.investment_demo_mod },
+                .{ .name = "investment_support", .module = int_mods.investment_support_int_mod },
+            },
+        }),
+    });
+    codec.linkTickoniCodec(b, decision_cards_integration_test, fd_lib_dir);
+    integration_step.dependOn(&b.addRunArtifact(decision_cards_integration_test).step);
 }
