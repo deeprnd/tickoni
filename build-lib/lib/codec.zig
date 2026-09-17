@@ -19,19 +19,30 @@ pub fn addTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, f
         step.root_module.linkSystemLibrary("crypto", .{});
     }
 
-    if (os_tag == .windows or (os_tag == .linux and cpu_arch == .aarch64)) {
-        // Windows and ARM64 Linux: use explicit archive paths. On Windows this avoids
-        // pkg-config.BAT probing; on ARM64 Linux it preserves link order with ld.lld,
-        // which is required because fd_sandbox_* symbols from libfd_util.a must be
-        // resolved after the shim wrappers in sandbox.c reference them.
+    if (os_tag == .windows) {
+        // Windows: use explicit archive paths. Avoids pkg-config.BAT probing
+        // and preserves link order.
         for (libs) |lib| {
             step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib }) });
         }
         linkTickoniWindowsUuid(b, step, fd_lib_dir);
         step.root_module.link_libcpp = true;
+    } else if (os_tag == .linux and cpu_arch == .aarch64) {
+        // ARM64 Linux: use explicit archive paths to preserve link order with
+        // ld.lld — fd_sandbox_* symbols from libfd_util.a must resolve after
+        // the shim wrappers in sandbox.c reference them.
+        for (libs) |lib| {
+            step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib }) });
+        }
+        step.root_module.link_libcpp = true;
     } else {
-        for (libs) |lib| step.root_module.linkSystemLibrary(lib, .{});
-        step.root_module.linkSystemLibrary("stdc++", .{});
+        // x86_64 Linux: link explicit .a archives because only static libraries
+        // are built in build/fd-tickoni-fd/lib/; linkSystemLibrary would search
+        // for .so files which don't exist.
+        for (libs) |lib| {
+            step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib }) });
+        }
+        step.root_module.link_libcpp = true;
     }
 }
 
