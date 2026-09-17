@@ -3,7 +3,7 @@
 import re
 from html.parser import HTMLParser
 
-with open('/home/vicgenin/work/git/tickoni/doc/knowledge/zig/release-notes.html', 'r') as f:
+with open('tickoni/doc/knowledge/zig/release-notes.html', 'r') as f:
     html = f.read()
 
 # Step 1: Extract body content
@@ -241,7 +241,7 @@ md = '\n'.join(cleaned)
 md = re.sub(r'\n{4,}', '\n\n\n', md)
 md = md.strip() + '\n'
 
-output_path = '/home/vicgenin/work/git/tickoni/doc/knowledge/zig/release-notes-0.16.md'
+output_path = 'tickoni/doc/knowledge/zig/release-notes-0.16.md'
 with open(output_path, 'w') as f:
     f.write(md)
 
