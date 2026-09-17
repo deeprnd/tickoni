@@ -128,7 +128,10 @@ pub fn addWindowsFdManifestFixups(b: *std.Build, step: *std.Build.Step.Compile, 
         manifest_path,
         b.allocator,
         .limited(1024 * 1024),
-    ) catch @panic("missing Windows FD Zig link manifest; run just build-fd first");
+    ) catch {
+        std.debug.print("error: missing Windows FD Zig link manifest; run just build-fd first\n", .{});
+        return;
+    };
     defer b.allocator.free(manifest);
 
     var lines = std.mem.splitScalar(u8, manifest, '\n');

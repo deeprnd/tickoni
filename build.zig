@@ -15,10 +15,22 @@ const std = @import("std");
 const helpers = @import("build-lib/lib/helpers.zig");
 const test_lanes = @import("build-lib/build_test_lanes.zig");
 
+/// Validate a build-time path option: reject empty strings, path traversal,
+/// and paths exceeding a reasonable length to prevent linking arbitrary archives.
+fn validateBuildPath(path: []const u8) ![]const u8 {
+    if (path.len == 0) return error.InvalidBuildPath;
+    if (path.len > 1024) return error.PathTooLong;
+    if (std.mem.indexOf(u8, path, "..") != null) return error.PathTraversal;
+    return path;
+}
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const fd_lib_dir = b.option([]const u8, "fd-lib-dir", "Firedancer lib dir (default: build/fd-tickoni-fd/lib)") orelse "build/fd-tickoni-fd/lib";
+    const fd_lib_dir = validateBuildPath(b.option([]const u8, "fd-lib-dir", "Firedancer lib dir (default: build/fd-tickoni-fd/lib)") orelse "build/fd-tickoni-fd/lib") catch {
+        std.debug.print("error: Invalid --fd-lib-dir: must be a non-empty, non-absolute path under 1024 chars without '..' components\n", .{});
+        return;
+    };
     const build_tests = b.option(bool, "test", "Compile and run Tickoni test binaries") orelse false;
 
     const shared = @import("build-lib/mod/modules.zig").modules(b, target, optimize);

@@ -52,7 +52,10 @@ pub fn strategy(
         "src/tickoni/test/integration/test_investment_input_policy_denials.zig",
     };
 
-    const imports = b.allocator.alloc(std.Build.Module.Import, 15) catch unreachable;
+    const imports = b.allocator.alloc(std.Build.Module.Import, 15) catch |err| {
+        std.debug.print("error: Failed to allocate imports slice: {any}\n", .{err});
+        return;
+    };
     defer b.allocator.free(imports);
 
     imports[0] = .{ .name = "adapter", .module = int_mods.adapter_int_mod };
