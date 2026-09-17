@@ -77,3 +77,32 @@ pub fn shimCFlagsFor(target: std.Target) []const []const u8 {
         else => &.{ "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1" },
     };
 }
+
+/// Wrap a test compile step with a sequential run command using
+/// `contrib/test/run_test_series.sh`.  This avoids Zig's --listen=-
+/// parallel coordination which panics with EndOfStream when 48+ test
+/// binaries communicate over the same pipe.
+pub fn addPlainTestRun(
+    b: *std.Build,
+    test_compile: *std.Build.Step.Compile,
+) *std.Build.Step.Run {
+    const run_step = std.Build.Step.Run.create(b, b.fmt("run {s} (plain)", .{test_compile.name}));
+    run_step.producer = test_compile;
+    run_step.addArtifactArg(test_compile);
+    run_step.has_side_effects = true;
+    run_step.setCwd(b.path("."));
+    return run_step;
+}
+
+/// Install a test binary under `zig-out/cov/` for kcov coverage.
+pub fn addCovInstall(
+    b: *std.Build,
+    test_compile: *std.Build.Step.Compile,
+) *std.Build.Step.InstallDir {
+    const cov_install = b.addInstallDirectory(.{
+        .source_dir = test_compile.getEmittedBin(),
+        .install_dir = .prefix,
+        .install_subdir = "cov",
+    });
+    return cov_install;
+}
