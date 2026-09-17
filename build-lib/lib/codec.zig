@@ -81,7 +81,7 @@ pub fn addTickoniSupervisorShimLibrary(
     optimize: std.builtin.OptimizeMode,
 ) *std.Build.Step.Compile {
     return addTickoniShimLibrary(b, target, optimize, "tickoni-supervisor-shims", &.{
-        "src/tickoni/c_abi/shim/ballet.c",
+        shims.ballet_c,
         "src/tickoni/c_abi/shim/tango.c",
         "src/tickoni/c_abi/shim/util.c",
         "src/tickoni/c_abi/shim/wksp.c",
@@ -102,7 +102,7 @@ pub fn addTickoniCodecShimLibrary(
     name: []const u8,
 ) *std.Build.Step.Compile {
     return addTickoniShimLibrary(b, target, optimize, name, &.{
-        "src/tickoni/c_abi/shim/ballet.c",
+        shims.ballet_c,
     });
 }
 
@@ -135,7 +135,7 @@ fn addTickoniCodecShim(b: *std.Build, step: *std.Build.Step.Compile) void {
     const target_info = step.root_module.resolved_target.?.result;
     step.root_module.addCSourceFiles(.{
         .files = &.{
-            "src/tickoni/c_abi/shim/ballet.c",
+            shims.ballet_c,
         },
         .flags = shims.shimCFlagsFor(target_info),
     });
@@ -152,5 +152,5 @@ pub fn linkTickoniCodec(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir
         step.root_module.link_libcpp = true;
         return;
     }
-    addTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_ballet", "fd_util" });
+    addTickoniSystemLibraries(b, step, fd_lib_dir, &.{"fd_ballet", "fd_util"});
 }
