@@ -124,7 +124,7 @@ python3 -m venv /tmp/test-setup-env-venv
 source /tmp/test-setup-env-venv/bin/activate
 
 # Run setup-env
-cd /home/vicgenin/work/git/tickoni
+cd tickoni
 just setup-env
 ```
 
