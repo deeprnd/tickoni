@@ -1,5 +1,8 @@
 const std = @import("std");
 
+/// The ballet.c shim source path used across codec.zig and shims.zig.
+pub const ballet_c = "src/tickoni/c_abi/shim/ballet.c";
+
 /// C shim source files for the Tickoni shim library.
 pub const shim_c_files = &.{
     "tango.c",
