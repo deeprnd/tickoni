@@ -149,27 +149,15 @@ cmd_sanitize_check_qt() {
     return 1
   fi
 
-  # Ensure Qt6 is installed (self-contained — CI no longer needs a separate setup step)
-  local _os
-  _os="$(tk_os)"
-  local _arch
-  _arch="$(tk_arch)"
-  local qt_setup
-  case "${_os}" in
-    linux)   case "${_arch}" in x86) qt_setup="setup-qt-linux-x86" ;; arm) qt_setup="setup-qt-linux-arm" ;; *) echo "unsupported arch $_arch"; exit 1 ;; esac ;;
-    macos)   case "${_arch}" in x86) qt_setup="setup-qt-macos-x86" ;; arm) qt_setup="setup-qt-macos-arm" ;; *) echo "unsupported arch $_arch"; exit 1 ;; esac ;;
-    *) echo "unsupported OS $_os"; exit 1 ;;
-  esac
-  run_step "setup qt6" just "$qt_setup"
-
-  rm -rf build/tickoni-terminal
   local _qt6_dir
   _qt6_dir="$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)"
   if [ -z "$_qt6_dir" ]; then
     echo "sanitize-check-qt: could not find Qt6 install prefix" >&2
-    exit 1
+    return 1
   fi
   export CMAKE_PREFIX_PATH="$_qt6_dir"
+
+  rm -rf build/tickoni-terminal
   run_step "qt cmake sanitize configure" \
     cmake -S src/tickoni/terminal -B build/tickoni-terminal \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo \
