@@ -21,6 +21,23 @@ def run_zig_build(target, run_tests):
     env = os.environ.copy()
     env.setdefault("ZIG_GLOBAL_CACHE_DIR", os.path.join(os.environ.get("TICKONI_ROOT", os.getcwd()), "build", ".zig-global-cache"))
 
+    # Ensure fd-lib-dir exists — the build orchestrator must compile
+    # libfd_ballet.a, libfd_util.a, etc. before Zig can link them.
+    # This mirrors what test-unit-fd-* recipes do in just/common.just.
+    build_orch = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..", "..", "build", "orchestrator.py",
+    )
+    if not os.path.isfile(build_orch):
+        build_orch = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..", "build", "orchestrator.py",
+        )
+    fd_lib_dir_abs = os.path.join(os.getcwd(), "build/fd-tickoni-fd/lib")
+    if not os.path.isdir(fd_lib_dir_abs) or not os.listdir(fd_lib_dir_abs):
+        print(f"fd-lib-dir {fd_lib_dir_abs} not found — building Firedancer libs first")
+        subprocess.run([sys.executable, build_orch, "build-fd", "fd-tickoni-fd", "test"], check=True)
+
     cmd = ["zig", "build"]
     if run_tests:
         cmd.append("-Dtest=true")
