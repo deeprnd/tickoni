@@ -112,14 +112,30 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
     {
         const parts = std.mem.splitScalar(u8, build_version_option, '.');
         var parts_it = parts;
-        if (parts_it.next()) |s| bv_major = std.fmt.parseInt(u16, s, 10) catch 0;
-        if (parts_it.next()) |s| bv_minor = std.fmt.parseInt(u16, s, 10) catch 0;
+        if (parts_it.next()) |s| {
+            bv_major = std.fmt.parseInt(u16, s, 10) catch |err| switch (err) {
+                error.InvalidCharacter => 0,
+                error.Overflow => 0,
+            };
+        }
+        if (parts_it.next()) |s| {
+            bv_minor = std.fmt.parseInt(u16, s, 10) catch |err| switch (err) {
+                error.InvalidCharacter => 0,
+                error.Overflow => 0,
+            };
+        }
         if (parts_it.next()) |s| {
             if (std.mem.indexOf(u8, s, "-")) |dash| {
-                bv_patch = std.fmt.parseInt(u16, s[0..dash], 10) catch 0;
+                bv_patch = std.fmt.parseInt(u16, s[0..dash], 10) catch |err| switch (err) {
+                    error.InvalidCharacter => 0,
+                    error.Overflow => 0,
+                };
                 bv_pre = s[dash + 1 ..];
             } else {
-                bv_patch = std.fmt.parseInt(u16, s, 10) catch 0;
+                bv_patch = std.fmt.parseInt(u16, s, 10) catch |err| switch (err) {
+                    error.InvalidCharacter => 0,
+                    error.Overflow => 0,
+                };
             }
         }
     }

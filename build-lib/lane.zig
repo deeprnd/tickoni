@@ -14,14 +14,22 @@ const firedancer = @import("lib/firedancer.zig");
 /// communicate over the same pipe).
 pub fn createRunTestsCmd(b: *std.Build) *std.Build.Step.Run {
     const run_tests_cmd = std.Build.Step.Run.create(b, "run-tests");
-    const build_root_str = b.root.toString(b.allocator) catch unreachable;
+    const build_root_str = b.root.toString(b.allocator) catch |err| {
+        std.debug.print("error: Failed to get build root path: {any}\n", .{err});
+        return run_tests_cmd;
+    };
     defer b.allocator.free(build_root_str);
     var script_buf: [4096]u8 = undefined;
     const full_script_path = std.fmt.bufPrint(
         &script_buf,
         "{s}/contrib/test/run_test_series.sh",
         .{build_root_str},
-    ) catch unreachable;
+    ) catch |err| switch (err) {
+        error.NoSpaceLeft => {
+            std.debug.print("error: Script path buffer overflow (4096 bytes insufficient)\n", .{});
+            return run_tests_cmd;
+        },
+    };
     run_tests_cmd.addArgs(&[_][]const u8{
         "bash",
         full_script_path,
