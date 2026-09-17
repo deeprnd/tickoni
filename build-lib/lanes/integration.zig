@@ -52,27 +52,23 @@ pub fn strategy(
         "src/tickoni/test/integration/test_investment_input_policy_denials.zig",
     };
 
-    const imports = b.allocator.alloc(std.Build.Module.Import, 15) catch |err| {
-        std.debug.print("error: Failed to allocate imports slice: {any}\n", .{err});
-        return;
+    const static_imports = [_]std.Build.Module.Import{
+        .{ .name = "adapter", .module = int_mods.adapter_int_mod },
+        .{ .name = "audit_tile", .module = int_mods.shared_audit_tile },
+        .{ .name = "basket", .module = int_mods.shared_basket },
+        .{ .name = "investment_audit", .module = int_mods.investment_audit_int_mod },
+        .{ .name = "investment_support", .module = int_mods.investment_support_int_mod },
+        .{ .name = "model", .module = int_mods.model_int_mod },
+        .{ .name = "portfolio", .module = int_mods.shared_portfolio },
+        .{ .name = "replay", .module = int_mods.replay_int_mod },
+        .{ .name = "thesis", .module = int_mods.shared_thesis },
+        .{ .name = "tkpoly", .module = int_mods.tkpoly_int_mod },
+        .{ .name = "tool", .module = int_mods.tool_int_mod },
+        .{ .name = "trade_ticket", .module = int_mods.shared_trade_ticket },
+        .{ .name = "tkcase", .module = int_mods.case_int_mod },
+        .{ .name = "tkdisp", .module = int_mods.disp_int_mod },
+        .{ .name = "tkagnt", .module = int_mods.agent_int_mod },
     };
-    defer b.allocator.free(imports);
-
-    imports[0] = .{ .name = "adapter", .module = int_mods.adapter_int_mod };
-    imports[1] = .{ .name = "audit_tile", .module = int_mods.shared_audit_tile };
-    imports[2] = .{ .name = "basket", .module = int_mods.shared_basket };
-    imports[3] = .{ .name = "investment_audit", .module = int_mods.investment_audit_int_mod };
-    imports[4] = .{ .name = "investment_support", .module = int_mods.investment_support_int_mod };
-    imports[5] = .{ .name = "model", .module = int_mods.model_int_mod };
-    imports[6] = .{ .name = "portfolio", .module = int_mods.shared_portfolio };
-    imports[7] = .{ .name = "replay", .module = int_mods.replay_int_mod };
-    imports[8] = .{ .name = "thesis", .module = int_mods.shared_thesis };
-    imports[9] = .{ .name = "tkpoly", .module = int_mods.tkpoly_int_mod };
-    imports[10] = .{ .name = "tool", .module = int_mods.tool_int_mod };
-    imports[11] = .{ .name = "trade_ticket", .module = int_mods.shared_trade_ticket };
-    imports[12] = .{ .name = "tkcase", .module = int_mods.case_int_mod };
-    imports[13] = .{ .name = "tkdisp", .module = int_mods.disp_int_mod };
-    imports[14] = .{ .name = "tkagnt", .module = int_mods.agent_int_mod };
 
     inline for (static_tests) |path| {
         const integration_test = b.addTest(.{
@@ -80,7 +76,7 @@ pub fn strategy(
                 .root_source_file = b.path(path),
                 .target = target,
                 .optimize = optimize,
-                .imports = imports,
+                .imports = &static_imports,
             }),
         });
         codec.linkTickoniCodec(b, integration_test, fd_lib_dir);

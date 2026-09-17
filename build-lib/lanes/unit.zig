@@ -163,17 +163,7 @@ pub fn strategy(
 
     // === V2.21.S3 modules ===
 
-    // version.zig — tier, audit_schema, build_options.
-    tb.registerRunTest(.{
-        .name = "test-version",
-        .source_file = "src/tickoni/version.zig",
-        .imports = &.{
-            .{ .name = "tier", .module = shared.tier },
-            .{ .name = "audit_schema", .module = shared.audit_schema },
-            .{ .name = "build_options", .module = shared.version_opts.createModule() },
-        },
-    }, test_step, run_cmd);
-    // version needs C source too.
+    // version.zig — tier, audit_schema, build_options, compiler_version.c.
     {
         const v_mod = b.createModule(.{
             .root_source_file = b.path("src/tickoni/version.zig"),
