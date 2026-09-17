@@ -20,6 +20,7 @@ const build_mod = @import("build-lib/mod/modules.zig");
 const test_mod = @import("build-lib/mod/test_modules.zig");
 const build_lane = @import("build-lib/lanes/unit.zig");
 const integration_lane = @import("build-lib/lanes/integration.zig");
+const system_lane = @import("build-lib/lanes/system.zig");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -463,40 +464,11 @@ pub fn build(b: *std.Build) void {
         // live `tkmodl` smoke proof and offline deterministic demo proofs; the
         // directory is the boundary, not per-file live/offline status.
         const system_step = b.step("system-test", "Run all src/tickoni/test/system proofs");
-        const system_test = b.addTest(.{
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("src/tickoni/test/system/test_investment_demo_live.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "investment_demo", .module = investment_demo_mod },
-                },
-            }),
-        });
-        codec.linkTickoniCodec(b, system_test, fd_lib_dir);
-        const run_system_test = addPlainTestRun(b, system_test);
-        system_step.dependOn(&run_system_test.step);
-
-        // V1.3.S4: combined portfolio/cash demo. Fixture-backed and deterministic
-        // (no live model, broker, or execution), but lives under
-        // src/tickoni/test/system so it runs as part of the system-test lane
-        // alongside the live tkmodl proof.
-        const portfolio_cash_demo_test = b.addTest(.{
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("src/tickoni/test/system/test_portfolio_cash_demo.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "investment_demo", .module = investment_demo_mod },
-                    .{ .name = "investment_support", .module = investment_support_int_mod },
-                },
-            }),
-        });
-        // Imported modules do not carry their root-module C/link settings into
-        // this test binary, so wire the codec seam explicitly here too.
-        codec.linkTickoniCodec(b, portfolio_cash_demo_test, fd_lib_dir);
-        const run_portfolio_cash_demo_test = addPlainTestRun(b, portfolio_cash_demo_test);
-        system_step.dependOn(&run_portfolio_cash_demo_test.step);
+        system_lane.strategy(b, .{
+            .investment_demo_mod = investment_demo_mod,
+            .investment_support_int_mod = investment_support_int_mod,
+            .fd_lib_dir = fd_lib_dir,
+        }, target, optimize, system_step);
 
         // Compatibility alias for the old live-model smoke command.
         const live_model_step = b.step("integration-test-live-model", "Alias for the live V1.1 system/demo lane");
