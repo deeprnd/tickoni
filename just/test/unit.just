@@ -9,7 +9,7 @@ gen-audit-fixtures:
 # Run Python unit tests for contrib/test/* (pytest, no FD build required).
 test-unit-setup:
     {{ python }} {{ justfile_dir }}/contrib/setup/orchestrator.py test-tools
-    cd {{ justfile_dir }} && {{ python }} -m pytest --basetemp=build/pytest -o cache_dir=build/pytest-cache contrib/test/
+    {{ python }} -m pytest --basetemp={{ justfile_dir }}/build/pytest -o cache_dir={{ justfile_dir }}/build/pytest-cache {{ justfile_dir }}/contrib/test/
 
 test-unit-all:
     {{ python }} {{ justfile_dir }}/contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-setup && just test-unit-tk && just test-unit-fd"
