@@ -43,7 +43,8 @@ elif [ "$JOB" = "coverage-tk" ]; then
         exit 1
     }
 
-    COV_BINS="zig-out/cov"
+    COV_PREFIX="${ZIG_PREFIX:-zig-out}"
+    COV_BINS="${COV_PREFIX}/cov"
     COV_RAW="build/coverage/tk/kcov"
     SUMMARY="build/coverage/tk/coverage-summary.json"
     CONFIG="contrib/test/coverage-tk.json"
@@ -60,6 +61,7 @@ elif [ "$JOB" = "coverage-tk" ]; then
     rm -rf "$COV_CACHE" "$COV_GLOBAL_CACHE" "$COV_BINS" "$COV_RAW"
     ZIG_GLOBAL_CACHE_DIR="$COV_GLOBAL_CACHE" zig build \
         --cache-dir "$COV_CACHE" \
+        -p "$COV_PREFIX" \
         -Dtest=true cov -Doptimize=ReleaseSafe -Dfd-lib-dir=build/fd-tickoni-fd/lib
 
     mkdir -p "$COV_RAW"
