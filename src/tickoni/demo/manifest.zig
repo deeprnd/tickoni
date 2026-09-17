@@ -479,7 +479,7 @@ test "Manifest.deinit zeroes all fields" {
 test "loadManifest parses valid JSON manifest" {
     const gpa = std.testing.allocator;
     const cwd = std.Io.Dir.cwd();
-    const result = loadManifest(gpa, cwd, std.testing.io, "/home/vicgenin/work/git/tickoni/src/tickoni/demo/fixtures/demo.manifest.json") catch |err| {
+    const result = loadManifest(gpa, cwd, std.testing.io, "tickoni/src/tickoni/demo/fixtures/demo.manifest.json") catch |err| {
         // Skip if file not found (e.g. in CI)
         if (err == Error.FileError) return;
         return err;
