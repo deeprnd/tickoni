@@ -30,7 +30,7 @@ pub const IntegrationModules = struct {
     mock_http_support_mod: *std.Build.Module,
     mock_broker_market_server_mod: *std.Build.Module,
     mock_openai_server_mod: *std.Build.Module,
-    exe: *std.Build.Step.Compile,
+    exe: ?*std.Build.Step.Compile,
     shared_audit_tile: *std.Build.Module,
     shared_basket: *std.Build.Module,
     shared_portfolio: *std.Build.Module,
@@ -70,10 +70,12 @@ pub const ModuleFactory = struct {
     }
 
     /// Create all integration modules in one call. Module pointers
-    /// are created once and shared across the graph.
+    /// are created once and shared across the graph. `exe` is optional
+    /// — it is stored in the result struct but only read by the
+    /// integration lane; unit lane ignores it.
     pub fn createIntModules(
         self: *const ModuleFactory,
-        exe: *std.Build.Step.Compile,
+        exe: ?*std.Build.Step.Compile,
     ) IntegrationModules {
         // Create modules in dependency order.
         const tkpoly_int_mod = self.b.createModule(.{
