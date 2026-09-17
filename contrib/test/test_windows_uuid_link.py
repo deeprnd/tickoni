@@ -5,10 +5,11 @@ from pathlib import Path
 
 BUILD_ZIG = Path(__file__).resolve().parents[2] / "build.zig"
 CODEC_ZIG = Path(__file__).resolve().parents[2] / "build-lib" / "lib" / "codec.zig"
+HELPERS_ZIG = Path(__file__).resolve().parents[2] / "build-lib" / "lib" / "helpers.zig"
 
 
 def test_windows_supervisor_links_uuid_archive_from_fd_lib_dir():
-    text = BUILD_ZIG.read_text()
+    text = HELPERS_ZIG.read_text()
 
     supervisor_branch = text.split(
         "if (target.result.os.tag == .windows) {", 1
@@ -19,7 +20,7 @@ def test_windows_supervisor_links_uuid_archive_from_fd_lib_dir():
 
 
 def test_windows_supervisor_links_all_firedancer_archives():
-    text = BUILD_ZIG.read_text()
+    text = HELPERS_ZIG.read_text()
 
     supervisor_branch = text.split(
         "if (target.result.os.tag == .windows) {", 1
