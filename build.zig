@@ -142,7 +142,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "audit_tile", .module = tm.audit_tile },
+            .{ .name = "audit_tile", .module = shared.audit_tile },
             .{ .name = "basket", .module = shared.basket },
             .{ .name = "drift", .module = tm.drift },
             .{ .name = "model", .module = model_int_mod },
@@ -415,6 +415,17 @@ pub fn build(b: *std.Build) void {
             .investment_demo_test_mod = investment_demo_test_mod,
             .supervisor_named_mod = supervisor_named_mod,
             .exe = exe,
+            // Shared schema modules — match build.zig shared instances to
+            // avoid Zig 0.17 "file exists in modules X and X0" error.
+            .shared_audit_tile = shared.audit_tile,
+            .shared_basket = shared.basket,
+            .shared_portfolio = shared.portfolio,
+            .shared_thesis = shared.thesis,
+            .shared_trade_ticket = tm.trade_ticket,
+            .shared_runtime = shared.runtime,
+            .shared_c_abi = shared.c_abi,
+            .shared_util = shared.util,
+            .shared_topologies = shared.topologies,
         };
         integration_lane.strategy(b, int_mods, target, optimize, fd_lib_dir, integration_step);
 
@@ -478,7 +489,7 @@ pub fn build(b: *std.Build) void {
                 .optimize = optimize,
                 .imports = &.{
                     .{ .name = "adapter", .module = adapter_int_mod },
-                    .{ .name = "audit_tile", .module = tm.audit_tile },
+                    .{ .name = "audit_tile", .module = shared.audit_tile },
                     .{ .name = "basket", .module = shared.basket },
                     .{ .name = "investment_demo", .module = investment_demo_mod },
                     .{ .name = "investment_audit", .module = investment_audit_int_mod },
