@@ -68,7 +68,12 @@ class OpenSSLBuildStrategy(InstallStrategy):
         # directory regardless of which subdirectory `just` runs from.
         repo_root = Path(__file__).resolve().parent.parent.parent.parent.parent
         raw_dir = params.get('install_dir', './build/opt')
-        install_dir = _expand_home(str(repo_root / raw_dir.lstrip('./')))
+        # Check absolute BEFORE lstrip — lstrip('./') strips leading '/' from
+        # absolute paths, turning them into relative strings.
+        if raw_dir.startswith('/') or raw_dir.startswith('~'):
+            install_dir = _expand_home(raw_dir)
+        else:
+            install_dir = _expand_home(str(repo_root / raw_dir.lstrip('./')))
         install_path = Path(install_dir)
 
         # Idempotency check (respect SKIP_IDEMPOTENCY env var)
