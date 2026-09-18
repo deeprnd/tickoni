@@ -7,7 +7,6 @@ const util = @import("util");
 const supervisor_mod = @import("supervisor.zig");
 const Supervisor = supervisor_mod.Supervisor;
 const ProcessPipelineConfig = supervisor_mod.ProcessPipelineConfig;
-const ProcessMetricSnapshot = supervisor_mod.ProcessMetricSnapshot;
 const tile_main = @import("tile_main.zig");
 const topologies = @import("topologies");
 const doctor_output = @import("doctor_output");
@@ -324,7 +323,7 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
     var sample_count: u32 = 0;
 
     // Collect per-tile snapshots for delta comparison.
-    var prev_per_tile: [8]ProcessMetricSnapshot = undefined;
+    var prev_per_tile: [8]Supervisor.ProcessMetricSnapshot = undefined;
     for (0..prev_per_tile.len) |i| {
         prev_per_tile[i] = try sup.snapshotProcessMetricsForTile(i);
     }
