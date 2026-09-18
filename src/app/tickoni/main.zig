@@ -187,8 +187,52 @@ fn cmdStart(init: std.process.Init, topo: rt.topology.Topology) !void {
 
     log.debug("main", "cmdStart", "starting payment pipeline: event_count=10000, queue_depth=64") catch {};
     try sup.startPaymentPipeline(.{ .event_count = 10_000, .queue_depth = 64 });
-    log.debug("main", "cmdStart", "pipeline started, waiting") catch {};
-    sup.wait();
+    log.debug("main", "cmdStart", "pipeline started, monitoring tiles") catch {};
+
+    // Periodic metric sampling — visible per-tile deltas during execution.
+    // Fixes V2.22.S4 "No black boxes" audit FAIL #1.
+    const sample_interval_ns: u64 = 100 * std.time.ns_per_ms;
+    const max_samples: u32 = 600; // 60s bound
+    var sample_count: u32 = 0;
+
+    // Initialize previous snapshot
+    var prev_snap = sup.pipeline.?.snapshotMetrics();
+    var tv: std.posix.timeval = undefined;
+    std.posix.gettimeofday(&tv, null);
+    const prev_time_s: u64 = @intCast(tv.sec);
+
+    // Poll for completion with per-tile delta output
+    while (sample_count < max_samples) : (sample_count += 1) {
+        if (prev_snap.audited >= 10_000) break;
+        util.process.sleepNanos(sample_interval_ns);
+
+        const cur_snap = sup.pipeline.?.snapshotMetrics();
+        var tv2: std.posix.timeval = undefined;
+        std.posix.gettimeofday(&tv2, null);
+        const cur_time_s: u64 = @intCast(tv2.sec);
+
+        // Print deltas if counters changed
+        const d_prod = @as(i64, @intCast(cur_snap.produced)) - @as(i64, @intCast(prev_snap.produced));
+        const d_norm = @as(i64, @intCast(cur_snap.normalized)) - @as(i64, @intCast(prev_snap.normalized));
+        const d_inv = @as(i64, @intCast(cur_snap.invalid)) - @as(i64, @intCast(prev_snap.invalid));
+        const d_dup = @as(i64, @intCast(cur_snap.duplicates)) - @as(i64, @intCast(prev_snap.duplicates));
+        const d_allow = @as(i64, @intCast(cur_snap.allowed)) - @as(i64, @intCast(prev_snap.allowed));
+        const d_deny = @as(i64, @intCast(cur_snap.denied)) - @as(i64, @intCast(prev_snap.denied));
+        const d_audit = @as(i64, @intCast(cur_snap.audited)) - @as(i64, @intCast(prev_snap.audited));
+        if (d_prod != 0 or d_norm != 0 or d_inv != 0 or d_dup != 0 or d_allow != 0 or d_deny != 0 or d_audit != 0) {
+            var delta_buf: [256]u8 = undefined;
+            const delta_line = try std.fmt.bufPrint(
+                &delta_buf,
+                "delta @ {}s:  P={d} N={d} I={d} D={d} A={d} R={d} U={d}\n",
+                .{ cur_time_s - prev_time_s, d_prod, d_norm, d_inv, d_dup, d_allow, d_deny, d_audit },
+            );
+            try File.writeStreamingAll(stdout, init.io, delta_line);
+        }
+
+        prev_snap = cur_snap;
+        prev_time_s = cur_time_s;
+    }
+
     log.debug("main", "cmdStart", "pipeline completed") catch {};
 
     try File.writeStreamingAll(stdout, init.io, "tickoni-supervisor: Phase 0 pipeline completed\ntiles:\n");

@@ -589,6 +589,39 @@ pub const Supervisor = struct {
         return snap;
     }
 
+    /// Timestamped process-mode metric snapshot for per-tile visibility during execution.
+    /// Fixes V2.22.S4 "No black boxes" audit FAIL #1.
+    pub const ProcessMetricSnapshotWithTime = struct {
+        epoch_ns: u64,
+        produced: u64 = 0,
+        normalized: u64 = 0,
+        invalid: u64 = 0,
+        duplicates: u64 = 0,
+        allowed: u64 = 0,
+        denied: u64 = 0,
+        audited: u64 = 0,
+    };
+
+    /// Convert a plain ProcessMetricSnapshot into a timestamped version.
+    fn processSnapToWithTime(snap: ProcessMetricSnapshot, epoch: u64) ProcessMetricSnapshotWithTime {
+        return .{
+            .epoch_ns = epoch,
+            .produced = snap.produced,
+            .normalized = snap.normalized,
+            .invalid = snap.invalid,
+            .duplicates = snap.duplicates,
+            .allowed = snap.allowed,
+            .denied = snap.denied,
+            .audited = snap.audited,
+        };
+    }
+
+    /// Read process metrics, annotate with current time.
+    pub fn snapshotProcessMetricsWithTime(self: *const Supervisor) ProcessMetricSnapshotWithTime {
+        const snap = self.snapshotProcessMetrics();
+        return processSnapToWithTime(snap, @intCast(util.process.monotonicNanos()));
+    }
+
     /// Signals every tile to halt via its cnc (crash-only shutdown, not a
     /// POSIX signal — matches fd_cnc's own command/control model), waits
     /// for exit, and fully tears down the shared workspace. Sibling tiles
