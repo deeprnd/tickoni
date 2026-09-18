@@ -29,14 +29,14 @@ pub fn runReplay(state: *PaymentPipelineState) void {
     }
 
     state.external_effects_disabled.store(true, .release);
-    const divergences = deterministicReplayDivergences(state);
+    const divergences = deterministicReplayDivergences(state, log);
     state.replay_divergences.store(divergences, .release);
     state.replay_match.store(divergences == 0, .release);
     state.replay_checked.store(true, .release);
     log.debug("tkrepl", "runReplay", "replay check complete") catch {};
 }
 
-fn deterministicReplayDivergences(state: *PaymentPipelineState) u64 {
+fn deterministicReplayDivergences(state: *PaymentPipelineState, log: *logger.Logger) u64 {
     var prev_hash = audit_sink.audit_seed;
     var expected_seq: u64 = 0;
     var divergences: u64 = 0;
