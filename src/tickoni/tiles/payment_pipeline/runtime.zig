@@ -79,6 +79,43 @@ pub const DiagSnapshot = struct {
     replay_match: bool,
 };
 
+/// Timestamped metric snapshot for per-tile visibility during execution.
+/// Fixes V2.22.S4 "No black boxes" audit FAIL #1.
+pub const MetricSnapshotWithTime = struct {
+    epoch_ns: u64,
+    produced: u64,
+    normalized: u64,
+    invalid: u64,
+    duplicates: u64,
+    allowed: u64,
+    denied: u64,
+    audited: u64,
+    backpressure_waits: u64,
+    max_queue_depth: u64,
+    max_latency_hops: u64,
+};
+
+/// Format a MetricSnapshotWithTime as a single output line.
+pub fn formatSnapshotWithTime(snap: MetricSnapshotWithTime, buf: []u8) ![]const u8 {
+    return try std.fmt.bufPrint(
+        buf,
+        "metrics @ {d}ms  produced={d} normalized={d} invalid={d} dup={d} allow={d} deny={d} audited={d} backpressure={d} qdepth={d} hops={d}\n",
+        .{
+            snap.epoch_ns / (std.time.ns_per_ms),
+            snap.produced,
+            snap.normalized,
+            snap.invalid,
+            snap.duplicates,
+            snap.allowed,
+            snap.denied,
+            snap.audited,
+            snap.backpressure_waits,
+            snap.max_queue_depth,
+            snap.max_latency_hops,
+        },
+    );
+}
+
 const MessageQueue = queue.BoundedQueue(PaymentMessage);
 const AuditLog = audit_sink.AuditLog;
 pub const crash_none: i32 = -1;
