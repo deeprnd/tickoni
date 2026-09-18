@@ -8,6 +8,7 @@
 /// src/tickoni/runtime/boot.zig, which calls boot() below. Tile-process
 /// teardown uses haltForTileProcess() so non-Linux quirks stay hidden behind
 /// this ABI boundary instead of leaking into runtime orchestration code.
+const std = @import("std");
 const builtin = @import("builtin");
 extern fn tk_boot(pargc: *c_int, pargv: *[*][*:0]u8) void;
 extern fn tk_halt() void;
