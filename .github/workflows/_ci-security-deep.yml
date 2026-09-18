@@ -37,9 +37,9 @@ jobs:
         if: inputs.check == 'sanitize-fd'
         run: just setup-build-linux-x86-gcc
 
-      - name: Setup coverage/sanitizer toolchain (sanitize-fd)
+      - name: Setup sanitizer toolchain (sanitize-fd)
         if: inputs.check == 'sanitize-fd'
-        run: just setup-coverage-linux-x86-clang
+        run: just setup-sanitizer-linux-x86-clang
 
       - name: Setup Firedancer deps (sanitize-fd)
         if: inputs.check == 'sanitize-fd'

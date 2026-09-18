@@ -277,6 +277,10 @@ setup-fd-deps-macos-arm:
 setup-coverage-linux-x86-clang:
 	python3 {{ justfile_dir }}/contrib/setup/orchestrator.py coverage,toolchain
 
+# Sanitizer checks (ASan/UBSan) only need clang/llvm — no kcov.
+setup-sanitizer-linux-x86-clang:
+	python3 {{ justfile_dir }}/contrib/setup/orchestrator.py toolchain
+
 # ── FD deps for platforms missing them ─────────────────────────────────────
 setup-fd-deps-windows-x86:
 	{{ python }} {{ justfile_dir }}/contrib/setup/orchestrator.py fd --platform windows-x86
