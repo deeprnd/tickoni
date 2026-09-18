@@ -197,9 +197,7 @@ fn cmdStart(init: std.process.Init, topo: rt.topology.Topology) !void {
 
     // Initialize previous snapshot
     var prev_snap = sup.pipeline.?.snapshotMetrics();
-    var tv: std.posix.timeval = undefined;
-    std.posix.gettimeofday(&tv, null);
-    const prev_time_s: u64 = @intCast(tv.sec);
+    var prev_time_s: u64 = @intCast(@divTrunc(util.os_api.monotonicNanos(), std.time.ns_per_s));
 
     // Poll for completion with per-tile delta output
     while (sample_count < max_samples) : (sample_count += 1) {
@@ -207,9 +205,7 @@ fn cmdStart(init: std.process.Init, topo: rt.topology.Topology) !void {
         util.process.sleepNanos(sample_interval_ns);
 
         const cur_snap = sup.pipeline.?.snapshotMetrics();
-        var tv2: std.posix.timeval = undefined;
-        std.posix.gettimeofday(&tv2, null);
-        const cur_time_s: u64 = @intCast(tv2.sec);
+        const cur_time_s: u64 = @intCast(@divTrunc(util.os_api.monotonicNanos(), std.time.ns_per_s));
 
         // Print deltas if counters changed
         const d_prod = @as(i64, @intCast(cur_snap.produced)) - @as(i64, @intCast(prev_snap.produced));
@@ -333,13 +329,12 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
         if (sup.snapshotProcessMetrics().audited >= process_config.event_count) break;
         util.process.sleepNanos(sample_interval_ns);
 
-        var curr_per_tile: [8]ProcessMetricSnapshot = undefined;
+        var curr_per_tile: [8]Supervisor.ProcessMetricSnapshot = undefined;
         for (0..curr_per_tile.len) |i| {
             curr_per_tile[i] = try sup.snapshotProcessMetricsForTile(i);
         }
 
         // Print per-tile deltas
-        var delta_buf: [512]u8 = undefined;
         const count = @min(prev_per_tile.len, curr_per_tile.len);
         for (0..count) |i| {
             const p = prev_per_tile[i];
