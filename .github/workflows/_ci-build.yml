@@ -26,6 +26,8 @@ jobs:
             runner: ubuntu-24.04
             timeout_minutes: 30
             artifact-name: build-linux-x86
+            platform: linux-x86
+            compiler: gcc-12
             conformance-dir: linux
             setup-recipe: setup-build-linux-x86-gcc
             setup-fd: setup-fd-linux-x86-gcc
@@ -37,6 +39,8 @@ jobs:
             runner: ubuntu-24.04
             timeout_minutes: 30
             artifact-name: build-linux-x86-clang
+            platform: linux-x86
+            compiler: clang-18
             setup-recipe: setup-build-linux-x86-clang
             setup-fd: setup-fd-linux-x86-clang
             build-recipe: build-fd-tk-libs
@@ -47,6 +51,8 @@ jobs:
             runner: ubuntu-24.04-arm
             timeout_minutes: 30
             artifact-name: build-linux-arm
+            platform: linux-arm
+            compiler: gcc-14
             conformance-dir: linux
             setup-recipe: setup-build-linux-arm-gcc
             setup-fd: setup-fd-linux-arm-gcc
@@ -58,6 +64,8 @@ jobs:
             runner: macos-15-intel
             timeout_minutes: 30
             artifact-name: build-macos-15-x86_64
+            platform: macos-x86
+            compiler: clang
             conformance-dir: macos-15-x86_64
             setup-recipe: setup-build-macos-x86
             setup-fd: setup-fd-macos-x86
@@ -68,6 +76,8 @@ jobs:
             runner: macos-15
             timeout_minutes: 30
             artifact-name: build-macos-15-arm
+            platform: macos-arm
+            compiler: clang
             conformance-dir: macos-15-arm
             setup-recipe: setup-build-macos-arm
             setup-fd: setup-fd-macos-arm
@@ -79,6 +89,8 @@ jobs:
             runner: macos-26-intel
             timeout_minutes: 30
             artifact-name: build-macos-26-x86_64
+            platform: macos-x86
+            compiler: clang
             conformance-dir: macos-26-x86_64
             setup-recipe: setup-build-macos-x86
             setup-fd: setup-fd-macos-x86
@@ -89,6 +101,8 @@ jobs:
             runner: macos-26
             timeout_minutes: 30
             artifact-name: build-macos-26-arm
+            platform: macos-arm
+            compiler: clang
             conformance-dir: macos-26-arm
             setup-recipe: setup-build-macos-arm
             setup-fd: setup-fd-macos-arm
@@ -100,6 +114,8 @@ jobs:
             runner: windows-2025-vs2026
             timeout_minutes: 45
             artifact-name: build-windows-x86_64
+            platform: windows-x86
+            compiler: msvc
             conformance-dir: windows-x86_64
             setup-recipe: setup-build-windows-x86
             setup-fd: setup-fd-windows-x86
@@ -111,6 +127,8 @@ jobs:
             runner: windows-11-vs2026-arm
             timeout_minutes: 45
             artifact-name: build-windows-arm
+            platform: windows-arm
+            compiler: msvc
             conformance-dir: windows-arm
             setup-recipe: setup-build-windows-arm
             setup-fd: setup-fd-windows-arm
@@ -126,6 +144,36 @@ jobs:
 
       - name: Install just
         uses: taiki-e/install-action@just
+
+      - name: Cache MSVC Build Tools
+        uses: actions/cache@v4
+        if: runner.os == 'Windows'
+        with:
+          path: |
+            C:\Program Files\Microsoft Visual Studio\2022\VC
+            C:\Program Files (x86)\Microsoft Visual Studio\2022\VC
+          key: msvc-${{ runner.os }}-${{ matrix.platform }}-2022
+          restore-keys: |
+            msvc-${{ runner.os }}-${{ matrix.platform }}-
+
+      - name: Cache Zig SDK
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/zig
+            ~/.cache/zig
+            ~/scoop/apps/zig
+          key: zig-${{ runner.os }}-${{ matrix.platform }}-${{ hashFiles('contrib/setup/install-zig.py', 'contrib/setup/tool-versions.json') }}
+          restore-keys: |
+            zig-${{ runner.os }}-${{ matrix.platform }}-
+
+      - name: Cache Firedancer deps (snappy, rockdb, openssl)
+        uses: actions/cache@v4
+        with:
+          path: build/fd-deps
+          key: fd-deps-${{ runner.os }}-${{ matrix.platform }}-${{ matrix.compiler }}-${{ hashFiles('contrib/setup/tool-versions.json') }}
+          restore-keys: |
+            fd-deps-${{ runner.os }}-${{ matrix.platform }}-
 
       - name: Setup toolchain
         run: just ${{ matrix.setup-recipe }}
