@@ -96,8 +96,8 @@ jobs:
       - name: Install just
         uses: taiki-e/install-action@just
 
-      - name: Install Zig (idempotent, cached)
-        run: python3 contrib/setup/orchestrator.py zig
+      - name: Install Zig
+        run: just setup-zig
 
       - name: Download build artifact (Build stage output)
         uses: actions/download-artifact@v8

@@ -137,6 +137,11 @@ setup-fd-linux-x86-gcc:
 	python3 {{ justfile_dir }}/contrib/setup/orchestrator.py build
 	python3 {{ justfile_dir }}/contrib/setup/orchestrator.py zig,ssl
 
+# Install Zig only (idempotent — no-op if already installed).
+# Used by CI test workflows that download build artifacts.
+setup-zig:
+	python3 {{ justfile_dir }}/contrib/setup/orchestrator.py zig
+
 setup-fd-linux-x86-clang:
 	python3 {{ justfile_dir }}/contrib/setup/orchestrator.py build
 	python3 {{ justfile_dir }}/contrib/setup/orchestrator.py zig,ssl
