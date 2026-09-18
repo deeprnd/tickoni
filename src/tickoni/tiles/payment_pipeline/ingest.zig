@@ -34,7 +34,7 @@ pub fn runIngest(state: *PaymentPipelineState) void {
             _ = state.produced.fetchAdd(1, .release);
             log.kvFmt("tkings", "runIngest", "offset={d} account={d} amount={d}c", .{ offset, raw.account_id, raw.amount_cents });
         } else |_| {
-            log.kvFmt("tkings", "runIngest", "offset={d} reason=queue_full", .{ offset });
+            log.kvFmt("tkings", "runIngest", "offset={d} reason=queue_full", .{offset});
             break;
         }
     }
