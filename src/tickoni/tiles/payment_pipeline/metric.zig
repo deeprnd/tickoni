@@ -19,7 +19,7 @@ pub fn runMetric(state: *PaymentPipelineState) void {
         _ = state.metric_snapshots.fetchAdd(1, .release);
         if (snap.backpressure_waits > backpressure_waits) {
             backpressure_waits = snap.backpressure_waits;
-            log.debug("tkmetr", "runMetric", "backpressure wait detected") catch {};
+            log.kvFmt("tkmetr", "runMetric", "backpressure_waits={d} max_queue_depth={d}", .{ snap.backpressure_waits, snap.max_queue_depth });
         }
         if (snap.max_queue_depth > max_qd) max_qd = snap.max_queue_depth;
         std.Thread.yield() catch {};
