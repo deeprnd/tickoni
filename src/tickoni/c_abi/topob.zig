@@ -16,6 +16,7 @@
 ///
 /// Link requirements: -lfd_disco -lfd_ballet -lfd_waltz -lfd_tango
 /// -lfd_util and shim/topob.c at link time.
+const std = @import("std");
 const topo_run = @import("topo_run.zig");
 const wksp_mod = @import("wksp.zig");
 

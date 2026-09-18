@@ -185,10 +185,27 @@ pub const Logger = struct {
         var tmp: [1024]u8 = undefined;
         const combined = std.fmt.bufPrint(&tmp, "{s} {s}", .{ kv_pairs, message }) catch {
             // If combined message exceeds buffer, fall back to just message
-            try self.write(module, func, message);
+            try self.write(.debug, module, func, message);
             return;
         };
-        try self.write(module, func, combined);
+        try self.write(.debug, module, func, combined);
+    }
+
+    /// Log with key-value pairs and a format string — handles formatting
+    /// internally so callers don't need their own buffers.
+    pub fn kvFmt(
+        self: *Logger,
+        module: []const u8,
+        func: []const u8,
+        comptime fmt: []const u8,
+        args: anytype,
+    ) void {
+        var tmp: [1024]u8 = undefined;
+        const combined = std.fmt.bufPrint(&tmp, fmt, args) catch {
+            // If formatting fails, skip the log entry
+            return;
+        };
+        self.write(.debug, module, func, combined) catch {};
     }
 };
 
