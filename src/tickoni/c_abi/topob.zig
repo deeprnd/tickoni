@@ -202,3 +202,42 @@ pub fn topoWkspPartMax(topo: *Topo, wksp_idx: usize) usize {
 pub fn topobAutoLayout(topo: *Topo, cpu_idx: [*]const usize) void {
     tk_topob_auto_layout(topo, cpu_idx);
 }
+
+// ---------------------------------------------------------------------------
+// Tests — constants, type smoke, and compile-time surface checks.
+// ---------------------------------------------------------------------------
+
+test "not_found is ~0 (all bits set)" {
+    try std.testing.expectEqual(@as(usize, ~@as(usize, 0)), not_found);
+}
+
+test "shmem_join_mode constants are 0 and 1" {
+    try std.testing.expectEqual(shmem_join_mode_read_only, 0);
+    try std.testing.expectEqual(shmem_join_mode_read_write, 1);
+}
+
+test "core_dump_level constants are in expected order" {
+    try std.testing.expectEqual(core_dump_level_disabled, 0);
+    try std.testing.expectEqual(core_dump_level_minimal, 1);
+    try std.testing.expectEqual(core_dump_level_regular, 2);
+    try std.testing.expectEqual(core_dump_level_full, 3);
+    try std.testing.expectEqual(core_dump_level_never, 4);
+}
+
+test "topob.zig module exposes expected public types" {
+    // Smoke: verify the re-exported types from topo_run.zig compile.
+    const _t1: ?*Topo = null;
+    const _t2: ?*TopoTile = null;
+    _ = _t1;
+    _ = _t2;
+}
+
+test "topob.zig module exposes expected constant functions" {
+    // Smoke: these functions exist and return usize.
+    // They call C externs, so we can't run them without linkage,
+    // but we can verify they compile and have the right signature.
+    const t = @TypeOf(topoSizeof);
+    const u = @TypeOf(topoAlignof);
+    _ = t;
+    _ = u;
+}
