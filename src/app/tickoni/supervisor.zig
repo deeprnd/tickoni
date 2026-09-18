@@ -622,6 +622,28 @@ pub const Supervisor = struct {
         return processSnapToWithTime(snap, @intCast(util.process.monotonicNanos()));
     }
 
+    /// Read metrics for a single tile in process-mode.
+    pub fn snapshotProcessMetricsForTile(self: *const Supervisor, tile_idx: usize) !ProcessMetricSnapshot {
+        const state = self.process_state orelse return error.NoProcessState;
+        const cnc = state.cncs[tile_idx] orelse return error.CncNotFound;
+        const tile = self.topo.tiles[tile_idx];
+        const entry = tile_registry.findById(tile.id) orelse return error.TileNotFound;
+        var snap = ProcessMetricSnapshot{};
+        for (entry.counters) |c| {
+            const v = rt.cnc_counters.appCounterRead(cnc, c.idx);
+            switch (c.field) {
+                .produced => snap.produced = v,
+                .normalized => snap.normalized = v,
+                .invalid => snap.invalid = v,
+                .duplicates => snap.duplicates = v,
+                .allowed => snap.allowed = v,
+                .denied => snap.denied = v,
+                .audited => snap.audited = v,
+            }
+        }
+        return snap;
+    }
+
     /// Signals every tile to halt via its cnc (crash-only shutdown, not a
     /// POSIX signal — matches fd_cnc's own command/control model), waits
     /// for exit, and fully tears down the shared workspace. Sibling tiles
