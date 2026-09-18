@@ -139,6 +139,9 @@ jobs:
       - name: Build Tickoni supervisor
         run: just ${{ matrix.build-tk-recipe }}
 
+      - name: Install supervisor binary
+        run: zig build install --prefix build/zig-out
+
       - name: Build Qt terminal
         env:
           QT_USERNAME: ${{ secrets.QT_USERNAME }}
