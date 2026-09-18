@@ -38,7 +38,7 @@ pub fn build(b: *std.Build) void {
 
     // Supervisor executable
     const exe = helpers.createSupervisorExe(b, shared, target, optimize, fd_lib_dir);
-    b.installArtifact(exe);
+    const exe_install = b.addInstallArtifact(exe, .{});
 
     const run_exe = b.addRunArtifact(exe);
     if (@hasField(std.Build, "args")) {
@@ -182,7 +182,7 @@ pub fn build(b: *std.Build) void {
         run_cli_step.dependOn(&b.addRunArtifact(cli_exe).step);
 
         // Unit + integration + system lanes
-        test_lanes.registerTestLanes(b, check_step, shared, tm, target, optimize, fd_lib_dir, exe);
+        test_lanes.registerTestLanes(b, check_step, shared, tm, target, optimize, fd_lib_dir, exe, exe_install);
     }
 
     // Coverage lane (always available)

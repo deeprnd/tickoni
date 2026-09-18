@@ -24,6 +24,7 @@ pub fn registerTestLanes(
     optimize: std.builtin.OptimizeMode,
     fd_lib_dir: []const u8,
     exe: *std.Build.Step.Compile,
+    exe_install: *std.Build.Step.InstallArtifact,
 ) void {
     const run_tests_cmd = lane.createRunTestsCmd(b);
 
@@ -37,7 +38,10 @@ pub fn registerTestLanes(
     const int_mods = integration_lane.createIntModules(b, shared, tm, target, optimize, exe);
 
     const integration_step = b.step("integration-test", "Run Tickoni mock-backed integration tests");
-    integration_lane.strategy(b, int_mods, target, optimize, fd_lib_dir, integration_step);
+    // Supervisor binary must exist at prefix before process-mode tests
+    // spawn it (tile_exe_path = "build/zig-out/bin/tickoni-supervisor").
+    integration_step.dependOn(&exe_install.step);
+    integration_lane.strategy(b, int_mods, target, optimize, fd_lib_dir, integration_step, exe_install);
 
     const system_step = b.step("system-test", "Run all src/tickoni/test/system proofs");
     system_lane.strategy(b, .{
