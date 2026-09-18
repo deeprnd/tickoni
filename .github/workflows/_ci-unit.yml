@@ -24,6 +24,7 @@ jobs:
             runner: ubuntu-24.04
             timeout_minutes: 30
             artifact-name: build-linux-x86
+            platform: linux-x86
             fd-test-recipe: test-unit-fd-linux-x86-gcc
             test-recipe: test-unit-tk-linux-x86
             compiler: gcc-12
@@ -32,6 +33,7 @@ jobs:
             runner: ubuntu-24.04
             timeout_minutes: 30
             artifact-name: build-linux-x86-clang
+            platform: linux-x86
             fd-test-recipe: test-unit-fd-linux-x86-clang
             test-recipe: test-unit-tk-linux-x86
             compiler: clang-18
@@ -40,6 +42,7 @@ jobs:
             runner: ubuntu-24.04-arm
             timeout_minutes: 30
             artifact-name: build-linux-arm
+            platform: linux-arm
             fd-test-recipe: test-unit-fd-linux-arm-gcc
             test-recipe: test-unit-tk-linux-arm
             compiler: gcc-14
@@ -48,6 +51,7 @@ jobs:
             runner: macos-15-intel
             timeout_minutes: 30
             artifact-name: build-macos-15-x86_64
+            platform: macos-x86
             fd-test-recipe: test-unit-fd-macos-x86
             test-recipe: test-unit-tk-macos-x86
             compiler: clang
@@ -56,6 +60,7 @@ jobs:
             runner: macos-15
             timeout_minutes: 30
             artifact-name: build-macos-15-arm
+            platform: macos-arm
             fd-test-recipe: test-unit-fd-macos-arm
             test-recipe: test-unit-tk-macos-arm
             compiler: clang
@@ -64,6 +69,7 @@ jobs:
             runner: macos-26-intel
             timeout_minutes: 30
             artifact-name: build-macos-26-x86_64
+            platform: macos-x86
             fd-test-recipe: test-unit-fd-macos-x86
             test-recipe: test-unit-tk-macos-x86
             compiler: clang
@@ -72,6 +78,7 @@ jobs:
             runner: macos-26
             timeout_minutes: 30
             artifact-name: build-macos-26-arm
+            platform: macos-arm
             fd-test-recipe: test-unit-fd-macos-arm
             test-recipe: test-unit-tk-macos-arm
             compiler: clang
@@ -80,6 +87,7 @@ jobs:
             runner: windows-2025-vs2026
             timeout_minutes: 30
             artifact-name: build-windows-x86_64
+            platform: windows-x86
             fd-test-recipe: test-unit-fd-windows-x86
             test-recipe: test-unit-tk-windows-x86
             compiler: msvc
@@ -88,6 +96,7 @@ jobs:
             runner: windows-11-vs2026-arm
             timeout_minutes: 30
             artifact-name: build-windows-arm
+            platform: windows-arm
             fd-test-recipe: test-unit-fd-windows-arm
             test-recipe: test-unit-tk-windows-arm
             compiler: msvc
@@ -99,24 +108,8 @@ jobs:
       - name: Install just
         uses: taiki-e/install-action@just
 
-      - name: Cache Zig SDK
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.local/zig
-            ~/.cache/zig
-            ~/scoop/apps/zig
-          key: zig-${{ runner.os }}-${{ matrix.platform }}-${{ hashFiles('contrib/setup/install-zig.py', 'contrib/setup/tool-versions.json') }}
-          restore-keys: |
-            zig-${{ runner.os }}-${{ matrix.platform }}-
-
-      - name: Cache Firedancer deps (snappy, rockdb, openssl)
-        uses: actions/cache@v4
-        with:
-          path: build/fd-deps
-          key: fd-deps-${{ runner.os }}-${{ matrix.platform }}-${{ matrix.compiler }}-${{ hashFiles('contrib/setup/tool-versions.json') }}
-          restore-keys: |
-            fd-deps-${{ runner.os }}-${{ matrix.platform }}-
+      - name: Install Zig (idempotent, cached)
+        run: python3 contrib/setup/orchestrator.py zig
 
       - name: Download build artifact (Build stage output)
         uses: actions/download-artifact@v8
