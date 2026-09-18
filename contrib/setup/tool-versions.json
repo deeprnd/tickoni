@@ -362,7 +362,8 @@
     "coverage": [
       "core",
       "build",
-      "toolchain"
+      "toolchain",
+      "zig"
     ],
     "security": [
       "core"
