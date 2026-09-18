@@ -22,9 +22,7 @@ jobs:
             timeout_minutes: 60
             artifact-name: build-linux-x86
             test-recipe: test-system-tk-linux-x86
-            build-recipe: build-fd-linux-x86-gcc
-            fd-deps: setup-fd-linux-x86-gcc
-            setup-recipe: setup-build-linux-x86-gcc
+            compiler: gcc-12
             llamacpp: infra-ensure-llamacpp
           # Linux x86_64 (clang)
           - platform-name: Linux x86_64 (clang)
@@ -32,9 +30,7 @@ jobs:
             timeout_minutes: 60
             artifact-name: build-linux-x86-clang
             test-recipe: test-system-tk-linux-x86
-            build-recipe: build-fd-linux-x86-clang
-            fd-deps: setup-fd-linux-x86-clang
-            setup-recipe: setup-build-linux-x86-clang
+            compiler: clang-18
             llamacpp: infra-ensure-llamacpp
           # Linux ARM64
           - platform-name: Linux ARM
@@ -42,9 +38,7 @@ jobs:
             timeout_minutes: 60
             artifact-name: build-linux-arm
             test-recipe: test-system-tk-linux-arm
-            build-recipe: build-fd-linux-arm-gcc
-            fd-deps: setup-fd-linux-arm-gcc
-            setup-recipe: setup-build-linux-arm-gcc
+            compiler: gcc-14
             llamacpp: infra-ensure-llamacpp
           # macOS 15 (x86_64)
           - platform-name: macOS 15 (x86_64)
@@ -52,9 +46,7 @@ jobs:
             timeout_minutes: 60
             artifact-name: build-macos-15-x86_64
             test-recipe: test-system-tk-macos-x86
-            build-recipe: build-fd-macos-x86
-            fd-deps: setup-fd-macos-x86
-            setup-recipe: setup-build-macos-x86
+            compiler: clang
             llamacpp: infra-ensure-llamacpp
           # macOS 15 (ARM)
           - platform-name: macOS 15 (ARM)
@@ -62,9 +54,7 @@ jobs:
             timeout_minutes: 60
             artifact-name: build-macos-15-arm
             test-recipe: test-system-tk-macos-arm
-            build-recipe: build-fd-macos-arm
-            fd-deps: setup-fd-macos-arm
-            setup-recipe: setup-build-macos-arm
+            compiler: clang
             llamacpp: infra-ensure-llamacpp
           # macOS 26 (x86_64)
           - platform-name: macOS 26 (x86_64)
@@ -72,9 +62,7 @@ jobs:
             timeout_minutes: 60
             artifact-name: build-macos-26-x86_64
             test-recipe: test-system-tk-macos-x86
-            build-recipe: build-fd-macos-x86
-            fd-deps: setup-fd-macos-x86
-            setup-recipe: setup-build-macos-x86
+            compiler: clang
             llamacpp: infra-ensure-llamacpp
           # macOS 26 (ARM)
           - platform-name: macOS 26 (ARM)
@@ -82,9 +70,7 @@ jobs:
             timeout_minutes: 60
             artifact-name: build-macos-26-arm
             test-recipe: test-system-tk-macos-arm
-            build-recipe: build-fd-macos-arm
-            fd-deps: setup-fd-macos-arm
-            setup-recipe: setup-build-macos-arm
+            compiler: clang
             llamacpp: infra-ensure-llamacpp
           # Windows x86_64
           - platform-name: Windows x86_64
@@ -92,8 +78,7 @@ jobs:
             timeout_minutes: 60
             artifact-name: build-windows-x86_64
             test-recipe: test-system-tk-windows-x86
-            build-recipe: build-fd-windows-x86
-            setup-recipe: setup-fd-windows-x86
+            compiler: msvc
             llamacpp: infra-ensure-llamacpp-win
           # Windows ARM64
           - platform-name: Windows ARM
@@ -101,8 +86,7 @@ jobs:
             timeout_minutes: 60
             artifact-name: build-windows-arm
             test-recipe: test-system-tk-windows-arm
-            build-recipe: build-fd-windows-arm
-            setup-recipe: setup-fd-windows-arm
+            compiler: msvc
             llamacpp: infra-ensure-llamacpp-win-arm
 
     steps:
@@ -111,6 +95,25 @@ jobs:
 
       - name: Install just
         uses: taiki-e/install-action@just
+
+      - name: Cache Zig SDK
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/zig
+            ~/.cache/zig
+            ~/scoop/apps/zig
+          key: zig-${{ runner.os }}-${{ matrix.platform }}-${{ hashFiles('contrib/setup/install-zig.py', 'contrib/setup/tool-versions.json') }}
+          restore-keys: |
+            zig-${{ runner.os }}-${{ matrix.platform }}-
+
+      - name: Cache Firedancer deps (snappy, rockdb, openssl)
+        uses: actions/cache@v4
+        with:
+          path: build/fd-deps
+          key: fd-deps-${{ runner.os }}-${{ matrix.platform }}-${{ matrix.compiler }}-${{ hashFiles('contrib/setup/tool-versions.json') }}
+          restore-keys: |
+            fd-deps-${{ runner.os }}-${{ matrix.platform }}-
 
       - name: Download build artifact (Build stage output)
         uses: actions/download-artifact@v8

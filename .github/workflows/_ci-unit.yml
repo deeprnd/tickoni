@@ -26,9 +26,7 @@ jobs:
             artifact-name: build-linux-x86
             fd-test-recipe: test-unit-fd-linux-x86-gcc
             test-recipe: test-unit-tk-linux-x86
-            build-recipe: build-fd-linux-x86-gcc
-            fd-deps: setup-fd-linux-x86-gcc
-            setup-recipe: setup-build-linux-x86-gcc
+            compiler: gcc-12
           # Linux x86_64 (clang)
           - platform-name: Linux x86_64 (clang)
             runner: ubuntu-24.04
@@ -36,9 +34,7 @@ jobs:
             artifact-name: build-linux-x86-clang
             fd-test-recipe: test-unit-fd-linux-x86-clang
             test-recipe: test-unit-tk-linux-x86
-            build-recipe: build-fd-linux-x86-clang
-            fd-deps: setup-fd-linux-x86-clang
-            setup-recipe: setup-build-linux-x86-clang
+            compiler: clang-18
           # Linux ARM64
           - platform-name: Linux ARM
             runner: ubuntu-24.04-arm
@@ -46,9 +42,7 @@ jobs:
             artifact-name: build-linux-arm
             fd-test-recipe: test-unit-fd-linux-arm-gcc
             test-recipe: test-unit-tk-linux-arm
-            build-recipe: build-fd-linux-arm-gcc
-            fd-deps: setup-fd-linux-arm-gcc
-            setup-recipe: setup-build-linux-arm-gcc
+            compiler: gcc-14
           # macOS 15 (x86_64)
           - platform-name: macOS 15 (x86_64)
             runner: macos-15-intel
@@ -56,9 +50,7 @@ jobs:
             artifact-name: build-macos-15-x86_64
             fd-test-recipe: test-unit-fd-macos-x86
             test-recipe: test-unit-tk-macos-x86
-            build-recipe: build-fd-macos-x86
-            fd-deps: setup-fd-macos-x86
-            setup-recipe: setup-build-macos-x86
+            compiler: clang
           # macOS 15 (ARM)
           - platform-name: macOS 15 (ARM)
             runner: macos-15
@@ -66,9 +58,7 @@ jobs:
             artifact-name: build-macos-15-arm
             fd-test-recipe: test-unit-fd-macos-arm
             test-recipe: test-unit-tk-macos-arm
-            build-recipe: build-fd-macos-arm
-            fd-deps: setup-fd-macos-arm
-            setup-recipe: setup-build-macos-arm
+            compiler: clang
           # macOS 26 (x86_64)
           - platform-name: macOS 26 (x86_64)
             runner: macos-26-intel
@@ -76,9 +66,7 @@ jobs:
             artifact-name: build-macos-26-x86_64
             fd-test-recipe: test-unit-fd-macos-x86
             test-recipe: test-unit-tk-macos-x86
-            build-recipe: build-fd-macos-x86
-            fd-deps: setup-fd-macos-x86
-            setup-recipe: setup-build-macos-x86
+            compiler: clang
           # macOS 26 (ARM)
           - platform-name: macOS 26 (ARM)
             runner: macos-26
@@ -86,9 +74,7 @@ jobs:
             artifact-name: build-macos-26-arm
             fd-test-recipe: test-unit-fd-macos-arm
             test-recipe: test-unit-tk-macos-arm
-            build-recipe: build-fd-macos-arm
-            fd-deps: setup-fd-macos-arm
-            setup-recipe: setup-build-macos-arm
+            compiler: clang
           # Windows x86_64
           - platform-name: Windows x86_64
             runner: windows-2025-vs2026
@@ -96,9 +82,7 @@ jobs:
             artifact-name: build-windows-x86_64
             fd-test-recipe: test-unit-fd-windows-x86
             test-recipe: test-unit-tk-windows-x86
-            build-recipe: build-fd-windows-x86
-            fd-deps: setup-fd-windows-x86
-            setup-recipe: setup-fd-windows-x86
+            compiler: msvc
           # Windows ARM64
           - platform-name: Windows ARM
             runner: windows-11-vs2026-arm
@@ -106,9 +90,7 @@ jobs:
             artifact-name: build-windows-arm
             fd-test-recipe: test-unit-fd-windows-arm
             test-recipe: test-unit-tk-windows-arm
-            build-recipe: build-fd-windows-arm
-            fd-deps: setup-fd-windows-arm
-            setup-recipe: setup-fd-windows-arm
+            compiler: msvc
 
     steps:
       - name: Checkout
@@ -116,6 +98,25 @@ jobs:
 
       - name: Install just
         uses: taiki-e/install-action@just
+
+      - name: Cache Zig SDK
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/zig
+            ~/.cache/zig
+            ~/scoop/apps/zig
+          key: zig-${{ runner.os }}-${{ matrix.platform }}-${{ hashFiles('contrib/setup/install-zig.py', 'contrib/setup/tool-versions.json') }}
+          restore-keys: |
+            zig-${{ runner.os }}-${{ matrix.platform }}-
+
+      - name: Cache Firedancer deps (snappy, rockdb, openssl)
+        uses: actions/cache@v4
+        with:
+          path: build/fd-deps
+          key: fd-deps-${{ runner.os }}-${{ matrix.platform }}-${{ matrix.compiler }}-${{ hashFiles('contrib/setup/tool-versions.json') }}
+          restore-keys: |
+            fd-deps-${{ runner.os }}-${{ matrix.platform }}-
 
       - name: Download build artifact (Build stage output)
         uses: actions/download-artifact@v8
