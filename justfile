@@ -77,7 +77,7 @@ test-unit-fd-windows-x86:
     # from Strawberry Perl. Requires more work before this lane can run.
     # python3 contrib/build/orchestrator.py --platform windows-x86 build-fd {{ fd_tickoni_build }} test clang --arch x86_64
     # {{ make }} SHELL=/usr/bin/bash -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal --page-cnt 131072"
-    @echo "SKIPPED: test-unit-fd-windows-x86 — access violation (0xc0000005) in cmake/gmake.exe (Strawberry Perl)"
+    @echo "SKIPPED: test-unit-fd-windows-x86 — access violation (0xc0000005) in cmake/gmake.exe (Strawberry Perl)" >&2
 
 test-unit-fd-windows-arm:
     # DISABLED: access violation (0xc0000005) during cmake/gmake.exe
@@ -97,8 +97,8 @@ test-unit-fd:
       linux-arm) exec just test-unit-fd-linux-arm-gcc ;;
       macos-x86) echo "test-unit-fd on macos-x86 is disabled — lz4 needs more porting" >&2; exit 1 ;;
       macos-arm) echo "test-unit-fd on macos-arm is disabled — lz4 needs more porting" >&2; exit 1 ;;
-      windows-x86) echo "test-unit-fd on windows-x86 is disabled — access violation (0xc0000005) in cmake/gmake.exe (Strawberry Perl)" >&2; exit 1 ;;
-      windows-arm) echo "test-unit-fd on windows-arm is disabled — access violation (0xc0000005) in cmake/gmake.exe (Strawberry Perl)" >&2; exit 1 ;;
+      windows-x86) echo "test-unit-fd on windows-x86 is disabled — access violation (0xc0000005) in cmake/gmake.exe (Strawberry Perl)" >&2 ;;
+      windows-arm) echo "test-unit-fd on windows-arm is disabled — access violation (0xc0000005) in cmake/gmake.exe (Strawberry Perl)" >&2 ;;
       *) echo "unsupported host platform for test-unit-fd: {{ os }}-{{ arch }}" >&2; exit 1 ;;
     esac
 
