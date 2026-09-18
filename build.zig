@@ -39,6 +39,7 @@ pub fn build(b: *std.Build) void {
     // Supervisor executable
     const exe = helpers.createSupervisorExe(b, shared, target, optimize, fd_lib_dir);
     const exe_install = b.addInstallArtifact(exe, .{});
+    b.default_step.dependOn(&exe_install.step);
 
     const run_exe = b.addRunArtifact(exe);
     if (@hasField(std.Build, "args")) {
