@@ -14,7 +14,7 @@ export ZIG_LOCAL_CACHE_DIR="${ZIG_LOCAL_CACHE_DIR:-$repo_root/build/.zig-cache}"
 # Single source of truth for zig-out location: defined in just/common.just.
 ZIG_PREFIX="${ZIG_PREFIX:-$repo_root/${ZIG_PREFIX_REL:-build/zig-out}}"
 
-build_cmd=(zig build -p "$ZIG_PREFIX" -Dfd-lib-dir=build/fd-tickoni-fd/lib --summary all)
+build_cmd=(zig build -p "$ZIG_PREFIX" -Dfd-lib-dir=build/fd-tickoni-fd/lib -Dtest=true --summary all)
 manifest="src/tickoni/demo/fixtures/demo.manifest.json"
 cli_binary="$ZIG_PREFIX/bin/tickoni"
 binary="$ZIG_PREFIX/bin/tickoni-supervisor"

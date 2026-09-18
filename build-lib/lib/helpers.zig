@@ -81,9 +81,12 @@ pub fn createSupervisorExe(
 }
 
 /// Create the CLI executable.
+/// `investment_demo` must be the integration demo module
+/// (src/tickoni/test/demo/investment/mod.zig) created by the
+/// integration lane, not the supervisor exe's root module.
 pub fn createCliExe(
     b: *std.Build,
-    investment_demo: *std.Build.Step.Compile,
+    investment_demo: *std.Build.Module,
     shared: Shared,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
@@ -94,7 +97,7 @@ pub fn createCliExe(
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "investment_demo", .module = investment_demo.root_module },
+            .{ .name = "investment_demo", .module = investment_demo },
             .{ .name = "tier", .module = shared.tier },
             .{ .name = "doctor_output", .module = shared.doctor_output },
             .{ .name = "demo_manifest", .module = shared.demo_manifest },
