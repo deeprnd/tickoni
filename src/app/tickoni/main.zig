@@ -7,6 +7,7 @@ const util = @import("util");
 const supervisor_mod = @import("supervisor.zig");
 const Supervisor = supervisor_mod.Supervisor;
 const ProcessPipelineConfig = supervisor_mod.ProcessPipelineConfig;
+const ProcessMetricSnapshot = supervisor_mod.ProcessMetricSnapshot;
 const tile_main = @import("tile_main.zig");
 const topologies = @import("topologies");
 const doctor_output = @import("doctor_output");
@@ -316,13 +317,57 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
         try File.writeStreamingAll(stdout, init.io, line);
     }
 
-    // Poll for pipeline completion (audited count reaches event_count)
-    const poll_interval_ns: u64 = 5 * std.time.ns_per_ms;
-    const max_polls: u32 = 2000; // 10s bound
-    var poll: u32 = 0;
-    while (poll < max_polls) : (poll += 1) {
+    // Poll for pipeline completion with per-tile metric sampling.
+    // Fixes V2.22.S4 "No black boxes" audit FAIL #1.
+    const sample_interval_ns: u64 = 1 * std.time.ns_per_s;
+    const max_samples: u32 = 600; // 10 min bound
+    var sample_count: u32 = 0;
+
+    // Collect per-tile snapshots for delta comparison.
+    var prev_per_tile: [8]ProcessMetricSnapshot = undefined;
+    for (0..prev_per_tile.len) |i| {
+        prev_per_tile[i] = try sup.snapshotProcessMetricsForTile(i);
+    }
+
+    // Poll for pipeline completion with per-tile delta output
+    while (sample_count < max_samples) : (sample_count += 1) {
         if (sup.snapshotProcessMetrics().audited >= process_config.event_count) break;
-        util.process.sleepNanos(poll_interval_ns);
+        util.process.sleepNanos(sample_interval_ns);
+
+        var curr_per_tile: [8]ProcessMetricSnapshot = undefined;
+        for (0..curr_per_tile.len) |i| {
+            curr_per_tile[i] = try sup.snapshotProcessMetricsForTile(i);
+        }
+
+        // Print per-tile deltas
+        var delta_buf: [512]u8 = undefined;
+        const count = @min(prev_per_tile.len, curr_per_tile.len);
+        for (0..count) |i| {
+            const p = prev_per_tile[i];
+            const c = curr_per_tile[i];
+            const tile = topo.tiles[i];
+            const delta_prod = @as(i64, @intCast(c.produced)) - @as(i64, @intCast(p.produced));
+            const delta_norm = @as(i64, @intCast(c.normalized)) - @as(i64, @intCast(p.normalized));
+            const delta_inv = @as(i64, @intCast(c.invalid)) - @as(i64, @intCast(p.invalid));
+            const delta_dup = @as(i64, @intCast(c.duplicates)) - @as(i64, @intCast(p.duplicates));
+            const delta_allow = @as(i64, @intCast(c.allowed)) - @as(i64, @intCast(p.allowed));
+            const delta_deny = @as(i64, @intCast(c.denied)) - @as(i64, @intCast(p.denied));
+            const delta_audit = @as(i64, @intCast(c.audited)) - @as(i64, @intCast(p.audited));
+            if (delta_prod != 0 or delta_norm != 0 or delta_inv != 0 or delta_dup != 0 or delta_allow != 0 or delta_deny != 0 or delta_audit != 0) {
+                const tile_id_str = tile.id.slice();
+                const line = try std.fmt.bufPrint(
+                    &buf,
+                    "  tile={s}  dP={d} dN={d} dI={d} dD={d} dA={d} dR={d} dU={d}\n",
+                    .{ tile_id_str, delta_prod, delta_norm, delta_inv, delta_dup, delta_allow, delta_deny, delta_audit },
+                );
+                try File.writeStreamingAll(stdout, init.io, line);
+            }
+        }
+        try File.writeStreamingAll(stdout, init.io, "\n");
+
+        for (0..curr_per_tile.len) |i| {
+            prev_per_tile[i] = curr_per_tile[i];
+        }
     }
 
     const metrics = sup.snapshotProcessMetrics();
