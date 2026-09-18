@@ -747,9 +747,9 @@
     "kcov": {
       "category": "coverage",
       "platform": "linux",
-      "install_method": "build_from_source",
+      "install_method": "apt",
       "parameters": {
-        "type": "kcov"
+        "package": "kcov"
       },
       "idempotent_check": "command -v kcov"
     },
