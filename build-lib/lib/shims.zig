@@ -93,6 +93,9 @@ pub fn addPlainTestRun(
     run_step.producer = test_compile;
     run_step.addArtifactArg(test_compile);
     run_step.has_side_effects = true;
+    // CWD = repo root so tile_exe_path "build/zig-out/bin/tickoni-supervisor"
+    // resolves to the installed supervisor binary (wired as dependency in
+    // build_test_lanes.zig).
     run_step.setCwd(b.path("."));
     return run_step;
 }

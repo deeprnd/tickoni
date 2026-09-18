@@ -39,6 +39,7 @@ pub fn strategy(
     optimize: std.builtin.OptimizeMode,
     fd_lib_dir: []const u8,
     integration_step: *std.Build.Step,
+    exe_install: *std.Build.Step.InstallArtifact,
 ) void {
     const investment_demo_test_mod = int_mods.investment_demo_test_mod;
     const investment_demo_test = b.addTest(.{ .root_module = investment_demo_test_mod });
@@ -83,6 +84,9 @@ pub fn strategy(
         integration_step.dependOn(&b.addRunArtifact(integration_test).step);
     }
 
+    // Supervisor binary must be installed before process-mode tests
+    // can spawn it (tile_exe_path = "build/zig-out/bin/tickoni-supervisor").
+    // Each process test run step depends on the install so the file exists.
     if (target.result.os.tag == .linux) {
         const process_tests: []const []const u8 = &.{
             "src/tickoni/test/integration/test_process_pipeline.zig",
@@ -114,6 +118,8 @@ pub fn strategy(
             firedancer.linkTickoniFiredancer(b, process_test, fd_lib_dir);
             topo_run.linkTickoniTopoRun(b, process_test, fd_lib_dir);
             const run_proc_test = shims.addPlainTestRun(b, process_test);
+            // Direct dependency ensures install happens before this test runs.
+            run_proc_test.step.dependOn(&exe_install.step);
             integration_step.dependOn(&run_proc_test.step);
         }
     }
