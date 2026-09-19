@@ -274,13 +274,21 @@ pub const Supervisor = struct {
         // footprint/part_max instead of a hand-picked constant, plus a
         // little headroom.
         const footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx);
+        std.debug.print("SUPERVISOR: about to size wksp, footprint={d}\n", .{footprint});
         const page_cnt = footprint / c_abi.wksp.shmem_normal_page_sz + 16;
         var sub_page_cnt = [_]usize{page_cnt};
         var sub_cpu_idx = [_]usize{0};
         const part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, built_topo.wksp_idx);
+        std.debug.print("SUPERVISOR: about to call wkspNewNamed name={s} page_cnt={d} part_max={d}\n", .{ workspace_name_z, page_cnt, part_max });
         const rc = c_abi.wksp.wkspNewNamed(workspace_name_z, c_abi.wksp.shmem_normal_page_sz, 1, &sub_page_cnt, &sub_cpu_idx, 0o600, 1, part_max);
         if (rc != 0) return error.WkspCreateFailed;
-        const wksp = c_abi.wksp.wkspAttach(workspace_name_z) orelse return error.WkspAttachFailed;
+        std.debug.print("SUPERVISOR: wkspNewNamed succeeded rc={d}\n", .{rc});
+        std.debug.print("SUPERVISOR: about to call wkspAttach name={s}\n", .{workspace_name_z});
+        const wksp = c_abi.wksp.wkspAttach(workspace_name_z) orelse {
+            std.debug.print("SUPERVISOR: wkspAttach returned null\n", .{});
+            return error.WkspAttachFailed;
+        };
+        std.debug.print("SUPERVISOR: wkspAttach succeeded wksp={p}\n", .{wksp});
         errdefer _ = c_abi.wksp.wkspDetach(wksp);
 
         // Inject the attached workspace into the topology and instantiate
@@ -288,7 +296,9 @@ pub const Supervisor = struct {
         // has no .new) via the same fd_topob callback array used to
         // compute the layout above.
         c_abi.topob.topoWkspSetPtr(built_topo.topo, built_topo.wksp_idx, wksp);
+        std.debug.print("SUPERVISOR: about to call topoWkspNew for wksp {d}\n", .{built_topo.wksp_idx});
         c_abi.topob.topoWkspNew(built_topo.topo, built_topo.wksp_idx);
+        std.debug.print("SUPERVISOR: topoWkspNew done\n", .{});
 
         const state = try self.allocator.create(ProcessState);
         state.* = .{
