@@ -337,10 +337,12 @@ pub fn registerStemCallbacksStruct(cb: struct {
 /// RUN -> HALT -> BOOT transition returns 0. Failures inside the harness
 /// call itself exit the process directly (see tk_tile_run's doc comment).
 pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work: WorkFn) u8 {
+    std.debug.print("tile_process.run: START tile={s} spec={s}\n", .{ "UNKNOWN", spec_path });
     const spec = launch_spec.LaunchSpec.readFromFile(io, std.Io.Dir.cwd(), spec_path) catch |err| {
         std.debug.print("tile_process: failed to read launch spec {s}: {t}\n", .{ spec_path, err });
         return 1;
     };
+    std.debug.print("tile_process.run: spec loaded tile_idx={d} workspace={s}\n", .{ spec.tile_idx, spec.workspace_name.slice() });
 
     boot.bootWithSyntheticArgv(spec.shmemPath()) catch |err| {
         std.debug.print("tile_process: bootWithSyntheticArgv failed for tile {d}: {t}\n", .{ spec.tile_idx, err });
@@ -390,24 +392,25 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     // (normal-page) before launching tiles. We must attach to it (not
     // fd_topo_join_workspace which tries the huge-page path) so that
     // topoWkspPtr returns non-null and link joining works.
-    var wksp_name_z_buf: [64]u8 = undefined;
-    const wksp_name_z = std.fmt.bufPrint(&wksp_name_z_buf, "{s}_{s}.wksp", .{
-        "tickoni",
+    var wksp_name_z_buf: [topo_build.concrete_workspace_name_cap]u8 = undefined;
+    const wksp_name_z = topo_build.concreteWorkspaceName(
+        &wksp_name_z_buf,
         spec.workspace_name.slice(),
-    }) catch {
-        std.debug.print("tile_process: workspace name too long for tile {d}\n", .{spec.tile_idx});
+    ) catch |err| {
+        std.debug.print("tile_process: failed to build workspace name for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
-    wksp_name_z[wksp_name_z.len] = 0;
-    const wksp = c_abi.wksp.wkspAttach(@ptrCast(wksp_name_z)) orelse {
+    const wksp = c_abi.wksp.wkspAttach(wksp_name_z) orelse {
         std.debug.print("tile_process: wkspAttach failed for tile {d}\n", .{spec.tile_idx});
         return 1;
     };
     errdefer _ = c_abi.wksp.wkspDetach(wksp);
 
-    // Register wksp in topology and instantiate objects.
+    // Register wksp in topology. The supervisor already called
+    // topoWkspNew before launching tiles; tiles must NOT call it again
+    // because that re-instantiates workspace objects and corrupts the
+    // shared region.
     c_abi.topob.topoWkspSetPtr(built.topo, built.wksp_idx, wksp);
-    c_abi.topob.topoWkspNew(built.topo, built.wksp_idx);
 
     g_ctx = .{
         .spec = &spec,
@@ -425,41 +428,57 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         return 1;
     };
 
-    // ------------------------------------------------------------------
-    // fd_stem link joining + config loading.
-    //
-    // Join this tile's input/output links from the launch spec, populate
-    // g_ctx's link handles + fctl state, and load the payment-pipeline
-    // config. All done BEFORE runTileSimple() so the fd_stem callbacks
-    // can do real dcache work. On macOS these handles are unused — the
-    // old g_ctx.work() loop uses rt.link.Consumer/Producer instead.
-    // ------------------------------------------------------------------
+    // Load payment-pipeline config.  The supervisor writes ProcessConfigFile
+    // (magic u32 "TKPC" + version u16 + 6-byte padding + ProcessRuntimeConfig
+    // with event_count, etc.).  This local layout MUST match the binary
+    // layout written by tiles_mod.process.writeProcessConfig — see the
+    // ProcessConfigFile struct in process.zig.
+    const process_config_magic: u32 = 0x544b5043; // "TKPC"
+    const process_config_version: u16 = 1;
+    const ProcessConfigFile = struct {
+        magic_field: u32 = process_config_magic,
+        version_field: u16 = process_config_version,
+        padding: [6]u8 = .{ 0, 0, 0, 0, 0, 0 },
+        event_count: u64 = 0,
+        policy_limit_cents: i64 = 0,
+        inject_duplicate: bool = false,
+        inject_malformed: bool = false,
+        // stuck_tile fields (20 bytes) follow but we don't need them here.
+    };
+
     const payment_config_path = std.fmt.allocPrint(allocator, "{s}/payment_pipeline.config", .{spec.shmemPath()}) catch |err| {
         std.debug.print("tile_process: alloc print config path failed: {t}\n", .{err});
         return 1;
     };
     defer allocator.free(payment_config_path);
-    const pc_sz = std.Io.Dir.cwd().readFileAlloc(io, payment_config_path, allocator, .limited(4096)) catch |err| {
+    var pc_file: ProcessConfigFile = undefined;
+    var file = std.Io.Dir.cwd().openFile(io, payment_config_path, .{}) catch |err| {
+        std.debug.print("tile_process: open config failed: {t}\n", .{err});
+        return 1;
+    };
+    defer file.close(io);
+    const buf = std.mem.asBytes(&pc_file);
+    const n = file.readPositionalAll(io, buf, 0) catch |err| {
         std.debug.print("tile_process: read config failed: {t}\n", .{err});
         return 1;
     };
-    defer allocator.free(pc_sz);
-    const pc_struct = pc_sz;
+    if (n != @sizeOf(ProcessConfigFile)) {
+        std.debug.print("tile_process: config truncated\n", .{});
+        return 1;
+    }
+    if (pc_file.magic_field != process_config_magic) {
+        std.debug.print("tile_process: config bad magic 0x{x}\n", .{pc_file.magic_field});
+        return 1;
+    }
+    if (pc_file.version_field != process_config_version) {
+        std.debug.print("tile_process: config unsupported version {d}\n", .{pc_file.version_field});
+        return 1;
+    }
 
-    // Parse the payment-pipeline config (see process.zig's writeProcessConfig).
-    if (pc_struct.len < @sizeOf(u32) + @sizeOf(u16)) return 1;
-    const magic = std.mem.readInt(u32, pc_struct[0..4], .little);
-    if (magic != 0x544b5043) return 1; // "TKPC"
-    const version = std.mem.readInt(u16, pc_struct[4..6], .little);
-    if (version != 1) return 1;
-
-    // Extract pipeline config fields from the config blob.
-    // Config layout: magic(4) + version(2) + event_count(8) + policy_limit_cents(8) +
-    //   inject_duplicate(1) + inject_malformed(1) + padding(2)
-    g_ctx.event_count = if (pc_struct.len >= 22) std.mem.readInt(u64, pc_struct[6..14], .little) else 0;
-    g_ctx.policy_limit_cents = if (pc_struct.len >= 30) std.mem.readInt(i64, pc_struct[14..22], .little) else 0;
-    g_ctx.inject_duplicate = if (pc_struct.len >= 23) pc_struct[22] != 0 else false;
-    g_ctx.inject_malformed = if (pc_struct.len >= 24) pc_struct[23] != 0 else false;
+    g_ctx.event_count = pc_file.event_count;
+    g_ctx.policy_limit_cents = pc_file.policy_limit_cents;
+    g_ctx.inject_duplicate = pc_file.inject_duplicate;
+    g_ctx.inject_malformed = pc_file.inject_malformed;
 
     // Join output link handles (for producer tiles and 1-out tiles).
     if (spec.out_cnt > 0 and spec.outLinks().len > 0) {
