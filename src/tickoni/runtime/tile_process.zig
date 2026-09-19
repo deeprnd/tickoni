@@ -197,27 +197,30 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
 // ---------------------------------------------------------------------------
 
 export fn tk_stem_before_credit(zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c_int) callconv(.c) void {
-    const ctx: *const GCtx = @alignCast(@ptrCast(zig_state));
+    const ctx: *const GCtx = @ptrCast(@alignCast(zig_state));
     if (ctx.stem_before_credit) |cb| cb(zig_state, stem, charge_busy) else charge_busy.* = 0;
 }
 
 export fn tk_stem_during_frag(zig_state: *anyopaque, idx: c_uint, seq: c_ulong, sig: c_uint, chunk: c_ulong, sz: c_uint, ctl: c_uint) callconv(.c) void {
-    const ctx: *const GCtx = @alignCast(@ptrCast(zig_state));
+    const ctx: *const GCtx = @ptrCast(@alignCast(zig_state));
     if (ctx.stem_during_frag) |cb| cb(zig_state, idx, seq, sig, chunk, sz, ctl);
 }
 
 export fn tk_stem_after_credit(zig_state: *anyopaque, stem: *anyopaque, poll_in: *c_int, charge_busy: *c_int) callconv(.c) void {
-    const ctx: *const GCtx = @alignCast(@ptrCast(zig_state));
-    if (ctx.stem_after_credit) |cb| cb(zig_state, stem, poll_in, charge_busy) else { poll_in.* = 1; charge_busy.* = 0; }
+    const ctx: *const GCtx = @ptrCast(@alignCast(zig_state));
+    if (ctx.stem_after_credit) |cb| cb(zig_state, stem, poll_in, charge_busy) else {
+        poll_in.* = 1;
+        charge_busy.* = 0;
+    }
 }
 
 export fn tk_stem_metrics_write(zig_state: *anyopaque) callconv(.c) void {
-    const ctx: *const GCtx = @alignCast(@ptrCast(zig_state));
+    const ctx: *const GCtx = @ptrCast(@alignCast(zig_state));
     if (ctx.stem_metrics_write) |cb| cb(zig_state);
 }
 
 export fn tk_stem_should_shutdown(zig_state: *anyopaque) callconv(.c) c_int {
-    const ctx: *const GCtx = @alignCast(@ptrCast(zig_state));
+    const ctx: *const GCtx = @ptrCast(@alignCast(zig_state));
     if (ctx.stem_should_shutdown) |cb| return cb(zig_state);
     return 0;
 }

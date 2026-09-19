@@ -4,16 +4,15 @@
 ///
 /// Called from tile_process.zig's `tk_tile_privileged_init` via
 /// `stemRegisterCtx()` — before `fd_stem_run` starts its loop.
-
 const c_abi = @import("../c_abi.zig");
 const std = @import("std");
 
 /// Callback function pointer types — Zig exports functions matching these signatures.
-pub const BeforeCreditFn = *const allowzero fn (zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c_int) callconv(.c) void;
-pub const DuringFragFn = *const allowzero fn (zig_state: *anyopaque, idx: c_uint, seq: c_ulong, sig: c_uint, chunk: c_ulong, sz: c_uint, ctl: c_uint) callconv(.c) void;
-pub const AfterCreditFn = *const allowzero fn (zig_state: *anyopaque, stem: *anyopaque, poll_in: *c_int, charge_busy: *c_int) callconv(.c) void;
-pub const MetricsWriteFn = *const allowzero fn (zig_state: *anyopaque) callconv(.c) void;
-pub const ShouldShutdownFn = *const allowzero fn (zig_state: *anyopaque) callconv(.c) c_int;
+pub const BeforeCreditFn = *allowzero const fn (zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c_int) callconv(.c) void;
+pub const DuringFragFn = *allowzero const fn (zig_state: *anyopaque, idx: c_uint, seq: c_ulong, sig: c_uint, chunk: c_ulong, sz: c_uint, ctl: c_uint) callconv(.c) void;
+pub const AfterCreditFn = *allowzero const fn (zig_state: *anyopaque, stem: *anyopaque, poll_in: *c_int, charge_busy: *c_int) callconv(.c) void;
+pub const MetricsWriteFn = *allowzero const fn (zig_state: *anyopaque) callconv(.c) void;
+pub const ShouldShutdownFn = *allowzero const fn (zig_state: *anyopaque) callconv(.c) c_int;
 
 extern fn tk_stem_register_ctx(
     topo: *anyopaque,
