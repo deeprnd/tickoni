@@ -102,7 +102,8 @@ pub fn addTickoniSupervisorShimLibrary(
         "src/tickoni/c_abi/shim/topo_run_platform_windows.c",
         "src/tickoni/c_abi/shim/topob.c",
         "src/tickoni/c_abi/shim/tile_run.c",
-        "src/tickoni/c_abi/shim/tk_stem.c",
+        // tk_stem.c is compiled via tk_stem_zig.c → tk_stem_zig.h → tk_stem.c
+        // to avoid duplicate symbol errors with tk_stem_run.
     });
 }
 

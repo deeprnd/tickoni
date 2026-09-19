@@ -89,13 +89,20 @@ STEM_CALLBACK_METRICS_WRITE(void *ctx) {
 
    The STEM_CALLBACK_* macros are already defined above (identity macros).
    ------------------------------------------------------------------ */
-#define STEM_NAME tk_stem
+#define STEM_NAME tk_stem_gen
 #define STEM_BURST 1
 #define STEM_CALLBACK_CONTEXT_TYPE tk_stem_ctx_t
 #define STEM_CALLBACK_CONTEXT_ALIGN alignof(tk_stem_ctx_t)
 
-/* Include the template — generates tk_stem_run(fd_topo_t*, fd_topo_tile_t*)
+/* Include the template — generates tk_stem_gen_run(fd_topo_t*, fd_topo_tile_t*)
    which reads tk_stem_ctx_t from the workspace and runs the stem loop.
-   Since fd_stem.c was changed to remove 'static' from the generated function,
-   tk_stem_run is now linkable by tile_run.c's TK_TILE_RUN .run pointer. */
+   We use tk_stem_gen to avoid collision with the non-static tk_stem_run()
+   we define below for tile_run.c's TK_TILE_RUN .run pointer. */
 #include "../../../disco/stem/fd_stem.c"
+
+/* Non-static redirect for tile_run.c's TK_TILE_RUN .run pointer.
+   The template generates a static inline void tk_stem_gen_run(...);
+   this function is linkable by tile_run.c. */
+void tk_stem_run( fd_topo_t * topo, fd_topo_tile_t * tile ) {
+    tk_stem_gen_run(topo, tile);
+}

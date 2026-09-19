@@ -31,6 +31,11 @@
 /// and registers them into tk_stem_ctx_t in workspace, so fd_stem's run
 /// loop dispatches into Zig during its control flow. On macOS, the old
 /// g_ctx.work() loop continues to work (platform fallback).
+///
+/// Link joining (v2.22.S5): Before runTileSimple() starts the stem loop,
+/// this file joins the tile's input/output links (mcache, dcache, fseq)
+/// and populates g_ctx's link handles + config so the fd_stem callbacks
+/// can do real dcache work.
 const std = @import("std");
 const c = std.c;
 const c_abi = @import("c_abi");
@@ -66,6 +71,59 @@ pub const GCtx = struct {
     stem_after_credit: ?c_abi.stem.AfterCreditFn = null,
     stem_metrics_write: ?c_abi.stem.MetricsWriteFn = null,
     stem_should_shutdown: ?c_abi.stem.ShouldShutdownFn = null,
+
+    // ------------------------------------------------------------------
+    // fd_stem link handles + config + state. Set before the stem loop
+    // starts (here in run(), before runTileSimple()); accessed by the
+    // fd_stem callbacks (tile_registry.zig). On macOS these are unused
+    // — the old g_ctx.work() loop uses rt.link.Consumer/Producer instead.
+    // ------------------------------------------------------------------
+
+    /// Output link handles — populated for producer tiles (tkings) and
+    /// 1-out tiles (tknorm, tkdedu, tkpoly).
+    out_mcache: ?[*]c_abi.queue.FragMeta = null,
+    out_dcache_base: ?[*]u8 = null,
+    out_fseq: ?[*]volatile u64 = null,
+    out_depth: usize = 0,
+    out_mtu: usize = 0,
+    out_next_seq: u64 = 0,
+
+    /// Input link handles — populated for consumer tiles (tkaudt) and
+    /// 1-in tiles (tknorm, tkdedu, tkpoly).
+    in_mcache: ?[*]c_abi.queue.FragMeta = null,
+    in_fseq: ?[*]volatile u64 = null,
+    in_depth: usize = 0,
+    in_mtu: usize = 0,
+    in_next_seq: u64 = 0,
+
+    /// Process-mode config (shared by all tiles in the run).
+    event_count: u64 = 0,
+    policy_limit_cents: i64 = 0,
+    inject_duplicate: bool = false,
+    inject_malformed: bool = false,
+
+    /// Atomic stop flag — checked by callbacks before each iteration.
+    stop_flag: std.atomic.Value(bool) = std.atomic.Value(bool).init(false),
+
+    /// Counters — written to cnc app-region by the wrapper after the
+    /// stem loop completes (so fd_stem can drive the loop).
+    produced: u64 = 0,
+    normalized: u64 = 0,
+    invalid: u64 = 0,
+    duplicates: u64 = 0,
+    allowed: u64 = 0,
+    denied: u64 = 0,
+    audited: u64 = 0,
+
+    /// Dedup state — only used by tkdedu.
+    seen_keys: []u64 = undefined,
+    seen_hashes: []u64 = undefined,
+    seen_count: usize = 0,
+    seen_keys_owned: bool = false,
+    seen_hashes_owned: bool = false,
+
+    /// Audit log — only used by tkaudt.
+    audit_log: ?*anyopaque = null, // *audit_sink.AuditLog
 };
 
 /// Set once per process, at the bottom of run(), immediately before
@@ -278,6 +336,8 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     defer {
         c_abi.boot.haltForTileProcess();
         if (built_opt) |*built| built.deinit(allocator);
+        if (g_ctx.seen_keys_owned) allocator.free(g_ctx.seen_keys);
+        if (g_ctx.seen_hashes_owned) allocator.free(g_ctx.seen_hashes);
     }
 
     var topology_spec_path_buf: [launch_spec.shmem_path_cap + 32]u8 = undefined;
@@ -327,6 +387,119 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         std.debug.print("tile_process: workspace {d} not found for tile {d}\n", .{ built.wksp_idx, spec.tile_idx });
         return 1;
     };
+
+    // ------------------------------------------------------------------
+    // fd_stem link joining + config loading.
+    //
+    // Join this tile's input/output links from the launch spec, populate
+    // g_ctx's link handles + fctl state, and load the payment-pipeline
+    // config. All done BEFORE runTileSimple() so the fd_stem callbacks
+    // can do real dcache work. On macOS these handles are unused — the
+    // old g_ctx.work() loop uses rt.link.Consumer/Producer instead.
+    // ------------------------------------------------------------------
+    const wksp = g_ctx.wksp_ptr.?;
+    const payment_config_path = std.fmt.allocPrint(allocator, "{s}/payment_pipeline.config", .{spec.shmemPath()}) catch |err| {
+        std.debug.print("tile_process: alloc print config path failed: {t}\n", .{err});
+        return 1;
+    };
+    defer allocator.free(payment_config_path);
+    const pc_sz = std.Io.Dir.cwd().readFileAlloc(io, payment_config_path, allocator, .limited(4096)) catch |err| {
+        std.debug.print("tile_process: read config failed: {t}\n", .{err});
+        return 1;
+    };
+    defer allocator.free(pc_sz);
+    const pc_struct = pc_sz;
+
+    // Parse the payment-pipeline config (see process.zig's writeProcessConfig).
+    if (pc_struct.len < @sizeOf(u32) + @sizeOf(u16)) return 1;
+    const magic = std.mem.readInt(u32, pc_struct[0..4], .little);
+    if (magic != 0x544b5043) return 1; // "TKPC"
+    const version = std.mem.readInt(u16, pc_struct[4..6], .little);
+    if (version != 1) return 1;
+
+    // Extract pipeline config fields from the config blob.
+    // Config layout: magic(4) + version(2) + event_count(8) + policy_limit_cents(8) +
+    //   inject_duplicate(1) + inject_malformed(1) + padding(2)
+    g_ctx.event_count = if (pc_struct.len >= 22) std.mem.readInt(u64, pc_struct[6..14], .little) else 0;
+    g_ctx.policy_limit_cents = if (pc_struct.len >= 30) std.mem.readInt(i64, pc_struct[14..22], .little) else 0;
+    g_ctx.inject_duplicate = if (pc_struct.len >= 23) pc_struct[22] != 0 else false;
+    g_ctx.inject_malformed = if (pc_struct.len >= 24) pc_struct[23] != 0 else false;
+
+    // Join output link handles (for producer tiles and 1-out tiles).
+    if (spec.out_cnt > 0 and spec.outLinks().len > 0) {
+        const out_link = spec.outLinks()[0];
+        const out_mcache_laddr = c_abi.wksp.wkspLaddr(wksp, out_link.mcache_gaddr) orelse {
+            std.debug.print("tile_process: out mcache laddr failed\n", .{});
+            return 1;
+        };
+        const out_dcache_laddr = c_abi.wksp.wkspLaddr(wksp, out_link.dcache_gaddr) orelse {
+            std.debug.print("tile_process: out dcache laddr failed\n", .{});
+            return 1;
+        };
+        const out_fseq_laddr = c_abi.wksp.wkspLaddr(wksp, out_link.fseq_gaddr) orelse {
+            std.debug.print("tile_process: out fseq laddr failed\n", .{});
+            return 1;
+        };
+        g_ctx.out_mcache = c_abi.queue.mcacheJoin(out_mcache_laddr) orelse {
+            std.debug.print("tile_process: out mcache join failed\n", .{});
+            return 1;
+        };
+        g_ctx.out_dcache_base = c_abi.dcache.dcacheJoin(out_dcache_laddr) orelse {
+            std.debug.print("tile_process: out dcache join failed\n", .{});
+            return 1;
+        };
+        g_ctx.out_fseq = c_abi.fseq.fseqJoin(out_fseq_laddr) orelse {
+            std.debug.print("tile_process: out fseq join failed\n", .{});
+            return 1;
+        };
+        g_ctx.out_depth = out_link.depth;
+        g_ctx.out_mtu = out_link.mtu;
+    }
+
+    // Join input link handles (for consumer tiles and 1-in tiles).
+    if (spec.in_cnt > 0 and spec.inLinks().len > 0) {
+        const in_link = spec.inLinks()[0];
+        const in_mcache_laddr = c_abi.wksp.wkspLaddr(wksp, in_link.mcache_gaddr) orelse {
+            std.debug.print("tile_process: in mcache laddr failed\n", .{});
+            return 1;
+        };
+        const in_fseq_laddr = c_abi.wksp.wkspLaddr(wksp, in_link.fseq_gaddr) orelse {
+            std.debug.print("tile_process: in fseq laddr failed\n", .{});
+            return 1;
+        };
+        g_ctx.in_mcache = c_abi.queue.mcacheJoin(in_mcache_laddr) orelse {
+            std.debug.print("tile_process: in mcache join failed\n", .{});
+            return 1;
+        };
+        g_ctx.in_fseq = c_abi.fseq.fseqJoin(in_fseq_laddr) orelse {
+            std.debug.print("tile_process: in fseq join failed\n", .{});
+            return 1;
+        };
+        g_ctx.in_depth = in_link.depth;
+        g_ctx.in_mtu = in_link.mtu;
+    }
+
+    // Allocate dedup state for tkdedu (tile idx 2).
+    if (std.mem.eql(u8, spec.tile_id.slice(), "tkdedu")) {
+        const cap: usize = @intCast(g_ctx.event_count);
+        g_ctx.seen_keys = allocator.alloc(u64, cap) catch |err| {
+            std.debug.print("tile_process: alloc dedup keys failed: {t}\n", .{err});
+            return 1;
+        };
+        g_ctx.seen_keys_owned = true;
+        g_ctx.seen_hashes = allocator.alloc(u64, cap) catch |err| {
+            std.debug.print("tile_process: alloc dedup hashes failed: {t}\n", .{err});
+            return 1;
+        };
+        g_ctx.seen_hashes_owned = true;
+    }
+
+    // Leave input link handles before returning (consumer tiles will
+    // join their input inside the work callback, not here).
+    if (spec.in_cnt > 0 and spec.inLinks().len > 0) {
+        _ = c_abi.queue.mcacheLeave(g_ctx.in_mcache.?);
+        _ = c_abi.fseq.fseqLeave(@volatileCast(g_ctx.in_fseq.?));
+    }
 
     c_abi.topo_run.runTileSimple(built.topo, c_abi.topob.topoTilePtr(built.topo, tile_idx));
     return 0;
