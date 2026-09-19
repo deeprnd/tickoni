@@ -3,19 +3,22 @@
    Each Tile provides Zig callbacks via tk_stem_ctx_t placed in the tile's
    workspace object.  fd_stem's run loop calls those callbacks through the
    STEM_CALLBACK_* macros below.  No per-tile logic lives here.
+
+   This file is the source of truth for the C bridge between fd_stem and
+   Tickoni.  The template pattern (Firedancer's include-with-macros)
+   generates tk_stem_run() from src/disco/stem/fd_stem.c.
 */
 
 #include "../../../util/fd_util.h"
 #include "../../../disco/topo/fd_topo.h"
 #include "../../../disco/metrics/fd_metrics.h"
 #include "../../../tango/fd_tango.h"
-#include "../../stem/fd_stem.h"
+#include "../../../disco/stem/fd_stem.h"
 
 /* Per-tile context placed in workspace at tile->tile_obj_id — populated by
    Tile's Zig code during privileged_init.  The fd_stem run loop reads the
-   function pointers from this struct and dispatches into Zig.
-*/
-typedef struct {
+   function pointers from this struct and dispatches into Zig. */
+typedef struct tk_stem_ctx {
     void *                      zig_state;
     int   (*should_shutdown)(void *zig_state);
     void  (*before_credit)(void *zig_state, fd_stem_context_t *stem, int *charge_busy);
@@ -28,6 +31,10 @@ typedef struct {
    STEM_CALLBACK_* dispatchers — these replace Firedancer's own callbacks
    (before_credit, during_frag, after_credit, metrics_write, should_shutdown)
    and forward to the Zig tile's exported functions.
+
+   Firedancer's fd_stem.c template uses #ifdef STEM_CALLBACK_* to
+   conditionally emit calls.  Each macro maps to a function name; we
+   define those functions here.
    ------------------------------------------------------------------ */
 
 #ifdef STEM_CALLBACK_SHOULD_SHUTDOWN
@@ -76,20 +83,26 @@ STEM_CALLBACK_METRICS_WRITE(void *ctx) {
 #endif
 
 /* ------------------------------------------------------------------
-   Entry point — called as TK_TILE_RUN.run by fd_topo_run_tile.
+   Template configuration — tell fd_stem.c how to generate tk_stem_run().
 
-   Reads the tk_stem_ctx_t from the workspace at tile_obj_id, then
-   delegates to fd_stem's run loop (stem_run) with those callbacks.
+   STEM_NAME=tk_stem   → generates tk_stem_run(fd_topo_t*, fd_topo_tile_t*)
+   STEM_BURST=1        → conservative burst size for Tickoni's per-tile model
+   STEM_CALLBACK_CONTEXT_TYPE=tk_stem_ctx_t
+   STEM_CALLBACK_CONTEXT_ALIGN=alignof(tk_stem_ctx_t)
    ------------------------------------------------------------------ */
-void
-tk_stem_run(fd_topo_t *topo, fd_topo_tile_t *tile) {
-    tk_stem_ctx_t *ctx = (tk_stem_ctx_t *)fd_topo_obj_laddr(topo, tile->tile_obj_id);
-    if (!ctx) {
-        FD_LOG_ERR(("tk_stem_run: tile %s tile_obj_id %lu not found",
-                     tile->name, tile->tile_obj_id));
-    }
+#define STEM_NAME tk_stem
+#define STEM_BURST 1
+#define STEM_CALLBACK_CONTEXT_TYPE tk_stem_ctx_t
+#define STEM_CALLBACK_CONTEXT_ALIGN alignof(tk_stem_ctx_t)
 
-    /* Read the stem from the registry — this is the same tk_stem_ctx_t
-       placed at tile_obj_id; stem_run expects it as its ctx. */
-    stem_run(ctx);
-}
+/* Wire our dispatch functions as the callbacks.  fd_stem.c's #ifdef
+   STEM_CALLBACK_* checks will include these calls in the generated loop. */
+#define STEM_CALLBACK_SHOULD_SHUTDOWN STEM_CALLBACK_SHOULD_SHUTDOWN
+#define STEM_CALLBACK_BEFORE_CREDIT   STEM_CALLBACK_BEFORE_CREDIT
+#define STEM_CALLBACK_DURING_FRAG     STEM_CALLBACK_DURING_FRAG
+#define STEM_CALLBACK_AFTER_CREDIT    STEM_CALLBACK_AFTER_CREDIT
+#define STEM_CALLBACK_METRICS_WRITE   STEM_CALLBACK_METRICS_WRITE
+
+/* Include the template — generates tk_stem_run(fd_topo_t*, fd_topo_tile_t*)
+   which reads tk_stem_ctx_t from the workspace and runs the stem loop. */
+#include "../../../disco/stem/fd_stem.c"

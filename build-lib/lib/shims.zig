@@ -13,6 +13,7 @@ pub const shim_c_files = &.{
     "topo_run.c",
     "topob.c",
     "tile_run.c",
+    "tk_stem.c",
     "ballet.c",
 };
 

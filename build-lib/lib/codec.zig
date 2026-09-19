@@ -102,6 +102,7 @@ pub fn addTickoniSupervisorShimLibrary(
         "src/tickoni/c_abi/shim/topo_run_platform_windows.c",
         "src/tickoni/c_abi/shim/topob.c",
         "src/tickoni/c_abi/shim/tile_run.c",
+        "src/tickoni/c_abi/shim/tk_stem.c",
     });
 }
 
