@@ -7,14 +7,13 @@
 
 const c_abi = @import("../c_abi.zig");
 const std = @import("std");
-const c = std.c;
 
 /// Callback function pointer types — Zig exports functions matching these signatures.
-pub const BeforeCreditFn = *const fn (zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c.c_int) callconv(.C) void;
-pub const DuringFragFn = *const fn (zig_state: *anyopaque, idx: c.c_uint, seq: c.c_ulong, sig: c.c_uint, chunk: c.c_ulong, sz: c.c_uint, ctl: c.c_uint) callconv(.C) void;
-pub const AfterCreditFn = *const fn (zig_state: *anyopaque, stem: *anyopaque, poll_in: *c.c_int, charge_busy: *c.c_int) callconv(.C) void;
-pub const MetricsWriteFn = *const fn (zig_state: *anyopaque) callconv(.C) void;
-pub const ShouldShutdownFn = *const fn (zig_state: *anyopaque) callconv(.C) c.c_int;
+pub const BeforeCreditFn = *const fn (zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c_int) callconv(.c) void;
+pub const DuringFragFn = *const fn (zig_state: *anyopaque, idx: c_uint, seq: c_ulong, sig: c_uint, chunk: c_ulong, sz: c_uint, ctl: c_uint) callconv(.c) void;
+pub const AfterCreditFn = *const fn (zig_state: *anyopaque, stem: *anyopaque, poll_in: *c_int, charge_busy: *c_int) callconv(.c) void;
+pub const MetricsWriteFn = *const fn (zig_state: *anyopaque) callconv(.c) void;
+pub const ShouldShutdownFn = *const fn (zig_state: *anyopaque) callconv(.c) c_int;
 
 extern fn tk_stem_register_ctx(
     topo: *anyopaque,

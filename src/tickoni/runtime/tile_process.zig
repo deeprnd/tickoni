@@ -64,11 +64,11 @@ var g_ctx: struct {
     wksp_ptr: ?*c_abi.wksp.Wksp = null,
     /// Stem callback function pointers — set in run(), called by
     /// the exported C-compatible callbacks below.
-    stem_before_credit: c_abi.stem.BeforeCreditFn = null,
-    stem_during_frag: c_abi.stem.DuringFragFn = null,
-    stem_after_credit: c_abi.stem.AfterCreditFn = null,
-    stem_metrics_write: c_abi.stem.MetricsWriteFn = null,
-    stem_should_shutdown: c_abi.stem.ShouldShutdownFn = null,
+    stem_before_credit: ?c_abi.stem.BeforeCreditFn = null,
+    stem_during_frag: ?c_abi.stem.DuringFragFn = null,
+    stem_after_credit: ?c_abi.stem.AfterCreditFn = null,
+    stem_metrics_write: ?c_abi.stem.MetricsWriteFn = null,
+    stem_should_shutdown: ?c_abi.stem.ShouldShutdownFn = null,
 } = .{};
 
 /// Resolves and joins this tile's cnc (not a Firedancer-standard link/tile
@@ -79,6 +79,7 @@ var g_ctx: struct {
 /// stem callbacks via `stemRegisterCtx` so fd_stem's run loop dispatches
 /// into Zig during its control flow.
 export fn tk_tile_privileged_init(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
+    _ = topo;
     _ = tile;
     const topo_typed: *c_abi.topob.Topo = @ptrCast(topo);
     const laddr = c_abi.topob.topoObjLaddr(topo_typed, g_ctx.cnc_obj_id);
@@ -179,12 +180,11 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
 //
 // These are the functions passed to tk_stem_register_ctx().  Each wrapper
 // reads the tile-specific callback from g_ctx and dispatches it.
-// They are exported with callconv(.C) so the C shim can call them directly.
+// They are exported with callconv(.c) so the C shim can call them directly.
 // ---------------------------------------------------------------------------
 
-export fn tk_stem_before_credit(zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c.c_int) callconv(.C) void {
+export fn tk_stem_before_credit(zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c_int) callconv(.c) void {
     const ctx: *g_ctx.type = @ptrCast(zig_state);
-    _ = stem;
     if (ctx.stem_before_credit) {
         ctx.stem_before_credit(zig_state, stem, charge_busy);
     } else {
@@ -192,16 +192,15 @@ export fn tk_stem_before_credit(zig_state: *anyopaque, stem: *anyopaque, charge_
     }
 }
 
-export fn tk_stem_during_frag(zig_state: *anyopaque, idx: c.c_uint, seq: c.c_ulong, sig: c.c_uint, chunk: c.c_ulong, sz: c.c_uint, ctl: c.c_uint) callconv(.C) void {
+export fn tk_stem_during_frag(zig_state: *anyopaque, idx: c_uint, seq: c_ulong, sig: c_uint, chunk: c_ulong, sz: c_uint, ctl: c_uint) callconv(.c) void {
     const ctx: *g_ctx.type = @ptrCast(zig_state);
     if (ctx.stem_during_frag) {
         ctx.stem_during_frag(zig_state, idx, seq, sig, chunk, sz, ctl);
     }
 }
 
-export fn tk_stem_after_credit(zig_state: *anyopaque, stem: *anyopaque, poll_in: *c.c_int, charge_busy: *c.c_int) callconv(.C) void {
+export fn tk_stem_after_credit(zig_state: *anyopaque, stem: *anyopaque, poll_in: *c_int, charge_busy: *c_int) callconv(.c) void {
     const ctx: *g_ctx.type = @ptrCast(zig_state);
-    _ = stem;
     if (ctx.stem_after_credit) {
         ctx.stem_after_credit(zig_state, stem, poll_in, charge_busy);
     } else {
@@ -210,14 +209,14 @@ export fn tk_stem_after_credit(zig_state: *anyopaque, stem: *anyopaque, poll_in:
     }
 }
 
-export fn tk_stem_metrics_write(zig_state: *anyopaque) callconv(.C) void {
+export fn tk_stem_metrics_write(zig_state: *anyopaque) callconv(.c) void {
     const ctx: *g_ctx.type = @ptrCast(zig_state);
     if (ctx.stem_metrics_write) {
         ctx.stem_metrics_write(zig_state);
     }
 }
 
-export fn tk_stem_should_shutdown(zig_state: *anyopaque) callconv(.C) c.c_int {
+export fn tk_stem_should_shutdown(zig_state: *anyopaque) callconv(.c) c_int {
     const ctx: *g_ctx.type = @ptrCast(zig_state);
     if (ctx.stem_should_shutdown) {
         return ctx.stem_should_shutdown(zig_state);
