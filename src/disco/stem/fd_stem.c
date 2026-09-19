@@ -234,7 +234,11 @@ STEM_(scratch_footprint)( ulong in_cnt,
   return FD_LAYOUT_FINI( l, STEM_(scratch_align)() );
 }
 
+#if defined(FD_STEM_NONSTATIC)
+FD_FN_UNUSED void
+#else
 static inline void
+#endif
 STEM_(run1)( ulong                        in_cnt,
              fd_frag_meta_t const **      in_mcache,
              ulong **                     in_fseq,
