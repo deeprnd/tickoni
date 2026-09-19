@@ -84,7 +84,7 @@ quality-lint-check-fd:
 
 quality-lint-check-actions:
     @command -v actionlint >/dev/null || exit 0
-    @cd {{ justfile_dir }} && find .github/workflows -name '*.yml' -type f -print0 | xargs -0 actionlint -ignore 'label "windows-11-vs2026-arm" is unknown'
+    @cd {{ justfile_dir }} && find .github/workflows -name '*.yml' -type f -print0 | xargs -0 actionlint -ignore 'label "windows-11-vs2026-arm" is unknown' -ignore 'label "windows-11-vs2026-arm" is unknown. if it is a custom label for self-hosted runner, set list of labels in actionlint.yaml config file'
 
 quality-lint-check-tk:
     bash {{ justfile_dir }}/contrib/quality/quality.sh lint-check-tk

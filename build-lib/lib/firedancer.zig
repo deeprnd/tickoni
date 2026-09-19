@@ -7,8 +7,8 @@ pub fn linkTickoniFiredancer(b: *std.Build, step: *std.Build.Step.Compile, fd_li
     addTickoniFiredancerShims(b, step);
     if (step.root_module.resolved_target.?.result.os.tag == .windows) {
         step.root_module.addLibraryPath(b.path(fd_lib_dir));
-        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
-        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
+        step.root_module.addObjectFile(b.path(b.fmt("{s}/libfd_tango.a", .{fd_lib_dir})));
+        step.root_module.addObjectFile(b.path(b.fmt("{s}/libfd_util.a", .{fd_lib_dir})));
         codec.linkTickoniWindowsUuid(b, step, fd_lib_dir);
         step.root_module.link_libcpp = true;
         return;
