@@ -42,26 +42,10 @@ const tile_mod = @import("tile.zig");
 const link_mod = @import("link.zig");
 const boot = @import("boot.zig");
 const logger = @import("logger");
-const tile_runtime = @import("../tiles/payment_pipeline/runtime.zig");
-const payment_process = @import("../tiles/payment_pipeline/process.zig");
 
-pub const WorkFn = *const fn (
-    io: std.Io,
-    wksp: *c_abi.wksp.Wksp,
-    spec: *const launch_spec.LaunchSpec,
-    cnc: *c_abi.cnc.Cnc,
-    allocator: std.mem.Allocator,
-) anyerror!void;
-
-/// Re-export LaunchSpec so tile_main.zig can read it before calling run().
-pub const LaunchSpec = launch_spec.LaunchSpec;
-
-/// Set once per process, at the bottom of run(), immediately before
-/// calling into the harness; read only by the two exported callbacks
-/// below. See this file's module doc for why a global is the right
-/// pattern here (fd_topo_run_tile_t's fixed callback signature, one tile
-/// per process).
-var g_ctx: struct {
+/// Per-process tile state — one instance per tile process. Named type so
+/// the C callback wrappers can cast from *anyopaque back to it.
+pub const GCtx = struct {
     spec: *const launch_spec.LaunchSpec = undefined,
     wksp_idx: usize = 0,
     cnc_obj_id: usize = 0,
@@ -82,7 +66,24 @@ var g_ctx: struct {
     stem_after_credit: ?c_abi.stem.AfterCreditFn = null,
     stem_metrics_write: ?c_abi.stem.MetricsWriteFn = null,
     stem_should_shutdown: ?c_abi.stem.ShouldShutdownFn = null,
-} = .{};
+};
+
+/// Set once per process, at the bottom of run(), immediately before
+/// calling into the harness; read only by the two exported callbacks
+/// below. See this file's module doc for why a global is the right
+/// pattern here (fd_topo_run_tile_t's fixed callback signature, one tile
+/// per process).
+var g_ctx: GCtx = .{};
+
+pub const WorkFn = *const fn (
+    io: std.Io,
+    wksp: *c_abi.wksp.Wksp,
+    spec: *const launch_spec.LaunchSpec,
+    cnc: *c_abi.cnc.Cnc,
+    allocator: std.mem.Allocator,
+) anyerror!void;
+
+pub const LaunchSpec = launch_spec.LaunchSpec;
 
 /// Resolves and joins this tile's cnc (not a Firedancer-standard link/tile
 /// object, so fd_topo_fill_tile doesn't auto-join it — Tickoni's own
@@ -91,10 +92,8 @@ var g_ctx: struct {
 /// transition tile_process.zig always has. Also registers tile-specific
 /// stem callbacks via `stemRegisterCtx` so fd_stem's run loop dispatches
 /// into Zig during its control flow.
-export fn tk_tile_privileged_init(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
-    _ = topo;
-    _ = tile;
-    const topo_typed: *c_abi.topob.Topo = @ptrCast(topo);
+export fn tk_tile_privileged_init(_topo: *anyopaque, _tile: *anyopaque) callconv(.c) void {
+    const topo_typed: *c_abi.topob.Topo = @ptrCast(_topo);
     const laddr = c_abi.topob.topoObjLaddr(topo_typed, g_ctx.cnc_obj_id);
     g_ctx.cnc = c_abi.cnc.cncJoin(laddr) orelse {
         const log = logger.get();
@@ -124,10 +123,10 @@ export fn tk_tile_privileged_init(topo: *anyopaque, tile: *anyopaque) callconv(.
     // and the old g_ctx.work() loop is used directly.
     if (g_ctx.wksp_ptr != null) {
         c_abi.stem.stemRegisterCtx(
-            topo,
-            tile,
+            _topo,
+            _tile,
             &g_ctx,
-            g_ctx.wksp_ptr,
+            @ptrCast(g_ctx.wksp_ptr),
             g_ctx.stem_before_credit,
             g_ctx.stem_during_frag,
             g_ctx.stem_after_credit,
@@ -198,43 +197,28 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
 // ---------------------------------------------------------------------------
 
 export fn tk_stem_before_credit(zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c_int) callconv(.c) void {
-    const ctx: *g_ctx.type = @ptrCast(zig_state);
-    if (ctx.stem_before_credit) {
-        ctx.stem_before_credit(zig_state, stem, charge_busy);
-    } else {
-        charge_busy.* = 0;
-    }
+    const ctx: *const GCtx = @alignCast(@ptrCast(zig_state));
+    if (ctx.stem_before_credit) |cb| cb(zig_state, stem, charge_busy) else charge_busy.* = 0;
 }
 
 export fn tk_stem_during_frag(zig_state: *anyopaque, idx: c_uint, seq: c_ulong, sig: c_uint, chunk: c_ulong, sz: c_uint, ctl: c_uint) callconv(.c) void {
-    const ctx: *g_ctx.type = @ptrCast(zig_state);
-    if (ctx.stem_during_frag) {
-        ctx.stem_during_frag(zig_state, idx, seq, sig, chunk, sz, ctl);
-    }
+    const ctx: *const GCtx = @alignCast(@ptrCast(zig_state));
+    if (ctx.stem_during_frag) |cb| cb(zig_state, idx, seq, sig, chunk, sz, ctl);
 }
 
 export fn tk_stem_after_credit(zig_state: *anyopaque, stem: *anyopaque, poll_in: *c_int, charge_busy: *c_int) callconv(.c) void {
-    const ctx: *g_ctx.type = @ptrCast(zig_state);
-    if (ctx.stem_after_credit) {
-        ctx.stem_after_credit(zig_state, stem, poll_in, charge_busy);
-    } else {
-        poll_in.* = 1;
-        charge_busy.* = 0;
-    }
+    const ctx: *const GCtx = @alignCast(@ptrCast(zig_state));
+    if (ctx.stem_after_credit) |cb| cb(zig_state, stem, poll_in, charge_busy) else { poll_in.* = 1; charge_busy.* = 0; }
 }
 
 export fn tk_stem_metrics_write(zig_state: *anyopaque) callconv(.c) void {
-    const ctx: *g_ctx.type = @ptrCast(zig_state);
-    if (ctx.stem_metrics_write) {
-        ctx.stem_metrics_write(zig_state);
-    }
+    const ctx: *const GCtx = @alignCast(@ptrCast(zig_state));
+    if (ctx.stem_metrics_write) |cb| cb(zig_state);
 }
 
 export fn tk_stem_should_shutdown(zig_state: *anyopaque) callconv(.c) c_int {
-    const ctx: *g_ctx.type = @ptrCast(zig_state);
-    if (ctx.stem_should_shutdown) {
-        return ctx.stem_should_shutdown(zig_state);
-    }
+    const ctx: *const GCtx = @alignCast(@ptrCast(zig_state));
+    if (ctx.stem_should_shutdown) |cb| return cb(zig_state);
     return 0;
 }
 

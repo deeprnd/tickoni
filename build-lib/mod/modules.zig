@@ -1,6 +1,7 @@
 /// Shared module declarations — extracted from build.zig.
 /// Single-instance modules used by both the exe and test binaries.
 const std = @import("std");
+const shim = @import("../lib/shims.zig");
 
 pub const Shared = struct {
     c_abi: *std.Build.Module,

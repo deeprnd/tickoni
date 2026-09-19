@@ -40,7 +40,13 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) u8 {
     // On Linux these populate g_ctx.stem_* so fd_stem dispatches into Zig.
     // On macOS these are ignored (old g_ctx.work() loop used directly).
     const stem_cb = tile_registry.getStemCallbacks(spec.tile_id);
-    rt.tile_process.registerStemCallbacks(stem_cb);
+    rt.tile_process.registerStemCallbacks(
+        stem_cb.before_credit,
+        stem_cb.during_frag,
+        stem_cb.after_credit,
+        stem_cb.metrics_write,
+        stem_cb.should_shutdown,
+    );
 
     return rt.tile_process.run(io, allocator, spec_path, runPipelineStage);
 }

@@ -9,11 +9,11 @@ const c_abi = @import("../c_abi.zig");
 const std = @import("std");
 
 /// Callback function pointer types — Zig exports functions matching these signatures.
-pub const BeforeCreditFn = *const fn (zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c_int) callconv(.c) void;
-pub const DuringFragFn = *const fn (zig_state: *anyopaque, idx: c_uint, seq: c_ulong, sig: c_uint, chunk: c_ulong, sz: c_uint, ctl: c_uint) callconv(.c) void;
-pub const AfterCreditFn = *const fn (zig_state: *anyopaque, stem: *anyopaque, poll_in: *c_int, charge_busy: *c_int) callconv(.c) void;
-pub const MetricsWriteFn = *const fn (zig_state: *anyopaque) callconv(.c) void;
-pub const ShouldShutdownFn = *const fn (zig_state: *anyopaque) callconv(.c) c_int;
+pub const BeforeCreditFn = *const allowzero fn (zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c_int) callconv(.c) void;
+pub const DuringFragFn = *const allowzero fn (zig_state: *anyopaque, idx: c_uint, seq: c_ulong, sig: c_uint, chunk: c_ulong, sz: c_uint, ctl: c_uint) callconv(.c) void;
+pub const AfterCreditFn = *const allowzero fn (zig_state: *anyopaque, stem: *anyopaque, poll_in: *c_int, charge_busy: *c_int) callconv(.c) void;
+pub const MetricsWriteFn = *const allowzero fn (zig_state: *anyopaque) callconv(.c) void;
+pub const ShouldShutdownFn = *const allowzero fn (zig_state: *anyopaque) callconv(.c) c_int;
 
 extern fn tk_stem_register_ctx(
     topo: *anyopaque,
@@ -43,16 +43,22 @@ pub fn stemRegisterCtx(
     metrics_write: ?MetricsWriteFn,
     should_shutdown: ?ShouldShutdownFn,
 ) void {
-    // Convert optional callbacks to function pointers (or null)
+    // Convert optional callbacks to function pointers.
+    // Zig 0.17: can't cast zero address; use zeroes for null fn ptr representation.
+    const null_bc: BeforeCreditFn = std.mem.zeroes(BeforeCreditFn);
+    const null_df: DuringFragFn = std.mem.zeroes(DuringFragFn);
+    const null_ac: AfterCreditFn = std.mem.zeroes(AfterCreditFn);
+    const null_mw: MetricsWriteFn = std.mem.zeroes(MetricsWriteFn);
+    const null_ss: ShouldShutdownFn = std.mem.zeroes(ShouldShutdownFn);
     tk_stem_register_ctx(
         topo,
         tile,
         zig_state,
         wksp,
-        before_credit orelse null,
-        during_frag orelse null,
-        after_credit orelse null,
-        metrics_write orelse null,
-        should_shutdown orelse null,
+        if (before_credit) |v| v else null_bc,
+        if (during_frag) |v| v else null_df,
+        if (after_credit) |v| v else null_ac,
+        if (metrics_write) |v| v else null_mw,
+        if (should_shutdown) |v| v else null_ss,
     );
 }
