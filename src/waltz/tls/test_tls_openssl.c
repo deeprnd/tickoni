@@ -4,6 +4,15 @@
 #error "This test requires OpenSSL"
 #endif
 
+/* QUIC TLS API requires OpenSSL 3.1+ */
+#if !defined(OPENSSL_VERSION_NUMBER) || OPENSSL_VERSION_NUMBER < 0x30100000L
+
+int main( int argc, char ** argv ) {
+  (void)argc; (void)argv;
+  return 0;
+}
+#else
+
 /* Test OpenSSL client to fd_tls server handshake. */
 
 #include "../../ballet/ed25519/fd_ed25519.h"
@@ -531,4 +540,5 @@ main( int     argc,
   fd_halt();
   return 0;
 }
+#endif
 

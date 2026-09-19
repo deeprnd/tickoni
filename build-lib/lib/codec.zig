@@ -13,7 +13,7 @@ pub fn addTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, f
     // that concrete archive rather than asking Zig to discover a system
     // `crypto` library through pkg-config.BAT or fd_lib_dir.
     if (os_tag == .windows) {
-        step.root_module.addObjectFile(.{ .cwd_relative = "build/opt/lib/libcrypto.a" });
+        step.root_module.addObjectFile(b.path("build/opt/lib/libcrypto.a"));
     } else {
         // OpenSSL: link libcrypto; include path is handled by system defaults.
         step.root_module.linkSystemLibrary("crypto", .{});
@@ -23,7 +23,7 @@ pub fn addTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, f
         // Windows: use explicit archive paths. Avoids pkg-config.BAT probing
         // and preserves link order.
         for (libs) |lib| {
-            step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib }) });
+            step.root_module.addObjectFile(b.path(b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib })));
         }
         linkTickoniWindowsUuid(b, step, fd_lib_dir);
         step.root_module.link_libcpp = true;
@@ -32,7 +32,7 @@ pub fn addTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, f
         // ld.lld — fd_sandbox_* symbols from libfd_util.a must resolve after
         // the shim wrappers in sandbox.c reference them.
         for (libs) |lib| {
-            step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib }) });
+            step.root_module.addObjectFile(b.path(b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib })));
         }
         step.root_module.link_libcpp = true;
     } else {
@@ -40,7 +40,7 @@ pub fn addTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, f
         // are built in build/fd-tickoni-fd/lib/; linkSystemLibrary would search
         // for .so files which don't exist.
         for (libs) |lib| {
-            step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib }) });
+            step.root_module.addObjectFile(b.path(b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib })));
         }
         step.root_module.link_libcpp = true;
     }
@@ -51,7 +51,7 @@ pub fn addTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, f
 /// the archive explicitly for every Windows link.
 pub fn linkTickoniWindowsUuid(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8) void {
     if (step.root_module.resolved_target.?.result.os.tag != .windows) return;
-    step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{fd_lib_dir}) });
+    step.root_module.addObjectFile(b.path(b.fmt("{s}/libuuid.a", .{fd_lib_dir})));
 }
 
 /// Create a static shim library from the given C source files.
@@ -160,8 +160,8 @@ pub fn linkTickoniCodec(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir
     addTickoniCodecShim(b, step);
     if (step.root_module.resolved_target.?.result.os.tag == .windows) {
         step.root_module.addLibraryPath(b.path(fd_lib_dir));
-        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
-        step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
+        step.root_module.addObjectFile(b.path(b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir})));
+        step.root_module.addObjectFile(b.path(b.fmt("{s}/libfd_util.a", .{fd_lib_dir})));
         linkTickoniWindowsUuid(b, step, fd_lib_dir);
         step.root_module.link_libcpp = true;
         return;

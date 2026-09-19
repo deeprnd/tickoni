@@ -44,6 +44,13 @@ extern void tk_topo_run_tile( void * topo,
                               int    allow_fd,
                               void * tile_run );
 
+/* tk_stem_run: Linux-only fd_stem-based run loop.  On non-Linux we fall
+   back to tk_tile_run (existing per-tile loop).  See v2.22.S5 fd_stem
+   migration plan. */
+#if FD_HAS_LINUX
+extern void tk_stem_run( fd_topo_t * top, fd_topo_tile_t * tile );
+#endif
+
 static int const TK_PROCESS_MODE_SANDBOX_NONE = 0;
 static int const TK_KEEP_CONTROLLING_TERMINAL = 1;
 
