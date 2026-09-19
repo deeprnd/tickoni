@@ -56,7 +56,7 @@ static uint _ossl_send_level = FD_TLS_LEVEL_INITIAL;
 
 static int
 _ossl_yield_secret( SSL *                 ssl,
-                    uint32_t              enc_level,
+                    uint                  enc_level,
                     int                   direction,
                     uchar const *         secret_data,
                     ulong                 secret_len,
