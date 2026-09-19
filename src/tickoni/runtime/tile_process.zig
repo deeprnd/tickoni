@@ -59,7 +59,12 @@ pub const GCtx = struct {
     io: std.Io = undefined,
     allocator: std.mem.Allocator = undefined,
     heartbeats: u32 = 0,
-    /// Set during privileged_init before the stem loop starts; used
+    /// topo_ptr + tile_idx passed from run() to privileged_init() so
+    /// privileged_init can do workspace join + link joining AFTER
+    /// fd_topo_join_workspace runs (inside runTileSimple).
+    topo_ptr: ?*c_abi.topob.Topo = null,
+    tile_idx: u32 = 0,
+    /// Set during privileged_init after workspace is joined; used
     /// by the fd_stem callbacks to find this tile's wksp for dcache
     /// chunk→laddr conversion.
     wksp_ptr: ?*c_abi.wksp.Wksp = null,
@@ -175,23 +180,11 @@ export fn tk_tile_privileged_init(_topo: *anyopaque, _tile: *anyopaque) callconv
         c_abi.cnc.signal(g_ctx.cnc, c_abi.cnc.signal_run);
     }
 
-    // Register stem callbacks: dispatches from fd_stem run loop into Zig.
-    // Tile-specific callback implementations are set before run() calls
-    // runTileSimple() via setupStemCallbacks(). On macOS these remain null
-    // and the old g_ctx.work() loop is used directly.
-    if (g_ctx.wksp_ptr != null) {
-        c_abi.stem.stemRegisterCtx(
-            _topo,
-            _tile,
-            &g_ctx,
-            @ptrCast(g_ctx.wksp_ptr),
-            g_ctx.stem_before_credit,
-            g_ctx.stem_during_frag,
-            g_ctx.stem_after_credit,
-            g_ctx.stem_metrics_write,
-            g_ctx.stem_should_shutdown,
-        );
-    }
+    // No-op on both paths: stem callbacks are registered in tk_tile_run()
+    // AFTER the workspace has been joined (on Linux, fd_stem calls this
+    // BEFORE fd_topo_join_workspace, so the wksp ptr isn't available yet).
+    // topo_typed is used for cnc join below.
+    _ = _tile;
 }
 
 /// Runs the tile-specific work, then heartbeats until the supervisor
@@ -204,13 +197,34 @@ export fn tk_tile_privileged_init(_topo: *anyopaque, _tile: *anyopaque) callconv
 /// observable behavior (non-zero exit, cnc never reaches BOOT) the
 /// crash-isolation tests (v2.14.S1.T12) check for.
 export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
-    _ = tile;
     const topo_typed: *c_abi.topob.Topo = @ptrCast(topo);
     const wksp = c_abi.topob.topoWkspPtr(topo_typed, g_ctx.wksp_idx) orelse {
         const log = logger.get();
         log.err("tile_process", "tk_tile_run", "workspace not joined") catch {};
         std.process.exit(1);
     };
+
+    // Register stem callbacks: workspace is now joined (after privileged_init),
+    // so wksp_ptr is valid. Must happen before g_ctx.work() runs so stem loop
+    // can find the context when it starts after work() returns.
+    if (g_ctx.stem_before_credit != null or
+        g_ctx.stem_during_frag != null or
+        g_ctx.stem_after_credit != null or
+        g_ctx.stem_metrics_write != null or
+        g_ctx.stem_should_shutdown != null)
+    {
+        c_abi.stem.stemRegisterCtx(
+            topo,
+            tile,
+            &g_ctx,
+            wksp,
+            g_ctx.stem_before_credit,
+            g_ctx.stem_during_frag,
+            g_ctx.stem_after_credit,
+            g_ctx.stem_metrics_write,
+            g_ctx.stem_should_shutdown,
+        );
+    }
 
     g_ctx.work(g_ctx.io, wksp, g_ctx.spec, g_ctx.cnc, g_ctx.allocator) catch |err| {
         const log = logger.get();
@@ -371,6 +385,13 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         return 1;
     }
     c_abi.topob.topoTileSetAllowShutdown(built.topo, tile_idx, true);
+
+    // Join workspaces: topo_build.build() recreates the topology but doesn't
+    // materialize the workspace — this must happen before any wksp pointer
+    // lookup (topoWkspPtr) or link joining. On Linux this is what fd_stem's
+    // fd_topo_join_workspace does inside runTileSimple, but we need the wksp
+    // ptr for link joining BEFORE runTileSimple, so do it here.
+    c_abi.topob.topoJoinWorkspaces(built.topo, true, 0);
 
     g_ctx = .{
         .spec = &spec,
