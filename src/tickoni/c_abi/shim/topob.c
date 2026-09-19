@@ -161,12 +161,14 @@ static fd_topo_obj_callbacks_t tk_obj_cb_metrics = {
 };
 
 /* Tickoni-owned "tile" object: Phase 0 tiles need no fd_scratch tile-local
-   memory, so this is a deliberate minimal (not zero — fd_topob_finish's
-   NUMA-assignment step requires every object to have a non-zero
-   footprint) placeholder, NOT a call into fdctl_tile_run()/TILES[]. */
+   memory, but fd_stem stores tk_stem_ctx_t in the tile workspace object.
+   The footprint must be at least sizeof(tk_stem_ctx_t) so the stem run
+   loop can read callback function pointers from tile_obj_id. */
+#include "tk_stem.h"
+
 static ulong
 tile_footprint( fd_topo_t const * topo FD_FN_UNUSED, fd_topo_obj_t const * obj FD_FN_UNUSED ) {
-  return 1UL;
+  return sizeof(tk_stem_ctx_t);
 }
 
 static ulong

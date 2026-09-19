@@ -25,6 +25,7 @@
 /// through c_abi.topob's opaque Topo/TopoTile only when they need to call
 /// back into the adapter (e.g. to resolve this tile's cnc address).
 const std = @import("std");
+const c = std.c;
 const c_abi = @import("c_abi");
 const util = @import("util");
 const launch_spec = @import("launch_spec.zig");
@@ -57,13 +58,26 @@ var g_ctx: struct {
     io: std.Io = undefined,
     allocator: std.mem.Allocator = undefined,
     heartbeats: u32 = 0,
+    /// Set during privileged_init before the stem loop starts; used
+    /// by the fd_stem callbacks to find this tile's wksp for dcache
+    /// chunk→laddr conversion.
+    wksp_ptr: ?*c_abi.wksp.Wksp = null,
+    /// Stem callback function pointers — set in run(), called by
+    /// the exported C-compatible callbacks below.
+    stem_before_credit: c_abi.stem.BeforeCreditFn = null,
+    stem_during_frag: c_abi.stem.DuringFragFn = null,
+    stem_after_credit: c_abi.stem.AfterCreditFn = null,
+    stem_metrics_write: c_abi.stem.MetricsWriteFn = null,
+    stem_should_shutdown: c_abi.stem.ShouldShutdownFn = null,
 } = .{};
 
 /// Resolves and joins this tile's cnc (not a Firedancer-standard link/tile
 /// object, so fd_topo_fill_tile doesn't auto-join it — Tickoni's own
 /// object, resolved the same way its "tile"/"cnc" object callbacks in
 /// shim/topob.c do), then performs the same BOOT->RUN heartbeat+signal
-/// transition tile_process.zig always has.
+/// transition tile_process.zig always has. Also registers tile-specific
+/// stem callbacks via `stemRegisterCtx` so fd_stem's run loop dispatches
+/// into Zig during its control flow.
 export fn tk_tile_privileged_init(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
     _ = tile;
     const topo_typed: *c_abi.topob.Topo = @ptrCast(topo);
@@ -88,6 +102,23 @@ export fn tk_tile_privileged_init(topo: *anyopaque, tile: *anyopaque) callconv(.
     // instead of hanging forever.
     if (c_abi.cnc.signalQuery(g_ctx.cnc) != c_abi.cnc.signal_halt) {
         c_abi.cnc.signal(g_ctx.cnc, c_abi.cnc.signal_run);
+    }
+
+    // Register stem callbacks: dispatches from fd_stem run loop into Zig.
+    // Tile-specific callback implementations are set in run() via
+    // g_ctx.stem_* fields; they remain null until Task 4 migrates a tile.
+    if (g_ctx.wksp_ptr != null) {
+        c_abi.stem.stemRegisterCtx(
+            topo,
+            tile,
+            &g_ctx,
+            g_ctx.wksp_ptr,
+            g_ctx.stem_before_credit,
+            g_ctx.stem_during_frag,
+            g_ctx.stem_after_credit,
+            g_ctx.stem_metrics_write,
+            g_ctx.stem_should_shutdown,
+        );
     }
 }
 
@@ -141,6 +172,57 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
     }
 
     c_abi.cnc.signal(g_ctx.cnc, c_abi.cnc.signal_boot);
+}
+
+// ---------------------------------------------------------------------------
+// C-compatible callback wrappers.
+//
+// These are the functions passed to tk_stem_register_ctx().  Each wrapper
+// reads the tile-specific callback from g_ctx and dispatches it.
+// They are exported with callconv(.C) so the C shim can call them directly.
+// ---------------------------------------------------------------------------
+
+export fn tk_stem_before_credit(zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c.c_int) callconv(.C) void {
+    const ctx: *g_ctx.type = @ptrCast(zig_state);
+    _ = stem;
+    if (ctx.stem_before_credit) {
+        ctx.stem_before_credit(zig_state, stem, charge_busy);
+    } else {
+        charge_busy.* = 0;
+    }
+}
+
+export fn tk_stem_during_frag(zig_state: *anyopaque, idx: c.c_uint, seq: c.c_ulong, sig: c.c_uint, chunk: c.c_ulong, sz: c.c_uint, ctl: c.c_uint) callconv(.C) void {
+    const ctx: *g_ctx.type = @ptrCast(zig_state);
+    if (ctx.stem_during_frag) {
+        ctx.stem_during_frag(zig_state, idx, seq, sig, chunk, sz, ctl);
+    }
+}
+
+export fn tk_stem_after_credit(zig_state: *anyopaque, stem: *anyopaque, poll_in: *c.c_int, charge_busy: *c.c_int) callconv(.C) void {
+    const ctx: *g_ctx.type = @ptrCast(zig_state);
+    _ = stem;
+    if (ctx.stem_after_credit) {
+        ctx.stem_after_credit(zig_state, stem, poll_in, charge_busy);
+    } else {
+        poll_in.* = 1;
+        charge_busy.* = 0;
+    }
+}
+
+export fn tk_stem_metrics_write(zig_state: *anyopaque) callconv(.C) void {
+    const ctx: *g_ctx.type = @ptrCast(zig_state);
+    if (ctx.stem_metrics_write) {
+        ctx.stem_metrics_write(zig_state);
+    }
+}
+
+export fn tk_stem_should_shutdown(zig_state: *anyopaque) callconv(.C) c.c_int {
+    const ctx: *g_ctx.type = @ptrCast(zig_state);
+    if (ctx.stem_should_shutdown) {
+        return ctx.stem_should_shutdown(zig_state);
+    }
+    return 0;
 }
 
 /// Runs one process-mode tile to completion. `work` performs the caller's
@@ -206,6 +288,13 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         .work = work,
         .io = io,
         .allocator = allocator,
+    };
+
+    // Populate wksp_ptr now so privileged_init can use it for stem callback
+    // registration (tk_stem_zig_ctx needs wksp for dcache chunk→laddr).
+    g_ctx.wksp_ptr = c_abi.topob.topoWkspPtr(built.topo, built.wksp_idx) orelse {
+        std.debug.print("tile_process: workspace {d} not found for tile {d}\n", .{ built.wksp_idx, spec.tile_idx });
+        return 1;
     };
 
     c_abi.topo_run.runTileSimple(built.topo, c_abi.topob.topoTilePtr(built.topo, tile_idx));

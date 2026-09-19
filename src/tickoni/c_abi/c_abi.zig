@@ -13,3 +13,4 @@ pub const boot = @import("boot.zig");
 pub const topo_run = @import("topo_run.zig");
 pub const topob = @import("topob.zig");
 pub const os = @import("shim/os.zig");
+pub const stem = @import("shim/stem.zig");
