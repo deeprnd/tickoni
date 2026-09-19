@@ -10,7 +10,16 @@
 
    NOTE: fd_stem.c generates tk_stem_run() as a non-static function so it
    is linkable by tile_run.c's TK_TILE_RUN struct.
+
+   PLATFORM: fd_stem is Linux-only.  On macOS/Windows tile_run.c dispatches
+   to tk_tile_run() (the old per-tile loop).  The stub tk_stem_run() below
+   is never called on non-Linux but exists to avoid link errors.
 */
+
+/* ------------------------------------------------------------------
+   Linux: full fd_stem integration.
+   ------------------------------------------------------------------ */
+#if FD_HAS_LINUX
 
 #include "../../../util/fd_util.h"
 #include "../../../disco/topo/fd_topo.h"
@@ -106,3 +115,19 @@ STEM_CALLBACK_METRICS_WRITE(void *ctx) {
 void tk_stem_run( fd_topo_t * topo, fd_topo_tile_t * tile ) {
     tk_stem_gen_run(topo, tile);
 }
+
+/* ------------------------------------------------------------------
+   Non-Linux: stub that does nothing.  On macOS/Windows tile_run.c
+   dispatches to tk_tile_run() instead, so this function is never
+   called.  Kept only to avoid link errors on non-Linux builds.
+   ------------------------------------------------------------------ */
+#else /* !FD_HAS_LINUX */
+
+void tk_stem_run( void * topo, void * tile ) {
+    /* Stub — fd_stem is Linux-only. On non-Linux tile_run.c dispatches
+       to tk_tile_run() instead, so this function is never called. */
+    (void)topo;
+    (void)tile;
+}
+
+#endif /* FD_HAS_LINUX */

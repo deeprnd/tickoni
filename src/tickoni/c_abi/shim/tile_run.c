@@ -117,6 +117,8 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
                     (uint)getuid(), (uint)getgid(), /* allow_fd */ -1,
                     &TK_TILE_RUN );
 #else
+  /* Windows (FD_HAS_WINDOWS): getuid()/getgid() not available.  uid/gid
+     has no effect on hosted Windows (sandbox=none), so zero is correct. */
   tk_topo_run_tile( topo, tile,
                     TK_PROCESS_MODE_SANDBOX_NONE, TK_KEEP_CONTROLLING_TERMINAL,
                     FD_TOPO_CORE_DUMP_LEVEL_REGULAR,
