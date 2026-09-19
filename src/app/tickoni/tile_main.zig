@@ -9,6 +9,13 @@
 /// src/tickoni/runtime/tile_process.zig; this file only looks up this
 /// tile's process-mode callback in tile_registry.zig (v2.14.S8.T1's single
 /// source of truth for tile id -> behavior) and runs it.
+///
+/// fd_stem migration (v2.22.S5): Before run() calls runTileSimple(),
+/// this function reads the launch spec, looks up tile-specific stem
+/// callbacks in tile_registry, and registers them so that
+/// tile_process.zig's privileged_init() picks them up via stemRegisterCtx()
+/// during fd_stem's setup. On macOS, the callbacks remain null and the
+/// old g_ctx.work() loop is used directly.
 const std = @import("std");
 const rt = @import("runtime");
 const c_abi = @import("c_abi");
@@ -22,7 +29,19 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) u8 {
 
     log.debug("tile_main", "run", "loading spec from file") catch {};
 
-    log.debug("tile_main", "run", "spec loaded") catch {};
+    // v2.22.S5.T3: Read the launch spec early so we can look up stem
+    // callbacks for this tile BEFORE run() calls runTileSimple().
+    const spec = rt.tile_process.LaunchSpec.readFromFile(io, std.Io.Dir.cwd(), spec_path) catch |err| {
+        std.debug.print("tile_main: failed to read launch spec {s}: {t}\n", .{ spec_path, err });
+        return 1;
+    };
+
+    // Register tile-specific fd_stem callbacks before the harness call.
+    // On Linux these populate g_ctx.stem_* so fd_stem dispatches into Zig.
+    // On macOS these are ignored (old g_ctx.work() loop used directly).
+    const stem_cb = tile_registry.getStemCallbacks(spec.tile_id);
+    rt.tile_process.registerStemCallbacks(stem_cb);
+
     return rt.tile_process.run(io, allocator, spec_path, runPipelineStage);
 }
 

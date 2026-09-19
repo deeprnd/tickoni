@@ -24,6 +24,13 @@
 /// fd_topo_t/fd_topo_tile_t by name; callbacks take *anyopaque and cast
 /// through c_abi.topob's opaque Topo/TopoTile only when they need to call
 /// back into the adapter (e.g. to resolve this tile's cnc address).
+///
+/// fd_stem migration (v2.22.S5): On Linux, g_ctx.stem_* callbacks are
+/// populated by tile_registry.zig's setupStemCallbacks() BEFORE run()
+/// calls runTileSimple(). The C bridge (tk_stem.c) reads those callbacks
+/// and registers them into tk_stem_ctx_t in workspace, so fd_stem's run
+/// loop dispatches into Zig during its control flow. On macOS, the old
+/// g_ctx.work() loop continues to work (platform fallback).
 const std = @import("std");
 const c = std.c;
 const c_abi = @import("c_abi");
@@ -35,6 +42,8 @@ const tile_mod = @import("tile.zig");
 const link_mod = @import("link.zig");
 const boot = @import("boot.zig");
 const logger = @import("logger");
+const tile_runtime = @import("../tiles/payment_pipeline/runtime.zig");
+const payment_process = @import("../tiles/payment_pipeline/process.zig");
 
 pub const WorkFn = *const fn (
     io: std.Io,
@@ -43,6 +52,9 @@ pub const WorkFn = *const fn (
     cnc: *c_abi.cnc.Cnc,
     allocator: std.mem.Allocator,
 ) anyerror!void;
+
+/// Re-export LaunchSpec so tile_main.zig can read it before calling run().
+pub const LaunchSpec = launch_spec.LaunchSpec;
 
 /// Set once per process, at the bottom of run(), immediately before
 /// calling into the harness; read only by the two exported callbacks
@@ -62,8 +74,9 @@ var g_ctx: struct {
     /// by the fd_stem callbacks to find this tile's wksp for dcache
     /// chunk→laddr conversion.
     wksp_ptr: ?*c_abi.wksp.Wksp = null,
-    /// Stem callback function pointers — set in run(), called by
-    /// the exported C-compatible callbacks below.
+    /// Stem callback function pointers — set via setupStemCallbacks()
+    /// before run() calls runTileSimple(). On macOS these are ignored
+    /// and the old g_ctx.work() loop is used directly.
     stem_before_credit: ?c_abi.stem.BeforeCreditFn = null,
     stem_during_frag: ?c_abi.stem.DuringFragFn = null,
     stem_after_credit: ?c_abi.stem.AfterCreditFn = null,
@@ -106,8 +119,9 @@ export fn tk_tile_privileged_init(topo: *anyopaque, tile: *anyopaque) callconv(.
     }
 
     // Register stem callbacks: dispatches from fd_stem run loop into Zig.
-    // Tile-specific callback implementations are set in run() via
-    // g_ctx.stem_* fields; they remain null until Task 4 migrates a tile.
+    // Tile-specific callback implementations are set before run() calls
+    // runTileSimple() via setupStemCallbacks(). On macOS these remain null
+    // and the old g_ctx.work() loop is used directly.
     if (g_ctx.wksp_ptr != null) {
         c_abi.stem.stemRegisterCtx(
             topo,
@@ -222,6 +236,37 @@ export fn tk_stem_should_shutdown(zig_state: *anyopaque) callconv(.c) c_int {
         return ctx.stem_should_shutdown(zig_state);
     }
     return 0;
+}
+
+/// Registers fd_stem callback function pointers into g_ctx so that
+/// privileged_init() can pick them up via stemRegisterCtx() during
+/// runTileSimple(). Must be called BEFORE runTileSimple() is invoked.
+///
+/// On macOS, this is a no-op — the old g_ctx.work() loop is used directly.
+/// On Linux, this populates g_ctx.stem_* so fd_stem dispatches into Zig.
+pub fn registerStemCallbacks(
+    before_credit: ?c_abi.stem.BeforeCreditFn,
+    during_frag: ?c_abi.stem.DuringFragFn,
+    after_credit: ?c_abi.stem.AfterCreditFn,
+    metrics_write: ?c_abi.stem.MetricsWriteFn,
+    should_shutdown: ?c_abi.stem.ShouldShutdownFn,
+) void {
+    g_ctx.stem_before_credit = before_credit;
+    g_ctx.stem_during_frag = during_frag;
+    g_ctx.stem_after_credit = after_credit;
+    g_ctx.stem_metrics_write = metrics_write;
+    g_ctx.stem_should_shutdown = should_shutdown;
+}
+
+/// Overload: accepts the StemCallbacks struct from tile_registry.zig.
+pub fn registerStemCallbacksStruct(cb: struct {
+    before_credit: ?c_abi.stem.BeforeCreditFn,
+    during_frag: ?c_abi.stem.DuringFragFn,
+    after_credit: ?c_abi.stem.AfterCreditFn,
+    metrics_write: ?c_abi.stem.MetricsWriteFn,
+    should_shutdown: ?c_abi.stem.ShouldShutdownFn,
+}) void {
+    registerStemCallbacks(cb.before_credit, cb.during_frag, cb.after_credit, cb.metrics_write, cb.should_shutdown);
 }
 
 /// Runs one process-mode tile to completion. `work` performs the caller's

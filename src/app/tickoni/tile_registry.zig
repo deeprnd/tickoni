@@ -9,7 +9,14 @@
 /// run callback, process-mode run callback, and counter schema. Every
 /// consumer of tile identity reads from here instead of recreating the
 /// mapping.
+///
+/// fd_stem migration (v2.22.S5): Each pipeline tile also owns a set of
+/// fd_stem callback implementations (before_credit, during_frag, after_credit,
+/// metrics_write, should_shutdown). The `setupStemCallbacks()` function at
+/// the bottom of this file populates `g_ctx.stem_*` in tile_process.zig
+/// based on `spec.tile_id` so fd_stem dispatches into Zig during its run loop.
 const std = @import("std");
+const c = std.c;
 const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const tiles = @import("tiles");
@@ -139,6 +146,220 @@ fn tkaudtProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
 }
 
 // ---------------------------------------------------------------------------
+// fd_stem callback implementations.
+//
+// Each pipeline tile owns its fd_stem callback implementations. These are
+// exported with callconv(.c) so the C shim (tk_stem.c) can call them
+// directly during fd_stem's run loop. The `setupStemCallbacks()` function
+// at the bottom of this file wires them into g_ctx.stem_* before
+// runTileSimple() is called.
+//
+// On macOS, these callbacks are never called — the old g_ctx.work() loop
+// continues to work directly.
+// ---------------------------------------------------------------------------
+
+/// tkings before_credit: signal busy when output dcache is full, otherwise
+/// return charge_busy=0 so fd_stem knows this tile is ready.
+export fn tkings_before_credit(zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c_int) callconv(.c) void {
+    _ = zig_state;
+    _ = stem;
+    _ = charge_busy;
+    // TODO (v2.22.S5.T3): Implement tkings stem logic — check output
+    // dcache space, set charge_busy accordingly.
+    charge_busy.* = 0;
+}
+
+/// tkings during_frag: no-op for tkings (producer tile, no input).
+export fn tkings_during_frag(zig_state: *anyopaque, idx: c_uint, seq: c_ulong, sig: c_uint, chunk: c_ulong, sz: c_uint, ctl: c_uint) callconv(.c) void {
+    _ = zig_state;
+    _ = idx;
+    _ = seq;
+    _ = sig;
+    _ = chunk;
+    _ = sz;
+    _ = ctl;
+    // Producer tile, no input to consume.
+}
+
+/// tkings after_credit: no-op for tkings.
+export fn tkings_after_credit(zig_state: *anyopaque, stem: *anyopaque, poll_in: *c_int, charge_busy: *c_int) callconv(.c) void {
+    _ = zig_state;
+    _ = stem;
+    poll_in.* = 1;
+    charge_busy.* = 0;
+}
+
+/// tkings metrics_write: no-op (tkings counters are in cnc app-region).
+export fn tkings_metrics_write(zig_state: *anyopaque) callconv(.c) void {
+    _ = zig_state;
+    // Counters handled via cnc app-region counters.
+}
+
+/// tkings should_shutdown: always return 0 (tile runs until supervisor
+/// signals HALT via cnc).
+export fn tkings_should_shutdown(zig_state: *anyopaque) callconv(.c) c_int {
+    _ = zig_state;
+    return 0;
+}
+
+/// tkrnorm before_credit: signal busy when input or output dcache is full.
+export fn tkrnorm_before_credit(zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c_int) callconv(.c) void {
+    _ = zig_state;
+    _ = stem;
+    _ = charge_busy;
+    // TODO (v2.22.S5.T3): Implement tkrnorm stem logic — check input/output
+    // dcache space, set charge_busy accordingly.
+    charge_busy.* = 0;
+}
+
+/// tkrnorm during_frag: no-op for tkrnorm (pass-through tile).
+export fn tkrnorm_during_frag(zig_state: *anyopaque, idx: c_uint, seq: c_ulong, sig: c_uint, chunk: c_ulong, sz: c_uint, ctl: c_uint) callconv(.c) void {
+    _ = zig_state;
+    _ = idx;
+    _ = seq;
+    _ = sig;
+    _ = chunk;
+    _ = sz;
+    _ = ctl;
+}
+
+/// tkrnorm after_credit: no-op.
+export fn tkrnorm_after_credit(zig_state: *anyopaque, stem: *anyopaque, poll_in: *c_int, charge_busy: *c_int) callconv(.c) void {
+    _ = zig_state;
+    _ = stem;
+    poll_in.* = 1;
+    charge_busy.* = 0;
+}
+
+/// tkrnorm metrics_write: no-op.
+export fn tkrnorm_metrics_write(zig_state: *anyopaque) callconv(.c) void {
+    _ = zig_state;
+}
+
+/// tkrnorm should_shutdown: always return 0.
+export fn tkrnorm_should_shutdown(zig_state: *anyopaque) callconv(.c) c_int {
+    _ = zig_state;
+    return 0;
+}
+
+/// tkdedu before_credit: signal busy when input or output dcache is full.
+export fn tkdedu_before_credit(zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c_int) callconv(.c) void {
+    _ = zig_state;
+    _ = stem;
+    _ = charge_busy;
+    // TODO (v2.22.S5.T3): Implement tkdedu stem logic.
+    charge_busy.* = 0;
+}
+
+/// tkdedu during_frag: no-op.
+export fn tkdedu_during_frag(zig_state: *anyopaque, idx: c_uint, seq: c_ulong, sig: c_uint, chunk: c_ulong, sz: c_uint, ctl: c_uint) callconv(.c) void {
+    _ = zig_state;
+    _ = idx;
+    _ = seq;
+    _ = sig;
+    _ = chunk;
+    _ = sz;
+    _ = ctl;
+}
+
+/// tkdedu after_credit: no-op.
+export fn tkdedu_after_credit(zig_state: *anyopaque, stem: *anyopaque, poll_in: *c_int, charge_busy: *c_int) callconv(.c) void {
+    _ = zig_state;
+    _ = stem;
+    poll_in.* = 1;
+    charge_busy.* = 0;
+}
+
+/// tkdedu metrics_write: no-op.
+export fn tkdedu_metrics_write(zig_state: *anyopaque) callconv(.c) void {
+    _ = zig_state;
+}
+
+/// tkdedu should_shutdown: always return 0.
+export fn tkdedu_should_shutdown(zig_state: *anyopaque) callconv(.c) c_int {
+    _ = zig_state;
+    return 0;
+}
+
+/// tkpoly before_credit: signal busy when input or output dcache is full.
+export fn tkpoly_before_credit(zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c_int) callconv(.c) void {
+    _ = zig_state;
+    _ = stem;
+    _ = charge_busy;
+    // TODO (v2.22.S5.T3): Implement tkpoly stem logic.
+    charge_busy.* = 0;
+}
+
+/// tkpoly during_frag: no-op.
+export fn tkpoly_during_frag(zig_state: *anyopaque, idx: c_uint, seq: c_ulong, sig: c_uint, chunk: c_ulong, sz: c_uint, ctl: c_uint) callconv(.c) void {
+    _ = zig_state;
+    _ = idx;
+    _ = seq;
+    _ = sig;
+    _ = chunk;
+    _ = sz;
+    _ = ctl;
+}
+
+/// tkpoly after_credit: no-op.
+export fn tkpoly_after_credit(zig_state: *anyopaque, stem: *anyopaque, poll_in: *c_int, charge_busy: *c_int) callconv(.c) void {
+    _ = zig_state;
+    _ = stem;
+    poll_in.* = 1;
+    charge_busy.* = 0;
+}
+
+/// tkpoly metrics_write: no-op.
+export fn tkpoly_metrics_write(zig_state: *anyopaque) callconv(.c) void {
+    _ = zig_state;
+}
+
+/// tkpoly should_shutdown: always return 0.
+export fn tkpoly_should_shutdown(zig_state: *anyopaque) callconv(.c) c_int {
+    _ = zig_state;
+    return 0;
+}
+
+/// tkaudt before_credit: signal busy when input dcache is full.
+export fn tkaudt_before_credit(zig_state: *anyopaque, stem: *anyopaque, charge_busy: *c_int) callconv(.c) void {
+    _ = zig_state;
+    _ = stem;
+    _ = charge_busy;
+    // TODO (v2.22.S5.T3): Implement tkaudt stem logic.
+    charge_busy.* = 0;
+}
+
+/// tkaudt during_frag: no-op.
+export fn tkaudt_during_frag(zig_state: *anyopaque, idx: c_uint, seq: c_ulong, sig: c_uint, chunk: c_ulong, sz: c_uint, ctl: c_uint) callconv(.c) void {
+    _ = zig_state;
+    _ = idx;
+    _ = seq;
+    _ = sig;
+    _ = chunk;
+    _ = sz;
+    _ = ctl;
+}
+
+/// tkaudt after_credit: no-op.
+export fn tkaudt_after_credit(zig_state: *anyopaque, stem: *anyopaque, poll_in: *c_int, charge_busy: *c_int) callconv(.c) void {
+    _ = zig_state;
+    _ = stem;
+    poll_in.* = 1;
+    charge_busy.* = 0;
+}
+
+/// tkaudt metrics_write: no-op.
+export fn tkaudt_metrics_write(zig_state: *anyopaque) callconv(.c) void {
+    _ = zig_state;
+}
+
+/// tkaudt should_shutdown: always return 0.
+export fn tkaudt_should_shutdown(zig_state: *anyopaque) callconv(.c) c_int {
+    _ = zig_state;
+    return 0;
+}
+
+// ---------------------------------------------------------------------------
 // Registry.
 // ---------------------------------------------------------------------------
 
@@ -213,6 +434,81 @@ pub fn findById(tile_id: rt.tile.TileId) ?*const TileEntry {
 /// not by position).
 pub fn findByIdx(idx: usize) *const TileEntry {
     return &entries[idx];
+}
+
+// ---------------------------------------------------------------------------
+// fd_stem callback registration.
+//
+// `registerStemCallbacksForTile()` returns callback pointers based on
+// tile_id. Called from tile_main.zig BEFORE runTileSimple() so that
+// tile_process.zig's privileged_init() picks up the callbacks via
+// stemRegisterCtx() during fd_stem's setup.
+// ---------------------------------------------------------------------------
+
+/// Struct holding all fd_stem callback pointers for a tile.
+pub const StemCallbacks = struct {
+    before_credit: ?c_abi.stem.BeforeCreditFn,
+    during_frag: ?c_abi.stem.DuringFragFn,
+    after_credit: ?c_abi.stem.AfterCreditFn,
+    metrics_write: ?c_abi.stem.MetricsWriteFn,
+    should_shutdown: ?c_abi.stem.ShouldShutdownFn,
+};
+
+/// Returns stem callback pointers for the given tile_id. Pipeline tiles
+/// (tkings, tkrnorm, tkdedu, tkpoly, tkaudt) get non-null callbacks;
+/// non-pipeline tiles (tkrepl, tkmetr, tkdiag) get all-null.
+pub fn getStemCallbacks(tile_id: rt.tile.TileId) StemCallbacks {
+    const entry = findById(tile_id);
+    if (entry == null) return .{
+        .before_credit = null,
+        .during_frag = null,
+        .after_credit = null,
+        .metrics_write = null,
+        .should_shutdown = null,
+    };
+
+    return .{
+        .before_credit = switch (tile_id.slice()) {
+            "tkings"  => tkings_before_credit,
+            "tknorm"  => tkrnorm_before_credit,
+            "tkdedu"  => tkdedu_before_credit,
+            "tkpoly"  => tkpoly_before_credit,
+            "tkaudt"  => tkaudt_before_credit,
+            else      => null,
+        },
+        .during_frag = switch (tile_id.slice()) {
+            "tkings"  => tkings_during_frag,
+            "tknorm"  => tkrnorm_during_frag,
+            "tkdedu"  => tkdedu_during_frag,
+            "tkpoly"  => tkpoly_during_frag,
+            "tkaudt"  => tkaudt_during_frag,
+            else      => null,
+        },
+        .after_credit = switch (tile_id.slice()) {
+            "tkings"  => tkings_after_credit,
+            "tknorm"  => tkrnorm_after_credit,
+            "tkdedu"  => tkdedu_after_credit,
+            "tkpoly"  => tkpoly_after_credit,
+            "tkaudt"  => tkaudt_after_credit,
+            else      => null,
+        },
+        .metrics_write = switch (tile_id.slice()) {
+            "tkings"  => tkings_metrics_write,
+            "tknorm"  => tkrnorm_metrics_write,
+            "tkdedu"  => tkdedu_metrics_write,
+            "tkpoly"  => tkpoly_metrics_write,
+            "tkaudt"  => tkaudt_metrics_write,
+            else      => null,
+        },
+        .should_shutdown = switch (tile_id.slice()) {
+            "tkings"  => tkings_should_shutdown,
+            "tknorm"  => tkrnorm_should_shutdown,
+            "tkdedu"  => tkdedu_should_shutdown,
+            "tkpoly"  => tkpoly_should_shutdown,
+            "tkaudt"  => tkaudt_should_shutdown,
+            else      => null,
+        },
+    };
 }
 
 /// Asserts a bijection between topo.tiles and this registry (every
