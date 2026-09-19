@@ -77,7 +77,12 @@ static fd_topo_run_tile_t TK_TILE_RUN = {
   .unprivileged_init        = NULL, /* nothing to do here yet; mcache/dcache/fseq/metrics
                                         auto-joined by fd_topo_fill_tile before this point,
                                         cnc already joined in privileged_init */
-  .run                      = (void (*)( fd_topo_t *, fd_topo_tile_t * ))tk_tile_run,
+  .run                      = (void (*)( fd_topo_t *, fd_topo_tile_t * ))
+#if FD_HAS_LINUX
+    tk_stem_run,
+#else
+    tk_tile_run,
+#endif
   .rlimit_file_cnt_fn       = NULL,
 };
 

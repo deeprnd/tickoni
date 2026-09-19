@@ -23,7 +23,10 @@ fn addTickoniTileRunShim(b: *std.Build, step: *std.Build.Step.Compile) void {
     step.root_module.addIncludePath(b.path("src"));
     const target_info = step.root_module.resolved_target.?.result;
     step.root_module.addCSourceFiles(.{
-        .files = &.{"src/tickoni/c_abi/shim/tile_run.c"},
+        .files = &.{
+            "src/tickoni/c_abi/shim/tile_run.c",
+            "src/tickoni/c_abi/shim/tk_stem.c",
+        },
         .flags = shims.shimCFlagsFor(target_info),
     });
 }
