@@ -386,12 +386,28 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     }
     c_abi.topob.topoTileSetAllowShutdown(built.topo, tile_idx, true);
 
-    // Join workspaces: topo_build.build() recreates the topology but doesn't
-    // materialize the workspace — this must happen before any wksp pointer
-    // lookup (topoWkspPtr) or link joining. On Linux this is what fd_stem's
-    // fd_topo_join_workspace does inside runTileSimple, but we need the wksp
-    // ptr for link joining BEFORE runTileSimple, so do it here.
-    c_abi.topob.topoJoinWorkspaces(built.topo, true, 0);
+    // Join the workspace: the supervisor created it via wkspNewNamed
+    // (normal-page) before launching tiles. We must attach to it (not
+    // fd_topo_join_workspace which tries the huge-page path) so that
+    // topoWkspPtr returns non-null and link joining works.
+    var wksp_name_z_buf: [64]u8 = undefined;
+    const wksp_name_z = std.fmt.bufPrint(&wksp_name_z_buf, "{s}_{s}.wksp", .{
+        "tickoni",
+        spec.workspace_name.slice(),
+    }) catch {
+        std.debug.print("tile_process: workspace name too long for tile {d}\n", .{spec.tile_idx});
+        return 1;
+    };
+    wksp_name_z[wksp_name_z.len] = 0;
+    const wksp = c_abi.wksp.wkspAttach(@ptrCast(wksp_name_z)) orelse {
+        std.debug.print("tile_process: wkspAttach failed for tile {d}\n", .{spec.tile_idx});
+        return 1;
+    };
+    errdefer _ = c_abi.wksp.wkspDetach(wksp);
+
+    // Register wksp in topology and instantiate objects.
+    c_abi.topob.topoWkspSetPtr(built.topo, built.wksp_idx, wksp);
+    c_abi.topob.topoWkspNew(built.topo, built.wksp_idx);
 
     g_ctx = .{
         .spec = &spec,
@@ -418,7 +434,6 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     // can do real dcache work. On macOS these handles are unused — the
     // old g_ctx.work() loop uses rt.link.Consumer/Producer instead.
     // ------------------------------------------------------------------
-    const wksp = g_ctx.wksp_ptr.?;
     const payment_config_path = std.fmt.allocPrint(allocator, "{s}/payment_pipeline.config", .{spec.shmemPath()}) catch |err| {
         std.debug.print("tile_process: alloc print config path failed: {t}\n", .{err});
         return 1;
