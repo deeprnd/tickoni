@@ -153,10 +153,15 @@ pub const LaunchSpec = launch_spec.LaunchSpec;
 /// object, resolved the same way its "tile"/"cnc" object callbacks in
 /// shim/topob.c do), then performs the same BOOT->RUN heartbeat+signal
 /// transition tile_process.zig always has. Also registers tile-specific
-/// stem callbacks via `stemRegisterCtx` so fd_stem's run loop dispatches
-/// into Zig during its control flow.
+/// stem callbacks via `stemRegisterCtx` on Linux so fd_stem's run loop
+/// dispatches into Zig during its control flow.
+///
+/// Firedancer joins workspaces BEFORE calling privileged_init
+/// (fd_topo_run.c line 78 → line 80), so the wksp ptr IS available here.
 export fn tk_tile_privileged_init(_topo: *anyopaque, _tile: *anyopaque) callconv(.c) void {
     const topo_typed: *c_abi.topob.Topo = @ptrCast(_topo);
+    const tile_ptr = @as(*c_abi.topob.TopoTile, @ptrCast(_tile));
+
     const laddr = c_abi.topob.topoObjLaddr(topo_typed, g_ctx.cnc_obj_id);
     g_ctx.cnc = c_abi.cnc.cncJoin(laddr) orelse {
         const log = logger.get();
@@ -180,11 +185,35 @@ export fn tk_tile_privileged_init(_topo: *anyopaque, _tile: *anyopaque) callconv
         c_abi.cnc.signal(g_ctx.cnc, c_abi.cnc.signal_run);
     }
 
-    // No-op on both paths: stem callbacks are registered in tk_tile_run()
-    // AFTER the workspace has been joined (on Linux, fd_stem calls this
-    // BEFORE fd_topo_join_workspace, so the wksp ptr isn't available yet).
-    // topo_typed is used for cnc join below.
-    _ = _tile;
+    // Register stem callbacks for Linux: Firedancer already joined workspaces
+    // (fd_topo_join_tile_workspaces runs before privileged_init on line 78),
+    // so wksp_ptr is valid. On Linux, fd_stem calls tk_stem_run() directly
+    // (not tk_tile_run), so callbacks must be registered here. On non-Linux,
+    // tk_tile_run() is used and registration happens there.
+    if (g_ctx.stem_before_credit != null or
+        g_ctx.stem_during_frag != null or
+        g_ctx.stem_after_credit != null or
+        g_ctx.stem_metrics_write != null or
+        g_ctx.stem_should_shutdown != null)
+    {
+        const wksp = c_abi.topob.topoWkspPtr(topo_typed, g_ctx.wksp_idx) orelse {
+            const log = logger.get();
+            log.err("tile_process", "tk_tile_privileged_init", "workspace not joined for stem registration") catch {};
+            std.process.exit(1);
+        };
+        c_abi.stem.stemRegisterCtx(
+            _topo,
+            _tile,
+            &g_ctx,
+            wksp,
+            g_ctx.stem_before_credit,
+            g_ctx.stem_during_frag,
+            g_ctx.stem_after_credit,
+            g_ctx.stem_metrics_write,
+            g_ctx.stem_should_shutdown,
+        );
+    }
+    _ = tile_ptr;
 }
 
 /// Runs the tile-specific work, then heartbeats until the supervisor
@@ -408,7 +437,15 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
 
     // Also attach to the "metrics" workspace so fd_topo_fill_tile can
     // populate TILE->metrics_ptr (FD_MGAUGE_SET will segfault on NULL).
-    const metrics_wksp = c_abi.wksp.wkspAttach("tickoni_metrics.wksp") orelse {
+    var metrics_wksp_name_buf: [topo_build.concrete_workspace_name_cap]u8 = undefined;
+    const metrics_wksp_name_z = topo_build.concreteWorkspaceName(
+        &metrics_wksp_name_buf,
+        "metrics",
+    ) catch |err| {
+        std.debug.print("tile_process: failed to build metrics wksp name for tile {d}: {t}\n", .{ spec.tile_idx, err });
+        return 1;
+    };
+    const metrics_wksp = c_abi.wksp.wkspAttach(metrics_wksp_name_z) orelse {
         std.debug.print("tile_process: wkspAttach failed for metrics tile {d}\n", .{spec.tile_idx});
         return 1;
     };
@@ -417,7 +454,13 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     // Register wksp in topology. The supervisor already called
     // topoWkspNew before launching tiles; tiles must NOT call it again
     // because that re-instantiates workspace objects and corrupts the
-    // shared region.
+    // shared region. Also set the metrics workspace pointer so
+    // fd_topo_run_tile's fd_topo_join_tile_workspaces doesn't try to
+    // re-join it (which would fail since the region is already joined).
+    const metrics_wksp_idx = c_abi.topob.topoFindWksp(built.topo, "metrics");
+    if (metrics_wksp_idx != c_abi.topob.not_found) {
+        c_abi.topob.topoWkspSetPtr(built.topo, metrics_wksp_idx, metrics_wksp);
+    }
     c_abi.topob.topoWkspSetPtr(built.topo, built.wksp_idx, wksp);
 
     g_ctx = .{
