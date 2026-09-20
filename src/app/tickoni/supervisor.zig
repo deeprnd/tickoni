@@ -291,6 +291,36 @@ pub const Supervisor = struct {
         std.debug.print("SUPERVISOR: wkspAttach succeeded wksp={p}\n", .{wksp});
         errdefer _ = c_abi.wksp.wkspDetach(wksp);
 
+        // Also create a "metrics" workspace.  fd_topo_fill_tile joins
+        // metrics for every tile; without a metrics workspace,
+        // TILE->metrics_ptr is NULL and FD_MGAUGE_SET segfaults.
+        const metrics_wksp_id = c_abi.topob.topoFindWksp(built_topo.topo, "metrics");
+        if (metrics_wksp_id == c_abi.topob.not_found) return error.MetricsWkspNotFound;
+        var metrics_wksp_name_z_buf: [rt.topo_build.concrete_workspace_name_cap]u8 = undefined;
+        const metrics_wksp_name_z = try rt.topo_build.concreteWorkspaceName(&metrics_wksp_name_z_buf, "metrics");
+        const metrics_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metrics_wksp_id);
+        const metrics_page_cnt = metrics_footprint / c_abi.wksp.shmem_normal_page_sz + 8;
+        var metrics_sub_page_cnt = [_]usize{metrics_page_cnt};
+        var metrics_sub_cpu_idx = [_]usize{0};
+        const metrics_part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, metrics_wksp_id);
+        const metrics_rc = c_abi.wksp.wkspNewNamed(
+            metrics_wksp_name_z,
+            c_abi.wksp.shmem_normal_page_sz,
+            1,
+            &metrics_sub_page_cnt,
+            &metrics_sub_cpu_idx,
+            0o600,
+            1,
+            metrics_part_max,
+        );
+        if (metrics_rc != 0) return error.MetricsWkspCreateFailed;
+        const metrics_wksp = c_abi.wksp.wkspAttach(metrics_wksp_name_z) orelse {
+            std.debug.print("SUPERVISOR: metrics wkspAttach returned null\n", .{});
+            return error.MetricsWkspAttachFailed;
+        };
+        std.debug.print("SUPERVISOR: metrics wkspAttach succeeded wksp={p}\n", .{metrics_wksp});
+        c_abi.topob.topoWkspSetPtr(built_topo.topo, metrics_wksp_id, metrics_wksp);
+
         // Inject the attached workspace into the topology and instantiate
         // every object's content (mcache/dcache/fseq/metrics/cnc — "tile"
         // has no .new) via the same fd_topob callback array used to
@@ -298,6 +328,8 @@ pub const Supervisor = struct {
         c_abi.topob.topoWkspSetPtr(built_topo.topo, built_topo.wksp_idx, wksp);
         std.debug.print("SUPERVISOR: about to call topoWkspNew for wksp {d}\n", .{built_topo.wksp_idx});
         c_abi.topob.topoWkspNew(built_topo.topo, built_topo.wksp_idx);
+        std.debug.print("SUPERVISOR: about to call topoWkspNew for metrics wksp {d}\n", .{metrics_wksp_id});
+        c_abi.topob.topoWkspNew(built_topo.topo, metrics_wksp_id);
         std.debug.print("SUPERVISOR: topoWkspNew done\n", .{});
 
         const state = try self.allocator.create(ProcessState);
@@ -362,8 +394,8 @@ pub const Supervisor = struct {
         // record free of payment-pipeline-specific fields). Tile processes
         // read it back via tile_registry.zig's loadProcessConfig, which
         // derives this same path from their LaunchSpec's shmemPath().
-        const payment_config_path = try std.fmt.allocPrint(self.allocator, "{s}/payment_pipeline.config", .{config.run_dir});
-        defer self.allocator.free(payment_config_path);
+        const run_dir_config_handle = try std.Io.Dir.cwd().openDir(io, config.run_dir, .{});
+        defer run_dir_config_handle.close(io);
         try tiles_mod.process.writeProcessConfig(.{
             .pipeline = .{
                 .event_count = config.event_count,
@@ -375,7 +407,7 @@ pub const Supervisor = struct {
                 .tile_idx = idx,
                 .after_messages = config.stuck_after_messages,
             } else null,
-        }, io, std.Io.Dir.cwd(), payment_config_path);
+        }, io, run_dir_config_handle, "payment_pipeline.config");
 
         // v2.14.S8.T4: every self-exec'd child rebuilds this same topology
         // (topo_build.build) to get a real fd_topo_t to hand to
@@ -383,10 +415,8 @@ pub const Supervisor = struct {
         // used (e.g. a test's custom CPU placement), not a hardcoded
         // default, so it's written once here alongside the payment
         // config (see topology_spec.zig's module doc, "finding 5").
-        const topology_spec_path = try std.fmt.allocPrint(self.allocator, "{s}/topology.spec", .{config.run_dir});
-        defer self.allocator.free(topology_spec_path);
         const topology_spec = try rt.topology_spec.TopologySpec.fromTopology(self.topo);
-        try topology_spec.writeToFile(io, std.Io.Dir.cwd(), topology_spec_path);
+        try topology_spec.writeToFile(io, run_dir_config_handle, "topology.spec");
 
         for (self.handles, 0..) |*h, i| {
             const tile = self.topo.tiles[i];
@@ -405,7 +435,9 @@ pub const Supervisor = struct {
             });
             const spec_path = try std.fmt.allocPrint(self.allocator, "{s}/tile_{d}.spec", .{ config.run_dir, i });
             defer self.allocator.free(spec_path);
-            try spec.writeToFile(io, std.Io.Dir.cwd(), spec_path);
+            var tile_spec_name_buf: [32]u8 = undefined;
+            const tile_spec_name = std.fmt.bufPrint(&tile_spec_name_buf, "tile_{d}.spec", .{i}) catch "tile_0.spec";
+            try spec.writeToFile(io, run_dir_config_handle, tile_spec_name);
 
             // Minimal explicit child environment: the tile reads its
             // shmem path from the launch spec via --shmem-path (see
