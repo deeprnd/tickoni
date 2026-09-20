@@ -50,7 +50,9 @@ void
 fd_topo_join_tile_workspaces( fd_topo_t *      topo,
                               fd_topo_tile_t * tile,
                               int              core_dump_level ) {
+  ulong metrics_wksp_id = topo->objs[ tile->metrics_obj_id ].wksp_id;
   for( ulong i=0UL; i<topo->wksp_cnt; i++ ) {
+    if( i==metrics_wksp_id ) continue;  /* Metrics already joined by tile process */
     int needs_wksp = tile_needs_wksp( topo, tile, i );
     if( FD_LIKELY( -1!=needs_wksp ) ) {
       int dump = core_dump_level >= topo->workspaces[ i ].core_dump_level ? 1 : 0;
@@ -199,6 +201,12 @@ fd_topo_workspace_fill( fd_topo_t *      topo,
 void
 fd_topo_fill_tile( fd_topo_t *      topo,
                    fd_topo_tile_t * tile ) {
+  /* Always fill the metrics workspace for this tile — the metrics
+     object is created for every tile but never listed in the tile's
+     uses_obj_id, so tile_needs_wksp returns -1 for it. */
+  ulong metrics_wksp_id = topo->objs[ tile->metrics_obj_id ].wksp_id;
+  fd_topo_workspace_fill( topo, &topo->workspaces[ metrics_wksp_id ] );
+
   for( ulong i=0UL; i<topo->wksp_cnt; i++ ) {
     if( FD_UNLIKELY( -1!=tile_needs_wksp( topo, tile, i ) ) )
       fd_topo_workspace_fill( topo, &topo->workspaces[ i ] );
