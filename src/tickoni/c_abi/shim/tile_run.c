@@ -104,6 +104,11 @@ int
 
 void
 tk_topo_run_tile_simple( void * topo, void * tile ) {
+  FD_LOG_NOTICE(( "tk_topo_run_tile_simple: topo=%p tile=%p", topo, tile ));
+  if( tile ) {
+    fd_topo_tile_t * tc = (fd_topo_tile_t *)tile;
+    FD_LOG_NOTICE(( "tk_topo_run_tile_simple: tile name=%s kind_id=%lu tile_obj_id=%lu", tc->name, tc->kind_id, tc->tile_obj_id ));
+  }
 #if FD_HAS_LINUX
   fd_topo_run_tile( (fd_topo_t *)topo, (fd_topo_tile_t *)tile,
                     TK_PROCESS_MODE_SANDBOX_NONE, TK_KEEP_CONTROLLING_TERMINAL,

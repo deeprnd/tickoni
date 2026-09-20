@@ -113,6 +113,7 @@ STEM_CALLBACK_METRICS_WRITE(void *ctx) {
    The template generates a static inline void tk_stem_gen_run(...);
    this function is linkable by tile_run.c. */
 void tk_stem_run( fd_topo_t * topo, fd_topo_tile_t * tile ) {
+    FD_LOG_NOTICE(( "tk_stem_run: topo=%p tile=%p tile_obj_id=%lu", topo, tile, tile ? tile->tile_obj_id : 0 ));
     tk_stem_gen_run(topo, tile);
 }
 
