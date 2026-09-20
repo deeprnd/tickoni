@@ -406,6 +406,14 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     };
     errdefer _ = c_abi.wksp.wkspDetach(wksp);
 
+    // Also attach to the "metrics" workspace so fd_topo_fill_tile can
+    // populate TILE->metrics_ptr (FD_MGAUGE_SET will segfault on NULL).
+    const metrics_wksp = c_abi.wksp.wkspAttach("tickoni_metrics.wksp") orelse {
+        std.debug.print("tile_process: wkspAttach failed for metrics tile {d}\n", .{spec.tile_idx});
+        return 1;
+    };
+    errdefer _ = c_abi.wksp.wkspDetach(metrics_wksp);
+
     // Register wksp in topology. The supervisor already called
     // topoWkspNew before launching tiles; tiles must NOT call it again
     // because that re-instantiates workspace objects and corrupts the
@@ -429,37 +437,59 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     };
 
     // Load payment-pipeline config.  The supervisor writes ProcessConfigFile
-    // (magic u32 "TKPC" + version u16 + 6-byte padding + ProcessRuntimeConfig
-    // with event_count, etc.).  This local layout MUST match the binary
-    // layout written by tiles_mod.process.writeProcessConfig — see the
-    // ProcessConfigFile struct in process.zig.
+    // (ProcessConfigFile{magic, version, cfg: ProcessRuntimeConfig{
+    //   pipeline: PaymentPipelineConfig{event_count, queue_depth,
+    //   policy_limit_cents, inject_duplicate, inject_malformed, sandbox_fail_at},
+    //   stuck_tile: ?StuckTileHook{tile_idx, after_messages, sleep_ns}
+    // }}).
+    // This local layout MUST match the binary layout written by
+    // tiles_mod.process.writeProcessConfig exactly.
     const process_config_magic: u32 = 0x544b5043; // "TKPC"
     const process_config_version: u16 = 1;
     const ProcessConfigFile = struct {
         magic_field: u32 = process_config_magic,
         version_field: u16 = process_config_version,
-        padding: [6]u8 = .{ 0, 0, 0, 0, 0, 0 },
-        event_count: u64 = 0,
-        policy_limit_cents: i64 = 0,
-        inject_duplicate: bool = false,
-        inject_malformed: bool = false,
-        // stuck_tile fields (20 bytes) follow but we don't need them here.
+        // 2 bytes padding to align cfg (ProcessRuntimeConfig) to 8-byte boundary
+        padding: [2]u8 = .{ 0, 0 },
+        cfg: struct {
+            pipeline: struct {
+                event_count: u64 = 0,
+                queue_depth: usize = 0,
+                policy_limit_cents: i64 = 0,
+                inject_duplicate: bool = false,
+                inject_malformed: bool = false,
+                // 6 bytes padding to align sandbox_fail_at to 8 bytes
+                padding: [6]u8 = .{ 0, 0, 0, 0, 0, 0 },
+                sandbox_fail_at: ?u64 = null,
+            } = .{},
+            // StuckTileHook: tile_idx(u32) + 4 padding + after_messages(u64) + sleep_ns(u64) = 24 bytes
+            // ?StuckTileHook = discriminant(u1) + 7 padding + StuckTileHook(24) = 32 bytes
+            stuck_tile: struct {
+                discriminant: u1 = 0,
+                padding: [7]u8 = .{ 0, 0, 0, 0, 0, 0, 0 },
+                tile_idx: u32 = 0,
+                after_messages: u64 = 0,
+                sleep_ns: u64 = 0,
+            } = .{},
+        } = .{},
     };
 
-    const payment_config_path = std.fmt.allocPrint(allocator, "{s}/payment_pipeline.config", .{spec.shmemPath()}) catch |err| {
-        std.debug.print("tile_process: alloc print config path failed: {t}\n", .{err});
+    // The supervisor writes the config to cwd()/shmemPath()/payment_pipeline.config
+    // so the tile opens the same shmem dir and reads "payment_pipeline.config" from it.
+    const shmem_dir = std.Io.Dir.cwd().openDir(io, spec.shmemPath(), .{}) catch |err| {
+        std.debug.print("tile_process: failed to open shmem dir for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
-    defer allocator.free(payment_config_path);
+    defer shmem_dir.close(io);
     var pc_file: ProcessConfigFile = undefined;
-    var file = std.Io.Dir.cwd().openFile(io, payment_config_path, .{}) catch |err| {
-        std.debug.print("tile_process: open config failed: {t}\n", .{err});
+    var file = shmem_dir.openFile(io, "payment_pipeline.config", .{}) catch |err| {
+        std.debug.print("tile_process: failed to open config for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
     defer file.close(io);
     const buf = std.mem.asBytes(&pc_file);
     const n = file.readPositionalAll(io, buf, 0) catch |err| {
-        std.debug.print("tile_process: read config failed: {t}\n", .{err});
+        std.debug.print("tile_process: failed to read config for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
     if (n != @sizeOf(ProcessConfigFile)) {
@@ -475,10 +505,10 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         return 1;
     }
 
-    g_ctx.event_count = pc_file.event_count;
-    g_ctx.policy_limit_cents = pc_file.policy_limit_cents;
-    g_ctx.inject_duplicate = pc_file.inject_duplicate;
-    g_ctx.inject_malformed = pc_file.inject_malformed;
+    g_ctx.event_count = pc_file.cfg.pipeline.event_count;
+    g_ctx.policy_limit_cents = pc_file.cfg.pipeline.policy_limit_cents;
+    g_ctx.inject_duplicate = pc_file.cfg.pipeline.inject_duplicate;
+    g_ctx.inject_malformed = pc_file.cfg.pipeline.inject_malformed;
 
     // Join output link handles (for producer tiles and 1-out tiles).
     if (spec.out_cnt > 0 and spec.outLinks().len > 0) {

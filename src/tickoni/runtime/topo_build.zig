@@ -119,6 +119,12 @@ pub fn build(
     if (topo_build_debug) std.debug.print("topo_build.build: passing to topobNew ptr={x}\n", .{@intFromPtr(buf.ptr)});
     const topo = c_abi.topob.topobNew(buf.ptr, toZ(&app_name_buf, app_name)) orelse return error.TopobNewFailed;
 
+    // Create a "metrics" workspace first so fd_topob_tile() can find it
+    // when setting tile->metrics_wksp_id.  Without this workspace,
+    // fd_topo_fill_tile can't populate TILE->metrics_ptr and
+    // FD_MGAUGE_SET segfaults in the stem loop.
+    _ = c_abi.topob.topobWksp(topo, "metrics");
+
     var wksp_name_buf: [64]u8 = undefined;
     const wksp_idx = c_abi.topob.topobWksp(topo, toZ(&wksp_name_buf, workspace_name));
     var wksp_name_z_buf: [64]u8 = undefined;
@@ -136,9 +142,11 @@ pub fn build(
 
     const cpu_idx_arr = try allocator.alloc(usize, topo_desc.tiles.len);
     errdefer allocator.free(cpu_idx_arr);
+    var metrics_wksp_buf: [64]u8 = undefined;
+    const metrics_wksp_z = toZ(&metrics_wksp_buf, "metrics");
     for (topo_desc.tiles, 0..) |t, i| {
         var tile_name_buf: [8]u8 = undefined;
-        const tile_id = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, t.id.slice()), wksp_name_z, wksp_name_z, 0);
+        const tile_id = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, t.id.slice()), wksp_name_z, metrics_wksp_z, 0);
         _ = tile_id;
         cpu_idx_arr[i] = tileCpuIdx(i, t.cpu_placement);
     }
