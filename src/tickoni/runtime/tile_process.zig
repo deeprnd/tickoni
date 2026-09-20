@@ -435,27 +435,15 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     // ProcessConfigFile struct in process.zig.
     const process_config_magic: u32 = 0x544b5043; // "TKPC"
     const process_config_version: u16 = 1;
-    const StuckTileHook = struct {
-        tile_idx: u32,
-        after_messages: u64 = 0,
-        sleep_ns: u64 = 60 * std.time.ns_per_s,
-    };
-    const PaymentPipelineConfig = struct {
-        event_count: u64 = 0,
-        queue_depth: usize = 0,
-        policy_limit_cents: i64 = 0,
-        inject_duplicate: bool = false,
-        inject_malformed: bool = false,
-        sandbox_fail_at: ?u64 = null,
-    };
-    const ProcessRuntimeConfig = struct {
-        pipeline: PaymentPipelineConfig = .{},
-        stuck_tile: ?StuckTileHook = null,
-    };
     const ProcessConfigFile = struct {
         magic_field: u32 = process_config_magic,
         version_field: u16 = process_config_version,
-        cfg: ProcessRuntimeConfig = .{},
+        padding: [6]u8 = .{ 0, 0, 0, 0, 0, 0 },
+        event_count: u64 = 0,
+        policy_limit_cents: i64 = 0,
+        inject_duplicate: bool = false,
+        inject_malformed: bool = false,
+        // stuck_tile fields (20 bytes) follow but we don't need them here.
     };
 
     const payment_config_path = std.fmt.allocPrint(allocator, "{s}/payment_pipeline.config", .{spec.shmemPath()}) catch |err| {
@@ -487,10 +475,10 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         return 1;
     }
 
-    g_ctx.event_count = pc_file.cfg.pipeline.event_count;
-    g_ctx.policy_limit_cents = pc_file.cfg.pipeline.policy_limit_cents;
-    g_ctx.inject_duplicate = pc_file.cfg.pipeline.inject_duplicate;
-    g_ctx.inject_malformed = pc_file.cfg.pipeline.inject_malformed;
+    g_ctx.event_count = pc_file.event_count;
+    g_ctx.policy_limit_cents = pc_file.policy_limit_cents;
+    g_ctx.inject_duplicate = pc_file.inject_duplicate;
+    g_ctx.inject_malformed = pc_file.inject_malformed;
 
     // Join output link handles (for producer tiles and 1-out tiles).
     if (spec.out_cnt > 0 and spec.outLinks().len > 0) {
