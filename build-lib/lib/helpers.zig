@@ -59,8 +59,12 @@ pub fn createSupervisorExe(
         .name = "tickoni-supervisor",
         .root_module = main_mod,
     });
+
+    // Link the C shim library on all platforms — tk_boot/tk_halt/tk_spin_pause
+    // are extern C symbols used by c_abi.boot and are not resolved by libfd_util.
+    exe.root_module.linkLibrary(codec.addTickoniSupervisorShimLibrary(b, target, optimize));
+
     if (target.result.os.tag == .windows) {
-        exe.root_module.linkLibrary(codec.addTickoniSupervisorShimLibrary(b, target, optimize));
         codec.addWindowsFdManifestFixups(b, exe, b.fmt("{s}/fd_windows_zig_supervisor_link.txt", .{fd_lib_dir}));
         codec.addTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
     } else if (target.result.cpu.arch == .aarch64) {
