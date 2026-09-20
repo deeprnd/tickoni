@@ -439,13 +439,13 @@ pub const Supervisor = struct {
             const tile_spec_name = std.fmt.bufPrint(&tile_spec_name_buf, "tile_{d}.spec", .{i}) catch "tile_0.spec";
             try spec.writeToFile(io, run_dir_config_handle, tile_spec_name);
 
-            // Minimal explicit child environment: the tile reads its
-            // shmem path from the launch spec via --shmem-path (see
-            // runtime/boot.zig), not from an inherited environment,
-            // matching the least-privilege posture used elsewhere in the
-            // runtime (no inherited PATH, secrets, or parent env state).
+            // Set FD_SHMEM_PATH for child tiles so fd_shmem_join can locate
+            // the normal-page workspace files created by the supervisor in
+            // <run_dir>/.normal/.  The --shmem-path argv flag bootstraps
+            // fd_boot, but the C shmem layer reads the env var at join time.
             var env = std.process.Environ.Map.init(self.allocator);
             defer env.deinit();
+            try env.put("FD_SHMEM_PATH", config.run_dir);
 
             var argv_buf: [4][]const u8 = undefined;
             var argv_count: usize = 3;
