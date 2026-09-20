@@ -21,6 +21,14 @@ pub fn halt() void {
     tk_halt();
 }
 
+/// V2.14.S8.T4: C-shimmed boot that takes a char** directly, avoiding
+/// Zig's unreliable @ptrCast between fixed-size and open-ended arrays.
+/// The C shim internally creates char*** as fd_boot expects.
+extern fn tk_boot_with_argv(c_int, [*][*:0]u8) void;
+pub fn bootWithArgv(argc: c_int, argv: [*][*:0]u8) void {
+    tk_boot_with_argv(argc, argv);
+}
+
 /// Platform-neutral tile-process teardown hook. Linux keeps the explicit
 /// fd_boot/fd_halt pairing; macOS and Windows retail child tiles exit
 /// immediately after their one tile returns, so skip tk_halt() there and let
@@ -63,9 +71,11 @@ test "boot.zig module compiles with expected symbols" {
     const u = @TypeOf(halt);
     const v = @TypeOf(haltForTileProcess);
     const w = @TypeOf(spinPause);
+    const x = @TypeOf(bootWithArgv);
     // All should be functions with no return (void)
     _ = t;
     _ = u;
     _ = v;
     _ = w;
+    _ = x;
 }
