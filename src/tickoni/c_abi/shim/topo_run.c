@@ -15,14 +15,58 @@
 #include "../../../disco/topo/fd_topo.h"
 #include "topo_run_platform.h"
 
+/* Skip joining workspaces already joined by the supervisor via
+   topoWkspSetPtr (normal-page wksp).  The upstream
+   fd_topo_join_tile_workspaces tries hugetlbfs join which fails
+   for normal-page regions and would clobber the wksp pointer. */
 void
 tk_topo_join_tile_workspaces( void * topo, void * tile, int core_dump_level ) {
-  fd_topo_join_tile_workspaces( (fd_topo_t *)topo, (fd_topo_tile_t *)tile, core_dump_level );
+  fd_topo_t * t = (fd_topo_t *)topo;
+  fd_topo_tile_t * tl = (fd_topo_tile_t *)tile;
+  ulong metrics_wksp_id = t->objs[ tl->metrics_obj_id ].wksp_id;
+  for( ulong i = 0UL; i < t->wksp_cnt; i++ ) {
+    if( i == metrics_wksp_id ) continue;
+    int needs_wksp = -1;
+    for( ulong j = 0UL; j < tl->uses_obj_cnt; j++ ) {
+      if( FD_UNLIKELY( t->objs[ tl->uses_obj_id[ j ] ].wksp_id == i ) ) {
+        int mode = tl->uses_obj_mode[ j ];
+        if( mode > needs_wksp ) needs_wksp = mode;
+      }
+    }
+    if( FD_LIKELY( -1 != needs_wksp ) ) {
+      /* Skip if already joined (supervisor injected normal-page wksp). */
+      if( t->workspaces[ i ].wksp ) continue;
+      int dump = core_dump_level >= t->workspaces[ i ].core_dump_level ? 1 : 0;
+      fd_topo_join_workspace( t, &t->workspaces[ i ], needs_wksp, dump );
+    }
+  }
 }
 
 void
 tk_topo_fill_tile( void * topo, void * tile ) {
-  fd_topo_fill_tile( (fd_topo_t *)topo, (fd_topo_tile_t *)tile );
+  /* Only fill workspaces that are already joined (supervisor-injected wksp).
+     Skip the hugetlbfs join path — it fails for normal-page workspaces. */
+  fd_topo_t * t = (fd_topo_t *)topo;
+  fd_topo_tile_t * tl = (fd_topo_tile_t *)tile;
+  /* Always fill the metrics workspace for this tile. */
+  ulong metrics_wksp_id = t->objs[ tl->metrics_obj_id ].wksp_id;
+  fd_topo_workspace_fill( t, &t->workspaces[ metrics_wksp_id ] );
+
+  for( ulong i = 0UL; i < t->wksp_cnt; i++ ) {
+    if( i == metrics_wksp_id ) continue;
+    int needs_wksp = -1;
+    for( ulong j = 0UL; j < tl->uses_obj_cnt; j++ ) {
+      if( FD_UNLIKELY( t->objs[ tl->uses_obj_id[ j ] ].wksp_id == i ) ) {
+        int mode = tl->uses_obj_mode[ j ];
+        if( mode > needs_wksp ) needs_wksp = mode;
+      }
+    }
+    if( FD_LIKELY( -1 != needs_wksp ) ) {
+      /* Only fill if the workspace was already joined (supervisor injected wksp). */
+      if( t->workspaces[ i ].wksp )
+        fd_topo_workspace_fill( t, &t->workspaces[ i ] );
+    }
+  }
 }
 
 extern void tk_sandbox_enter( uint        desired_uid,

@@ -50,5 +50,27 @@ void
 tk_topo_platform_join_tile_workspaces( fd_topo_t *      topo,
                                        fd_topo_tile_t * tile,
                                        int              core_dump_level ) {
-  fd_topo_join_tile_workspaces( topo, tile, core_dump_level );
+  /* Skip hugetlbfs join: the supervisor already injected normal-page wksp
+     pointers via topoWkspSetPtr.  The upstream fd_topo_join_tile_workspaces
+     overwrites wksp->wksp with hugetlbfs joins that fail on normal-page
+     regions, NULLing out the pointer and corrupting the topology. */
+  fd_topo_t * t = topo;
+  fd_topo_tile_t * tl = tile;
+  ulong metrics_wksp_id = t->objs[ tl->metrics_obj_id ].wksp_id;
+  for( ulong i = 0UL; i < t->wksp_cnt; i++ ) {
+    if( i == metrics_wksp_id ) continue;
+    int needs_wksp = -1;
+    for( ulong j = 0UL; j < tl->uses_obj_cnt; j++ ) {
+      if( FD_UNLIKELY( t->objs[ tl->uses_obj_id[ j ] ].wksp_id == i ) ) {
+        int mode = tl->uses_obj_mode[ j ];
+        if( mode > needs_wksp ) needs_wksp = mode;
+      }
+    }
+    if( FD_LIKELY( -1 != needs_wksp ) ) {
+      /* Skip if already joined (supervisor injected normal-page wksp). */
+      if( t->workspaces[ i ].wksp ) continue;
+      int dump = core_dump_level >= t->workspaces[ i ].core_dump_level ? 1 : 0;
+      fd_topo_join_workspace( t, &t->workspaces[ i ], needs_wksp, dump );
+    }
+  }
 }
