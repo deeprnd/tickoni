@@ -127,16 +127,13 @@ pub fn build(
     if (topo_build_debug) std.debug.print("topo_build.build: passing to topobNew ptr={x}\n", .{@intFromPtr(buf.ptr)});
     const topo = c_abi.topob.topobNew(buf.ptr, toZ(&app_name_buf, app_name)) orelse return error.TopobNewFailed;
 
-    // Firedancer pattern: create both metric workspaces in the correct
-    // order (Firedancer: metric first, then metric_in).
-    //
-    // "metric"    = tile workspace for the metric tile's own data objects
-    // "metric_in" = SHARED workspace for ALL tiles' FD_MGAUGE gauge data
-    //
-    // Every tile gets a "metrics" object inside "metric_in" — this is
-    // where FD_MGAUGE pointers resolve via fd_topo_fill_tile(). The
-    // "metric" workspace is only used for the metric tile itself.
-    const metric_tile_wksp_idx = c_abi.topob.topobWksp(topo, "metric");
+    // Firedancer pattern: register "metric_in" as the shared workspace
+    // for ALL tiles' FD_MGAUGE gauge data (set via fd_topo_fill_tile).
+    // The old "metric" workspace was registered but never had any objects
+    // assigned to it, causing initialize_numa_assignments to fail in
+    // Firedancer's topobFinish.  Tickoni tiles' gauge data lives entirely
+    // in "metric_in" and their structural objects in the main workspace,
+    // so the standalone "metric" workspace is unnecessary.
     const metrics_wksp_idx = c_abi.topob.topobWksp(topo, "metric_in");
     var metrics_wksp_buf: [64]u8 = undefined;
     const metrics_wksp_z = toZ(&metrics_wksp_buf, "metric_in");
@@ -201,7 +198,7 @@ pub fn build(
         .topo = topo,
         .wksp_idx = wksp_idx,
         .metrics_wksp_idx = metrics_wksp_idx,
-        .metric_tile_wksp_idx = metric_tile_wksp_idx,
+        .metric_tile_wksp_idx = c_abi.topob.not_found,
         .cnc_obj_id = cnc_obj_id,
         .link_obj_id = link_obj_id,
     };

@@ -417,6 +417,12 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     }
     c_abi.topob.topoTileSetAllowShutdown(built.topo, tile_idx, true);
 
+    // DEBUG: Log shmem path and workspace names before attach
+    {
+        var buf: [256]u8 = undefined;
+        const msg = std.fmt.bufPrint(&buf, "tile_process DEBUG: shmem_path={s} tile={s} idx={d} workspace_name={s}", .{ spec.shmemPath(), id_slice, spec.tile_idx, spec.workspace_name.slice() }) catch "DEBUG overflow";
+        std.debug.print("{s}\n", .{msg});
+    }
     // Join the workspace: the supervisor created it via wkspNewNamed
     // (normal-page) before launching tiles. We must attach to it (not
     // fd_topo_join_workspace which tries the huge-page path) so that
@@ -429,10 +435,20 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         std.debug.print("tile_process: failed to build workspace name for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
+    {
+        var buf: [256]u8 = undefined;
+        const msg = std.fmt.bufPrint(&buf, "tile_process DEBUG: trying wkspAttach wksp_name={s}", .{wksp_name_z}) catch "DEBUG overflow";
+        std.debug.print("{s}\n", .{msg});
+    }
     const wksp = c_abi.wksp.wkspAttach(wksp_name_z) orelse {
-        std.debug.print("tile_process: wkspAttach failed for tile {d}\n", .{spec.tile_idx});
+        std.debug.print("tile_process: wkspAttach failed for tile {d} (wksp_name={s})\n", .{ spec.tile_idx, wksp_name_z });
         return 1;
     };
+    {
+        var buf: [256]u8 = undefined;
+        const msg = std.fmt.bufPrint(&buf, "tile_process DEBUG: wkspAttach SUCCESS tile {d} wksp={p}", .{ spec.tile_idx, wksp }) catch "DEBUG overflow";
+        std.debug.print("{s}\n", .{msg});
+    }
     errdefer _ = c_abi.wksp.wkspDetach(wksp);
 
     // Also attach to the "metric_in" workspace so fd_topo_fill_tile can
@@ -445,8 +461,13 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         std.debug.print("tile_process: failed to build metrics wksp name for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
+    {
+        var buf: [256]u8 = undefined;
+        const msg = std.fmt.bufPrint(&buf, "tile_process DEBUG: trying wkspAttach metrics_wksp_name={s}", .{metrics_wksp_name_z}) catch "DEBUG overflow";
+        std.debug.print("{s}\n", .{msg});
+    }
     const metrics_wksp = c_abi.wksp.wkspAttach(metrics_wksp_name_z) orelse {
-        std.debug.print("tile_process: wkspAttach failed for metrics tile {d}\n", .{spec.tile_idx});
+        std.debug.print("tile_process: wkspAttach failed for metrics tile {d} (metrics_wksp_name={s})\n", .{ spec.tile_idx, metrics_wksp_name_z });
         return 1;
     };
     errdefer _ = c_abi.wksp.wkspDetach(metrics_wksp);

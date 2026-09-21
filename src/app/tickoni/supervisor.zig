@@ -276,6 +276,12 @@ pub const Supervisor = struct {
         if (c_abi.wksp.wkspExistsNamed(workspace_name_z)) {
             _ = c_abi.wksp.wkspDeleteNamed(workspace_name_z);
         }
+        // Also delete any stale hugetlbfs copy (`.huge/`) that blocks the
+        // normal-page attach: fd_wksp_join walks `.huge/` first, finds the
+        // file, tries hugetlbfs mmap (fails), and bails when `.normal/` is
+        // absent.  Delete both variants so the next wkspNewNamed always
+        // creates in the normal-page directory.
+        _ = c_abi.wksp.wkspDeleteNamed(workspace_name_z);
 
         // Size the real allocation off fd_topob_finish's computed
         // footprint/part_max instead of a hand-picked constant, plus a
@@ -305,10 +311,16 @@ pub const Supervisor = struct {
         // Use the exact metrics_wksp_idx that build() computed for
         // "metric_in" — this is the Firedancer pattern, not a lookup.
         const metrics_wksp_id = built_topo.metrics_wksp_idx;
-        if (metrics_wksp_id == 0) return error.MetricsWkspNotFound;
+        if (metrics_wksp_id == c_abi.topob.not_found) return error.MetricsWkspNotFound;
         var metrics_wksp_name_z_buf: [rt.topo_build.concrete_workspace_name_cap]u8 = undefined;
         const metrics_wksp_name_z = try rt.topo_build.concreteWorkspaceName(
             &metrics_wksp_name_z_buf, "metric_in");
+        // Same cleanup dance: delete any stale .huge/ variant that blocks
+        // the normal-page join on the child side.
+        if (c_abi.wksp.wkspExistsNamed(metrics_wksp_name_z)) {
+            _ = c_abi.wksp.wkspDeleteNamed(metrics_wksp_name_z);
+        }
+        _ = c_abi.wksp.wkspDeleteNamed(metrics_wksp_name_z);
         const metrics_footprint = c_abi.topob.topoWkspFootprint(
             built_topo.topo, metrics_wksp_id);
         const metrics_page_cnt = metrics_footprint /

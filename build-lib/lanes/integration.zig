@@ -90,11 +90,7 @@ pub fn strategy(
     if (target.result.os.tag == .linux) {
         const process_tests: []const []const u8 = &.{
             "src/tickoni/test/integration/test_process_pipeline.zig",
-            "src/tickoni/test/integration/test_process_cpu_placement.zig",
-            "src/tickoni/test/integration/test_process_cpu_placement_linux.zig",
-            "src/tickoni/test/integration/test_process_topology.zig",
-            "src/tickoni/test/integration/test_process_topology_linux.zig",
-            "src/tickoni/test/integration/test_process_demo_parity.zig",
+            "src/tickoni/test/integration/test_process_metrics.zig",
         };
 
         const proc_imports = [_]std.Build.Module.Import{

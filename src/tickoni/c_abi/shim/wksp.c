@@ -1,5 +1,11 @@
 /* Thin wrappers around Firedancer workspace primitives. */
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
 #include "../../../util/fd_util.h"
 #include "../../../util/wksp/fd_wksp.h"
 
