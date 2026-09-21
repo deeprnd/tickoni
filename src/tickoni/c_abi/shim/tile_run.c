@@ -11,7 +11,12 @@
    file must also link tile_process.zig's object code — true for the
    supervisor exe and the process-mode integration tests, but not for
    topo_run.c/topob.c's own standalone adapter unit tests, which is why
-   this stays out of topo_run.c itself. */
+   this stays out of topo_run.c itself.
+
+   For the metric tile (tkmetr), we dispatch to TK_METRIC_RUN instead
+   of TK_TILE_RUN. TK_METRIC_RUN is defined in tk_metric_tile.c and
+   uses Firedancer's fd_stem-based run loop with fd_http_server.
+*/
 
 #if FD_HAS_LINUX
 #define _GNU_SOURCE
@@ -34,15 +39,30 @@
    because Tickoni runs exactly one tile per process. */
 extern void tk_tile_privileged_init( void * topo, void * tile );
 extern void tk_tile_run( void * topo, void * tile );
-extern void tk_topo_run_tile( void * topo,
-                              void * tile,
-                              int    sandbox,
-                              int    keep_controlling_terminal,
-                              int    core_dump_level,
-                              uint   uid,
-                              uint   gid,
-                              int    allow_fd,
-                              void * tile_run );
+extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
+                              int keep_controlling_terminal, int core_dump_level,
+                              uint uid, uint gid, int allow_fd, void * tile_run );
+
+/* Declaration of TK_METRIC_RUN from tk_metric_tile.c. The metric tile
+   uses Firedancer's fd_stem-based run loop with fd_http_server for
+   /metrics, so it needs its own fd_topo_run_tile_t instead of TK_TILE_RUN. */
+extern fd_topo_run_tile_t TK_METRIC_RUN;
+
+/* Check if this tile should use the metric run tile. Compares tile name
+   against "tkmetr" using the tile's name field (null-terminated in
+   tile_name_sz). */
+static int
+tile_is_metric( fd_topo_tile_t * tile ) {
+  if( !tile ) return 0;
+  const char * name = tile->name;
+  /* tkmetr is 6 chars + null, name is 7 bytes total. */
+  if( name[0] != 't' || name[1] != 'k' || name[2] != 'm' ||
+      name[3] != 'e' || name[4] != 't' || name[5] != 'r' ||
+      name[6] != '\0' ) {
+    return 0;
+  }
+  return 1;
+}
 
 static int const TK_PROCESS_MODE_SANDBOX_NONE = 0;
 static int const TK_KEEP_CONTROLLING_TERMINAL = 1;
@@ -68,21 +88,26 @@ static fd_topo_run_tile_t TK_TILE_RUN = {
   .loose_footprint          = NULL,
   .privileged_init          = (void (*)( fd_topo_t const *, fd_topo_tile_t const * ))tk_tile_privileged_init,
   .unprivileged_init        = NULL, /* nothing to do here yet; mcache/dcache/fseq/metrics
-                                        auto-joined by fd_topo_fill_tile before this point,
-                                        cnc already joined in privileged_init */
+                                       auto-joined by fd_topo_fill_tile before this point,
+                                       cnc already joined in privileged_init */
   .run                      = (void (*)( fd_topo_t *, fd_topo_tile_t * ))tk_tile_run,
   .rlimit_file_cnt_fn       = NULL,
 };
 
 /* Simplified entry point for Tickoni's one-tile-per-process model:
    explicit sandbox=none, keep_controlling_terminal=1, regular core dumps,
-   current process's real uid/gid on hosted Unix, no extra allowed fd.
+   current process's own uid/gid on hosted Unix, no extra allowed fd.
    Linux must dispatch directly to upstream fd_topo_run_tile() so process mode stays on
    Firedancer's canonical runtime path; non-Linux targets fall back to
    tk_topo_run_tile(), which mirrors the same launch order where upstream's
-   Linux-only implementation is unavailable. */
+   Linux-only implementation is unavailable.
+
+   For the metric tile (tkmetr), dispatches to TK_METRIC_RUN instead of
+   TK_TILE_RUN. TK_METRIC_RUN uses Firedancer's fd_stem-based run loop
+   with fd_http_server for /metrics, so it cannot use TK_TILE_RUN's
+   Zig callbacks. */
 int
- tk_topo_run_tile_simple_uses_upstream( void ) {
+tk_topo_run_tile_simple_uses_upstream( void ) {
 #if FD_HAS_LINUX
   return 1;
 #else
@@ -92,23 +117,34 @@ int
 
 void
 tk_topo_run_tile_simple( void * topo, void * tile ) {
+  fd_topo_tile_t * tile_c = (fd_topo_tile_t *)tile;
+  fd_topo_run_tile_t * run_tile;
+
+  /* Dispatch to TK_METRIC_RUN for metric tile — it uses fd_stem +
+     fd_http_server instead of Zig callbacks. */
+  if( tile_is_metric( tile_c ) ) {
+    run_tile = &TK_METRIC_RUN;
+  } else {
+    run_tile = &TK_TILE_RUN;
+  }
+
 #if FD_HAS_LINUX
   fd_topo_run_tile( (fd_topo_t *)topo, (fd_topo_tile_t *)tile,
                     TK_PROCESS_MODE_SANDBOX_NONE, TK_KEEP_CONTROLLING_TERMINAL,
                     FD_TOPO_CORE_DUMP_LEVEL_REGULAR,
                     (uint)getuid(), (uint)getgid(), /* allow_fd */ -1,
-                    &TK_TILE_RUN );
+                    run_tile );
 #elif FD_HAS_MACOS
   tk_topo_run_tile( topo, tile,
                     TK_PROCESS_MODE_SANDBOX_NONE, TK_KEEP_CONTROLLING_TERMINAL,
                     FD_TOPO_CORE_DUMP_LEVEL_REGULAR,
                     (uint)getuid(), (uint)getgid(), /* allow_fd */ -1,
-                    &TK_TILE_RUN );
+                    run_tile );
 #else
   tk_topo_run_tile( topo, tile,
                     TK_PROCESS_MODE_SANDBOX_NONE, TK_KEEP_CONTROLLING_TERMINAL,
                     FD_TOPO_CORE_DUMP_LEVEL_REGULAR,
                     0U, 0U, /* allow_fd */ -1,
-                    &TK_TILE_RUN );
+                    run_tile );
 #endif
 }

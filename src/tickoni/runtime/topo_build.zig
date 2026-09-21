@@ -146,6 +146,24 @@ pub fn build(
     c_abi.topob.topobAutoLayout(topo, @as([*]const usize, cpu_idx_arr.ptr));
     allocator.free(cpu_idx_arr);
 
+    // Set per-tile scratch footprint properties so tile_footprint() in
+    // topob.c can query them.  Only tkmetr has a non-default footprint;
+    // every other tile gets 1UL (which the property setter silently skips
+    // since 1UL == the default).
+    const scratch_key: [*:0]const u8 = "tickoni.scratch_footprint";
+    for (topo_desc.tiles) |t| {
+        var tile_name_buf: [8]u8 = undefined;
+        const fp = c_abi.topob.tickoniTileScratchFootprint(
+            toZ(&tile_name_buf, t.id.slice()),
+        );
+        if (fp > 1) {
+            c_abi.topob.topobSetTileObjPropertyUlong(
+                topo, toZ(&tile_name_buf, t.id.slice()), 0,
+                scratch_key, fp,
+            );
+        }
+    }
+
     const cnc_obj_id = try allocator.alloc(usize, topo_desc.tiles.len);
     errdefer allocator.free(cnc_obj_id);
     for (0..topo_desc.tiles.len) |i| {

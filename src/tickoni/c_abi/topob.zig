@@ -64,6 +64,9 @@ extern fn tk_topo_wksp_set_ptr(topo: *Topo, wksp_idx: usize, wksp_ptr: *wksp_mod
 extern fn tk_topo_wksp_footprint(topo: *Topo, wksp_idx: usize) usize;
 extern fn tk_topo_wksp_part_max(topo: *Topo, wksp_idx: usize) usize;
 extern fn tk_topob_auto_layout(topo: *Topo, cpu_idx: [*]const usize) void;
+extern fn tk_topob_set_obj_property_ulong(topo: *Topo, obj_id: usize, key: [*:0]const u8, val: usize) void;
+extern fn tk_topob_set_tile_obj_property_ulong(topo: *Topo, tile_name: [*:0]const u8, tile_kind_id: usize, key: [*:0]const u8, val: usize) void;
+extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
 
 // ---------------------------------------------------------------------------
 // Public Zig wrappers.
@@ -202,6 +205,26 @@ pub fn topoWkspPartMax(topo: *Topo, wksp_idx: usize) usize {
 
 pub fn topobAutoLayout(topo: *Topo, cpu_idx: [*]const usize) void {
     tk_topob_auto_layout(topo, cpu_idx);
+}
+
+/// Set a ulong property on the topology's props POD for a given object.
+/// Used to inject tile-specific metadata (e.g. scratch footprint) before
+/// fd_topob_finish computes the layout.
+pub fn topobSetObjPropertyUlong(topo: *Topo, obj_id: usize, key: [*:0]const u8, val: usize) void {
+    tk_topob_set_obj_property_ulong(topo, obj_id, key, val);
+}
+
+/// Convenience: look up a tile by name, then set a ulong property on its
+/// "tile" object.  Used by topo_build.zig to inject the tkmetr tile's custom
+/// scratch footprint before fd_topob_finish computes the layout.
+pub fn topobSetTileObjPropertyUlong(topo: *Topo, tile_name: [*:0]const u8, tile_kind_id: usize, key: [*:0]const u8, val: usize) void {
+    tk_topob_set_tile_obj_property_ulong(topo, tile_name, tile_kind_id, key, val);
+}
+
+/// Return the scratch footprint for a named tile.  Returns TK_METRIC_RUN's
+/// scratch footprint for "tkmetr", 1UL for everything else.
+pub fn tickoniTileScratchFootprint(tile_name: [*:0]const u8) usize {
+    return tk_topob_tickoni_tile_scratch_footprint(tile_name);
 }
 
 // ---------------------------------------------------------------------------

@@ -160,12 +160,29 @@ static fd_topo_obj_callbacks_t tk_obj_cb_metrics = {
   .new       = metrics_new,
 };
 
-/* Tickoni-owned "tile" object: Phase 0 tiles need no fd_scratch tile-local
-   memory, so this is a deliberate minimal (not zero — fd_topob_finish's
-   NUMA-assignment step requires every object to have a non-zero
-   footprint) placeholder, NOT a call into fdctl_tile_run()/TILES[]. */
+/* Tickoni-owned "tile" object footprint.
+
+   Phase 0 pipeline tiles need no fd_scratch tile-local memory, so their
+   footprint is 1UL (not zero — fd_topob_finish's NUMA-assignment step
+   requires every object to have a non-zero footprint).
+
+   The metric tile (tkmetr) uses Firedancer's fd_stem-based run loop with
+   fd_http_server and needs ~32MB+ scratch.  Its scratch footprint is set
+   as a property ("tickoni.scratch_footprint") by topo_build.zig and
+   queried here instead. */
 static ulong
-tile_footprint( fd_topo_t const * topo FD_FN_UNUSED, fd_topo_obj_t const * obj FD_FN_UNUSED ) {
+tile_footprint( fd_topo_t const * topo, fd_topo_obj_t const * obj ) {
+  /* Find the tile that owns this "tile" object. */
+  for ( ulong i = 0UL; i < topo->tile_cnt; i++ ) {
+    if ( topo->tiles[ i ].tile_obj_id == obj->id ) {
+      /* Query the custom scratch footprint property set by topo_build.zig.
+         Returns 0UL (def) if not set — falls through to 1UL below. */
+      ulong scratch = fd_pod_queryf_ulong(
+        topo->props, 0UL, "obj.%lu.%s", obj->id, "tickoni.scratch_footprint" );
+      if ( scratch != 0UL ) return scratch;
+      break;
+    }
+  }
   return 1UL;
 }
 
@@ -313,6 +330,42 @@ tk_topob_tile_out( void * topo, char const * tile_name, ulong tile_kind_id, char
 void
 tk_topob_finish( void * topo ) {
   fd_topob_finish( (fd_topo_t *)topo, TK_CALLBACKS );
+}
+
+/* Set a ulong property on the props POD for a given object.
+
+   Used by topo_build.zig to inject the tkmetr tile's custom scratch
+   footprint before fd_topob_finish computes the layout. */
+void
+tk_topob_set_obj_property_ulong( void * topo, ulong obj_id, char const * key, ulong val ) {
+  fd_pod_insertf_ulong( ((fd_topo_t *)topo)->props, val,
+                        "obj.%lu.%s", obj_id, key );
+}
+
+/* Convenience: look up a tile by name/kind_id, then set a ulong property on
+   its "tile" object.  Used by topo_build.zig to inject the tkmetr tile's
+   custom scratch footprint before fd_topob_finish. */
+void
+tk_topob_set_tile_obj_property_ulong( void * topo, char const * tile_name,
+                                       ulong tile_kind_id,
+                                       char const * key, ulong val ) {
+  fd_topo_t * t = (fd_topo_t *)topo;
+  ulong tile_id = fd_topo_find_tile( t, tile_name, tile_kind_id );
+  if( tile_id == ULONG_MAX ) return;
+  fd_pod_insertf_ulong( t->props, val,
+                        "obj.%lu.%s", t->tiles[ tile_id ].tile_obj_id, key );
+}
+
+/* Query the scratch footprint for a named tile.  Returns TK_METRIC_RUN's
+   scratch_footprint for "tkmetr", 1UL for everything else.  Called from
+   topo_build.zig before the property is set. */
+extern fd_topo_run_tile_t TK_METRIC_RUN;
+
+ulong
+tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {
+  if( strcmp( tile_name, "tkmetr" ) == 0 )
+    return TK_METRIC_RUN.scratch_footprint( NULL );
+  return 1UL;
 }
 
 int
