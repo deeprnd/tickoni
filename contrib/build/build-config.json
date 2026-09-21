@@ -21,7 +21,8 @@
   "source_sets": {
     "libs": [
       "src/tango", "src/util", "src/ballet", "src/disco", "src/waltz",
-      "src/third_party/cjson", "src/third_party/s2n-bignum"
+      "src/third_party/cjson", "src/third_party/s2n-bignum",
+      "src/third_party/picohttpparser"
     ],
     "test": [
       "src/tango", "src/util", "src/ballet", "src/disco", "src/waltz",
