@@ -298,18 +298,25 @@ pub const Supervisor = struct {
         std.debug.print("SUPERVISOR: wkspAttach succeeded wksp={p}\n", .{wksp});
         errdefer _ = c_abi.wksp.wkspDetach(wksp);
 
-        // Also create a "metrics" workspace.  fd_topo_fill_tile joins
-        // metrics for every tile; without a metrics workspace,
+        // Create the shared "metric_in" workspace.  fd_topo_fill_tile
+        // joins metrics for every tile; without a metric_in workspace,
         // TILE->metrics_ptr is NULL and FD_MGAUGE_SET segfaults.
-        const metrics_wksp_id = c_abi.topob.topoFindWksp(built_topo.topo, "metrics");
+        //
+        // Use the exact metrics_wksp_idx that build() computed for
+        // "metric_in" — this is the Firedancer pattern, not a lookup.
+        const metrics_wksp_id = built_topo.metrics_wksp_idx;
         if (metrics_wksp_id == 0) return error.MetricsWkspNotFound;
         var metrics_wksp_name_z_buf: [rt.topo_build.concrete_workspace_name_cap]u8 = undefined;
-        const metrics_wksp_name_z = try rt.topo_build.concreteWorkspaceName(&metrics_wksp_name_z_buf, "metrics");
-        const metrics_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metrics_wksp_id);
-        const metrics_page_cnt = metrics_footprint / c_abi.wksp.shmem_normal_page_sz + 8;
+        const metrics_wksp_name_z = try rt.topo_build.concreteWorkspaceName(
+            &metrics_wksp_name_z_buf, "metric_in");
+        const metrics_footprint = c_abi.topob.topoWkspFootprint(
+            built_topo.topo, metrics_wksp_id);
+        const metrics_page_cnt = metrics_footprint /
+            c_abi.wksp.shmem_normal_page_sz + 8;
         var metrics_sub_page_cnt = [_]usize{metrics_page_cnt};
         var metrics_sub_cpu_idx = [_]usize{0};
-        const metrics_part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, metrics_wksp_id);
+        const metrics_part_max = c_abi.topob.topoWkspPartMax(
+            built_topo.topo, metrics_wksp_id);
         const metrics_rc = c_abi.wksp.wkspNewNamed(
             metrics_wksp_name_z,
             c_abi.wksp.shmem_normal_page_sz,
@@ -813,7 +820,7 @@ test "Supervisor initialises all handles as stopped" {
 
 test "Supervisor init fails closed on a structural CPU placement conflict, even in thread mode" {
     const base = topologies.paymentPipeline();
-    var conflicting_tiles: [8]rt.topology.TileDescriptor = base.tiles[0..8].*;
+    var conflicting_tiles: [2]rt.topology.TileDescriptor = base.tiles[0..2].*;
     conflicting_tiles[0].cpu_placement = .{ .exclusive = 0 };
     conflicting_tiles[1].cpu_placement = .{ .exclusive = 0 };
     const topo = rt.topology.Topology{ .tiles = &conflicting_tiles, .channels = base.channels };
