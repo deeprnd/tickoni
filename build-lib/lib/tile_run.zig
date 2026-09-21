@@ -25,7 +25,6 @@ fn addTickoniTileRunShim(b: *std.Build, step: *std.Build.Step.Compile) void {
     step.root_module.addCSourceFiles(.{
         .files = &.{
             "src/tickoni/c_abi/shim/tile_run.c",
-            "src/tickoni/c_abi/shim/tk_metric_tile.c",
         },
         .flags = shims.shimCFlagsFor(target_info),
     });
