@@ -541,14 +541,18 @@ pub const Supervisor = struct {
         }
     }
 
-    /// Process-mode equivalent of tiles_mod.MetricSnapshot: every tile
-    /// publishes its own local counters into its cnc app-region (see
-    /// runtime/cnc_counters.zig's appCounter{Read,Write} and
+    /// v2.14.S1.T14: a snapshot of all tile cnc counters read in process
+    /// mode (see snapshotProcessMetrics below). Pipeline tiles (tkings →
+    /// tkrnorm → tkdedu → tkpoly → tkaudt) write event-flow counters;
+    /// observer tiles (tkrepl, tkmetr, tkdiag) write diagnostic counters.
+    /// The supervisor publishes its own local counters into its cnc
+    /// app-region (see runtime/cnc_counters.zig's appCounter{Read,Write} and
     /// src/tickoni/tiles/payment_pipeline/process.zig's per-tile counter
     /// layout); this reads them back across the process boundary. Must be called
     /// before stopProcess, which leaves every cnc join and detaches the
     /// workspace.
     pub const ProcessMetricSnapshot = struct {
+        // Pipeline counters (tkings → tkrnorm → tkdedu → tkpoly → tkaudt)
         produced: u64 = 0,
         normalized: u64 = 0,
         invalid: u64 = 0,
@@ -556,6 +560,13 @@ pub const Supervisor = struct {
         allowed: u64 = 0,
         denied: u64 = 0,
         audited: u64 = 0,
+        // Observer counters (tkrepl, tkmetr, tkdiag)
+        replay_checked: u64 = 0,
+        replay_match: u64 = 0,
+        metric_snapshots: u64 = 0,
+        metric_backpressure_waits: u64 = 0,
+        diag_crash_count: u64 = 0,
+        diag_sandbox_count: u64 = 0,
     };
 
     /// v2.14.S1.T14 visibility: the CPU placement layout validated at
@@ -583,6 +594,12 @@ pub const Supervisor = struct {
                     .allowed => snap.allowed = v,
                     .denied => snap.denied = v,
                     .audited => snap.audited = v,
+                    .replay_checked => snap.replay_checked = v,
+                    .replay_match => snap.replay_match = v,
+                    .metric_snapshots => snap.metric_snapshots = v,
+                    .metric_backpressure_waits => snap.metric_backpressure_waits = v,
+                    .diag_crashed_tile => snap.diag_crash_count = v,
+                    .diag_sandbox_failures => snap.diag_sandbox_count = v,
                 }
             }
         }
@@ -600,6 +617,12 @@ pub const Supervisor = struct {
         allowed: u64 = 0,
         denied: u64 = 0,
         audited: u64 = 0,
+        replay_checked: u64 = 0,
+        replay_match: u64 = 0,
+        metric_snapshots: u64 = 0,
+        metric_backpressure_waits: u64 = 0,
+        diag_crash_count: u64 = 0,
+        diag_sandbox_count: u64 = 0,
     };
 
     /// Convert a plain ProcessMetricSnapshot into a timestamped version.
@@ -613,6 +636,12 @@ pub const Supervisor = struct {
             .allowed = snap.allowed,
             .denied = snap.denied,
             .audited = snap.audited,
+            .replay_checked = snap.replay_checked,
+            .replay_match = snap.replay_match,
+            .metric_snapshots = snap.metric_snapshots,
+            .metric_backpressure_waits = snap.metric_backpressure_waits,
+            .diag_crash_count = snap.diag_crash_count,
+            .diag_sandbox_count = snap.diag_sandbox_count,
         };
     }
 
@@ -639,6 +668,12 @@ pub const Supervisor = struct {
                 .allowed => snap.allowed = v,
                 .denied => snap.denied = v,
                 .audited => snap.audited = v,
+                .replay_checked => snap.replay_checked = v,
+                .replay_match => snap.replay_match = v,
+                .metric_snapshots => snap.metric_snapshots = v,
+                .metric_backpressure_waits => snap.metric_backpressure_waits = v,
+                .diag_crashed_tile => snap.diag_crash_count = v,
+                .diag_sandbox_failures => snap.diag_sandbox_count = v,
             }
         }
         return snap;
