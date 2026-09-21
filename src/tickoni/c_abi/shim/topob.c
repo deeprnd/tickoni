@@ -467,3 +467,9 @@ void *
 tk_topo_tile_ptr( void * topo, ulong tile_id ) {
   return &((fd_topo_t *)topo)->tiles[ tile_id ];
 }
+
+/* Set tile_obj_id for a tile — needed for metric tile scratch allocation. */
+void
+tk_topo_tile_set_tile_obj_id( void * topo, ulong tile_id, ulong obj_id ) {
+  ((fd_topo_t *)topo)->tiles[ tile_id ].tile_obj_id = obj_id;
+}

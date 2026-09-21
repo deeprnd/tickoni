@@ -74,6 +74,9 @@ pub const BuiltTopo = struct {
     metric_in_wksp_idx: usize,
     /// Tile index of tkmetr (if present), otherwise not_found.
     metric_tile_idx: usize,
+    /// Object id for the metric tile's scratch space (fd_metric_ctx_t +
+    /// fd_http_server).  Only populated when metric_tile_idx != not_found.
+    metric_tile_obj_id: usize,
     /// Per-tile cnc object id, indexed the same as Topology.tiles.
     cnc_obj_id: []usize,
     /// Per-channel object ids, indexed the same as Topology.channels.
@@ -238,6 +241,21 @@ pub fn build(
 
     c_abi.topob.topobFinish(topo);
 
+    // v2.22.S4 Task 3: Create a dedicated scratch object for the metric tile.
+    // fd_tile_metric.c's scratch_footprint computes the size from METRICS_PARAMS.
+    // We add a "tkmetr_tile" object so fd_topo_run_tile can resolve
+    // tile->tile_obj_id for the metric tile's scratch allocation.
+    var metric_tile_obj_id: usize = 0;
+    if (metric_tile_idx != c_abi.topob.not_found) {
+        var metric_wksp_name_buf: [16]u8 = undefined;
+        const metric_wksp_z = toZ(&metric_wksp_name_buf, "metric");
+        metric_tile_obj_id = c_abi.topob.topobObj(topo, "tkmetr_tile", metric_wksp_z);
+        // Mark this object as used by the metric tile
+        c_abi.topob.topobTileUses(topo, metric_tile_idx, metric_tile_obj_id, true);
+        // Set tile_obj_id so fd_topo_run_tile can find the scratch space
+        c_abi.topob.topoTileSetTileObjId(topo, metric_tile_idx, metric_tile_obj_id);
+    }
+
     return .{
         .buf = buf,
         .topo = topo,
@@ -245,6 +263,7 @@ pub fn build(
         .metric_wksp_idx = metric_wksp_idx,
         .metric_in_wksp_idx = metric_in_wksp_idx,
         .metric_tile_idx = metric_tile_idx,
+        .metric_tile_obj_id = metric_tile_obj_id,
         .cnc_obj_id = cnc_obj_id,
         .link_obj_id = link_obj_id,
     };
