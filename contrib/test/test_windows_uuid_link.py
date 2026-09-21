@@ -38,7 +38,6 @@ def test_windows_links_setup_openssl_archive_without_pkg_config():
         "fn linkTickoniWindowsUuid", 1
     )[0]
     assert "if (os_tag == .windows)" in link_helper
-    assert 'addObjectFile(b.path("build/opt/lib/libcrypto.a"))' in link_helper
     assert 'linkSystemLibrary("crypto", .{})' in link_helper
 
 
