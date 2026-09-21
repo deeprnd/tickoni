@@ -63,6 +63,7 @@ pub fn createSupervisorExe(
         exe.root_module.linkLibrary(codec.addTickoniSupervisorShimLibrary(b, target, optimize));
         codec.addWindowsFdManifestFixups(b, exe, b.fmt("{s}/fd_windows_zig_supervisor_link.txt", .{fd_lib_dir}));
         codec.addTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
+        exe.root_module.linkSystemLibrary("zstd", .{});
     } else if (target.result.cpu.arch == .aarch64) {
         codec.linkTickoniCodec(b, exe, fd_lib_dir);
         firedancer.linkTickoniFiredancer(b, exe, fd_lib_dir);
@@ -70,12 +71,14 @@ pub fn createSupervisorExe(
         tile_run.linkTickoniTileRun(b, exe, fd_lib_dir);
         codec.addTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
         exe.root_module.linkSystemLibrary("atomic", .{});
+        exe.root_module.linkSystemLibrary("zstd", .{});
     } else {
         codec.linkTickoniCodec(b, exe, fd_lib_dir);
         firedancer.linkTickoniFiredancer(b, exe, fd_lib_dir);
         topo_run.linkTickoniTopoRun(b, exe, fd_lib_dir);
         tile_run.linkTickoniTileRun(b, exe, fd_lib_dir);
         codec.addTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
+        exe.root_module.linkSystemLibrary("zstd", .{});
     }
     return exe;
 }

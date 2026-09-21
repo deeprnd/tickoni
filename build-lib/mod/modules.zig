@@ -34,6 +34,7 @@ pub const Shared = struct {
     basket: *std.Build.Module,
     portfolio: *std.Build.Module,
     tiles: *std.Build.Module,
+    tile_registry: *std.Build.Module,
 };
 
 pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) Shared {
