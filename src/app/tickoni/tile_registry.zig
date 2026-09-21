@@ -312,18 +312,20 @@ pub fn validate(topo: rt.topology.Topology) !void {
 }
 
 // ---------------------------------------------------------------------------
-// Tests — 2-tile topology (tkings + tkaudt).
+// Tests — 3-tile topology (tkings + tkaudt + tkmetr).
 // ---------------------------------------------------------------------------
 
-test "registry has exactly 2 tiles (tkings + tkaudt)" {
-    try std.testing.expectEqual(@as(usize, 2), entries.len);
+test "registry has exactly 3 tiles (tkings + tkaudt + tkmetr)" {
+    try std.testing.expectEqual(@as(usize, 3), entries.len);
 }
 
 test "findById finds every registered tile" {
     const tkings = try rt.tile.TileId.parse("tkings");
     const tkaudt = try rt.tile.TileId.parse("tkaudt");
+    const tkmetr = try rt.tile.TileId.parse("tkmetr");
     try std.testing.expect(findById(tkings) != null);
     try std.testing.expect(findById(tkaudt) != null);
+    try std.testing.expect(findById(tkmetr) != null);
 }
 
 test "findById returns null for an unregistered id" {
@@ -359,8 +361,8 @@ test "expected link cardinality matches the minimal chain" {
     try std.testing.expectEqual(@as(u8, 0), tkaudt.out_cnt);
 }
 
-fn descriptorsFromRegistry() [2]rt.tile.TileDescriptor {
-    var descriptors: [2]rt.tile.TileDescriptor = undefined;
+fn descriptorsFromRegistry() [3]rt.tile.TileDescriptor {
+    var descriptors: [3]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| descriptors[i] = .{ .id = e.id, .name = "t" };
     return descriptors;
 }
@@ -477,7 +479,7 @@ test "validate rejects topology with empty tile id" {
 }
 
 test "validate topology rejects duplicate CPU exclusive placement" {
-    var descriptors: [2]rt.tile.TileDescriptor = undefined;
+    var descriptors: [3]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| {
         descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 0 } };
     }
@@ -486,7 +488,7 @@ test "validate topology rejects duplicate CPU exclusive placement" {
 }
 
 test "validate topology rejects shared placement without explicit shared mode" {
-    var descriptors: [2]rt.tile.TileDescriptor = undefined;
+    var descriptors: [3]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| {
         descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 0 } };
     }
@@ -553,7 +555,7 @@ test "validate checks cardinality not individual link ids (documents gap for fut
 
 // T10.15: explicit malformed provider-config test — invalid CPU id.
 test "T10.15 validate topology rejects CPU id at upper u16 boundary" {
-    var descriptors: [2]rt.tile.TileDescriptor = undefined;
+    var descriptors: [3]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| {
         if (i == 0) {
             descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 65535 } };
@@ -571,7 +573,7 @@ test "T10.15 cpu_placement.validate rejects extreme CPU id as malformed" {
         for (&a) |*b| b.* = 0xFF;
         break :blk a;
     };
-    var descriptors: [2]rt.tile.TileDescriptor = undefined;
+    var descriptors: [3]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| {
         if (i == 0) {
             descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 65535 } };
@@ -594,7 +596,7 @@ test "T10.15 validate rejects tango_shm channel with empty workspace name" {
 
 // T10.15: placement mode validation.
 test "T10.15 validate accepts floating placement mode" {
-    var descriptors: [2]rt.tile.TileDescriptor = undefined;
+    var descriptors: [3]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |e, i| {
         descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .floating };
     }
@@ -603,7 +605,7 @@ test "T10.15 validate accepts floating placement mode" {
 }
 
 test "T10.15 validate rejects exclusive and shared colliding on same CPU" {
-    var descriptors: [2]rt.tile.TileDescriptor = undefined;
+    var descriptors: [3]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |e, i| {
         if (i == 0) {
             descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 2 } };
@@ -620,7 +622,7 @@ test "T10.15 cpu_placement.validate rejects CPU id not in available set" {
     var cpus: rt.cpu_placement.CpuSet = undefined;
     @memset(&cpus, 0);
     cpus[0] = 1; // only CPU 0
-    var descriptors: [2]rt.tile.TileDescriptor = undefined;
+    var descriptors: [3]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |e, i| {
         if (i == 0) {
             descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 1 } };
