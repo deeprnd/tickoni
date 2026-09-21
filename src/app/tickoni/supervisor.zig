@@ -12,6 +12,7 @@ const tile_registry = @import("tile_registry.zig");
 const logger = @import("logger");
 
 const Topology = rt.topology.Topology;
+const WorkspaceName = rt.link.WorkspaceName;
 const TileHandle = rt.tile.TileHandle;
 const TileState = rt.tile.TileState;
 const CrashReason = rt.tile.CrashReason;
@@ -32,7 +33,7 @@ pub const ProcessPipelineConfig = struct {
     /// Test-only hook (v2.14.S1.T12 crash isolation): tile i self-exits(1)
     /// after this many heartbeats instead of waiting for a halt signal.
     /// 0 means run normally. Indexed by tile_idx.
-    crash_after_heartbeats: [8]u32 = std.mem.zeroes([8]u32),
+    crash_after_heartbeats: []const u32 = &[_]u32{},
     /// Test-only hook (v2.14.S8.T6 stale-heartbeat proof): the selected
     /// tile blocks forever after stuck_after_messages loop iterations.
     stuck_tile_idx: ?u32 = null,
@@ -65,10 +66,10 @@ const ProcessState = struct {
     built_topo: rt.topo_build.BuiltTopo,
     workspace_name: []u8,
     run_dir: []u8,
-    cnc_gaddrs: [8]usize,
+    cnc_gaddrs: []usize,
     /// Parent-side cnc joins, used to send the halt signal during stop.
-    cncs: [8]?*c_abi.cnc.Cnc,
-    children: [8]?std.process.Child,
+    cncs: []?*c_abi.cnc.Cnc,
+    children: []?std.process.Child,
     heartbeat_stale_after_ns: u64,
     /// Grace period between requesting HALT and force-terminating tiles already
     /// classified stale. Lets slow but healthy children observe HALT and exit
@@ -82,10 +83,10 @@ const ProcessState = struct {
     /// workspace, and frees owned buffers. Safe to call with a partially
     /// populated state (e.g. after a failed start).
     fn deinit(self: *ProcessState, io: std.Io, allocator: std.mem.Allocator) void {
-        for (&self.children) |*maybe_child| {
+        for (self.children) |*maybe_child| {
             if (maybe_child.*) |*child| child.kill(io);
         }
-        for (&self.cncs) |*maybe_cnc| {
+        for (self.cncs) |*maybe_cnc| {
             if (maybe_cnc.*) |cnc| _ = c_abi.cnc.cncLeave(cnc);
         }
         self.built_topo.deinit(allocator);
@@ -169,7 +170,6 @@ pub const Supervisor = struct {
         try log.enter("supervisor", "startPaymentPipeline");
         defer log.exit("supervisor", "startPaymentPipeline") catch {};
         std.debug.assert(self.pipeline == null);
-        std.debug.assert(self.topo.tiles.len == 8);
 
         const state = try self.allocator.create(PaymentPipelineState);
         var state_owned_by_pipeline = false;
@@ -205,7 +205,6 @@ pub const Supervisor = struct {
     /// workspace (paymentPipelineProcess() builds this shape).
     pub fn startPaymentPipelineProcess(self: *Supervisor, io: std.Io, config: ProcessPipelineConfig) !void {
         std.debug.assert(self.process_state == null);
-        std.debug.assert(self.topo.tiles.len == 8);
 
         // Fail closed on any tile pinned to a CPU id this process cannot
         // actually use, before spawning anything — pinning more
@@ -222,7 +221,15 @@ pub const Supervisor = struct {
         var boot_needs_halt = true;
         errdefer if (boot_needs_halt) c_abi.boot.halt();
 
-        const workspace_name_slice = self.topo.channels[0].workspace_name.slice();
+        // Derive workspace name: prefer the first channel's name; when
+        // there are no channels (minimal 2-tile debugging topology), fall
+        // back to a hardcoded default.
+        const workspace_name = if (self.topo.channels.len > 0)
+            self.topo.channels[0].workspace_name
+        else
+            WorkspaceName.parse("tango_shm") catch unreachable;
+        const workspace_name_slice = workspace_name.slice();
+
         if (workspace_name_slice.len == 0) return error.MissingWorkspaceName;
         for (self.topo.channels) |ch| {
             if (ch.backing != .tango_shm) return error.ProcessModeRequiresTangoShm;
@@ -295,7 +302,7 @@ pub const Supervisor = struct {
         // metrics for every tile; without a metrics workspace,
         // TILE->metrics_ptr is NULL and FD_MGAUGE_SET segfaults.
         const metrics_wksp_id = c_abi.topob.topoFindWksp(built_topo.topo, "metrics");
-        if (metrics_wksp_id == c_abi.topob.not_found) return error.MetricsWkspNotFound;
+        if (metrics_wksp_id == 0) return error.MetricsWkspNotFound;
         var metrics_wksp_name_z_buf: [rt.topo_build.concrete_workspace_name_cap]u8 = undefined;
         const metrics_wksp_name_z = try rt.topo_build.concreteWorkspaceName(&metrics_wksp_name_z_buf, "metrics");
         const metrics_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metrics_wksp_id);
@@ -332,15 +339,16 @@ pub const Supervisor = struct {
         c_abi.topob.topoWkspNew(built_topo.topo, metrics_wksp_id);
         std.debug.print("SUPERVISOR: topoWkspNew done\n", .{});
 
+        const num_tiles = self.topo.tiles.len;
         const state = try self.allocator.create(ProcessState);
         state.* = .{
             .wksp = wksp,
             .built_topo = built_topo,
             .workspace_name = try self.allocator.dupe(u8, workspace_name_slice),
             .run_dir = try self.allocator.dupe(u8, config.run_dir),
-            .cnc_gaddrs = std.mem.zeroes([8]usize),
-            .cncs = std.mem.zeroes([8]?*c_abi.cnc.Cnc),
-            .children = std.mem.zeroes([8]?std.process.Child),
+            .cnc_gaddrs = try self.allocator.alloc(usize, num_tiles),
+            .cncs = try self.allocator.alloc(?*c_abi.cnc.Cnc, num_tiles),
+            .children = try self.allocator.alloc(?std.process.Child, num_tiles),
             .heartbeat_stale_after_ns = resolvedHeartbeatStaleAfterNs(config),
             .stop_grace_ns = resolvedStopGraceNs(config),
             .placement_report = placement_report,
@@ -371,9 +379,8 @@ pub const Supervisor = struct {
         // topoWkspNew's mcache/dcache/fseq .new callbacks) into the same
         // gaddr-based LinkHandles shape rt.link.create used to build by
         // hand.
-        var link_handles_buf: [8]rt.link.LinkHandles = undefined;
-        std.debug.assert(self.topo.channels.len <= link_handles_buf.len);
-        const link_handles = link_handles_buf[0..self.topo.channels.len];
+        const link_handles = try self.allocator.alloc(rt.link.LinkHandles, self.topo.channels.len);
+        defer self.allocator.free(link_handles);
         for (self.topo.channels, 0..) |ch, i| {
             const ids = built_topo.link_obj_id[i];
             link_handles[i] = .{
@@ -421,15 +428,17 @@ pub const Supervisor = struct {
         for (self.handles, 0..) |*h, i| {
             const tile = self.topo.tiles[i];
 
+            const crash_hb = if (i < config.crash_after_heartbeats.len) config.crash_after_heartbeats[i] else 0;
+
             const spec = try rt.launch_spec.LaunchSpec.init(.{
                 .tile_idx = @intCast(i),
                 .tile_id = tile.id,
                 .cpu_placement = tile.cpu_placement,
-                .workspace_name = self.topo.channels[0].workspace_name,
+                .workspace_name = workspace_name,
                 .cnc_gaddr = state.cnc_gaddrs[i],
                 .shmem_path = config.run_dir,
                 .heartbeat_interval_ns = config.heartbeat_interval_ns,
-                .crash_after_heartbeats = config.crash_after_heartbeats[i],
+                .crash_after_heartbeats = crash_hb,
                 .channels = self.topo.channels,
                 .link_handles = link_handles,
             });
@@ -447,14 +456,19 @@ pub const Supervisor = struct {
             defer env.deinit();
             try env.put("FD_SHMEM_PATH", config.run_dir);
 
-            var argv_buf: [4][]const u8 = undefined;
-            var argv_count: usize = 3;
+            var log_path: [256]u8 = undefined;
+            const log_path_str = std.fmt.bufPrint(&log_path, "{s}/tile_{d}.log", .{ config.run_dir, i }) catch "tile_0.log";
+
+            var argv_buf: [6][]const u8 = undefined;
+            var argv_count: usize = 4;
             argv_buf[0] = self_exe_path;
             argv_buf[1] = "__tile-run";
             argv_buf[2] = spec_path;
+            argv_buf[3] = "--log-path";
+            argv_buf[4] = log_path_str;
             if (config.verbose) {
-                argv_buf[3] = "--verbose";
-                argv_count = 4;
+                argv_buf[5] = "--verbose";
+                argv_count = 6;
             }
             const child = try std.process.spawn(io, .{
                 .argv = argv_buf[0..argv_count],
@@ -525,7 +539,7 @@ pub const Supervisor = struct {
 
     fn reapExitedChildrenNoHang(self: *Supervisor) void {
         const state = self.process_state orelse return;
-        for (&state.children, 0..) |*maybe_child, i| {
+        for (state.children, 0..) |*maybe_child, i| {
             var child = maybe_child.* orelse continue;
             switch (util.process_api.tryReapNoHang(&child)) {
                 .running => {},
@@ -546,7 +560,7 @@ pub const Supervisor = struct {
         log.enter("supervisor", "waitProcess") catch {};
         defer log.exit("supervisor", "waitProcess") catch {};
         const state = self.process_state orelse return;
-        for (&state.children, 0..) |*maybe_child, i| {
+        for (state.children, 0..) |*maybe_child, i| {
             var child = maybe_child.* orelse continue;
             const term = child.wait(io) catch {
                 log.err("supervisor", "waitProcess", "wait failed for child tile") catch {};
@@ -697,8 +711,10 @@ pub const Supervisor = struct {
         defer log.exit("supervisor", "stopProcess") catch {};
         const state = self.process_state orelse return;
         self.refreshProcessHealth();
+
         const stale_before_stop = blk: {
-            var snapshot: [8]bool = std.mem.zeroes([8]bool);
+            var snapshot = self.allocator.alloc(bool, self.handles.len) catch unreachable;
+            defer self.allocator.free(snapshot);
             for (self.handles, 0..) |h, i| snapshot[i] = h.state == .stale;
             break :blk snapshot;
         };
@@ -718,7 +734,8 @@ pub const Supervisor = struct {
             self.reapExitedChildrenNoHang();
         }
 
-        var forced_termination: [8]bool = undefined;
+        const forced_termination = self.allocator.alloc(bool, stale_before_stop.len) catch unreachable;
+        defer self.allocator.free(forced_termination);
         var ci: usize = 0;
         while (ci < forced_termination.len) : (ci += 1) forced_termination[ci] = false;
         for (stale_before_stop, 0..) |was_stale, i| {
@@ -730,7 +747,7 @@ pub const Supervisor = struct {
             forced_termination[i] = true;
         }
 
-        self.waitProcess(io, &forced_termination);
+        self.waitProcess(io, forced_termination);
         state.deinit(io, self.allocator);
         self.allocator.destroy(state);
         self.process_state = null;

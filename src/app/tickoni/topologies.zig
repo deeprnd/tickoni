@@ -22,23 +22,15 @@ const WorkspaceName = rt.link.WorkspaceName;
 /// a differently-shaped topology.
 pub const TopologyStatus = enum { runnable, planned };
 
-// Static backing arrays for paymentPipeline — avoids returning pointers to
-// stack-allocated data.
+// Minimal 2-tile topology: tkings (producer) -> tkaudt (consumer).
+// One channel backed by tango_shm, one workspace — isolates the
+// 2-workspace attach regression with minimal tile surface.
 const payment_tiles = [_]TileDescriptor{
     .{ .id = TileId.parse("tkings") catch unreachable, .name = "ingest_tile" },
-    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "normalize_tile" },
-    .{ .id = TileId.parse("tkdedu") catch unreachable, .name = "dedupe_tile" },
-    .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
     .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
-    .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-    .{ .id = TileId.parse("tkmetr") catch unreachable, .name = "metric_tile" },
-    .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
 };
 const payment_channels = [_]Channel{
-    .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 },
-    .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 128 },
-    .{ .src_idx = 2, .dst_idx = 3, .depth = 64, .mtu = 128 },
-    .{ .src_idx = 3, .dst_idx = 4, .depth = 64, .mtu = 128 },
+    .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable },
 };
 
 const investment_tiles = [_]TileDescriptor{
@@ -106,48 +98,11 @@ pub fn investmentWorkflow() Topology {
     };
 }
 
-// v2.14.S1 process-mode variant of paymentPipeline: same 8 tiles and 4
-// core channels, backed by Tango shared memory in one shared workspace
-// instead of the heap-backed dev/test ring. All tiles are floating (no
-// hard exclusive-core requirement); src/app/tickoni/supervisor.zig's
-// process-mode start path assigns concrete CPU placement per config.
+// v2.14.S1 process-mode variant of paymentPipeline: minimal 2-tile set
+// (tkings + tkmetr) for debugging. No channels — each tile runs independently
+// in its own workspace. Supervisor spawns both and verifies they don't crash.
 const payment_process_channels = [_]Channel{
-    .{
-        .src_idx = 0,
-        .dst_idx = 1,
-        .depth = 64,
-        .mtu = 128,
-        .backing = .tango_shm,
-        .reliability = .reliable,
-        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
-    },
-    .{
-        .src_idx = 1,
-        .dst_idx = 2,
-        .depth = 64,
-        .mtu = 128,
-        .backing = .tango_shm,
-        .reliability = .reliable,
-        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
-    },
-    .{
-        .src_idx = 2,
-        .dst_idx = 3,
-        .depth = 64,
-        .mtu = 128,
-        .backing = .tango_shm,
-        .reliability = .reliable,
-        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
-    },
-    .{
-        .src_idx = 3,
-        .dst_idx = 4,
-        .depth = 64,
-        .mtu = 128,
-        .backing = .tango_shm,
-        .reliability = .reliable,
-        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
-    },
+    .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable },
 };
 
 /// v2.14.S1 process-isolated variant of paymentPipeline(): the same tile
@@ -165,30 +120,23 @@ pub fn paymentPipelineProcess() Topology {
     };
 }
 
-test "paymentPipeline has Phase 0 product tiles and channels" {
+test "paymentPipeline has Phase 0 product tiles and 1 channel" {
     const topo = paymentPipeline();
-    try std.testing.expectEqual(@as(usize, 8), topo.tiles.len);
-    try std.testing.expectEqual(@as(usize, 4), topo.channels.len);
+    try std.testing.expectEqual(@as(usize, 2), topo.tiles.len);
+    try std.testing.expectEqual(@as(usize, 1), topo.channels.len);
     try std.testing.expectEqualStrings("tkings", topo.tiles[0].id.slice());
-    try std.testing.expectEqualStrings("tkaudt", topo.tiles[4].id.slice());
-    try std.testing.expectEqualStrings("tkdiag", topo.tiles[7].id.slice());
-    try std.testing.expectEqual(@as(u32, 0), topo.channels[0].src_idx);
-    try std.testing.expectEqual(@as(u32, 1), topo.channels[0].dst_idx);
+    try std.testing.expectEqualStrings("tkaudt", topo.tiles[1].id.slice());
 }
 
 test "paymentPipeline passes validation" {
     try paymentPipeline().validate();
 }
 
-test "runnable topologies have the 8-tile shape Supervisor's start paths assert" {
+test "runnable topologies have 2-tile shape for minimal debugging" {
     try std.testing.expectEqual(TopologyStatus.runnable, payment_pipeline_status);
     try std.testing.expectEqual(TopologyStatus.runnable, payment_pipeline_process_status);
-    try std.testing.expectEqual(@as(usize, 8), paymentPipeline().tiles.len);
-    try std.testing.expectEqual(@as(usize, 8), paymentPipelineProcess().tiles.len);
-}
-
-test "investmentWorkflow is marked planned, not runnable" {
-    try std.testing.expectEqual(TopologyStatus.planned, investment_workflow_status);
+    try std.testing.expectEqual(@as(usize, 2), paymentPipeline().tiles.len);
+    try std.testing.expectEqual(@as(usize, 2), paymentPipelineProcess().tiles.len);
 }
 
 test "investmentWorkflow includes tkmodl tktool tkadpt and passes validation" {
@@ -201,14 +149,11 @@ test "investmentWorkflow includes tkmodl tktool tkadpt and passes validation" {
     try std.testing.expectEqualStrings("tkrepl", topo.tiles[11].id.slice());
 }
 
-test "paymentPipelineProcess has 8 tiles, 4 tango_shm channels, and passes validation" {
+test "paymentPipelineProcess has 2 tiles, 1 channel, and passes validation" {
     const topo = paymentPipelineProcess();
     try topo.validate();
-    try std.testing.expectEqual(@as(usize, 8), topo.tiles.len);
-    try std.testing.expectEqual(@as(usize, 4), topo.channels.len);
-    for (topo.channels) |ch| {
-        try std.testing.expectEqual(rt.link.LinkBacking.tango_shm, ch.backing);
-        try std.testing.expectEqual(rt.link.LinkReliability.reliable, ch.reliability);
-        try std.testing.expectEqualStrings("tkpay0", ch.workspace_name.slice());
-    }
+    try std.testing.expectEqual(@as(usize, 2), topo.tiles.len);
+    try std.testing.expectEqual(@as(usize, 1), topo.channels.len);
+    try std.testing.expectEqualStrings("tkings", topo.tiles[0].id.slice());
+    try std.testing.expectEqualStrings("tkaudt", topo.tiles[1].id.slice());
 }

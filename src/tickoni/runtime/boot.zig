@@ -4,18 +4,22 @@ const c_abi = @import("c_abi");
 pub const shmem_path_cap: usize = 256;
 
 /// Fills `argv` with a synthetic argv: program name only, or program
-/// name + "--shmem-path <path>" when shmem_path is given. Returns argc.
-/// Pure and testable: never calls c_abi.boot.boot().
+/// name + " --shmem-path <path> --log-path -" when shmem_path is given.
+/// Returns argc. Pure and testable: never calls c_abi.boot.boot().
 fn buildArgv(
     shmem_path: ?[]const u8,
     shmem_path_buf: *[shmem_path_cap]u8,
-    argv: *[4][*:0]u8,
+    argv: *[5][*:0]u8,
 ) error{ShmemPathTooLong}!c_int {
     // String literals are *const [:0]u8; fd_boot reads argv elements
     // as C strings, never writes through them. The const cast is safe.
     argv[0] = @constCast("tickoni-tile");
 
-    const path = shmem_path orelse return 1;
+    const path = shmem_path orelse {
+        argv[1] = @constCast("--log-path");
+        argv[2] = @constCast("-");
+        return 3;
+    };
     if (path.len >= shmem_path_buf.len) return error.ShmemPathTooLong;
     @memcpy(shmem_path_buf[0..path.len], path);
     shmem_path_buf[path.len] = 0;
@@ -25,7 +29,12 @@ fn buildArgv(
 
     argv[1] = @constCast("--shmem-path");
     argv[2] = path_z;
-    return 3;
+    // Disable async log pipe: without this fd_boot creates an async pipe
+    // with no reader, causing SIGPIPE on every log write. "--log-path -"
+    // tells fd_boot to log to stdout (sync, no pipe).
+    argv[3] = @constCast("--log-path");
+    argv[4] = @constCast("-");
+    return 5;
 }
 
 /// Boots fd_util's substrate with a synthetic argv (see buildArgv). Must be
@@ -35,14 +44,14 @@ pub fn bootWithSyntheticArgv(shmem_path: ?[]const u8) error{ShmemPathTooLong}!vo
     var shmem_path_buf: [shmem_path_cap]u8 = undefined;
     // Non-nullable pointer array — every element must be a valid pointer
     // because C's fd_boot dereferences argv[0..argc] unconditionally.
-    var argv_buf: [4][*:0]u8 = undefined;
+    var argv_buf: [5][*:0]u8 = undefined;
 
     const argc = try buildArgv(shmem_path, &shmem_path_buf, &argv_buf);
 
     // Pad remaining slots with valid empty-string pointers so fd_boot's loop
     // bounds (set by argc) never read uninitialized memory.
     var i = argc;
-    while (i < 4) : (i += 1) {
+    while (i < 5) : (i += 1) {
         argv_buf[@intCast(i)] = @constCast("");
     }
 
@@ -62,25 +71,27 @@ pub fn bootWithSyntheticArgv(shmem_path: ?[]const u8) error{ShmemPathTooLong}!vo
 
 test "buildArgv without a shmem path is a valid single-element argv" {
     var shmem_path_buf: [shmem_path_cap]u8 = undefined;
-    var argv: [4][*:0]u8 = undefined;
+    var argv: [5][*:0]u8 = undefined;
 
     const argc = try buildArgv(null, &shmem_path_buf, &argv);
-    try std.testing.expectEqual(@as(c_int, 1), argc);
+    try std.testing.expectEqual(@as(c_int, 3), argc);
     try std.testing.expectEqualStrings("tickoni-tile", argv[0]);
-    try std.testing.expectEqualStrings("", argv[1]);
+    try std.testing.expectEqualStrings("--log-path", argv[1]);
+    try std.testing.expectEqualStrings("-", argv[2]);
 }
 
-test "buildArgv with a shmem path produces a 3-element argv" {
+test "buildArgv with a shmem path produces a 5-element argv" {
     var shmem_path_buf: [shmem_path_cap]u8 = undefined;
-    var argv: [4][*:0]u8 = undefined;
+    var argv: [5][*:0]u8 = undefined;
 
     const path = "/tmp/tickoni-run";
     const argc = try buildArgv(path, &shmem_path_buf, &argv);
-    try std.testing.expectEqual(@as(c_int, 3), argc);
+    try std.testing.expectEqual(@as(c_int, 5), argc);
     try std.testing.expectEqualStrings("tickoni-tile", argv[0]);
     try std.testing.expectEqualStrings("--shmem-path", argv[1]);
     try std.testing.expectEqualStrings(path, argv[2]);
-    try std.testing.expectEqualStrings("", argv[3]);
+    try std.testing.expectEqualStrings("--log-path", argv[3]);
+    try std.testing.expectEqualStrings("-", argv[4]);
 }
 
 test "buildArgv rejects an over-long shmem path" {

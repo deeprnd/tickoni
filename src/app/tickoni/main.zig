@@ -319,8 +319,10 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
     var sample_count: u32 = 0;
 
     // Collect per-tile snapshots for delta comparison.
-    var prev_per_tile: [8]Supervisor.ProcessMetricSnapshot = undefined;
-    for (0..prev_per_tile.len) |i| {
+    const tile_count = topo.tiles.len;
+    var prev_per_tile = try init.gpa.alloc(Supervisor.ProcessMetricSnapshot, tile_count);
+    defer init.gpa.free(prev_per_tile);
+    for (0..tile_count) |i| {
         prev_per_tile[i] = try sup.snapshotProcessMetricsForTile(i);
     }
 
@@ -329,8 +331,9 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
         if (sup.snapshotProcessMetrics().audited >= process_config.event_count) break;
         util.process.sleepNanos(sample_interval_ns);
 
-        var curr_per_tile: [8]Supervisor.ProcessMetricSnapshot = undefined;
-        for (0..curr_per_tile.len) |i| {
+        var curr_per_tile = try init.gpa.alloc(Supervisor.ProcessMetricSnapshot, tile_count);
+        defer init.gpa.free(curr_per_tile);
+        for (0..tile_count) |i| {
             curr_per_tile[i] = try sup.snapshotProcessMetricsForTile(i);
         }
 
