@@ -49,11 +49,12 @@ extern fn tk_topo_run_tile(
 /// v2.14.S8.T4: simplified entry point wired to Tickoni's own
 /// fd_topo_run_tile_t (built entirely inside shim/tile_run.c from two
 /// Zig `export fn` callbacks — see tile_process.zig's
-/// tk_tile_privileged_init/tk_tile_run). Linux dispatches directly to
-/// upstream fd_topo_run_tile(); non-Linux dispatches to Tickoni's shim.
-/// sandbox=0, current process's own uid/gid, regular core dumps.
+/// tk_tile_privileged_init/tk_tile_run). All platforms dispatch to
+/// tk_topo_run_tile(), which calls the platform shim skip in
+/// tk_topo_platform_join_tile_workspaces() to prevent hugetlbfs join
+/// from overwriting pre-joined wksp pointers.
+/// sandbox=0, sandbox=none, regular core dumps.
 extern fn tk_topo_run_tile_simple(topo: *Topo, tile: *TopoTile) void;
-extern fn tk_topo_run_tile_simple_uses_upstream() c_int;
 
 // ---------------------------------------------------------------------------
 // Public Zig wrappers.
@@ -93,12 +94,4 @@ pub fn topoRunTile(
 
 pub fn runTileSimple(topo: *Topo, tile: *TopoTile) void {
     tk_topo_run_tile_simple(topo, tile);
-}
-
-pub fn runTileSimpleUsesUpstream() bool {
-    return tk_topo_run_tile_simple_uses_upstream() != 0;
-}
-
-test "runTileSimple dispatch stays on the canonical Linux launcher" {
-    try std.testing.expectEqual(@import("builtin").os.tag == .linux, runTileSimpleUsesUpstream());
 }

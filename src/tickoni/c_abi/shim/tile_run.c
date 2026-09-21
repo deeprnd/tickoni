@@ -1,9 +1,6 @@
 /* V1.14.S8.T4: builds Tickoni's fd_topo_run_tile_t and exposes the
    simplified per-process entry point tile_process.zig calls.
 
-   Linux process mode must stay on upstream fd_topo_run_tile(); only
-   non-Linux targets fall back to Tickoni's tk_topo_run_tile() shim.
-
    Deliberately a separate file from topo_run.c: this file's static
    TK_TILE_RUN struct references tk_tile_privileged_init/tk_tile_run,
    which are Zig `export fn`s defined only in
@@ -24,14 +21,10 @@
 #include <unistd.h>
 #endif
 
-/* fd_topo_run_tile_t's callbacks have a fixed C signature
-   (fd_topo_t*, fd_topo_tile_t*) with no room for Zig closure state.
-   Resolved the way Firedancer's own fdctl_tile_run pattern resolves it:
-   these symbols are Zig `export fn`s taking (*anyopaque, *anyopaque) —
-   never Firedancer types by name, satisfying tile_process.zig's "no
-   Firedancer types" rule — that read a single per-process global Zig
-   variable set once before tk_topo_run_tile_simple is called. Safe
-   because Tickoni runs exactly one tile per process. */
+/* Include platform header for tk_topo_platform_* functions */
+#include "topo_run_platform.h"
+
+/* Extern declarations for Zig exports */
 extern void tk_tile_privileged_init( void * topo, void * tile );
 extern void tk_tile_run( void * topo, void * tile );
 extern void tk_topo_run_tile( void * topo,
@@ -51,12 +44,12 @@ extern void tk_topo_run_tile( void * topo,
 extern void tk_stem_run( fd_topo_t * top, fd_topo_tile_t * tile );
 #endif
 
-static int const TK_PROCESS_MODE_SANDBOX_NONE = 0;
-static int const TK_KEEP_CONTROLLING_TERMINAL = 1;
-
 /* Phase 3 retail policy: process mode remains explicit sandbox=none on macOS
    and every other non-Linux target. This matches the product rule that the
    consumer tier must not depend on sudo, capabilities, or namespaces. */
+static int const TK_PROCESS_MODE_SANDBOX_NONE = 0;
+static int const TK_KEEP_CONTROLLING_TERMINAL = 1;
+
 static fd_topo_run_tile_t TK_TILE_RUN = {
   .name                     = "tickoni",
   .keep_host_networking     = 0,
@@ -74,9 +67,7 @@ static fd_topo_run_tile_t TK_TILE_RUN = {
   .scratch_footprint        = NULL,
   .loose_footprint          = NULL,
   .privileged_init          = (void (*)( fd_topo_t const *, fd_topo_tile_t const * ))tk_tile_privileged_init,
-  .unprivileged_init        = NULL, /* nothing to do here yet; mcache/dcache/fseq/metrics
-                                        auto-joined by fd_topo_fill_tile before this point,
-                                        cnc already joined in privileged_init */
+  .unprivileged_init        = NULL,
   .run                      = (void (*)( fd_topo_t *, fd_topo_tile_t * ))
 #if FD_HAS_LINUX
     tk_stem_run,
@@ -86,48 +77,19 @@ static fd_topo_run_tile_t TK_TILE_RUN = {
   .rlimit_file_cnt_fn       = NULL,
 };
 
-/* Simplified entry point for Tickoni's one-tile-per-process model:
-   explicit sandbox=none, keep_controlling_terminal=1, regular core dumps,
-   current process's real uid/gid on hosted Unix, no extra allowed fd.
-   Linux must dispatch directly to upstream fd_topo_run_tile() so process mode stays on
-   Firedancer's canonical runtime path; non-Linux targets fall back to
-   tk_topo_run_tile(), which mirrors the same launch order where upstream's
-   Linux-only implementation is unavailable. */
-int
- tk_topo_run_tile_simple_uses_upstream( void ) {
-#if FD_HAS_LINUX
-  return 1;
-#else
-  return 0;
-#endif
-}
-
 void
 tk_topo_run_tile_simple( void * topo, void * tile ) {
-  FD_LOG_NOTICE(( "tk_topo_run_tile_simple: topo=%p tile=%p", topo, tile ));
-  if( tile ) {
-    fd_topo_tile_t * tc = (fd_topo_tile_t *)tile;
-    FD_LOG_NOTICE(( "tk_topo_run_tile_simple: tile name=%s kind_id=%lu tile_obj_id=%lu", tc->name, tc->kind_id, tc->tile_obj_id ));
-  }
-#if FD_HAS_LINUX
-  fd_topo_run_tile( (fd_topo_t *)topo, (fd_topo_tile_t *)tile,
-                    TK_PROCESS_MODE_SANDBOX_NONE, TK_KEEP_CONTROLLING_TERMINAL,
-                    FD_TOPO_CORE_DUMP_LEVEL_REGULAR,
-                    (uint)getuid(), (uint)getgid(), /* allow_fd */ -1,
-                    &TK_TILE_RUN );
-#elif FD_HAS_MACOS
+  /* All platforms now use tk_topo_run_tile() so the platform shim
+     skip in tk_topo_platform_join_tile_workspaces() is applied.
+     This prevents hugetlbfs join from overwriting wksp pointers. */
   tk_topo_run_tile( topo, tile,
                     TK_PROCESS_MODE_SANDBOX_NONE, TK_KEEP_CONTROLLING_TERMINAL,
                     FD_TOPO_CORE_DUMP_LEVEL_REGULAR,
-                    (uint)getuid(), (uint)getgid(), /* allow_fd */ -1,
-                    &TK_TILE_RUN );
+#if FD_HAS_LINUX || FD_HAS_MACOS
+                    (uint)getuid(), (uint)getgid(),
 #else
-  /* Windows (FD_HAS_WINDOWS): getuid()/getgid() not available.  uid/gid
-     has no effect on hosted Windows (sandbox=none), so zero is correct. */
-  tk_topo_run_tile( topo, tile,
-                    TK_PROCESS_MODE_SANDBOX_NONE, TK_KEEP_CONTROLLING_TERMINAL,
-                    FD_TOPO_CORE_DUMP_LEVEL_REGULAR,
-                    0U, 0U, /* allow_fd */ -1,
-                    &TK_TILE_RUN );
+                    0U, 0U,
 #endif
+                    /* allow_fd */ -1,
+                    &TK_TILE_RUN );
 }

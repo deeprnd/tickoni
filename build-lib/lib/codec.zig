@@ -5,19 +5,12 @@ const shims = @import("shims.zig");
 /// given FD archive list). Windows and ARM64 Linux use explicit archive paths to
 /// preserve link order and avoid pkg-config.BAT probing.
 pub fn addTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8, libs: []const []const u8) void {
+    // OpenSSL: link libcrypto BEFORE addLibraryPath so paths_first
+    // strategy searches system paths (fd_lib_dir has no libcrypto).
+    step.root_module.linkSystemLibrary("crypto", .{});
     step.root_module.addLibraryPath(b.path(fd_lib_dir));
     const os_tag = step.root_module.resolved_target.?.result.os.tag;
     const cpu_arch = step.root_module.resolved_target.?.result.cpu.arch;
-
-    // Windows setup builds OpenSSL into build/opt/lib as a COFF archive. Link
-    // that concrete archive rather than asking Zig to discover a system
-    // `crypto` library through pkg-config.BAT or fd_lib_dir.
-    if (os_tag == .windows) {
-        step.root_module.addObjectFile(b.path("build/opt/lib/libcrypto.a"));
-    } else {
-        // OpenSSL: link libcrypto; include path is handled by system defaults.
-        step.root_module.linkSystemLibrary("crypto", .{});
-    }
 
     if (os_tag == .windows) {
         // Windows: use explicit archive paths. Avoids pkg-config.BAT probing
@@ -39,10 +32,10 @@ pub fn addTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, f
         // x86_64 Linux: link explicit .a archives because only static libraries
         // are built in build/fd-tickoni-fd/lib/; linkSystemLibrary would search
         // for .so files which don't exist.
+        step.root_module.link_libcpp = true;
         for (libs) |lib| {
             step.root_module.addObjectFile(b.path(b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib })));
         }
-        step.root_module.link_libcpp = true;
     }
 }
 

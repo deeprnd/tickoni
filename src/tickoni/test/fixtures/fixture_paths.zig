@@ -47,7 +47,12 @@ pub fn resolveFixturePath(
     defer allocator.free(exe_dir);
     var current: []const u8 = std.fs.path.dirname(exe_dir) orelse return error.InvalidPath;
 
+    // Walk up from executable dir to find repo root (a directory whose child
+    // is `src/`).  If the walk reaches the filesystem root without finding
+    // `src/` (e.g. cov binaries installed to /tmp/...), fall back to the
+    // current working directory which should be the repo root.
     var repo_root_path: ?[]u8 = null;
+    var repo_root_found: bool = false;
     errdefer {
         if (repo_root_path) |rp| allocator.free(rp);
     }
@@ -62,6 +67,7 @@ pub fn resolveFixturePath(
         };
         if (exists) {
             repo_root_path = try allocator.dupe(u8, current);
+            repo_root_found = true;
             break;
         }
         const next = std.fs.path.dirname(current);
@@ -69,7 +75,26 @@ pub fn resolveFixturePath(
         current = next.?;
     }
 
-    const root = repo_root_path orelse return error.InvalidPath;
+    // Fallback: if walk-up failed (e.g. cov output outside repo tree),
+    // check if the CWD itself is the repo root.
+    const root = if (repo_root_found) repo_root_path.? else (
+        blk: {
+            var cwd_buf: [std.fs.max_path_bytes]u8 = undefined;
+            const cwd_ptr = std.c.getcwd(&cwd_buf, cwd_buf.len) orelse return error.InvalidPath;
+            var cwd_len: usize = 0;
+            while (cwd_ptr[cwd_len] != 0) : (cwd_len += 1) {}
+            const cwd_path = cwd_ptr[0..cwd_len];
+            var p: [1024]u8 = undefined;
+            const path_str = try std.fmt.bufPrint(&p, "{s}/src", .{cwd_path});
+            const src_exists = blk2: {
+                Dir.accessAbsolute(io, path_str, .{}) catch break :blk2 false;
+                break :blk2 true;
+            };
+            if (src_exists) {
+                break :blk try allocator.dupe(u8, cwd_path);
+            } else return error.InvalidPath;
+        }
+    );
     const resolved = try allocator.alloc(u8, root.len + 1 + path.len);
     @memcpy(resolved[0..root.len], root);
     allocator.free(root);
