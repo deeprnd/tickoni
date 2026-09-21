@@ -34,8 +34,16 @@ pub const ProcessFn = *const fn (
 /// snapshotProcessMetrics can read counters without knowing per-tile which
 /// index means what. See tiles/payment_pipeline/process.zig's
 /// rt.cnc_counters.appCounterWrite call sites for where each index is
-/// written.
-pub const CounterField = enum { produced, normalized, invalid, duplicates, allowed, denied, audited };
+/// written. Observer tiles (tkrepl, tkmetr, tkdiag) use additional fields
+/// for process-mode visibility.
+pub const CounterField = enum {
+    produced, normalized, invalid, duplicates,
+    allowed, denied, audited,
+    // Observer tile counters (process-mode)
+    replay_checked, replay_match,
+    metric_snapshots, metric_backpressure_waits,
+    diag_crashed_tile, diag_sandbox_failures,
+};
 
 pub const CounterSchemaEntry = struct { idx: u8, field: CounterField };
 
@@ -189,14 +197,17 @@ pub const entries = [_]TileEntry{
     .{
         .id = id("tkrepl"),
         .run_fn = tiles.runReplay,
+        .counters = &.{ .{ .idx = 0, .field = .replay_checked }, .{ .idx = 1, .field = .replay_match } },
     },
     .{
         .id = id("tkmetr"),
         .run_fn = tiles.runMetric,
+        .counters = &.{ .{ .idx = 0, .field = .metric_snapshots }, .{ .idx = 1, .field = .metric_backpressure_waits } },
     },
     .{
         .id = id("tkdiag"),
         .run_fn = tiles.runDiag,
+        .counters = &.{ .{ .idx = 0, .field = .diag_crashed_tile }, .{ .idx = 1, .field = .diag_sandbox_failures } },
     },
 };
 
