@@ -28,6 +28,7 @@ pub const TopologyStatus = enum { runnable, planned };
 const payment_tiles = [_]TileDescriptor{
     .{ .id = TileId.parse("tkings") catch unreachable, .name = "ingest_tile" },
     .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
+    .{ .id = TileId.parse("tkmetr") catch unreachable, .name = "metric_tile" },
 };
 const payment_channels = [_]Channel{
     .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable },
@@ -98,9 +99,9 @@ pub fn investmentWorkflow() Topology {
     };
 }
 
-// v2.14.S1 process-mode variant of paymentPipeline: minimal 2-tile set
-// (tkings + tkmetr) for debugging. No channels — each tile runs independently
-// in its own workspace. Supervisor spawns both and verifies they don't crash.
+// v2.14.S1 process-mode variant of paymentPipeline: tkings + tkaudt + tkmetr
+// with one channel (tkings -> tkaudt); tkmetr has no channel wiring.
+// Supervisor spawns all three and verifies they don't crash.
 const payment_process_channels = [_]Channel{
     .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable },
 };
@@ -122,21 +123,22 @@ pub fn paymentPipelineProcess() Topology {
 
 test "paymentPipeline has Phase 0 product tiles and 1 channel" {
     const topo = paymentPipeline();
-    try std.testing.expectEqual(@as(usize, 2), topo.tiles.len);
+    try std.testing.expectEqual(@as(usize, 3), topo.tiles.len);
     try std.testing.expectEqual(@as(usize, 1), topo.channels.len);
     try std.testing.expectEqualStrings("tkings", topo.tiles[0].id.slice());
     try std.testing.expectEqualStrings("tkaudt", topo.tiles[1].id.slice());
+    try std.testing.expectEqualStrings("tkmetr", topo.tiles[2].id.slice());
 }
 
 test "paymentPipeline passes validation" {
     try paymentPipeline().validate();
 }
 
-test "runnable topologies have 2-tile shape for minimal debugging" {
+test "runnable topologies have 3-tile shape for minimal debugging" {
     try std.testing.expectEqual(TopologyStatus.runnable, payment_pipeline_status);
     try std.testing.expectEqual(TopologyStatus.runnable, payment_pipeline_process_status);
-    try std.testing.expectEqual(@as(usize, 2), paymentPipeline().tiles.len);
-    try std.testing.expectEqual(@as(usize, 2), paymentPipelineProcess().tiles.len);
+    try std.testing.expectEqual(@as(usize, 3), paymentPipeline().tiles.len);
+    try std.testing.expectEqual(@as(usize, 3), paymentPipelineProcess().tiles.len);
 }
 
 test "investmentWorkflow includes tkmodl tktool tkadpt and passes validation" {

@@ -200,9 +200,8 @@ export fn tkaudt_should_shutdown(zig_state: *anyopaque) callconv(.c) c_int {
 // Registry.
 // ---------------------------------------------------------------------------
 
-/// Minimal 2-tile registry (v2.22.S5.T1): tkings (producer) + tkaudt
-/// (consumer). All other tiles are dead code while we verify the
-/// fd_stem + single-workspace integration.
+/// 3-tile registry (v2.15 metric integration): tkings (producer) +
+/// tkaudt (consumer) + tkmetr (metrics observer, no channel wiring).
 pub const entries = [_]TileEntry{
     .{
         .id = id("tkings"),
@@ -217,6 +216,14 @@ pub const entries = [_]TileEntry{
         .process_fn = tkaudtProcess,
         .counters = &.{.{ .idx = 0, .field = .audited }},
         .in_cnt = 1,
+    },
+    .{
+        .id = id("tkmetr"),
+        .run_fn = tiles.runMetric,
+        .process_fn = null,
+        .counters = &.{},
+        .in_cnt = 0,
+        .out_cnt = 0,
     },
 };
 
@@ -378,8 +385,6 @@ test "validate rejects a topology with an unregistered tile" {
 }
 
 test "validate rejects a topology with the wrong tile count" {
-    var descriptors: [1]rt.tile.TileDescriptor = undefined;
-    descriptors[0] = entries[0].id;
     var d: [1]rt.tile.TileDescriptor = undefined;
     d[0] = .{ .id = entries[0].id, .name = "t" };
     const topo = rt.topology.Topology{ .tiles = &d, .channels = &.{} };
