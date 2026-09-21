@@ -37,12 +37,20 @@ pub const ProcessFn = *const fn (
 /// written. Observer tiles (tkrepl, tkmetr, tkdiag) use additional fields
 /// for process-mode visibility.
 pub const CounterField = enum {
-    produced, normalized, invalid, duplicates,
-    allowed, denied, audited,
+    produced,
+    normalized,
+    invalid,
+    duplicates,
+    allowed,
+    denied,
+    audited,
     // Observer tile counters (process-mode)
-    replay_checked, replay_match,
-    metric_snapshots, metric_backpressure_waits,
-    diag_crashed_tile, diag_sandbox_failures,
+    replay_checked,
+    replay_match,
+    metric_snapshots,
+    metric_backpressure_waits,
+    diag_crashed_tile,
+    diag_sandbox_failures,
 };
 
 pub const CounterSchemaEntry = struct { idx: u8, field: CounterField };

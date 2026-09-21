@@ -194,8 +194,11 @@ pub fn build(
         );
         if (fp > 1) {
             c_abi.topob.topobSetTileObjPropertyUlong(
-                topo, toZ(&tile_name_buf, t.id.slice()), 0,
-                scratch_key, fp,
+                topo,
+                toZ(&tile_name_buf, t.id.slice()),
+                0,
+                scratch_key,
+                fp,
             );
         }
     }
