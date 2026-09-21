@@ -435,12 +435,12 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     };
     errdefer _ = c_abi.wksp.wkspDetach(wksp);
 
-    // Also attach to the "metrics" workspace so fd_topo_fill_tile can
+    // Also attach to the "metric_in" workspace so fd_topo_fill_tile can
     // populate TILE->metrics_ptr (FD_MGAUGE_SET will segfault on NULL).
     var metrics_wksp_name_buf: [topo_build.concrete_workspace_name_cap]u8 = undefined;
     const metrics_wksp_name_z = topo_build.concreteWorkspaceName(
         &metrics_wksp_name_buf,
-        "metrics",
+        "metric_in",
     ) catch |err| {
         std.debug.print("tile_process: failed to build metrics wksp name for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
@@ -457,7 +457,7 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     // shared region. Also set the metrics workspace pointer so
     // fd_topo_run_tile's fd_topo_join_tile_workspaces doesn't try to
     // re-join it (which would fail since the region is already joined).
-    const metrics_wksp_idx = c_abi.topob.topoFindWksp(built.topo, "metrics");
+    const metrics_wksp_idx = c_abi.topob.topoFindWksp(built.topo, "metric_in");
     if (metrics_wksp_idx != c_abi.topob.not_found) {
         c_abi.topob.topoWkspSetPtr(built.topo, metrics_wksp_idx, metrics_wksp);
     }
