@@ -43,10 +43,10 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
                               int keep_controlling_terminal, int core_dump_level,
                               uint uid, uint gid, int allow_fd, void * tile_run );
 
-/* Declaration of TK_METRIC_RUN from tk_metric_tile.c. The metric tile
-   uses Firedancer's fd_stem-based run loop with fd_http_server for
-   /metrics, so it needs its own fd_topo_run_tile_t instead of TK_TILE_RUN. */
-extern fd_topo_run_tile_t TK_METRIC_RUN;
+/* TK_METRIC_RUN from tk_metric_tile.c. The metric tile uses
+   Firedancer's fd_stem-based run loop with fd_http_server for /metrics.
+   Shared header prevents two independent extern declarations. */
+#include "../topo_run/tk_metric_tile.h"
 
 /* Check if this tile should use the metric run tile. Compares tile name
    against "tkmetr" using the tile's name field (null-terminated in

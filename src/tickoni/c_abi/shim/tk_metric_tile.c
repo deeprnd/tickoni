@@ -1,15 +1,16 @@
 /* tk_metric_tile.c — Tickoni's metric tile (tkmetr) implementation.
  *
  * Reuses Firedancer's fd_metric_tile.c (Prometheus HTTP endpoint,
- * fd_prometheus_render_all, stem-based polling loop) by including it
- * wholesale.  The included file defines stem_run and all static helpers;
- * this file exposes a fd_topo_run_tile_t (TK_METRIC_RUN) that Tickoni's
- * process-mode pipeline can dispatch.
+ * fd_prometheus_render_all, stem-based polling loop).
  *
  * Design notes:
- *   • fd_tile_metric.c's privileged_init / unprivileged_init are static,
- *     so we duplicate only the init logic (scratch + HTTP + ctx setup)
- *     rather than trying to call through to static symbols.
+ *   • We #include fd_metric_tile.h (header-only declarations) rather than
+ *     the .c source file.  The .c file defines all the static helpers and
+ *     the fd_topo_run_tile_t (fd_tile_metric) that Tickoni wraps.
+ *   • tk_metric_privileged_init / unprivileged_init are static in
+ *     fd_metric_tile.c, so we duplicate only the init logic (scratch +
+ *     HTTP + ctx setup) rather than trying to call through to static
+ *     symbols.
  *   • unprivileged_init is intentionally NULL: stem_run (the .run
  *     callback) calls fd_metric_tile's unprivileged_init internally,
  *     so Tickoni's fd_topo_run_tile would double-call it and crash.
@@ -29,11 +30,17 @@
 
 #include "../../../util/fd_util.h"
 #include "../../../disco/topo/fd_topo.h"
-#include "../../../disco/metrics/fd_metric_tile.c"  // defines stem_run, METRICS_PARAMS, fd_metric_ctx_t
+#include "../../../disco/metrics/fd_metric_tile.h"  // declarations only
 #include "../../../disco/metrics/fd_prometheus.h"
 
 #include <time.h>   /* nanosleep for the tk_metric_run polling loop */
 #include <unistd.h> /* nanosleep declaration (glibc feature test) */
+
+/* This macro mirrors the value defined in fd_metric_tile.c so that
+   tk_metric_tile.c can reference it without including the .c source. */
+#ifndef FD_HTTP_SERVER_METRICS_MAX_CONNS
+#define FD_HTTP_SERVER_METRICS_MAX_CONNS 128
+#endif
 
 /* ---------------------------------------------------------------------
    tk_metric_scratch_footprint — identical to fd_tile_metric's version.
@@ -88,7 +95,7 @@ tk_metric_privileged_init( fd_topo_t const *      topo,
    Shutdown: the CNC object for tile i is at index cnc_obj_id[i] in the
    topo objects array (set by topo_build.zig's topobTileUses).  We find
    that object by scanning the topo's object list for the "cnc" entry
-   whose index matches the cnc_obj_id for this tile.
+   whose index matches the cnc_obj_id for this tile's uses_obj_id.
    --------------------------------------------------------------------- */
 
 static void

@@ -358,8 +358,9 @@ tk_topob_set_tile_obj_property_ulong( void * topo, char const * tile_name,
 
 /* Query the scratch footprint for a named tile.  Returns TK_METRIC_RUN's
    scratch_footprint for "tkmetr", 1UL for everything else.  Called from
-   topo_build.zig before the property is set. */
-extern fd_topo_run_tile_t TK_METRIC_RUN;
+   topo_build.zig before the property is set.  Uses the shared header
+   instead of a bare extern declaration. */
+#include "../topo_run/tk_metric_tile.h"
 
 ulong
 tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {

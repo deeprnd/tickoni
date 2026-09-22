@@ -8,8 +8,10 @@ pub fn linkTickoniTopoRun(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_d
     codec.addTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_disco", "fd_ballet", "fd_waltz" });
 }
 
-/// Add topo_run shim C sources (topo_run.c, platform-specific file, topob.c, tk_metric_tile.c)
-/// to the given compile step.
+/// Add topo_run shim C sources (topo_run.c, platform-specific file, topob.c,
+/// tk_metric_tile.c) plus the Firedancer metric tile implementation
+/// (fd_metric_tile.c, fd_prometheus.c) that tk_metric_tile.c now references
+/// through proper header declarations instead of fragile .c inclusion.
 fn addTickoniTopoRunShims(b: *std.Build, step: *std.Build.Step.Compile) void {
     step.root_module.link_libc = true;
     step.root_module.addIncludePath(b.path("src"));
@@ -27,6 +29,8 @@ fn addTickoniTopoRunShims(b: *std.Build, step: *std.Build.Step.Compile) void {
             topo_run_platform_file,
             "src/tickoni/c_abi/shim/topob.c",
             "src/tickoni/c_abi/shim/tk_metric_tile.c",
+            "src/disco/metrics/fd_metric_tile.c",
+            "src/disco/metrics/fd_prometheus.c",
         },
         .flags = shims.shimCFlagsFor(target_info),
     });

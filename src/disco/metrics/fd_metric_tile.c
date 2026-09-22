@@ -1,5 +1,30 @@
-#include "fd_prometheus.h"
+/* fd_metric_tile.c — Firedancer's metric tile implementation.
+ *
+ * This file defines the Prometheus HTTP endpoint, stem-based polling
+ * loop, seccomp filter, and allowed file descriptors for the metric tile.
+ *
+ * Symbols promoted to external linkage for Tickoni reuse:
+ *   - METRICS_PARAMS
+ *   - scratch_align, scratch_footprint
+ *   - before_credit
+ *   - metrics_http_request
+ *   - populate_allowed_seccomp
+ *   - populate_allowed_fds
+ *
+ * Kept static (internal only):
+ *   - metrics_write (called by stem_run housekeeping)
+ *   - privileged_init, unprivileged_init (used by fd_tile_metric only)
+ *
+ * Tickoni's tk_metric_tile.c #includes this header for declarations
+ * instead of the fragile `#include "fd_metric_tile.c"` which pulled
+ * in the full source and created tight coupling.
+ *
+ * See v2.23-m task 1.
+ */
+
+#include "fd_metric_tile.h"
 #include "fd_metrics.h"
+#include "fd_prometheus.h"
 #include "../../waltz/http/fd_http_server_private.h"
 #include "../../util/net/fd_ip4.h"
 
@@ -14,6 +39,10 @@
 #define FD_HTTP_SERVER_METRICS_MAX_REQUEST_LEN    8192
 #define FD_HTTP_SERVER_METRICS_OUTGOING_BUFFER_SZ (32UL<<20UL) /* 32MiB reserved for buffering metrics responses */
 
+/* ---------------------------------------------------------------------
+   Configuration constant — external so tk_metric_tile.c can reference it.
+   --------------------------------------------------------------------- */
+
 const fd_http_server_params_t METRICS_PARAMS = {
   .max_connection_cnt    = FD_HTTP_SERVER_METRICS_MAX_CONNS,
   .max_ws_connection_cnt = 0UL,
@@ -23,20 +52,16 @@ const fd_http_server_params_t METRICS_PARAMS = {
   .outgoing_buffer_sz    = FD_HTTP_SERVER_METRICS_OUTGOING_BUFFER_SZ,
 };
 
-typedef struct {
-  fd_topo_t const * topo;
+/* ---------------------------------------------------------------------
+   Scratch helpers — external so tk_metric_tile.c can call them.
+   --------------------------------------------------------------------- */
 
-  fd_http_server_t * metrics_server;
-
-  long boot_ts;
-} fd_metric_ctx_t;
-
-FD_FN_CONST static inline ulong
+FD_FN_CONST inline ulong
 scratch_align( void ) {
   return 128UL;
 }
 
-FD_FN_PURE static inline ulong
+FD_FN_PURE inline ulong
 scratch_footprint( fd_topo_tile_t const * tile ) {
   (void)tile;
 
@@ -46,7 +71,11 @@ scratch_footprint( fd_topo_tile_t const * tile ) {
   return FD_LAYOUT_FINI( l, scratch_align() );
 }
 
-static inline void
+/* ---------------------------------------------------------------------
+   Stem callbacks — before_credit called every iteration for HTTP polling.
+   --------------------------------------------------------------------- */
+
+void
 before_credit( fd_metric_ctx_t *   ctx,
                fd_stem_context_t * stem,
                int *               charge_busy ) {
@@ -54,7 +83,11 @@ before_credit( fd_metric_ctx_t *   ctx,
   *charge_busy = fd_http_server_poll( ctx->metrics_server, 1 ); /* 1ms */
 }
 
-static fd_http_server_response_t
+/* ---------------------------------------------------------------------
+   HTTP request handler — external so tk_metric_tile.c can register it.
+   --------------------------------------------------------------------- */
+
+fd_http_server_response_t
 metrics_http_request( fd_http_server_request_t const * request ) {
   fd_metric_ctx_t * ctx = (fd_metric_ctx_t *)request->ctx;
 
@@ -85,6 +118,10 @@ metrics_http_request( fd_http_server_request_t const * request ) {
   }
 }
 
+/* ---------------------------------------------------------------------
+   metrics_write — internal only, called by stem_run's housekeeping.
+   --------------------------------------------------------------------- */
+
 static void
 metrics_write( fd_metric_ctx_t * ctx ) {
   FD_MGAUGE_SET( METRIC, BOOT_TIMESTAMP_NANOS, (ulong)ctx->boot_ts );
@@ -94,6 +131,10 @@ metrics_write( fd_metric_ctx_t * ctx ) {
   FD_MCNT_SET( METRIC, BYTES_WRITTEN, ctx->metrics_server->metrics.bytes_written );
   FD_MCNT_SET( METRIC, BYTES_READ,    ctx->metrics_server->metrics.bytes_read );
 }
+
+/* ---------------------------------------------------------------------
+   privileged_init / unprivileged_init — internal only (used by fd_tile_metric).
+   --------------------------------------------------------------------- */
 
 static void
 privileged_init( fd_topo_t const *      topo,
@@ -130,7 +171,11 @@ unprivileged_init( fd_topo_t const *      topo,
   FD_LOG_NOTICE(( "prometheus metrics endpoint listening at http://" FD_IP4_ADDR_FMT ":%u/metrics", FD_IP4_ADDR_FMT_ARGS( tile->metric.prometheus_listen_addr ), tile->metric.prometheus_listen_port ));
 }
 
-static ulong
+/* ---------------------------------------------------------------------
+   Seccomp / FD helpers — external so tk_metric_tile.c can register them.
+   --------------------------------------------------------------------- */
+
+ulong
 populate_allowed_seccomp( fd_topo_t const *      topo,
                           fd_topo_tile_t const * tile,
                           ulong                  out_cnt,
@@ -150,7 +195,7 @@ populate_allowed_seccomp( fd_topo_t const *      topo,
 #endif
 }
 
-static ulong
+ulong
 populate_allowed_fds( fd_topo_t const *      topo,
                       fd_topo_tile_t const * tile,
                       ulong                  out_fds_cnt,
@@ -169,6 +214,10 @@ populate_allowed_fds( fd_topo_t const *      topo,
   return out_cnt;
 }
 
+/* ---------------------------------------------------------------------
+   stem_run — generated via the fd_stem template.
+   --------------------------------------------------------------------- */
+
 #define STEM_BURST (1UL)
 #define STEM_LAZY ((long)10e6) /* 10ms */
 
@@ -180,7 +229,11 @@ populate_allowed_fds( fd_topo_t const *      topo,
 
 #include "../stem/fd_stem.c"
 
-fd_topo_run_tile_t fd_tile_metric = {
+/* ---------------------------------------------------------------------
+   fd_tile_metric — the canonical Firedancer metric-tile run config.
+   --------------------------------------------------------------------- */
+
+const fd_topo_run_tile_t fd_tile_metric = {
   .name                     = "metric",
   .rlimit_file_cnt          = FD_HTTP_SERVER_METRICS_MAX_CONNS+5UL, /* pipefd, socket, stderr, logfile, and one spare for new accept() connections */
   .populate_allowed_seccomp = populate_allowed_seccomp,
