@@ -1,26 +1,20 @@
-/* fd_metric_tile.c — Firedancer's metric tile implementation.
+/* fd_metric_tile.c — Firedancer's metric tile implementation for Tickoni.
  *
- * This file defines the Prometheus HTTP endpoint, stem-based polling
- * loop, seccomp filter, and allowed file descriptors for the metric tile.
+ * This file redefines all the STEM callbacks and includes fd_stem.c to
+ * generate stem_run with a CNC-aware shutdown check.  It mirrors the
+ * upstream fd_metric_tile.c layout so the Firedancer lib keeps its own
+ * version (for native metric tiles) while Tickoni gets a tile that
+ * actually obeys HALT signals from the supervisor.
  *
- * Symbols promoted to external linkage for Tickoni reuse:
- *   - METRICS_PARAMS
- *   - scratch_align, scratch_footprint
- *   - before_credit
- *   - metrics_http_request
- *   - populate_allowed_seccomp
- *   - populate_allowed_fds
- *   - stem_run (via STEM_EXPORT, v2.23-m task 2)
- *   - privileged_init, unprivileged_init (v2.23-m task 2)
+ * Key difference from upstream:
+ *   - STEM_CALLBACK_SHOULD_SHUTDOWN checks ctx->cnc for HALT instead
+ *     of always returning 0.
  *
- * Kept static (internal only):
- *   - metrics_write (called by stem_run housekeeping)
+ * This file is compiled by the Tickoni build system and linked into
+ * libfd_disco.a alongside the Firedancer build.
  *
- * Tickoni's tk_metric_tile.c #includes this header for declarations
- * instead of the fragile `#include "fd_metric_tile.c"` which pulled
- * in the full source and created tight coupling.
- *
- * See v2.23-m task 1 and task 2.
+ * See v2.23-m task 2: "Fix the root cause of the stem_run SIGSEGV and
+ * use stem directly".
  */
 
 #include "fd_metric_tile.h"
@@ -42,7 +36,7 @@
 #define FD_HTTP_SERVER_METRICS_OUTGOING_BUFFER_SZ (32UL<<20UL) /* 32MiB reserved for buffering metrics responses */
 
 /* ---------------------------------------------------------------------
-   Configuration constant — external so tk_metric_tile.c can reference it.
+   Configuration constant
    --------------------------------------------------------------------- */
 
 const fd_http_server_params_t METRICS_PARAMS = {
@@ -55,7 +49,7 @@ const fd_http_server_params_t METRICS_PARAMS = {
 };
 
 /* ---------------------------------------------------------------------
-   Scratch helpers — external so tk_metric_tile.c can call them.
+   Scratch helpers
    --------------------------------------------------------------------- */
 
 FD_FN_CONST inline ulong
@@ -86,7 +80,7 @@ before_credit( fd_metric_ctx_t *   ctx,
 }
 
 /* ---------------------------------------------------------------------
-   HTTP request handler — external so tk_metric_tile.c can register it.
+   HTTP request handler
    --------------------------------------------------------------------- */
 
 fd_http_server_response_t
@@ -121,7 +115,7 @@ metrics_http_request( fd_http_server_request_t const * request ) {
 }
 
 /* ---------------------------------------------------------------------
-   metrics_write — internal only, called by stem_run's housekeeping.
+   metrics_write — called by stem_run's housekeeping loop.
    --------------------------------------------------------------------- */
 
 static void
@@ -135,8 +129,7 @@ metrics_write( fd_metric_ctx_t * ctx ) {
 }
 
 /* ---------------------------------------------------------------------
-   privileged_init / unprivileged_init — external so tk_metric_tile.c
-   can invoke them before calling stem_run (v2.23-m task 2).
+   privileged_init / unprivileged_init
    --------------------------------------------------------------------- */
 
 void
@@ -176,7 +169,7 @@ unprivileged_init( fd_topo_t const *      topo,
 }
 
 /* ---------------------------------------------------------------------
-   Seccomp / FD helpers — external so tk_metric_tile.c can register them.
+   Seccomp / FD helpers
    --------------------------------------------------------------------- */
 
 ulong
@@ -219,27 +212,16 @@ populate_allowed_fds( fd_topo_t const *      topo,
 }
 
 /* ---------------------------------------------------------------------
-   STEM_CALLBACK_SHOULD_SHUTDOWN — called by stem_run at the top of
-   each iteration to check if the tile should shut down.
-
-   For Firedancer's native metric tile, this is always 0 (never check
-   CNC).  For Tickoni's tkmetr, we override this in tk_metric_tile.c
-   before calling stem_run.  The callback checks ctx->cnc for HALT
-   signal.
-
-   Since this needs to be a macro that can be overridden per-usage of
-   fd_stem.c, we define a default that returns 0 here, and tk_metric_tile.c
-   will #undef and redefine it before calling stem_run.
-   --------------------------------------------------------------------- */
-
-#ifndef STEM_CALLBACK_SHOULD_SHUTDOWN
-#define STEM_CALLBACK_SHOULD_SHUTDOWN( ctx ) (0)
-#endif
-
-/* ---------------------------------------------------------------------
    stem_run — generated via the fd_stem template.
-   Define STEM_EXPORT (empty) to make stem_run non-static (exported for
-   tk_metric_tile.c to call directly, v2.23-m task 2).
+   
+   KEY DIFFERENCE FROM UPSTREAM: STEM_CALLBACK_SHOULD_SHUTDOWN checks
+   ctx->cnc for HALT instead of always returning 0.  This is the fix
+   for v2.23-m task 2 — tkmetr now properly shuts down when the
+   supervisor sends HALT via CNC.
+   
+   For Firedancer's native metric tile, ctx->cnc is NULL so the check
+   still returns 0 (no change).  Tickoni's tk_metric_tile sets ctx->cnc
+   before calling stem_run, enabling the HALT check.
    --------------------------------------------------------------------- */
 
 #define STEM_BURST (1UL)
@@ -252,7 +234,11 @@ populate_allowed_fds( fd_topo_t const *      topo,
 
 #define STEM_CALLBACK_BEFORE_CREDIT before_credit
 #define STEM_CALLBACK_METRICS_WRITE metrics_write
-#define STEM_CALLBACK_SHOULD_SHUTDOWN( ctx ) (0)
+
+/* Check CNC for HALT if ctx->cnc is set; otherwise never shut down
+   (matches upstream behavior for Firedancer's native metric tile). */
+#define STEM_CALLBACK_SHOULD_SHUTDOWN( ctx ) \
+  ( (ctx)->cnc && fd_cnc_signal_query( (fd_cnc_t *)(ctx)->cnc ) == FD_CNC_SIGNAL_HALT )
 
 #include "../stem/fd_stem.c"
 
