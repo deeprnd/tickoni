@@ -213,12 +213,12 @@ populate_allowed_fds( fd_topo_t const *      topo,
 
 /* ---------------------------------------------------------------------
    stem_run — generated via the fd_stem template.
-   
+
    KEY DIFFERENCE FROM UPSTREAM: STEM_CALLBACK_SHOULD_SHUTDOWN checks
    ctx->cnc for HALT instead of always returning 0.  This is the fix
    for v2.23-m task 2 — tkmetr now properly shuts down when the
    supervisor sends HALT via CNC.
-   
+
    For Firedancer's native metric tile, ctx->cnc is NULL so the check
    still returns 0 (no change).  Tickoni's tk_metric_tile sets ctx->cnc
    before calling stem_run, enabling the HALT check.
