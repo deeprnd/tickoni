@@ -270,7 +270,6 @@ populate_allowed_fds( fd_topo_t const *      topo,
 
 #include "../stem/fd_stem.c"
 
-#ifndef FD_TILE_TEST
 fd_topo_run_tile_t fd_tile_verify = {
   .name                     = "verify",
   .populate_allowed_seccomp = populate_allowed_seccomp,
@@ -281,4 +280,8 @@ fd_topo_run_tile_t fd_tile_verify = {
   .unprivileged_init        = unprivileged_init,
   .run                      = stem_run,
 };
+
+#ifdef FD_TILE_TEST
+/* Reference stem_run to prevent "defined but not used" warning. */
+static void ( *_verify_stem_ref )( fd_topo_t *, fd_topo_tile_t * ) __attribute__((unused)) = stem_run;
 #endif
