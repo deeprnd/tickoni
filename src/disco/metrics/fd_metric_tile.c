@@ -10,16 +10,17 @@
  *   - metrics_http_request
  *   - populate_allowed_seccomp
  *   - populate_allowed_fds
+ *   - stem_run (via STEM_EXPORT, v2.23-m task 2)
+ *   - privileged_init, unprivileged_init (v2.23-m task 2)
  *
  * Kept static (internal only):
  *   - metrics_write (called by stem_run housekeeping)
- *   - privileged_init, unprivileged_init (used by fd_tile_metric only)
  *
  * Tickoni's tk_metric_tile.c #includes this header for declarations
  * instead of the fragile `#include "fd_metric_tile.c"` which pulled
  * in the full source and created tight coupling.
  *
- * See v2.23-m task 1.
+ * See v2.23-m task 1 and task 2.
  */
 
 #include "fd_metric_tile.h"
@@ -27,6 +28,7 @@
 #include "fd_prometheus.h"
 #include "../../waltz/http/fd_http_server_private.h"
 #include "../../util/net/fd_ip4.h"
+#include "../../tango/cnc/fd_cnc.h"
 
 #include <sys/types.h>
 #include <sys/socket.h> /* SOCK_CLOEXEC, SOCK_NONBLOCK needed for seccomp filter */
@@ -133,10 +135,11 @@ metrics_write( fd_metric_ctx_t * ctx ) {
 }
 
 /* ---------------------------------------------------------------------
-   privileged_init / unprivileged_init — internal only (used by fd_tile_metric).
+   privileged_init / unprivileged_init — external so tk_metric_tile.c
+   can invoke them before calling stem_run (v2.23-m task 2).
    --------------------------------------------------------------------- */
 
-static void
+void
 privileged_init( fd_topo_t const *      topo,
                  fd_topo_tile_t const * tile ) {
   void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
@@ -153,7 +156,7 @@ privileged_init( fd_topo_t const *      topo,
   fd_http_server_listen( ctx->metrics_server, tile->metric.prometheus_listen_addr, tile->metric.prometheus_listen_port );
 }
 
-static void
+void
 unprivileged_init( fd_topo_t const *      topo,
                    fd_topo_tile_t const * tile ) {
   void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
@@ -163,6 +166,7 @@ unprivileged_init( fd_topo_t const *      topo,
 
   ctx->topo = topo;
   ctx->boot_ts = fd_log_wallclock();
+  ctx->cnc = NULL;
 
   ulong scratch_top = FD_SCRATCH_ALLOC_FINI( l, scratch_align() );
   if( FD_UNLIKELY( scratch_top > (ulong)scratch + scratch_footprint( tile ) ) )
@@ -215,17 +219,40 @@ populate_allowed_fds( fd_topo_t const *      topo,
 }
 
 /* ---------------------------------------------------------------------
+   STEM_CALLBACK_SHOULD_SHUTDOWN — called by stem_run at the top of
+   each iteration to check if the tile should shut down.
+   
+   For Firedancer's native metric tile, this is always 0 (never check
+   CNC).  For Tickoni's tkmetr, we override this in tk_metric_tile.c
+   before calling stem_run.  The callback checks ctx->cnc for HALT
+   signal.
+   
+   Since this needs to be a macro that can be overridden per-usage of
+   fd_stem.c, we define a default that returns 0 here, and tk_metric_tile.c
+   will #undef and redefine it before calling stem_run.
+   --------------------------------------------------------------------- */
+
+#ifndef STEM_CALLBACK_SHOULD_SHUTDOWN
+#define STEM_CALLBACK_SHOULD_SHUTDOWN( ctx ) (0)
+#endif
+
+/* ---------------------------------------------------------------------
    stem_run — generated via the fd_stem template.
+   Define STEM_EXPORT (empty) to make stem_run non-static (exported for
+   tk_metric_tile.c to call directly, v2.23-m task 2).
    --------------------------------------------------------------------- */
 
 #define STEM_BURST (1UL)
 #define STEM_LAZY ((long)10e6) /* 10ms */
 
+#undef STEM_EXPORT
+#define STEM_EXPORT
 #define STEM_CALLBACK_CONTEXT_TYPE  fd_metric_ctx_t
 #define STEM_CALLBACK_CONTEXT_ALIGN alignof(fd_metric_ctx_t)
 
 #define STEM_CALLBACK_BEFORE_CREDIT before_credit
 #define STEM_CALLBACK_METRICS_WRITE metrics_write
+#define STEM_CALLBACK_SHOULD_SHUTDOWN( ctx ) (0)
 
 #include "../stem/fd_stem.c"
 

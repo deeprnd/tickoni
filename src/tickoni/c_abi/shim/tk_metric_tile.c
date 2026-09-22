@@ -1,40 +1,35 @@
 /* tk_metric_tile.c — Tickoni's metric tile (tkmetr) implementation.
  *
- * Reuses Firedancer's fd_metric_tile.c (Prometheus HTTP endpoint,
- * fd_prometheus_render_all, stem-based polling loop).
+ * Reuses Firedancer's fd_stem-based run loop (stem_run) with
+ * fd_http_server for Prometheus /metrics endpoint.
  *
  * Design notes:
- *   • We #include fd_metric_tile.h (header-only declarations) rather than
- *     the .c source file.  The .c file defines all the static helpers and
- *     the fd_topo_run_tile_t (fd_tile_metric) that Tickoni wraps.
- *   • tk_metric_privileged_init / unprivileged_init are static in
- *     fd_metric_tile.c, so we duplicate only the init logic (scratch +
- *     HTTP + ctx setup) rather than trying to call through to static
- *     symbols.
- *   • unprivileged_init is intentionally NULL: stem_run (the .run
- *     callback) calls fd_metric_tile's unprivileged_init internally,
- *     so Tickoni's fd_topo_run_tile would double-call it and crash.
+ *   • We #include disco/metrics/fd_metric_tile.h (header-only declarations)
+ *     rather than the .c source file.  The .c file defines all the static
+ *     helpers and the fd_topo_run_tile_t (fd_tile_metric) that Firedancer
+ *     uses.
+ *   • tk_metric_privileged_init / tk_metric_unprivileged_init invoke the
+ *     now-exported privileged_init / unprivileged_init from
+ *     fd_metric_tile.c (v2.23-m task 2), so we don't duplicate init logic.
+ *   • stem_run is exported from fd_stem.c via STEM_EXPORT (v2.23-m task 2),
+ *     so tk_metric_run delegates to stem_run instead of maintaining a
+ *     custom polling loop.  stem_run internally calls our before_credit
+ *     callback for HTTP polling.
  *   • The metric tile is an observer — it has zero mcache/dcache links
  *     and zero fseq objects, so its .in_cnt is 0 and it never produces
- *     output to the pipeline.
- *   • CRITICAL: tkmetr has 0 in/out links. Firedancer's stem_run loop
- *     dereferences out_seq[0] even when out_cnt==0, causing SIGSEGV.
- *     We use a custom tk_metric_run loop (below) that skips stem entirely
- *     and only calls before_credit for HTTP polling.
- *   • Shutdown: tk_metric_run joins the CNC from topo_build.zig's cnc_obj_id
- *     and checks for HALT signal.  When HALT arrives, it sets
- *     tile->allow_shutdown = 1 and returns.
+ *     output to the pipeline.  stem_run handles in_cnt==0 correctly by
+ *     skipping input/output polling and only running before_credit.
+ *   • Shutdown: before calling stem_run, we find the CNC object, join it,
+ *     and set ctx->cnc.  fd_metric_tile.c's STEM_CALLBACK_SHOULD_SHUTDOWN
+ *     (defined in fd_metric_tile.c) checks ctx->cnc for HALT every
+ *     iteration of stem_run.  When HALT arrives, STEM_CALLBACK_SHOULD_SHUTDOWN
+ *     returns non-zero, stem_run sets tile->allow_shutdown=1 and exits.
  */
 
 #define _GNU_SOURCE
 
-#include "../../../util/fd_util.h"
-#include "../../../disco/topo/fd_topo.h"
-#include "../../../disco/metrics/fd_metric_tile.h"  // declarations only
-#include "../../../disco/metrics/fd_prometheus.h"
-
-#include <time.h>   /* nanosleep for the tk_metric_run polling loop */
-#include <unistd.h> /* nanosleep declaration (glibc feature test) */
+#include "disco/metrics/fd_metric_tile.h"
+#include "../../../tango/cnc/fd_cnc.h"
 
 /* This macro mirrors the value defined in fd_metric_tile.c so that
    tk_metric_tile.c can reference it without including the .c source. */
@@ -58,44 +53,49 @@ tk_metric_scratch_align( void ) {
 
 /* ---------------------------------------------------------------------
    tk_metric_privileged_init — allocates scratch + HTTP server.
+   Mirrors fd_metric_tile.c's privileged_init.
    --------------------------------------------------------------------- */
 
 static void
 tk_metric_privileged_init( fd_topo_t const *      topo,
                            fd_topo_tile_t const * tile ) {
-  void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
-
-  FD_SCRATCH_ALLOC_INIT( l, scratch );
-
-  fd_metric_ctx_t * ctx = FD_SCRATCH_ALLOC_APPEND( l,
-    alignof( fd_metric_ctx_t ), sizeof( fd_metric_ctx_t ) );
-
-  fd_http_server_t * _metrics = FD_SCRATCH_ALLOC_APPEND( l,
-    fd_http_server_align(), fd_http_server_footprint( METRICS_PARAMS ) );
-
-  fd_http_server_callbacks_t metrics_callbacks = {
-    .request = metrics_http_request,
-  };
-  ctx->topo = topo;
-  ctx->boot_ts = fd_log_wallclock();
-  ctx->metrics_server = fd_http_server_join(
-    fd_http_server_new( _metrics, METRICS_PARAMS, metrics_callbacks, ctx )
-  );
-  fd_http_server_listen( ctx->metrics_server,
-                         tile->metric.prometheus_listen_addr,
-                         tile->metric.prometheus_listen_port );
+  privileged_init( topo, tile );
 }
 
 /* ---------------------------------------------------------------------
-   tk_metric_run — custom polling loop for 0-I/O observer tile.
-   Firedancer's stem_run crashes when out_cnt == 0 (dereferences NULL
-   out_seq[0]).  tkmetr has no mcache/dcache/fseq links, so we only need
-   the before_credit loop for HTTP polling.
+   tk_metric_unprivileged_init — sets ctx fields and logs startup.
+   Mirrors fd_metric_tile.c's unprivileged_init.
+   --------------------------------------------------------------------- */
 
-   Shutdown: the CNC object for tile i is at index cnc_obj_id[i] in the
-   topo objects array (set by topo_build.zig's topobTileUses).  We find
-   that object by scanning the topo's object list for the "cnc" entry
-   whose index matches the cnc_obj_id for this tile's uses_obj_id.
+static void
+tk_metric_unprivileged_init( fd_topo_t const *      topo,
+                             fd_topo_tile_t const * tile ) {
+  unprivileged_init( topo, tile );
+}
+
+/* ---------------------------------------------------------------------
+   tk_metric_run — thin wrapper that calls stem_run directly, with
+   CNC HALT shutdown checking.
+   
+   Firedancer's stem_run handles the full polling loop including:
+   - calling before_credit (our HTTP polling callback) every iteration
+   - handling housekeeping at the tempo-determined interval
+   - calling STEM_CALLBACK_SHOULD_SHUTDOWN at the top of each loop
+   
+   stem_run will call STEM_CALLBACK_SHOULD_SHUTDOWN which we've defined
+   in fd_metric_tile.c to check ctx->cnc for HALT.
+   
+   Shutdown flow:
+   1. Find the CNC object for this tile.
+   2. Join the CNC and set ctx->cnc.
+   3. Call stem_run — it will loop calling before_credit and checking
+      STEM_CALLBACK_SHOULD_SHUTDOWN (which checks CNC for HALT).
+   4. When HALT is detected, STEM_CALLBACK_SHOULD_SHUTDOWN returns 1,
+      stem_run sets tile->allow_shutdown=1 and exits.
+   
+   Note: privileged_init and unprivileged_init handle all scratch
+   allocation and ctx setup.  stem_run retrieves ctx from
+   fd_topo_obj_laddr internally.
    --------------------------------------------------------------------- */
 
 static void
@@ -103,20 +103,19 @@ tk_metric_run( fd_topo_t *      topo,
                fd_topo_tile_t * tile ) {
   void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
 
-  FD_SCRATCH_ALLOC_INIT( l, scratch );
-  fd_metric_ctx_t * ctx = FD_SCRATCH_ALLOC_APPEND( l,
-    alignof( fd_metric_ctx_t ), sizeof( fd_metric_ctx_t ) );
-
-  /* Verify scratch matches what privileged_init allocated */
+  /* Verify the metrics server was initialized by privileged_init.
+     ctx is set up by unprivileged_init; stem_run retrieves it
+     from fd_topo_obj_laddr. */
+  fd_metric_ctx_t * ctx = (fd_metric_ctx_t *)fd_ulong_align_up(
+    (ulong)scratch, alignof( fd_metric_ctx_t ) );
   if( ctx->metrics_server == NULL ) {
     FD_LOG_ERR(( "tkmetr: metrics server not initialized" ));
   }
 
-  /* Find the CNC object for this tile.  In topo_build.zig, every tile
-     gets a CNC created via topobTileUses(topo, tile_idx, cnc_obj_id,
-     true).  The CNC object is stored in the topo object array; we find
-     it by iterating until we find the "cnc" object whose index matches
-     what topo_build.zig set up for this tile's uses_obj_id. */
+  /* Find the CNC object for this tile.
+     In topo_build.zig, every tile gets a CNC created via
+     topobTileUses(topo, tile_idx, cnc_obj_id, true).  We find it by
+     scanning uses_obj_id[] for the "cnc" entry. */
   fd_cnc_t * cnc = NULL;
   for( ulong i = 0; i < tile->uses_obj_cnt; i++ ) {
     ulong obj_id = tile->uses_obj_id[ i ];
@@ -127,33 +126,27 @@ tk_metric_run( fd_topo_t *      topo,
     }
   }
   if( !cnc ) {
-    /* If we can't find a CNC, just spin until the supervisor kills us */
+    /* If we can't find a CNC, stem_run will loop forever until
+       the supervisor kills the process. */
     FD_LOG_WARNING(( "tkmetr: could not find CNC object, will run until killed" ));
+  } else {
+    /* Set ctx->cnc so STEM_CALLBACK_SHOULD_SHUTDOWN (in fd_metric_tile.c)
+       can check for HALT each iteration of stem_run. */
+    ctx->cnc = (void *)cnc;
   }
 
-  /* Simple polling loop: only HTTP polling, no stem input/output processing */
-  for(;;) {
-    int charge_busy = 0;
-    before_credit( ctx, NULL, &charge_busy );
+  /* Enter stem_run loop.  It will call before_credit (our HTTP
+     polling callback) every iteration and handle housekeeping
+     automatically.  STEM_CALLBACK_SHOULD_SHUTDOWN (defined in
+     fd_metric_tile.c) checks ctx->cnc for HALT.  stem_run handles
+     in_cnt==0 correctly by skipping input polling and only running
+     before_credit. */
+  stem_run( topo, tile );
 
-    /* Check for shutdown signal via CNC */
-    if( cnc ) {
-      ulong sig = fd_cnc_signal_query( cnc );
-      if( sig == FD_CNC_SIGNAL_HALT ) {
-        /* Transition to BOOT before stopping (per CNC state machine) */
-        fd_cnc_signal( cnc, FD_CNC_SIGNAL_BOOT );
-        tile->allow_shutdown = 1;
-        FD_LOG_INFO(( "tkmetr: received HALT signal, shutting down" ));
-        fd_cnc_leave( cnc );
-        break;
-      }
-      fd_cnc_leave( cnc );
-    }
-
-    /* Sleep briefly to avoid burning CPU */
-    struct timespec ts = { .tv_sec = 0, .tv_nsec = 1000000L }; /* 1ms */
-    nanosleep( &ts, NULL );
-  }
+  /* stem_run exits when STEM_CALLBACK_SHOULD_SHUTDOWN returns non-zero
+     or when tile->allow_shutdown is set.  When HALT is detected via
+     CNC, STEM_CALLBACK_SHOULD_SHUTDOWN sets tile->allow_shutdown=1
+     before returning, so stem_run will clean up and return. */
 }
 
 /* ---------------------------------------------------------------------
@@ -177,7 +170,7 @@ fd_topo_run_tile_t TK_METRIC_RUN = {
   .scratch_footprint        = tk_metric_scratch_footprint,
   .loose_footprint          = NULL,
   .privileged_init          = (void (*)( fd_topo_t const *, fd_topo_tile_t const * ))tk_metric_privileged_init,
-  .unprivileged_init        = NULL,   /* tk_metric_run handles full init */
+  .unprivileged_init        = (void (*)( fd_topo_t const *, fd_topo_tile_t const * ))tk_metric_unprivileged_init,
   .run                      = tk_metric_run,
   .rlimit_file_cnt_fn       = NULL,
 };
