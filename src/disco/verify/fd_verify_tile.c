@@ -180,7 +180,7 @@ unprivileged_init( fd_topo_t const *      topo,
   ctx->round_robin_cnt = fd_topo_tile_name_cnt( topo, tile->name );
   ctx->round_robin_idx = tile->kind_id;
 
-  for ( ulong i=0; i<FD_TXN_ACTUAL_SIG_MAX; i++ ) {
+  for( ulong i=0; i<FD_TXN_ACTUAL_SIG_MAX; i++ ) {
     fd_sha512_t * sha = fd_sha512_join( fd_sha512_new( FD_SCRATCH_ALLOC_APPEND( l, alignof( fd_sha512_t ), sizeof( fd_sha512_t ) ) ) );
     if( FD_UNLIKELY( !sha ) ) FD_LOG_ERR(( "fd_sha512_join failed" ));
     ctx->sha[i] = sha;

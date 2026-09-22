@@ -221,12 +221,12 @@ populate_allowed_fds( fd_topo_t const *      topo,
 /* ---------------------------------------------------------------------
    STEM_CALLBACK_SHOULD_SHUTDOWN — called by stem_run at the top of
    each iteration to check if the tile should shut down.
-   
+
    For Firedancer's native metric tile, this is always 0 (never check
    CNC).  For Tickoni's tkmetr, we override this in tk_metric_tile.c
    before calling stem_run.  The callback checks ctx->cnc for HALT
    signal.
-   
+
    Since this needs to be a macro that can be overridden per-usage of
    fd_stem.c, we define a default that returns 0 here, and tk_metric_tile.c
    will #undef and redefine it before calling stem_run.
