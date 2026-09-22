@@ -685,7 +685,7 @@ fd_double_eq( double x,
   (__extension__({ T _fd_load_tmp; memcpy( &_fd_load_tmp, (void const *)(src), sizeof(T) ); _fd_load_tmp; }))
 
 #define FD_STORE( T, dst, val ) \
-  (__extension__({ T _fd_store_tmp = (val); (T *)memcpy( (T *)(dst), &_fd_store_tmp, sizeof(T) ); }))
+  (__extension__({ T _fd_store_tmp = (val); (T *)memcpy( (void *)(dst), &_fd_store_tmp, sizeof(T) ); }))
 
 FD_FN_PURE static inline uchar  fd_uchar_load_1      ( void const * p ) { return         *(uchar const *)p; }
 
