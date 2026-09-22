@@ -356,8 +356,8 @@ test-prep-linux-x86:
 tests-all:
 	@just build-all
 	@just quality-check-all
-	@just security-check-all
 	@just test-all
+	@just security-check-all
 
 test-all:
 	@just test-unit-all
