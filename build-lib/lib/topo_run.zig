@@ -29,8 +29,6 @@ fn addTickoniTopoRunShims(b: *std.Build, step: *std.Build.Step.Compile) void {
             topo_run_platform_file,
             "src/tickoni/c_abi/shim/topob.c",
             "src/tickoni/c_abi/shim/tk_metric_tile.c",
-            "src/disco/metrics/fd_metric_tile.c",
-            "src/disco/metrics/fd_prometheus.c",
         },
         .flags = shims.shimCFlagsFor(target_info),
     });

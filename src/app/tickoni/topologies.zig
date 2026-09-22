@@ -9,7 +9,7 @@ const rt = @import("runtime");
 const TileId = rt.tile.TileId;
 const TileDescriptor = rt.tile.TileDescriptor;
 const Channel = rt.link.Channel;
-const Topology = rt.topology.Topology;
+pub const Topology = rt.topology.Topology;
 const WorkspaceName = rt.link.WorkspaceName;
 
 /// Whether a declared product topology has a supervisor/CLI dispatch path

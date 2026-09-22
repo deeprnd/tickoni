@@ -15,8 +15,8 @@
 #ifndef HEADER_fd_src_disco_metrics_fd_metric_tile_h
 #define HEADER_fd_src_disco_metrics_fd_metric_tile_h
 
-#include "waltz/http/fd_http_server.h"
-#include "disco/topo/fd_topo.h"
+#include "../../waltz/http/fd_http_server.h"
+#include "../topo/fd_topo.h"
 
 /* ---------------------------------------------------------------------
    Configuration constant — external so tk_metric_tile.c can reference it.
