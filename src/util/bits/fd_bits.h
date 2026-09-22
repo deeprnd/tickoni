@@ -685,7 +685,7 @@ fd_double_eq( double x,
   (__extension__({ T _fd_load_tmp; memcpy( &_fd_load_tmp, (void const *)(src), sizeof(T) ); _fd_load_tmp; }))
 
 #define FD_STORE( T, dst, val ) \
-  (__extension__({ T _fd_store_tmp = (val); (T *)memcpy( (T *)(dst), &_fd_store_tmp, sizeof(T) ); }))
+  (__extension__({ T _fd_store_tmp = (val); memcpy( (void *)(dst), &_fd_store_tmp, sizeof(T) ); (void const *)(dst); }))
 
 FD_FN_PURE static inline uchar  fd_uchar_load_1      ( void const * p ) { return         *(uchar const *)p; }
 
@@ -800,21 +800,16 @@ fd_ulong_svw_enc_sz( ulong x ) {
   return                                9UL;
 }
 
-/* fd_ulong_svw_enc appends x to the byte stream b as a symmetric
-   variable width encoded integer.  b should have room from
-   fd_ulong_svw_env_sz(x) (note that 9 is sufficient for all possible
-   x).  Returns the next location in the byte system. */
-
 FD_FN_UNUSED static uchar * /* Work around -Winline */
 fd_ulong_svw_enc( uchar * b,
                   ulong   x ) {
   if(      FD_LIKELY( x<(1UL<< 6) ) ) {                                                                 b[0] = (uchar)          (x<< 1);  b+=1; } /* 0    | x( 6) |    0 */
-  else if( FD_LIKELY( x<(1UL<<10) ) ) { FD_STORE( ushort, b, (ushort)(            0x8001UL | (x<<3)) );                                   b+=2; } /* 100  | x(10) |  001 */
-  else if( FD_LIKELY( x<(1UL<<18) ) ) { FD_STORE( ushort, b, (ushort)(               0x5UL | (x<<3)) ); b[2] = (uchar)(0xa0UL | (x>>13)); b+=3; } /* 101  | x(18) |  101 */
-  else if( FD_LIKELY( x<(1UL<<24) ) ) { FD_STORE( uint,   b, (uint  )(        0xc0000003UL | (x<<4)) );                                   b+=4; } /* 1100 | x(24) | 0011 */
-  else if( FD_LIKELY( x<(1ULL<<32) ) ) { FD_STORE( uint,   b, (uint  )(               0xbUL | (x<<4)) ); b[4] = (uchar)(0xd0UL | (x>>28)); b+=5; } /* 1101 | x(32) | 1011 */
-  else if( FD_LIKELY( x<(1ULL<<56) ) ) { FD_STORE( ulong,  b,          0xe000000000000007ULL | (x<<4)  );                                  b+=8; } /* 1110 | x(56) | 0111 */
-  else                                { FD_STORE( ulong,  b,                         0xfUL | (x<<4)  ); b[8] = (uchar)(0xf0UL | (x>>60)); b+=9; } /* 1111 | x(64) | 1111 */
+  else if( FD_LIKELY( x<(1UL<<10) ) ) { FD_STORE( ushort, b, (ushort)(            0x8001UL | (x<<3)) );                                   } /* 100  | x(10) |  001 */
+  else if( FD_LIKELY( x<(1UL<<18) ) ) { FD_STORE( ushort, b, (ushort)(               0x5UL | (x<<3)) ); b[2] = (uchar)(0xa0UL | (x>>13)); } /* 101  | x(18) |  101 */
+  else if( FD_LIKELY( x<(1UL<<24) ) ) { FD_STORE( uint,   b, (uint  )(        0xc0000003UL | (x<<4)) );                                   } /* 1100 | x(24) | 0011 */
+  else if( FD_LIKELY( x<(1ULL<<32) ) ) { FD_STORE( uint,   b, (uint  )(               0xbUL | (x<<4)) ); b[4] = (uchar)(0xd0UL | (x>>28)); } /* 1101 | x(32) | 1011 */
+  else if( FD_LIKELY( x<(1ULL<<56) ) ) { FD_STORE( ulong,  b,          0xe000000000000007ULL | (x<<4)  );                                  } /* 1110 | x(56) | 0111 */
+  else                                { FD_STORE( ulong,  b,                         0xfUL | (x<<4)  ); b[8] = (uchar)(0xf0UL | (x>>60)); } /* 1111 | x(64) | 1111 */
   return b;
 }
 
@@ -823,19 +818,22 @@ fd_ulong_svw_enc( uchar * b,
    b should have room from csz bytes and x should be known apriori to be
    compatible with csz.  Useful for updating in place an existing
    encoded integer to a value that is <= the current value.  Returns
-   b+csz. */
+   b+csz.
+
+   Uses memcpy-based stores to avoid unaligned access that Zig's
+   debug runtime catches (even though x86 hardware handles it). */
 
 FD_FN_UNUSED static uchar * /* Work around -Winline */
 fd_ulong_svw_enc_fixed( uchar * b,
                         ulong   csz,
                         ulong   x ) {
   if(      FD_LIKELY( csz==1UL ) ) {                                                                 b[0] = (uchar)          (x<< 1);  } /* 0    | x( 6) |    0 */
-  else if( FD_LIKELY( csz==2UL ) ) { FD_STORE( ushort, b, (ushort)(            0x8001UL | (x<<3)) );                                   } /* 100  | x(10) |  001 */
-  else if( FD_LIKELY( csz==3UL ) ) { FD_STORE( ushort, b, (ushort)(               0x5UL | (x<<3)) ); b[2] = (uchar)(0xa0UL | (x>>13)); } /* 101  | x(18) |  101 */
-  else if( FD_LIKELY( csz==4UL ) ) { FD_STORE( uint,   b, (uint  )(        0xc0000003UL | (x<<4)) );                                   } /* 1100 | x(24) | 0011 */
-  else if( FD_LIKELY( csz==5UL ) ) { FD_STORE( uint,   b, (uint  )(               0xbUL | (x<<4)) ); b[4] = (uchar)(0xd0UL | (x>>28)); } /* 1101 | x(32) | 1011 */
-  else if( FD_LIKELY( csz==8UL ) ) { FD_STORE( ulong,  b,          0xe000000000000007ULL | (x<<4)  );                                  } /* 1110 | x(56) | 0111 */
-  else             /* csz==9UL */  { FD_STORE( ulong,  b,                         0xfUL | (x<<4)  ); b[8] = (uchar)(0xf0UL | (x>>60)); } /* 1111 | x(64) | 1111 */
+  else if( FD_LIKELY( csz==2UL ) ) { ushort __v=(ushort)(            0x8001UL | (x<<3)); memcpy(b, &__v, 2);                                   } /* 100  | x(10) |  001 */
+  else if( FD_LIKELY( csz==3UL ) ) { ushort __v=(ushort)(               0x5UL | (x<<3)); memcpy(b, &__v, 2); b[2] = (uchar)(0xa0UL | (x>>13)); } /* 101  | x(18) |  101 */
+  else if( FD_LIKELY( csz==4UL ) ) { uint   __v=(uint  )(        0xc0000003UL | (x<<4)); memcpy(b, &__v, 4);                                   } /* 1100 | x(24) | 0011 */
+  else if( FD_LIKELY( csz==5UL ) ) { uint   __v=(uint  )(               0xbUL | (x<<4)); memcpy(b, &__v, 4); b[4] = (uchar)(0xd0UL | (x>>28)); } /* 1101 | x(32) | 1011 */
+  else if( FD_LIKELY( csz==8UL ) ) { ulong  __v=          0xe000000000000007ULL | (x<<4);  memcpy(b, &__v, 8);                                  } /* 1110 | x(56) | 0111 */
+  else             /* csz==9UL */  { ulong  __v=                         0xfUL | (x<<4);  memcpy(b, &__v, 8); b[8] = (uchar)(0xf0UL | (x>>60)); } /* 1111 | x(64) | 1111 */
   return b+csz;
 }
 
