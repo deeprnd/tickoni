@@ -263,6 +263,7 @@ pub const ModuleFactory = struct {
             .optimize = self.optimize,
             .imports = &.{
                 .{ .name = "mock_http_support", .module = mock_http_support_mod },
+                .{ .name = "util", .module = self.shared.util },
             },
         });
 
@@ -272,6 +273,7 @@ pub const ModuleFactory = struct {
             .optimize = self.optimize,
             .imports = &.{
                 .{ .name = "mock_http_support", .module = mock_http_support_mod },
+                .{ .name = "util", .module = self.shared.util },
             },
         });
 

@@ -18,6 +18,7 @@ pub const TestModules = struct {
     mock_model: *std.Build.Module,
     model_messages: *std.Build.Module,
     trade_ticket: *std.Build.Module,
+    util: *std.Build.Module,
 };
 
 pub fn testModules(
@@ -59,6 +60,15 @@ pub fn testModules(
             .{ .name = "portfolio", .module = shared.portfolio },
             .{ .name = "fixture_portfolio", .module = fixture_portfolio_mod },
             .{ .name = "thesis", .module = shared.thesis },
+        },
+    });
+    const util_mod = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/util/util.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "c_abi", .module = shared.c_abi },
+            .{ .name = "runtime", .module = shared.runtime },
         },
     });
     const impact_mod = b.createModule(.{
@@ -136,5 +146,6 @@ pub fn testModules(
         .mock_model = mock_model_mod,
         .model_messages = model_messages_mod,
         .trade_ticket = trade_ticket_mod,
+        .util = util_mod,
     };
 }
