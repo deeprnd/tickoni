@@ -868,8 +868,9 @@ initialize_numa_assignments( fd_topo_t * topo ) {
     for( ulong j=0UL; j<topo->tile_cnt; j++ ) {
       fd_topo_tile_t * tile = &topo->tiles[ j ];
       if( FD_UNLIKELY( tile->tile_obj_id==max_obj && tile->cpu_idx<FD_TILE_MAX ) ) {
-        topo->workspaces[ i ].numa_idx = fd_numa_node_idx( tile->cpu_idx );
-        FD_TEST( topo->workspaces[ i ].numa_idx!=ULONG_MAX );
+        ulong numa = fd_numa_node_idx( tile->cpu_idx );
+        if( FD_UNLIKELY( numa==ULONG_MAX ) ) numa = 0UL;
+        topo->workspaces[ i ].numa_idx = numa;
         found_strict   = 1;
         found_lazy     = 1;
         found_assigned = 1;
@@ -886,8 +887,9 @@ initialize_numa_assignments( fd_topo_t * topo ) {
         fd_topo_tile_t * tile = &topo->tiles[ j ];
         for( ulong k=0UL; k<tile->uses_obj_cnt; k++ ) {
           if( FD_LIKELY( tile->uses_obj_id[ k ]==max_obj && tile->cpu_idx<FD_TILE_MAX ) ) {
-            topo->workspaces[ i ].numa_idx = fd_numa_node_idx( tile->cpu_idx );
-            FD_TEST( topo->workspaces[ i ].numa_idx!=ULONG_MAX );
+            ulong numa = fd_numa_node_idx( tile->cpu_idx );
+            if( FD_UNLIKELY( numa==ULONG_MAX ) ) numa = 0UL;
+            topo->workspaces[ i ].numa_idx = numa;
             found_lazy     = 1;
             found_assigned = 1;
             break;

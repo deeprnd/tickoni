@@ -45,39 +45,46 @@ pub fn buildTriple(b: *std.Build, target: std.Build.ResolvedTarget) []const u8 {
 }
 
 /// C compiler flags for shim compilation, varying by target OS/arch.
+/// FD_UNALIGNED_ACCESS_STYLE=0 forces FD_STORE/FD_LOAD to use memcpy
+/// instead of direct pointer casts.  This is required because Firedancer's
+/// pod/wksp/topo code writes to uchar* buffers with FD_POD_ALIGN(1),
+/// producing addresses that may not be aligned to uint/ulong boundaries.
+/// x86 hardware handles it fine, but Zig's debug runtime flags the
+/// misaligned stores as crashes.
 pub fn shimCFlagsFor(target: std.Target) []const []const u8 {
+    const unaligned_style = "-DFD_UNALIGNED_ACCESS_STYLE=0";
     return switch (target.os.tag) {
         .linux => &.{
             "-std=c17", "-U__BMI2__", "-U__LZCNT__",
             "-DFD_HAS_HOSTED=1", "-DFD_HAS_LINUX=1",
-            "-DFD_HAS_OPENSSL=1",
+            "-DFD_HAS_OPENSSL=1", unaligned_style,
         },
         .macos => &.{
             "-std=c17", "-U__BMI2__", "-U__LZCNT__",
             "-DFD_HAS_HOSTED=1", "-DFD_HAS_MACOS=1",
-            "-DFD_HAS_OPENSSL=1",
+            "-DFD_HAS_OPENSSL=1", unaligned_style,
         },
         .windows => switch (target.cpu.arch) {
             .aarch64 => &.{
                 "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1", "-DFD_HAS_WINDOWS=1",
                 "-D_CRT_SECURE_NO_WARNINGS", "-DFD_IO_STYLE=1", "-DFD_LOG_STYLE=1", "-DFD_HAS_THREADS=1", "-DFD_HAS_ATOMIC=1",
                 "-DFD_HAS_ARM64=1", "-DFD_HAS_INT128=0", "-DFD_HAS_DOUBLE=1", "-DFD_HAS_ALLOCA=1", "-Wno-format",
-                "-Wno-format-extra-args",
+                "-Wno-format-extra-args", unaligned_style,
             },
             .x86_64 => &.{
                 "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1", "-DFD_HAS_WINDOWS=1",
                 "-D_CRT_SECURE_NO_WARNINGS", "-DFD_IO_STYLE=1", "-DFD_LOG_STYLE=1", "-DFD_HAS_THREADS=1", "-DFD_HAS_ATOMIC=1",
                 "-DFD_HAS_X86=1", "-DFD_HAS_SSE=1", "-DFD_HAS_AVX=1", "-DFD_HAS_AVX2=1", "-DFD_HAS_AESNI=1",
                 "-DFD_IS_X86_64=1", "-DFD_HAS_INT128=0", "-DFD_HAS_DOUBLE=1", "-DFD_HAS_ALLOCA=1", "-Wno-format",
-                "-Wno-format-extra-args",
+                "-Wno-format-extra-args", unaligned_style,
             },
             else => &.{
                 "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1", "-DFD_HAS_WINDOWS=1",
                 "-D_CRT_SECURE_NO_WARNINGS", "-DFD_IO_STYLE=1", "-DFD_LOG_STYLE=1", "-DFD_HAS_THREADS=1", "-DFD_HAS_ATOMIC=1",
-                "-Wno-format", "-Wno-format-extra-args",
+                "-Wno-format", "-Wno-format-extra-args", unaligned_style,
             },
         },
-        else => &.{ "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1" },
+        else => &.{ "-std=c17", "-U__BMI2__", "-U__LZCNT__", "-DFD_HAS_HOSTED=1", unaligned_style },
     };
 }
 

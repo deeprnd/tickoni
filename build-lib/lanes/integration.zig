@@ -117,6 +117,11 @@ pub fn strategy(
             codec.linkTickoniCodec(b, process_test, fd_lib_dir);
             firedancer.linkTickoniFiredancer(b, process_test, fd_lib_dir);
             topo_run.linkTickoniTopoRun(b, process_test, fd_lib_dir);
+            // libfd_waltz.a contains fd_http_server.o which references ZSTD;
+            // link libfd_zstd.a to resolve those symbols.
+            if (target.result.os.tag == .linux) {
+                process_test.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_zstd.a", .{fd_lib_dir}) });
+            }
             const run_proc_test = shims.addPlainTestRun(b, process_test);
             // Direct dependency ensures install happens before this test runs.
             run_proc_test.step.dependOn(&exe_install.step);

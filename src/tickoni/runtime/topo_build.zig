@@ -250,9 +250,7 @@ pub fn build(
     // tile->tile_obj_id for the metric tile's scratch allocation.
     var metric_tile_obj_id: usize = 0;
     if (metric_tile_idx != c_abi.topob.not_found) {
-        var metric_wksp_name_buf: [16]u8 = undefined;
-        const metric_wksp_z = toZ(&metric_wksp_name_buf, "metric");
-        metric_tile_obj_id = c_abi.topob.topobObj(topo, "tkmetr_tile", metric_wksp_z);
+        metric_tile_obj_id = c_abi.topob.topobObj(topo, "tkmetr_tile", wksp_name_z);
         // Mark this object as used by the metric tile
         c_abi.topob.topobTileUses(topo, metric_tile_idx, metric_tile_obj_id, true);
         // Set tile_obj_id so fd_topo_run_tile can find the scratch space

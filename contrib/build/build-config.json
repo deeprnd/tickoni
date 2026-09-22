@@ -14,7 +14,7 @@
     "windows-arm": { "gcc": "gcc",     "clang": "clang" }
   },
   "libs": {
-    "core": ["libfd_tango.a", "libfd_util.a", "libfd_ballet.a", "libfd_disco.a", "libfd_waltz.a"],
+    "core": ["libfd_tango.a", "libfd_util.a", "libfd_ballet.a", "libfd_disco.a", "libfd_waltz.a", "libfd_zstd.a"],
     "test": ["libfd_blst.a", "libfd_zstd.a", "libfd_lz4.a"]
   },
 
@@ -22,7 +22,7 @@
     "libs": [
       "src/tango", "src/util", "src/ballet", "src/disco", "src/waltz",
       "src/third_party/cjson", "src/third_party/s2n-bignum",
-      "src/third_party/picohttpparser"
+      "src/third_party/picohttpparser", "src/third_party/zstd"
     ],
     "test": [
       "src/tango", "src/util", "src/ballet", "src/disco", "src/waltz",
