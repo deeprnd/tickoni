@@ -92,9 +92,9 @@ def main():
     elif args.command == "llm-server-stop":
         orch.llm_server_stop()
     elif args.command == "zig-build":
-        orch.zig_build(args.target)
+        sys.exit(orch.zig_build(args.target))
     elif args.command == "zig-test":
-        orch.zig_test(args.target)
+        sys.exit(orch.zig_test(args.target))
     elif args.command == "dynamic-test-opts":
         orch.dynamic_test_opts()
 

@@ -5,7 +5,10 @@ const shims = @import("shims.zig");
 /// given FD archive list). Windows and ARM64 Linux use explicit archive paths to
 /// preserve link order and avoid pkg-config.BAT probing.
 pub fn addTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8, libs: []const []const u8) void {
-    step.root_module.addLibraryPath(b.path(fd_lib_dir));
+    // Zig 0.17's b.path() rejects absolute paths. Use cwdRelativePath()
+    // when the path is absolute (from zig_build.py) so it resolves correctly.
+    const fd_lib = if (std.mem.startsWith(u8, fd_lib_dir, "/")) b.graph.cwdRelativePath(fd_lib_dir) else b.path(fd_lib_dir);
+    step.root_module.addLibraryPath(fd_lib);
     const os_tag = step.root_module.resolved_target.?.result.os.tag;
     const cpu_arch = step.root_module.resolved_target.?.result.cpu.arch;
 
@@ -160,7 +163,8 @@ fn addTickoniCodecShim(b: *std.Build, step: *std.Build.Step.Compile) void {
 pub fn linkTickoniCodec(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8) void {
     addTickoniCodecShim(b, step);
     if (step.root_module.resolved_target.?.result.os.tag == .windows) {
-        step.root_module.addLibraryPath(b.path(fd_lib_dir));
+        const fd_lib_win = if (std.mem.startsWith(u8, fd_lib_dir, "/")) b.graph.cwdRelativePath(fd_lib_dir) else b.path(fd_lib_dir);
+        step.root_module.addLibraryPath(fd_lib_win);
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
         linkTickoniWindowsUuid(b, step, fd_lib_dir);
