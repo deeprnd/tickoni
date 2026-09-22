@@ -2,6 +2,7 @@ const std = @import("std");
 const broker_mock = @import("mock_broker_market_server");
 const http_support = @import("mock_http_support");
 const openai_mock = @import("mock_openai_server");
+const util = @import("util");
 
 fn fetchText(allocator: std.mem.Allocator, io: std.Io, url: []const u8, method: std.http.Method, payload: ?[]const u8) ![]u8 {
     var client = std.http.Client{ .allocator = allocator, .io = io };
@@ -18,6 +19,25 @@ fn fetchText(allocator: std.mem.Allocator, io: std.Io, url: []const u8, method: 
         .response_writer = &response_writer.writer,
     });
     return allocator.dupe(u8, response_writer.written());
+}
+
+/// Connect to a TCP endpoint with bounded retries so we never hang
+/// forever on a dead or unreachable port.  After 100 failed attempts
+/// (5 s total) we give up with error.ConnectionTimeout.
+fn connectWithTimeout(
+    host: []const u8,
+    port: u16,
+    io: std.Io,
+) anyerror!std.Io.net.Stream {
+    var address = std.Io.net.IpAddress.parse(host, port) catch unreachable;
+    var attempt: u8 = 0;
+    while (attempt < 100) : (attempt += 1) {
+        if (std.Io.net.IpAddress.connect(&address, io, .{ .mode = .stream, .protocol = .tcp })) |stream| {
+            return stream;
+        } else |_| {}
+        util.process.sleepNanos(50 * std.time.ns_per_ms);
+    }
+    return error.ConnectionTimeout;
 }
 
 test "integration mock openai server config defaults are stable" {
