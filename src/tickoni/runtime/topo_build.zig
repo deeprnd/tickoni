@@ -255,6 +255,9 @@ pub fn build(
         c_abi.topob.topobTileUses(topo, metric_tile_idx, metric_tile_obj_id, true);
         // Set tile_obj_id so fd_topo_run_tile can find the scratch space
         c_abi.topob.topoTileSetTileObjId(topo, metric_tile_idx, metric_tile_obj_id);
+        // Set prometheus_listen_port so the metric tile's HTTP server binds
+        // to the expected port (7999, matching Firedancer config).
+        c_abi.topob.topoTileSetMetricPort(topo, metric_tile_idx, 7999);
     }
 
     return .{

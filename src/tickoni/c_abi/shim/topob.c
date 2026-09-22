@@ -490,3 +490,11 @@ void
 tk_topo_tile_set_tile_obj_id( void * topo, ulong tile_id, ulong obj_id ) {
   ((fd_topo_t *)topo)->tiles[ tile_id ].tile_obj_id = obj_id;
 }
+
+/* Set prometheus listen port for the metric tile.
+   Used by topo_build.zig to inject the prometheus_listen_port
+   so the metric tile's HTTP server binds to the expected port. */
+void
+tk_topo_tile_set_metric_port( void * topo, ulong tile_id, ushort port ) {
+  ((fd_topo_t *)topo)->tiles[ tile_id ].metric.prometheus_listen_port = port;
+}

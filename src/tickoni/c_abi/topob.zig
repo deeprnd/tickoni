@@ -68,6 +68,7 @@ extern fn tk_topob_set_obj_property_ulong(topo: *Topo, obj_id: usize, key: [*:0]
 extern fn tk_topob_set_tile_obj_property_ulong(topo: *Topo, tile_name: [*:0]const u8, tile_kind_id: usize, key: [*:0]const u8, val: usize) void;
 extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
 extern fn tk_topo_tile_set_tile_obj_id(topo: *Topo, tile_id: usize, obj_id: usize) void;
+extern fn tk_topo_tile_set_metric_port(topo: *Topo, tile_id: usize, port: c_ushort) void;
 
 // ---------------------------------------------------------------------------
 // Public Zig wrappers.
@@ -231,6 +232,13 @@ pub fn tickoniTileScratchFootprint(tile_name: [*:0]const u8) usize {
 /// Set tile_obj_id for a tile — needed for metric tile scratch allocation.
 pub fn topoTileSetTileObjId(topo: *Topo, tile_id: usize, obj_id: usize) void {
     tk_topo_tile_set_tile_obj_id(topo, tile_id, obj_id);
+}
+
+/// Set prometheus_listen_port for the metric tile.
+/// Used by topo_build.zig to ensure the metric tile's HTTP server
+/// binds to the expected port (7999 from Firedancer config).
+pub fn topoTileSetMetricPort(topo: *Topo, tile_id: usize, port: c_ushort) void {
+    tk_topo_tile_set_metric_port(topo, tile_id, port);
 }
 
 // ---------------------------------------------------------------------------

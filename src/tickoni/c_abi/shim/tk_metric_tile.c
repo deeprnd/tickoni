@@ -165,6 +165,19 @@ tk_metric_run( fd_topo_t *      topo,
 }
 
 /* ---------------------------------------------------------------------
+   tk_get_metric_run_tile — thin wrapper that returns &TK_METRIC_RUN.
+   Provides a named accessor so callers never need to know the symbol
+   name.  Declared in tk_metric_tile.h to keep topob.c and tile_run.c
+   from maintaining duplicate extern declarations.
+   See v2.23-m task 0.
+   --------------------------------------------------------------------- */
+
+fd_topo_run_tile_t *
+tk_get_metric_run_tile( void ) {
+  return &TK_METRIC_RUN;
+}
+
+/* ---------------------------------------------------------------------
    TK_METRIC_RUN — the fd_topo_run_tile_t that Tickoni dispatches.
    --------------------------------------------------------------------- */
 
