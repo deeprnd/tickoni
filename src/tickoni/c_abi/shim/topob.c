@@ -356,16 +356,32 @@ tk_topob_set_tile_obj_property_ulong( void * topo, char const * tile_name,
                         "obj.%lu.%s", t->tiles[ tile_id ].tile_obj_id, key );
 }
 
-/* Query the scratch footprint for a named tile.  Returns TK_METRIC_RUN's
-   scratch_footprint for "tkmetr", 1UL for everything else.  Called from
-   topo_build.zig before the property is set.  Uses the shared header
-   instead of a bare extern declaration. */
+/* Topology helper: find the object ID of the first object of type
+   `obj_type` that belongs to the given tile (i.e. is listed in the
+   tile's uses_obj_id[]).  Returns ULONG_MAX if not found.
+
+   Used by tk_metric_run to find the CNC object for shutdown checking
+   without resorting to a raw strcmp scan.  See v2.23-m task 3. */
+ulong
+tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_type ) {
+  fd_topo_tile_t const * tile = &topo->tiles[ tile_id ];
+  for( ulong i = 0UL; i < tile->uses_obj_cnt; i++ ) {
+    ulong obj_id = tile->uses_obj_id[ i ];
+    if( !strcmp( topo->objs[ obj_id ].name, obj_type ) ) return obj_id;
+  }
+  return ULONG_MAX;
+}
+
+/* Include the metric tile header for TK_METRIC_RUN and footprint helper.
+   The header provides a wrapper (tk_metric_scratch_footprint()) so that
+   topob.c never needs the full fd_topo_run_tile_t definition — it only
+   sees the extern declaration and the thin accessor.  See v2.23-m task 4. */
 #include "../topo_run/tk_metric_tile.h"
 
 ulong
 tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {
   if( strcmp( tile_name, "tkmetr" ) == 0 )
-    return TK_METRIC_RUN.scratch_footprint( NULL );
+    return tk_metric_scratch_footprint();
   return 1UL;
 }
 
