@@ -203,7 +203,15 @@ From V2.22.S7-zig-audit.md:
 
 ---
 
-## 9. Summary Counts by Source File
+## 9. New stories
+
+| Name | File | GH Issue |
+|---|---|---|
+V2.10.S13: Metric Tile — tkmetr Observer Tile Wrapped from Firedancer fd_metric_tile | doc/strategy/roadmap/stories/v2.10-s13.md | #144
+V2.10.S14: Standardize All Tiles on Firedancer fd_stem Polling Loop | doc/strategy/roadmap/stories/v2.10-s14.md | #145
+V2.10.S15: Port shared memory (fd_shmem) to macOS and Windows | doc/strategy/roadmap/stories/v2.10-s15.md | #146
+
+## 10. Summary Counts by Source File
 
 | File | Debt Items | Resolution | Relevance | Labels | GH Issue |
 |---|---|---|---|---|---|
