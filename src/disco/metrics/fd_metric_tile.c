@@ -256,6 +256,12 @@ populate_allowed_fds( fd_topo_t const *      topo,
 
 #include "../stem/fd_stem.c"
 
+/* Clear STEM_EXPORT after the include so subsequent STEM instantiations
+   (e.g. verify tile) see no STEM_EXPORT and use their own #ifndef
+   STEM_EXPORT / #define STEM_EXPORT static blocks to default to static.
+   This prevents duplicate stem_run symbols. */
+#undef STEM_EXPORT
+
 /* ---------------------------------------------------------------------
    fd_tile_metric — the canonical Firedancer metric-tile run config.
    --------------------------------------------------------------------- */
