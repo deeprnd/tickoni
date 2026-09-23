@@ -187,8 +187,8 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         return 1;
     };
 
-    std.debug.print("CHILD [tile {d} {s}]: boot complete, shmem base={s}\n", .{
-        spec.tile_idx, spec.tile_id.slice(), spec.shmemPath(),
+    std.debug.print("CHILD [tile {d} {s}]: boot complete, shmem base={s}, workspace_name={s}\n", .{
+        spec.tile_idx, spec.tile_id.slice(), spec.shmemPath(), spec.workspace_name.slice(),
     });
     var built_opt: ?topo_build.BuiltTopo = null;
     defer {
