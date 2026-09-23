@@ -43,8 +43,8 @@ fn halted(cnc: *c_abi.cnc.Cnc) bool {
 // runtime/launch_spec.zig's LaunchSpec.
 // ---------------------------------------------------------------------------
 
-const process_config_magic: u32 = 0x544b5043; // "TKPC"
-const process_config_version: u16 = 1;
+pub const process_config_magic: u32 = 0x544b5043; // "TKPC"
+pub const process_config_version: u16 = 1;
 
 pub const StuckTileHook = struct {
     tile_idx: u32,
@@ -60,7 +60,7 @@ pub const ProcessRuntimeConfig = struct {
     stuck_tile: ?StuckTileHook = null,
 };
 
-const ProcessConfigFile = struct {
+pub const ProcessConfigFile = struct {
     magic_field: u32 = process_config_magic,
     version_field: u16 = process_config_version,
     cfg: ProcessRuntimeConfig = .{},
@@ -74,7 +74,12 @@ pub fn writeProcessConfig(cfg: ProcessRuntimeConfig, io: std.Io, dir: std.Io.Dir
 }
 
 pub fn readProcessConfig(io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !ProcessRuntimeConfig {
-    var file = try dir.openFile(io, sub_path, .{});
+    // Zig 0.17 Dir.openFile treats absolute paths as relative to dir;
+    // use openFileAbsolute for filesystem-root paths.
+    var file: std.Io.File = if (sub_path.len > 0 and sub_path[0] == '/')
+        try std.Io.Dir.openFileAbsolute(io, sub_path, .{})
+    else
+        try dir.openFile(io, sub_path, .{});
     defer file.close(io);
     var file_struct: ProcessConfigFile = undefined;
     const buf = std.mem.asBytes(&file_struct);
