@@ -157,6 +157,7 @@ pub fn strategy(
         }),
     });
     codec.linkTickoniCodec(b, model_tile_http_test, fd_lib_dir);
+    firedancer.linkTickoniFiredancer(b, model_tile_http_test, fd_lib_dir);
     integration_step.dependOn(&b.addRunArtifact(model_tile_http_test).step);
 
     const replay_integration_test = b.addTest(.{
