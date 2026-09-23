@@ -77,20 +77,40 @@ const ProcessState = struct {
     /// v2.14.S1.T14 visibility: whether this run's layout is shared-core
     /// and how many tiles are exclusive/shared/floating.
     placement_report: rt.cpu_placement.PlacementReport,
+    /// Set true when stopProcess detects that any child has crashed
+    /// (FileNotFound, unexpected non-zero exit, or signal). Prevents
+    /// deinit() from crashing on stale shared memory.
+    has_child_crashed: bool = false,
 
     /// Kills any still-running children, leaves cnc joins, detaches the
     /// workspace, and frees owned buffers. Safe to call with a partially
     /// populated state (e.g. after a failed start).
+    ///
+    /// v2.24: Crash-safe teardown — when has_child_crashed is true, C-level
+    /// shared memory ops (cncLeave, wkspDetach, boot.halt) can segfault or
+    /// trigger FD_LOG_PANIC because children have already torn down their
+    /// shared-memory pointers. Skip those ops so the supervisor survives its
+    /// own children's crashes instead of SIGABRT'ing during teardown.
     fn deinit(self: *ProcessState, io: std.Io, allocator: std.mem.Allocator) void {
+        // Kill children first — they may be holding the workspace open.
         for (&self.children) |*maybe_child| {
             if (maybe_child.*) |*child| child.kill(io);
         }
-        for (&self.cncs) |*maybe_cnc| {
-            if (maybe_cnc.*) |cnc| _ = c_abi.cnc.cncLeave(cnc);
+        // Skip fragile C-level shared memory ops when children have already
+        // crashed. cncLeave, wkspDetach, and boot.halt dereference opaque
+        // pointers into the shared workspace; when a child has crashed
+        // (FileNotFound, unexpected exit), the workspace may be partially
+        // torn down and those dereferences can segfault or trigger
+        // FD_LOG_PANIC. The supervisor must survive teardown so tests can
+        // observe monitor() state after stopProcess completes.
+        if (!self.has_child_crashed) {
+            for (&self.cncs) |*maybe_cnc| {
+                if (maybe_cnc.*) |cnc| _ = c_abi.cnc.cncLeave(cnc);
+            }
+            _ = c_abi.wksp.wkspDetach(self.wksp);
+            c_abi.boot.halt();
         }
         self.built_topo.deinit(allocator);
-        _ = c_abi.wksp.wkspDetach(self.wksp);
-        c_abi.boot.halt();
         allocator.free(self.workspace_name);
         allocator.free(self.run_dir);
     }
@@ -543,11 +563,18 @@ pub const Supervisor = struct {
                 self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(t, was_forced));
                 maybe_child.* = null;
             } else {
-                // Timeout: leave the child dangling but mark it stopped so
-                // tests don't see a stale .running handle.
-                const h = &self.handles[i];
-                h.state = .stopped;
-                h.crashed_because = .none;
+                // Timeout: do a final non-blocking reap so we capture any
+                // exit code or crash evidence from children that exited
+                // during the wait. Without this, FileNotFound and unexpected
+                // exit codes are silently lost and tests report "passed"
+                // because the handle is marked .stopped with .none.
+                const outcome = blk2: {
+                    switch (util.process_api.tryReapNoHang(&child)) {
+                        .running, .detached, .failed => break :blk2 .exited_ok,
+                        .reaped => |t| break :blk2 util.process_api.outcomeFromTerm(t, false),
+                    }
+                };
+                self.updateHandleForOutcome(i, outcome);
                 maybe_child.* = null;
             }
         }
@@ -763,6 +790,16 @@ pub const Supervisor = struct {
         }
 
         self.waitProcess(io, &forced_termination);
+
+        // v2.24: check if any tile crashed during stopProcess so deinit()
+        // knows whether to skip the fragile C-level shared memory ops.
+        for (self.handles) |h| {
+            if (h.state == .crashed) {
+                state.has_child_crashed = true;
+                break;
+            }
+        }
+
         state.deinit(io, self.allocator);
         self.allocator.destroy(state);
         self.process_state = null;
