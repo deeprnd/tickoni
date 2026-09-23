@@ -177,10 +177,19 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         return 1;
     };
 
+    std.debug.print("CHILD [tile {d} {s}]: shmem_path={s} workspace_name={s} crash_after_heartbeats={d}\n", .{
+        spec.tile_idx, spec.tile_id.slice(), spec.shmemPath(), spec.workspace_name.slice(),
+        spec.crash_after_heartbeats,
+    });
+
     boot.bootWithSyntheticArgv(spec.shmemPath()) catch |err| {
         std.debug.print("tile_process: bootWithSyntheticArgv failed for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
+
+    std.debug.print("CHILD [tile {d} {s}]: boot complete, shmem base={s}\n", .{
+        spec.tile_idx, spec.tile_id.slice(), spec.shmemPath(),
+    });
     var built_opt: ?topo_build.BuiltTopo = null;
     defer {
         c_abi.boot.haltForTileProcess();

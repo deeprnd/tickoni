@@ -295,12 +295,20 @@ pub const Supervisor = struct {
         // little headroom.
         const footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx);
         const page_cnt = footprint / c_abi.wksp.shmem_normal_page_sz + 16;
+        const wksp_gaddr = (c_abi.wksp.shmem_normal_page_sz * page_cnt);
         var sub_page_cnt = [_]usize{page_cnt};
         var sub_cpu_idx = [_]usize{0};
         const part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, built_topo.wksp_idx);
+
+        std.debug.print("SUPERVISOR: run_dir={s} workspace_name={s} concrete_name={s} footprint={d} page_cnt={d} wksp_gaddr={x}\n", .{
+            config.run_dir, workspace_name_slice, workspace_name_z, footprint, page_cnt, wksp_gaddr,
+        });
+
         const rc = c_abi.wksp.wkspNewNamed(workspace_name_z, c_abi.wksp.shmem_normal_page_sz, 1, &sub_page_cnt, &sub_cpu_idx, 0o600, 1, part_max);
         if (rc != 0) return error.WkspCreateFailed;
         const wksp = c_abi.wksp.wkspAttach(workspace_name_z) orelse return error.WkspAttachFailed;
+
+        std.debug.print("SUPERVISOR: wksp attached, wksp ptr={x}\n", .{@intFromPtr(wksp)});
         errdefer _ = c_abi.wksp.wkspDetach(wksp);
 
         // Inject the attached workspace into the topology and instantiate
