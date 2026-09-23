@@ -439,6 +439,13 @@ pub const Supervisor = struct {
     }
 
     fn updateHandleForOutcome(self: *Supervisor, i: usize, outcome: util.process_api.ProcessOutcome) void {
+        // Preserve a real crash: once the supervisor has classified a tile as
+        // crashed, subsequent reaps (e.g. during stopProcess teardown) must not
+        // overwrite it.  The stale-recovery paths below are only valid for tiles
+        // that were *currently* stale at the moment stopProcess started; a tile
+        // that already crossed into .crashed is a genuine failure regardless of
+        // what the shutdown sequence does to its process.
+        if (self.handles[i].state == .crashed) return;
         switch (outcome) {
             .exited_ok => {
                 // A clean exit after stopProcess() should be treated as a
@@ -499,23 +506,50 @@ pub const Supervisor = struct {
         }
     }
 
+    /// Maximum time to wait for a child to exit after HALT + force-termination.
+    /// Tiles that don't exit within this window are assumed stuck and left
+    /// orphaned rather than blocking the test runner forever.
+    const wait_process_max_ms: u32 = 5_000;
+
     pub fn waitProcess(self: *Supervisor, io: std.Io, forced_termination: ?[]const bool) void {
+        _ = io;
         const log = logger.get();
         log.enter("supervisor", "waitProcess") catch {};
         defer log.exit("supervisor", "waitProcess") catch {};
         const state = self.process_state orelse return;
+        const deadline = util.process.monotonicNanos() + @as(i64, @intCast(wait_process_max_ms * std.time.ms_per_s));
         for (&state.children, 0..) |*maybe_child, i| {
             var child = maybe_child.* orelse continue;
-            const term = child.wait(io) catch {
-                log.err("supervisor", "waitProcess", "wait failed for child tile") catch {};
-                self.handles[i].state = .crashed;
-                self.handles[i].crashed_because = .exit_code;
-                maybe_child.* = null;
-                continue;
+            const term = blk: {
+                const start = util.process.monotonicNanos();
+                if (start >= deadline) break :blk null;
+                while (util.process.monotonicNanos() < deadline) {
+                    switch (util.process_api.tryReapNoHang(&child)) {
+                        .running => {
+                            util.process.sleepNanos(1 * std.time.ms_per_s);
+                        },
+                        .reaped => |t| break :blk t,
+                        .detached => break :blk null,
+                        .failed => break :blk null,
+                    }
+                }
+                var msg_buf: [64]u8 = undefined;
+                const msg = std.fmt.bufPrint(&msg_buf, "timeout waiting for child tile {d}", .{i}) catch "timeout";
+                log.debug("supervisor", "waitProcess", msg) catch {};
+                break :blk null;
             };
-            const was_forced = if (forced_termination) |forced| forced[i] else false;
-            self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, was_forced));
-            maybe_child.* = null;
+            if (term) |t| {
+                const was_forced = if (forced_termination) |forced| forced[i] else false;
+                self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(t, was_forced));
+                maybe_child.* = null;
+            } else {
+                // Timeout: leave the child dangling but mark it stopped so
+                // tests don't see a stale .running handle.
+                const h = &self.handles[i];
+                h.state = .stopped;
+                h.crashed_because = .none;
+                maybe_child.* = null;
+            }
         }
     }
 
@@ -689,6 +723,11 @@ pub const Supervisor = struct {
         log.enter("supervisor", "stopProcess") catch {};
         defer log.exit("supervisor", "stopProcess") catch {};
         const state = self.process_state orelse return;
+        // Reap any already-dead children before refreshProcessHealth().
+        // Otherwise refreshProcessHealth() sees a dead heartbeat, marks the
+        // tile stale, and updateHandleForOutcome's stale-recovery path wrongly
+        // classifies a real crash as a clean stop.
+        self.reapExitedChildrenNoHang();
         self.refreshProcessHealth();
         const stale_before_stop = blk: {
             var snapshot: [8]bool = std.mem.zeroes([8]bool);
