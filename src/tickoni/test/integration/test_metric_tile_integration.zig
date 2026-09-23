@@ -98,23 +98,16 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
     }
     try std.testing.expect(started);
 
-    sup.stopProcess(std.testing.io);
-}
-
-// Test that the metric tile's scratch footprint query matches what the
-// topology builder expects. This validates the FFI boundary established
-// in task 1 — tk_topob_tickoni_tile_scratch_footprint returns the correct
-// value for "tkmetr" by calling through TK_METRIC_RUN.scratch_footprint.
-test "metric_tile_integration: tkmetr scratch footprint is consistent" {
-    const topo = topologies.paymentPipelineProcess();
-
-    // Find the tkmetr tile and verify it has a scratch footprint set
-    for (topo.tiles) |tile| {
-        if (std.mem.eql(u8, tile.id.slice(), "tkmetr")) {
-            return; // Found it, test passed
-        }
+    // Verify no tiles crashed during startup — if a tile crashes after
+    // spawning, the test must fail (not silently pass on PID assignment).
+    for (sup.monitor()) |h| {
+        try std.testing.expectEqual(
+            rt.tile.TileState.running,
+            h.state,
+        );
     }
-    _ = "tkmetr verified present in topology";
+
+    sup.stopProcess(std.testing.io);
 }
 
 // Test that the metric tile's HTTP endpoint is reachable on its configured
@@ -173,6 +166,15 @@ test "metric_tile_integration: HTTP endpoint is reachable" {
     }
     try std.testing.expect(has_pid);
 
+    // Verify no tiles crashed during startup — if a tile crashes after
+    // spawning, the test must fail (not silently pass on PID assignment).
+    for (sup.monitor()) |h| {
+        try std.testing.expectEqual(
+            rt.tile.TileState.running,
+            h.state,
+        );
+    }
+
     sup.stopProcess(std.testing.io);
 }
 
@@ -221,6 +223,15 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
     try std.testing.expect(has_pid);
+
+    // Verify no tiles crashed during startup — if a tile crashes after
+    // spawning, the test must fail (not silently pass on PID assignment).
+    for (sup.monitor()) |h| {
+        try std.testing.expectEqual(
+            rt.tile.TileState.running,
+            h.state,
+        );
+    }
 
     // stopProcess sends HALT via CNC and waits for children — if it returns
     // without asserting, the shutdown path works. After deinit the handles
