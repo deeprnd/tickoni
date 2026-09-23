@@ -31,8 +31,14 @@ fd_topo_join_workspace( fd_topo_t *      topo,
   char name[ PATH_MAX ];
   FD_TEST( fd_cstr_printf_check( name, PATH_MAX, NULL, "%s_%s.wksp", topo->app_name, wksp->name ) );
 
+  char path[ FD_SHMEM_PRIVATE_PATH_BUF_MAX ];
+  const char *shmem_base = fd_shmem_private_base[0] ? fd_shmem_private_base : "(unset)";
+  FD_LOG_INFO(( "fd_topo_join_workspace: app=%s wksp=%s concrete_name=%s shmem_base=%s fd_shmem_private_path=%s",
+                topo->app_name, wksp->name, name, shmem_base,
+                fd_shmem_private_path( name, wksp->page_sz, path ) ));
+
   wksp->wksp = fd_wksp_join( fd_shmem_join( name, mode, dump, NULL, NULL, NULL ) );
-  if( FD_UNLIKELY( !wksp->wksp ) ) FD_LOG_ERR(( "fd_wksp_join failed" ));
+  if( FD_UNLIKELY( !wksp->wksp ) ) FD_LOG_ERR(( "fd_wksp_join failed: name=%s shmem_base=%s path=%s", name, shmem_base, path ));
 }
 
 FD_FN_PURE static int
