@@ -19,8 +19,7 @@ const Supervisor = supervisor_mod.Supervisor;
 fn parentPidOf(io: std.Io, pid: std.process.Child.Id) !c_int {
     var path_buf: [64]u8 = undefined;
     const path = try std.fmt.bufPrint(&path_buf, "/proc/{d}/status", .{pid});
-    // Zig 0.17 Dir.openFile treats absolute paths as relative to dir; use openFileAbsolute
-    var file = try std.Io.Dir.openFileAbsolute(io, path, .{});
+    const file = try rt.file_io.openFile(io, std.Io.Dir.cwd(), path);
     defer file.close(io);
 
     var buf: [4096]u8 = undefined;

@@ -68,18 +68,13 @@ pub const ProcessConfigFile = struct {
 
 pub fn writeProcessConfig(cfg: ProcessRuntimeConfig, io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !void {
     const file_struct = ProcessConfigFile{ .cfg = cfg };
-    var file = try dir.createFile(io, sub_path, .{});
+    var file = try rt.file_io.createFile(io, dir, sub_path);
     defer file.close(io);
     try file.writePositionalAll(io, std.mem.asBytes(&file_struct), 0);
 }
 
 pub fn readProcessConfig(io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !ProcessRuntimeConfig {
-    // Zig 0.17 Dir.openFile treats absolute paths as relative to dir;
-    // use openFileAbsolute for filesystem-root paths.
-    var file: std.Io.File = if (sub_path.len > 0 and sub_path[0] == '/')
-        try std.Io.Dir.openFileAbsolute(io, sub_path, .{})
-    else
-        try dir.openFile(io, sub_path, .{});
+    var file = try rt.file_io.openFile(io, dir, sub_path);
     defer file.close(io);
     var file_struct: ProcessConfigFile = undefined;
     const buf = std.mem.asBytes(&file_struct);

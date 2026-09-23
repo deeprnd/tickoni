@@ -13,3 +13,4 @@ pub const sandbox = @import("sandbox.zig");
 pub const tile_process = @import("tile_process.zig");
 pub const topo_build = @import("topo_build.zig");
 pub const topology_spec = @import("topology_spec.zig");
+pub const file_io = @import("file_io.zig");

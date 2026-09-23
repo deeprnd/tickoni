@@ -143,11 +143,9 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
     c_abi.cnc.signal(g_ctx.cnc, c_abi.cnc.signal_boot);
 }
 
-/// Read a file at an absolute path. Zig 0.17's std.Io.Dir.openFile treats
-/// the path as relative to dir even when the path starts with '/', so we
-/// use openFileAbsolute to get true filesystem-root resolution.
+/// Read a file at an absolute path via the file_io helper.
 fn readAbsoluteFile(io: std.Io, abs_path: []const u8) anyerror!launch_spec.LaunchSpec {
-    var file = try std.Io.Dir.openFileAbsolute(io, abs_path, .{});
+    const file = try @import("file_io.zig").openFile(io, std.Io.Dir.cwd(), abs_path);
     defer file.close(io);
     var spec: launch_spec.LaunchSpec = undefined;
     const buf = std.mem.asBytes(&spec);
@@ -161,7 +159,7 @@ fn readAbsoluteFile(io: std.Io, abs_path: []const u8) anyerror!launch_spec.Launc
 
 /// Read a topology spec from an absolute path (see readAbsoluteFile).
 fn readAbsoluteTopology(io: std.Io, abs_path: []const u8) anyerror!topology_spec.TopologySpec {
-    var file = try std.Io.Dir.openFileAbsolute(io, abs_path, .{});
+    const file = try @import("file_io.zig").openFile(io, std.Io.Dir.cwd(), abs_path);
     defer file.close(io);
     var spec: topology_spec.TopologySpec = undefined;
     const buf = std.mem.asBytes(&spec);

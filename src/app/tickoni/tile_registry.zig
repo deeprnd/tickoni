@@ -84,8 +84,7 @@ fn id(comptime s: []const u8) rt.tile.TileId {
 fn loadProcessConfig(io: std.Io, spec: *const rt.launch_spec.LaunchSpec) !tiles.process.ProcessRuntimeConfig {
     var path_buf: [rt.launch_spec.shmem_path_cap + 32]u8 = undefined;
     const path = try std.fmt.bufPrint(&path_buf, "{s}/payment_pipeline.config", .{spec.shmemPath()});
-    // Zig 0.17 Dir.openFile treats absolute paths as relative to dir; use openFileAbsolute
-    var file = try std.Io.Dir.openFileAbsolute(io, path, .{});
+    const file = try rt.file_io.openFile(io, std.Io.Dir.cwd(), path);
     defer file.close(io);
     var file_struct: tiles.process.ProcessConfigFile = undefined;
     const buf = std.mem.asBytes(&file_struct);

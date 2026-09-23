@@ -1,6 +1,7 @@
 const std = @import("std");
 const schema = @import("types.zig");
 const codec = @import("codec.zig");
+const rt = @import("runtime");
 
 fn parseFixedAsciiBytes(comptime N: usize, value: []const u8) ![N]u8 {
     if (value.len > N) return error.StringTooLong;
@@ -350,7 +351,7 @@ fn expandPolicyDecisionOutcomeVarint(binary: []const u8, out: []u8) ![]u8 {
 /// Use the output to snapshot the current encoding after intentional changes.
 fn writeFixtureFile() !void {
     const path = "src/tickoni/test/fixtures/fixture_audit_gen.zig";
-    const file = try std.Io.Dir.createFileAbsolute(std.testing.io, path, .{ .truncate = true });
+    const file = try rt.file_io.createFile(std.testing.io, std.Io.Dir.cwd(), path);
     defer std.Io.File.close(file, std.testing.io);
 
     var write_buf: [4096]u8 = undefined;

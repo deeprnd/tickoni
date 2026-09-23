@@ -92,14 +92,16 @@ pub const TopologySpec = struct {
         return .{ .tiles = tiles_buf[0..self.tile_cnt], .channels = channels_buf[0..self.channel_cnt] };
     }
 
+    const fio = @import("file_io.zig");
+
     pub fn writeToFile(self: *const TopologySpec, io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !void {
-        var file = try dir.createFile(io, sub_path, .{});
+        var file = try fio.createFile(io, dir, sub_path);
         defer file.close(io);
         try file.writePositionalAll(io, std.mem.asBytes(self), 0);
     }
 
     pub fn readFromFile(io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !TopologySpec {
-        var file = try dir.openFile(io, sub_path, .{});
+        var file = try fio.openFile(io, dir, sub_path);
         defer file.close(io);
         var spec: TopologySpec = undefined;
         const buf = std.mem.asBytes(&spec);
