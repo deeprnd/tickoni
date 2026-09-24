@@ -196,6 +196,34 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     std.debug.print("CHILD [tile {d} {s}]: boot complete, shmem base={s}, workspace_name={s}\n", .{
         spec.tile_idx, spec.tile_id.slice(), spec.shmemPath(), spec.workspace_name.slice(),
     });
+
+    // Wait for supervisor's readiness marker so the workspace file is fully
+    // synced before we try to join it.  Without this we race with the
+    // kernel's delayed commit of the `.wksp` file, which causes ENOENT.
+    var readiness_path_buf: [launch_spec.shmem_path_cap + 64]u8 = undefined;
+    const readiness_path = std.fmt.bufPrint(&readiness_path_buf, "{s}/.normal/{s}.ready", .{ spec.shmemPath(), spec.workspace_name.slice() }) catch {
+        std.debug.print("tile_process: readiness path too long for tile {d}\n", .{spec.tile_idx});
+        return 1;
+    };
+    {
+        const deadline = util.process.monotonicNanos() + 5 * std.time.ns_per_s;
+        var found: bool = false;
+        while (util.process.monotonicNanos() < deadline) : (util.process.sleepNanos(1 * std.time.ms_per_s)) {
+            const exists: bool = blk: {
+                std.Io.Dir.access(std.Io.Dir.cwd(), io, readiness_path, .{}) catch break :blk false;
+                break :blk true;
+            };
+            if (exists) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            std.debug.print("tile_process: readiness marker not found for tile {d} after 5s\n", .{spec.tile_idx});
+            return 1;
+        }
+    }
+
     var built_opt: ?topo_build.BuiltTopo = null;
     defer {
         c_abi.boot.haltForTileProcess();

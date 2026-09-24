@@ -391,6 +391,18 @@ pub const Supervisor = struct {
         std.debug.print("SUPERVISOR: wksp attached, wksp ptr={x}\n", .{@intFromPtr(wksp)});
         errdefer _ = c_abi.wksp.wkspDetach(wksp);
 
+        // Write a readiness marker so child tiles know the workspace file is
+        // fully synced before they try to join it.  This avoids the race where
+        // a child thread starts executing before the kernel has committed the
+        // `.wksp` file to disk, which causes fd_shmem_info → open → ENOENT.
+        const readiness_marker = try std.fmt.allocPrint(self.allocator, "{s}/.normal/{s}.ready", .{ config.run_dir, workspace_name_slice });
+        errdefer self.allocator.free(readiness_marker);
+        {
+            var file = try std.Io.Dir.cwd().createFile(io, readiness_marker, .{ .read = true });
+            file.close(io);
+        }
+        defer self.allocator.free(readiness_marker);
+
         // Inject the attached workspace into the topology and instantiate
         // every object's content (mcache/dcache/fseq/metrics/cnc — "tile"
         // has no .new) via the same fd_topob callback array used to
