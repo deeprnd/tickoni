@@ -86,15 +86,80 @@ const ProcessState = struct {
     /// workspace, and frees owned buffers. Safe to call with a partially
     /// populated state (e.g. after a failed start).
     ///
+    /// Follows Firedancer's SIGTERM→wait→SIGKILL pattern: sends SIGTERM
+    /// first so children can exit cleanly, waits up to 500 ms, then
+    /// SIGKILLs anything still alive, and finally reaps all children
+    /// before touching shared memory.  This prevents the previous
+    /// direct-SIGKILL-then-shared-memory pattern where children could
+    /// still be alive when wkspDetach / boot.halt ran, causing segfaults.
+    ///
     /// v2.24: Crash-safe teardown — when has_child_crashed is true, C-level
     /// shared memory ops (cncLeave, wkspDetach, boot.halt) can segfault or
     /// trigger FD_LOG_PANIC because children have already torn down their
     /// shared-memory pointers. Skip those ops so the supervisor survives its
     /// own children's crashes instead of SIGABRT'ing during teardown.
-    fn deinit(self: *ProcessState, io: std.Io, allocator: std.mem.Allocator) void {
-        // Kill children first — they may be holding the workspace open.
+    fn deinit(self: *ProcessState, _: std.Io, allocator: std.mem.Allocator) void {
+        // Phase 1: send SIGTERM to every still-running child and wait up to
+        // 500 ms for a clean exit (Firedancer-style graceful shutdown).
+        const sigterm_deadline = util.process.monotonicNanos() + @as(i64, 500) * std.time.ns_per_ms;
         for (&self.children) |*maybe_child| {
-            if (maybe_child.*) |*child| child.kill(io);
+            const child = maybe_child.* orelse continue;
+            const pid = child.id orelse continue;
+            _ = std.posix.kill(pid, std.posix.SIG.TERM) catch {};
+        }
+        // Wait for children to exit after SIGTERM, reaping each one.
+        {
+            var ci: usize = 0;
+            while (ci < self.children.len) : (ci += 1) {
+                var child = self.children[ci] orelse continue;
+                var deadline = sigterm_deadline;
+                while (true) {
+                    const now = util.process.monotonicNanos();
+                    if (now >= deadline) break;
+                    switch (util.process_api.tryReapNoHang(&child)) {
+                        .running => {
+                            util.process.sleepNanos(1 * std.time.ms_per_s);
+                            deadline = sigterm_deadline;
+                        },
+                        .reaped, .detached, .failed => {
+                            self.children[ci] = null;
+                            break;
+                        },
+                    }
+                }
+                self.children[ci] = child;
+            }
+        }
+
+        // Phase 2: SIGKILL anything still alive and reap.
+        for (&self.children) |*maybe_child| {
+            const child = maybe_child.* orelse continue;
+            const pid = child.id orelse continue;
+            _ = std.posix.kill(pid, std.posix.SIG.KILL) catch {};
+        }
+        // Wait for SIGKILL'd children to die and reap them.
+        {
+            var ci: usize = 0;
+            while (ci < self.children.len) : (ci += 1) {
+                var child = self.children[ci] orelse continue;
+                const deadline = util.process.monotonicNanos() + @as(i64, 1) * std.time.ns_per_s;
+                while (util.process.monotonicNanos() < deadline) {
+                    switch (util.process_api.tryReapNoHang(&child)) {
+                        .running => util.process.sleepNanos(1 * std.time.ms_per_s),
+                        .reaped, .detached, .failed => {
+                            self.children[ci] = null;
+                            break;
+                        },
+                    }
+                }
+                self.children[ci] = child;
+            }
+        }
+        // Reap any remaining zombie children.
+        for (&self.children) |*maybe_child| {
+            var child = maybe_child.* orelse continue;
+            _ = util.process_api.tryReapNoHang(&child);
+            maybe_child.* = null;
         }
         // Skip fragile C-level shared memory ops when children have already
         // crashed. cncLeave, wkspDetach, and boot.halt dereference opaque
@@ -802,10 +867,27 @@ pub const Supervisor = struct {
         for (stale_before_stop, 0..) |was_stale, i| {
             if (!was_stale) continue;
             const maybe_child = &state.children[i];
-            const child = maybe_child.* orelse continue;
-            const pid = child.id orelse continue;
-            util.process_api.forceTerminate(pid);
-            forced_termination[i] = true;
+            var child = maybe_child.* orelse continue;
+            // Try to reap first — the child may have already exited cleanly
+            // (e.g. crash_after_heartbeats triggered std.process.exit) before
+            // refreshProcessHealth() marked it stale.  Forcing SIGKILL on a
+            // process that already exited would overwrite its exit code with
+            // .signal and make the test report the wrong crash reason.
+            switch (util.process_api.tryReapNoHang(&child)) {
+                .running => {
+                    const pid = child.id orelse continue;
+                    util.process_api.forceTerminate(pid);
+                    forced_termination[i] = true;
+                    maybe_child.* = child;
+                },
+                .reaped => |term| {
+                    self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, false));
+                    maybe_child.* = null;
+                },
+                .detached, .failed => {
+                    maybe_child.* = null;
+                },
+            }
         }
 
         self.waitProcess(io, &forced_termination);
