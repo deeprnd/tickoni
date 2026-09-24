@@ -26,6 +26,7 @@ const std = @import("std");
 const tile = @import("tile.zig");
 const cpu_placement = @import("cpu_placement.zig");
 const link = @import("link.zig");
+const util = @import("util");
 
 pub const magic: u32 = 0x544b5350; // "TKSP"
 pub const version: u16 = 1;
@@ -146,7 +147,7 @@ pub const LaunchSpec = struct {
 // ---------------------------------------------------------------------------
 
 test "LaunchSpec round-trips through a file" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     const spec = try LaunchSpec.init(.{
@@ -175,7 +176,7 @@ test "LaunchSpec round-trips through a file" {
 }
 
 test "LaunchSpec readFromFile rejects a truncated file" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var file = try tmp.dir.createFile(std.testing.io, "short.spec", .{});
@@ -186,7 +187,7 @@ test "LaunchSpec readFromFile rejects a truncated file" {
 }
 
 test "LaunchSpec readFromFile rejects a bad magic" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var spec = try LaunchSpec.init(.{

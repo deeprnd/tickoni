@@ -37,7 +37,7 @@ fn parentPidOf(io: std.Io, pid: std.process.Child.Id) !c_int {
 }
 
 test "process_topology_linux: every tile is a distinct OS process parented by the supervisor" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -82,7 +82,7 @@ test "process_topology_linux: every tile is a distinct OS process parented by th
 }
 
 test "process_topology_linux: supervisor marks a truly stuck tile stale within the tight Linux heartbeat window" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -128,7 +128,7 @@ test "process_topology_linux: supervisor marks a truly stuck tile stale within t
 }
 
 test "process_topology_linux: SIGKILL on one tile is reported by identity without corrupting siblings" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -174,7 +174,7 @@ test "process_topology_linux: SIGKILL on one tile is reported by identity withou
 }
 
 test "process_topology_linux: a self-exiting tile is reported crashed via exit_code, not signal" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;

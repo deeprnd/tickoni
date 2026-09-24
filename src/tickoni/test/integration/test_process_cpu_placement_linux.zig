@@ -103,13 +103,13 @@ test "process_cpu_placement_linux: shared-core and floating are within a 2x enve
     var floating_runs: [samples]u64 = undefined;
     var shared_runs: [samples]u64 = undefined;
     inline for (0..samples) |i| {
-        var floating_tmp = std.testing.tmpDir(.{});
+        var floating_tmp = util.tmpDir();
         defer floating_tmp.cleanup();
         var floating_path_buf: [std.fs.max_path_bytes]u8 = undefined;
         const floating_len = try floating_tmp.dir.realPath(std.testing.io, &floating_path_buf);
         floating_runs[i] = try runDurationNs(std.testing.io, topologies.paymentPipelineProcess(), floating_path_buf[0..floating_len]);
 
-        var shared_tmp = std.testing.tmpDir(.{});
+        var shared_tmp = util.tmpDir();
         defer shared_tmp.cleanup();
         var shared_path_buf: [std.fs.max_path_bytes]u8 = undefined;
         const shared_len = try shared_tmp.dir.realPath(std.testing.io, &shared_path_buf);

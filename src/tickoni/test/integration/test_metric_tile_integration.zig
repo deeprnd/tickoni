@@ -53,7 +53,7 @@ fn connectWithTimeout(
 // supervisor will spawn the tkmetr process and the tile will start its
 // HTTP metrics endpoint.
 test "metric_tile_integration: topology with tkmetr builds and starts" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -121,7 +121,7 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
 // tile's HTTP init path is reachable by confirming the supervisor spawns
 // it successfully (even if the tile crashes immediately).
 test "metric_tile_integration: HTTP endpoint is reachable" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -183,7 +183,7 @@ test "metric_tile_integration: HTTP endpoint is reachable" {
 // and the tile should observe it via STEM_CALLBACK_SHOULD_SHUTDOWN (which
 // checks ctx->cnc for FD_CNC_SIGNAL_HALT) and exit cleanly.
 test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;

@@ -4,6 +4,7 @@
 /// (starting with '/') as relative to the supplied Dir.  Use the
 /// helpers below to get true filesystem-root resolution when needed.
 const std = @import("std");
+const util = @import("util");
 
 /// Open a file for reading.  Absolute sub_paths go through
 /// openFileAbsolute; relative ones go through dir.openFile.
@@ -34,12 +35,12 @@ pub fn createFile(
 // ---------------------------------------------------------------------------
 
 test "openFile handles absolute paths" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = std.os.tmpDir(std.io.defaultStdIo(), .{});
     defer tmp.cleanup();
 
     // Write a marker file so we can verify openFile can find it.
     var marker_path_buf: [256]u8 = undefined;
-    const marker_path = try std.fmt.bufPrint(&marker_path_buf, "{s}/marker", .{tmp.cwd.realpath(std.testing.io, ".") catch unreachable});
+    const marker_path = try std.fmt.bufPrint(&marker_path_buf, "{s}/marker", .{tmp.dir.realpath(std.testing.io, ".") catch unreachable});
     var file = try std.Io.Dir.createFileAbsolute(std.testing.io, marker_path, .{});
     try file.writeAll(std.testing.io, "test");
     file.close(std.testing.io);
@@ -54,7 +55,7 @@ test "openFile handles absolute paths" {
 }
 
 test "openFile handles relative paths" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     // Create a file with relative path.
@@ -72,7 +73,7 @@ test "openFile handles relative paths" {
 }
 
 test "createFile handles absolute paths" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var path_buf: [256]u8 = undefined;
@@ -92,7 +93,7 @@ test "createFile handles absolute paths" {
 }
 
 test "createFile handles relative paths" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var file = try createFile(std.testing.io, tmp.dir, "rel_create");

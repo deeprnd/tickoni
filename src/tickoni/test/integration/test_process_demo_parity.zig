@@ -75,7 +75,7 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) 
 }
 
 test "process_demo_parity: floating, shared-core, and exclusive-core CPU placement all reach identical pipeline metrics" {
-    var tmp_floating = std.testing.tmpDir(.{});
+    var tmp_floating = util.tmpDir();
     defer tmp_floating.cleanup();
     var floating_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const floating_len = try tmp_floating.dir.realPath(std.testing.io, &floating_path_buf);
@@ -83,7 +83,7 @@ test "process_demo_parity: floating, shared-core, and exclusive-core CPU placeme
 
     const floating_metrics = try runToCompletion(std.testing.io, topologies.paymentPipelineProcess(), floating_run_dir);
 
-    var tmp_shared = std.testing.tmpDir(.{});
+    var tmp_shared = util.tmpDir();
     defer tmp_shared.cleanup();
     var shared_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const shared_len = try tmp_shared.dir.realPath(std.testing.io, &shared_path_buf);
@@ -95,7 +95,7 @@ test "process_demo_parity: floating, shared-core, and exclusive-core CPU placeme
     };
     const shared_metrics = try runToCompletion(std.testing.io, shared_topo, shared_run_dir);
 
-    var tmp_exclusive = std.testing.tmpDir(.{});
+    var tmp_exclusive = util.tmpDir();
     defer tmp_exclusive.cleanup();
     var exclusive_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const exclusive_len = try tmp_exclusive.dir.realPath(std.testing.io, &exclusive_path_buf);

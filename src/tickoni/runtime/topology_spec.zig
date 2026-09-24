@@ -16,6 +16,7 @@ const tile = @import("tile.zig");
 const cpu_placement = @import("cpu_placement.zig");
 const link = @import("link.zig");
 const topology = @import("topology.zig");
+const util = @import("util");
 
 pub const magic: u32 = 0x544b5453; // "TKST"
 pub const version: u16 = 1;
@@ -119,7 +120,7 @@ pub const TopologySpec = struct {
 // ---------------------------------------------------------------------------
 
 test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     const tiles = [_]tile.TileDescriptor{
@@ -155,7 +156,7 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
 const topology_spec_max_tiles_for_test = max_tiles;
 
 test "TopologySpec readFromFile rejects a truncated file" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var file = try tmp.dir.createFile(std.testing.io, "short.spec", .{});
@@ -166,7 +167,7 @@ test "TopologySpec readFromFile rejects a truncated file" {
 }
 
 test "TopologySpec readFromFile rejects a bad magic" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var spec = TopologySpec{ .tile_cnt = 0, .channel_cnt = 0 };

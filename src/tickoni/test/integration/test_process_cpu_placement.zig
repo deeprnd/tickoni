@@ -28,7 +28,7 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
 };
 
 test "process_cpu_placement_integration: two tiles sharing one cpu get distinct pids and still complete" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -83,7 +83,7 @@ test "process_cpu_placement_integration: two tiles sharing one cpu get distinct 
 }
 
 test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails closed before spawning" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -191,7 +191,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     const event_count: u64 = 16;
 
     // --- Run floating baseline (no explicit placement declarations) ---
-    var tmp_floating = std.testing.tmpDir(.{});
+    var tmp_floating = util.tmpDir();
     defer tmp_floating.cleanup();
     var floating_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const floating_len = try tmp_floating.dir.realPath(std.testing.io, &floating_path_buf);
@@ -229,7 +229,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     }
 
     // --- Run shared-core (two tiles on CPU 0, explicit shared) ---
-    var tmp_shared = std.testing.tmpDir(.{});
+    var tmp_shared = util.tmpDir();
     defer tmp_shared.cleanup();
     var shared_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const shared_len = try tmp_shared.dir.realPath(std.testing.io, &shared_path_buf);
