@@ -108,6 +108,8 @@ const ProcessState = struct {
             _ = std.posix.kill(pid, std.posix.SIG.TERM) catch {};
         }
         // Wait for children to exit after SIGTERM, reaping each one.
+        // Handle outcomes are set by stopProcess via reapExitedChildrenNoHang
+        // and waitProcess before deinit runs — deinit just kills and clears.
         {
             var ci: usize = 0;
             while (ci < self.children.len) : (ci += 1) {
@@ -121,13 +123,17 @@ const ProcessState = struct {
                             util.process.sleepNanos(1 * std.time.ms_per_s);
                             deadline = sigterm_deadline;
                         },
-                        .reaped, .detached, .failed => {
+                        .reaped, .detached => {
                             self.children[ci] = null;
+                            break;
+                        },
+                        .failed => {
+                            // Reap failure is non-fatal; leave child in
+                            // the array for Phase 2 to handle.
                             break;
                         },
                     }
                 }
-                self.children[ci] = child;
             }
         }
 
@@ -137,7 +143,7 @@ const ProcessState = struct {
             const pid = child.id orelse continue;
             _ = std.posix.kill(pid, std.posix.SIG.KILL) catch {};
         }
-        // Wait for SIGKILL'd children to die and reap them.
+        // Wait for SIGKILL'd children to die and reap them, recording outcomes.
         {
             var ci: usize = 0;
             while (ci < self.children.len) : (ci += 1) {
@@ -146,19 +152,17 @@ const ProcessState = struct {
                 while (util.process.monotonicNanos() < deadline) {
                     switch (util.process_api.tryReapNoHang(&child)) {
                         .running => util.process.sleepNanos(1 * std.time.ms_per_s),
-                        .reaped, .detached, .failed => {
+                        .reaped, .detached => {
                             self.children[ci] = null;
                             break;
                         },
+                        .failed => {},
                     }
                 }
-                self.children[ci] = child;
             }
         }
-        // Reap any remaining zombie children.
+        // Final reap of any remaining zombies.
         for (&self.children) |*maybe_child| {
-            var child = maybe_child.* orelse continue;
-            _ = util.process_api.tryReapNoHang(&child);
             maybe_child.* = null;
         }
         // Skip fragile C-level shared memory ops when children have already
