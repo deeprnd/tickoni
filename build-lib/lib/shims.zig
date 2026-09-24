@@ -96,10 +96,10 @@ pub fn addPlainTestRun(
     b: *std.Build,
     test_compile: *std.Build.Step.Compile,
 ) *std.Build.Step.Run {
-    const run_step = std.Build.Step.Run.create(b, b.fmt("run {s} (plain)", .{test_compile.name}));
-    run_step.producer = test_compile;
-    run_step.addArtifactArg(test_compile);
-    run_step.has_side_effects = true;
+    // addRunArtifact creates a Step.Run that actually executes the test
+    // binary and propagates its exit code (unlike Step.Run.create +
+    // addArtifactArg which registers a path but never runs it).
+    const run_step = b.addRunArtifact(test_compile);
     // CWD = repo root so tile_exe_path "build/zig-out/bin/tickoni-supervisor"
     // resolves to the installed supervisor binary (wired as dependency in
     // build_test_lanes.zig).
