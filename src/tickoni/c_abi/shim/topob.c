@@ -327,8 +327,18 @@ tk_topob_tile_out( void * topo, char const * tile_name, ulong tile_kind_id, char
   fd_topob_tile_out( (fd_topo_t *)topo, tile_name, tile_kind_id, link_name, link_kind_id );
 }
 
+/* Force normal-page workspace for Tickoni.
+
+   Firedancer's fd_topob_finish() selects page size from the total
+   workspace footprint: gigantic if > 8 MiB, huge otherwise.  Both
+   huge and gigantic need hugetlbfs which isn't available on retail
+   hardware, macOS, or Windows.  Set max_page_size to NORMAL *before*
+   the upstream finish so it picks normal 4 KiB pages.  This matches
+   the supervisor which creates files under `.normal/` with
+   shmem_normal_page_sz (4096). */
 void
 tk_topob_finish( void * topo ) {
+  ((fd_topo_t *)topo)->max_page_size = FD_SHMEM_NORMAL_PAGE_SZ;
   fd_topob_finish( (fd_topo_t *)topo, TK_CALLBACKS );
 }
 
