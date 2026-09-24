@@ -121,6 +121,7 @@ pub const TestBuilder = struct {
 
         if (spec.linkage.needs_codec) codec.linkTickoniCodec(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_firedancer) firedancer.linkTickoniFiredancer(self.b, t, self.fd_lib_dir);
+        if (spec.linkage.needs_libc) t.root_module.link_libc = true;
 
         test_step.dependOn(&t.step);
         run_cmd.addArtifactArg(t);

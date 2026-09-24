@@ -136,7 +136,7 @@ pub fn strategy(
         .linkage = .{ .needs_codec = true, .needs_firedancer = true },
     }, test_step, run_cmd);
 
-    // payment_pipeline/mod.zig — needs audit_tile, runtime, c_abi, logger.
+    // payment_pipeline/mod.zig — needs audit_tile, runtime, c_abi, logger, util.
     tb.registerRunTest(.{
         .name = "test-payment-pipeline",
         .source_file = "src/tickoni/tiles/payment_pipeline/mod.zig",
@@ -145,6 +145,7 @@ pub fn strategy(
             .{ .name = "runtime", .module = shared.runtime },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "logger", .module = shared.logger },
+            .{ .name = "util", .module = shared.util },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true },
     }, test_step, run_cmd);
@@ -234,14 +235,16 @@ pub fn strategy(
         .imports = &.{.{ .name = "conformance", .module = shared.demo_conformance }},
     }, test_step, run_cmd);
 
-    // demo/runner.zig — needs conformance, diagnostic.
+    // demo/runner.zig — needs conformance, diagnostic, util (libc).
     tb.registerRunTest(.{
         .name = "test-demo-runner",
         .source_file = "src/tickoni/demo/runner.zig",
         .imports = &.{
             .{ .name = "conformance", .module = shared.demo_conformance },
             .{ .name = "diagnostic", .module = shared.demo_diagnostic },
+            .{ .name = "util", .module = tm.util },
         },
+        .linkage = .{ .needs_libc = true },
     }, test_step, run_cmd);
 
     // demo/substitution.zig — needs diagnostic, runner.
