@@ -182,7 +182,13 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         spec.crash_after_heartbeats,
     });
 
-    boot.bootWithSyntheticArgv(spec.shmemPath()) catch |err| {
+    // Per-tile log file: {shmemPath}/logs/tile_{idx}.log
+    var log_path_buf: [256]u8 = undefined;
+    const log_path = std.fmt.bufPrint(&log_path_buf, "{s}/logs/tile_{d}.log", .{ spec.shmemPath(), spec.tile_idx }) catch {
+        std.debug.print("tile_process: log path too long for tile {d}\n", .{spec.tile_idx});
+        return 1;
+    };
+    boot.bootWithSyntheticArgv(spec.shmemPath(), log_path) catch |err| {
         std.debug.print("tile_process: bootWithSyntheticArgv failed for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };

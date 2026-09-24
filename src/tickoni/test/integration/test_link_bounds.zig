@@ -8,7 +8,7 @@ const c_abi = @import("c_abi");
 const util = @import("util");
 
 fn attachScratchWksp(io: std.Io, run_dir: []const u8, name: [*:0]const u8) !*c_abi.wksp.Wksp {
-    try rt.boot.bootWithSyntheticArgv(run_dir);
+    try rt.boot.bootWithSyntheticArgv(run_dir, "");
 
     var run_dir_handle = try std.Io.Dir.cwd().createDirPathOpen(io, run_dir, .{});
     run_dir_handle.close(io);

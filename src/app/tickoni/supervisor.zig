@@ -238,10 +238,6 @@ pub const Supervisor = struct {
         try util.cpu.getAffinity(0, &available_cpus);
         const placement_report = try rt.cpu_placement.validate(self.topo, &available_cpus);
 
-        try rt.boot.bootWithSyntheticArgv(config.run_dir);
-        var boot_needs_halt = true;
-        errdefer if (boot_needs_halt) c_abi.boot.halt();
-
         const workspace_name_slice = self.topo.channels[0].workspace_name.slice();
         if (workspace_name_slice.len == 0) return error.MissingWorkspaceName;
         for (self.topo.channels) |ch| {
@@ -257,6 +253,21 @@ pub const Supervisor = struct {
         defer self.allocator.free(normal_dir);
         var normal_dir_handle = try std.Io.Dir.cwd().createDirPathOpen(io, normal_dir, .{});
         normal_dir_handle.close(io);
+
+        // Per-tile log directory — tile processes write {run_dir}/logs/tile_{idx}.log
+        // Supervisor also logs here; must exist before boot() so fd_log can open() it.
+        const logs_dir = try std.fmt.allocPrint(self.allocator, "{s}/logs", .{config.run_dir});
+        defer self.allocator.free(logs_dir);
+        var logs_dir_handle = try std.Io.Dir.cwd().createDirPathOpen(io, logs_dir, .{});
+        logs_dir_handle.close(io);
+
+        // Supervisor log file: {run_dir}/logs/supervisor.log
+        var supervisor_log_path: [256]u8 = undefined;
+        const supervisor_log = std.fmt.bufPrint(&supervisor_log_path, "{s}/logs/supervisor.log", .{config.run_dir}) catch "";
+
+        try rt.boot.bootWithSyntheticArgv(config.run_dir, supervisor_log);
+        var boot_needs_halt = true;
+        errdefer if (boot_needs_halt) c_abi.boot.halt();
 
         // v2.14.S8.T12: build the real Firedancer topology (object graph
         // and deterministic offsets) via fd_topob. Every self-exec'd
