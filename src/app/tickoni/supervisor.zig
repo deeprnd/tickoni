@@ -55,6 +55,12 @@ pub const ProcessPipelineConfig = struct {
     /// When true, passes --verbose to child tile processes so their
     /// structured logger emits debug-level messages for troubleshooting.
     verbose: bool = false,
+    /// Workspace name for the Tango shared memory workspace. Defaults to
+    /// "tkpay0" for backward compatibility. Tests should override with a
+    /// unique name (e.g. test index or PID) to avoid shared-memory collisions
+    /// when multiple test binaries run in parallel. Passed through the
+    /// topology spec so child tile processes join the same workspace.
+    workspace_name: []const u8 = "tkpay0",
 };
 
 /// Supervisor-owned state for a running v2.14 process-mode pipeline.
@@ -307,11 +313,10 @@ pub const Supervisor = struct {
         try util.cpu.getAffinity(0, &available_cpus);
         const placement_report = try rt.cpu_placement.validate(self.topo, &available_cpus);
 
-        const workspace_name_slice = self.topo.channels[0].workspace_name.slice();
+        const workspace_name_slice = config.workspace_name;
         if (workspace_name_slice.len == 0) return error.MissingWorkspaceName;
         for (self.topo.channels) |ch| {
             if (ch.backing != .tango_shm) return error.ProcessModeRequiresTangoShm;
-            if (!std.mem.eql(u8, ch.workspace_name.slice(), workspace_name_slice)) return error.MultipleWorkspacesNotSupported;
         }
 
         // Ensure run_dir and its .normal FD_SHMEM_PATH subdirectory exist;
@@ -963,6 +968,19 @@ pub const Supervisor = struct {
     /// Returns the current handle slice — a read-only snapshot of tile states.
     pub fn monitor(self: *const Supervisor) []const TileHandle {
         return self.handles;
+    }
+
+    /// Check if any tile has crashed. Reaps children and refreshes health
+    /// before checking so stale children that died during the poll window
+    /// are detected. Returns true if any tile is in .crashed state.
+    pub fn hasCrashed(self: *Supervisor) bool {
+        // Reap any children that died during the poll window.
+        self.reapExitedChildrenNoHang();
+        self.refreshProcessHealth();
+        for (self.handles) |h| {
+            if (h.state == .crashed) return true;
+        }
+        return false;
     }
 };
 
