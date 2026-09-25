@@ -200,8 +200,18 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     // Wait for supervisor's readiness marker so the workspace file is fully
     // synced before we try to join it.  Without this we race with the
     // kernel's delayed commit of the `.wksp` file, which causes ENOENT.
-    var readiness_path_buf: [launch_spec.shmem_path_cap + 64]u8 = undefined;
-    const readiness_path = std.fmt.bufPrint(&readiness_path_buf, "{s}/.normal/{s}.ready", .{ spec.shmemPath(), spec.workspace_name.slice() }) catch {
+    //
+    // The concrete workspace name is {app_name}_{raw_name} (Firedancer
+    // convention: fd_topo.c:fd_topo_join_workspace builds "tickoni_test0"
+    // from app_name="tickoni" + wksp.name="test0"), so the readiness
+    // marker must also use the concrete name.
+    var concrete_name_buf: [topo_build.concrete_workspace_name_cap]u8 = undefined;
+    const concrete_name = topo_build.concreteWorkspaceName(&concrete_name_buf, spec.workspace_name.slice()) catch |err| {
+        std.debug.print("tile_process: failed to compute concrete workspace name for tile {d}: {t}\n", .{ spec.tile_idx, err });
+        return 1;
+    };
+    var readiness_path_buf: [launch_spec.shmem_path_cap + 128]u8 = undefined;
+    const readiness_path = std.fmt.bufPrint(&readiness_path_buf, "{s}/.normal/{s}.ready", .{ spec.shmemPath(), concrete_name }) catch {
         std.debug.print("tile_process: readiness path too long for tile {d}\n", .{spec.tile_idx});
         return 1;
     };
@@ -239,14 +249,19 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         std.debug.print("tile_process: failed to read topology spec for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
+    std.debug.print("tile_process: DESERIALIZED TopologySpec tile_cnt={d} channel_cnt={d} workspace={s}\n", .{
+        topo_spec.tile_cnt, topo_spec.channel_cnt, spec.workspace_name.slice(),
+    });
     var tiles_buf: [topology_spec.max_tiles]tile_mod.TileDescriptor = undefined;
     var channels_buf: [topology_spec.max_channels]link_mod.Channel = undefined;
     const topo_desc = topo_spec.toTopology(&tiles_buf, &channels_buf);
+    std.debug.print("tile_process: rebuilt Topology tiles={d} channels={d}\n", .{ topo_desc.tiles.len, topo_desc.channels.len });
 
     const built = topo_build.build(allocator, topo_desc, spec.workspace_name.slice()) catch |err| {
         std.debug.print("tile_process: failed to rebuild topology for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
+    std.debug.print("tile_process: topo_build.build done wksp_idx={d}\\n", .{ built.wksp_idx });
     built_opt = built;
 
     var tile_id_buf: [7]u8 = undefined;
@@ -271,6 +286,11 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         .allocator = allocator,
     };
 
+    std.debug.print("tile_process: g_ctx set tile={d} wksp_idx={d} cnc_obj_id={d} calling runTileSimple\n", .{
+        spec.tile_idx, g_ctx.wksp_idx, g_ctx.cnc_obj_id,
+    });
+
     c_abi.topo_run.runTileSimple(built.topo, c_abi.topob.topoTilePtr(built.topo, tile_idx));
+    std.debug.print("tile_process: runTileSimple returned tile={d}\n", .{spec.tile_idx});
     return 0;
 }

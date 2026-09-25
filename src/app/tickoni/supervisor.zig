@@ -400,7 +400,13 @@ pub const Supervisor = struct {
         // fully synced before they try to join it.  This avoids the race where
         // a child thread starts executing before the kernel has committed the
         // `.wksp` file to disk, which causes fd_shmem_info → open → ENOENT.
-        const readiness_marker = try std.fmt.allocPrint(self.allocator, "{s}/.normal/{s}.ready", .{ config.run_dir, workspace_name_slice });
+        //
+        // CRITICAL: the marker path MUST match what Firedancer's
+        // fd_topo_join_workspace expects for the workspace file, which is
+        // {shmem_path}/.normal/{concrete_workspace_name}.wksp.  The
+        // readiness marker uses the same {concrete_name} so the child can
+        // locate the ready workspace file.
+        const readiness_marker = try std.fmt.allocPrint(self.allocator, "{s}/.normal/{s}.ready", .{ config.run_dir, workspace_name_z });
         errdefer self.allocator.free(readiness_marker);
         {
             var file = try std.Io.Dir.cwd().createFile(io, readiness_marker, .{ .read = true });
@@ -500,7 +506,12 @@ pub const Supervisor = struct {
         // config (see topology_spec.zig's module doc, "finding 5").
         const topology_spec_path = try std.fmt.allocPrint(self.allocator, "{s}/topology.spec", .{config.run_dir});
         defer self.allocator.free(topology_spec_path);
-        const topology_spec = try rt.topology_spec.TopologySpec.fromTopology(self.topo);
+        var topology_spec = try rt.topology_spec.TopologySpec.fromTopology(self.topo);
+        // Override workspace_name with the runtime config value so
+        // child tiles look for the readiness marker at the right path
+        // (tests set a unique workspace_name like "test0"; the topology
+        // source has it hardcoded to "tkpay0").
+        topology_spec.workspace_name = try rt.link.WorkspaceName.parse(workspace_name_slice);
         try topology_spec.writeToFile(io, std.Io.Dir.cwd(), topology_spec_path);
 
         for (self.handles, 0..) |*h, i| {
@@ -510,7 +521,7 @@ pub const Supervisor = struct {
                 .tile_idx = @intCast(i),
                 .tile_id = tile.id,
                 .cpu_placement = tile.cpu_placement,
-                .workspace_name = self.topo.channels[0].workspace_name,
+                .workspace_name = try rt.link.WorkspaceName.parse(workspace_name_slice),
                 .cnc_gaddr = state.cnc_gaddrs[i],
                 .shmem_path = config.run_dir,
                 .heartbeat_interval_ns = config.heartbeat_interval_ns,
@@ -521,6 +532,8 @@ pub const Supervisor = struct {
             const spec_path = try std.fmt.allocPrint(self.allocator, "{s}/tile_{d}.spec", .{ config.run_dir, i });
             defer self.allocator.free(spec_path);
             try spec.writeToFile(io, std.Io.Dir.cwd(), spec_path);
+
+            std.debug.print("SUPERVISOR: wrote LaunchSpec to {s} (tile {d} {s})\n", .{ spec_path, i, tile.id.slice() });
 
             // Minimal explicit child environment: the tile reads its
             // shmem path from the launch spec via --shmem-path (see
@@ -613,7 +626,7 @@ pub const Supervisor = struct {
         }
     }
 
-    fn reapExitedChildrenNoHang(self: *Supervisor) void {
+    pub fn reapExitedChildrenNoHang(self: *Supervisor) void {
         const state = self.process_state orelse return;
         for (&state.children, 0..) |*maybe_child, i| {
             var child = maybe_child.* orelse continue;
@@ -703,6 +716,37 @@ pub const Supervisor = struct {
             if (now_ns > heartbeat_ns and now_ns - heartbeat_ns > state.heartbeat_stale_after_ns) {
                 h.state = .stale;
                 h.crashed_because = .stale;
+            }
+        }
+        // Reap any exited children and detect crashes.
+        for (state.children, 0..) |*maybe_child, i| {
+            const child = maybe_child.* orelse continue;
+            switch (util.process_api.tryReapNoHang(maybe_child)) {
+                .running => {},
+                .reaped => |term| {
+                    var exit_code: i32 = 0;
+                    const reason: CrashReason = switch (term) {
+                        .signal => .signal,
+                        .exited => |code| {
+                            exit_code = code;
+                            if (code == 0) continue;
+                            .unexpected;
+                        },
+                        .stopped => .signal,
+                        .unknown => .unexpected,
+                    };
+                    const h = &self.handles[i];
+                    if (h.state == .starting or h.state == .running) {
+                        h.state = .crashed;
+                        h.crashed_because = reason;
+                        h.exit_code = exit_code;
+                    }
+                    state.has_child_crashed = true;
+                },
+                .detached => {
+                    state.has_child_crashed = true;
+                },
+                .failed => {},
             }
         }
     }
