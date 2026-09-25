@@ -51,7 +51,7 @@ fn connectWithTimeout(
 /// Helper: check for tile crashes and report details.
 /// Must be called BEFORE stopProcess(), which reclassifies crashes via
 /// stale-recovery paths.
-fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) void {
+fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) !void {
     // Reap children that died during the poll window
     sup.reapExitedChildrenNoHang();
     sup.refreshProcessHealth();
@@ -61,8 +61,8 @@ fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) void {
         if (h.state == .crashed) {
             has_crash = true;
             std.debug.print(
-                "  tile {d} ({s}) crashed: exit_code={d} reason={s}\n",
-                .{ h.tile_idx, h.tile_id.slice(), h.exit_code, @tagName(h.crashed_because) },
+                "  tile {d} crashed: exit_code={d} reason={s}\n",
+                .{ h.tile_idx, h.exit_code, @tagName(h.crashed_because) },
             );
         }
     }
@@ -74,14 +74,14 @@ fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) void {
             .{run_dir},
         ) catch unreachable;
         defer std.testing.allocator.free(logs_dir);
-        const dir = std.Io.Dir.cwd().openDir(logs_dir, .{}) catch unreachable;
+        const dir = std.Io.Dir.cwd().openDir(std.testing.io, logs_dir, .{}) catch unreachable;
         defer dir.close(std.testing.io);
         var iter = dir.iterate();
-        while (iter.next()) |entry| {
+        while (try iter.next(std.testing.io)) |entry| {
             std.debug.print("  log: {s}\n", .{entry.name});
         }
         std.testing.allocator.free(logs_dir);
-        try std.testing.expectError(error.TileCrashed, error.TileCrashed);
+        std.debug.panic("TileCrashed", .{});
     }
 }
 
@@ -140,7 +140,7 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
     try std.testing.expect(started);
 
     // CRASH DETECTION: check before stopProcess
-    expectNoCrashes(&sup, run_dir);
+    try expectNoCrashes(&sup, run_dir);
 
     sup.stopProcess(std.testing.io);
 }
@@ -200,7 +200,7 @@ test "metric_tile_integration: HTTP endpoint is reachable" {
     try std.testing.expect(has_pid);
 
     // CRASH DETECTION: check before stopProcess
-    expectNoCrashes(&sup, run_dir);
+    try expectNoCrashes(&sup, run_dir);
 
     sup.stopProcess(std.testing.io);
 }
@@ -252,7 +252,7 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
     try std.testing.expect(has_pid);
 
     // CRASH DETECTION: check before stopProcess
-    expectNoCrashes(&sup, run_dir);
+    try expectNoCrashes(&sup, run_dir);
 
     // stopProcess sends HALT via CNC and waits for children — if it returns
     // without asserting, the shutdown path works. After deinit the handles

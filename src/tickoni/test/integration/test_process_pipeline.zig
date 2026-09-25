@@ -80,16 +80,14 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
             .{run_dir},
         );
         defer std.testing.allocator.free(logs_dir);
-        var dir = try std.Io.Dir.cwd().openDir(logs_dir, .{});
+        var dir = try std.Io.Dir.cwd().openDir(std.testing.io, logs_dir, .{});
         defer dir.close(std.testing.io);
         var iter = dir.iterate();
-        while (try iter.next()) |entry| {
+        while (try iter.next(std.testing.io)) |entry| {
             std.debug.print("  log: {s}\n", .{entry.name});
         }
         std.testing.allocator.free(logs_dir);
-
-        // Fail the test — don't let stopProcess reclassify crashes
-        try std.testing.expectError(error.TileCrashed, error.TileCrashed);
+        std.debug.panic("TileCrashed", .{});
     }
 
     sup.stopProcess(std.testing.io);
@@ -162,7 +160,7 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
                 );
             }
         }
-        try std.testing.expectError(error.TileCrashed, error.TileCrashed);
+        std.debug.panic("TileCrashed", .{});
     }
 
     sup.stopProcess(std.testing.io);
