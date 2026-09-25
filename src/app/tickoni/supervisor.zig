@@ -706,19 +706,11 @@ pub const Supervisor = struct {
         const now = util.process.monotonicNanos();
         if (now <= 0) return;
         const now_ns: u64 = @intCast(now);
-        for (state.cncs, 0..) |maybe_cnc, i| {
-            const h = &self.handles[i];
-            if (h.state != .starting and h.state != .running) continue;
-            const cnc = maybe_cnc orelse continue;
-            const heartbeat = c_abi.cnc.heartbeatQuery(cnc);
-            if (heartbeat <= 0) continue;
-            const heartbeat_ns: u64 = @intCast(heartbeat);
-            if (now_ns > heartbeat_ns and now_ns - heartbeat_ns > state.heartbeat_stale_after_ns) {
-                h.state = .stale;
-                h.crashed_because = .stale;
-            }
-        }
-        // Reap any exited children and detect crashes.
+        // Reap any exited children FIRST so we detect crashes before
+        // reading cnc heartbeats.  A crashed tile's cnc is corrupted and
+        // reading it can SIGSEGV/SIGABRT the supervisor; by reaping first
+        // the handle is already marked .crashed and we skip it below.
+        var crashed_mask: [8]bool = std.mem.zeroes([8]bool);
         for (state.children, 0..) |maybe_child, i| {
             if (maybe_child == null) continue;
             switch (util.process_api.tryReapNoHang(&state.children[i].?)) {
@@ -743,11 +735,29 @@ pub const Supervisor = struct {
                         h.exit_code = @intCast(exit_code);
                     }
                     state.has_child_crashed = true;
+                    crashed_mask[i] = true;
                 },
                 .detached => {
                     state.has_child_crashed = true;
+                    crashed_mask[i] = true;
                 },
                 .failed => {},
+            }
+        }
+        // Read heartbeats from surviving tiles only — skip any tile whose
+        // child has been reaped (crashed or stopped) so we never dereference
+        // a stale cnc pointer into a dead child's address space.
+        for (state.cncs, 0..) |maybe_cnc, i| {
+            const h = &self.handles[i];
+            if (h.state != .starting and h.state != .running) continue;
+            if (crashed_mask[i]) continue;
+            const cnc = maybe_cnc orelse continue;
+            const heartbeat = c_abi.cnc.heartbeatQuery(cnc);
+            if (heartbeat <= 0) continue;
+            const heartbeat_ns: u64 = @intCast(heartbeat);
+            if (now_ns > heartbeat_ns and now_ns - heartbeat_ns > state.heartbeat_stale_after_ns) {
+                h.state = .stale;
+                h.crashed_because = .stale;
             }
         }
     }
