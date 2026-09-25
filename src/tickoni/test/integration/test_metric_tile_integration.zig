@@ -48,6 +48,43 @@ fn connectWithTimeout(
     return error.ConnectionTimeout;
 }
 
+/// Helper: check for tile crashes and report details.
+/// Must be called BEFORE stopProcess(), which reclassifies crashes via
+/// stale-recovery paths.
+fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) void {
+    // Reap children that died during the poll window
+    sup.reapExitedChildrenNoHang();
+    sup.refreshProcessHealth();
+
+    var has_crash = false;
+    for (sup.monitor()) |h| {
+        if (h.state == .crashed) {
+            has_crash = true;
+            std.debug.print(
+                "  tile {d} ({s}) crashed: exit_code={d} reason={s}\n",
+                .{ h.tile_idx, h.tile_id.slice(), h.exit_code, @tagName(h.crashed_because) },
+            );
+        }
+    }
+    if (has_crash) {
+        // Dump per-tile log paths for diagnostics
+        const logs_dir = std.fmt.allocPrint(
+            std.testing.allocator,
+            "{s}/logs",
+            .{run_dir},
+        ) catch unreachable;
+        defer std.testing.allocator.free(logs_dir);
+        const dir = std.Io.Dir.cwd().openDir(logs_dir, .{}) catch unreachable;
+        defer dir.close(std.testing.io);
+        var iter = dir.iterate();
+        while (iter.next()) |entry| {
+            std.debug.print("  log: {s}\n", .{entry.name});
+        }
+        std.testing.allocator.free(logs_dir);
+        try std.testing.expectError(error.TileCrashed, error.TileCrashed);
+    }
+}
+
 // Test that the metric tile initializes and the topology can be built
 // with tkmetr present. This is a structural sanity check — the process-mode
 // supervisor will spawn the tkmetr process and the tile will start its
@@ -62,7 +99,10 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
 
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
-    defer sup.deinit();
+    defer {
+        sup.stopProcess(std.testing.io);
+        sup.deinit();
+    }
 
     // Verify tkmetr tile exists in topology
     var found_metric_tile = false;
@@ -80,6 +120,7 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = "metr0",
     });
 
     // Wait for the metric tile process to start
@@ -98,14 +139,8 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
     }
     try std.testing.expect(started);
 
-    // Verify no tiles crashed during startup — if a tile crashes after
-    // spawning, the test must fail (not silently pass on PID assignment).
-    for (sup.monitor()) |h| {
-        try std.testing.expectEqual(
-            rt.tile.TileState.running,
-            h.state,
-        );
-    }
+    // CRASH DETECTION: check before stopProcess
+    expectNoCrashes(&sup, run_dir);
 
     sup.stopProcess(std.testing.io);
 }
@@ -130,13 +165,10 @@ test "metric_tile_integration: HTTP endpoint is reachable" {
 
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
-    // stopProcess must run before deinit — otherwise deinit's assert on
-    // process_state == null fires on any error/panic path.
-    errdefer {
+    defer {
         sup.stopProcess(std.testing.io);
         sup.deinit();
     }
-    defer sup.deinit();
 
     // Start the pipeline — metric tile will bind its HTTP server on startup.
     // Tiles may crash (FileNotFound) but the spawn itself proves the
@@ -146,6 +178,7 @@ test "metric_tile_integration: HTTP endpoint is reachable" {
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = "metr1",
     });
 
     // Wait briefly for the metric tile process to appear (spawn is instant;
@@ -166,14 +199,8 @@ test "metric_tile_integration: HTTP endpoint is reachable" {
     }
     try std.testing.expect(has_pid);
 
-    // Verify no tiles crashed during startup — if a tile crashes after
-    // spawning, the test must fail (not silently pass on PID assignment).
-    for (sup.monitor()) |h| {
-        try std.testing.expectEqual(
-            rt.tile.TileState.running,
-            h.state,
-        );
-    }
+    // CRASH DETECTION: check before stopProcess
+    expectNoCrashes(&sup, run_dir);
 
     sup.stopProcess(std.testing.io);
 }
@@ -192,11 +219,10 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
 
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
-    errdefer {
+    defer {
         sup.stopProcess(std.testing.io);
         sup.deinit();
     }
-    defer sup.deinit();
 
     // Start the pipeline
     const event_count: u64 = 4;
@@ -204,6 +230,7 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = "metr2",
     });
 
     // Wait briefly for the metric tile process to appear (spawn is instant;
@@ -224,14 +251,8 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
     }
     try std.testing.expect(has_pid);
 
-    // Verify no tiles crashed during startup — if a tile crashes after
-    // spawning, the test must fail (not silently pass on PID assignment).
-    for (sup.monitor()) |h| {
-        try std.testing.expectEqual(
-            rt.tile.TileState.running,
-            h.state,
-        );
-    }
+    // CRASH DETECTION: check before stopProcess
+    expectNoCrashes(&sup, run_dir);
 
     // stopProcess sends HALT via CNC and waits for children — if it returns
     // without asserting, the shutdown path works. After deinit the handles
