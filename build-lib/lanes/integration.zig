@@ -88,16 +88,12 @@ pub fn strategy(
     // can spawn it (tile_exe_path = "build/zig-out/bin/tickoni-supervisor").
     // Each process test run step depends on the install so the file exists.
     if (target.result.os.tag == .linux) {
-        // Note: test_process_topology.zig and test_process_topology_linux.zig
-        // contain a `crash_after_heartbeats=1` negative test (deliberately
-        // crashes tkrepl).  They are excluded from the integration lane because
-        // the integration lane requires all tests to pass; keep them in the
-        // tree for manual / ad-hoc verification.
         const process_tests: []const []const u8 = &.{
             "src/tickoni/test/integration/test_metric_tile_integration.zig",
             "src/tickoni/test/integration/test_process_pipeline.zig",
             "src/tickoni/test/integration/test_process_cpu_placement.zig",
             "src/tickoni/test/integration/test_process_cpu_placement_linux.zig",
+            "src/tickoni/test/integration/test_process_topology.zig",
             "src/tickoni/test/integration/test_process_demo_parity.zig",
         };
 

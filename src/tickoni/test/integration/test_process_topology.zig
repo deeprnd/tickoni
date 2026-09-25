@@ -1,9 +1,11 @@
 /// v2.14.S1 M6 portable process topology proof: real child-process
 /// separation, crash attribution by tile identity, stale classification, and
-/// the process-mode fail-closed configuration checks that do not depend on
-/// Linux-only /proc or affinity semantics.
+/// the process-mode fail-closed configuration checks. Parent-PID validation
+/// uses the cross-platform c_abi.os.parentPid() which resolves via /proc
+/// on Linux, sysctl on macOS, and CreateToolhelp32Snapshot on Windows.
 const std = @import("std");
 const rt = @import("runtime");
+const c_abi = @import("c_abi");
 const supervisor_mod = @import("supervisor");
 const topologies = @import("topologies");
 const util = @import("util");
@@ -29,11 +31,16 @@ test "process_topology_integration: every tile is a distinct OS process parented
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
     });
 
+    const supervisor_pid = c_abi.sandbox.getpid();
+
     var seen_pids: [8]std.process.Child.Id = undefined;
     for (sup.monitor(), 0..) |h, i| {
         const pid = h.pid orelse return error.MissingPid;
         for (seen_pids[0..i]) |other| try std.testing.expect(other != pid);
         seen_pids[i] = pid;
+
+        const ppid = try c_abi.os.parentPid(pid);
+        try std.testing.expectEqual(supervisor_pid, ppid);
     }
 
     const max_polls: u32 = 400;
