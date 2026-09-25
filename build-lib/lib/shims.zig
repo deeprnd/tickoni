@@ -88,22 +88,25 @@ pub fn shimCFlagsFor(target: std.Target) []const []const u8 {
     };
 }
 
-/// Wrap a test compile step with a sequential run command using
+/// Wrap a test compile step with a sequential run using
 /// `contrib/test/run_test_series.sh`.  This avoids Zig's --listen=-
 /// parallel coordination which panics with EndOfStream when 48+ test
-/// binaries communicate over the same pipe.
+/// binaries communicate over the same pipe, and correctly propagates
+/// non-zero exit codes when test binaries crash (the coordinator in
+/// --listen=- mode exits 0 even when children SIGABRT).
 pub fn addPlainTestRun(
     b: *std.Build,
     test_compile: *std.Build.Step.Compile,
 ) *std.Build.Step.Run {
-    // addRunArtifact creates a Step.Run that actually executes the test
-    // binary and propagates its exit code (unlike Step.Run.create +
-    // addArtifactArg which registers a path but never runs it).
-    const run_step = b.addRunArtifact(test_compile);
     // CWD = repo root so tile_exe_path "build/zig-out/bin/tickoni-supervisor"
     // resolves to the installed supervisor binary (wired as dependency in
     // build_test_lanes.zig).
+    const run_step = b.addSystemCommand(&.{
+        "bash",
+        "contrib/test/run_test_series.sh",
+    });
     run_step.setCwd(b.path("."));
+    run_step.addArtifactArg(test_compile);
     return run_step;
 }
 
