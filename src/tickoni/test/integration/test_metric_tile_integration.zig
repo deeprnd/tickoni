@@ -31,51 +31,68 @@ const HttpResponse = struct {
 };
 
 // ---------------------------------------------------------------------------
-// HTTP helpers — use std.http.Client (Zig 0.17 std.Io.net.Stream is
-// read-only, so raw TCP write is unavailable).
+// HTTP helpers — raw TCP client that reads until the server closes the
+// connection.  std.http.Client blocks forever on HTTP/1.0 responses
+// without Content-Length, which is exactly what fd_http_server sends.
 //
 // IMPORTANT: the caller owns resp.body and must free it.
 // ---------------------------------------------------------------------------
 
 fn httpGet(io: std.Io, host: []const u8, port: u16, path: []const u8) anyerror!HttpResponse {
-    var client = std.http.Client{ .allocator = std.testing.allocator, .io = io };
-
-    var response_writer: std.Io.Writer.Allocating = .init(std.testing.allocator);
-
-    const url = try std.fmt.allocPrint(
+    const req = try std.fmt.allocPrint(
         std.testing.allocator,
-        "http://{s}:{d}{s}",
-        .{ host, port, path },
+        "GET {s} HTTP/1.1\r\nHost: {s}:{d}\r\nConnection: close\r\n\r\n",
+        .{ path, host, port },
     );
+    defer std.testing.allocator.free(req);
 
-    defer {
-        client.deinit();
-        response_writer.deinit();
-        std.testing.allocator.free(url);
+    var address = std.Io.net.IpAddress.parse(host, port) catch unreachable;
+    var stream = try std.Io.net.IpAddress.connect(&address, io, .{ .mode = .stream, .protocol = .tcp });
+    defer stream.socket.close(io);
+
+    // Extract the socket file descriptor for POSIX I/O.
+    const fd = @as(c_int, @intCast(stream.socket.handle));
+
+    // Write request using std.posix.write (returns anyerror!usize in Zig 0.16+).
+    var written: usize = 0;
+    while (written < req.len) {
+        const remaining = req.len - written;
+        const n = std.posix.write(fd, req[written..]) catch |err| return err;
+        written += n;
     }
 
-    _ = try client.fetch(.{
-        .location = .{ .url = url },
-        .method = .GET,
-        .response_writer = &response_writer.writer,
-    });
+    // Read response using std.posix.read (returns anyerror!usize in Zig 0.16+).
+    var read_buf: [256 * 1024]u8 = undefined;
+    var total: usize = 0;
+    while (total < read_buf.len) {
+        const remaining = read_buf.len - total;
+        const n = std.posix.read(fd, read_buf[total..].ptr) catch |err| switch (err) {
+            error.ConnectionReset => break,
+            error.TryAgain => { util.process.sleepNanos(1 * std.time.ns_per_ms); continue; },
+            else => return err,
+        };
+        if (n == 0) break;
+        total += @as(usize, @intCast(n));
+    }
 
-    const response_text = response_writer.written();
+    const response_text = read_buf[0..total];
+    const body = try std.testing.allocator.dupe(u8, response_text);
 
     // Parse status code from the first line: "HTTP/1.1 <STATUS> <REASON>\r\n"
-    var it = std.mem.splitScalar(u8, response_text, '\n');
-    const first_line = it.next() orelse return error.InvalidResponse;
-    const space1 = std.mem.indexOfScalar(u8, first_line, ' ') orelse return error.InvalidResponse;
-    const space2 = std.mem.indexOfScalar(u8, first_line[space1 + 1 ..], ' ') orelse return error.InvalidResponse;
+    var it = std.mem.splitScalar(u8, body, '\n');
+    const first_line = it.next() orelse { std.testing.allocator.free(body); return error.InvalidResponse; };
+    const space1 = std.mem.indexOfScalar(u8, first_line, ' ') orelse { std.testing.allocator.free(body); return error.InvalidResponse; };
+    const space2 = std.mem.indexOfScalar(u8, first_line[space1 + 1 ..], ' ') orelse { std.testing.allocator.free(body); return error.InvalidResponse; };
     const status_str = first_line[space1 + 1 .. space1 + 1 + space2];
-    const status_code = std.fmt.parseInt(u16, status_str, 10) catch return error.InvalidResponse;
+    const status_code = std.fmt.parseInt(u16, status_str, 10) catch { std.testing.allocator.free(body); return error.InvalidResponse; };
 
-    // The body starts after the first \r\n\r\n
-    const header_end = std.mem.indexOfScalar(u8, response_text, '\n') orelse return error.InvalidResponse;
+    // The body starts after the \r\n\r\n header terminator.
+    const header_end = std.mem.indexOf(u8, body, "\r\n\r\n") orelse { std.testing.allocator.free(body); return error.InvalidResponse; };
     const body_start = header_end + 4; // skip \r\n\r\n
-    const body = response_text[body_start..];
+    const body_data = try std.testing.allocator.dupe(u8, body[body_start..]);
+    std.testing.allocator.free(body);
 
-    return HttpResponse{ .status_code = status_code, .body = body };
+    return HttpResponse{ .status_code = status_code, .body = body_data };
 }
 
 // ---------------------------------------------------------------------------
@@ -196,7 +213,7 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
     }
     try std.testing.expect(found_metric_tile);
 
-    const event_count: u64 = 4;
+    const event_count: u64 = 1000;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
@@ -235,7 +252,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
         sup.deinit();
     }
 
-    const event_count: u64 = 64;
+    const event_count: u64 = 1000;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
@@ -313,7 +330,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
         sup.deinit();
     }
 
-    const event_count: u64 = 64;
+    const event_count: u64 = 1000;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
@@ -361,7 +378,7 @@ test "metric_tile_integration: BYTES_READ increases after HTTP fetches" {
         sup.deinit();
     }
 
-    const event_count: u64 = 64;
+    const event_count: u64 = 1000;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
@@ -450,7 +467,7 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
         sup.deinit();
     }
 
-    const event_count: u64 = 64;
+    const event_count: u64 = 1000;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,

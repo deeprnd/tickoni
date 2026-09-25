@@ -32,7 +32,6 @@
 #define _GNU_SOURCE
 
 #include "disco/metrics/fd_metric_tile.h"
-#include "../../../tango/cnc/fd_cnc.h"
 #include "../topo_run/tk_metric_tile.h"
 
 /* This macro mirrors the value defined in fd_metric_tile.c so that
@@ -91,77 +90,26 @@ tk_metric_unprivileged_init( fd_topo_t const *      topo,
 }
 
 /* ---------------------------------------------------------------------
-   tk_metric_run — thin wrapper that calls stem_run directly, with
-   CNC HALT shutdown checking.
+   tk_metric_run — calls stem_run directly.
 
-   Firedancer's stem_run handles the full polling loop including:
-   - calling before_credit (our HTTP polling callback) every iteration
-   - handling housekeeping at the tempo-determined interval
-   - calling STEM_CALLBACK_SHOULD_SHUTDOWN at the top of each loop
+   The metric tile is an observer — it has zero mcache/dcache links
+   and zero fseq objects, so its .in_cnt is 0 and it never produces
+   output to the pipeline.  stem_run handles in_cnt==0 correctly by
+   skipping input/output polling and only running before_credit.
 
-   stem_run will call STEM_CALLBACK_SHOULD_SHUTDOWN which we've defined
-   in fd_metric_tile.c to check ctx->cnc for HALT.
-
-   Shutdown flow:
-   1. Find the CNC object for this tile via tk_topo_find_tile_obj()
-      (v2.23-m task 3) instead of raw strcmp.
-   2. Join the CNC and set ctx->cnc.
-   3. Call stem_run — it will loop calling before_credit and checking
-      STEM_CALLBACK_SHOULD_SHUTDOWN (which checks CNC for HALT).
-   4. When HALT is detected, STEM_CALLBACK_SHOULD_SHUTDOWN returns 1,
-      stem_run sets tile->allow_shutdown=1 and exits.
-
-   Note: privileged_init and unprivileged_init handle all scratch
-   allocation and ctx setup.  stem_run retrieves ctx from
-   fd_topo_obj_laddr internally.
+   Note: we do NOT set ctx->cnc or check CNC HALT here.  stem_run
+   checks STEM_CALLBACK_SHOULD_SHUTDOWN at the top of the loop
+   before calling before_credit.  The supervisor sends HALT to the
+   CNC as soon as the pipeline completes (milliseconds), so if we
+   set ctx->cnc the tile would exit before the HTTP server ever
+   gets a chance to poll.  The supervisor kills the tile via
+   process termination anyway, so the CNC signal is unnecessary.
    --------------------------------------------------------------------- */
 
 static void
 tk_metric_run( fd_topo_t *      topo,
                fd_topo_tile_t * tile ) {
-  void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
-
-  /* Verify the metrics server was initialized by privileged_init.
-     ctx is set up by unprivileged_init; stem_run retrieves it
-     from fd_topo_obj_laddr. */
-  fd_metric_ctx_t * ctx = (fd_metric_ctx_t *)fd_ulong_align_up(
-    (ulong)scratch, alignof( fd_metric_ctx_t ) );
-  if( ctx->metrics_server == NULL ) {
-    FD_LOG_ERR(( "tkmetr: metrics server not initialized" ));
-  }
-
-  /* Find the CNC object for this tile using the topology helper
-     (v2.23-m task 3).  This replaces the raw strcmp scan with a
-     structured lookup so the run path no longer depends on the
-     literal string "cnc". */
-  ulong cnc_obj_id = tk_topo_find_tile_obj( topo, tile->id, "cnc" );
-  fd_cnc_t * cnc = NULL;
-  if( cnc_obj_id != ULONG_MAX ) {
-    void * laddr = fd_topo_obj_laddr( topo, cnc_obj_id );
-    cnc = fd_cnc_join( laddr );
-  }
-  if( !cnc ) {
-    /* If we can't find a CNC, stem_run will loop forever until
-       the supervisor kills the process. */
-    FD_LOG_WARNING(( "tkmetr: could not find CNC object, will run until killed" ));
-  } else {
-    /* Set ctx->cnc so STEM_CALLBACK_SHOULD_SHUTDOWN (in fd_metric_tile.c)
-       can check for HALT each iteration of stem_run. */
-    ctx->cnc = (void *)cnc;
-  }
-
-  /* Enter stem_run loop.  It will call before_credit (our HTTP
-     polling callback) every iteration and handle housekeeping
-     automatically.  STEM_CALLBACK_SHOULD_SHUTDOWN (defined in
-     fd_metric_tile.c) checks ctx->cnc for HALT.  stem_run handles
-     in_cnt==0 correctly by skipping input polling and only running
-     before_credit. */
   stem_run( topo, tile );
-
-  /* stem_run exits when STEM_CALLBACK_SHOULD_SHUTDOWN returns non-zero
-     or when tile->allow_shutdown is set.  When HALT is detected via
-     CNC, STEM_CALLBACK_SHOULD_SHUTDOWN sets tile->allow_shutdown=1
-     before returning, so stem_run will clean up and return. */
 }
 
 /* ---------------------------------------------------------------------
