@@ -719,27 +719,28 @@ pub const Supervisor = struct {
             }
         }
         // Reap any exited children and detect crashes.
-        for (state.children, 0..) |*maybe_child, i| {
-            const child = maybe_child.* orelse continue;
-            switch (util.process_api.tryReapNoHang(maybe_child)) {
+        for (state.children, 0..) |maybe_child, i| {
+            if (maybe_child == null) continue;
+            switch (util.process_api.tryReapNoHang(&state.children[i].?)) {
                 .running => {},
                 .reaped => |term| {
                     var exit_code: i32 = 0;
-                    const reason: CrashReason = switch (term) {
-                        .signal => .signal,
+                    var reason: CrashReason = .exit_code;
+                    switch (term) {
+                        .signal => reason = .signal,
                         .exited => |code| {
                             exit_code = code;
-                            if (code == 0) continue;
-                            .unexpected;
+                            reason = .exit_code;
                         },
-                        .stopped => .signal,
-                        .unknown => .unexpected,
-                    };
+                        .stopped => reason = .signal,
+                        .unknown => reason = .exit_code,
+                    }
+                    if (exit_code == 0) continue;
                     const h = &self.handles[i];
                     if (h.state == .starting or h.state == .running) {
                         h.state = .crashed;
                         h.crashed_because = reason;
-                        h.exit_code = exit_code;
+                        h.exit_code = @intCast(exit_code);
                     }
                     state.has_child_crashed = true;
                 },
