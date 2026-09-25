@@ -1,5 +1,4 @@
 # Test: Integration recipes
-
 test-integration-fd:
     @true
 
