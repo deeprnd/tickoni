@@ -1,6 +1,5 @@
 /// Build helpers for supervisor executable, CLI executable, check step,
 /// and fixture path verification. Extracted from build.zig.
-
 const std = @import("std");
 const shims = @import("shims.zig");
 const codec = @import("codec.zig");
@@ -80,6 +79,12 @@ pub fn createSupervisorExe(
         codec.addTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
         exe.root_module.linkSystemLibrary("zstd", .{});
     }
+
+    // Linux-only: memfd_create() for topology handoff (v2.25 orchestrator migration).
+    if (target.result.os.tag == .linux) {
+        exe.root_module.link_libc = true;
+        exe.root_module.addIncludePath(b.path("src/tickoni/c_abi/include"));
+    }
     return exe;
 }
 
@@ -113,7 +118,7 @@ pub fn createCliExe(
         .root_module = cli_main_mod,
     });
     cli_exe.root_module.addCSourceFiles(.{
-        .files = &.{ "src/tickoni/util/compiler_version.c" },
+        .files = &.{"src/tickoni/util/compiler_version.c"},
     });
     if (target.result.os.tag == .windows) {
         cli_exe.root_module.linkLibrary(codec.addTickoniCodecShimLibrary(b, target, optimize, "tickoni-codec-shims"));
