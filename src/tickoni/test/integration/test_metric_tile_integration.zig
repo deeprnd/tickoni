@@ -66,7 +66,10 @@ fn httpGet(io: std.Io, host: []const u8, port: u16, path: []const u8) anyerror!H
     while (total < read_buf.len) {
         const n = std.posix.read(fd, read_buf[total..]) catch |err| switch (err) {
             error.ConnectionReset => break,
-            error.TryAgain => { util.process.sleepNanos(1 * std.time.ns_per_ms); continue; },
+            error.TryAgain => {
+                util.process.sleepNanos(1 * std.time.ns_per_ms);
+                continue;
+            },
             else => return err,
         };
         if (n == 0) break;
@@ -78,14 +81,29 @@ fn httpGet(io: std.Io, host: []const u8, port: u16, path: []const u8) anyerror!H
 
     // Parse status code from the first line: "HTTP/1.1 <STATUS> <REASON>\r\n"
     var it = std.mem.splitScalar(u8, body, '\n');
-    const first_line = it.next() orelse { std.testing.allocator.free(body); return error.InvalidResponse; };
-    const space1 = std.mem.indexOfScalar(u8, first_line, ' ') orelse { std.testing.allocator.free(body); return error.InvalidResponse; };
-    const space2 = std.mem.indexOfScalar(u8, first_line[space1 + 1 ..], ' ') orelse { std.testing.allocator.free(body); return error.InvalidResponse; };
+    const first_line = it.next() orelse {
+        std.testing.allocator.free(body);
+        return error.InvalidResponse;
+    };
+    const space1 = std.mem.indexOfScalar(u8, first_line, ' ') orelse {
+        std.testing.allocator.free(body);
+        return error.InvalidResponse;
+    };
+    const space2 = std.mem.indexOfScalar(u8, first_line[space1 + 1 ..], ' ') orelse {
+        std.testing.allocator.free(body);
+        return error.InvalidResponse;
+    };
     const status_str = first_line[space1 + 1 .. space1 + 1 + space2];
-    const status_code = std.fmt.parseInt(u16, status_str, 10) catch { std.testing.allocator.free(body); return error.InvalidResponse; };
+    const status_code = std.fmt.parseInt(u16, status_str, 10) catch {
+        std.testing.allocator.free(body);
+        return error.InvalidResponse;
+    };
 
     // The body starts after the \r\n\r\n header terminator.
-    const header_end = std.mem.indexOf(u8, body, "\r\n\r\n") orelse { std.testing.allocator.free(body); return error.InvalidResponse; };
+    const header_end = std.mem.indexOf(u8, body, "\r\n\r\n") orelse {
+        std.testing.allocator.free(body);
+        return error.InvalidResponse;
+    };
     const body_start = header_end + 4; // skip \r\n\r\n
     const body_data = try std.testing.allocator.dupe(u8, body[body_start..]);
     std.testing.allocator.free(body);

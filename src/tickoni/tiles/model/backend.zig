@@ -313,8 +313,7 @@ pub const HttpBackend = struct {
             .payload = json_body,
             .response_writer = &resp_writer.writer,
         }) catch |err| switch (err) {
-            error.ConnectionRefused, error.NetworkUnreachable, error.HostUnreachable, error.Timeout =>
-                return error.ServerUnreachable,
+            error.ConnectionRefused, error.NetworkUnreachable, error.HostUnreachable, error.Timeout => return error.ServerUnreachable,
             else => return err,
         };
 

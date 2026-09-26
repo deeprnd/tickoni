@@ -178,7 +178,7 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     };
 
     std.debug.print("CHILD [tile {d} {s}]: shmem_path={s} workspace_name={s} crash_after_heartbeats={d}\n", .{
-        spec.tile_idx, spec.tile_id.slice(), spec.shmemPath(), spec.workspace_name.slice(),
+        spec.tile_idx,               spec.tile_id.slice(), spec.shmemPath(), spec.workspace_name.slice(),
         spec.crash_after_heartbeats,
     });
 
@@ -261,7 +261,7 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         std.debug.print("tile_process: failed to rebuild topology for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
-    std.debug.print("tile_process: topo_build.build done wksp_idx={d}\\n", .{ built.wksp_idx });
+    std.debug.print("tile_process: topo_build.build done wksp_idx={d}\\n", .{built.wksp_idx});
     built_opt = built;
 
     var tile_id_buf: [7]u8 = undefined;
