@@ -20,7 +20,7 @@ const topology = @import("topology.zig");
 const cpu_placement = @import("cpu_placement.zig");
 
 /// Gated behind -Dtopo_build_debug to keep CI output clean.
-pub const topo_build_debug: bool = false;
+pub const topo_build_debug: bool = true;
 
 const Topo = c_abi.topob.Topo;
 
@@ -133,65 +133,71 @@ pub fn build(
     var wksp_name_z_buf: [64]u8 = undefined;
     const wksp_name_z = toZ(&wksp_name_z_buf, workspace_name);
 
-    // v2.22.S4 Task 0: Create metric and metric_in workspaces for
-    // Firedancer's metric tile architecture. The metric tile needs a
-    // separate workspace for its own data (metric) and a shared workspace
-    // for all tile links it reads from (metric_in).
-    var metric_wksp_idx: usize = c_abi.topob.not_found;
-    var metric_in_wksp_idx: usize = c_abi.topob.not_found;
-    var metric_tile_idx: usize = c_abi.topob.not_found;
-
-    // Check if tkmetr tile is present in the topology
-    var tkmetr_name_buf: [8]u8 = undefined;
-    const tkmetr_idx = c_abi.topob.topoFindTile(topo, toZ(&tkmetr_name_buf, "tkmetr"), 0);
-    if (tkmetr_idx != c_abi.topob.not_found) {
-        metric_wksp_idx = c_abi.topob.topobWksp(topo, "metric");
-        metric_in_wksp_idx = c_abi.topob.topobWksp(topo, "metric_in");
-        metric_tile_idx = tkmetr_idx;
+    // v2.22.S4 Task 0: Scan tiles to detect if tkmetr is present BEFORE
+    // creating workspaces, so we only create metric/metric_in when needed.
+    var has_metric_tile = false;
+    for (topo_desc.tiles) |t| {
+        if (std.mem.eql(u8, t.id.slice(), "tkmetr")) {
+            has_metric_tile = true;
+            break;
+        }
     }
 
-    // Links first, then tiles, then metric tile wiring (so in_cnt is known),
-    // then autoLayout, then CNC objects, then channel wiring — a fixed
-    // construction order so object ids stay deterministic across
+    // v2.22.S4 Task 0: Create metric and metric_in workspaces only when
+    // tkmetr is present, so links and tiles route correctly for all topologies.
+    const metric_wksp_idx: usize = if (has_metric_tile) c_abi.topob.topobWksp(topo, "metric") else c_abi.topob.not_found;
+    const metric_in_wksp_idx: usize = if (has_metric_tile) c_abi.topob.topobWksp(topo, "metric_in") else c_abi.topob.not_found;
+    var metric_tile_idx: usize = c_abi.topob.not_found;
+
+    // Links first, then tiles, then metric tile wiring (so in_cnt is
+    // known), then autoLayout, then CNC objects, then channel wiring — a
+    // fixed construction order so object ids stay deterministic across
     // parent/child rebuilds.
     const link_ids = try allocator.alloc(usize, topo_desc.channels.len);
     defer allocator.free(link_ids);
     for (topo_desc.channels, 0..) |ch, i| {
         var link_name_buf: [8]u8 = undefined;
-        // v2.22.S4 Task 0: Links go into metric_in workspace if metric tile present
-        const link_wksp_z = if (metric_in_wksp_idx != c_abi.topob.not_found) blk: {
-            var wbuf: [16]u8 = undefined;
-            break :blk toZ(&wbuf, "metric_in");
-        } else wksp_name_z;
+        // v2.22.S4 Task 0: Links go into metric_in only when tkmetr is present
+        const link_wksp_z = if (has_metric_tile) "metric_in" else wksp_name_z;
         link_ids[i] = c_abi.topob.topobLink(topo, linkNameZ(&link_name_buf, i), link_wksp_z, ch.depth, ch.mtu, 1);
     }
 
     const cpu_idx_arr = try allocator.alloc(usize, topo_desc.tiles.len);
     errdefer allocator.free(cpu_idx_arr);
     for (topo_desc.tiles, 0..) |t, i| {
-        var tile_name_buf: [8]u8 = undefined;
-        // v2.22.S4 Task 0: tkmetr goes into metric workspace
-        const tile_wksp_z = if (metric_wksp_idx != c_abi.topob.not_found and std.mem.eql(u8, t.id.slice(), "tkmetr")) blk: {
-            var wbuf: [16]u8 = undefined;
-            break :blk toZ(&wbuf, "metric");
-        } else wksp_name_z;
-        const tile_id = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, t.id.slice()), tile_wksp_z, tile_wksp_z, 0);
-        _ = tile_id;
+        var tile_name_buf: [16]u8 = undefined;
+        // v2.22.S4 Task 0: tkmetr goes into metric workspace when present
+        const tile_wksp_z = if (has_metric_tile and std.mem.eql(u8, t.id.slice(), "tkmetr")) "metric" else wksp_name_z;
+        _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, t.id.slice()), tile_wksp_z, tile_wksp_z, 0);
         cpu_idx_arr[i] = tileCpuIdx(i, t.cpu_placement);
+    }
+
+    // Detect metric tile after all tiles are registered.
+    if (has_metric_tile) {
+        var tkmetr_name_buf: [16]u8 = undefined;
+        const tkmetr_idx = c_abi.topob.topoFindTile(topo, toZ(&tkmetr_name_buf, "tkmetr"), 0);
+        if (tkmetr_idx != c_abi.topob.not_found) {
+            metric_tile_idx = tkmetr_idx;
+            if (topo_build_debug) std.debug.print("topo_build: detected tkmetr tile at idx={d}, metric_wksp={d}, metric_in_wksp={d}\n", .{
+                metric_tile_idx, metric_wksp_idx, metric_in_wksp_idx });
+        } else {
+            if (topo_build_debug) std.debug.print("topo_build: tkmetr NOT found in topology\n", .{});
+        }
+    } else {
+        if (topo_build_debug) std.debug.print("topo_build: no tkmetr tile in topology\n", .{});
     }
 
     // v2.22.S4 Task 0: Wire each tile's output links into the metric tile
     // via the metric_in workspace BEFORE topobAutoLayout so that the
     // metric tile's in_cnt is set correctly by the layout engine.
-    // Each link uses a distinct in-link index so the metric tile sees
-    // the correct number of input links.
     if (metric_tile_idx != c_abi.topob.not_found) {
         for (topo_desc.channels, 0..) |_, i| {
+            var tile_name_buf: [16]u8 = undefined;
+            var in_name_buf: [16]u8 = undefined;
             var link_name_buf: [8]u8 = undefined;
             const link_name_z = linkNameZ(&link_name_buf, i);
             // Connect this link into the metric tile's inputs from metric_in workspace
-            // Use distinct in-link indices so in_cnt is set correctly
-            _ = c_abi.topob.topobTileIn(topo, "tkmetr", @as(u32, @intCast(i)), toZ(&link_name_buf, "metric_in"), link_name_z, 0, true, true);
+            _ = c_abi.topob.topobTileIn(topo, toZ(&tile_name_buf, "tkmetr"), 0, toZ(&in_name_buf, "metric_in"), link_name_z, 0, true, true);
         }
     }
 
@@ -246,15 +252,25 @@ pub fn build(
         };
     }
 
+    // DEBUG: print workspace -> object mapping before finish
+    if (topo_build_debug) {
+        std.debug.print("topo_build: calling topobDebugWkspObjIds\n", .{});
+        c_abi.topob.topobDebugWkspObjIds(topo);
+    }
+
     c_abi.topob.topobFinish(topo);
 
     // v2.22.S4 Task 3: Create a dedicated scratch object for the metric tile.
     // fd_tile_metric.c's scratch_footprint computes the size from METRICS_PARAMS.
     // We add a "tkmetr_tile" object so fd_topo_run_tile can resolve
     // tile->tile_obj_id for the metric tile's scratch allocation.
+    // CRITICAL: The scratch object MUST live in the same workspace as the
+    // tkmetr tile (metric workspace), not the app workspace, so that
+    // fd_topo_obj_laddr resolves to a valid address.
     var metric_tile_obj_id: usize = 0;
     if (metric_tile_idx != c_abi.topob.not_found) {
-        metric_tile_obj_id = c_abi.topob.topobObj(topo, "tkmetr_tile", wksp_name_z);
+        const metric_tile_wksp_z = toZ(&wksp_name_z_buf, "metric");
+        metric_tile_obj_id = c_abi.topob.topobObj(topo, "tkmetr_tile", metric_tile_wksp_z);
         // Mark this object as used by the metric tile
         c_abi.topob.topobTileUses(topo, metric_tile_idx, metric_tile_obj_id, true);
         // Set tile_obj_id so fd_topo_run_tile can find the scratch space

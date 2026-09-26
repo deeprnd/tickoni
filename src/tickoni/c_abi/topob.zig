@@ -69,6 +69,11 @@ extern fn tk_topob_set_tile_obj_property_ulong(topo: *Topo, tile_name: [*:0]cons
 extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
 extern fn tk_topo_tile_set_tile_obj_id(topo: *Topo, tile_id: usize, obj_id: usize) void;
 extern fn tk_topo_tile_set_metric_port(topo: *Topo, tile_id: usize, port: c_ushort) void;
+extern fn tk_topob_debug_wksp_objs_internal(topo: *Topo) void;
+
+pub fn topobDebugWkspObjIds(topo: *Topo) void {
+    tk_topob_debug_wksp_objs_internal(topo);
+}
 
 // ---------------------------------------------------------------------------
 // Public Zig wrappers.

@@ -508,3 +508,26 @@ void
 tk_topo_tile_set_metric_port( void * topo, ulong tile_id, ushort port ) {
   ((fd_topo_t *)topo)->tiles[ tile_id ].metric.prometheus_listen_port = port;
 }
+
+/* Debug: print workspace-to-object mapping.
+   Called from topo_build.zig before topob_finish to diagnose
+   "no object found for workspace" errors. */
+void
+tk_topob_debug_wksp_objs_internal( void * topo ) {
+  fd_topo_t * t = (fd_topo_t *)topo;
+  fprintf(stderr, "\n[topo_build debug] wksp_cnt=%lu obj_cnt=%lu tile_cnt=%lu link_cnt=%lu\n",
+          t->wksp_cnt, t->obj_cnt, t->tile_cnt, t->link_cnt);
+  for( ulong w=0UL; w<t->wksp_cnt; w++ ) {
+    ulong obj_cnt = 0UL;
+    for( ulong o=0UL; o<t->obj_cnt; o++ )
+      if( t->objs[ o ].wksp_id==w ) obj_cnt++;
+    fprintf(stderr, "  wksp[%lu] '%s' => %lu objects", w, t->workspaces[ w ].name, obj_cnt);
+    if( obj_cnt==0UL )
+      fprintf(stderr, " *** EMPTY! ***");
+    fprintf(stderr, "\n");
+    for( ulong o=0UL; o<t->obj_cnt; o++ ) {
+      if( t->objs[ o ].wksp_id==w )
+        fprintf(stderr, "    obj[%lu] '%s' (wksp_id=%lu)\n", o, t->objs[ o ].name, t->objs[ o ].wksp_id);
+    }
+  }
+}
