@@ -97,18 +97,29 @@ tk_metric_unprivileged_init( fd_topo_t const *      topo,
    output to the pipeline.  stem_run handles in_cnt==0 correctly by
    skipping input/output polling and only running before_credit.
 
-   Note: we do NOT set ctx->cnc or check CNC HALT here.  stem_run
-   checks STEM_CALLBACK_SHOULD_SHUTDOWN at the top of the loop
-   before calling before_credit.  The supervisor sends HALT to the
-   CNC as soon as the pipeline completes (milliseconds), so if we
-   set ctx->cnc the tile would exit before the HTTP server ever
-   gets a chance to poll.  The supervisor kills the tile via
-   process termination anyway, so the CNC signal is unnecessary.
+   We set ctx->cnc before calling stem_run so STEM_CALLBACK_SHOULD_SHUTDOWN
+   can detect HALT from the supervisor.  This is the critical fix:
+   without it, stem_run loops forever because ctx->cnc is NULL and
+   the shutdown callback always returns 0.
    --------------------------------------------------------------------- */
 
 static void
 tk_metric_run( fd_topo_t *      topo,
                fd_topo_tile_t * tile ) {
+  /* ctx is the first object allocated from scratch (after privileged_init
+     and unprivileged_init).  We set ctx->cnc here so stem_run's
+     STEM_CALLBACK_SHOULD_SHUTDOWN can detect HALT from the supervisor. */
+  void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
+  fd_metric_ctx_t * ctx = (fd_metric_ctx_t *)scratch;
+
+  /* Find the CNC object for this tile and set ctx->cnc so
+     STEM_CALLBACK_SHOULD_SHUTDOWN can detect HALT. */
+  ulong cnc_obj_id = tk_topo_find_tile_obj( topo, tile->id, "cnc" );
+  if( cnc_obj_id != ULONG_MAX ) {
+    void * cnc_laddr = fd_topo_obj_laddr( topo, cnc_obj_id );
+    ctx->cnc = cnc_laddr;
+  }
+
   stem_run( topo, tile );
 }
 
