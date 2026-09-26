@@ -905,6 +905,13 @@ pub const Supervisor = struct {
     /// for exit, and fully tears down the shared workspace. Sibling tiles
     /// are not touched by one tile's crash; this only requests a clean
     /// stop of tiles that are still running.
+    /// StopProcess: send HALT, reap, deinit shared memory — used for
+    /// process-mode tests that use startPaymentPipelineProcess.
+    ///
+    /// IMPORTANT: the pipeline thread must be stopped before stopProcess()
+    /// runs, because stopProcess() does NOT touch self.pipeline and
+    /// deinit() will see a live pipeline and call joinThreads() again,
+    /// which hangs when the tile threads are already gone.
     pub fn stopProcess(self: *Supervisor, io: std.Io) void {
         const log = logger.get();
         log.enter("supervisor", "stopProcess") catch {};
@@ -940,15 +947,12 @@ pub const Supervisor = struct {
         var forced_termination: [8]bool = undefined;
         var ci: usize = 0;
         while (ci < forced_termination.len) : (ci += 1) forced_termination[ci] = false;
-        for (stale_before_stop, 0..) |was_stale, i| {
-            if (!was_stale) continue;
+        // Force terminate ALL running children, not just stale ones.
+        // Tiles that finish normally never become stale but may hang
+        // waiting for external events (e.g. HTTP server, CNC HALT).
+        for (state.cncs, 0..) |_, i| {
             const maybe_child = &state.children[i];
             var child = maybe_child.* orelse continue;
-            // Try to reap first — the child may have already exited cleanly
-            // (e.g. crash_after_heartbeats triggered std.process.exit) before
-            // refreshProcessHealth() marked it stale.  Forcing SIGKILL on a
-            // process that already exited would overwrite its exit code with
-            // .signal and make the test report the wrong crash reason.
             switch (util.process_api.tryReapNoHang(&child)) {
                 .running => {
                     const pid = child.id orelse continue;
