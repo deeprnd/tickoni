@@ -50,30 +50,41 @@ fn httpGet(io: std.Io, host: []const u8, port: u16, path: []const u8) anyerror!H
     var stream = try std.Io.net.IpAddress.connect(&address, io, .{ .mode = .stream, .protocol = .tcp });
     defer stream.socket.close(io);
 
-    // Extract the socket file descriptor for POSIX I/O.
     const fd = @as(c_int, @intCast(stream.socket.handle));
 
-    // Write request using std.posix.system.write (returns anyerror!usize in Zig 0.17+).
+    // Write the HTTP request to the socket using raw POSIX write.
+    // Zig 0.17: std.posix.system.write is the raw C write() returning isize.
     var written: usize = 0;
     while (written < req.len) {
-        const n = std.posix.system.write(fd, req[written..]) catch |err| return err;
+        const result = std.posix.system.write(
+            fd,
+            req[written..].ptr,
+            req.len - written,
+        );
+        if (result < 0) return @errorFromInt(@as(u16, @intCast(-@as(c_int, @intCast(result)))));
+        const n = @as(usize, @intCast(result));
+        if (n == 0) return error.WriteFailed;
         written += n;
     }
 
-    // Read response using std.posix.read (returns anyerror!usize in Zig 0.17+).
+    // Read the HTTP response from the socket using std.posix.read.
+    // Zig 0.17: std.posix.read returns ReadError!usize.
     var read_buf: [256 * 1024]u8 = undefined;
     var total: usize = 0;
     while (total < read_buf.len) {
         const n = std.posix.read(fd, read_buf[total..]) catch |err| switch (err) {
-            error.ConnectionReset => break,
-            error.TryAgain => {
-                util.process.sleepNanos(1 * std.time.ns_per_ms);
-                continue;
-            },
+            error.ConnectionResetByPeer => break,
+            error.WouldBlock => break,
             else => return err,
         };
         if (n == 0) break;
-        total += @as(usize, @intCast(n));
+        total += n;
+    }
+
+    // Must have at least a minimal HTTP response line
+    if (total < 15) {
+        std.testing.allocator.free(read_buf[0..total]);
+        return error.InvalidResponse;
     }
 
     const response_text = read_buf[0..total];
@@ -245,6 +256,10 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
 
+    // Fail if pipeline didn't complete within max_polls
+    const metrics = sup.snapshotProcessMetrics();
+    try std.testing.expectEqual(event_count, metrics.audited);
+
     try expectNoCrashes(&sup, run_dir);
     sup.stopProcess(std.testing.io);
 }
@@ -370,6 +385,8 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
         try std.testing.expectEqual(@as(u16, 404), resp.status_code);
         done = true;
     }
+
+    try std.testing.expect(done);
 
     try expectNoCrashes(&sup, run_dir);
     sup.stopProcess(std.testing.io);
@@ -558,6 +575,10 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
         if (sup.snapshotProcessMetrics().audited >= event_count) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
+
+    // Fail if pipeline didn't complete within max_polls
+    const metrics = sup.snapshotProcessMetrics();
+    try std.testing.expectEqual(event_count, metrics.audited);
 
     try expectNoCrashes(&sup, run_dir);
     sup.stopProcess(std.testing.io);
