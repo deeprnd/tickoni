@@ -53,20 +53,18 @@ fn httpGet(io: std.Io, host: []const u8, port: u16, path: []const u8) anyerror!H
     // Extract the socket file descriptor for POSIX I/O.
     const fd = @as(c_int, @intCast(stream.socket.handle));
 
-    // Write request using std.posix.write (returns anyerror!usize in Zig 0.16+).
+    // Write request using std.posix.system.write (returns anyerror!usize in Zig 0.17+).
     var written: usize = 0;
     while (written < req.len) {
-        const remaining = req.len - written;
-        const n = std.posix.write(fd, req[written..]) catch |err| return err;
+        const n = std.posix.system.write(fd, req[written..]) catch |err| return err;
         written += n;
     }
 
-    // Read response using std.posix.read (returns anyerror!usize in Zig 0.16+).
+    // Read response using std.posix.read (returns anyerror!usize in Zig 0.17+).
     var read_buf: [256 * 1024]u8 = undefined;
     var total: usize = 0;
     while (total < read_buf.len) {
-        const remaining = read_buf.len - total;
-        const n = std.posix.read(fd, read_buf[total..].ptr) catch |err| switch (err) {
+        const n = std.posix.read(fd, read_buf[total..]) catch |err| switch (err) {
             error.ConnectionReset => break,
             error.TryAgain => { util.process.sleepNanos(1 * std.time.ns_per_ms); continue; },
             else => return err,

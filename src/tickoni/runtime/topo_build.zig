@@ -150,8 +150,9 @@ pub fn build(
         metric_tile_idx = tkmetr_idx;
     }
 
-    // Links first, then tiles, then per-tile cnc objects, then wiring —
-    // a fixed construction order so object ids stay deterministic across
+    // Links first, then tiles, then metric tile wiring (so in_cnt is known),
+    // then autoLayout, then CNC objects, then channel wiring — a fixed
+    // construction order so object ids stay deterministic across
     // parent/child rebuilds.
     const link_ids = try allocator.alloc(usize, topo_desc.channels.len);
     defer allocator.free(link_ids);
@@ -177,6 +178,21 @@ pub fn build(
         const tile_id = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, t.id.slice()), tile_wksp_z, tile_wksp_z, 0);
         _ = tile_id;
         cpu_idx_arr[i] = tileCpuIdx(i, t.cpu_placement);
+    }
+
+    // v2.22.S4 Task 0: Wire each tile's output links into the metric tile
+    // via the metric_in workspace BEFORE topobAutoLayout so that the
+    // metric tile's in_cnt is set correctly by the layout engine.
+    // Each link uses a distinct in-link index so the metric tile sees
+    // the correct number of input links.
+    if (metric_tile_idx != c_abi.topob.not_found) {
+        for (topo_desc.channels, 0..) |_, i| {
+            var link_name_buf: [8]u8 = undefined;
+            const link_name_z = linkNameZ(&link_name_buf, i);
+            // Connect this link into the metric tile's inputs from metric_in workspace
+            // Use distinct in-link indices so in_cnt is set correctly
+            _ = c_abi.topob.topobTileIn(topo, "tkmetr", @as(u32, @intCast(i)), toZ(&link_name_buf, "metric_in"), link_name_z, 0, true, true);
+        }
     }
 
     c_abi.topob.topobAutoLayout(topo, @as([*]const usize, cpu_idx_arr.ptr));
@@ -210,18 +226,6 @@ pub fn build(
         const obj_id = c_abi.topob.topobObj(topo, "cnc", wksp_name_z);
         c_abi.topob.topobTileUses(topo, i, obj_id, true);
         cnc_obj_id[i] = obj_id;
-    }
-
-    // v2.22.S4 Task 0: Wire each tile's output links into the metric tile
-    // via the metric_in workspace. The metric tile reads all links from
-    // metric_in so it can poll metrics from every producing tile.
-    if (metric_tile_idx != c_abi.topob.not_found) {
-        for (topo_desc.channels, 0..) |_, i| {
-            var link_name_buf: [8]u8 = undefined;
-            const link_name_z = linkNameZ(&link_name_buf, i);
-            // Connect this link into the metric tile's inputs from metric_in workspace
-            _ = c_abi.topob.topobTileIn(topo, "tkmetr", 0, toZ(&link_name_buf, "metric_in"), link_name_z, 0, true, true);
-        }
     }
 
     const link_obj_id = try allocator.alloc(LinkObjIds, topo_desc.channels.len);
