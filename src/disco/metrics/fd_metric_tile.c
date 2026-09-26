@@ -137,6 +137,11 @@ privileged_init( fd_topo_t const *      topo,
                  fd_topo_tile_t const * tile ) {
   void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
 
+  FD_LOG_NOTICE(( "[tkmetr] privileged_init START: tile name=%s kind_id=%lu tile_obj_id=%lu",
+                  tile->name, tile->kind_id, tile->tile_obj_id ));
+  FD_LOG_NOTICE(( "[tkmetr] privileged_init: tile->metric.prometheus_listen_addr=%u port=%u",
+                  tile->metric.prometheus_listen_addr, tile->metric.prometheus_listen_port ));
+
   FD_SCRATCH_ALLOC_INIT( l, scratch );
   fd_metric_ctx_t * ctx = FD_SCRATCH_ALLOC_APPEND( l, alignof( fd_metric_ctx_t ), sizeof( fd_metric_ctx_t ) );
 
@@ -147,6 +152,10 @@ privileged_init( fd_topo_t const *      topo,
   };
   ctx->metrics_server = fd_http_server_join( fd_http_server_new( _metrics, METRICS_PARAMS, metrics_callbacks, ctx ) );
   fd_http_server_listen( ctx->metrics_server, tile->metric.prometheus_listen_addr, tile->metric.prometheus_listen_port );
+  FD_LOG_NOTICE(( "[tkmetr] privileged_init: fd_http_server_listen complete, socket_fd=%d",
+                  (int)fd_http_server_fd(ctx->metrics_server) ));
+  FD_LOG_NOTICE(( "[tkmetr] privileged_init END: metrics_server=%p socket_fd=%d",
+                  (void*)ctx->metrics_server, (int)fd_http_server_fd(ctx->metrics_server) ));
 }
 
 void

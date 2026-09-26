@@ -849,6 +849,13 @@ initialize_numa_assignments( fd_topo_t * topo ) {
     ulong max_footprint = 0UL;
     ulong max_obj = ULONG_MAX;
 
+    /* DEBUG: print all objects before NUMA assignment */
+    if( FD_UNLIKELY( i==1UL ) ) { /* workspace 1 = "metric" */
+      for( ulong o=0UL; o<topo->obj_cnt; o++ )
+        FD_LOG_WARNING(( "  DEBUG obj[%lu] '%s' wksp_id=%lu footprint=%lu",
+                          o, topo->objs[ o ].name, topo->objs[ o ].wksp_id, topo->objs[ o ].footprint ));
+    }
+
     for( ulong j=0UL; j<topo->obj_cnt; j++ ) {
       fd_topo_obj_t * obj = &topo->objs[ j ];
       if( obj->wksp_id!=i ) continue;
@@ -860,7 +867,9 @@ initialize_numa_assignments( fd_topo_t * topo ) {
       }
     }
 
-    if( FD_UNLIKELY( max_obj==ULONG_MAX ) ) FD_LOG_ERR(( "no object found for workspace %s", topo->workspaces[ i ].name ));
+    if( FD_UNLIKELY( max_obj==ULONG_MAX ) ) {
+      FD_LOG_ERR(( "no object found for workspace %s", topo->workspaces[ i ].name ));
+    }
 
     int found_strict   = 0;
     int found_lazy     = 0;
