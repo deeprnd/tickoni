@@ -216,8 +216,6 @@ fn threadTrampoline(state: *PaymentPipelineState, run_fn: tile_registry.RunFn) v
     run_fn(state);
 }
 
-/// Write a readiness marker file so child tile processes know the workspace
-/// file is fully synced before they try to join it.
 /// Explicitly sync a workspace file after topoWkspNew completes.
 /// Opens the workspace file (.{shmem_path}/.normal/{concrete_name}) and calls
 /// fsync so child processes see fully-written workspace data. Replaces the
