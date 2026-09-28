@@ -197,42 +197,9 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         spec.tile_idx, spec.tile_id.slice(), spec.shmemPath(), spec.workspace_name.slice(),
     });
 
-    // Wait for supervisor's readiness marker so the workspace file is fully
-    // synced before we try to join it.  Without this we race with the
-    // kernel's delayed commit of the `.wksp` file, which causes ENOENT.
-    //
-    // The concrete workspace name is {app_name}_{raw_name} (Firedancer
-    // convention: fd_topo.c:fd_topo_join_workspace builds "tickoni_test0"
-    // from app_name="tickoni" + wksp.name="test0"), so the readiness
-    // marker must also use the concrete name.
-    var concrete_name_buf: [topo_build.concrete_workspace_name_cap]u8 = undefined;
-    const concrete_name = topo_build.concreteWorkspaceName(&concrete_name_buf, spec.workspace_name.slice()) catch |err| {
-        std.debug.print("tile_process: failed to compute concrete workspace name for tile {d}: {t}\n", .{ spec.tile_idx, err });
-        return 1;
-    };
-    var readiness_path_buf: [launch_spec.shmem_path_cap + 128]u8 = undefined;
-    const readiness_path = std.fmt.bufPrint(&readiness_path_buf, "{s}/.normal/{s}.ready", .{ spec.shmemPath(), concrete_name }) catch {
-        std.debug.print("tile_process: readiness path too long for tile {d}\n", .{spec.tile_idx});
-        return 1;
-    };
-    {
-        const deadline = util.process.monotonicNanos() + 5 * std.time.ns_per_s;
-        var found: bool = false;
-        while (util.process.monotonicNanos() < deadline) : (util.process.sleepNanos(1 * std.time.ms_per_s)) {
-            const exists: bool = blk: {
-                std.Io.Dir.access(std.Io.Dir.cwd(), io, readiness_path, .{}) catch break :blk false;
-                break :blk true;
-            };
-            if (exists) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            std.debug.print("tile_process: readiness marker not found for tile {d} after 5s\n", .{spec.tile_idx});
-            return 1;
-        }
-    }
+    // Workspace file is fsync'd by the supervisor after topoWkspNew completes
+    // (supervisor.zig:syncWorkspace). Child processes can join immediately
+    // without polling — the workspace data is guaranteed to be flushed.
 
     var built_opt: ?topo_build.BuiltTopo = null;
     defer {
