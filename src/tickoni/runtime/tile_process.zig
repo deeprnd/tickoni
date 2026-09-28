@@ -212,7 +212,7 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     var channels_buf: [topology_spec.max_channels]link_mod.Channel = undefined;
     const topo_desc = topo_spec.toTopology(&tiles_buf, &channels_buf);
 
-    const built = topo_build.build(allocator, topo_desc, spec.workspace_name.slice(), spec.metric_port) catch |err| {
+    const built = topo_build.build(allocator, topo_desc, topo_spec.workspace_name.slice(), topo_spec.metric_port) catch |err| {
         std.debug.print("tile_process: failed to rebuild topology for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };

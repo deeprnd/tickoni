@@ -40,7 +40,7 @@ pub const TopologySpec = struct {
     channel_dst_idx: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
     channel_depth: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
     channel_mtu: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
-    workspace_name: link.WorkspaceName = {},
+    workspace_name: link.WorkspaceName = std.mem.zeroes(link.WorkspaceName),
     metric_port: u16 = 7999,
 
     pub fn fromTopology(topo: topology.Topology, metric_port: u16) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec {
