@@ -266,6 +266,9 @@ fragment bounds errors; link depth, MTU, burst, or fragment-size mismatches;
 non-advancing reliable consumers; accidental heap-backed correctness queues in
 process mode; and forced tile crashes that must not corrupt sibling tile state.
 
+See [workspace-management.md](workspace-management.md) for workspace lifecycle,
+the Firedancer vs Tickoni backing divergence, and the object callback system.
+
 These tests prove Tickoni's boundary around reused Firedancer substrate. They
 do not require fuzzing every Firedancer workspace internal, proving arbitrary
 kernel memory-attack resistance, or claiming production throughput saturation.
