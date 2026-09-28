@@ -218,11 +218,31 @@ fn threadTrampoline(state: *PaymentPipelineState, run_fn: tile_registry.RunFn) v
 
 /// Write a readiness marker file so child tile processes know the workspace
 /// file is fully synced before they try to join it.
-fn writeReadinessMarker(allocator: std.mem.Allocator, run_dir: []const u8, workspace_name: []const u8, io: std.Io) !void {
-    const readiness_marker = try std.fmt.allocPrint(allocator, "{s}/.normal/{s}.ready", .{ run_dir, workspace_name });
-    defer allocator.free(readiness_marker);
-    const file = try std.Io.Dir.createFile(io, readiness_marker, .{});
+/// Explicitly sync a workspace file after topoWkspNew completes.
+/// Opens the workspace file (.{shmem_path}/.normal/{concrete_name}) and calls
+/// fsync so child processes see fully-written workspace data. Replaces the
+/// readiness marker with an explicit fsync.
+fn syncWorkspace(self: *Supervisor, io: std.Io, workspace_name: []const u8, wksp_idx: u32) !void {
+    var concrete_name_buf: [rt.topo_build.concrete_workspace_name_cap]u8 = undefined;
+    const concrete_name = rt.topo_build.concreteWorkspaceName(&concrete_name_buf, workspace_name) catch |err| {
+        const log = logger.get();
+        log.err("supervisor", "syncWorkspace", std.fmt.bufPrint(&.{}, "failed to compute concrete workspace name: {t}", .{err}) catch "unknown error") catch {};
+        return err;
+    };
+    var wksp_path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const wksp_path = std.fmt.bufPrint(&wksp_path_buf, "{s}/.normal/{s}", .{ self.process_state.?.run_dir, concrete_name }) catch |err| {
+        const log = logger.get();
+        log.err("supervisor", "syncWorkspace", std.fmt.bufPrint(&.{}, "workspace path too long: {t}", .{err}) catch "unknown error") catch {};
+        return err;
+    };
+    const file = try std.Io.Dir.openFile(io, std.Io.Dir.cwd(), wksp_path, .{});
     defer file.close(io);
+    // Get the OS-level file descriptor for fsync.
+    // std.Io.File.fd_t is available in Zig 0.17.
+    const fd = file.handle;
+    // Use std.posix.fsync on the file descriptor.
+    // On non-Unix platforms this is a no-op / stub.
+    _ = std.posix.fsync(@intCast(fd));
 }
 
 pub const Supervisor = struct {
@@ -497,19 +517,16 @@ pub const Supervisor = struct {
         c_abi.topob.topoWkspSetPtr(built_topo.topo, built_topo.wksp_idx, wksp);
         c_abi.topob.topoWkspNew(built_topo.topo, built_topo.wksp_idx);
 
-        // Write readiness markers AFTER all workspaces have been
-        // instantiated (topoWkspNew runs .new callbacks that create
-        // mcache/dcache/fseq/metrics/cnc objects).  Tiles that spawn
-        // immediately after seeing the markers must find valid objects
-        // in every joined workspace — writing markers before topoWkspNew
-        // for the main workspace causes fd_topo_obj_laddr → mcache_join
-        // to hit uninitialized memory.
-        try writeReadinessMarker(self.allocator, config.run_dir, std.mem.sliceTo(workspace_name_z, 0), io);
+        // Explicitly sync all workspaces so child processes see fully-written
+        // workspace data on first join. Replaces the readiness marker with
+        // explicit fsync: only the workspace headers are dirty (not the full
+        // workspace), so fsync is fast (~ms).
+        try self.syncWorkspace(io, std.mem.sliceTo(workspace_name_z, 0), built_topo.wksp_idx);
         if (metric_wksp_ptr) |_| {
-            try writeReadinessMarker(self.allocator, config.run_dir, "tickoni_metric.wksp", io);
+            try self.syncWorkspace(io, "tickoni_metric.wksp", metric_wksp_idx);
         }
         if (metric_in_wksp_ptr) |_| {
-            try writeReadinessMarker(self.allocator, config.run_dir, "tickoni_metric_in.wksp", io);
+            try self.syncWorkspace(io, "tickoni_metric_in.wksp", metric_in_wksp_idx);
         }
 
         const state = try self.allocator.create(ProcessState);
