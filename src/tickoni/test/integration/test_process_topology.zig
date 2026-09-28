@@ -24,11 +24,13 @@ test "process_topology_integration: every tile is a distinct OS process parented
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
+    const port = util.metricPort();
     const event_count: u64 = 8;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     });
 
     const supervisor_pid = c_abi.sandbox.getpid();
@@ -71,6 +73,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
+    const port = util.metricPort();
     // CI macOS runners show materially higher scheduling jitter than local
     // Linux, so this lane needs a real heartbeat window rather than a
     // near-zero threshold. The contract under test is topology-health
@@ -84,6 +87,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
         .stuck_tile_idx = 0,
         .stuck_after_messages = 0,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     });
 
     const max_polls: u32 = 600;
@@ -128,6 +132,7 @@ test "process_topology_integration: SIGKILL on one tile is reported by identity 
     const tkrepl_idx = 5;
     try std.testing.expectEqualStrings("tkrepl", topo.tiles[tkrepl_idx].id.slice());
 
+    const port = util.metricPort();
     const event_count: u64 = 16;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
@@ -135,6 +140,7 @@ test "process_topology_integration: SIGKILL on one tile is reported by identity 
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     });
 
     const tkrepl_pid = sup.monitor()[tkrepl_idx].pid orelse return error.MissingPid;
@@ -183,6 +189,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
     crash_after_heartbeats[tkrepl_idx] = 1;
     try std.testing.expectEqualStrings("tkrepl", topo.tiles[tkrepl_idx].id.slice());
 
+    const port = util.metricPort();
     const event_count: u64 = 16;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
@@ -191,6 +198,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     });
 
     const max_polls: u32 = 400;
@@ -239,9 +247,11 @@ test "process_topology_integration: process mode refuses to start a heap_dev-bac
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
+    const port = util.metricPort();
     try std.testing.expectError(error.ProcessModeRequiresTangoShm, sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     }));
     for (sup.monitor()) |h| try std.testing.expect(h.pid == null);
 }

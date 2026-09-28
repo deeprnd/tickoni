@@ -67,8 +67,10 @@ extern fn tk_topob_auto_layout(topo: *Topo, cpu_idx: [*]const usize) void;
 extern fn tk_topob_set_obj_property_ulong(topo: *Topo, obj_id: usize, key: [*:0]const u8, val: usize) void;
 extern fn tk_topob_set_tile_obj_property_ulong(topo: *Topo, tile_name: [*:0]const u8, tile_kind_id: usize, key: [*:0]const u8, val: usize) void;
 extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
-extern fn tk_topo_tile_set_tile_obj_id(topo: *Topo, tile_id: usize, obj_id: usize) void;
+extern fn tk_topo_tile_obj_id(topo: *const Topo, tile_id: usize) usize;
 extern fn tk_topo_tile_set_metric_port(topo: *Topo, tile_id: usize, port: c_ushort) void;
+extern fn tk_topo_obj_offset(topo: *const Topo, obj_id: usize) usize;
+extern fn tk_topo_validate_tile_object_offsets(topo: *const Topo) c_int;
 extern fn tk_topob_debug_wksp_objs_internal(topo: *Topo) void;
 
 pub fn topobDebugWkspObjIds(topo: *Topo) void {
@@ -234,9 +236,9 @@ pub fn tickoniTileScratchFootprint(tile_name: [*:0]const u8) usize {
     return tk_topob_tickoni_tile_scratch_footprint(tile_name);
 }
 
-/// Set tile_obj_id for a tile — needed for metric tile scratch allocation.
-pub fn topoTileSetTileObjId(topo: *Topo, tile_id: usize, obj_id: usize) void {
-    tk_topo_tile_set_tile_obj_id(topo, tile_id, obj_id);
+/// Return the scratch object id assigned by fd_topob_tile.
+pub fn topoTileObjId(topo: *const Topo, tile_id: usize) usize {
+    return tk_topo_tile_obj_id(topo, tile_id);
 }
 
 /// Set prometheus_listen_port for the metric tile.
@@ -244,6 +246,17 @@ pub fn topoTileSetTileObjId(topo: *Topo, tile_id: usize, obj_id: usize) void {
 /// binds to the expected port (7999 from Firedancer config).
 pub fn topoTileSetMetricPort(topo: *Topo, tile_id: usize, port: c_ushort) void {
     tk_topo_tile_set_metric_port(topo, tile_id, port);
+}
+
+/// Returns the offset assigned to an object by fd_topob_finish.
+pub fn topoObjOffset(topo: *const Topo, obj_id: usize) usize {
+    return tk_topo_obj_offset(topo, obj_id);
+}
+
+/// Returns true when every object referenced by every tile has been assigned
+/// a nonzero offset by fd_topob_finish.
+pub fn topoValidateTileObjectOffsets(topo: *const Topo) bool {
+    return tk_topo_validate_tile_object_offsets(topo) != 0;
 }
 
 // ---------------------------------------------------------------------------

@@ -260,10 +260,7 @@ tk_topo_alignof( void ) { return alignof( fd_topo_t ); }
 
 void *
 tk_topob_new( void * mem, char const * app_name ) {
-  FD_LOG_NOTICE(( "tk_topob_new: mem=%p app_name=%s", mem, app_name ));
-  void * result = fd_topob_new( mem, app_name );
-  FD_LOG_DEBUG(( "tk_topob_new: result=%p", result ));
-  return result;
+  return fd_topob_new( mem, app_name );
 }
 
 ulong
@@ -495,14 +492,44 @@ tk_topo_tile_ptr( void * topo, ulong tile_id ) {
   return &((fd_topo_t *)topo)->tiles[ tile_id ];
 }
 
-/* Set tile_obj_id for a tile — needed for metric tile scratch allocation. */
-void
-tk_topo_tile_set_tile_obj_id( void * topo, ulong tile_id, ulong obj_id ) {
-  ((fd_topo_t *)topo)->tiles[ tile_id ].tile_obj_id = obj_id;
+ulong
+tk_topo_obj_offset( void const * topo_, ulong obj_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  return obj_id<topo->obj_cnt ? topo->objs[ obj_id ].offset : 0UL;
 }
 
-/* Set prometheus listen port for the metric tile.
-   Used by topo_build.zig to inject the prometheus_listen_port
+static int
+tk_topo_obj_has_offset( fd_topo_t const * topo, ulong obj_id ) {
+  return obj_id<topo->obj_cnt && topo->objs[ obj_id ].offset;
+}
+
+int
+tk_topo_validate_tile_object_offsets( void const * topo_ ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  for( ulong i=0UL; i<topo->tile_cnt; i++ ) {
+    fd_topo_tile_t const * tile = &topo->tiles[ i ];
+    if( FD_UNLIKELY( !tk_topo_obj_has_offset( topo, tile->tile_obj_id    ) ||
+                     !tk_topo_obj_has_offset( topo, tile->metrics_obj_id ) ) ) return 0;
+
+    if( FD_UNLIKELY( tile->id_keyswitch_obj_id!=ULONG_MAX &&
+                     !tk_topo_obj_has_offset( topo, tile->id_keyswitch_obj_id ) ) ) return 0;
+    if( FD_UNLIKELY( tile->av_keyswitch_obj_id!=ULONG_MAX &&
+                     !tk_topo_obj_has_offset( topo, tile->av_keyswitch_obj_id ) ) ) return 0;
+
+    for( ulong j=0UL; j<tile->in_cnt; j++ )
+      if( FD_UNLIKELY( !tk_topo_obj_has_offset( topo, tile->in_link_fseq_obj_id[ j ] ) ) ) return 0;
+    for( ulong j=0UL; j<tile->uses_obj_cnt; j++ )
+      if( FD_UNLIKELY( !tk_topo_obj_has_offset( topo, tile->uses_obj_id[ j ] ) ) ) return 0;
+  }
+  return 1;
+}
+
+ulong
+tk_topo_tile_obj_id( void const * topo, ulong tile_id ) {
+  return ((fd_topo_t const *)topo)->tiles[ tile_id ].tile_obj_id;
+}
+
+/* Set prometheus_listen_port for the metric tile.  Used by topo_build.zig
    so the metric tile's HTTP server binds to the expected port. */
 void
 tk_topo_tile_set_metric_port( void * topo, ulong tile_id, ushort port ) {

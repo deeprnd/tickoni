@@ -240,6 +240,41 @@ tile_run->run(topo, tile);
 After joining, `fd_topo_fill_tile()` maps the tile's mcache/dcache/fseq pointers
 from the topology objects into the tile's local address space.
 
+### Readiness Markers — Why They Exist
+
+The readiness marker is a synchronization primitive used by Tickoni's process-mode
+launcher to prevent a race condition between workspace creation and tile join.
+
+**What it is:** A `.ready` file placed in the workspace's backing directory
+(`{shmem_path}/.normal/{concrete_wksp_name}.ready`). The tile process polls for
+this file before attempting `fd_wksp_join`. If the marker is absent after a
+short timeout, the tile aborts.
+
+**Why Tickoni needs it:** Tickoni creates workspaces via `wkspNewNamed()` backed
+by **normal 4 KiB pages** written to the private shmem directory. This uses
+standard file operations (open + ftruncate + mmap), which are **asynchronous** at
+the kernel level — the file exists on disk but the kernel's delayed commit may
+not have flushed it yet. When a tile child process calls `fd_shmem_join` to map
+the workspace file, the kernel may not have committed it, and `fd_shmem_join`
+returns ENOENT.
+
+The readiness marker ensures the supervisor has completed the workspace file
+creation and synced it to disk before tiles attempt to join.
+
+**Why Firedancer does not need it:** Firedancer creates workspaces via
+`fd_topo_create_workspace()` backed by **hugetlbfs** (huge/gigantic pages).
+Hugepages are a kernel-managed filesystem — `ftruncate` and `fallocate` on
+hugetlbfs are **synchronous**. By the time `fd_topo_create_workspace` returns,
+the file is guaranteed to exist on disk and is immediately joinable by child
+processes. Firedancer's orchestrator completes workspace creation for all
+workspaces, then launches all tile processes simultaneously — there is no race.
+
+**Future direction:** Readiness markers are a workaround for normal-page shmem's
+async commit semantics. They can be eliminated by calling `fsync()` on the
+workspace file after `wkspNewNamed()` completes, or by migrating to a synchronous
+backing mechanism. Removing them reduces coupling to non-Firedancer patterns and
+aligns Tickoni closer to the upstream workspace lifecycle.
+
 ## Object Callbacks
 
 The 6-entry callback array replaces Firedancer's `src/app/shared/fd_obj_callbacks.c`

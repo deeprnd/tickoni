@@ -51,10 +51,12 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) 
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
+    const port = util.metricPort();
     try sup.startPaymentPipelineProcess(io, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     });
 
     const max_polls: u32 = 400; // 2s bound at 5ms per poll

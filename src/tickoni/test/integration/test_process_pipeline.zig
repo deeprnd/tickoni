@@ -31,6 +31,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
         sup.deinit();
     }
 
+    const port = util.metricPort();
     const event_count: u64 = 32;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
@@ -44,6 +45,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
         // Use unique workspace name to avoid shared-memory collisions
         // when multiple test binaries run in parallel.
         .workspace_name = "test0",
+        .metric_port = port,
     });
 
     // Poll for the real completion signal (audited count reaches
@@ -130,6 +132,7 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
         sup.deinit();
     }
 
+    const port = util.metricPort();
     const event_count: u64 = 8;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
@@ -138,6 +141,7 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
         .heartbeat_stale_after_ns = 1 * std.time.ns_per_ms,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = "test1",
+        .metric_port = port,
     });
 
     const max_polls: u32 = 400;

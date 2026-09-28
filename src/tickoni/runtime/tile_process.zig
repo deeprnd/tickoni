@@ -177,10 +177,6 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         return 1;
     };
 
-    std.debug.print("CHILD [tile {d} {s}]: shmem_path={s} workspace_name={s} crash_after_heartbeats={d}\n", .{
-        spec.tile_idx,               spec.tile_id.slice(), spec.shmemPath(), spec.workspace_name.slice(),
-        spec.crash_after_heartbeats,
-    });
 
     // Per-tile log file: {shmemPath}/logs/tile_{idx}.log
     var log_path_buf: [256]u8 = undefined;
@@ -193,13 +189,9 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         return 1;
     };
 
-    std.debug.print("CHILD [tile {d} {s}]: boot complete, shmem base={s}, workspace_name={s}\n", .{
-        spec.tile_idx, spec.tile_id.slice(), spec.shmemPath(), spec.workspace_name.slice(),
-    });
 
-    // Workspace file is fsync'd by the supervisor after topoWkspNew completes
-    // (supervisor.zig:syncWorkspace). Child processes can join immediately
-    // without polling — the workspace data is guaranteed to be flushed.
+    // The supervisor finalizes and populates every workspace before spawning
+    // children, so child processes can join without readiness polling.
 
     var built_opt: ?topo_build.BuiltTopo = null;
     defer {
@@ -216,19 +208,14 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         std.debug.print("tile_process: failed to read topology spec for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
-    std.debug.print("tile_process: DESERIALIZED TopologySpec tile_cnt={d} channel_cnt={d} workspace={s}\n", .{
-        topo_spec.tile_cnt, topo_spec.channel_cnt, spec.workspace_name.slice(),
-    });
     var tiles_buf: [topology_spec.max_tiles]tile_mod.TileDescriptor = undefined;
     var channels_buf: [topology_spec.max_channels]link_mod.Channel = undefined;
     const topo_desc = topo_spec.toTopology(&tiles_buf, &channels_buf);
-    std.debug.print("tile_process: rebuilt Topology tiles={d} channels={d}\n", .{ topo_desc.tiles.len, topo_desc.channels.len });
 
-    const built = topo_build.build(allocator, topo_desc, spec.workspace_name.slice()) catch |err| {
+    const built = topo_build.build(allocator, topo_desc, spec.workspace_name.slice(), spec.metric_port) catch |err| {
         std.debug.print("tile_process: failed to rebuild topology for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
-    std.debug.print("tile_process: topo_build.build done wksp_idx={d}\\n", .{built.wksp_idx});
     built_opt = built;
 
     var tile_id_buf: [7]u8 = undefined;
@@ -253,11 +240,6 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         .allocator = allocator,
     };
 
-    std.debug.print("tile_process: g_ctx set tile={d} wksp_idx={d} cnc_obj_id={d} calling runTileSimple\n", .{
-        spec.tile_idx, g_ctx.wksp_idx, g_ctx.cnc_obj_id,
-    });
-
     c_abi.topo_run.runTileSimple(built.topo, c_abi.topob.topoTilePtr(built.topo, tile_idx));
-    std.debug.print("tile_process: runTileSimple returned tile={d}\n", .{spec.tile_idx});
     return 0;
 }

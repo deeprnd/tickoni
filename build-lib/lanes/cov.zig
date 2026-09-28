@@ -130,6 +130,7 @@ pub fn strategy(
             .{ .name = "audit_tile", .module = shared.audit_tile },
             .{ .name = "runtime", .module = shared.runtime },
             .{ .name = "c_abi", .module = shared.c_abi },
+            .{ .name = "util", .module = shared.util },
             .{ .name = "logger", .module = shared.logger },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true },

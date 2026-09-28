@@ -37,10 +37,12 @@ fn runDurationNs(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) !u
     defer sup.deinit();
 
     const start_ns = util.process.monotonicNanos();
+    const port = util.metricPort();
     try sup.startPaymentPipelineProcess(io, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     });
 
     const max_polls: u32 = 1200;

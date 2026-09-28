@@ -37,8 +37,10 @@ FAIL_PATTERNS=(
 for bin in "${binaries[@]}"; do
     name=$(basename "$(dirname "$bin")")
     echo -n "  ${name}... "
-    output=$("$bin" 2>&1 || true)
+    set +e
+    output=$("$bin" 2>&1)
     exit_code=$?
+    set -e
     if [[ $exit_code -ne 0 ]]; then
         # Non-zero exit = test failed. Also print output for context.
         echo "FAILED (exit $exit_code)"

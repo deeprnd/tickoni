@@ -13,8 +13,6 @@
 fd_topo_t *
 fd_topob_new( void * mem,
               char const * app_name ) {
-  FD_LOG_WARNING(( "fd_topob_new: mem=%p app_name=%s", mem, app_name ));
-
   fd_topo_t * topo = (fd_topo_t *)mem;
 
   if( FD_UNLIKELY( !topo ) ) {
@@ -27,9 +25,7 @@ fd_topob_new( void * mem,
     return NULL;
   }
 
-  FD_LOG_WARNING(( "fd_topob_new: memset topo=%p sizeof(fd_topo_t)=%lu", (void*)topo, sizeof(fd_topo_t) ));
   fd_memset( topo, 0, sizeof(fd_topo_t) );
-  FD_LOG_WARNING(( "fd_topob_new: memset complete" ));
 
   FD_TEST( fd_pod_new( topo->props, sizeof(topo->props) ) );
 
@@ -849,12 +845,6 @@ initialize_numa_assignments( fd_topo_t * topo ) {
     ulong max_footprint = 0UL;
     ulong max_obj = ULONG_MAX;
 
-    /* DEBUG: print all objects before NUMA assignment */
-    if( FD_UNLIKELY( i==1UL ) ) { /* workspace 1 = "metric" */
-      for( ulong o=0UL; o<topo->obj_cnt; o++ )
-        FD_LOG_WARNING(( "  DEBUG obj[%lu] '%s' wksp_id=%lu footprint=%lu",
-                          o, topo->objs[ o ].name, topo->objs[ o ].wksp_id, topo->objs[ o ].footprint ));
-    }
 
     for( ulong j=0UL; j<topo->obj_cnt; j++ ) {
       fd_topo_obj_t * obj = &topo->objs[ j ];

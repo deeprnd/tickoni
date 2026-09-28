@@ -45,11 +45,13 @@ test "process_cpu_placement_integration: two tiles sharing one cpu get distinct 
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
+    const port = util.metricPort();
     const event_count: u64 = 16;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     });
 
     const report = sup.processPlacementReport().?;
@@ -108,9 +110,11 @@ test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
+    const port = util.metricPort();
     try std.testing.expectError(error.CpuIdMalformed, sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     }));
 
     // Fail-closed means no partial topology: no process was spawned and
@@ -201,10 +205,12 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     var floating_sup = try Supervisor.init(std.testing.allocator, floating_topo);
     defer floating_sup.deinit();
 
+    const port = util.metricPort();
     try floating_sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = floating_run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     });
 
     const floating_max_polls: u32 = 400;
@@ -242,10 +248,12 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     var shared_sup = try Supervisor.init(std.testing.allocator, shared_topo);
     defer shared_sup.deinit();
 
+    const port = util.metricPort();
     try shared_sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = shared_run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     });
 
     const shared_max_polls: u32 = 400;

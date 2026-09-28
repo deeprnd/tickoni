@@ -312,7 +312,7 @@ test "build produces a topology for the linear Phase 0 chain" {
     };
     const topo_desc = topology.Topology{ .tiles = &tiles, .channels = &channels };
 
-    var built = try build(std.testing.allocator, topo_desc, "tkpay0");
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 7999);
     defer built.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(usize, 5), built.cnc_obj_id.len);

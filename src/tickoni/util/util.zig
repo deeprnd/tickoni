@@ -6,13 +6,25 @@
 const std = @import("std");
 const c = std.c;
 pub const cpu = @import("cpu.zig");
-pub const fsync = @import("fsync.zig");
 pub const process = @import("process.zig");
 pub const process_api = @import("process_api.zig");
 pub const os_api = @import("os_api.zig");
 pub const linux_ids = @import("linux_ids.zig");
 pub const sizes = @import("sizes.zig");
 pub const sandbox_defaults = @import("sandbox_defaults.zig");
+
+/// Shared port counter for integration tests.
+///
+/// Auto-increments from 7999 (Firedancer default) on each call.  All
+/// integration test modules import this same util module, so the counter
+/// advances across all tests in a single binary, preventing EADDRINUSE
+/// when tests run in parallel or back-to-back with TIME_WAIT sockets.
+var _metric_port_counter: u16 = 7999;
+pub fn metricPort() u16 {
+    const result = _metric_port_counter;
+    _metric_port_counter += 1;
+    return result;
+}
 
 /// Drop-in replacement for std.testing.tmpDir() that respects
 /// ZIG_LOCAL_CACHE_DIR.  When set (as in the justfile), creates temp
