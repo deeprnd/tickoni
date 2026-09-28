@@ -19,8 +19,8 @@ const c_abi = @import("c_abi");
 const topology = @import("topology.zig");
 const cpu_placement = @import("cpu_placement.zig");
 
-/// Gated behind -Dtopo_build_debug to keep CI output clean.
-pub const topo_build_debug: bool = true;
+/// Keep topology construction diagnostics disabled in normal builds.
+pub const topo_build_debug: bool = false;
 
 const Topo = c_abi.topob.Topo;
 
@@ -113,6 +113,7 @@ pub fn build(
     allocator: std.mem.Allocator,
     topo_desc: topology.Topology,
     workspace_name: []const u8,
+    metric_port: u16,
 ) !BuiltTopo {
     std.debug.assert(c_abi.topob.topoAlignof() <= topo_alloc_align.toByteUnits());
 
@@ -260,26 +261,15 @@ pub fn build(
         c_abi.topob.topobDebugWkspObjIds(topo);
     }
 
+    const metric_tile_obj_id = if (metric_tile_idx != c_abi.topob.not_found)
+        c_abi.topob.topoTileObjId(topo, metric_tile_idx)
+    else
+        0;
+
     c_abi.topob.topobFinish(topo);
 
-    // v2.22.S4 Task 3: Create a dedicated scratch object for the metric tile.
-    // fd_tile_metric.c's scratch_footprint computes the size from METRICS_PARAMS.
-    // We add a "tkmetr_tile" object so fd_topo_run_tile can resolve
-    // tile->tile_obj_id for the metric tile's scratch allocation.
-    // CRITICAL: The scratch object MUST live in the same workspace as the
-    // tkmetr tile (metric workspace), not the app workspace, so that
-    // fd_topo_obj_laddr resolves to a valid address.
-    var metric_tile_obj_id: usize = 0;
     if (metric_tile_idx != c_abi.topob.not_found) {
-        const metric_tile_wksp_z = toZ(&wksp_name_z_buf, "metric");
-        metric_tile_obj_id = c_abi.topob.topobObj(topo, "tkmetr_tile", metric_tile_wksp_z);
-        // Mark this object as used by the metric tile
-        c_abi.topob.topobTileUses(topo, metric_tile_idx, metric_tile_obj_id, true);
-        // Set tile_obj_id so fd_topo_run_tile can find the scratch space
-        c_abi.topob.topoTileSetTileObjId(topo, metric_tile_idx, metric_tile_obj_id);
-        // Set prometheus_listen_port so the metric tile's HTTP server binds
-        // to the expected port (7999, matching Firedancer config).
-        c_abi.topob.topoTileSetMetricPort(topo, metric_tile_idx, 7999);
+        c_abi.topob.topoTileSetMetricPort(topo, metric_tile_idx, metric_port);
     }
 
     return .{
