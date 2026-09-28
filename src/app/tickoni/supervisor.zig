@@ -61,11 +61,17 @@ pub const ProcessPipelineConfig = struct {
     /// when multiple test binaries run in parallel. Passed through the
     /// topology spec so child tile processes join the same workspace.
     workspace_name: []const u8 = "tkpay0",
+    /// Port for the metric tile's Prometheus HTTP server. Defaults to 7999.
+    /// Each integration test file should use a distinct port to avoid
+    /// EADDRINUSE from TIME_WAIT on the previous test's socket.
+    metric_port: u16 = 7999,
 };
 
 /// Supervisor-owned state for a running v2.14 process-mode pipeline.
 const ProcessState = struct {
     wksp: *c_abi.wksp.Wksp,
+    metric_wksp: ?*c_abi.wksp.Wksp,
+    metric_in_wksp: ?*c_abi.wksp.Wksp,
     /// v2.14.S8.T12: the fd_topob-built topology backing this run's
     /// object layout (mcache/dcache/fseq/metrics/tile/cnc offsets).
     built_topo: rt.topo_build.BuiltTopo,
@@ -183,13 +189,15 @@ const ProcessState = struct {
         //
         // The supervisor must survive teardown so tests can observe
         // monitor() state after stopProcess completes.
-        _ = c_abi.wksp.wkspDetach(self.wksp);
-        c_abi.boot.halt();
         if (!self.has_child_crashed) {
             for (&self.cncs) |*maybe_cnc| {
                 if (maybe_cnc.*) |cnc| _ = c_abi.cnc.cncLeave(cnc);
             }
         }
+        if (self.metric_in_wksp) |metric_in_wksp| _ = c_abi.wksp.wkspDetach(metric_in_wksp);
+        if (self.metric_wksp) |metric_wksp| _ = c_abi.wksp.wkspDetach(metric_wksp);
+        _ = c_abi.wksp.wkspDetach(self.wksp);
+        c_abi.boot.halt();
         self.built_topo.deinit(allocator);
         allocator.free(self.workspace_name);
         allocator.free(self.run_dir);
@@ -214,33 +222,6 @@ fn resolvedHeartbeatIntervalNs(config: ProcessPipelineConfig, multiplier: u64) u
 /// whose function argument must be comptime-known.
 fn threadTrampoline(state: *PaymentPipelineState, run_fn: tile_registry.RunFn) void {
     run_fn(state);
-}
-
-/// Explicitly sync a workspace file after topoWkspNew completes.
-/// Opens the workspace file (.{shmem_path}/.normal/{concrete_name}) and calls
-/// fsync so child processes see fully-written workspace data. Replaces the
-/// readiness marker with an explicit fsync.
-fn syncWorkspace(self: *Supervisor, io: std.Io, workspace_name: []const u8, wksp_idx: u32) !void {
-    var concrete_name_buf: [rt.topo_build.concrete_workspace_name_cap]u8 = undefined;
-    const concrete_name = rt.topo_build.concreteWorkspaceName(&concrete_name_buf, workspace_name) catch |err| {
-        const log = logger.get();
-        log.err("supervisor", "syncWorkspace", std.fmt.bufPrint(&.{}, "failed to compute concrete workspace name: {t}", .{err}) catch "unknown error") catch {};
-        return err;
-    };
-    var wksp_path_buf: [std.fs.max_path_bytes]u8 = undefined;
-    const wksp_path = std.fmt.bufPrint(&wksp_path_buf, "{s}/.normal/{s}", .{ self.process_state.?.run_dir, concrete_name }) catch |err| {
-        const log = logger.get();
-        log.err("supervisor", "syncWorkspace", std.fmt.bufPrint(&.{}, "workspace path too long: {t}", .{err}) catch "unknown error") catch {};
-        return err;
-    };
-    const file = try std.Io.Dir.openFile(io, std.Io.Dir.cwd(), wksp_path, .{});
-    defer file.close(io);
-    // Get the OS-level file descriptor for fsync.
-    // std.Io.File.fd_t is available in Zig 0.17.
-    const fd = file.handle;
-    // Use std.posix.fsync on the file descriptor.
-    // On non-Unix platforms this is a no-op / stub.
-    _ = std.posix.fsync(@intCast(fd));
 }
 
 pub const Supervisor = struct {
@@ -384,7 +365,7 @@ pub const Supervisor = struct {
         // hard-require huge/gigantic pages, which v2.14.S1 rejected for
         // Tickoni; see topob.zig's topoWkspSetPtr doc comment ("finding
         // 3") for the reused-layout-math/own-memory hybrid this drives.
-        var built_topo = try rt.topo_build.build(self.allocator, self.topo, workspace_name_slice);
+        var built_topo = try rt.topo_build.build(self.allocator, self.topo, workspace_name_slice, config.metric_port);
         var built_topo_owned_by_state = false;
         errdefer if (!built_topo_owned_by_state) built_topo.deinit(self.allocator);
 
@@ -431,21 +412,15 @@ pub const Supervisor = struct {
         // little headroom.
         const footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx);
         const page_cnt = footprint / c_abi.wksp.shmem_normal_page_sz + 16;
-        const wksp_gaddr = (c_abi.wksp.shmem_normal_page_sz * page_cnt);
         var sub_page_cnt = [_]usize{page_cnt};
         var sub_cpu_idx = [_]usize{0};
         const part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, built_topo.wksp_idx);
-
-        std.debug.print("SUPERVISOR: run_dir={s} workspace_name={s} concrete_name={s} footprint={d} page_cnt={d} wksp_gaddr={x}\n", .{
-            config.run_dir, workspace_name_slice, workspace_name_z, footprint, page_cnt, wksp_gaddr,
-        });
 
         // Create the main workspace.
         const rc = c_abi.wksp.wkspNewNamed(workspace_name_z, c_abi.wksp.shmem_normal_page_sz, 1, &sub_page_cnt, &sub_cpu_idx, 0o600, 1, part_max);
         if (rc != 0) return error.WkspCreateFailed;
         const wksp = c_abi.wksp.wkspAttach(workspace_name_z) orelse return error.WkspAttachFailed;
 
-        std.debug.print("SUPERVISOR: wksp attached, wksp ptr={x}\\n", .{@intFromPtr(wksp)});
         errdefer _ = c_abi.wksp.wkspDetach(wksp);
 
         // v2.22.S4 Task 0: Create ALL workspaces and initialize content
@@ -461,6 +436,11 @@ pub const Supervisor = struct {
         // caller-provided slot.
         var metric_wksp_ptr: ?*c_abi.wksp.Wksp = null;
         var metric_in_wksp_ptr: ?*c_abi.wksp.Wksp = null;
+        var auxiliary_workspaces_owned_by_state = false;
+        errdefer if (!auxiliary_workspaces_owned_by_state) {
+            if (metric_in_wksp_ptr) |metric_in_wksp| _ = c_abi.wksp.wkspDetach(metric_in_wksp);
+            if (metric_wksp_ptr) |metric_wksp| _ = c_abi.wksp.wkspDetach(metric_wksp);
+        };
 
         if (metric_wksp_idx != c_abi.topob.not_found) {
             const metric_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metric_wksp_idx);
@@ -473,9 +453,7 @@ pub const Supervisor = struct {
             metric_name_buf[metric_name_z.len] = 0;
             if (c_abi.wksp.wkspNewNamed(@ptrCast(&metric_name_buf), c_abi.wksp.shmem_normal_page_sz, 1, &metric_sub_page_cnt, &metric_sub_cpu_idx, 0o600, 1, metric_part_max) == 0) {
                 metric_wksp_ptr = c_abi.wksp.wkspAttach(@ptrCast(&metric_name_buf));
-                if (metric_wksp_ptr) |_| {
-                    std.debug.print("SUPERVISOR: attached metric workspace (footprint={d} page_cnt={d})\\n", .{ metric_footprint, metric_page_cnt });
-                }
+
             }
         }
         if (metric_in_wksp_idx != c_abi.topob.not_found) {
@@ -489,9 +467,7 @@ pub const Supervisor = struct {
             metric_in_name_buf[metric_in_name_z.len] = 0;
             if (c_abi.wksp.wkspNewNamed(@ptrCast(&metric_in_name_buf), c_abi.wksp.shmem_normal_page_sz, 1, &metric_in_sub_page_cnt, &metric_in_sub_cpu_idx, 0o600, 1, metric_in_part_max) == 0) {
                 metric_in_wksp_ptr = c_abi.wksp.wkspAttach(@ptrCast(&metric_in_name_buf));
-                if (metric_in_wksp_ptr) |_| {
-                    std.debug.print("SUPERVISOR: attached metric_in workspace (footprint={d} page_cnt={d})\\n", .{ metric_in_footprint, metric_in_page_cnt });
-                }
+
             }
         }
 
@@ -515,21 +491,11 @@ pub const Supervisor = struct {
         c_abi.topob.topoWkspSetPtr(built_topo.topo, built_topo.wksp_idx, wksp);
         c_abi.topob.topoWkspNew(built_topo.topo, built_topo.wksp_idx);
 
-        // Explicitly sync all workspaces so child processes see fully-written
-        // workspace data on first join. Replaces the readiness marker with
-        // explicit fsync: only the workspace headers are dirty (not the full
-        // workspace), so fsync is fast (~ms).
-        try self.syncWorkspace(io, std.mem.sliceTo(workspace_name_z, 0), built_topo.wksp_idx);
-        if (metric_wksp_ptr) |_| {
-            try self.syncWorkspace(io, "tickoni_metric.wksp", metric_wksp_idx);
-        }
-        if (metric_in_wksp_ptr) |_| {
-            try self.syncWorkspace(io, "tickoni_metric_in.wksp", metric_in_wksp_idx);
-        }
-
         const state = try self.allocator.create(ProcessState);
         state.* = .{
             .wksp = wksp,
+            .metric_wksp = metric_wksp_ptr,
+            .metric_in_wksp = metric_in_wksp_ptr,
             .built_topo = built_topo,
             .workspace_name = try self.allocator.dupe(u8, workspace_name_slice),
             .run_dir = try self.allocator.dupe(u8, config.run_dir),
@@ -540,6 +506,7 @@ pub const Supervisor = struct {
             .stop_grace_ns = resolvedStopGraceNs(config),
             .placement_report = placement_report,
         };
+        auxiliary_workspaces_owned_by_state = true;
         built_topo_owned_by_state = true;
         self.process_state = state;
         boot_needs_halt = false;
@@ -612,7 +579,7 @@ pub const Supervisor = struct {
         // config (see topology_spec.zig's module doc, "finding 5").
         const topology_spec_path = try std.fmt.allocPrint(self.allocator, "{s}/topology.spec", .{config.run_dir});
         defer self.allocator.free(topology_spec_path);
-        var topology_spec = try rt.topology_spec.TopologySpec.fromTopology(self.topo);
+        var topology_spec = try rt.topology_spec.TopologySpec.fromTopology(self.topo, config.metric_port);
         // Override workspace_name with the runtime config value so
         // child tiles look for the readiness marker at the right path
         // (tests set a unique workspace_name like "test0"; the topology
@@ -639,7 +606,6 @@ pub const Supervisor = struct {
             defer self.allocator.free(spec_path);
             try spec.writeToFile(io, std.Io.Dir.cwd(), spec_path);
 
-            std.debug.print("SUPERVISOR: wrote LaunchSpec to {s} (tile {d} {s})\n", .{ spec_path, i, tile.id.slice() });
 
             // Minimal explicit child environment: the tile reads its
             // shmem path from the launch spec via --shmem-path (see
@@ -707,12 +673,19 @@ pub const Supervisor = struct {
                     self.handles[i].crashed_because = .exit_code;
                 }
             },
-            .crashed, .force_terminated => {
+            .force_terminated => {
+                // stopProcess intentionally force-terminates children that did
+                // not observe CNC HALT within the bounded grace period. The
+                // outcome is part of requested shutdown, not a tile crash.
+                self.handles[i].state = .stopped;
+                self.handles[i].crashed_because = .none;
+            },
+            .crashed => {
                 if (self.handles[i].state == .stale) {
-                    // Tile was stale when stopProcess() began — the crash/force
-                    // termination is a consequence of the shutdown sequence (tile
-                    // stopped heartbeating while waiting for the halt signal), not
-                    // a real crash. Treat it as a clean stop, matching the
+                    // Tile was stale when stopProcess() began — the crash is a
+                    // consequence of the shutdown sequence (tile stopped
+                    // heartbeating while waiting for the halt signal), not a
+                    // real crash. Treat it as a clean stop, matching the
                     // .exited_ok path's intent.
                     self.handles[i].state = .stopped;
                     self.handles[i].crashed_because = .none;
@@ -1029,26 +1002,20 @@ pub const Supervisor = struct {
         // classifies a real crash as a clean stop.
         self.reapExitedChildrenNoHang();
         self.refreshProcessHealth();
-        const stale_before_stop = blk: {
-            var snapshot: [8]bool = std.mem.zeroes([8]bool);
-            for (self.handles, 0..) |h, i| snapshot[i] = h.state == .stale;
-            break :blk snapshot;
-        };
-        const had_stale_before_stop = for (stale_before_stop) |was_stale| {
-            if (was_stale) break true;
-        } else false;
         for (state.cncs) |maybe_cnc| {
             if (maybe_cnc) |cnc| c_abi.cnc.signal(cnc, c_abi.cnc.signal_halt);
         }
 
-        if (had_stale_before_stop) {
-            const grace_deadline = util.process.monotonicNanos() + @as(i64, @intCast(state.stop_grace_ns));
-            while (util.process.monotonicNanos() < grace_deadline) {
-                self.reapExitedChildrenNoHang();
-                util.process.sleepNanos(5 * std.time.ns_per_ms);
-            }
+        const grace_deadline = util.process.monotonicNanos() + @as(i64, @intCast(state.stop_grace_ns));
+        while (util.process.monotonicNanos() < grace_deadline) {
             self.reapExitedChildrenNoHang();
+            const has_running_child = for (state.children) |maybe_child| {
+                if (maybe_child != null) break true;
+            } else false;
+            if (!has_running_child) break;
+            util.process.sleepNanos(5 * std.time.ns_per_ms);
         }
+        self.reapExitedChildrenNoHang();
 
         var forced_termination: [8]bool = undefined;
         var ci: usize = 0;
