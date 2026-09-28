@@ -221,8 +221,8 @@ fn threadTrampoline(state: *PaymentPipelineState, run_fn: tile_registry.RunFn) v
 fn writeReadinessMarker(allocator: std.mem.Allocator, run_dir: []const u8, workspace_name: []const u8, io: std.Io) !void {
     const readiness_marker = try std.fmt.allocPrint(allocator, "{s}/.normal/{s}.ready", .{ run_dir, workspace_name });
     defer allocator.free(readiness_marker);
-    var file = try std.Io.Dir.cwd().createFile(io, readiness_marker, .{ .read = true });
-    file.close(io);
+    const file = try std.Io.Dir.createFile(io, readiness_marker, .{});
+    defer file.close(io);
 }
 
 pub const Supervisor = struct {
