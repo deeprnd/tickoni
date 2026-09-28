@@ -157,9 +157,11 @@ pub fn build(
     defer allocator.free(link_ids);
     for (topo_desc.channels, 0..) |ch, i| {
         var link_name_buf: [8]u8 = undefined;
-        // v2.22.S4 Task 0: Links go into metric_in only when tkmetr is present
-        const link_wksp_z = if (has_metric_tile) "metric_in" else wksp_name_z;
-        link_ids[i] = c_abi.topob.topobLink(topo, linkNameZ(&link_name_buf, i), link_wksp_z, ch.depth, ch.mtu, 1);
+        // Main pipeline links always stay in the app workspace so tiles can
+        // communicate.  The metric tile's observer links (created later via
+        // topobTileIn) read from metric_in workspace without moving the main
+        // pipeline links.
+        link_ids[i] = c_abi.topob.topobLink(topo, linkNameZ(&link_name_buf, i), wksp_name_z, ch.depth, ch.mtu, 1);
     }
 
     const cpu_idx_arr = try allocator.alloc(usize, topo_desc.tiles.len);

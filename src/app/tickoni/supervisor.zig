@@ -171,19 +171,24 @@ const ProcessState = struct {
         for (&self.children) |*maybe_child| {
             maybe_child.* = null;
         }
-        // Skip fragile C-level shared memory ops when children have already
-        // crashed. cncLeave, wkspDetach, and boot.halt dereference opaque
-        // pointers into the shared workspace; when a child has crashed
-        // (FileNotFound, unexpected exit), the workspace may be partially
-        // torn down and those dereferences can segfault or trigger
-        // FD_LOG_PANIC. The supervisor must survive teardown so tests can
-        // observe monitor() state after stopProcess completes.
+        // When children have already crashed, skip the fragile C-level
+        // ops that dereference per-child cnc pointers — those children
+        // may have torn down their shared-memory mappings and a deref
+        // could segfault.  The supervisor's own wksp reference and
+        // boot.halt() are safe: wkspDetach is called by the process
+        // that attached (the supervisor itself), and boot.halt() is the
+        // Firedancer routine that actually frees the shared-memory
+        // segments.  Skipping boot.halt() leaves stale regions on disk
+        // that poison the next test invocation.
+        //
+        // The supervisor must survive teardown so tests can observe
+        // monitor() state after stopProcess completes.
+        _ = c_abi.wksp.wkspDetach(self.wksp);
+        c_abi.boot.halt();
         if (!self.has_child_crashed) {
             for (&self.cncs) |*maybe_cnc| {
                 if (maybe_cnc.*) |cnc| _ = c_abi.cnc.cncLeave(cnc);
             }
-            _ = c_abi.wksp.wkspDetach(self.wksp);
-            c_abi.boot.halt();
         }
         self.built_topo.deinit(allocator);
         allocator.free(self.workspace_name);
@@ -209,6 +214,15 @@ fn resolvedHeartbeatIntervalNs(config: ProcessPipelineConfig, multiplier: u64) u
 /// whose function argument must be comptime-known.
 fn threadTrampoline(state: *PaymentPipelineState, run_fn: tile_registry.RunFn) void {
     run_fn(state);
+}
+
+/// Write a readiness marker file so child tile processes know the workspace
+/// file is fully synced before they try to join it.
+fn writeReadinessMarker(allocator: std.mem.Allocator, run_dir: []const u8, workspace_name: []const u8, io: std.Io) !void {
+    const readiness_marker = try std.fmt.allocPrint(allocator, "{s}/.normal/{s}.ready", .{ run_dir, workspace_name });
+    defer allocator.free(readiness_marker);
+    var file = try std.Io.Dir.cwd().createFile(io, readiness_marker, .{ .read = true });
+    file.close(io);
 }
 
 pub const Supervisor = struct {
@@ -374,6 +388,25 @@ pub const Supervisor = struct {
         if (c_abi.wksp.wkspExistsNamed(workspace_name_z)) {
             _ = c_abi.wksp.wkspDeleteNamed(workspace_name_z);
         }
+        // Also clean up any stale metric/metric_in workspaces from a prior
+        // run so wkspNewNamed's O_EXCL doesn't fail closed on the second
+        // test invocation.
+        {
+            var stale_name: [64]u8 = undefined;
+            const printed = std.fmt.bufPrint(&stale_name, "{s}_{s}.wksp", .{ rt.topo_build.app_name, "metric" }) catch &stale_name;
+            stale_name[printed.len] = 0;
+            if (c_abi.wksp.wkspExistsNamed(@ptrCast(&stale_name))) {
+                _ = c_abi.wksp.wkspDeleteNamed(@ptrCast(&stale_name));
+            }
+        }
+        {
+            var stale_name: [64]u8 = undefined;
+            const printed = std.fmt.bufPrint(&stale_name, "{s}_{s}.wksp", .{ rt.topo_build.app_name, "metric_in" }) catch &stale_name;
+            stale_name[printed.len] = 0;
+            if (c_abi.wksp.wkspExistsNamed(@ptrCast(&stale_name))) {
+                _ = c_abi.wksp.wkspDeleteNamed(@ptrCast(&stale_name));
+            }
+        }
 
         // Size the real allocation off fd_topob_finish's computed
         // footprint/part_max instead of a hand-picked constant, plus a
@@ -389,30 +422,73 @@ pub const Supervisor = struct {
             config.run_dir, workspace_name_slice, workspace_name_z, footprint, page_cnt, wksp_gaddr,
         });
 
+        // Create the main workspace.
         const rc = c_abi.wksp.wkspNewNamed(workspace_name_z, c_abi.wksp.shmem_normal_page_sz, 1, &sub_page_cnt, &sub_cpu_idx, 0o600, 1, part_max);
         if (rc != 0) return error.WkspCreateFailed;
         const wksp = c_abi.wksp.wkspAttach(workspace_name_z) orelse return error.WkspAttachFailed;
 
-        std.debug.print("SUPERVISOR: wksp attached, wksp ptr={x}\n", .{@intFromPtr(wksp)});
+        std.debug.print("SUPERVISOR: wksp attached, wksp ptr={x}\\n", .{@intFromPtr(wksp)});
         errdefer _ = c_abi.wksp.wkspDetach(wksp);
 
-        // Write a readiness marker so child tiles know the workspace file is
-        // fully synced before they try to join it.  This avoids the race where
-        // a child thread starts executing before the kernel has committed the
-        // `.wksp` file to disk, which causes fd_shmem_info → open → ENOENT.
-        //
-        // CRITICAL: the marker path MUST match what Firedancer's
-        // fd_topo_join_workspace expects for the workspace file, which is
-        // {shmem_path}/.normal/{concrete_workspace_name}.wksp.  The
-        // readiness marker uses the same {concrete_name} so the child can
-        // locate the ready workspace file.
-        const readiness_marker = try std.fmt.allocPrint(self.allocator, "{s}/.normal/{s}.ready", .{ config.run_dir, workspace_name_z });
-        errdefer self.allocator.free(readiness_marker);
-        {
-            var file = try std.Io.Dir.cwd().createFile(io, readiness_marker, .{ .read = true });
-            file.close(io);
+        // v2.22.S4 Task 0: Create ALL workspaces and initialize content
+        // so topoWkspNew populates every workspace's objects (mcache/dcache/
+        // fseq/metrics/tile/cnc).  Child-side fd_topo_run_tile calls
+        // topoJoinWorkspaces which joins every workspace in the topology;
+        // the parent must create and populate all of them, not just the
+        // main one.
+        const metric_wksp_idx = built_topo.metric_wksp_idx;
+        const metric_in_wksp_idx = built_topo.metric_in_wksp_idx;
+
+        // Helper: create and attach a named workspace, storing ptr in a
+        // caller-provided slot.
+        var metric_wksp_ptr: ?*c_abi.wksp.Wksp = null;
+        var metric_in_wksp_ptr: ?*c_abi.wksp.Wksp = null;
+
+        if (metric_wksp_idx != c_abi.topob.not_found) {
+            const metric_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metric_wksp_idx);
+            const metric_part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, metric_wksp_idx);
+            const metric_page_cnt = metric_footprint / c_abi.wksp.shmem_normal_page_sz + 16;
+            var metric_sub_page_cnt: [1]usize = .{metric_page_cnt};
+            var metric_sub_cpu_idx: [1]usize = .{0};
+            var metric_name_buf: [64]u8 = undefined;
+            const metric_name_z = try std.fmt.bufPrint(&metric_name_buf, "tickoni_metric.wksp", .{});
+            metric_name_buf[metric_name_z.len] = 0;
+            if (c_abi.wksp.wkspNewNamed(@ptrCast(&metric_name_buf), c_abi.wksp.shmem_normal_page_sz, 1, &metric_sub_page_cnt, &metric_sub_cpu_idx, 0o600, 1, metric_part_max) == 0) {
+                metric_wksp_ptr = c_abi.wksp.wkspAttach(@ptrCast(&metric_name_buf));
+                if (metric_wksp_ptr) |_| {
+                    std.debug.print("SUPERVISOR: attached metric workspace (footprint={d} page_cnt={d})\\n", .{ metric_footprint, metric_page_cnt });
+                }
+            }
         }
-        defer self.allocator.free(readiness_marker);
+        if (metric_in_wksp_idx != c_abi.topob.not_found) {
+            const metric_in_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metric_in_wksp_idx);
+            const metric_in_part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, metric_in_wksp_idx);
+            const metric_in_page_cnt = metric_in_footprint / c_abi.wksp.shmem_normal_page_sz + 16;
+            var metric_in_sub_page_cnt: [1]usize = .{metric_in_page_cnt};
+            var metric_in_sub_cpu_idx: [1]usize = .{0};
+            var metric_in_name_buf: [64]u8 = undefined;
+            const metric_in_name_z = try std.fmt.bufPrint(&metric_in_name_buf, "tickoni_metric_in.wksp", .{});
+            metric_in_name_buf[metric_in_name_z.len] = 0;
+            if (c_abi.wksp.wkspNewNamed(@ptrCast(&metric_in_name_buf), c_abi.wksp.shmem_normal_page_sz, 1, &metric_in_sub_page_cnt, &metric_in_sub_cpu_idx, 0o600, 1, metric_in_part_max) == 0) {
+                metric_in_wksp_ptr = c_abi.wksp.wkspAttach(@ptrCast(&metric_in_name_buf));
+                if (metric_in_wksp_ptr) |_| {
+                    std.debug.print("SUPERVISOR: attached metric_in workspace (footprint={d} page_cnt={d})\\n", .{ metric_in_footprint, metric_in_page_cnt });
+                }
+            }
+        }
+
+        // v2.22.S4 Task 0: Set wksp ptr + create objects for metric/metric_in
+        // so parent-side topoObjLaddr/gaddr resolves valid content.
+        if (metric_wksp_ptr) |metric_wksp| {
+            if (metric_wksp_idx == c_abi.topob.not_found) return error.MissingMetricWorkspaceIdx;
+            c_abi.topob.topoWkspSetPtr(built_topo.topo, metric_wksp_idx, metric_wksp);
+            c_abi.topob.topoWkspNew(built_topo.topo, metric_wksp_idx);
+        }
+        if (metric_in_wksp_ptr) |metric_in_wksp| {
+            if (metric_in_wksp_idx == c_abi.topob.not_found) return error.MissingMetricInWorkspaceIdx;
+            c_abi.topob.topoWkspSetPtr(built_topo.topo, metric_in_wksp_idx, metric_in_wksp);
+            c_abi.topob.topoWkspNew(built_topo.topo, metric_in_wksp_idx);
+        }
 
         // Inject the attached workspace into the topology and instantiate
         // every object's content (mcache/dcache/fseq/metrics/cnc — "tile"
@@ -420,6 +496,21 @@ pub const Supervisor = struct {
         // compute the layout above.
         c_abi.topob.topoWkspSetPtr(built_topo.topo, built_topo.wksp_idx, wksp);
         c_abi.topob.topoWkspNew(built_topo.topo, built_topo.wksp_idx);
+
+        // Write readiness markers AFTER all workspaces have been
+        // instantiated (topoWkspNew runs .new callbacks that create
+        // mcache/dcache/fseq/metrics/cnc objects).  Tiles that spawn
+        // immediately after seeing the markers must find valid objects
+        // in every joined workspace — writing markers before topoWkspNew
+        // for the main workspace causes fd_topo_obj_laddr → mcache_join
+        // to hit uninitialized memory.
+        try writeReadinessMarker(self.allocator, config.run_dir, std.mem.sliceTo(workspace_name_z, 0), io);
+        if (metric_wksp_ptr) |_| {
+            try writeReadinessMarker(self.allocator, config.run_dir, "tickoni_metric.wksp", io);
+        }
+        if (metric_in_wksp_ptr) |_| {
+            try writeReadinessMarker(self.allocator, config.run_dir, "tickoni_metric_in.wksp", io);
+        }
 
         const state = try self.allocator.create(ProcessState);
         state.* = .{
