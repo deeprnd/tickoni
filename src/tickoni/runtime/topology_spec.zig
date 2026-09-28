@@ -19,7 +19,7 @@ const topology = @import("topology.zig");
 const util = @import("util");
 
 pub const magic: u32 = 0x544b5453; // "TKST"
-pub const version: u16 = 1;
+pub const version: u16 = 2;
 
 pub const max_tiles: usize = 8;
 pub const max_channels: usize = 8;
@@ -40,15 +40,17 @@ pub const TopologySpec = struct {
     channel_dst_idx: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
     channel_depth: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
     channel_mtu: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
-    workspace_name: link.WorkspaceName = .{},
+    workspace_name: link.WorkspaceName = {},
+    metric_port: u16 = 7999,
 
-    pub fn fromTopology(topo: topology.Topology) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec {
+    pub fn fromTopology(topo: topology.Topology, metric_port: u16) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec {
         if (topo.tiles.len > max_tiles) return error.TooManyTiles;
         if (topo.channels.len > max_channels) return error.TooManyChannels;
 
         var spec = TopologySpec{
             .tile_cnt = @intCast(topo.tiles.len),
             .channel_cnt = @intCast(topo.channels.len),
+            .metric_port = metric_port,
         };
         for (topo.tiles, 0..) |t, i| {
             spec.tile_id[i] = t.id;
