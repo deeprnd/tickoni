@@ -6,6 +6,7 @@
 const std = @import("std");
 const c = std.c;
 pub const cpu = @import("cpu.zig");
+pub const fsync = @import("fsync.zig");
 pub const process = @import("process.zig");
 pub const process_api = @import("process_api.zig");
 pub const os_api = @import("os_api.zig");
