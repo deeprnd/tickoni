@@ -22,7 +22,6 @@ const usage =
     \\Usage: tickoni-supervisor <command>
     \\
     \\Commands:
-    \\  start           Run the Phase 0 Tickoni pipeline spike (dev/test mode)
     \\  start-process   Run the Phase 0 pipeline as isolated OS processes over
     \\                  Tango shared memory (v2.14.S1); requires <run-dir>
     \\  status          Print topology tile names
@@ -110,10 +109,7 @@ pub fn main(init: std.process.Init) !void {
         std.process.exit(tile_main.run(init.io, init.gpa, spec_path));
     }
 
-    if (std.mem.eql(u8, cmd, "start")) {
-        log.debug("main", "main", "start command received") catch {};
-        try cmdStart(init, topologies.paymentPipeline());
-    } else if (std.mem.eql(u8, cmd, "start-process")) {
+    if (std.mem.eql(u8, cmd, "start-process")) {
         log.debug("main", "main", "start-process command received") catch {};
         const run_dir = it.next() orelse {
             try File.writeStreamingAll(File.stderr(), init.io, "start-process requires <run-dir>\n");
@@ -174,116 +170,6 @@ fn cmdDoctor(init: std.process.Init, format: doctor_output.Format) !void {
     const diag_msg = try std.fmt.bufPrint(&buf, "doctor checks complete: {d} failures", .{fail_count});
     log.debug("main", "cmdDoctor", diag_msg) catch {};
     std.process.exit(if (fail_count > 0) 1 else 0);
-}
-
-fn cmdStart(init: std.process.Init, topo: rt.topology.Topology) !void {
-    const log = logger.get();
-    try log.enter("cmdStart", "init");
-    defer log.exit("cmdStart", "done") catch {};
-
-    const stdout = File.stdout();
-    var sup = try Supervisor.init(init.gpa, topo);
-    defer sup.deinit();
-
-    log.debug("main", "cmdStart", "starting payment pipeline: event_count=10000, queue_depth=64") catch {};
-    try sup.startPaymentPipeline(.{ .event_count = 10_000, .queue_depth = 64 });
-    log.debug("main", "cmdStart", "pipeline started, monitoring tiles") catch {};
-
-    // Periodic metric sampling — visible per-tile deltas during execution.
-    // Fixes V2.22.S4 "No black boxes" audit FAIL #1.
-    const sample_interval_ns: u64 = 100 * std.time.ns_per_ms;
-    const max_samples: u32 = 600; // 60s bound
-    var sample_count: u32 = 0;
-
-    // Initialize previous snapshot
-    var prev_snap = sup.pipeline.?.snapshotMetrics();
-    var tv: std.os.linux.timespec = undefined;
-    _ = std.os.linux.clock_gettime(std.os.linux.CLOCK.REALTIME, &tv);
-    var prev_time_s: u64 = @as(u64, @intCast(tv.sec)) * 1000 + @as(u64, @intCast(tv.nsec)) / 1_000_000;
-
-    // Poll for completion with per-tile delta output
-    while (sample_count < max_samples) : (sample_count += 1) {
-        if (prev_snap.audited >= 10_000) break;
-        util.process.sleepNanos(sample_interval_ns);
-
-        const cur_snap = sup.pipeline.?.snapshotMetrics();
-        var tv2: std.os.linux.timespec = undefined;
-        _ = std.os.linux.clock_gettime(std.os.linux.CLOCK.REALTIME, &tv2);
-        const cur_time_s: u64 = @as(u64, @intCast(tv2.sec)) * 1000 + @as(u64, @intCast(tv2.nsec)) / 1_000_000;
-
-        // Print deltas if counters changed
-        const d_prod = @as(i64, @intCast(cur_snap.produced)) - @as(i64, @intCast(prev_snap.produced));
-        const d_norm = @as(i64, @intCast(cur_snap.normalized)) - @as(i64, @intCast(prev_snap.normalized));
-        const d_inv = @as(i64, @intCast(cur_snap.invalid)) - @as(i64, @intCast(prev_snap.invalid));
-        const d_dup = @as(i64, @intCast(cur_snap.duplicates)) - @as(i64, @intCast(prev_snap.duplicates));
-        const d_allow = @as(i64, @intCast(cur_snap.allowed)) - @as(i64, @intCast(prev_snap.allowed));
-        const d_deny = @as(i64, @intCast(cur_snap.denied)) - @as(i64, @intCast(prev_snap.denied));
-        const d_audit = @as(i64, @intCast(cur_snap.audited)) - @as(i64, @intCast(prev_snap.audited));
-        if (d_prod != 0 or d_norm != 0 or d_inv != 0 or d_dup != 0 or d_allow != 0 or d_deny != 0 or d_audit != 0) {
-            var delta_buf: [256]u8 = undefined;
-            const delta_line = try std.fmt.bufPrint(
-                &delta_buf,
-                "delta @ {}s:  P={d} N={d} I={d} D={d} A={d} R={d} U={d}\n",
-                .{ cur_time_s - prev_time_s, d_prod, d_norm, d_inv, d_dup, d_allow, d_deny, d_audit },
-            );
-            try File.writeStreamingAll(stdout, init.io, delta_line);
-        }
-
-        prev_snap = cur_snap;
-        prev_time_s = cur_time_s;
-    }
-
-    log.debug("main", "cmdStart", "pipeline completed") catch {};
-
-    try File.writeStreamingAll(stdout, init.io, "tickoni-supervisor: Phase 0 pipeline completed\ntiles:\n");
-
-    var buf: [256]u8 = undefined;
-    for (sup.monitor()) |h| {
-        const line = try std.fmt.bufPrint(&buf, "  [{d}] {s}  state={s}\n", .{
-            h.tile_idx,
-            topo.tiles[h.tile_idx].name,
-            @tagName(h.state),
-        });
-        try File.writeStreamingAll(stdout, init.io, line);
-    }
-
-    if (sup.pipeline) |state| {
-        const metrics = state.snapshotMetrics();
-        const diag = state.snapshotDiag();
-        const metrics_line = try std.fmt.bufPrint(
-            &buf,
-            "metrics: produced={d} normalized={d} invalid={d} duplicates={d} allowed={d} denied={d} audited={d} backpressure_waits={d} max_queue_depth={d} max_latency_hops={d}\n",
-            .{
-                metrics.produced,
-                metrics.normalized,
-                metrics.invalid,
-                metrics.duplicates,
-                metrics.allowed,
-                metrics.denied,
-                metrics.audited,
-                metrics.backpressure_waits,
-                metrics.max_queue_depth,
-                metrics.max_latency_hops,
-            },
-        );
-        try File.writeStreamingAll(stdout, init.io, metrics_line);
-
-        const diag_line = try std.fmt.bufPrint(
-            &buf,
-            "diag: sandbox_failures={d} audit_records={d} crashed_tile={d} replay_checked={s} replay_match={s}\n",
-            .{
-                diag.sandbox_failures,
-                diag.audit_records,
-                diag.crashed_tile,
-                if (diag.replay_checked) "true" else "false",
-                if (diag.replay_match) "true" else "false",
-            },
-        );
-        try File.writeStreamingAll(stdout, init.io, diag_line);
-    }
-
-    sup.stop();
-    try File.writeStreamingAll(stdout, init.io, "tickoni-supervisor: stopped\n");
 }
 
 /// v2.14.S1: run the payment pipeline as one OS process per tile connected

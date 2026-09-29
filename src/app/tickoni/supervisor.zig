@@ -1,7 +1,6 @@
 /// Tickoni supervisor: owns tile handles for one topology, starts Phase 0
-/// tiles as in-process threads (dev/test mode) or, for v2.14 process mode,
-/// as supervisor-managed OS processes over Tango shared memory, and
-/// provides start/stop/monitor for either mode.
+/// tiles as supervisor-managed OS processes over Tango shared memory
+/// (v2.14.S1), and provides start/stop/monitor for that single mode.
 const std = @import("std");
 const rt = @import("runtime");
 const tiles_mod = @import("tiles");
@@ -15,8 +14,7 @@ const Topology = rt.topology.Topology;
 const TileHandle = rt.tile.TileHandle;
 const TileState = rt.tile.TileState;
 const CrashReason = rt.tile.CrashReason;
-const PaymentPipelineConfig = tiles_mod.PaymentPipelineConfig;
-const PaymentPipelineState = tiles_mod.PaymentPipelineState;
+
 
 /// v2.14.S1 process-mode configuration for startPaymentPipelineProcess.
 pub const ProcessPipelineConfig = struct {
@@ -37,9 +35,10 @@ pub const ProcessPipelineConfig = struct {
     /// tile blocks forever after stuck_after_messages loop iterations.
     stuck_tile_idx: ?u32 = null,
     stuck_after_messages: u64 = 0,
-    /// Payment pipeline behavior, shared with thread-mode
-    /// PaymentPipelineConfig so process-mode and thread-mode runs produce
-    /// byte-identical decisions/metrics for the same input.
+    /// Payment pipeline behavior for process-mode
+    /// (event_count, policy_limit_cents, inject_duplicate, inject_malformed).
+    /// Kept in ProcessPipelineConfig so process-mode runs have deterministic
+    /// inputs.
     event_count: u64 = 10_000,
     policy_limit_cents: i64 = 100_000,
     inject_duplicate: bool = true,
@@ -218,29 +217,18 @@ fn resolvedHeartbeatIntervalNs(config: ProcessPipelineConfig, multiplier: u64) u
     return std.math.mul(u64, config.heartbeat_interval_ns, multiplier) catch std.math.maxInt(u64);
 }
 
-/// Bridges a tile_registry.RunFn resolved at runtime into std.Thread.spawn,
-/// whose function argument must be comptime-known.
-fn threadTrampoline(state: *PaymentPipelineState, run_fn: tile_registry.RunFn) void {
-    run_fn(state);
-}
-
 pub const Supervisor = struct {
     allocator: std.mem.Allocator,
     topo: Topology,
     handles: []TileHandle,
-    /// Heap-allocated so thread pointers remain stable across supervisor moves.
-    pipeline: ?*PaymentPipelineState,
     /// Non-null while a v2.14 process-mode pipeline is running.
     process_state: ?*ProcessState = null,
 
     /// Runs topo.validate()'s structural checks (duplicate tile ids, channel
-    /// depth/MTU shape, exclusive/shared CPU placement conflicts) once, at
-    /// the one entrypoint every start path shares — so a caller cannot reach
-    /// startPaymentPipeline (thread mode) without the check that
-    /// startPaymentPipelineProcess already ran via cpu_placement.validate().
-    /// Host-aware checks (is a declared CPU id actually available on this
-    /// host) still belong to startPaymentPipelineProcess: thread mode never
-    /// pins CPUs, so it has no live affinity mask to check against here.
+    /// depth/MTU shape, exclusive/shared CPU placement conflicts) before
+    /// startPaymentPipelineProcess. Host-aware checks (is a declared CPU id
+    /// actually available on this host) belong to startPaymentPipelineProcess:
+    /// it pins CPUs, so it has a live affinity mask to check against here.
     pub fn init(allocator: std.mem.Allocator, topo: Topology) !Supervisor {
         const log = logger.get();
         try log.enter("supervisor", "init");
@@ -253,7 +241,6 @@ pub const Supervisor = struct {
             .allocator = allocator,
             .topo = topo,
             .handles = handles,
-            .pipeline = null,
         };
     }
 
@@ -265,46 +252,7 @@ pub const Supervisor = struct {
         log.enter("supervisor", "deinit") catch {};
         defer log.exit("supervisor", "deinit") catch {};
         std.debug.assert(self.process_state == null);
-        self.stop();
         self.allocator.free(self.handles);
-    }
-
-    /// Start all Phase 0 tiles in thread mode.
-    ///
-    /// Requires topo to be exactly the paymentPipeline shape.
-    pub fn startPaymentPipeline(self: *Supervisor, config: PaymentPipelineConfig) !void {
-        const log = logger.get();
-        try log.enter("supervisor", "startPaymentPipeline");
-        defer log.exit("supervisor", "startPaymentPipeline") catch {};
-        std.debug.assert(self.pipeline == null);
-        std.debug.assert(self.topo.tiles.len == 8);
-
-        const state = try self.allocator.create(PaymentPipelineState);
-        var state_owned_by_pipeline = false;
-        errdefer if (!state_owned_by_pipeline) self.allocator.destroy(state);
-
-        state.* = try PaymentPipelineState.init(self.allocator, config);
-        state_owned_by_pipeline = true;
-        self.pipeline = state;
-        errdefer self.stop();
-
-        for (self.handles) |*h| h.state = .starting;
-
-        // Dev/test lifecycle only.  The supervisor owns these thread starts;
-        // tile modules must not spawn background execution owners themselves.
-        // Looked up by tile id (not position) through the tile registry
-        // (v2.14.S8.T1) — the single source of truth for tile id -> behavior.
-        // std.Thread.spawn's function argument must be comptime-known, so
-        // the runtime-resolved entry.run_fn is passed through a single
-        // comptime-known trampoline rather than directly.
-        for (self.handles, self.topo.tiles) |*h, tile| {
-            const entry = tile_registry.findById(tile.id) orelse return error.UnregisteredTile;
-            h.thread = try std.Thread.spawn(.{}, threadTrampoline, .{ state, entry.run_fn });
-            h.state = .running;
-        }
-        var thread_count_buf: [16]u8 = undefined;
-        const thread_count = std.fmt.bufPrint(&thread_count_buf, "{d}", .{self.handles.len}) catch "";
-        log.debug("supervisor", "startPaymentPipeline", thread_count) catch {};
     }
 
     /// Start every tile in the topology as a separate OS process connected
@@ -1059,44 +1007,6 @@ pub const Supervisor = struct {
         self.process_state = null;
     }
 
-    /// Join all tile threads without requesting early shutdown.  The Phase 0
-    /// pipeline closes links as producers finish, so this waits for a complete
-    /// deterministic run unless a tile has already requested stop.
-    pub fn wait(self: *Supervisor) void {
-        self.joinThreads();
-    }
-
-    /// Signal all tiles to stop and join their threads.
-    pub fn stop(self: *Supervisor) void {
-        if (self.pipeline) |state| {
-            state.requestStop();
-        }
-        self.joinThreads();
-        if (self.pipeline) |state| {
-            state.deinit();
-            self.allocator.destroy(state);
-            self.pipeline = null;
-        }
-    }
-
-    fn joinThreads(self: *Supervisor) void {
-        for (self.handles) |*h| {
-            if (h.thread) |thread| {
-                thread.join();
-                h.thread = null;
-                // Read after join so the release-store in the tile thread is visible.
-                const crashed_tile = if (self.pipeline) |state| state.crashed_tile.load(.acquire) else -1;
-                if (crashed_tile >= 0 and @as(i32, @intCast(h.tile_idx)) == crashed_tile) {
-                    h.state = .crashed;
-                    h.exit_code = 1;
-                    h.crashed_because = .exit_code;
-                } else {
-                    h.state = .stopped;
-                }
-            }
-        }
-    }
-
     /// Returns the current handle slice — a read-only snapshot of tile states.
     pub fn monitor(self: *const Supervisor) []const TileHandle {
         return self.handles;
@@ -1140,62 +1050,10 @@ test "Supervisor init fails closed on a structural CPU placement conflict, even 
     try std.testing.expectError(error.CpuPlacementConflict, Supervisor.init(std.testing.allocator, topo));
 }
 
-test "Supervisor starts and stops Phase 0 pipeline without crashes" {
-    const topo = topologies.paymentPipeline();
-    var sup = try Supervisor.init(std.testing.allocator, topo);
-    defer sup.deinit();
-
-    try sup.startPaymentPipeline(.{ .event_count = 16, .queue_depth = 4 });
-    sup.wait();
-
-    const state = sup.pipeline.?;
-    const metrics = state.snapshotMetrics();
-    try std.testing.expectEqual(@as(u64, 16), metrics.produced);
-    try std.testing.expectEqual(@as(u64, 16), metrics.audited);
-    try std.testing.expectEqual(@as(u64, 1), metrics.duplicates);
-    try std.testing.expectEqual(@as(u64, 1), metrics.denied);
-    try std.testing.expect(metrics.max_queue_depth <= 4);
-    try std.testing.expectEqual(@as(u64, 5), metrics.max_latency_hops);
-    try std.testing.expect(state.replay_checked.load(.seq_cst));
-    try std.testing.expect(state.replay_match.load(.seq_cst));
-    try std.testing.expect(state.external_effects_disabled.load(.seq_cst));
-
-    sup.stop();
-
-    for (sup.monitor()) |h| {
-        try std.testing.expectEqual(TileState.stopped, h.state);
-        try std.testing.expect(!h.isAlive());
-    }
-}
-
 test "Supervisor monitor returns correct tile count" {
     const topo = topologies.paymentPipeline();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
     try std.testing.expectEqual(topo.tiles.len, sup.monitor().len);
-}
-
-test "Supervisor pipeline state is nil after stop" {
-    const topo = topologies.paymentPipeline();
-    var sup = try Supervisor.init(std.testing.allocator, topo);
-    defer sup.deinit();
-
-    try sup.startPaymentPipeline(.{ .event_count = 50, .queue_depth = 8 });
-    sup.wait();
-    sup.stop();
-    try std.testing.expect(sup.pipeline == null);
-}
-
-test "Supervisor marks tkings crashed on sandbox failure" {
-    const topo = topologies.paymentPipeline();
-    var sup = try Supervisor.init(std.testing.allocator, topo);
-    defer sup.deinit();
-
-    try sup.startPaymentPipeline(.{ .event_count = 20, .queue_depth = 4, .sandbox_fail_at = 2 });
-    sup.wait();
-    sup.stop();
-    try std.testing.expectEqual(TileState.crashed, sup.monitor()[0].state);
-    try std.testing.expectEqual(@as(u8, 1), sup.monitor()[0].exit_code);
-    try std.testing.expectEqual(CrashReason.exit_code, sup.monitor()[0].crashed_because);
 }

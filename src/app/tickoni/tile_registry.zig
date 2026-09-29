@@ -1,12 +1,12 @@
 /// v2.14.S8.T1: single source of truth for tile id -> behavior. Before this
 /// file, tile identity was independently mapped in four places: supervisor's
-/// thread-mode spawn (position-indexed), supervisor's snapshotProcessMetrics
+/// process-mode spawn (position-indexed), supervisor's snapshotProcessMetrics
 /// (string-matched), tile_main's process dispatch (string-matched if/else),
 /// and process.zig's counter indices (positionally assumed, unowned).
 ///
 /// This registry follows Firedancer's TILES[] + one-dispatcher pattern: one
-/// array of TileEntry, looked up by TileId, that owns a tile's thread-mode
-/// run callback, process-mode run callback, and counter schema. Every
+/// array of TileEntry, looked up by TileId, that owns a tile's process-mode
+/// run callback and counter schema. Every
 /// consumer of tile identity reads from here instead of recreating the
 /// mapping.
 const std = @import("std");
@@ -14,14 +14,9 @@ const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const tiles = @import("tiles");
 
-/// Thread-mode (dev/test) run callback: every Phase 0 tile has one.
-pub const RunFn = *const fn (state: *tiles.PaymentPipelineState) void;
-
 /// Process-mode run callback: joins this tile's links from the launch spec
 /// and runs its pipeline stage. Not every tile has a process-mode role yet
-/// (see TileEntry.process_fn). Takes `io` so a wrapper can read the shared
-/// payment-pipeline config file written once by the supervisor (see
-/// loadProcessConfig below).
+/// (see TileEntry.process_fn).
 pub const ProcessFn = *const fn (
     io: std.Io,
     wksp: *c_abi.wksp.Wksp,
@@ -57,7 +52,6 @@ pub const CounterSchemaEntry = struct { idx: u8, field: CounterField };
 
 pub const TileEntry = struct {
     id: rt.tile.TileId,
-    run_fn: RunFn,
     /// Null for tiles with no process-mode pipeline role yet (tkrepl,
     /// tkmetr, tkdiag) — see tiles/payment_pipeline/process.zig's module
     /// doc comment for that scope boundary.
@@ -174,14 +168,12 @@ fn tkaudtProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
 pub const entries = [_]TileEntry{
     .{
         .id = id("tkings"),
-        .run_fn = tiles.runIngest,
         .process_fn = tkingsProcess,
         .counters = &.{.{ .idx = 0, .field = .produced }},
         .out_cnt = 1,
     },
     .{
         .id = id("tknorm"),
-        .run_fn = tiles.runNormalize,
         .process_fn = tkrnormProcess,
         .counters = &.{ .{ .idx = 0, .field = .normalized }, .{ .idx = 1, .field = .invalid } },
         .in_cnt = 1,
@@ -189,7 +181,6 @@ pub const entries = [_]TileEntry{
     },
     .{
         .id = id("tkdedu"),
-        .run_fn = tiles.runDedupe,
         .process_fn = tkdeduProcess,
         .counters = &.{.{ .idx = 0, .field = .duplicates }},
         .in_cnt = 1,
@@ -197,7 +188,6 @@ pub const entries = [_]TileEntry{
     },
     .{
         .id = id("tkpoly"),
-        .run_fn = tiles.runPolicy,
         .process_fn = tkpolyProcess,
         .counters = &.{ .{ .idx = 0, .field = .allowed }, .{ .idx = 1, .field = .denied } },
         .in_cnt = 1,
@@ -205,24 +195,20 @@ pub const entries = [_]TileEntry{
     },
     .{
         .id = id("tkaudt"),
-        .run_fn = tiles.runAudit,
         .process_fn = tkaudtProcess,
         .counters = &.{.{ .idx = 0, .field = .audited }},
         .in_cnt = 1,
     },
     .{
         .id = id("tkrepl"),
-        .run_fn = tiles.runReplay,
         .counters = &.{ .{ .idx = 0, .field = .replay_checked }, .{ .idx = 1, .field = .replay_match } },
     },
     .{
         .id = id("tkmetr"),
-        .run_fn = tiles.runMetric,
         .counters = &.{ .{ .idx = 0, .field = .metric_snapshots }, .{ .idx = 1, .field = .metric_backpressure_waits } },
     },
     .{
         .id = id("tkdiag"),
-        .run_fn = tiles.runDiag,
         .counters = &.{ .{ .idx = 0, .field = .diag_crashed_tile }, .{ .idx = 1, .field = .diag_sandbox_failures } },
     },
 };
@@ -246,8 +232,7 @@ pub fn findByIdx(idx: usize) *const TileEntry {
 /// topology tile is registered, and every registered tile is present in
 /// the topology), and that each topology tile's actual channel cardinality
 /// matches its registry entry's expected in_cnt/out_cnt. Called once from
-/// Supervisor.init so both thread-mode and process-mode start paths share
-/// the check.
+/// Supervisor.init so the start path shares this check.
 pub fn validate(topo: rt.topology.Topology) !void {
     if (topo.tiles.len != entries.len) return error.TopologyTileCountMismatch;
     for (topo.tiles) |t| {
@@ -469,22 +454,6 @@ test "T10.4 positive fan-in: channel array has 2 inbound links to tkaudt" {
 // v2.14.S8.T10 subtasks: malformed harness-callback, provider-config, and
 // adapter-manifest validation tests.
 // ---------------------------------------------------------------------------
-
-// T10.14: malformed harness-callback tests — run_fn is non-optional by
-// type (every tile entry must have one), and process_fn is optional.
-// The compiler enforces the run_fn constraint; the process_fn constraint
-// is tested below. This test documents the invariant.
-test "validate rejects registry entry with null run callback" {
-    // run_fn: RunFn is non-optional — if any entry lacked it the code
-    // wouldn't compile. This test simply confirms all entries have a
-    // valid (non-null) run_fn pointer.
-    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt", "tkrepl", "tkmetr", "tkdiag" }) |name| {
-        const tile_id = try rt.tile.TileId.parse(name);
-        const entry = findById(tile_id).?;
-        // _ = entry.run_fn; // non-optional: compiler enforces presence
-        _ = entry; // suppress unused warning
-    }
-}
 
 test "validate rejects mismatched process callback for tiles with pipeline role" {
     // Each of the 5 pipeline-stage tiles must have a non-null process_fn.
