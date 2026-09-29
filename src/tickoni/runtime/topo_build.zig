@@ -20,7 +20,7 @@ const topology = @import("topology.zig");
 const cpu_placement = @import("cpu_placement.zig");
 
 /// Keep topology construction diagnostics disabled in normal builds.
-pub const topo_build_debug: bool = false;
+pub const topo_build_debug: bool = true;
 
 const Topo = c_abi.topob.Topo;
 

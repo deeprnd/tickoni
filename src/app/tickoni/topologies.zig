@@ -17,9 +17,9 @@ const WorkspaceName = rt.link.WorkspaceName;
 /// `runnable`: src/app/tickoni/supervisor.zig has a start path for it and
 /// src/app/tickoni/main.zig's CLI exposes a command for that path.
 /// `planned`: a declared architectural target with no dispatch path yet —
-/// Supervisor.startPaymentPipeline()/startPaymentPipelineProcess() assume
-/// exactly the 8 Phase 0 tile roles and will fail closed (assert) if handed
-/// a differently-shaped topology.
+/// Supervisor.startPaymentPipelineProcess() assumes exactly the 8 Phase 0
+/// tile roles and will fail closed (assert) if handed a differently-shaped
+/// topology.
 pub const TopologyStatus = enum { runnable, planned };
 
 // Static backing arrays for paymentPipeline — avoids returning pointers to

@@ -248,7 +248,6 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     var shared_sup = try Supervisor.init(std.testing.allocator, shared_topo);
     defer shared_sup.deinit();
 
-    const port = util.metricPort();
     try shared_sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = shared_run_dir,
         .event_count = event_count,

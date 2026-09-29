@@ -141,7 +141,7 @@ tk_get_metric_run_tile( void ) {
    --------------------------------------------------------------------- */
 
 fd_topo_run_tile_t TK_METRIC_RUN = {
-  .name                     = "tickoni-metric",
+  .name                     = "metric",
   .keep_host_networking     = 0,
   .allow_connect            = 0,
   .allow_renameat           = 0,
