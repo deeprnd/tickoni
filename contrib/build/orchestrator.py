@@ -96,7 +96,7 @@ def cmd_build_fd(args, config: dict) -> None:
     elif mode in ("test", "cov"):
         extras = "openssl lz4 blst zstd"
     else:
-        extras = "openssl"
+        extras = "openssl zstd"
     ldflags_exe = args.ldflags or ""
     build_target = args.build_target or ""
     builddir = args.builddir or "fd-tickoni-fd"
