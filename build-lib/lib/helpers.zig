@@ -62,7 +62,7 @@ pub fn createSupervisorExe(
         exe.root_module.linkLibrary(codec.addTickoniSupervisorShimLibrary(b, target, optimize));
         codec.addWindowsFdManifestFixups(b, exe, b.fmt("{s}/fd_windows_zig_supervisor_link.txt", .{fd_lib_dir}));
         codec.addTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
-        exe.root_module.linkSystemLibrary("zstd", .{});
+        exe.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_zstd.a", .{fd_lib_dir}) });
     } else if (target.result.cpu.arch == .aarch64) {
         codec.linkTickoniCodec(b, exe, fd_lib_dir);
         firedancer.linkTickoniFiredancer(b, exe, fd_lib_dir);
@@ -146,7 +146,7 @@ pub fn createCheckStep(
     inline for (shims.shim_c_files) |shim_file| {
         const c_check = b.addSystemCommand(&.{
             "sh", "-c",
-            b.fmt("zig cc -target {s} -c -I src -std=c17 -UBMI2 -ULZCNT -DFD_HAS_HOSTED=1 {s} -o {s}/{s}.o {s} 2>&1 || true", .{
+            b.fmt("zig cc -target {s} -c -I src -std=c17 -UBMI2 -ULZCNT -DFD_HAS_HOSTED=1 {s} -o {s}/{s}.o {s} 2>&1", .{
                 shims.buildTriple(b, target),
                 shims.shimCFlagsFor(target.result)[0],
                 cache_o_dir,
@@ -159,7 +159,7 @@ pub fn createCheckStep(
     {
         const getrandom_check = b.addSystemCommand(&.{
             "sh", "-c",
-            b.fmt("zig cc -target {s} -c -I src -I src/util -I src/disco -I src/ballet -std=c17 -DFD_HAS_HOSTED=1 {s} -o {s}/test_fd_shmem_getrandom.o {s} 2>&1 || true", .{
+            b.fmt("zig cc -target {s} -c -I src -I src/util -I src/disco -I src/ballet -std=c17 -DFD_HAS_HOSTED=1 {s} -o {s}/test_fd_shmem_getrandom.o {s} 2>&1", .{
                 shims.buildTriple(b, target),
                 shims.shimCFlagsFor(target.result)[0],
                 cache_o_dir,
