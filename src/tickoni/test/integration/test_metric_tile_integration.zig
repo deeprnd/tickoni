@@ -12,7 +12,6 @@
 ///
 /// HTTP client: spawns a Python subprocess that calls urllib.request.
 /// Cross-platform, no POSIX socket code.
-
 const std = @import("std");
 const c_abi = @import("c_abi");
 const runtime = @import("runtime");
@@ -202,7 +201,9 @@ fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) !void {
         const logs_dir = try std.testing.allocator.dupe(u8, run_dir);
         defer std.testing.allocator.free(logs_dir);
         const log_path = try std.testing.allocator.dupe(u8, std.fmt.allocPrint(
-            std.testing.allocator, "{s}/logs", .{run_dir},
+            std.testing.allocator,
+            "{s}/logs",
+            .{run_dir},
         ) catch unreachable);
         defer std.testing.allocator.free(log_path);
         const dir = std.Io.Dir.cwd().openDir(std.testing.io, log_path, .{}) catch unreachable;

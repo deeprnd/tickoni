@@ -186,8 +186,7 @@ pub fn build(
         const metric_idx = c_abi.topob.topoFindTile(topo, toZ(&metric_name_buf, "metric"), 0);
         if (metric_idx != c_abi.topob.not_found) {
             metric_tile_idx = metric_idx;
-            log.kvFmt("topo_build", "build", "detected metric tile at idx={d}, metric_wksp={d}, metric_in_wksp={d}", .{
-                metric_tile_idx, metric_wksp_idx, metric_in_wksp_idx });
+            log.kvFmt("topo_build", "build", "detected metric tile at idx={d}, metric_wksp={d}, metric_in_wksp={d}", .{ metric_tile_idx, metric_wksp_idx, metric_in_wksp_idx });
         } else {
             log.kvFmt("topo_build", "build", "metric tile NOT found in topology", .{});
         }

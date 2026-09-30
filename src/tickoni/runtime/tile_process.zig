@@ -177,7 +177,6 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         return 1;
     };
 
-
     // Per-tile log file: {shmemPath}/logs/tile_{idx}.log
     var log_path_buf: [256]u8 = undefined;
     const log_path = std.fmt.bufPrint(&log_path_buf, "{s}/logs/tile_{d}.log", .{ spec.shmemPath(), spec.tile_idx }) catch {
@@ -188,7 +187,6 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         std.debug.print("tile_process: bootWithSyntheticArgv failed for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
-
 
     // The supervisor finalizes and populates every workspace before spawning
     // children, so child processes can join without readiness polling.

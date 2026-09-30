@@ -15,7 +15,6 @@ const TileHandle = rt.tile.TileHandle;
 const TileState = rt.tile.TileState;
 const CrashReason = rt.tile.CrashReason;
 
-
 /// v2.14.S1 process-mode configuration for startPaymentPipelineProcess.
 pub const ProcessPipelineConfig = struct {
     /// Directory used for per-tile launch-spec files and as FD_SHMEM_PATH
@@ -401,7 +400,6 @@ pub const Supervisor = struct {
             metric_name_buf[metric_name_z.len] = 0;
             if (c_abi.wksp.wkspNewNamed(@ptrCast(&metric_name_buf), c_abi.wksp.shmem_normal_page_sz, 1, &metric_sub_page_cnt, &metric_sub_cpu_idx, 0o600, 1, metric_part_max) == 0) {
                 metric_wksp_ptr = c_abi.wksp.wkspAttach(@ptrCast(&metric_name_buf));
-
             }
         }
         if (metric_in_wksp_idx != c_abi.topob.not_found) {
@@ -415,7 +413,6 @@ pub const Supervisor = struct {
             metric_in_name_buf[metric_in_name_z.len] = 0;
             if (c_abi.wksp.wkspNewNamed(@ptrCast(&metric_in_name_buf), c_abi.wksp.shmem_normal_page_sz, 1, &metric_in_sub_page_cnt, &metric_in_sub_cpu_idx, 0o600, 1, metric_in_part_max) == 0) {
                 metric_in_wksp_ptr = c_abi.wksp.wkspAttach(@ptrCast(&metric_in_name_buf));
-
             }
         }
 
@@ -553,7 +550,6 @@ pub const Supervisor = struct {
             const spec_path = try std.fmt.allocPrint(self.allocator, "{s}/tile_{d}.spec", .{ config.run_dir, i });
             defer self.allocator.free(spec_path);
             try spec.writeToFile(io, std.Io.Dir.cwd(), spec_path);
-
 
             // Minimal explicit child environment: the tile reads its
             // shmem path from the launch spec via --shmem-path (see
