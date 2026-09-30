@@ -9,6 +9,7 @@ const lane = @import("lane.zig");
 const build_lane = @import("lanes/unit.zig");
 const integration_lane = @import("lanes/integration.zig");
 const system_lane = @import("lanes/system.zig");
+const perf_lane = @import("lanes/perf.zig");
 const cov_lane = @import("lanes/cov.zig");
 
 const modules = @import("mod/modules.zig");

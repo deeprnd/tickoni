@@ -1,7 +1,7 @@
-/// Linux-strict CPU placement proof: pin every tile onto one explicit shared
-/// core so the shared placement signal is materially stronger than ambient CI
-/// noise, then verify that fully-shared and floating runs produce comparable
-/// results within a noise margin.
+/// Linux-strict CPU placement performance proof: pin every tile onto one
+/// explicit shared core so the shared placement signal is materially stronger
+/// than ambient CI noise, then verify that fully-shared and floating runs
+/// produce comparable results within a noise margin.
 ///
 /// On some hardware (few cores, shared L3, no SMT) shared-core can be faster
 /// than floating because cross-core cache thrashing on many cores dominates

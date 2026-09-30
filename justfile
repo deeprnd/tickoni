@@ -21,6 +21,7 @@ import "just/test/integration.just"
 import "just/test/demo.just"
 import "just/test/system.just"
 import "just/test/coverage.just"
+import "just/test/perf.just"
 
 # ── Build ──────────────────────────────────────────────────────────────────
 
