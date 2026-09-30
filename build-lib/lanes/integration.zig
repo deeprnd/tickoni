@@ -89,6 +89,7 @@ pub fn strategy(
     // Each process test run step depends on the install so the file exists.
     if (target.result.os.tag == .linux) {
         const process_tests: []const []const u8 = &.{
+            "src/tickoni/test/integration/test_link_bounds.zig",
             "src/tickoni/test/integration/test_metric_tile_integration.zig",
             "src/tickoni/test/integration/test_process_pipeline.zig",
             "src/tickoni/test/integration/test_process_cpu_placement.zig",
