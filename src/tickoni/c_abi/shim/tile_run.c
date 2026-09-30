@@ -18,7 +18,7 @@
    uses Firedancer's fd_stem-based run loop with fd_http_server.
 */
 
-#if FD_HAS_LINUX
+#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
 #define _GNU_SOURCE
 #endif
 

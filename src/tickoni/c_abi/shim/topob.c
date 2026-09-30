@@ -23,7 +23,7 @@
    (fd_topo_t, fd_topo_tile_t, fd_topo_obj_t, fd_topo_obj_callbacks_t)
    exist in Tickoni. */
 
-#if FD_HAS_LINUX
+#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
 #define _GNU_SOURCE
 #endif
 
