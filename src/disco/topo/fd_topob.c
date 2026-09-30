@@ -374,9 +374,16 @@ validate( fd_topo_t const * topo ) {
 
 /* Tiles that yield to the kernel scheduler */
 static char const * FLOATING[] = {
-  "metric", /* TICKONI */
-  "tkdiag", /* TICKONI */
-  "tkdisp", /* TICKONI */
+  "netlnk",
+  "metric",
+  "diag",
+  "bencho",
+  "genesi", /* FIREDANCER ONLY */
+  "ipecho", /* FIREDANCER ONLY */
+  "tkmetr",
+  "tkdiag",
+  "tkdisp",
+  "admin",
   NULL
 };
 
@@ -837,7 +844,6 @@ initialize_numa_assignments( fd_topo_t * topo ) {
   for( ulong i=0UL; i<topo->wksp_cnt; i++ ) {
     ulong max_footprint = 0UL;
     ulong max_obj = ULONG_MAX;
-
 
     for( ulong j=0UL; j<topo->obj_cnt; j++ ) {
       fd_topo_obj_t * obj = &topo->objs[ j ];
