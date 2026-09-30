@@ -3,6 +3,10 @@
  * Reuses Firedancer's fd_stem-based run loop (stem_run) with
  * fd_http_server for Prometheus /metrics endpoint.
  *
+ * Linux-only: depends on symbols from fd_metric_tile.c (scratch_align,
+ * scratch_footprint, privileged_init, unprivileged_init, stem_run,
+ * populate_allowed_seccomp, populate_allowed_fds).
+ *
  * Design notes:
  *   • We #include disco/metrics/fd_metric_tile.h (header-only declarations)
  *     rather than the .c source file.  The .c file defines all the static
@@ -28,6 +32,8 @@
  *     a raw strcmp scan.  Scratch footprint uses tk_metric_scratch_footprint()
  *     (v2.23-m task 4) so topob.c never needs the full fd_topo_run_tile_t.
  */
+
+#if FD_HAS_LINUX
 
 #define _GNU_SOURCE
 
@@ -97,10 +103,10 @@ tk_metric_unprivileged_init( fd_topo_t const *      topo,
    output to the pipeline.  stem_run handles in_cnt==0 correctly by
    skipping input/output polling and only running before_credit.
 
-   We set ctx->cnc before calling stem_run so STEM_CALLBACK_SHOULD_SHUTDOWN
-   can detect HALT from the supervisor.  This is the critical fix:
-   without it, stem_run loops forever because ctx->cnc is NULL and
-   the shutdown callback always returns 0.
+   We set ctx->cnc before calling stem_run so stem_run's
+   STEM_CALLBACK_SHOULD_SHUTDOWN can detect HALT from the supervisor.  This
+   is the critical fix: without it, stem_run loops forever because
+   ctx->cnc is NULL and the shutdown callback always returns 0.
    --------------------------------------------------------------------- */
 
 static void
@@ -161,3 +167,5 @@ fd_topo_run_tile_t TK_METRIC_RUN = {
   .run                      = tk_metric_run,
   .rlimit_file_cnt_fn       = NULL,
 };
+
+#endif /* FD_HAS_LINUX */

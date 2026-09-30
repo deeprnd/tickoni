@@ -24,12 +24,14 @@
 #include "../../util/net/fd_ip4.h"
 #include "../../tango/cnc/fd_cnc.h"
 
+#include <string.h>
+
+#if FD_HAS_LINUX
 #include <sys/types.h>
 #include <sys/socket.h> /* SOCK_CLOEXEC, SOCK_NONBLOCK needed for seccomp filter */
 #include <unistd.h>
-#include <string.h>
-
 #include "generated/fd_metric_tile_seccomp.h"
+#endif
 
 #define FD_HTTP_SERVER_METRICS_MAX_CONNS          128
 #define FD_HTTP_SERVER_METRICS_MAX_REQUEST_LEN    8192

@@ -382,13 +382,18 @@ tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_t
 /* Include the metric tile header for TK_METRIC_RUN and footprint helper.
    The header provides a wrapper (tk_metric_scratch_footprint()) so that
    topob.c never needs the full fd_topo_run_tile_t definition — it only
-   sees the extern declaration and the thin accessor.  See v2.23-m task 4. */
+   sees the extern declaration and the thin accessor.  See v2.23-m task 4.
+   Linux-only: tk_metric_tile.c references symbols from fd_metric_tile.c. */
+#if FD_HAS_LINUX
 #include "../topo_run/tk_metric_tile.h"
+#endif
 
 ulong
 tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {
+#if FD_HAS_LINUX
   if( strcmp( tile_name, "metric" ) == 0 )
     return tk_metric_scratch_footprint();
+#endif
   return 1UL;
 }
 
