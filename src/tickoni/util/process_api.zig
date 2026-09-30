@@ -19,8 +19,18 @@ pub const PollResult = union(enum) {
 };
 
 pub fn forceTerminate(pid: std.process.Child.Id) void {
+    termProcess(pid);
+}
+
+pub fn termProcess(pid: std.process.Child.Id) void {
     if (builtin.os.tag != .windows) {
-        os_api.kill(@intCast(pid));
+        _ = os_api.kill(@intCast(pid));
+    }
+}
+
+pub fn forceKillProcess(pid: std.process.Child.Id) void {
+    if (builtin.os.tag != .windows) {
+        _ = os_api.kill(@intCast(pid));
     }
 }
 

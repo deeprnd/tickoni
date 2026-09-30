@@ -119,3 +119,56 @@ The core finding remains: **Windows tiles are stubbed**. CPU pinning, stack mana
 ### Assessment: Relevance justification should be removed
 
 The stub finding is real but the debt tracker's relevance note ("No `FD_HAS_WINDOWS` found") is outdated and should be corrected. The macro exists and is wired into the build system and shim layer. Only the "stubs, not functional" portion remains accurate.
+
+---
+
+| Issue #116 — "No build-system tests" (ACCEPTED AS-IS)
+
+**Audit reference:** V2.10.S2-maintainability-audit.md (S2)
+
+**Severity:** HIGH → P3-low → P1-high (pulled into M2: Enforced Boundaries)
+
+**Status:** Accepted — no action needed.
+
+### What the audit found
+
+No build-system tests exist. Developer tooling with non-trivial cost.
+
+### Resolution rationale
+
+Tickoni is not a build-system project — we are not npm, bun, or a build tool. The build system is infrastructure, not product. A broken build causes CI to fail and nobody can merge; that is a self-testing mechanism. Adding unit tests for the build would test that Zig compiles Zig, which is not our responsibility.
+
+The maintainability concern (S2) is about whether the build system is understandable and modifiable, not whether it has tests. That is addressed by the existing documentation, the justfile recipes, and the fact that build changes are verified by the build itself plus CI.
+
+### Assessment
+
+No build-system tests needed. The finding is accepted as-is.
+
+---
+
+## Issue #47 — "fd_topo.h forward-declares struct sock_filter only on non-Linux — ABI fragility" (CLOSED)
+
+**Audit reference:** `doc/execution/testing/audit-macos.md` (audit of V2.22.S1 platform port PR).
+
+**Severity:** LOW
+
+**Status:** Resolved — closed.
+
+### What the audit found
+
+`fd_topo.h` forward-declared `struct sock_filter` for non-Linux builds to satisfy stub function signatures. The forward declaration provided no member information, creating ABI fragility: if any code path tried to actually use a `struct sock_filter` on macOS or Windows, compile errors or runtime crashes could result.
+
+### What changed
+
+1. **`fd_topo_platform.h` (lines 9–27)** now centralizes cross-platform `sock_filter` handling with proper per-platform includes:
+   - Linux: `#include <linux/filter.h>`
+   - BSD (FreeBSD, NetBSD, OpenBSD): `#include <sys/bpf.h>`
+   - macOS/Windows/other: forward-declare only — explicitly documented as safe because `fd_topo_run_tile_t::populate_allowed_seccomp` only ever passes `sock_filter *` as an opaque pointer, never dereferences members.
+
+2. **`fd_topo_run.c`** no longer has a standalone forward-declaration in an `#else` branch. The `#else` stub (lines 358–399) calls `abort()` on non-Linux, so there is zero risk of accidental `sock_filter` member access.
+
+3. **The function-pointer type** (`ulong (*)(…, struct sock_filter * out)`) in `fd_topo_run_tile_t` (line 745) is consistent across all platforms because `fd_topo.h` includes `fd_topo_platform.h`, which provides the right definition per-platform.
+
+### Assessment
+
+Issue #47 is closed. The forward-declare-on-non-Linux pattern is still used for macOS/Windows, but it is now documented, centralized in `fd_topo_platform.h`, and safe by design — `sock_filter` is never dereferenced on those platforms.
