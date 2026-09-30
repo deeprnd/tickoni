@@ -2,6 +2,7 @@
 /// tiles as supervisor-managed OS processes over Tango shared memory
 /// (v2.14.S1), and provides start/stop/monitor for that single mode.
 const std = @import("std");
+const builtin = @import("builtin");
 const rt = @import("runtime");
 const tiles_mod = @import("tiles");
 const c_abi = @import("c_abi");
