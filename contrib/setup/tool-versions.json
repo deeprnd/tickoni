@@ -903,8 +903,13 @@
     "qt-installer": {
       "category": "qt",
       "platform": "all",
-      "install_method": "qt_installer",
+      "install_method": {
+        "macos": "brew",
+        "linux": "qt_installer",
+        "windows": "qt_installer"
+      },
       "parameters": {
+        "package": "qt@6",
         "install_dir": "~/Qt",
         "version_ref": "qt-installer"
       },
