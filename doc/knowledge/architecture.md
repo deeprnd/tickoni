@@ -53,7 +53,7 @@ They do not replace the runtime.
 │  tkagnt -> tktool -> tkadpt                                                   │
 │    finance-native tool broker and signed/stub adapters                        │
 │                                                                               │
-│  tkrepl, tkmetr, tkdiag, future tkexec                                        │
+│  tkrepl, metric, tkdiag, future tkexec                                        │
 │    replay, metrics, diagnostics, approved privileged execution                │
 └───────────────────────────────┬───────────────────────────────────────────────┘
                                 │
@@ -194,7 +194,7 @@ synthetic payment stream
   -> tkaudt
 
 tkrepl -> deterministic re-injection path
-tkmetr -> runtime metrics
+metric -> runtime metrics
 tkdiag -> process and queue diagnostics
 ```
 
@@ -484,7 +484,7 @@ platform, fuzzing, or performance stories.
 | `tkpoly` | `policy_tile` | Evaluate versioned capability policy for runtime-visible decisions |
 | `tkaudt` | `audit_tile` | Own append-only hash-chain ordering and JSONL export |
 | `tkrepl` | `replay_tile` | Re-inject replay capsules with external effects disabled and report divergence |
-| `tkmetr` | `metric_tile` | Export queue, tile, and runtime metrics |
+| `metric` | `metric_tile` | Export queue, tile, and runtime metrics |
 | `tkdiag` | `diag_tile` | Export process, queue, crash, and supervisor diagnostics |
 
 ### Link Shape
@@ -498,7 +498,7 @@ Phase 0 links are implemented with this shape:
 | `tkdedu_tkpoly` | `tkdedu` | `tkpoly` | reliable | deduplicated event decision input |
 | `tkpoly_tkaudt` | `tkpoly` | `tkaudt` | reliable | policy decision and event envelope |
 | `tkrepl_tkings` | `tkrepl` | `tkings` or replay entrypoint | reliable in replay mode | replay capsule event |
-| `*_tkmetr` | tile-local producers | `tkmetr` | unreliable where safe | metrics samples |
+| `*_metric` | tile-local producers | `metric` | unreliable where safe | metrics samples |
 | `*_tkdiag` | tile-local producers | `tkdiag` | unreliable where safe | diagnostics samples |
 
 Correctness-bearing event and audit links should prefer bounded reliable flow

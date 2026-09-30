@@ -165,9 +165,9 @@ financial meaning.
 | `net` | Mostly generic packet I/O, but configured around validator UDP flows | Useful only if Tickoni later needs high-rate packet ingress/egress below normal HTTP/WebSocket APIs, such as market-data UDP capture or colocated adapter feeds. Not needed for the current in-process spike. | Adapt only the generic packet-I/O discipline; do not inherit validator packet schemas. |
 | `sock` | Mostly generic UDP socket I/O | Useful for lower-rate UDP adapter feeds or tests where XDP is unnecessary. Not a replacement for `tkapi` HTTP/WebSocket. | Adapt only if Tickoni needs low-level UDP feeds. |
 | `netlnk` | Generic Linux network metadata | Useful with `net` if Tickoni owns route/neighbour-aware packet I/O. | Keep paired with low-level network work; otherwise omit. |
-| `metric` | Mostly generic, but assumes Firedancer metric layout and C topology | Useful model for `tkmetr` Prometheus export and `fd_http_server` integration. | Keep metric workspace/rendering patterns; expose Tickoni metric names instead of validator metric schema. |
+| `metric` | Mostly generic, but assumes Firedancer metric layout and C topology | Useful model for `metric` Prometheus export and `fd_http_server` integration. | Keep metric workspace/rendering patterns; expose Tickoni metric names instead of validator metric schema. |
 | `diag` | Mixed: generic process diagnostics plus validator health checks | Useful model for `tkdiag` process, queue, crash, CPU, and interrupt diagnostics. | Minimal adaptation: remove validator-specific replay/tower/bundle checks and keep process/topology sampling. |
-| `fd_http_server` used by `metric`, `rpc`, and `gui` | Generic HTTP/WebSocket infrastructure, not itself a tile | Useful for `tkapi`, `tkmetr`, and `tkdiag` HTTP surfaces. | Reuse the HTTP/WebSocket substrate, not Solana RPC or GUI schemas. |
+| `fd_http_server` used by `metric`, `rpc`, and `gui` | Generic HTTP/WebSocket infrastructure, not itself a tile | Useful for `tkapi`, `metric`, and `tkdiag` HTTP surfaces. | Reuse the HTTP/WebSocket substrate, not Solana RPC or GUI schemas. |
 | `src/disco/topo` and `src/disco/stem` | Generic tile lifecycle/polling substrate | Useful for process lifecycle, workspace construction, link validation, bounded polling, and backpressure. | Use as lifecycle/backpressure reference material. Avoid adding Tickoni fields to upstream-hot `fd_topo.h`. |
 | `src/tango` | Generic queue substrate | Core Tickoni shared-memory queue and flow-control substrate. | Reuse with Tickoni-owned link schemas. |
 | `src/util/sandbox` and generated seccomp pattern | Generic sandbox infrastructure with per-tile policies | Useful for tile isolation, file descriptor discipline, Landlock/seccomp, and crash-only operation. | Adapt per Tickoni tile class. |
@@ -209,7 +209,7 @@ Tickoni should reuse stable systems substrate, not validator semantics.
 | `src/disco/topo` | Reference for process lifecycle and workspace construction |
 | `src/disco/stem` | Reference for bounded polling loops and backpressure |
 | `src/disco/metrics` | Reference for low-overhead per-tile metrics; do not copy validator metric names as financial facts |
-| `src/waltz/http` | HTTP/WebSocket substrate for `tkapi`, `tkmetr`, and diagnostics surfaces |
+| `src/waltz/http` | HTTP/WebSocket substrate for `tkapi`, `metric`, and diagnostics surfaces |
 | `net`, `sock`, `netlnk` tile implementations | Optional low-level network ingress/egress substrate when a Tickoni workflow proves it needs packet-tile performance |
 | Crash-only process model | Keep: unexpected tile failure tears down the runtime |
 
@@ -395,7 +395,7 @@ and demo paths are Tickoni-owned support roots around the runtime.
 | `tkaudt` | `audit_tile` | Own append-only hash-chain ordering and JSONL export |
 | `tkevid` | `evidence_tile` | Store and retrieve content-addressed evidence blobs |
 | `tkrepl` | `replay_tile` | Re-inject replay capsules with external effects disabled and report divergence |
-| `tkmetr` | `metric_tile` | Export Tickoni runtime metrics |
+| `metric` | `metric_tile` | Export Tickoni runtime metrics |
 | `tkdiag` | `diag_tile` | Export process, queue, and crash diagnostics |
 | `tkdisp` | `agent_dispatch_tile` | Schedule bounded stub agent runs by role, synthetic case, priority, and remaining budget |
 | `tkagnt` | `agent_worker_tile` | Run memory-isolated role agents without direct shell, unrestricted syscall, or unrestricted network access |
@@ -429,7 +429,7 @@ tkapi  -> tkpoly -> tkexec          approved sensitive actions only
 all boundary events -> tkaudt
 evidence records    -> tkevid
 replay capsule      -> tkrepl -> deterministic pipeline with tkexec disabled
-all tile metrics    -> tkmetr
+all tile metrics    -> metric
 ```
 
 AI is not part of the deterministic event critical path. A case can be created,
@@ -472,7 +472,7 @@ runtime no longer depends on it.
 | `sign` | Replace, do not morph. Validator keyguard policy is not a fintech action-signing policy. | Narrow signing support owned by `tkexec`; split a `tksign` tile later if needed |
 | `accdb`, `store`, `funk`, `progcache`, `txncache`, `banks` | Exclude. They are Solana runtime state. | Dedicated case, evidence, audit, and connector stores |
 | `event` | Exclude. It is an outbound Solana telemetry exporter. | `tkings`, `tkaudt` |
-| `metric`, `diag` | Reimplement with Tickoni IDs while reusing the generic metrics and sandbox substrate where practical. | `tkmetr`, `tkdiag` |
+| `metric`, `diag` | Reimplement with Tickoni IDs while reusing the generic metrics and sandbox substrate where practical. | `metric`, `tkdiag` |
 | `rpc`, `gui`, `guih`, `plugin` | Exclude as validator tiles. The validator RPC and GUI data model do not fit CaseOps. The plugin fanout pattern may still be useful if Tickoni needs a governed connector or marketplace surface. | `tkapi` and a separate CaseOps frontend |
 | `bundle` | Exclude. Jito bundles are Solana-specific. | None |
 | `resolh`, `resolv` | Exclude. Solana lookup resolution is unrelated to financial entity enrichment. | Add a new `tkenty` enrichment tile only when a workflow requires it |
