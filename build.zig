@@ -14,6 +14,7 @@
 const std = @import("std");
 const helpers = @import("build-lib/lib/helpers.zig");
 const test_lanes = @import("build-lib/build_test_lanes.zig");
+const perf_lane = @import("build-lib/lanes/perf.zig");
 
 /// Validate a build-time path option: reject empty strings, path traversal,
 /// and paths exceeding a reasonable length to prevent linking arbitrary archives.
