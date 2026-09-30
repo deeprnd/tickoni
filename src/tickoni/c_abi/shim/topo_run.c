@@ -143,3 +143,4 @@ tk_topo_run_tile( void * topo,
   FD_LOG_DEBUG(( "tk_topo_run_tile: tile=%s:%lu completed", tile_c->name, tile_c->kind_id ));
   FD_MGAUGE_SET( TILE, STATUS, 2UL );
 }
+#endif
