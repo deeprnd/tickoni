@@ -47,8 +47,49 @@ full-runtime. The degradation applies to every workflow on that tier.
 
 ### Sandboxing
 
-seccomp and Landlock are unavailable on macOS and Windows. Tiles that require
-sandbox enforcement are excluded from the retail tile set. No sandbox guarantee.
+`fd_sandbox_enter` (Firedancer's Linux sandbox) executes 17 steps:
+
+| # | Mechanism | Linux | macOS | Windows |
+|---|-----------|-------|-------|---------|
+| 1 | Clear env vars | ✓ | ✓ | ✓ |
+| 2 | Validate open FDs | ✓ | ✓ | ✓ |
+| 3 | Drop supplementary groups | ✓ | ✓ | ✓ |
+| 4 | Session keyring | Linux-only | ✗ | ✗ |
+| 5 | New process group | ✓ | ✓ | ✓ |
+| 6 | Switch UID/GID | ✓ | ✓ | ✓ |
+| 7 | Unshare namespaces (mount, net, cgroup, ipc, uts) | ✓ | ✗ | ✗ |
+| 8 | User namespace | ✓ | ✗ | ✗ |
+| 9 | Sysctl hardening | Linux-only | ✗ | ✗ |
+| 10 | Nested user namespace | Linux-only | ✗ | ✗ |
+| 11 | Dumpable bit | ✓ | ✓ | ✓ |
+| 12 | Root filesystem pivot | Linux-only | ✗ | ✗ |
+| 13 | Resource limits (rlimits) | ✓ | ✓ | ✓ (partial) |
+| 14 | Drop all capabilities | Linux-only | ✗ | ✗ |
+| 15 | `no_new_privs` | Linux-only | ✗ | ✗ |
+| 16 | Landlock | Linux-only (kernel 5.13+) | ✗ | ✗ |
+| 17 | Seccomp-BPF | Linux-only (kernel 3.17+) | ✗ | ✗ |
+
+10 of 17 steps are Linux-only syscalls with no macOS or Windows equivalent.
+Namespaces, user namespaces, capabilities, seccomp, Landlock, keyring, and
+pivot_root do not exist on those platforms.
+
+macOS provides `sandbox_init()` (BSD sandbox profiles, since 10.8), which controls
+network and file access but not syscalls. Code signing and entitlements are
+mandatory for many operations but cannot be set programmatically per-process.
+`setuid`/`setgid` and `setrlimit` work. No namespaces, no seccomp, no capabilities.
+
+Windows provides Job Objects (`JOB_OBJECT_LIMIT_*`) for CPU, memory, and handle
+limits; Mandatory Integrity Levels (coarse-grained access control); Restricted
+Tokens (limited access tokens). No namespaces, no seccomp, no capabilities, no
+pivot_root.
+
+**Conclusion:** `fd_sandbox_enter` cannot be ported to macOS/Windows. The header
+is `#if defined(__linux__)` for a reason. On macOS and Windows, the sandbox
+boundary is process-level isolation (separate address spaces, which Tickoni
+already has with its process-mode tiles), plus whatever coarse mechanisms exist
+(UID/GID switching, resource limits, `sandbox_init` on macOS for network/file
+access). The Linux full-runtime tier is the only tier with seccomp/Landlock
+enforcement. Retail tiers have process isolation only.
 
 ### Shared Memory
 
@@ -77,6 +118,43 @@ is bounded by socket I/O. The tier name "retail" signals this to users.
 
 Full tile runtime is not available outside Linux. Only the subset of tiles that
 do not require Linux kernel primitives run on retail tiers.
+
+### CPU Placement (Affinity)
+
+Firedancer pins threads to cores with `sched_setaffinity` / `cpuset` because
+Firedancer tiles are **threads within a single process**. Pinning gives:
+
+- L1/L2 cache stays warm on the same core — no cold cache on migration.
+- No cross-core TLB flushes (threads share page tables).
+- Cheap context switching within one address space.
+- Hyperthreading: two threads per core, each pinned, avoiding OS scheduler
+  interference.
+- NUMA: pin to the local node so shared memory accesses are fast.
+
+This matters at 100K+ TPS because every microsecond of cache locality is ~100K
+cache hits you don't miss.
+
+Tickoni tiles are **separate processes**. Each process already has its own page
+tables, its own TLB, and a cold L1/L2 at startup. The IPC boundary (shared
+memory) already breaks the cache-locality chain that makes pinning valuable:
+
+- **Cache locality?** Marginal. Process B doesn't benefit from Process A's cache.
+- **TLB stability?** Negligible. Each process has its own page tables.
+- **Reduced context switches?** Slightly, but the real cost is IPC/serialization
+  between tiles, not context switches.
+- **NUMA locality?** No. Shared memory regions are allocated globally; accessing
+  them from any core goes through the same NUMA path.
+
+**Conclusion:** CPU affinity in Tickoni's process-model is a Firedancer relic.
+The performance benefit is vanishingly small because the IPC boundary already
+breaks the cache-locality chain. At best it prevents the OS from moving a process
+between cores, which saves a handful of TLB misses — nowhere near the cost of
+inter-process communication. CPU placement (`exclusive`, `shared`, `floating`) is
+Tickoni-owned policy, but the supervisor does not call `sched_setaffinity`,
+`SetThreadAffinityMask`, or any affinity API. Tile processes run with whatever
+the OS scheduler assigns. Shared-core placement (`shared`) is accepted only when
+the Tickoni config declares it and is visible in metrics, diagnostics, or
+supervisor output.
 
 ## Visibility Rules
 
