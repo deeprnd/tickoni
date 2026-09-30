@@ -234,9 +234,8 @@ Firedancer or vendored C headers. Avoid adding Tickoni fields to
 ### Process And Core Placement Boundary
 
 In Tickoni Linux full-runtime process mode, a tile is a supervisor-managed OS
-process with its own address space. A thread-backed topology may remain as a
-dev/test compatibility lane, but it is not the process-isolation target for
-runtime hardening work.
+process with its own address space. Process mode is the only dispatch path;
+there is no thread-mode compatibility lane.
 
 CPU placement is Tickoni-owned policy layered on top of the Firedancer
 substrate. Tickoni should support:
@@ -279,7 +278,7 @@ Three approaches were evaluated for how the supervisor discovers which tile
 processes to launch and how it knows their expected link cardinality:
 
 1. **Option A — Tile registry (single source of truth).** A Zig table maps
-   tile ID to logical name, process/thread callback, link cardinality, and
+   tile ID to logical name, process-mode callback, link cardinality, and
    metric schema. The supervisor reads from this table exclusively. This is the
    recommended approach because it eliminates duplicate mappings and keeps
    launch logic generic.

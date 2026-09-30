@@ -284,7 +284,7 @@ Tickoni boundary allows:
 - link filling for `mcache`, `dcache`, `fseq`, and related state
 - sandbox entry and allowed-fd/seccomp discipline where supported
 - metrics registration or equivalent per-tile health visibility
-- process/thread launch semantics where the selected Linux mode uses them
+- process launch semantics where the selected Linux mode uses them
 - crash and shutdown semantics
 - stem-loop guard patterns for shutdown, housekeeping, credit, and heartbeat
 - per-tile CPU placement via `fd_topo_cpus_init()` +
@@ -548,8 +548,8 @@ require deliberate Tickoni implementation or are explicitly not reused:
 
 5. **Tile registry** — `fd_topo_run_tile_t` serves as a per-tile registry. Tickoni
    implements this in `src/app/tickoni/tile_registry.zig` (not `topology.zig`).
-   The registry is keyed by tile ID and owns: thread-mode run callback
-   (`RunFn`), process-mode run callback (`ProcessFn`), counter schema
+   The registry is keyed by tile ID and owns: process-mode run callback
+   (`ProcessFn`), counter schema
    (`CounterSchemaEntry`), expected link cardinality (`in_cnt`/`out_cnt`),
    and diagnostics naming. Beyond lookup and cardinality, the registry also
    owns **process-mode dispatch wiring** (link-joining shape per tile — each
@@ -717,9 +717,7 @@ The tile registry is the single product-facing answer to:
 
 - this tile id's logical name
 - supported runtime tiers
-- thread/dev run callback, if any
-- Linux full-runtime run callback or adapter entry, if any
-- process/retail run callback, if any
+- process-mode run callback (`ProcessFn`), if any
 - expected link cardinality
 - counter/metric schema
 - diagnostics naming

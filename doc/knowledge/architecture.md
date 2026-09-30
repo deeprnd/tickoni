@@ -183,7 +183,7 @@ Privileged action executor
 ## Phase 0 Runtime Spike
 
 Current implementation status: the Zig supervisor runs the Phase 0 financial
-event spike in dev/test mode:
+event spike in process mode:
 
 ```text
 synthetic payment stream
@@ -218,8 +218,7 @@ workers named as tiles. For tier scope, see
 [`platform-tiers.md`](platform-tiers.md). In Linux full-runtime process mode:
 
 - each configured tile runs as a supervisor-managed OS process with its own
-  address space; a thread-only topology may remain for fast dev/unit tests but
-  does not satisfy process-isolation acceptance;
+  address space; there is no thread-mode compatibility lane.
 - correctness-bearing links use Firedancer Tango `mcache`/`dcache` shared
   memory, with `fseq` or `fctl` progress/flow-control state so reliable links
   backpressure instead of dropping;
