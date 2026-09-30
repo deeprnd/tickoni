@@ -18,9 +18,7 @@ const std = @import("std");
 const c_abi = @import("c_abi");
 const topology = @import("topology.zig");
 const cpu_placement = @import("cpu_placement.zig");
-
-/// Keep topology construction diagnostics disabled in normal builds.
-pub const topo_build_debug: bool = true;
+const logger = @import("logger");
 
 const Topo = c_abi.topob.Topo;
 
@@ -117,16 +115,18 @@ pub fn build(
 ) !BuiltTopo {
     std.debug.assert(c_abi.topob.topoAlignof() <= topo_alloc_align.toByteUnits());
 
+    const log = logger.get();
+
     const size = c_abi.topob.topoSizeof();
-    if (topo_build_debug) std.debug.print("topo_build.build: size={d} align={d}\n", .{ size, topo_alloc_align.toByteUnits() });
+    log.kvFmt("topo_build", "build", "size={d} align={d}", .{ size, topo_alloc_align.toByteUnits() });
 
     const buf = try allocator.alignedAlloc(u8, topo_alloc_align, size);
     errdefer allocator.free(buf);
 
-    if (topo_build_debug) std.debug.print("topo_build.build: allocated buf ptr={x} len={d}\n", .{ @intFromPtr(buf.ptr), buf.len });
+    log.kvFmt("topo_build", "build", "allocated buf ptr={x} len={d}", .{ @intFromPtr(buf.ptr), buf.len });
 
     var app_name_buf: [64]u8 = undefined;
-    if (topo_build_debug) std.debug.print("topo_build.build: passing to topobNew ptr={x}\n", .{@intFromPtr(buf.ptr)});
+    log.kvFmt("topo_build", "build", "passing to topobNew ptr={x}", .{@intFromPtr(buf.ptr)});
     const topo = c_abi.topob.topobNew(buf.ptr, toZ(&app_name_buf, app_name)) orelse return error.TopobNewFailed;
 
     var wksp_name_buf: [64]u8 = undefined;
@@ -186,13 +186,13 @@ pub fn build(
         const metric_idx = c_abi.topob.topoFindTile(topo, toZ(&metric_name_buf, "metric"), 0);
         if (metric_idx != c_abi.topob.not_found) {
             metric_tile_idx = metric_idx;
-            if (topo_build_debug) std.debug.print("topo_build: detected metric tile at idx={d}, metric_wksp={d}, metric_in_wksp={d}\n", .{
+            log.kvFmt("topo_build", "build", "detected metric tile at idx={d}, metric_wksp={d}, metric_in_wksp={d}", .{
                 metric_tile_idx, metric_wksp_idx, metric_in_wksp_idx });
         } else {
-            if (topo_build_debug) std.debug.print("topo_build: metric tile NOT found in topology\n", .{});
+            log.kvFmt("topo_build", "build", "metric tile NOT found in topology", .{});
         }
     } else {
-        if (topo_build_debug) std.debug.print("topo_build: no metric tile in topology\n", .{});
+        log.kvFmt("topo_build", "build", "no metric tile in topology", .{});
     }
 
     // v2.22.S4 Task 0: Wire each tile's output links into the metric tile
@@ -252,11 +252,9 @@ pub fn build(
         };
     }
 
-    // DEBUG: print workspace -> object mapping before finish
-    if (topo_build_debug) {
-        std.debug.print("topo_build: calling topobDebugWkspObjIds\n", .{});
-        c_abi.topob.topobDebugWkspObjIds(topo);
-    }
+    // Print workspace -> object mapping before finish
+    log.kvFmt("topo_build", "build", "calling topobDebugWkspObjIds", .{});
+    c_abi.topob.topobDebugWkspObjIds(topo);
 
     const metric_tile_obj_id = if (metric_tile_idx != c_abi.topob.not_found)
         c_abi.topob.topoTileObjId(topo, metric_tile_idx)

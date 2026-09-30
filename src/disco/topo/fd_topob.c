@@ -374,16 +374,9 @@ validate( fd_topo_t const * topo ) {
 
 /* Tiles that yield to the kernel scheduler */
 static char const * FLOATING[] = {
-  "netlnk",
-  "metric",
-  "diag",
-  "bencho",
-  "genesi", /* FIREDANCER ONLY */
-  "ipecho", /* FIREDANCER ONLY */
   "metric", /* TICKONI */
   "tkdiag", /* TICKONI */
   "tkdisp", /* TICKONI */
-  "admin",  /* FIREDANCER ONLY */
   NULL
 };
 
