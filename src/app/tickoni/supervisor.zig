@@ -112,10 +112,12 @@ const ProcessState = struct {
         // Phase 1: send SIGTERM to every still-running child and wait up to
         // 500 ms for a clean exit (Firedancer-style graceful shutdown).
         const sigterm_deadline = util.process.monotonicNanos() + @as(i64, 500) * std.time.ns_per_ms;
-        for (&self.children) |*maybe_child| {
-            const child = maybe_child.* orelse continue;
-            const pid = child.id orelse continue;
-            _ = std.posix.kill(pid, std.posix.SIG.TERM) catch {};
+        if (@import("builtin").os.tag != .windows) {
+            for (&self.children) |*maybe_child| {
+                const child = maybe_child.* orelse continue;
+                const pid = child.id orelse continue;
+                _ = std.posix.kill(pid, std.posix.SIG.TERM) catch {};
+            }
         }
         // Wait for children to exit after SIGTERM, reaping each one.
         // Handle outcomes are set by stopProcess via reapExitedChildrenNoHang
@@ -148,10 +150,12 @@ const ProcessState = struct {
         }
 
         // Phase 2: SIGKILL anything still alive and reap.
-        for (&self.children) |*maybe_child| {
-            const child = maybe_child.* orelse continue;
-            const pid = child.id orelse continue;
-            _ = std.posix.kill(pid, std.posix.SIG.KILL) catch {};
+        if (@import("builtin").os.tag != .windows) {
+            for (&self.children) |*maybe_child| {
+                const child = maybe_child.* orelse continue;
+                const pid = child.id orelse continue;
+                _ = std.posix.kill(pid, std.posix.SIG.KILL) catch {};
+            }
         }
         // Wait for SIGKILL'd children to die and reap them, recording outcomes.
         {
