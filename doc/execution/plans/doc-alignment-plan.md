@@ -1,6 +1,6 @@
 # Doc Alignment Plan: Thread Mode Removal + Metric Tile + Security Boundary
 
-**Status:** Draft
+**Status:** In Progress
 **Date:** 2026-09-30
 **Trigger:** Thread/dev/test mode has been removed from codebase (commit `8da46501a`), but docs still reference it. Metric tile (`tkmetr`/`metric`) is fully wired in code but described inconsistently. Overall doc-to-code drift needs tightening.
 
@@ -78,35 +78,36 @@ This is a product security decision, not just an engineering preference.
 
 ### Task 1: Remove Thread/Dev/Test Mode References (HIGH PRIORITY)
 
-**Files to edit:**
-1. `doc/knowledge/tile-topology.md` — Remove lines 237-238 ("thread-backed topology may remain as a dev/test compatibility lane"). Replace with process-only language.
-2. `doc/knowledge/tile-orchestration.md` — Lines 287, 551, 720: Remove "thread-mode", "thread/dev", "RunFn". Replace with process-mode only language.
-3. `doc/knowledge/architecture.md` — Lines 186, 221: Remove "dev/test mode" and "thread-only topology" references.
+**DONE** — Committed as `885803562` (docs: remove thread/dev/test mode references).
 
-**Rules to apply:**
-- "dev/test mode" → "process mode" (it runs as OS processes)
-- "thread-backed topology" → delete (no longer exists)
-- "thread/dev run callback" → delete (no longer exists)
-- "thread-only topology may remain for fast dev/unit tests" → "process-mode topology tests must prove OS process identity"
+**Files edited:**
+1. `doc/knowledge/tile-topology.md` — Lines 237-238: "thread-backed topology" → "Process mode is the only dispatch path; there is no thread-mode compatibility lane." Line 282: "process/thread callback" → "process-mode callback".
+2. `doc/knowledge/tile-orchestration.md` — Line 287: "process/thread launch semantics" → "process launch semantics". Line 551: "thread-mode run callback (RunFn), process-mode run callback (ProcessFn)" → "process-mode run callback (ProcessFn)". Lines 720-722: "thread/dev run callback", "Linux full-runtime run callback", "process/retail run callback" → "process-mode run callback (ProcessFn), if any".
+3. `doc/knowledge/architecture.md` — Line 186: "dev/test mode" → "process mode". Line 221: "thread-only topology may remain for fast dev/unit tests but does not satisfy process-isolation acceptance" → "there is no thread-mode compatibility lane."
+
+**Rules applied:**
+- "dev/test mode" → "process mode" (it runs as OS processes) ✓
+- "thread-backed topology" → deleted (no longer exists) ✓
+- "thread/dev run callback" → deleted (no longer exists) ✓
+- "thread-only topology may remain for fast dev/unit tests" → "there is no thread-mode compatibility lane." ✓
 
 **Why this is non-negotiable:** The thread mode is gone. Any doc reference to it implies it exists, which misleads developers into thinking there's a thread-mode dispatch path they can use or extend. This is also a security concern — if docs say thread mode exists, someone might try to re-add it.
 
 ### Task 2: Fix Metric Tile Naming (MEDIUM)
 
-**Files to edit:**
-1. `doc/knowledge/tile-topology.md` line 399: `tkmetr` → `metric`
-2. `doc/knowledge/architecture.md` line 488: `tkmetr` → `metric`
-3. `workspace-management.md`: `tkmetr` → `metric` (all occurrences)
+**DONE** — Committed as `17b6bec76` (docs: rename tkmetr to metric in docs).
 
-**Also fix in code if still present:**
-- `tile_registry.zig`: Check if `id("tkmetr")` or similar exists
-- `topologies.zig`: Already uses `TileId.parse("metric")` — correct
-- Registry logical name `metric_tile` — this is a display name, not a runtime ID. Fine to keep.
+**Files edited:**
+1. `doc/knowledge/tile-topology.md` — Line 168: `tkmetr` → `metric` (Firedancer comparison). Line 170: `tkmetr` → `metric`. Line 212: `tkmetr` → `metric`. Line 399: `tkmetr` → `metric` (tile registry table). Line 432: `tkmetr` → `metric` (topology flow diagram). Line 475: `tkmetr` → `metric` (validator→Tile mapping).
+2. `doc/knowledge/architecture.md` — Line 56: `tkmetr` → `metric`. Line 197: `tkmetr` → `metric`. Line 488: `tkmetr` → `metric`. Line 501: `*_tkmetr` → `*_metric`.
+3. `doc/knowledge/workspace-management.md` — All occurrences of `tkmetr` → `metric` (lines 100-101, 105, 108-113, 293, 299, 308).
 
-**Rules:**
-- Runtime ID = `metric` (as used in `TileId.parse("metric")` and `topobTile`)
-- Logical name = `metric_tile` (display name in registry) — this is fine, it's not a runtime ID
-- Docs should use `metric` as the runtime ID, and clarify that the logical display name is `metric_tile`
+**Also fixed in code:** Verified `tile_registry.zig`, `topologies.zig` already use `TileId.parse("metric")` — correct.
+
+**Rules applied:**
+- Runtime ID = `metric` (as used in `TileId.parse("metric")` and `topobTile`) ✓
+- Logical name = `metric_tile` (display name in registry) — kept as-is ✓
+- All doc references now use `metric` as the runtime ID ✓
 
 ### Task 3: Tighten Metric Tile Description (LOW-MEDIUM)
 
