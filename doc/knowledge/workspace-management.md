@@ -97,24 +97,125 @@ Phase 0 uses three workspaces:
 | # | Workspace name | Purpose | Backed by |
 |---|---|---|---|
 | 1 | `tickoni_tkpay0` (main) | Event pipeline tiles — tkings, tknorm, tkdedu, tkpoly, tkaudt, tkrepl | Normal-page file (`.normal/`) |
-| 2 | `tickoni_metric` | tkmetr tile's own workspace (scratch, HTTP server state) | Normal-page file |
-| 3 | `tickoni_metric_in` | Metrics data objects — written by all tiles, read by tkmetr | Normal-page file |
+| 2 | `tickoni_metric` | metric tile's own workspace (scratch, HTTP server state) | Normal-page file |
+| 3 | `tickoni_metric_in` | Metrics data objects — written by all tiles, read by metric | Normal-page file |
 
-### Why Three?
+### Why Three Workspaces?
 
-The metric tile (`tkmetr`) follows Firedancer's pattern of separating the tile's
-own workspace from the metrics data workspace:
+Tickoni separates workspaces by **concern and access pattern** rather than creating one workspace per tile. This mirrors Firedancer's own separation of the `metric`/`metric_in` pair (see Firedancer `src/app/firedancer/topology.c` lines 421 and 454) and keeps Tickoni's footprint minimal.
 
-- **`tickoni_metric`**: hosts the tkmetr process, its HTTP server state, and
-  (for the tkmetr tile) its scratch region (~32 MiB allocated as a "tile" object
-  with custom footprint)
-- **`tickoni_metric_in`**: hosts all metrics data objects (mcache entries for
-  per-tile counters, fseq progress counters). Every pipeline tile writes metrics
-  samples here; tkmetr reads them all to render Prometheus `/metrics`
+**`tickoni_tkpay0`** (main workspace) — the correctness-bearing workspace. It hosts all mcache/dcache links (the tkings→tknorm→tkdedu→tkpoly→tkaudt pipeline), audit chain state, replay buffers, fseq progress counters, and cnc control objects. Every pipeline tile joins this workspace because correctness data flows through it.
 
-The main workspace (`tickoni_tkpay0`) hosts the correctness-bearing objects:
-mcache/dcache links (tkings→tknorm→tkdedu→tkpoly→tkaudt), audit chain state,
-and replay buffers.
+**`tickoni_metric`** (metric tile workspace) — the metric tile's own scratch space. The metric tile has no mcache/dcache links; it only needs its own address space to host an embedded `fd_http_server` (~32 MiB scratch region allocated as a "tile" object) and its HTTP server state. It does **not** need the main workspace.
+
+**`tickoni_metric_in`** (metrics data workspace) — a shared metrics data store. Every pipeline tile writes metrics samples (per-tile counters, fseq progress, backpressure waits) into this workspace. The metric tile reads them all to render Prometheus `/metrics`. By keeping metrics data in a separate workspace, the metric tile can read without contending on the main workspace's memory.
+
+This separation yields three benefits:
+
+1. **Isolation**: the metric tile crashes or OOMs don't corrupt correctness-bearing objects.
+2. **Read-write separation**: pipeline tiles write metrics; only the metric tile reads them. No shared cache-line contention on counters.
+3. **Minimal footprint**: instead of 7+ workspaces (one per tile), Tickoni uses 3. Each tile process only joins the workspaces it actually needs.
+
+### How Workspaces Are Called (Zig API Pattern)
+
+The supervisor follows a three-step pattern per workspace. Each step is called in sequence during topology bootstrap:
+
+```zig
+// 1. Declaration — topology builder records workspace name and returns index
+const mainWkspIdx = c_abi.topo.topobWksp(topo, "tickoni_tkpay0");
+const metricWkspIdx = c_abi.topo.topobWksp(topo, "tickoni_metric");
+const metricInWkspIdx = c_abi.topo.topobWksp(topo, "tickoni_metric_in");
+
+// 2. Creation — supervisor creates the real workspace from the declared name
+//    (writes file under FD_SHMEM_PATH/.normal/{name}, sets page size)
+const mainWksp = try c_abi.wksp.wkspNewNamed("tickoni_tkpay0", ...);
+const metricWksp = try c_abi.wksp.wkspNewNamed("tickoni_metric", ...);
+const metricInWksp = try c_abi.wksp.wkspNewNamed("tickoni_metric_in", ...);
+
+// 3. Injection — supervisor attaches to the workspace and injects the pointer
+//    into the topology so object callbacks can find it
+try c_abi.wksp.wkspAttach("tickoni_tkpay0");
+try c_abi.wksp.wkspAttach("tickoni_metric");
+try c_abi.wksp.wkspAttach("tickoni_metric_in");
+c_abi.topo.topoWkspSetPtr(topo, mainWkspIdx, mainWksp);
+c_abi.topo.topoWkspSetPtr(topo, metricWkspIdx, metricWksp);
+c_abi.topo.topoWkspSetPtr(topo, metricInWkspIdx, metricInWksp);
+```
+
+The topology builder (`topobWksp`) is a comptime-phase function — it runs once before the topology is built and returns a small integer index. The supervisor then calls `wkspNewNamed` to create the file-backed workspace, `wkspAttach` to map it into its own address space, and `topoWkspSetPtr` to inject the `fd_wksp_t*` pointer into the topology struct. This last step is critical: without it, the object callbacks (`.new` functions in `shim/topob.c`) cannot resolve workspace pointers during object initialization.
+
+### Workspace Relationship Diagram
+
+```mermaid
+graph TB
+    subgraph Supervisor["Supervisor (parent process)"]
+        S1["Declare workspaces<br/>topobWksp()"]
+        S2["Create workspaces<br/>wkspNewNamed()"]
+        S3["Attach + inject<br/>wkspAttach() → topoWkspSetPtr()"]
+    end
+
+    subgraph "tickoni_tkpay0 (main workspace)"
+        W1["mcache/dcache links<br/>tkings→tknorm→tkdedu→tkpoly→tkaudt"]
+        W2["Audit chain state"]
+        W3["Replay buffers"]
+        W4["fseq counters (pipeline)"]
+        W5["cnc control objects"]
+    end
+
+    subgraph "tickoni_metric (metric workspace)"
+        M1["HTTP server state<br/>~32 MiB scratch"]
+        M2["fd_http_server"]
+    end
+
+    subgraph "tickoni_metric_in (metrics data workspace)"
+        D1["Per-tile metric counters"]
+        D2["Backpressure waits"]
+        D3["Progress fseq counters"]
+    end
+
+    subgraph "Tile Processes"
+        TK1["tkings"]
+        TK2["tknorm"]
+        TK3["tkdedu"]
+        TK4["tkpoly"]
+        TK5["tkaudt"]
+        TK6["tkrepl"]
+        MT["metric"]
+        TD["tkdiag"]
+    end
+
+    TK1 -->|writes| W1
+    TK2 -->|writes| W1
+    TK3 -->|writes| W1
+    TK4 -->|writes| W1
+    TK5 -->|writes| W1
+
+    TK1 -->|metrics| D1
+    TK2 -->|metrics| D1
+    TK3 -->|metrics| D1
+    TK4 -->|metrics| D1
+    TK5 -->|metrics| D1
+    TK6 -->|metrics| D1
+    TD -->|metrics| D1
+
+    MT -->|reads| D1
+    MT -->|hosts|M1
+
+    S1 --> S2 --> S3
+    S3 --> W1
+    S3 --> M1
+    S3 --> D1
+
+    classDef ws fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef tile fill:#fff3e0,stroke:#e65100,stroke-width:1px
+    classDef sup fill:#f3e5f5,stroke:#4a148c,stroke-width:1px
+
+    class W1,W2,W3,W4,W5 ws
+    class D1,D2,D3 ws
+    class M1,M2 ws
+    class TK1,TK2,TK3,TK4,TK5,TK6,MT,TD tile
+    class S1,S2,S3 sup
+```
 
 ### Firedancer Comparison
 
@@ -290,13 +391,13 @@ to avoid coupling to `fdctl_tile_run()`. Each callback type has:
 | **cnc** | `fd_cnc_footprint(64)` | `fd_cnc_align()` | `fd_cnc_new(laddr, 64, cnc_type, ts)` |
 
 The "tile" callback returns 1UL (minimum footprint, required by NUMA assignment)
-unless the tile has a custom scratch footprint (currently only tkmetr). The "cnc"
+unless the tile has a custom scratch footprint (currently only metric). The "cnc"
 callback is Tickoni-owned — Firedancer has no built-in cnc concept; it's added
 as a real offset-accounted object via the topology builder.
 
 ## Metric Tile Workspace Details
 
-The metric tile (`tkmetr`) is the only tile that explicitly needs two workspaces
+The metric tile (`metric`) is the only tile that explicitly needs two workspaces
 to function:
 
 - **Own workspace** (`tickoni_metric`): hosts the tile's process context and
@@ -305,7 +406,7 @@ to function:
 - **Metrics data workspace** (`tickoni_metric_in`): hosts all metrics objects
   written by every pipeline tile
 
-The tile is declared with `fd_topob_tile(topo, "tkmetr", "tickoni_metric",
+The tile is declared with `fd_topob_tile(topo, "metric", "tickoni_metric",
 "tickoni_metric_in", cpu_idx)` — first workspace parameter is the tile's own
 workspace, second is where metrics objects live.
 
