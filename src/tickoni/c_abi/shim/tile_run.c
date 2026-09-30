@@ -49,15 +49,15 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
 #include "../topo_run/tk_metric_tile.h"
 
 /* Check if this tile should use the metric run tile. Compares tile name
-   against "tkmetr" using the tile's name field (null-terminated in
+   the tile's name field (null-terminated in
    tile_name_sz). */
 static int
 tile_is_metric( fd_topo_tile_t * tile ) {
   if( !tile ) return 0;
   const char * name = tile->name;
-  /* tkmetr is 6 chars + null, name is 7 bytes total. */
-  if( name[0] != 't' || name[1] != 'k' || name[2] != 'm' ||
-      name[3] != 'e' || name[4] != 't' || name[5] != 'r' ||
+  /* metric is 6 chars + null, name is 7 bytes total. */
+  if( name[0] != 'm' || name[1] != 'e' || name[2] != 't' ||
+      name[3] != 'r' || name[4] != 'i' || name[5] != 'c' ||
       name[6] != '\0' ) {
     return 0;
   }
