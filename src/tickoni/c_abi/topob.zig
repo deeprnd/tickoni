@@ -231,7 +231,7 @@ pub fn topobSetTileObjPropertyUlong(topo: *Topo, tile_name: [*:0]const u8, tile_
 }
 
 /// Return the scratch footprint for a named tile.  Returns TK_METRIC_RUN's
-/// scratch footprint for "tkmetr", 1UL for everything else.
+/// scratch footprint for "metric", 1UL for everything else.
 pub fn tickoniTileScratchFootprint(tile_name: [*:0]const u8) usize {
     return tk_topob_tickoni_tile_scratch_footprint(tile_name);
 }

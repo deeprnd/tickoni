@@ -380,7 +380,7 @@ static char const * FLOATING[] = {
   "bencho",
   "genesi", /* FIREDANCER ONLY */
   "ipecho", /* FIREDANCER ONLY */
-  "tkmetr", /* TICKONI */
+  "metric", /* TICKONI */
   "tkdiag", /* TICKONI */
   "tkdisp", /* TICKONI */
   "admin",  /* FIREDANCER ONLY */

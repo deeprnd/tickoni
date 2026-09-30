@@ -204,7 +204,7 @@ pub const entries = [_]TileEntry{
         .counters = &.{ .{ .idx = 0, .field = .replay_checked }, .{ .idx = 1, .field = .replay_match } },
     },
     .{
-        .id = id("tkmetr"),
+        .id = id("metric"),
         .counters = &.{ .{ .idx = 0, .field = .metric_snapshots }, .{ .idx = 1, .field = .metric_backpressure_waits } },
     },
     .{
@@ -270,7 +270,7 @@ test "registry has exactly the 8 Phase 0 tiles" {
 }
 
 test "findById finds every registered tile" {
-    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt", "tkrepl", "tkmetr", "tkdiag" }) |name| {
+    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt", "tkrepl", "metric", "tkdiag" }) |name| {
         const tile_id = try rt.tile.TileId.parse(name);
         try std.testing.expect(findById(tile_id) != null);
     }
@@ -282,7 +282,7 @@ test "findById returns null for an unregistered id" {
 }
 
 test "process_fn is null for tiles with no process-mode role" {
-    inline for (.{ "tkrepl", "tkmetr", "tkdiag" }) |name| {
+    inline for (.{ "tkrepl", "metric", "tkdiag" }) |name| {
         const tile_id = try rt.tile.TileId.parse(name);
         const entry = findById(tile_id).?;
         try std.testing.expectEqual(@as(?ProcessFn, null), entry.process_fn);

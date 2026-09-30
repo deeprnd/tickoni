@@ -262,7 +262,7 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
     // Verify tkmetr tile exists in topology
     var found_metric_tile = false;
     for (topo.tiles) |tile| {
-        if (std.mem.eql(u8, tile.id.slice(), "tkmetr")) {
+        if (std.mem.eql(u8, tile.id.slice(), "metric")) {
             found_metric_tile = true;
             break;
         }
@@ -297,7 +297,7 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
 // metric names. Uses thread + timeout + blocking POSIX socket.
 //
 // NOTE: the tile name in Prometheus output is "metric" (from fd_tile_metric.name),
-// not "tkmetr" (the Tickoni tile ID).
+// matching the tile ID.
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
@@ -517,7 +517,7 @@ test "metric_tile_integration: CNC join verifies tile finds CNC object" {
 
     var tkmetr_idx: ?usize = null;
     for (topo.tiles, 0..) |tile, i| {
-        if (std.mem.eql(u8, tile.id.slice(), "tkmetr")) {
+        if (std.mem.eql(u8, tile.id.slice(), "metric")) {
             tkmetr_idx = i;
             break;
         }

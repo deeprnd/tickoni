@@ -54,14 +54,7 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
 static int
 tile_is_metric( fd_topo_tile_t * tile ) {
   if( !tile ) return 0;
-  const char * name = tile->name;
-  /* metric is 6 chars + null, name is 7 bytes total. */
-  if( name[0] != 'm' || name[1] != 'e' || name[2] != 't' ||
-      name[3] != 'r' || name[4] != 'i' || name[5] != 'c' ||
-      name[6] != '\0' ) {
-    return 0;
-  }
-  return 1;
+  return strcmp( tile->name, "metric" ) == 0;
 }
 
 static int const TK_PROCESS_MODE_SANDBOX_NONE = 0;

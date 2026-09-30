@@ -31,7 +31,7 @@ const payment_tiles = [_]TileDescriptor{
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
     .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-    .{ .id = TileId.parse("tkmetr") catch unreachable, .name = "metric_tile" },
+    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
 };
 const payment_channels = [_]Channel{
@@ -54,7 +54,7 @@ const investment_tiles = [_]TileDescriptor{
     .{ .id = TileId.parse("tktool") catch unreachable, .name = "tool_broker_tile" },
     .{ .id = TileId.parse("tkadpt") catch unreachable, .name = "adapter_tile" },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-    .{ .id = TileId.parse("tkmetr") catch unreachable, .name = "metric_tile" },
+    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
 };
 

@@ -134,11 +134,11 @@ pub fn build(
     var wksp_name_z_buf: [64]u8 = undefined;
     const wksp_name_z = toZ(&wksp_name_z_buf, workspace_name);
 
-    // v2.22.S4 Task 0: Scan tiles to detect if tkmetr is present BEFORE
+    // v2.22.S4 Task 0: Scan tiles to detect if metric tile is present BEFORE
     // creating workspaces, so we only create metric/metric_in when needed.
     var has_metric_tile = false;
     for (topo_desc.tiles) |t| {
-        if (std.mem.eql(u8, t.id.slice(), "tkmetr")) {
+        if (std.mem.eql(u8, t.id.slice(), "metric")) {
             has_metric_tile = true;
             break;
         }
@@ -167,27 +167,32 @@ pub fn build(
 
     const cpu_idx_arr = try allocator.alloc(usize, topo_desc.tiles.len);
     errdefer allocator.free(cpu_idx_arr);
+    // Register tiles: all non-metric tiles go into the app workspace.
+    // The metric tile (if present) goes into the "metric" workspace.
     for (topo_desc.tiles, 0..) |t, i| {
-        var tile_name_buf: [16]u8 = undefined;
-        // v2.22.S4 Task 0: tkmetr goes into metric workspace when present
-        const tile_wksp_z = if (has_metric_tile and std.mem.eql(u8, t.id.slice(), "tkmetr")) "metric" else wksp_name_z;
-        _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, t.id.slice()), tile_wksp_z, tile_wksp_z, 0);
         cpu_idx_arr[i] = tileCpuIdx(i, t.cpu_placement);
+        if (std.mem.eql(u8, t.id.slice(), "metric")) continue;
+        var tile_name_buf: [16]u8 = undefined;
+        _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, t.id.slice()), wksp_name_z, wksp_name_z, 0);
+    }
+    if (has_metric_tile) {
+        var tile_name_buf: [16]u8 = undefined;
+        _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, "metric"), "metric", "metric", 0);
     }
 
     // Detect metric tile after all tiles are registered.
     if (has_metric_tile) {
-        var tkmetr_name_buf: [16]u8 = undefined;
-        const tkmetr_idx = c_abi.topob.topoFindTile(topo, toZ(&tkmetr_name_buf, "tkmetr"), 0);
-        if (tkmetr_idx != c_abi.topob.not_found) {
-            metric_tile_idx = tkmetr_idx;
-            if (topo_build_debug) std.debug.print("topo_build: detected tkmetr tile at idx={d}, metric_wksp={d}, metric_in_wksp={d}\n", .{
+        var metric_name_buf: [16]u8 = undefined;
+        const metric_idx = c_abi.topob.topoFindTile(topo, toZ(&metric_name_buf, "metric"), 0);
+        if (metric_idx != c_abi.topob.not_found) {
+            metric_tile_idx = metric_idx;
+            if (topo_build_debug) std.debug.print("topo_build: detected metric tile at idx={d}, metric_wksp={d}, metric_in_wksp={d}\n", .{
                 metric_tile_idx, metric_wksp_idx, metric_in_wksp_idx });
         } else {
-            if (topo_build_debug) std.debug.print("topo_build: tkmetr NOT found in topology\n", .{});
+            if (topo_build_debug) std.debug.print("topo_build: metric tile NOT found in topology\n", .{});
         }
     } else {
-        if (topo_build_debug) std.debug.print("topo_build: no tkmetr tile in topology\n", .{});
+        if (topo_build_debug) std.debug.print("topo_build: no metric tile in topology\n", .{});
     }
 
     // v2.22.S4 Task 0: Wire each tile's output links into the metric tile
@@ -200,7 +205,7 @@ pub fn build(
             var link_name_buf: [8]u8 = undefined;
             const link_name_z = linkNameZ(&link_name_buf, i);
             // Connect this link into the metric tile's inputs from metric_in workspace
-            _ = c_abi.topob.topobTileIn(topo, toZ(&tile_name_buf, "tkmetr"), 0, toZ(&in_name_buf, "metric_in"), link_name_z, 0, true, true);
+            _ = c_abi.topob.topobTileIn(topo, toZ(&tile_name_buf, "metric"), 0, toZ(&in_name_buf, "metric_in"), link_name_z, 0, true, true);
         }
     }
 
@@ -208,23 +213,15 @@ pub fn build(
     allocator.free(cpu_idx_arr);
 
     // Set per-tile scratch footprint properties so tile_footprint() in
-    // topob.c can query them.  Only tkmetr has a non-default footprint;
+    // topob.c can query them.  Only the metric tile has a non-default footprint;
     // every other tile gets 1UL (which the property setter silently skips
     // since 1UL == the default).
     const scratch_key: [*:0]const u8 = "tickoni.scratch_footprint";
     for (topo_desc.tiles) |t| {
         var tile_name_buf: [8]u8 = undefined;
-        const fp = c_abi.topob.tickoniTileScratchFootprint(
-            toZ(&tile_name_buf, t.id.slice()),
-        );
+        const fp = c_abi.topob.tickoniTileScratchFootprint(toZ(&tile_name_buf, t.id.slice()));
         if (fp > 1) {
-            c_abi.topob.topobSetTileObjPropertyUlong(
-                topo,
-                toZ(&tile_name_buf, t.id.slice()),
-                0,
-                scratch_key,
-                fp,
-            );
+            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.id.slice()), 0, scratch_key, fp);
         }
     }
 
@@ -312,7 +309,7 @@ test "build produces a topology for the linear Phase 0 chain" {
     };
     const topo_desc = topology.Topology{ .tiles = &tiles, .channels = &channels };
 
-    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 7999);
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0");
     defer built.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(usize, 5), built.cnc_obj_id.len);

@@ -67,7 +67,7 @@ pub fn makeFixtures() [12]schema.AuditEvent { // Runtime metadata populated from
         fixtureHeader(8, 17, "tkpoly", 1008, "policy_limt_v1", 8, 888, 507, 0, runtime, isolation, digest, manifest_id, version),
         fixtureHeader(9, 18, "tkpoly", 1009, "policy_aprv_v1", 9, 999, 508, 0, runtime, isolation, digest, manifest_id, version),
         fixtureHeader(10, 19, "tkpoly", 1010, "policy_deny_v1", 10, 1110, 509, 0, runtime, isolation, digest, manifest_id, version),
-        fixtureHeader(11, 20, "tkmetr", 1011, "policy_metr_v1", 11, 1221, 510, 0, runtime, isolation, digest, manifest_id, version),
+        fixtureHeader(11, 20, "metric", 1011, "policy_metr_v1", 11, 1221, 510, 0, runtime, isolation, digest, manifest_id, version),
         fixtureHeader(12, 21, "tkrepl", 1012, "policy_repl_v1", 12, 1332, 511, 0, runtime, isolation, digest, manifest_id, version),
     };
 

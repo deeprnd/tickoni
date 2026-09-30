@@ -387,7 +387,7 @@ tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_t
 
 ulong
 tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {
-  if( strcmp( tile_name, "tkmetr" ) == 0 )
+  if( strcmp( tile_name, "metric" ) == 0 )
     return tk_metric_scratch_footprint();
   return 1UL;
 }
