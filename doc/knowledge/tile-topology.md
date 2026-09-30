@@ -205,7 +205,7 @@ Tickoni should reuse stable systems substrate, not validator semantics.
 | `src/tango/mcache` and `src/tango/dcache` | Shared-memory fragment queues for correctness-bearing inter-process links |
 | `src/tango/fseq` or `src/tango/fctl` | Reliable consumer progress and producer backpressure |
 | `src/tango/cnc` | Tile boot, heartbeat, halt, and fail state |
-| `src/util/sandbox` | Process sandboxing, namespaces, file descriptor checks, Landlock, and seccomp |
+| `src/util/sandbox` | Process sandboxing on Linux only — namespaces, file descriptor checks, Landlock, and seccomp (see [platform-tiers.md](platform-tiers.md) for the step-by-step Linux-only breakdown and macOS/Windows equivalents) |
 | `src/disco/topo` | Reference for process lifecycle and workspace construction |
 | `src/disco/stem` | Reference for bounded polling loops and backpressure |
 | `src/disco/metrics` | Reference for low-overhead per-tile metrics; do not copy validator metric names as financial facts |

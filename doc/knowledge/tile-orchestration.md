@@ -516,10 +516,15 @@ which are not adapter modules themselves but core orchestration components:
   and fail-closed on truncation. Parent writes once; each child reads,
   rebuilds an identical `fd_topo_t`, and finds its own tile index in it.
 
-- **`cpu_placement.zig`** (`src/tickoni/runtime/cpu_placement.zig`): implements
+|- **`cpu_placement.zig`** (`src/tickoni/runtime/cpu_placement.zig`): implements
   the Tickoni CPU placement model with `CpuPlacement` enum variants
   `exclusive`, `shared`, and `floating`, plus `validateStatic()` that enforces
   exclusive collision detection and shared/exclusive co-existence rules.
+  CPU affinity is a Firedancer-thread-model optimization with zero benefit in
+  Tickoni's process-model — the IPC boundary already breaks the cache-locality
+  chain that makes pinning valuable. See [platform-tiers.md](platform-tiers.md)
+  for the full reasoning. The supervisor does not call `sched_setaffinity`,
+  `SetThreadAffinityMask`, or any affinity API.
 
 #### 11-Item Reuse Categorization (from audit 8.md)
 

@@ -447,7 +447,7 @@ Process-mode workspace validation should include:
 | `src/tickoni/c_abi/topo.zig` | Zig wrappers for topology workspace ops: `topoWkspSetPtr`, `topoWkspFootprint`, `topoJoinWorkspaces` |
 | `src/tickoni/c_abi/shim/topob.c` | C shims for topology builder, callbacks, workspace injection |
 | `src/app/tickoni/supervisor.zig` | Phase 0 supervisor — explicit `wkspNewNamed()` calls, readiness markers |
-| `src/disco/topo/fd_topo_run.c` | Firedancer tile launch — joins workspaces, fills tiles, enters sandbox |
+|| `src/disco/topo/fd_topo_run.c` | Firedancer tile launch — joins workspaces, fills tiles, enters sandbox (Linux only; see [platform-tiers.md](platform-tiers.md) for the Linux-only sandbox breakdown) |
 | `src/app/firedancer/topology.c` | Firedancer workspace declarations (`metric`, `metric_in`, ~30 others) |
 | `src/disco/metrics/fd_metric_tile.c` | Metric tile — observer in `metric` wksp, reads from `metric_in` |
 

@@ -730,16 +730,35 @@ Tickoni avoids using Docker as the primary security model for the runtime.
 Docker may be useful for development and packaging, but the runtime security
 model should be lower-level and explicit.
 
+**Platform divergence:** `fd_sandbox_enter` (Firedancer's Linux sandbox) executes
+17 steps, 10 of which are Linux-only syscalls (namespaces, user namespaces,
+capabilities, seccomp, Landlock, keyring, pivot_root). These do not exist on
+macOS or Windows. The architecture doc describes the Linux full-runtime tier as
+the reference; retail tiers (macOS, Windows) have process-level isolation only
+(separate address spaces, UID/GID switching, resource limits). The Linux
+full-runtime tier is the only tier with seccomp/Landlock enforcement. See
+[`platform-tiers.md`](platform-tiers.md) for the full step-by-step breakdown
+and macOS/Windows equivalents.
+
 Runtime isolation:
 
 - small tile processes
-- seccomp profiles
-- dropped capabilities
-- restricted filesystem access
+- seccomp profiles (Linux full-runtime tier only; see platform-tiers.md)
+- dropped capabilities (Linux full-runtime tier only; see platform-tiers.md)
+- restricted filesystem access (Landlock on Linux; sandbox_init on macOS; none
+  on Windows)
 - explicit network permissions
 - shared-memory channels
 - bounded resources
 - crash-only process design
+
+**CPU placement note:** CPU affinity (`sched_setaffinity` / `cpuset`) is a
+Firedancer-thread-model optimization with zero benefit in Tickoni's
+process-model. The supervisor does not call any affinity API; tile processes run
+with whatever the OS scheduler assigns. Shared-core placement (`shared`) is
+Tickoni-owned config policy, visible in metrics/diagnostics, but does not invoke
+kernel-level pinning. See [`platform-tiers.md`](platform-tiers.md) for the full
+reasoning.
 
 Agent and adapter isolation:
 
