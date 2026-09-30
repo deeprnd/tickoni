@@ -1,0 +1,76 @@
+/* tk_stem_zig.h — C interface for registering Zig callbacks in tk_stem_ctx_t.
+
+   Each Tile's Zig code exports C-compatible callback functions. This header
+   and tk_stem_zig.c provide the registration mechanism that populates
+   tk_stem_ctx_t in workspace at tile_obj_id, so fd_stem can dispatch into
+   Zig during its run loop.
+
+   Called from tile_process.zig's tk_tile_privileged_init via
+   tk_stem_register_ctx() — before fd_stem_run starts its loop.
+
+   PLATFORM: Linux-only implementation.  On macOS/Windows this header and
+   tk_stem_zig.c provide only a no-op stub so the build succeeds.
+*/
+
+#ifndef HEADER_fd_src_tickoni_c_abi_shim_tk_stem_zig_h
+#define HEADER_fd_src_tickoni_c_abi_shim_tk_stem_zig_h
+
+#include <stdint.h>
+#include <stddef.h>
+
+#if FD_HAS_LINUX
+
+#include "../../../util/fd_util.h"
+#include "../../../disco/stem/fd_stem.h"
+#include "tk_stem.c"  // tk_stem_ctx_t, callbacks, and tk_stem_run
+
+/* Callback function pointer types — Zig exports functions matching these signatures. */
+typedef void  (*tk_stem_before_credit_fn)(  void *zig_state, fd_stem_context_t *stem, int *charge_busy);
+typedef void  (*tk_stem_during_frag_fn)(    void *zig_state, uint idx, ulong seq, uint sig, ulong chunk, uint sz, uint ctl);
+typedef void  (*tk_stem_after_credit_fn)(   void *zig_state, fd_stem_context_t *stem, int *poll_in, int *charge_busy);
+typedef void  (*tk_stem_metrics_write_fn)(  void *zig_state);
+typedef int   (*tk_stem_should_shutdown_fn)(void *zig_state);
+
+/* Register tile callbacks: populates tk_stem_ctx_t in workspace at
+   tile->tile_obj_id. Called once from tile_process.zig's
+   tk_tile_privileged_init before fd_stem_run starts.
+
+   zig_state points to tile_process.zig's g_ctx (opaque to C).
+   wksp is the workspace pointer for dcache chunk→laddr conversion.
+   All callback pointers may be NULL for tiles that don't need them. */
+void
+tk_stem_register_ctx( void *                    topo,
+                      void *                    tile,
+                      void *                    zig_state,
+                      void *                    wksp,
+                      tk_stem_before_credit_fn  before_credit,
+                      tk_stem_during_frag_fn    during_frag,
+                      tk_stem_after_credit_fn   after_credit,
+                      tk_stem_metrics_write_fn  metrics_write,
+                      tk_stem_should_shutdown_fn should_shutdown );
+
+/* Non-Linux stub: no-op.  On macOS/Windows the stem path is never used. */
+#else /* !FD_HAS_LINUX */
+
+/* Generic stub signatures — types don't matter on non-Linux since this
+   function is never called. */
+typedef void  (*tk_stem_before_credit_fn)( void *, void *, int *);
+typedef void  (*tk_stem_during_frag_fn)( void *, unsigned int, unsigned long, unsigned int, unsigned long, unsigned int, unsigned int);
+typedef void  (*tk_stem_after_credit_fn)( void *, void *, int *, int *);
+typedef void  (*tk_stem_metrics_write_fn)( void *);
+typedef int   (*tk_stem_should_shutdown_fn)( void *);
+
+void
+tk_stem_register_ctx( void *                    topo,
+                      void *                    tile,
+                      void *                    zig_state,
+                      void *                    wksp,
+                      tk_stem_before_credit_fn  before_credit,
+                      tk_stem_during_frag_fn    during_frag,
+                      tk_stem_after_credit_fn   after_credit,
+                      tk_stem_metrics_write_fn  metrics_write,
+                      tk_stem_should_shutdown_fn should_shutdown );
+
+#endif /* FD_HAS_LINUX */
+
+#endif /* HEADER_fd_src_tickoni_c_abi_shim_tk_stem_zig_h */
