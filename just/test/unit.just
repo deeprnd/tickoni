@@ -6,12 +6,15 @@ gen-audit-fixtures:
     (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true test 2>&1)
     (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} TK_GEN_FIXTURES=1 ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true integration-test 2>&1)
 
-# Run Python unit tests for contrib/test/* (pytest, no FD build required).
-test-unit-setup:
+# Setup: install pytest (idempotent — skip if already installed).
+test-setup-install:
     {{ python }} {{ justfile_dir }}/contrib/setup/orchestrator.py test-tools
+
+# Run: execute Python unit tests for contrib/test/.
+test-setup-run:
     {{ python }} -m pytest --basetemp={{ justfile_dir }}/build/pytest -o cache_dir={{ justfile_dir }}/build/pytest-cache {{ justfile_dir }}/contrib/test/
 
 test-unit-all:
-    {{ python }} {{ justfile_dir }}/contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-setup && just test-unit-tk && just test-unit-fd"
+    {{ python }} {{ justfile_dir }}/contrib/tool/readme/run-badged-command.py unit bash -c "just test-setup-install && just test-setup-run && just test-unit-tk && just test-unit-fd"
 
 # Note: test-unit-tk and test-unit-fd dispatchers are defined in justfile.

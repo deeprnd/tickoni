@@ -117,8 +117,11 @@ jobs:
           name: ${{ matrix.artifact-name }}
           path: .
 
+      - name: Install test tools (pytest)
+        run: just test-setup-install
+
       - name: Run Python unit tests (pytest)
-        run: just test-unit-setup
+        run: just test-setup-run
 
       - name: Configure hugepages and memory limits (Linux only)
         if: runner.os == 'Linux'
