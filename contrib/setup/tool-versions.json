@@ -539,7 +539,7 @@
         "components": ["Microsoft.VisualStudio.Workload.VCTools", "Microsoft.VisualStudio.Component.VC.Tools.ARM64"],
         "override": "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --includeRecommended --quiet --norestart"
       },
-      "idempotent_check": "command -v cl"
+      "idempotent_check": "msvc"
     },
     "make": {
       "category": "build",

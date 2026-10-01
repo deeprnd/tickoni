@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from contrib.setup.install.checks import ExecutableCheck, ShellCheckCommand, build_check
+from contrib.setup.install.checks import ExecutableCheck, MsvcInstalledCommand, ShellCheckCommand, build_check
 from contrib.setup.install.strategies import winget
 
 
@@ -31,6 +31,17 @@ def test_windows_compound_check_keeps_shell_command():
     )
 
     assert isinstance(check, ShellCheckCommand)
+
+
+def test_windows_msvc_check_probes_target_compiler(monkeypatch):
+    check = build_check({'idempotent_check': 'msvc'}, 'windows-arm')
+
+    assert isinstance(check, MsvcInstalledCommand)
+    monkeypatch.setattr(
+        'contrib.setup.install.checks.command.glob.glob',
+        lambda pattern: [r'C:\\VS\\VC\\Tools\\MSVC\\bin\\Hostx64\\arm64\\cl.exe'],
+    )
+    assert check.is_satisfied()
 
 
 def test_winget_resolution_reports_app_installer_missing():

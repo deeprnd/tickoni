@@ -1,5 +1,8 @@
 """Check commands for idempotency checks."""
 from abc import ABC, abstractmethod
+import glob
+import ntpath
+import os
 import re
 import shutil
 import subprocess
@@ -40,6 +43,24 @@ class ExecutableCheck(CheckCommand):
         return shutil.which(self.executable) is not None
 
 
+class MsvcInstalledCommand(CheckCommand):
+    """Check the target compiler without requiring a vcvars shell."""
+
+    def __init__(self, target_arch: str):
+        self.target_arch = target_arch
+
+    def is_satisfied(self) -> bool:
+        install_path = ntpath.join(
+            os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
+            'Microsoft Visual Studio', '2022', 'BuildTools',
+        )
+        pattern = ntpath.join(
+            install_path, 'VC', 'Tools', 'MSVC', '*', 'bin', 'Host*',
+            self.target_arch, 'cl.exe',
+        )
+        return bool(glob.glob(pattern))
+
+
 class WingetInstalledCommand(CheckCommand):
     """Winget-specific check: queries winget for the package."""
 
@@ -72,6 +93,9 @@ def build_check(tool: dict, platform_str: str = '') -> CheckCommand | None:
     check = tool.get('idempotent_check', '')
     if not check:
         return None
+    if check == 'msvc' and 'windows' in platform_str:
+        target_arch = 'arm64' if platform_str == 'windows-arm' else 'x64'
+        return MsvcInstalledCommand(target_arch)
     # The shared manifest uses POSIX `command -v`, but shell=True invokes
     # cmd.exe on native Windows, where `command` is not valid.  Resolve the
     # simple executable form directly so preinstalled runner tools are not
