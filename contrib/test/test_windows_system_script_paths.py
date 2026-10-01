@@ -22,7 +22,7 @@ def _git_bash() -> str:
 def _write_capture_command(path: Path, name: str) -> None:
     path.write_text(
         "#!/usr/bin/bash\n"
-        f"printf '{name}|%s|%s\\n' \"$PWD\" \"$*\" >> \"$CAPTURE_FILE\"\n",
+        f"printf '{name}|%s|%s\\n' \"$(pwd -W)\" \"$*\" >> \"$CAPTURE_FILE\"\n",
         encoding="utf-8",
     )
     path.chmod(path.stat().st_mode | 0o111)
@@ -52,14 +52,12 @@ def test_windows_system_scripts_pass_repo_relative_paths_to_native_tools(
         assert result.returncode == 0, result.stdout + result.stderr
 
     commands = capture_file.read_text(encoding="utf-8").splitlines()
-    expected_cwd = subprocess.run(
-        [_git_bash(), "-c", "pwd"],
-        cwd=REPO_ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    assert all(line.split("|", 2)[1] == expected_cwd for line in commands)
+    expected_cwd = os.path.normcase(os.path.realpath(REPO_ROOT))
+    command_cwds = [
+        os.path.normcase(os.path.realpath(line.split("|", 2)[1]))
+        for line in commands
+    ]
+    assert all(cwd == expected_cwd for cwd in command_cwds), command_cwds
     assert any(
         line.endswith(
             "|contrib/setup/orchestrator.py llm-server --platform windows-arm"
