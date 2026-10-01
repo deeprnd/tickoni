@@ -12,7 +12,7 @@ test-setup-install:
 
 # Run: execute Python unit tests for contrib/test/.
 test-setup-run:
-    {{ python }} -m pytest --basetemp={{ justfile_dir }}/build/pytest -o cache_dir={{ justfile_dir }}/build/pytest-cache {{ justfile_dir }}/contrib/test/
+    TK_PLATFORM={{ tk_platform }} {{ python }} -m pytest --basetemp={{ justfile_dir }}/build/pytest -o cache_dir={{ justfile_dir }}/build/pytest-cache {{ justfile_dir }}/contrib/test/
 
 test-unit-all:
     {{ python }} {{ justfile_dir }}/contrib/tool/readme/run-badged-command.py unit bash -c "just test-setup-install && just test-setup-run && just test-unit-tk && just test-unit-fd"
