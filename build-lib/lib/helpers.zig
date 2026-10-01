@@ -143,12 +143,13 @@ pub fn createCheckStep(
         const ensure_dir = b.addSystemCommand(&.{ "mkdir", "-p", cache_o_dir });
         c_compile_check_step.dependOn(&ensure_dir.step);
     }
+    const shim_c_flags = std.mem.join(b.allocator, " ", shims.shimCFlagsFor(target.result)) catch @panic("OOM");
     inline for (shims.shim_c_files) |shim_file| {
         const c_check = b.addSystemCommand(&.{
             "sh", "-c",
             b.fmt("zig cc -target {s} -c -I src -std=c17 -UBMI2 -ULZCNT -DFD_HAS_HOSTED=1 {s} -o {s}/{s}.o {s} 2>&1", .{
                 shims.buildTriple(b, target),
-                shims.shimCFlagsFor(target.result)[0],
+                shim_c_flags,
                 cache_o_dir,
                 shim_file,
                 b.fmt("src/tickoni/c_abi/shim/{s}", .{shim_file}),
@@ -161,7 +162,7 @@ pub fn createCheckStep(
             "sh", "-c",
             b.fmt("zig cc -target {s} -c -I src -I src/util -I src/disco -I src/ballet -std=c17 -DFD_HAS_HOSTED=1 {s} -o {s}/test_fd_shmem_getrandom.o {s} 2>&1", .{
                 shims.buildTriple(b, target),
-                shims.shimCFlagsFor(target.result)[0],
+                shim_c_flags,
                 cache_o_dir,
                 "src/util/shmem/test_fd_shmem_getrandom.c",
             }),
