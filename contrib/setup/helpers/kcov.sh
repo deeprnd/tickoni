@@ -31,8 +31,11 @@ echo "[KCOW] patching library symlinks ..."
 for lib in libbfd-2.38-system.so libopcodes-2.38-system.so; do
     target="/usr/lib/x86_64-linux-gnu/${lib}"
     if [ ! -e "$target" ]; then
-        # find the closest matching .so in /usr/lib/x86_64-linux-gnu/
-        latest=$(ls -1t /usr/lib/x86_64-linux-gnu/${lib%.*}-*.so 2>/dev/null | head -1) || true
+        # lib{bfd,opcodes}-2.42-system.so has a -system suffix on Ubuntu 24.04+;
+        # also try without it for older distros. Pick the most specific match.
+        base="${lib%%-*}"  # libopcodes or libbfd (strip everything after first -)
+        latest=$(ls -1t /usr/lib/x86_64-linux-gnu/${base}*-system.so \
+                         /usr/lib/x86_64-linux-gnu/${base}-*.so 2>/dev/null | head -1) || true
         if [ -n "$latest" ]; then
             sudo -n ln -sf "$latest" "$target"
             echo "[KCOW] linked ${lib} → $(basename "$latest")"
