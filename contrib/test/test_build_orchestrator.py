@@ -46,3 +46,23 @@ def test_windows_make_profile_detects_absolute_clang_path():
     text = profile.read_text()
     assert "ifneq (,$(findstring clang,$(CC)))" in text
     assert "ifeq ($(CC),clang)" not in text
+
+
+def test_linux_x86_make_profile_uses_fixed_haswell_baseline():
+    repo_root = Path(__file__).resolve().parents[2]
+    profile = (repo_root / "config/machine/tickoni_fd.mk").read_text()
+
+    assert "ifeq ($(UNAME_M),x86_64)" in profile
+    assert "include config/machine/linux_clang_x86_64.mk" in profile
+    assert "include config/machine/linux_gcc_x86_64.mk" in profile
+    assert profile.index("ifeq ($(UNAME_M),x86_64)") < profile.index(
+        "include config/machine/native.mk"
+    )
+
+    for fixed_profile in (
+        "config/machine/linux_clang_x86_64.mk",
+        "config/machine/linux_gcc_x86_64.mk",
+    ):
+        text = (repo_root / fixed_profile).read_text()
+        assert "-march=haswell" in text
+        assert "-march=native" not in text

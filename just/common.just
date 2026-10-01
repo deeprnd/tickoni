@@ -87,6 +87,10 @@ ZIG_GLOBAL_CACHE := "$(git rev-parse --show-toplevel)/build/.zig-global-cache"
 ZIG_PREFIX := "$(git rev-parse --show-toplevel)/build/zig-out"
 ZIG_PREFIX_REL := "build/zig-out"
 
+# CI build artifacts are consumed on different Linux x86_64 hosts. Keep Zig
+# code generation on the same Haswell baseline as the Firedancer archives.
+zig_linux_x86_cpu := "-Dcpu=haswell"
+
 # ── Platform Detection ────────────────────────────────────────────────────────
 # All recipes use {{ os }} and {{ arch }} from here — never call uname directly.
 

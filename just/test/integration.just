@@ -6,7 +6,7 @@ test-integration-fd:
 test-integration-tk-linux-x86:
     #!/usr/bin/env bash
     set -euo pipefail
-    (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test)
+    (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} {{ zig_linux_x86_cpu }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test)
 
 test-integration-tk-linux-arm:
     #!/usr/bin/env bash

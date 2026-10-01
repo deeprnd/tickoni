@@ -1,7 +1,7 @@
 # Linux build recipes
 
 build-tk-linux-x86:
-    (cd {{ justfile_dir }} && mkdir -p build && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dfd-lib-dir=build/fd-tickoni-fd/lib)
+    (cd {{ justfile_dir }} && mkdir -p build && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} zig build -p {{ ZIG_PREFIX }} {{ zig_linux_x86_cpu }} -Dfd-lib-dir=build/fd-tickoni-fd/lib)
 
 build-tk-linux-arm:
     (cd {{ justfile_dir }} && mkdir -p build && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dfd-lib-dir=build/fd-tickoni-fd/lib)
@@ -17,8 +17,8 @@ build-fd-linux-arm-gcc:
 
 # test-unit-fd-linux-x86-gcc lives in justfile (CI entry point).
 test-unit-tk-linux-x86:
-    (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib test --summary all)
-    (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib run-tests)
+    (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} zig build -p {{ ZIG_PREFIX }} {{ zig_linux_x86_cpu }} -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib test --summary all)
+    (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} zig build -p {{ ZIG_PREFIX }} {{ zig_linux_x86_cpu }} -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib run-tests)
 
 test-unit-tk-linux-arm:
     (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib test --summary all)
