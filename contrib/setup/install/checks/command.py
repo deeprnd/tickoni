@@ -139,6 +139,11 @@ def build_check(tool: dict, platform_str: str = '') -> CheckCommand | None:
     # simple executable form directly so preinstalled runner tools are not
     # needlessly sent to winget.
     if 'windows' in platform_str:
+        # For tools with a winget_id, use winget list to check installation
+        # (shutil.which() can't find packages in WindowsApps UWP directory).
+        winget_id = tool.get('parameters', {}).get('winget_id')
+        if winget_id:
+            return WingetInstalledCommand(winget_id)
         # `command -v <exe>` → shutil.which
         match = re.fullmatch(r'command -v ([A-Za-z0-9_.+-]+)', check.strip())
         if match:
