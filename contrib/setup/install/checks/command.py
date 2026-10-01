@@ -61,6 +61,44 @@ class MsvcInstalledCommand(CheckCommand):
         return bool(glob.glob(pattern))
 
 
+class MakeCheck(CheckCommand):
+    """Check for GNU Make >= 4.0 on Windows (where POSIX shell checks fail).
+
+    The tool-versions.json uses a complex POSIX pipeline for 'make':
+      command -v mingw32-make >/dev/null 2>&1 || { gmake --version ...
+    which cmd.exe cannot run.  This class does the same check in Python.
+    """
+
+    MAKE_BINARIES = ['mingw32-make', 'gmake', 'make']
+    GNU_MAKE_RE = re.compile(r'GNU Make ([4-9]|[0-9][0-9])')
+
+    def is_satisfied(self) -> bool:
+        for name in self.MAKE_BINARIES:
+            exe = shutil.which(name)
+            if exe is None:
+                continue
+            try:
+                result = subprocess.run(
+                    [exe, '--version'],
+                    capture_output=True, text=True, timeout=10
+                )
+                if result.returncode == 0 and self.GNU_MAKE_RE.search(result.stdout):
+                    return True
+            except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+                continue
+        return False
+
+
+class FileExistsCheck(CheckCommand):
+    """Check that a file exists on disk (Windows-safe version of `test -f`)."""
+
+    def __init__(self, path: str):
+        self.path = path
+
+    def is_satisfied(self) -> bool:
+        return os.path.isfile(self.path)
+
+
 class WingetInstalledCommand(CheckCommand):
     """Winget-specific check: queries winget for the package."""
 
@@ -101,7 +139,15 @@ def build_check(tool: dict, platform_str: str = '') -> CheckCommand | None:
     # simple executable form directly so preinstalled runner tools are not
     # needlessly sent to winget.
     if 'windows' in platform_str:
+        # `command -v <exe>` → shutil.which
         match = re.fullmatch(r'command -v ([A-Za-z0-9_.+-]+)', check.strip())
         if match:
             return ExecutableCheck(match.group(1))
+        # `test -f <path>` → os.path.isfile
+        test_match = re.fullmatch(r'test -f (.+)', check.strip())
+        if test_match:
+            return FileExistsCheck(test_match.group(1))
+        # Complex make version check → dedicated MakeCheck
+        if 'grep -qE' in check and 'GNU Make' in check:
+            return MakeCheck()
     return ShellCheckCommand(check)
