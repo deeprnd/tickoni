@@ -39,6 +39,6 @@ jobs:
       - name: Generate coverage summary JSON
         run: |
           python3 contrib/tool/readme/coverage_report.py coverage-tk \
-            build/coverage/tk \
+            build/coverage/tk/kcov/merged \
             build/coverage/tk/coverage-summary.json \
             --config contrib/test/coverage-tk.json
