@@ -90,6 +90,16 @@ def test_windows_minisign_does_not_depend_on_winget():
     ) == "minisign_download"
 
 
+def test_windows_ccache_does_not_depend_on_winget():
+    cfg = json.loads((setup_dir / "tool-versions.json").read_text())
+
+    assert _resolve_install_method(
+        cfg["tools"]["ccache"]["install_method"],
+        "windows-arm",
+        "ccache",
+    ) == "ccache_download"
+
+
 def test_setup_stops_before_dependent_tools_after_install_failure():
     class Resolver:
         def resolve(self, categories):
