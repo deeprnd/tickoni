@@ -80,6 +80,16 @@ def test_no_system_package_pseudo_method_in_config():
     assert "system_package" not in methods
 
 
+def test_windows_minisign_does_not_depend_on_winget():
+    cfg = json.loads((setup_dir / "tool-versions.json").read_text())
+
+    assert _resolve_install_method(
+        cfg["tools"]["minisign"]["install_method"],
+        "windows-arm",
+        "minisign",
+    ) == "minisign_download"
+
+
 def test_setup_stops_before_dependent_tools_after_install_failure():
     class Resolver:
         def resolve(self, categories):

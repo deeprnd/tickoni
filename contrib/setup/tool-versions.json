@@ -9,6 +9,9 @@
     "actionlint": {
       "version": "1.7.12"
     },
+    "minisign": {
+      "version": "0.12"
+    },
     "zig": {
       "version": "0.17.0-dev.2320+1e770dbef",
       "options": {
@@ -489,11 +492,12 @@
       "install_method": {
         "linux": "apt",
         "macos": "brew",
-        "windows": "winget"
+        "windows": "minisign_download"
       },
       "parameters": {
         "package": "minisign",
-        "winget_id": "jedisct1.minisign"
+        "version_ref": "minisign",
+        "sha256": "37b600344e20c19314b2e82813db2bfdcc408b77b876f7727889dbd46d539479"
       },
       "idempotent_check": "command -v minisign"
     },
