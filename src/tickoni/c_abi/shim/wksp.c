@@ -54,6 +54,7 @@ int tk_wksp_exists_named( char const * name ) { return !fd_shmem_info( name, 0UL
 
 #include "../../../util/fd_util.h"
 #include "../../../util/wksp/fd_wksp.h"
+#include <errno.h>
 
 /* Windows stubs delegate to Firedancer's Windows stubs which return -ENOTSUP.
    These allow the supervisor to compile on Windows but tiles don't actually run. */
