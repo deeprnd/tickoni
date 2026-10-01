@@ -3,7 +3,12 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from contrib.setup.install.checks import ExecutableCheck, MsvcInstalledCommand, ShellCheckCommand, build_check
+from contrib.setup.install.checks import (
+    ExecutableCheck,
+    MsvcInstalledCommand,
+    ShellCheckCommand,
+    build_check,
+)
 from contrib.setup.install.strategies import winget
 
 
@@ -15,6 +20,20 @@ def test_windows_simple_command_v_uses_executable_lookup():
 
     assert isinstance(check, ExecutableCheck)
     with patch('contrib.setup.install.checks.command.shutil.which', return_value='curl.exe'):
+        assert check.is_satisfied()
+
+
+def test_windows_winget_tool_prefers_available_executable():
+    with patch('contrib.setup.install.checks.command.shutil.which', return_value='curl.exe'):
+        check = build_check(
+            {
+                'idempotent_check': 'command -v curl',
+                'parameters': {'winget_id': 'curl.curl'},
+            },
+            'windows-arm',
+        )
+
+        assert isinstance(check, ExecutableCheck)
         assert check.is_satisfied()
 
 
