@@ -97,18 +97,24 @@ class ZigInstallStrategy(InstallStrategy):
 
     def _install(self, version: str, target: str, install_root: str, user_path: bool, platform_str: str) -> None:
         """Core Zig installation logic."""
+        install_root_path = Path(os.path.expandvars(install_root))
+        expected_install_dir = install_root_path / f"zig-{target}-{version}"
+        executable_name = "zig.exe" if target.endswith("-windows") else "zig"
+
+        # CI restores the exact versioned installation directory from cache, but
+        # each workflow step starts with a fresh PATH.  Reuse that verified,
+        # target-specific install rather than downloading and extracting it again.
+        if (expected_install_dir / executable_name).is_file():
+            self._activate_existing_install(expected_install_dir, user_path, platform_str)
+            print(f"[SKIP] zig {version} already installed at {expected_install_dir}")
+            return
+
         # Check if zig is already installed and on PATH.
         existing_path = shutil.which('zig')
         if existing_path:
             install_dir = Path(existing_path).resolve().parent
-            install_dir_str = str(install_dir)
-            gh_path = os.environ.get("GITHUB_PATH")
-            if gh_path and not self._github_path_already_written(gh_path, install_dir_str):
-                with open(gh_path, "a") as fh:
-                    fh.write(install_dir_str + os.linesep)
-                print(f"[github-path] {install_dir} (existing zig on PATH)")
-            os.environ['PATH'] = f"{install_dir_str}{os.pathsep}{os.environ['PATH']}"
-            print(f"[done] zig already on PATH: {existing_path}")
+            self._activate_existing_install(install_dir, user_path, platform_str)
+            print(f"[SKIP] zig already on PATH: {existing_path}")
             return
 
         index_url = ZIG_INDEX_URL
@@ -216,6 +222,16 @@ class ZigInstallStrategy(InstallStrategy):
         os.environ['PATH'] = f"{install_dir_str}{os.pathsep}{os.environ['PATH']}"
 
         print(f"[done] zig version={version} target={target} install_dir={install_dir}")
+
+    def _activate_existing_install(self, install_dir: Path, user_path: bool, platform_str: str) -> None:
+        """Activate a known Zig install for this process and later CI steps."""
+        install_dir_str = str(install_dir)
+        if platform_str.startswith("windows"):
+            self._handle_windows_path(install_dir, user_path)
+        else:
+            self._handle_posix_path(install_dir)
+        if install_dir_str not in os.environ.get('PATH', '').split(os.pathsep):
+            os.environ['PATH'] = f"{install_dir_str}{os.pathsep}{os.environ['PATH']}"
 
     def _handle_windows_path(self, install_dir: Path, user_path: bool):
         install_dir_str = str(install_dir)

@@ -150,8 +150,7 @@ jobs:
         if: runner.os == 'Windows'
         with:
           path: |
-            C:\Program Files\Microsoft Visual Studio\2022\VC
-            C:\Program Files (x86)\Microsoft Visual Studio\2022\VC
+            C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC
           key: msvc-${{ runner.os }}-${{ matrix.platform }}-2022
           restore-keys: |
             msvc-${{ runner.os }}-${{ matrix.platform }}-
@@ -160,25 +159,28 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.local/zig
+            ~/.local/zig-*
             ~/.cache/zig
             ~/scoop/apps/zig
-          key: zig-${{ runner.os }}-${{ matrix.platform }}-${{ hashFiles('contrib/setup/install-zig.py', 'contrib/setup/tool-versions.json') }}
+          key: zig-${{ runner.os }}-${{ matrix.platform }}-${{ hashFiles('contrib/setup/install/strategies/zig.py', 'contrib/setup/tool-versions.json') }}
           restore-keys: |
             zig-${{ runner.os }}-${{ matrix.platform }}-
 
-      - name: Cache Firedancer deps (snappy, rockdb, openssl)
+      - name: Cache Firedancer deps (snappy, rockdb, OpenSSL)
         uses: actions/cache@v4
         with:
-          path: build/fd-deps
+          path: |
+            build/fd-deps
+            build/opt
           key: fd-deps-${{ runner.os }}-${{ matrix.platform }}-${{ matrix.compiler }}-${{ hashFiles('contrib/setup/tool-versions.json') }}
           restore-keys: |
             fd-deps-${{ runner.os }}-${{ matrix.platform }}-
 
       - name: Setup toolchain
+        if: runner.os != 'Windows'
         run: just ${{ matrix.setup-recipe }}
 
-      - name: Setup Firedancer deps
+      - name: Setup Firedancer toolchain and deps
         run: just ${{ matrix.setup-fd }}
 
       - name: Build FD libraries

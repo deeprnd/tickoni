@@ -10,6 +10,7 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -101,3 +102,22 @@ def test_setup_stops_before_dependent_tools_after_install_failure():
 
     assert attempted == ["msvc"]
     assert results == [{"tool": "msvc", "status": "failed"}]
+
+
+def test_already_installed_tool_logs_explicit_skip(capsys):
+    orchestrator = Orchestrator({"dependencies": {}})
+    tool = {
+        "name": "ccache",
+        "install_method": "winget",
+        "idempotent_check": "command -v ccache",
+    }
+    check = Mock()
+    check.is_satisfied.return_value = True
+
+    with patch("orchestrator.build_check", return_value=check), \
+         patch("orchestrator.get_strategy") as get_strategy:
+        result = orchestrator._install_tool(tool, "windows-arm", dry_run=False)
+
+    assert result == {"tool": "ccache", "status": "already_installed"}
+    assert "[SKIP] ccache (already installed)" in capsys.readouterr().out
+    get_strategy.assert_not_called()
