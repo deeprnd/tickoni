@@ -13,6 +13,7 @@
 /// HTTP client: spawns a Python subprocess that calls urllib.request.
 /// Cross-platform, no POSIX socket code.
 const std = @import("std");
+const builtin = @import("builtin");
 const c_abi = @import("c_abi");
 const runtime = @import("runtime");
 const supervisor_mod = @import("supervisor");
@@ -22,6 +23,7 @@ const util = @import("util");
 const Supervisor = supervisor_mod.Supervisor;
 
 const METRICS_HOST = "127.0.0.1";
+const PYTHON = if (builtin.os.tag == .windows) "py" else "python3";
 
 // ---------------------------------------------------------------------------
 // HTTP client: subprocess + Python script.
@@ -51,7 +53,7 @@ fn httpGetProcess(host: []const u8, port: u16, path: []const u8, timeout_ms: u32
 
     const result = try std.process.run(std.testing.allocator, std.testing.io, .{
         .argv = &.{
-            "python3",
+            PYTHON,
             script_path,
             host,
             port_str,
@@ -302,6 +304,7 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
+    if (builtin.os.tag == .windows) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -366,6 +369,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: unknown path returns HTTP 404" {
+    if (builtin.os.tag == .windows) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -415,6 +419,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: boot_timestamp is a valid large positive value" {
+    if (builtin.os.tag == .windows) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
