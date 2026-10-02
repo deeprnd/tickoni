@@ -58,14 +58,15 @@ FAIL_PATTERNS=(
 for bin in "${binaries[@]}"; do
     name=$(basename "$(dirname "$bin")")
     echo -n "  ${name}... "
+    output_file=$(mktemp "${TMPDIR:-/tmp}/tickoni-test.XXXXXX")
     set +e
-    output=$("$bin" 2>&1)
+    "$bin" >"$output_file" 2>&1
     exit_code=$?
     set -e
     if [[ $exit_code -ne 0 ]]; then
         # Non-zero exit = test failed. Also print output for context.
         echo "FAILED (exit $exit_code)"
-        echo "$output" >&2
+        cat "$output_file" >&2
         failures=$((failures + 1))
     else
         # Exit 0 means the test passed its assertions. FAIL_PATTERNS
@@ -74,6 +75,7 @@ for bin in "${binaries[@]}"; do
         echo "OK"
         passed=$((passed + 1))
     fi
+    rm -f "$output_file"
 done
 
 if [[ $failures -gt 0 ]]; then
