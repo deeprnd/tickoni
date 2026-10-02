@@ -144,7 +144,7 @@ test "process_topology_integration: SIGKILL on one tile is reported by identity 
     });
 
     const tkrepl_pid = sup.monitor()[tkrepl_idx].pid orelse return error.MissingPid;
-    try std.posix.kill(tkrepl_pid, std.posix.SIG.KILL);
+    c_abi.os.killProcess(@as(c_int, @intCast(@as(i32, @intCast(tkrepl_pid)))));
 
     const max_polls: u32 = 400;
     var poll: u32 = 0;
