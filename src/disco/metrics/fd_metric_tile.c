@@ -30,7 +30,9 @@
 #include <sys/types.h>
 #include <sys/socket.h> /* SOCK_CLOEXEC, SOCK_NONBLOCK needed for seccomp filter */
 #include <unistd.h>
+#if 0
 #include "generated/fd_metric_tile_seccomp.h"
+#endif
 #endif
 
 #define FD_HTTP_SERVER_METRICS_MAX_CONNS          4
