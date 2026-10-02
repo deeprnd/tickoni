@@ -8,17 +8,21 @@ set -euo pipefail
 # creation and child-tile joins. GitHub Actions runners cap RLIMIT_MEMLOCK
 # (often at 64 KiB); ulimit alone can't raise past the hard limit, so we
 # use sudo prlimit to bump both soft and hard limits at once.
-# On local machines where sudo requires a password or memlock is already
-# unlimited, skip silently.
+# prlimit, sudo, and /proc/$$/limits are Linux-only; on macOS or ARM
+# runners without sudo, skip silently.
 echo "memlock before:"
 ulimit -Sl
 ulimit -Hl
-grep "Max locked memory" /proc/$$/limits
-if sudo prlimit --pid $$ --memlock=unlimited:unlimited 2>/dev/null; then
-    echo "memlock after:"
-    ulimit -Sl
-    ulimit -Hl
+if command -v prlimit >/dev/null 2>&1 && \
+   command -v sudo >/dev/null 2>&1 && \
+   [[ -f /proc/$$/limits ]]; then
     grep "Max locked memory" /proc/$$/limits
+    if sudo prlimit --pid $$ --memlock=unlimited:unlimited 2>/dev/null; then
+        echo "memlock after:"
+        ulimit -Sl
+        ulimit -Hl
+        grep "Max locked memory" /proc/$$/limits
+    fi
 fi
 
 echo "Finding test binaries..."
