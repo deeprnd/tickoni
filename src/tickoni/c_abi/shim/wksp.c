@@ -52,8 +52,8 @@ int tk_wksp_exists_named( char const * name ) { return !fd_shmem_info( name, 0UL
 
 #elif FD_HAS_WINDOWS
 
-#include "fd_shmem.h"
-#include "fd_wksp.h"
+#include "../../../util/shmem/fd_shmem.h"
+#include "../../../util/wksp/fd_wksp.h"
 #include <errno.h>
 
 /* Windows implementation using CreateFileMapping backend.
