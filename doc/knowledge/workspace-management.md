@@ -410,9 +410,12 @@ The tile is declared with `fd_topob_tile(topo, "metric", "tickoni_metric",
 "tickoni_metric_in", cpu_idx)` — first workspace parameter is the tile's own
 workspace, second is where metrics objects live.
 
-The metric tile runs an embedded `fd_http_server` that renders Prometheus
-`/metrics` from the metrics workspace. It has zero mcache/dcache links — it's
-a pure observer, reading metrics data from `tickoni_metric_in`.
+The metric tile runs an embedded `fd_http_server` on a configurable port that
+renders Prometheus `/metrics` from the metrics workspace. It has zero
+mcache/dcache links — it's a pure observer, reading metrics data from
+`tickoni_metric_in` and serving `/metrics` to external consumers. Its scratch
+workspace (~32 MiB) hosts the HTTP server state. The `metric_tile_obj_id` field
+in `BuiltTopo` carries the object ID for this scratch workspace.
 
 ## Reuse Boundary
 

@@ -111,12 +111,17 @@ This is a product security decision, not just an engineering preference.
 
 ### Task 3: Tighten Metric Tile Description (LOW-MEDIUM)
 
-**Add to `workspace-management.md` or `tile-topology.md`:**
-- Metric tile runs an embedded `fd_http_server` on a configurable port (not hardcoded)
-- HTTP server serves Prometheus `/metrics` endpoint from metrics workspace
-- Metric tile is an observer: zero in/out links in the pipeline, reads metrics data from `metric_in` workspace
-- Metric tile object has a non-default scratch footprint (~32 MiB) for the HTTP server state
-- The `metric_tile_obj_id` field in `BuiltTopo` carries the scratch workspace object ID
+**DONE** — Committed as `TODO` (after verification below).
+
+**Files edited:**
+1. `doc/knowledge/tile-topology.md` — Tile registry table row (line 80): added "configurable port", "zero in/out pipeline links", "pure observer reading from `metric_in`" to the metric tile description.
+2. `doc/knowledge/workspace-management.md` — Lines 413-415: added "configurable port", "serving `/metrics` to external consumers", "scratch workspace (~32 MiB) hosts HTTP server state", and "`metric_tile_obj_id` field in `BuiltTopo` carries the object ID".
+
+**Rules applied:**
+- Configurable port explicitly documented ✓
+- Observer role (zero links) reinforced ✓
+- Scratch footprint (~32 MiB) documented ✓
+- `metric_tile_obj_id` in `BuiltTopo` documented ✓
 
 ### Task 4: Fix Tile Registry Description (LOW)
 
