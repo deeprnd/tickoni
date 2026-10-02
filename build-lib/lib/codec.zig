@@ -75,6 +75,11 @@ pub fn addTickoniShimLibrary(
         .link_libc = true,
     });
     mod.addIncludePath(b.path("src"));
+    // Windows workspace shims include Firedancer headers by basename
+    // (fd_shmem.h and fd_wksp.h). Keep those headers resolvable for the
+    // supervisor shim module just as the relative Linux includes are.
+    mod.addIncludePath(b.path("src/util/shmem"));
+    mod.addIncludePath(b.path("src/util/wksp"));
     mod.addCSourceFiles(.{
         .files = files,
         .flags = shims.shimCFlagsFor(target.result),
