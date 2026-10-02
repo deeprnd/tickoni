@@ -6,9 +6,9 @@
 
 #if FD_HAS_LINUX || FD_HAS_MACOS
 
-#include "../../../util/fd_util.h"
-#include "../../../util/wksp/fd_wksp.h"
-#include "../../../util/shmem/fd_shmem_private.h"
+#include "util/fd_util.h"
+#include "util/wksp/fd_wksp.h"
+#include "util/shmem/fd_shmem_private.h"
 
 extern char fd_shmem_private_base[ FD_SHMEM_PRIVATE_BASE_MAX ];
 extern ulong fd_shmem_private_base_len;
@@ -52,8 +52,8 @@ int tk_wksp_exists_named( char const * name ) { return !fd_shmem_info( name, 0UL
 
 #elif FD_HAS_WINDOWS
 
-#include "../../../util/shmem/fd_shmem.h"
-#include "../../../util/wksp/fd_wksp.h"
+#include "util/shmem/fd_shmem.h"
+#include "util/wksp/fd_wksp.h"
 #include <errno.h>
 
 /* Windows implementation using CreateFileMapping backend.
