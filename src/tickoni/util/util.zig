@@ -5,6 +5,8 @@
 /// Import as @import("util") in files that use the build module system.
 const std = @import("std");
 const c = std.c;
+const builtin = @import("builtin");
+const c_abi = @import("c_abi");
 pub const cpu = @import("cpu.zig");
 pub const process = @import("process.zig");
 pub const process_api = @import("process_api.zig");
@@ -40,14 +42,12 @@ fn htons(x: u16) u16 {
 /// NOTE: bind() succeeds when the port is FREE — we want the inverse:
 /// return false on success (free) and true on failure (in use).
 pub fn portIsInUse(port: u16) bool {
+    if (builtin.os.tag == .windows) return c_abi.os.portIsInUse(port);
     const fd_i = std.posix.system.socket(
         std.posix.system.AF.INET,
         std.posix.system.SOCK.STREAM,
         0, // TCP (protocol 6)
     );
-    if (fd_i > 2147483647) return true; // socket() failed, treat as busy
-    const fd = @as(c_int, @intCast(@as(i64, @intCast(fd_i))));
-    defer _ = std.posix.system.close(fd);
 
     // SO_REUSEADDR allows re-binding even in TIME_WAIT, but we want
     // to *detect* TIME_WAIT ports, so we intentionally do NOT set it.
@@ -63,9 +63,20 @@ pub fn portIsInUse(port: u16) bool {
     };
     const sin_size: std.posix.socklen_t = @intCast(@sizeOf(sockaddr_in));
 
-    // bind() == 0 means the port is FREE (we can bind it) → return false
-    // bind() != 0 means the port is BUSY (EADDRINUSE on TCP) → return true
-    return (std.posix.system.bind(fd, @ptrCast(&bind_addr), sin_size) != 0);
+    // Zig 0.17's Windows C socket declaration returns c_int while the
+    // corresponding bind/close declarations require a Windows HANDLE. The
+    // c_int is the Winsock SOCKET value; convert it only at that boundary.
+    if (builtin.os.tag == .windows) {
+        if (fd_i == -1) return true; // socket() failed, treat as busy
+        const fd: std.posix.fd_t = @ptrFromInt(@as(usize, @intCast(fd_i)));
+        defer _ = std.posix.system.close(fd);
+        return (std.posix.system.bind(fd, @ptrCast(&bind_addr), sin_size) != 0);
+    } else {
+        if (fd_i < 0) return true; // socket() failed, treat as busy
+        const fd: std.posix.fd_t = @intCast(fd_i);
+        defer _ = std.posix.system.close(fd);
+        return (std.posix.system.bind(fd, @ptrCast(&bind_addr), sin_size) != 0);
+    }
 }
 
 /// Validate that a port is NOT currently in use (free to bind).

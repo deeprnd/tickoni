@@ -24,6 +24,7 @@
 #include <mach-o/dyld.h>
 #include <sys/sysctl.h>
 #elif FD_HAS_WINDOWS
+#include <winsock2.h>
 #include <limits.h>
 #include <io.h>
 #include <windows.h>
@@ -31,6 +32,27 @@
 #endif
 
 #include "../../../util/fd_util.h"
+
+int tk_port_is_in_use( uint16_t port ) {
+#if FD_HAS_WINDOWS
+  WSADATA wsa;
+  if( WSAStartup( MAKEWORD( 2, 2 ), &wsa )!=0 ) return 1;
+  SOCKET sock = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+  if( sock==INVALID_SOCKET ) { WSACleanup(); return 1; }
+  struct sockaddr_in addr;
+  memset( &addr, 0, sizeof(addr) );
+  addr.sin_family      = AF_INET;
+  addr.sin_port        = htons( port );
+  addr.sin_addr.s_addr = htonl( INADDR_ANY );
+  int busy = bind( sock, (struct sockaddr *)&addr, sizeof(addr) )!=0;
+  closesocket( sock );
+  WSACleanup();
+  return busy;
+#else
+  (void)port;
+  return 0;
+#endif
+}
 
 #if FD_HAS_LINUX
 
@@ -71,6 +93,10 @@ int tk_parent_pid( int pid ) {
   }
   fclose( f );
   return ppid;
+}
+
+int tk_process_id_from_handle( uintptr_t handle ) {
+  return (int)handle;
 }
 
 int tk_kill_process( int pid ) {
@@ -143,6 +169,10 @@ int tk_parent_pid( int pid ) {
   int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, pid };
   if( sysctl( mib, 4, &info, &size, NULL, 0 )!=0 ) return -1;
   return (int)info.kp_eproc.e_ppid;
+}
+
+int tk_process_id_from_handle( uintptr_t handle ) {
+  return (int)handle;
 }
 
 int tk_kill_process( int pid ) {
@@ -235,6 +265,11 @@ int tk_parent_pid( int pid ) {
   return parent;
 }
 
+int tk_process_id_from_handle( uintptr_t handle ) {
+  DWORD pid = GetProcessId( (HANDLE)handle );
+  return pid ? (int)pid : -1;
+}
+
 int tk_kill_process( int pid ) {
   HANDLE process = OpenProcess( PROCESS_TERMINATE, FALSE, (DWORD)pid );
   if( FD_UNLIKELY( !process ) ) return -1;
@@ -303,6 +338,10 @@ int tk_self_exe_path( char * buf, size_t buf_len ) {
 int tk_parent_pid( int pid ) {
   (void)pid;
   return -1;
+}
+
+int tk_process_id_from_handle( uintptr_t handle ) {
+  return (int)handle;
 }
 
 int tk_kill_process( int pid ) {

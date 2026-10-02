@@ -37,11 +37,11 @@ test "process_topology_integration: every tile is a distinct OS process parented
 
     var seen_pids: [8]std.process.Child.Id = undefined;
     for (sup.monitor(), 0..) |h, i| {
-        const pid = h.pid orelse return error.MissingPid;
-        for (seen_pids[0..i]) |other| try std.testing.expect(other != pid);
-        seen_pids[i] = pid;
+        const child_id = h.pid orelse return error.MissingPid;
+        for (seen_pids[0..i]) |other| try std.testing.expect(other != child_id);
+        seen_pids[i] = child_id;
 
-        const ppid = try c_abi.os.parentPid(pid);
+        const ppid = try c_abi.os.parentPid(try c_abi.os.processId(child_id));
         try std.testing.expectEqual(supervisor_pid, ppid);
     }
 
@@ -143,8 +143,8 @@ test "process_topology_integration: SIGKILL on one tile is reported by identity 
         .metric_port = port,
     });
 
-    const tkrepl_pid = sup.monitor()[tkrepl_idx].pid orelse return error.MissingPid;
-    c_abi.os.killProcess(@as(c_int, @intCast(@as(i32, @intCast(tkrepl_pid)))));
+    const tkrepl_id = sup.monitor()[tkrepl_idx].pid orelse return error.MissingPid;
+    c_abi.os.killProcess(try c_abi.os.processId(tkrepl_id));
 
     const max_polls: u32 = 400;
     var poll: u32 = 0;

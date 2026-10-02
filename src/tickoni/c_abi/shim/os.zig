@@ -1,10 +1,14 @@
 /// Zig extern declarations for os.c cross-platform OS operations shim.
 /// All platform-specific code is in os.c behind #if FD_HAS_LINUX guards.
+const builtin = @import("builtin");
+const std = @import("std");
 pub const c = struct {
     pub extern fn tk_monotonic_nanos() i64;
     pub extern fn tk_sleep_nanos(ns: u64) void;
     pub extern fn tk_self_exe_path(buf: [*]u8, buf_len: usize) c_int;
     pub extern fn tk_parent_pid(pid: c_int) c_int;
+    pub extern fn tk_process_id_from_handle(handle: usize) c_int;
+    pub extern fn tk_port_is_in_use(port: u16) c_int;
     pub extern fn tk_kill_process(pid: c_int) c_int;
     pub extern fn tk_kill_process_group(pgid: c_int) c_int;
     pub extern fn tk_write(fd: c_int, buf: [*]const u8, count: usize) usize;
@@ -32,6 +36,22 @@ pub fn parentPid(pid: c_int) !c_int {
     const r = c.tk_parent_pid(pid);
     if (r < 0) return error.PPidNotFound;
     return r;
+}
+
+/// Convert std.process.Child.Id to the numeric PID expected by the C shim.
+/// POSIX Child.Id is already a PID; Windows Child.Id is an hProcess HANDLE.
+pub fn processId(id: std.process.Child.Id) !c_int {
+    const raw: usize = if (builtin.os.tag == .windows)
+        @intFromPtr(id)
+    else
+        @intCast(id);
+    const pid = c.tk_process_id_from_handle(raw);
+    if (pid < 0) return error.ProcessIdNotFound;
+    return pid;
+}
+
+pub fn portIsInUse(port: u16) bool {
+    return c.tk_port_is_in_use(port) != 0;
 }
 
 pub fn killProcess(pid: c_int) void {
