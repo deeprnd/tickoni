@@ -13,6 +13,7 @@
 
 /* Each region is stored once; joins are reference-counted. */
 #define WIN_SHMEM_MAX_REGIONS 256
+#define WIN_SHMEM_MAX_JOINS   1024
 #define WIN_SHMEM_NAME_MAX_LEN 255
 
 typedef struct win_shmem_region {
@@ -27,6 +28,13 @@ typedef struct win_shmem_region {
 
 static win_shmem_region_t win_shmem_regions[WIN_SHMEM_MAX_REGIONS];
 static int win_shmem_region_cnt = 0;
+
+typedef struct win_shmem_join {
+    void * addr;
+    int    region_idx;
+} win_shmem_join_t;
+
+static win_shmem_join_t win_shmem_joins[WIN_SHMEM_MAX_JOINS];
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
@@ -252,7 +260,8 @@ fd_shmem_unlink(char const *name, ulong page_sz) {
     /* On Windows, unlink marks the region for destruction when refs drop to zero.
        If no refs exist, destroy immediately. */
     int idx;
-    if (!win_shmem_find_region(name, page_sz, &idx)) {
+    if (!win_shmem_find_region(name, page_sz, &idx) &&
+        !win_shmem_find_region(name, FD_SHMEM_NORMAL_PAGE_SZ, &idx)) {
         FD_LOG_WARNING(("fd_shmem_unlink: region not found (%s)", name));
         return ENOENT;
     }
@@ -297,7 +306,8 @@ fd_shmem_info(char const *name, ulong page_sz, fd_shmem_info_t *opt_info) {
 
     /* Check this specific page size */
     int idx;
-    if (!win_shmem_find_region(name, page_sz, &idx)) {
+    if (!win_shmem_find_region(name, page_sz, &idx) &&
+        !win_shmem_find_region(name, FD_SHMEM_NORMAL_PAGE_SZ, &idx)) {
         return ENOENT;
     }
 
@@ -329,7 +339,9 @@ fd_shmem_join(char const *name,
         return NULL;
     }
 
-    /* Find region — try each page size until we find a match */
+    /* Find region — try each page size until we find a match.  The local
+       registry is only a cache: tile processes have their own registry, but
+       they must still be able to join a mapping created by the supervisor. */
     int idx = -1;
     ulong found_page_sz = 0;
 
@@ -339,8 +351,63 @@ fd_shmem_join(char const *name,
     }
 
     if (idx < 0) {
-        FD_LOG_WARNING(("fd_shmem_join: region not found (%s)", name));
-        return NULL;
+        HANDLE mapping_handle = OpenFileMappingA(
+            FILE_MAP_READ | (mode == FD_SHMEM_JOIN_MODE_READ_WRITE ? FILE_MAP_WRITE : 0),
+            FALSE,
+            name
+        );
+        if (mapping_handle == NULL) {
+            FD_LOG_WARNING(("fd_shmem_join: region not found (%s), OpenFileMapping failed (%lu)",
+                            name, (unsigned long)GetLastError()));
+            return NULL;
+        }
+
+        /* Map the complete named mapping so the child can discover its size.
+           CreateFileMapping does not expose the size through the handle, but
+           VirtualQuery reports the size of the mapped view. */
+        void *probe = MapViewOfFile(mapping_handle,
+                                    FILE_MAP_READ,
+                                    0, 0, 0);
+        if (probe == NULL) {
+            CloseHandle(mapping_handle);
+            FD_LOG_WARNING(("fd_shmem_join: MapViewOfFile probe failed for %s (%lu)",
+                            name, (unsigned long)GetLastError()));
+            return NULL;
+        }
+        MEMORY_BASIC_INFORMATION mbi;
+        SIZE_T queried = VirtualQuery(probe, &mbi, sizeof(mbi));
+        SIZE_T mapped_bytes = 0;
+        void *cursor = probe;
+        void *allocation_base = queried != 0 ? mbi.AllocationBase : NULL;
+        while (queried != 0 && allocation_base != NULL &&
+               mbi.AllocationBase == allocation_base &&
+               mbi.State == MEM_COMMIT && mbi.RegionSize != 0) {
+            mapped_bytes += mbi.RegionSize;
+            cursor = (void *)((char *)cursor + mbi.RegionSize);
+            queried = VirtualQuery(cursor, &mbi, sizeof(mbi));
+        }
+        UnmapViewOfFile(probe);
+        if (mapped_bytes == 0 ||
+            ((ulong)mapped_bytes % FD_SHMEM_NORMAL_PAGE_SZ) != 0) {
+            CloseHandle(mapping_handle);
+            FD_LOG_WARNING(("fd_shmem_join: could not determine mapping size for %s", name));
+            return NULL;
+        }
+
+        if (!win_shmem_find_or_create(name, FD_SHMEM_NORMAL_PAGE_SZ, &idx)) {
+            CloseHandle(mapping_handle);
+            FD_LOG_WARNING(("fd_shmem_join: max regions reached"));
+            return NULL;
+        }
+        win_shmem_regions[idx].mapping_handle = mapping_handle;
+        win_shmem_regions[idx].page_sz = FD_SHMEM_NORMAL_PAGE_SZ;
+        win_shmem_regions[idx].page_cnt = (ulong)mapped_bytes / FD_SHMEM_NORMAL_PAGE_SZ;
+        win_shmem_regions[idx].ref_cnt = 0;
+        win_shmem_regions[idx].created = 1;
+        win_shmem_regions[idx].unlink_pending = 0;
+        strncpy(win_shmem_regions[idx].name, name, FD_SHMEM_NAME_MAX - 1);
+        win_shmem_regions[idx].name[FD_SHMEM_NAME_MAX - 1] = '\0';
+        found_page_sz = FD_SHMEM_NORMAL_PAGE_SZ;
     }
 
     /* Increment reference count */
@@ -351,6 +418,14 @@ fd_shmem_join(char const *name,
     ulong page_cnt = win_shmem_regions[idx].page_cnt;
     ulong page_sz = win_shmem_regions[idx].page_sz;
     ulong total_bytes = page_sz * page_cnt;
+    /* A cross-process join maps the complete section.  The size discovered
+       by VirtualQuery is metadata only; it can describe a partial view and
+       must not be used to truncate the actual workspace mapping. */
+    if (found_page_sz != 0 && idx >= 0 &&
+        win_shmem_regions[idx].mapping_handle != NULL &&
+        win_shmem_regions[idx].ref_cnt == 1) {
+        total_bytes = 0;
+    }
 
     void *shmem = MapViewOfFile(
         mapping_handle,
@@ -364,6 +439,21 @@ fd_shmem_join(char const *name,
         FD_LOG_WARNING(("fd_shmem_join: MapViewOfFile failed for %s (%lu)", name, (unsigned long)err));
         return NULL;
     }
+    for (int i = 0; i < WIN_SHMEM_MAX_JOINS; i++) {
+        if (win_shmem_joins[i].addr == NULL) {
+            win_shmem_joins[i].addr = shmem;
+            win_shmem_joins[i].region_idx = idx;
+            break;
+        }
+        if (i == WIN_SHMEM_MAX_JOINS - 1) {
+            UnmapViewOfFile(shmem);
+            win_shmem_regions[idx].ref_cnt--;
+            FD_LOG_WARNING(("fd_shmem_join: max joins reached"));
+            return NULL;
+        }
+    }
+    FD_LOG_INFO(("fd_shmem_join: joined %s at %p (%lu pages, map_bytes=%lu)",
+                 name, shmem, page_cnt, total_bytes));
 
     /* Fill in opt_info if requested */
     if (opt_info) {
@@ -392,37 +482,25 @@ fd_shmem_leave(void *join,
         return 1;
     }
 
-    /* Find the region this join belongs to by scanning our regions */
-    for (int i = 0; i < win_shmem_region_cnt; i++) {
-        if (win_shmem_regions[i].created && win_shmem_regions[i].ref_cnt > 0) {
-            /* Check if this join was created from this region by mapping */
-            HANDLE mapping_handle = win_shmem_regions[i].mapping_handle;
-            ulong page_cnt = win_shmem_regions[i].page_cnt;
-            ulong page_sz = win_shmem_regions[i].page_sz;
-            ulong total_bytes = page_sz * page_cnt;
+    /* The process can have several simultaneous views.  Track the exact
+       returned address so leaving one view decrements its own region. */
+    for (int j = 0; j < WIN_SHMEM_MAX_JOINS; j++) {
+        if (win_shmem_joins[j].addr != join) continue;
+        int i = win_shmem_joins[j].region_idx;
+        win_shmem_joins[j].addr = NULL;
+        win_shmem_regions[i].ref_cnt--;
+        UnmapViewOfFile(join);
 
-            /* Verify the join pointer falls within our mapped region */
-            ulong join_addr = (ulong)join;
-            /* On Windows, we can't easily verify the exact range without tracking,
-               so we assume the first matching region with refs is the one */
-            if (join_addr != 0) {
-                win_shmem_regions[i].ref_cnt--;
-
-                /* Unmap the view */
-                UnmapViewOfFile(join);
-
-                /* If region was unlinked and ref count reached zero, destroy it */
-                if (win_shmem_regions[i].ref_cnt == 0 && win_shmem_regions[i].unlink_pending) {
-                    CloseHandle(win_shmem_regions[i].mapping_handle);
-                    win_shmem_regions[i].created = 0;
-                    win_shmem_regions[i].mapping_handle = NULL;
-                    win_shmem_regions[i].unlink_pending = 0;
-                    FD_LOG_INFO(("fd_shmem_leave: destroyed region %s (final ref)",
-                                 win_shmem_regions[i].name));
-                }
-                return 0;
-            }
+        /* If region was unlinked and ref count reached zero, destroy it */
+        if (win_shmem_regions[i].ref_cnt == 0 && win_shmem_regions[i].unlink_pending) {
+            CloseHandle(win_shmem_regions[i].mapping_handle);
+            win_shmem_regions[i].created = 0;
+            win_shmem_regions[i].mapping_handle = NULL;
+            win_shmem_regions[i].unlink_pending = 0;
+            FD_LOG_INFO(("fd_shmem_leave: destroyed region %s (final ref)",
+                         win_shmem_regions[i].name));
         }
+        return 0;
     }
 
     FD_LOG_WARNING(("fd_shmem_leave: join handle not recognized"));
