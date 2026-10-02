@@ -123,39 +123,42 @@ This is a product security decision, not just an engineering preference.
 - Scratch footprint (few hundred KiB: 4 connections, 256 KiB buffer) documented ✓
 - `metric_tile_obj_id` in `BuiltTopo` documented ✓
 
-### Task 4: Fix Tile Registry Description (LOW)
+### Task 4: Fix Tile Registry Description (LOW) — DONE ✅
 
-**Edit `tile-orchestration.md`** lines 715-726:
-- Remove "thread/dev run callback, if any"
-- Remove "Linux full-runtime run callback or adapter entry, if any"
-- Remove "process/retail run callback, if any"
-- Replace with: "process-mode run callback (`ProcessFn`), if any" — the registry owns process-mode dispatch only
+Already applied in Task 1 commit `885803562`. `tile-orchestration.md` line 725 now reads:
+"process-mode run callback (`ProcessFn`), if any" — the registry owns process-mode dispatch only.
+No "thread/dev", "Linux full-runtime", or "process/retail" callback entries remain.
 
-### Task 5: Architecture.md Phase 0 Cleanup (LOW)
+### Task 5: Architecture.md Phase 0 Cleanup (LOW) — DONE ✅
 
-**Edit `architecture.md`:**
-- Line 186: "dev/test mode" → "process mode"
-- Line 221: Remove "thread-only topology may remain for fast dev/unit tests but does not satisfy process-isolation acceptance;" → simplify to "each configured tile runs as a supervisor-managed OS process with its own address space"
+Already applied in Task 1 commit `885803562`. Verified current state:
+- Line 186: "process mode" (not "dev/test mode")
+- Line 221: "there is no thread-mode compatibility lane."
 
 ---
 
 ## Additional Tightening Opportunities (Nice-to-Have)
 
-### T6: Verify platform-tiers.md vs code
-- Check if the tier detection logic in code matches the tier definitions in `platform-tiers.md`
-- The `detectTier()` function referenced in `version-identity.md` should be traced to actual code
+### T6: Verify platform-tiers.md vs code — DONE ✅
+- `detectTier()` in `src/tickoni/util/tier.zig` returns `linux_full`, `macos_retail`, `windows_retail`, `unsupported`
+- `platform-tiers.md` lists 5 tiers: same 4 plus `container_assisted` (doc-only; host tier is returned by `detectTier()`)
+- Tier names, OS/arch mappings, and degraded-guarantee rules all match code behavior.
+- No drift.
 
-### T7: Verify engine-harness-snapshot.json
-- The snapshot references commit `5f461433442978f95854518e076934ffffc023b2` ("add metric tile test binary")
-- This is the "watched" Firedancer harness file set for drift detection
-- Verify the file hash set is still current (some files may have drifted)
+### T7: Verify engine-harness-snapshot.json — DONE ✅
+- Snapshot commit: `288332d052023468635678886a5112df79c15362` (plan text referenced older `5f4614334...`)
+- `engine_check_changes.py` exits 0: all 13 watched harness files are in sync.
+- Files are current. Snapshot commit hash in plan text was stale; corrected above.
 
-### T8: Auth tiles — keyswitch section
-- `auth-tiles.md` is well-structured. No obvious drift.
-- Phase 0 tiles all use `uses_id_keyswitch=0, uses_av_keyswitch=0` — consistent with docs.
+### T8: Auth tiles — keyswitch section — DONE ✅
+- `auth-tiles.md` (220 lines) well-structured.
+- Phase 0 tiles documented as `uses_id_keyswitch=0, uses_av_keyswitch=0` — matches `topo_build.zig` / `topob.zig` calls.
+- No drift.
 
-### T9: UI Style Guide
-- `ui-style-guide.md` is a product document for the Next.js/Qt terminal UI. Not directly related to tile/runtime changes. No drift detected.
+### T9: UI Style Guide — DONE ✅
+- `doc/knowledge/ui-style-guide.md` (1865 lines) is a Qt Quick / Midnight Oni design spec.
+- No tile/runtime/metric code touches QML or UI styling. Out of scope for alignment.
+- No drift.
 
 ---
 
