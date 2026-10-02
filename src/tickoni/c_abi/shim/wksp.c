@@ -69,22 +69,19 @@ tk_wksp_new_named( char const *  name,
                    uint          seed,
                    ulong         opt_part_max ) {
   (void)seed; (void)opt_part_max;
-  char path[ FD_SHMEM_PRIVATE_PATH_BUF_MAX ];
-  char *p = fd_shmem_private_path( name, page_sz, path );
-  FD_LOG_INFO(( "TK_WKSP_NEW_NAMED: name=%s page_sz=%lu shmem_base=%s resolved_path=%s",
-                name, page_sz, fd_shmem_private_base, p ));
+  FD_LOG_INFO(( "TK_WKSP_NEW_NAMED: name=%s page_sz=%lu", name, page_sz ));
   int rc = fd_wksp_new_named( name, page_sz, sub_cnt, sub_page_cnt, sub_cpu_idx, mode, seed, opt_part_max );
   FD_LOG_INFO(( "TK_WKSP_NEW_NAMED: name=%s rc=%d", name, rc ));
   return rc;
 }
 
 int tk_wksp_delete_named( char const * name ) {
-  FD_LOG_INFO(( "TK_WKSP_DELETE_NAMED: name=%s shmem_base=%s", name, fd_shmem_private_base ));
+  FD_LOG_INFO(( "TK_WKSP_DELETE_NAMED: name=%s", name ));
   return fd_wksp_delete_named( name );
 }
 
 fd_wksp_t * tk_wksp_attach( char const * name ) {
-  FD_LOG_INFO(( "TK_WKSP_ATTACH: name=%s shmem_base=%s", name, fd_shmem_private_base ));
+  FD_LOG_INFO(( "TK_WKSP_ATTACH: name=%s", name ));
   fd_wksp_t * wksp = fd_wksp_attach( name );
   FD_LOG_INFO(( "TK_WKSP_ATTACH: name=%s returned %p", name, (void*)wksp ));
   return wksp;
