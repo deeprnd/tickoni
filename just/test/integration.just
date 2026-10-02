@@ -23,6 +23,16 @@ test-integration-tk-macos-arm:
     set -euo pipefail
     (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test)
 
+test-integration-tk-windows-x86:
+    # Uses SHELL=/usr/bin/bash to work around MSYS2 miniperl access violation (0xc0000005).
+    set -euo pipefail
+    (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test)
+
+test-integration-tk-windows-arm:
+    # Uses SHELL=/usr/bin/bash to work around MSYS2 miniperl access violation (0xc0000005).
+    set -euo pipefail
+    (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test)
+
 # Bare dispatcher; canonical platform recipes are in dispatch map.
 test-integration-tk:
 	{{ python }} {{ justfile_dir }}/scripts/dispatch test-integration-tk

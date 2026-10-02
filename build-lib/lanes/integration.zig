@@ -87,46 +87,44 @@ pub fn strategy(
     // Supervisor binary must be installed before process-mode tests
     // can spawn it (tile_exe_path = "build/zig-out/bin/tickoni-supervisor").
     // Each process test run step depends on the install so the file exists.
-    if (target.result.os.tag == .linux) {
-        const process_tests: []const []const u8 = &.{
-            "src/tickoni/test/integration/test_link_bounds.zig",
-            "src/tickoni/test/integration/test_metric_tile_integration.zig",
-            "src/tickoni/test/integration/test_process_pipeline.zig",
-            "src/tickoni/test/integration/test_process_cpu_placement.zig",
-            "src/tickoni/test/integration/test_process_topology.zig",
-            "src/tickoni/test/integration/test_process_demo_parity.zig",
-        };
+    const process_tests: []const []const u8 = &.{
+        "src/tickoni/test/integration/test_link_bounds.zig",
+        "src/tickoni/test/integration/test_metric_tile_integration.zig",
+        "src/tickoni/test/integration/test_process_pipeline.zig",
+        "src/tickoni/test/integration/test_process_cpu_placement.zig",
+        "src/tickoni/test/integration/test_process_topology.zig",
+        "src/tickoni/test/integration/test_process_demo_parity.zig",
+    };
 
-        const proc_imports = [_]std.Build.Module.Import{
-            .{ .name = "runtime", .module = int_mods.shared_runtime },
-            .{ .name = "c_abi", .module = int_mods.shared_c_abi },
-            .{ .name = "util", .module = int_mods.shared_util },
-            .{ .name = "supervisor", .module = int_mods.supervisor_named_mod },
-            .{ .name = "topologies", .module = int_mods.shared_topologies },
-        };
+    const proc_imports = [_]std.Build.Module.Import{
+        .{ .name = "runtime", .module = int_mods.shared_runtime },
+        .{ .name = "c_abi", .module = int_mods.shared_c_abi },
+        .{ .name = "util", .module = int_mods.shared_util },
+        .{ .name = "supervisor", .module = int_mods.supervisor_named_mod },
+        .{ .name = "topologies", .module = int_mods.shared_topologies },
+    };
 
-        inline for (process_tests) |path| {
-            const process_test = b.addTest(.{
-                .root_module = b.createModule(.{
-                    .root_source_file = b.path(path),
-                    .target = target,
-                    .optimize = optimize,
-                    .imports = &proc_imports,
-                }),
-            });
-            codec.linkTickoniCodec(b, process_test, fd_lib_dir);
-            firedancer.linkTickoniFiredancer(b, process_test, fd_lib_dir);
-            topo_run.linkTickoniTopoRun(b, process_test, fd_lib_dir);
-            // libfd_waltz.a contains fd_http_server.o which references ZSTD;
-            // link libfd_zstd.a to resolve those symbols.
-            if (target.result.os.tag == .linux) {
-                process_test.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_zstd.a", .{fd_lib_dir}) });
-            }
-            const run_proc_test = shims.addPlainTestRun(b, process_test);
-            // Direct dependency ensures install happens before this test runs.
-            run_proc_test.step.dependOn(&exe_install.step);
-            integration_step.dependOn(&run_proc_test.step);
+    inline for (process_tests) |path| {
+        const process_test = b.addTest(.{
+            .root_module = b.createModule(.{
+                .root_source_file = b.path(path),
+                .target = target,
+                .optimize = optimize,
+                .imports = &proc_imports,
+            }),
+        });
+        codec.linkTickoniCodec(b, process_test, fd_lib_dir);
+        firedancer.linkTickoniFiredancer(b, process_test, fd_lib_dir);
+        topo_run.linkTickoniTopoRun(b, process_test, fd_lib_dir);
+        // libfd_waltz.a contains fd_http_server.o which references ZSTD;
+        // link libfd_zstd.a to resolve those symbols on Linux.
+        if (target.result.os.tag == .linux) {
+            process_test.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_zstd.a", .{fd_lib_dir}) });
         }
+        const run_proc_test = shims.addPlainTestRun(b, process_test);
+        // Direct dependency ensures install happens before this test runs.
+        run_proc_test.step.dependOn(&exe_install.step);
+        integration_step.dependOn(&run_proc_test.step);
     }
 
     const mock_servers_test = b.addTest(.{
