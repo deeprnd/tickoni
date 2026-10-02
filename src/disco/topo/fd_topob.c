@@ -13,8 +13,6 @@
 fd_topo_t *
 fd_topob_new( void * mem,
               char const * app_name ) {
-  FD_LOG_WARNING(( "fd_topob_new: mem=%p app_name=%s", mem, app_name ));
-
   fd_topo_t * topo = (fd_topo_t *)mem;
 
   if( FD_UNLIKELY( !topo ) ) {
@@ -27,9 +25,7 @@ fd_topob_new( void * mem,
     return NULL;
   }
 
-  FD_LOG_WARNING(( "fd_topob_new: memset topo=%p sizeof(fd_topo_t)=%lu", (void*)topo, sizeof(fd_topo_t) ));
   fd_memset( topo, 0, sizeof(fd_topo_t) );
-  FD_LOG_WARNING(( "fd_topob_new: memset complete" ));
 
   FD_TEST( fd_pod_new( topo->props, sizeof(topo->props) ) );
 
@@ -384,10 +380,10 @@ static char const * FLOATING[] = {
   "bencho",
   "genesi", /* FIREDANCER ONLY */
   "ipecho", /* FIREDANCER ONLY */
-  "tkmetr", /* TICKONI */
-  "tkdiag", /* TICKONI */
-  "tkdisp", /* TICKONI */
-  "admin",  /* FIREDANCER ONLY */
+  "tkmetr",
+  "tkdiag",
+  "tkdisp",
+  "admin",
   NULL
 };
 
@@ -860,7 +856,9 @@ initialize_numa_assignments( fd_topo_t * topo ) {
       }
     }
 
-    if( FD_UNLIKELY( max_obj==ULONG_MAX ) ) FD_LOG_ERR(( "no object found for workspace %s", topo->workspaces[ i ].name ));
+    if( FD_UNLIKELY( max_obj==ULONG_MAX ) ) {
+      FD_LOG_ERR(( "no object found for workspace %s", topo->workspaces[ i ].name ));
+    }
 
     int found_strict   = 0;
     int found_lazy     = 0;
@@ -868,8 +866,9 @@ initialize_numa_assignments( fd_topo_t * topo ) {
     for( ulong j=0UL; j<topo->tile_cnt; j++ ) {
       fd_topo_tile_t * tile = &topo->tiles[ j ];
       if( FD_UNLIKELY( tile->tile_obj_id==max_obj && tile->cpu_idx<FD_TILE_MAX ) ) {
-        topo->workspaces[ i ].numa_idx = fd_numa_node_idx( tile->cpu_idx );
-        FD_TEST( topo->workspaces[ i ].numa_idx!=ULONG_MAX );
+        ulong numa = fd_numa_node_idx( tile->cpu_idx );
+        if( FD_UNLIKELY( numa==ULONG_MAX ) ) numa = 0UL;
+        topo->workspaces[ i ].numa_idx = numa;
         found_strict   = 1;
         found_lazy     = 1;
         found_assigned = 1;
@@ -886,8 +885,9 @@ initialize_numa_assignments( fd_topo_t * topo ) {
         fd_topo_tile_t * tile = &topo->tiles[ j ];
         for( ulong k=0UL; k<tile->uses_obj_cnt; k++ ) {
           if( FD_LIKELY( tile->uses_obj_id[ k ]==max_obj && tile->cpu_idx<FD_TILE_MAX ) ) {
-            topo->workspaces[ i ].numa_idx = fd_numa_node_idx( tile->cpu_idx );
-            FD_TEST( topo->workspaces[ i ].numa_idx!=ULONG_MAX );
+            ulong numa = fd_numa_node_idx( tile->cpu_idx );
+            if( FD_UNLIKELY( numa==ULONG_MAX ) ) numa = 0UL;
+            topo->workspaces[ i ].numa_idx = numa;
             found_lazy     = 1;
             found_assigned = 1;
             break;
@@ -983,7 +983,7 @@ fd_topob_finish( fd_topo_t *                topo,
 
     ulong page_sz = topo->max_page_size;
     if( total_wksp_footprint < topo->gigantic_page_threshold ) page_sz = FD_SHMEM_HUGE_PAGE_SZ;
-    if( FD_UNLIKELY( page_sz!=FD_SHMEM_HUGE_PAGE_SZ && page_sz!=FD_SHMEM_GIGANTIC_PAGE_SZ ) ) FD_LOG_ERR(( "invalid page_sz" ));
+    if( FD_UNLIKELY( page_sz!=FD_SHMEM_HUGE_PAGE_SZ && page_sz!=FD_SHMEM_GIGANTIC_PAGE_SZ && page_sz!=FD_SHMEM_NORMAL_PAGE_SZ ) ) FD_LOG_ERR(( "invalid page_sz" ));
 
     ulong wksp_aligned_footprint = fd_ulong_align_up( total_wksp_footprint, page_sz );
 

@@ -1,5 +1,19 @@
 const std = @import("std");
 const support = @import("mock_http_support");
+const util = @import("util");
+
+/// Force-close the listener by connecting with retries.  After 10 failed
+/// attempts (500 ms total) we give up so stop() never blocks forever.
+fn forceCloseListener(self: *Server) void {
+    var attempt: u8 = 0;
+    while (attempt < 10) : (attempt += 1) {
+        if (std.Io.net.IpAddress.connect(&self.listener.socket.address, self.io, .{ .mode = .stream })) |stream| {
+            stream.socket.close(self.io);
+            return;
+        } else |_| {}
+        util.process.sleepNanos(50 * std.time.ns_per_ms);
+    }
+}
 
 pub const Config = struct {
     health_body: []const u8 = "ok",
@@ -34,10 +48,7 @@ pub const Server = struct {
 
     pub fn stop(self: *Server) void {
         self.stop_flag.store(true, .seq_cst);
-        const address = self.listener.socket.address;
-        if (std.Io.net.IpAddress.connect(&address, self.io, .{ .mode = .stream })) |stream| {
-            stream.socket.close(self.io);
-        } else |_| {}
+        forceCloseListener(self);
         if (self.thread) |thread| thread.join();
         self.thread = null;
         self.listener.deinit(self.io);

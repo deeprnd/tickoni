@@ -368,23 +368,6 @@ pub const WindowsChecks = struct {
         return Result.initOwnedMessage("wsl2", .pass, "native Linux (not WSL)");
     }
 
-    /// Check Docker Desktop availability (warn if missing).
-    pub fn checkDockerDesktop(io: Io, gpa: Allocator) Result {
-        _ = gpa;
-        const os_tag = builtin.target.os.tag;
-        const result = checkTool("docker", &[_][]const u8{ "docker", "--version" }, io);
-        if (result.status == .fail) {
-            const warn_msg = if (os_tag == .windows)
-                "Docker Desktop not found (required for Windows retail)"
-            else if (os_tag == .macos)
-                "Docker Desktop not found (required for macOS retail)"
-            else
-                "Docker not found";
-            return Result.initOwnedMessage("docker", .warn, warn_msg);
-        }
-        return result;
-    }
-
     /// Check CPU features required for the target platform.
     pub fn checkCpuFeatures() Result {
         const cpu = builtin.target.cpu.arch;
@@ -483,11 +466,6 @@ pub fn runAll(results: []Result, io: Io, gpa: Allocator) usize {
         idx += 1;
     }
     {
-        const r = WindowsChecks.checkDockerDesktop(io, gpa);
-        if (idx < results.len) results[idx] = r;
-        idx += 1;
-    }
-    {
         const r = WindowsChecks.checkCpuFeatures();
         if (idx < results.len) results[idx] = r;
         idx += 1;
@@ -519,7 +497,7 @@ test "Result.toString format for fail status" {
 test "runAll fills results array" {
     var results: [20]Result = undefined;
     const count = runAll(&results, std.testing.io, std.testing.allocator);
-    try std.testing.expectEqual(@as(usize, 14), count);
+    try std.testing.expectEqual(@as(usize, 13), count);
     try std.testing.expectEqualStrings("os", results[0].name);
     try std.testing.expectEqual(.pass, results[0].status);
     try std.testing.expectEqualStrings("architecture", results[1].name);
@@ -547,9 +525,8 @@ test "runAll fills results array" {
         else => .warn,
     };
     try std.testing.expectEqual(wsl2_status, results[11].status);
-    try std.testing.expectEqualStrings("docker", results[12].name);
-    try std.testing.expectEqualStrings("cpu_features", results[13].name);
-    try std.testing.expectEqual(.pass, results[13].status);
+    try std.testing.expectEqualStrings("cpu_features", results[12].name);
+    try std.testing.expectEqual(.pass, results[12].status);
 }
 
 test "checkOS returns pass on supported OS" {

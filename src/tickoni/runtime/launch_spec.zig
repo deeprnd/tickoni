@@ -26,6 +26,7 @@ const std = @import("std");
 const tile = @import("tile.zig");
 const cpu_placement = @import("cpu_placement.zig");
 const link = @import("link.zig");
+const util = @import("util");
 
 pub const magic: u32 = 0x544b5350; // "TKSP"
 pub const version: u16 = 1;
@@ -119,14 +120,16 @@ pub const LaunchSpec = struct {
         return self.shmem_path_buf[0..self.shmem_path_len];
     }
 
+    const fio = @import("file_io.zig");
+
     pub fn writeToFile(self: *const LaunchSpec, io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !void {
-        var file = try dir.createFile(io, sub_path, .{});
+        var file = try fio.createFile(io, dir, sub_path);
         defer file.close(io);
         try file.writePositionalAll(io, std.mem.asBytes(self), 0);
     }
 
     pub fn readFromFile(io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !LaunchSpec {
-        var file = try dir.openFile(io, sub_path, .{});
+        var file = try fio.openFile(io, dir, sub_path);
         defer file.close(io);
         var spec: LaunchSpec = undefined;
         const buf = std.mem.asBytes(&spec);
@@ -144,7 +147,7 @@ pub const LaunchSpec = struct {
 // ---------------------------------------------------------------------------
 
 test "LaunchSpec round-trips through a file" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     const spec = try LaunchSpec.init(.{
@@ -173,7 +176,7 @@ test "LaunchSpec round-trips through a file" {
 }
 
 test "LaunchSpec readFromFile rejects a truncated file" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var file = try tmp.dir.createFile(std.testing.io, "short.spec", .{});
@@ -184,7 +187,7 @@ test "LaunchSpec readFromFile rejects a truncated file" {
 }
 
 test "LaunchSpec readFromFile rejects a bad magic" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var spec = try LaunchSpec.init(.{

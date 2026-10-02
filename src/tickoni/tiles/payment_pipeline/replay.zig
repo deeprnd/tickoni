@@ -29,14 +29,14 @@ pub fn runReplay(state: *PaymentPipelineState) void {
     }
 
     state.external_effects_disabled.store(true, .release);
-    const divergences = deterministicReplayDivergences(state);
+    const divergences = deterministicReplayDivergences(state, log);
     state.replay_divergences.store(divergences, .release);
     state.replay_match.store(divergences == 0, .release);
     state.replay_checked.store(true, .release);
     log.debug("tkrepl", "runReplay", "replay check complete") catch {};
 }
 
-fn deterministicReplayDivergences(state: *PaymentPipelineState) u64 {
+fn deterministicReplayDivergences(state: *PaymentPipelineState, log: *logger.Logger) u64 {
     var prev_hash = audit_sink.audit_seed;
     var expected_seq: u64 = 0;
     var divergences: u64 = 0;
@@ -59,8 +59,10 @@ fn deterministicReplayDivergences(state: *PaymentPipelineState) u64 {
 
         const expected = buildReplayEvent(expected_seq, raw, event_hash, decision, decided_by, prev_hash);
         if (expected_seq >= state.audit.count) {
+            log.kvFmt("tkrepl", "deterministicReplayDivergences", "seq={d} reason=missing_audit_record expected_seq={d} actual_count={d}", .{ expected_seq, expected_seq, state.audit.count });
             divergences += 1;
         } else if (!audit.auditEventsEql(expected, state.audit.records[@intCast(expected_seq)])) {
+            log.kvFmt("tkrepl", "deterministicReplayDivergences", "seq={d} expected_hash={x} actual_hash={x} reason=hash_mismatch", .{ expected_seq, expected.header.record_hash, state.audit.records[@intCast(expected_seq)].header.record_hash });
             divergences += 1;
         }
         prev_hash = expected.header.record_hash;

@@ -247,6 +247,30 @@ const WireResponse = struct {
     usage: WireUsage = .{},
 };
 
+/// Default HTTP request timeout for HttpBackend.  If the server is
+/// unreachable the call fails after this many nanoseconds instead of
+/// hanging forever.
+const default_http_timeout_ns: u64 = std.time.ns_per_s;
+
+/// Connect to the HTTP server with bounded retries so we never block
+/// forever on an unreachable or dead endpoint.  After 100 failed
+/// attempts (5 s total) we give up.
+fn connectWithTimeout(
+    io: std.Io,
+    host: []const u8,
+    port: u16,
+) anyerror!std.Io.net.Stream {
+    var address = std.Io.net.IpAddress.parse(host, port) catch unreachable;
+    var attempt: u8 = 0;
+    while (attempt < 100) : (attempt += 1) {
+        if (std.Io.net.IpAddress.connect(&address, io, .{ .mode = .stream, .protocol = .tcp })) |stream| {
+            return stream;
+        } else |_| {}
+        c_abi.os.sleepNanos(50 * std.time.ns_per_ms);
+    }
+    return error.ConnectionTimeout;
+}
+
 // HttpBackend calls an OpenAI-compatible llama.cpp server.
 // endpoint must be a base URL like "http://127.0.0.1:9931/v1".
 // io is the std.Io instance for TCP connections (use std.testing.io in tests).
@@ -289,7 +313,7 @@ pub const HttpBackend = struct {
             .payload = json_body,
             .response_writer = &resp_writer.writer,
         }) catch |err| switch (err) {
-            error.ConnectionRefused, error.NetworkUnreachable, error.HostUnreachable => return error.ServerUnreachable,
+            error.ConnectionRefused, error.NetworkUnreachable, error.HostUnreachable, error.Timeout => return error.ServerUnreachable,
             else => return err,
         };
 

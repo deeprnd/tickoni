@@ -16,9 +16,10 @@ const tile = @import("tile.zig");
 const cpu_placement = @import("cpu_placement.zig");
 const link = @import("link.zig");
 const topology = @import("topology.zig");
+const util = @import("util");
 
 pub const magic: u32 = 0x544b5453; // "TKST"
-pub const version: u16 = 1;
+pub const version: u16 = 2;
 
 pub const max_tiles: usize = 8;
 pub const max_channels: usize = 8;
@@ -39,15 +40,17 @@ pub const TopologySpec = struct {
     channel_dst_idx: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
     channel_depth: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
     channel_mtu: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
-    workspace_name: link.WorkspaceName = .{},
+    workspace_name: link.WorkspaceName = std.mem.zeroes(link.WorkspaceName),
+    metric_port: u16 = 7999,
 
-    pub fn fromTopology(topo: topology.Topology) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec {
+    pub fn fromTopology(topo: topology.Topology, metric_port: u16) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec {
         if (topo.tiles.len > max_tiles) return error.TooManyTiles;
         if (topo.channels.len > max_channels) return error.TooManyChannels;
 
         var spec = TopologySpec{
             .tile_cnt = @intCast(topo.tiles.len),
             .channel_cnt = @intCast(topo.channels.len),
+            .metric_port = metric_port,
         };
         for (topo.tiles, 0..) |t, i| {
             spec.tile_id[i] = t.id;
@@ -92,14 +95,16 @@ pub const TopologySpec = struct {
         return .{ .tiles = tiles_buf[0..self.tile_cnt], .channels = channels_buf[0..self.channel_cnt] };
     }
 
+    const fio = @import("file_io.zig");
+
     pub fn writeToFile(self: *const TopologySpec, io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !void {
-        var file = try dir.createFile(io, sub_path, .{});
+        var file = try fio.createFile(io, dir, sub_path);
         defer file.close(io);
         try file.writePositionalAll(io, std.mem.asBytes(self), 0);
     }
 
     pub fn readFromFile(io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !TopologySpec {
-        var file = try dir.openFile(io, sub_path, .{});
+        var file = try fio.openFile(io, dir, sub_path);
         defer file.close(io);
         var spec: TopologySpec = undefined;
         const buf = std.mem.asBytes(&spec);
@@ -117,7 +122,7 @@ pub const TopologySpec = struct {
 // ---------------------------------------------------------------------------
 
 test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     const tiles = [_]tile.TileDescriptor{
@@ -131,7 +136,7 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
     };
     const topo = topology.Topology{ .tiles = &tiles, .channels = &channels };
 
-    const spec = try TopologySpec.fromTopology(topo);
+    const spec = try TopologySpec.fromTopology(topo, 7999);
     try spec.writeToFile(std.testing.io, tmp.dir, "topology.spec");
 
     const read_back = try TopologySpec.readFromFile(std.testing.io, tmp.dir, "topology.spec");
@@ -153,7 +158,7 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
 const topology_spec_max_tiles_for_test = max_tiles;
 
 test "TopologySpec readFromFile rejects a truncated file" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var file = try tmp.dir.createFile(std.testing.io, "short.spec", .{});
@@ -164,7 +169,7 @@ test "TopologySpec readFromFile rejects a truncated file" {
 }
 
 test "TopologySpec readFromFile rejects a bad magic" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var spec = TopologySpec{ .tile_cnt = 0, .channel_cnt = 0 };
@@ -178,5 +183,5 @@ test "TopologySpec fromTopology fails closed on too many tiles" {
     var tiles: [max_tiles + 1]tile.TileDescriptor = undefined;
     for (&tiles) |*t| t.* = .{ .id = tile.TileId.parse("tkfoo") catch unreachable, .name = "t", .cpu_placement = .floating };
     const topo = topology.Topology{ .tiles = &tiles, .channels = &.{} };
-    try std.testing.expectError(error.TooManyTiles, TopologySpec.fromTopology(topo));
+    try std.testing.expectError(error.TooManyTiles, TopologySpec.fromTopology(topo, 7999));
 }

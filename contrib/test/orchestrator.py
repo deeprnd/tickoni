@@ -9,6 +9,7 @@ Usage:
     python3 orchestrator.py llm-server-stop           # kill server by PID
     python3 orchestrator.py zig-build --target demo   # just build (no run)
     python3 orchestrator.py zig-test --target system  # build + run test
+    python3 orchestrator.py llm-e2e                   # full e2e: setup → start → test → cleanup
 """
 import argparse
 import os
@@ -92,9 +93,9 @@ def main():
     elif args.command == "llm-server-stop":
         orch.llm_server_stop()
     elif args.command == "zig-build":
-        orch.zig_build(args.target)
+        sys.exit(orch.zig_build(args.target))
     elif args.command == "zig-test":
-        orch.zig_test(args.target)
+        sys.exit(orch.zig_test(args.target))
     elif args.command == "dynamic-test-opts":
         orch.dynamic_test_opts()
 

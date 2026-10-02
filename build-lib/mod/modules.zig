@@ -34,6 +34,7 @@ pub const Shared = struct {
     basket: *std.Build.Module,
     portfolio: *std.Build.Module,
     tiles: *std.Build.Module,
+    tile_registry: *std.Build.Module,
 };
 
 pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) Shared {
@@ -327,6 +328,15 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
             .{ .name = "logger", .module = logger_mod },
         },
     });
+    const tile_registry_mod = b.addModule("tile_registry", .{
+        .root_source_file = b.path("src/app/tickoni/tile_registry.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "runtime", .module = runtime_mod },
+            .{ .name = "tiles", .module = tiles_mod },
+        },
+    });
 
     return Shared{
         .c_abi = c_abi_mod,
@@ -334,6 +344,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .logger = logger_mod,
         .runtime = runtime_mod,
         .topologies = topologies_named_mod,
+        .tile_registry = tile_registry_mod,
         .audit_schema = audit_schema_mod,
         .audit_codec = audit_codec_mod,
         .audit_tile = audit_tile_mod,

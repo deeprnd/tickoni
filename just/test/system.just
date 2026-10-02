@@ -20,7 +20,7 @@ test-system-all:
 
 # Build llama.cpp and download model using orchestrator.py (CPU only).
 infra-ensure-llamacpp:
-    python3 {{ justfile_dir }}/contrib/setup/orchestrator.py llm-server
+    {{ python }} {{ justfile_dir }}/contrib/setup/orchestrator.py llm-server
 
 infra-ensure-llamacpp-win:
     {{ python }} {{ justfile_dir }}/contrib/setup/orchestrator.py llm-server --platform windows-x86
@@ -31,4 +31,4 @@ infra-ensure-llamacpp-win-arm:
 # Download the GGUF model for system tests (requires `hf` CLI).
 # (hf-model is handled by orchestrator.py llm-server; kept for explicitness.)
 infra-ensure-model:
-    python3 {{ justfile_dir }}/contrib/setup/orchestrator.py llm-server
+    {{ python }} {{ justfile_dir }}/contrib/setup/orchestrator.py llm-server

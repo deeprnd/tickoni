@@ -143,24 +143,54 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
     c_abi.cnc.signal(g_ctx.cnc, c_abi.cnc.signal_boot);
 }
 
-/// Runs one process-mode tile to completion. `work` performs the caller's
-/// tile-specific behavior (which links to join, which decision logic to
-/// run) after this tile has joined its cnc and signalled RUN, and before
-/// the heartbeat/halt-wait loop — both now driven through
-/// fd_topo_run_tile via the two callbacks above. Returns 1 (with a
-/// diagnostic on stderr) if setup before the harness call fails; a clean
-/// RUN -> HALT -> BOOT transition returns 0. Failures inside the harness
-/// call itself exit the process directly (see tk_tile_run's doc comment).
+/// Read a file at an absolute path via the file_io helper.
+fn readAbsoluteFile(io: std.Io, abs_path: []const u8) anyerror!launch_spec.LaunchSpec {
+    const file = try @import("file_io.zig").openFile(io, std.Io.Dir.cwd(), abs_path);
+    defer file.close(io);
+    var spec: launch_spec.LaunchSpec = undefined;
+    const buf = std.mem.asBytes(&spec);
+    const n = try file.readPositionalAll(io, buf, 0);
+    if (n != @sizeOf(launch_spec.LaunchSpec)) return error.LaunchSpecTruncated;
+    if (spec.magic_field != launch_spec.magic) return error.LaunchSpecBadMagic;
+    if (spec.version_field != launch_spec.version) return error.LaunchSpecUnsupportedVersion;
+    if (spec.shmem_path_len > launch_spec.shmem_path_cap) return error.LaunchSpecMalformed;
+    return spec;
+}
+
+/// Read a topology spec from an absolute path (see readAbsoluteFile).
+fn readAbsoluteTopology(io: std.Io, abs_path: []const u8) anyerror!topology_spec.TopologySpec {
+    const file = try @import("file_io.zig").openFile(io, std.Io.Dir.cwd(), abs_path);
+    defer file.close(io);
+    var spec: topology_spec.TopologySpec = undefined;
+    const buf = std.mem.asBytes(&spec);
+    const n = try file.readPositionalAll(io, buf, 0);
+    if (n != @sizeOf(topology_spec.TopologySpec)) return error.TopologySpecTruncated;
+    if (spec.magic_field != topology_spec.magic) return error.TopologySpecBadMagic;
+    if (spec.version_field != topology_spec.version) return error.TopologySpecUnsupportedVersion;
+    if (spec.tile_cnt > topology_spec.max_tiles or spec.channel_cnt > topology_spec.max_channels) return error.TopologySpecMalformed;
+    return spec;
+}
+
 pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work: WorkFn) u8 {
-    const spec = launch_spec.LaunchSpec.readFromFile(io, std.Io.Dir.cwd(), spec_path) catch |err| {
+    const spec = readAbsoluteFile(io, spec_path) catch |err| {
         std.debug.print("tile_process: failed to read launch spec {s}: {t}\n", .{ spec_path, err });
         return 1;
     };
 
-    boot.bootWithSyntheticArgv(spec.shmemPath()) catch |err| {
+    // Per-tile log file: {shmemPath}/logs/tile_{idx}.log
+    var log_path_buf: [256]u8 = undefined;
+    const log_path = std.fmt.bufPrint(&log_path_buf, "{s}/logs/tile_{d}.log", .{ spec.shmemPath(), spec.tile_idx }) catch {
+        std.debug.print("tile_process: log path too long for tile {d}\n", .{spec.tile_idx});
+        return 1;
+    };
+    boot.bootWithSyntheticArgv(spec.shmemPath(), log_path) catch |err| {
         std.debug.print("tile_process: bootWithSyntheticArgv failed for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
+
+    // The supervisor finalizes and populates every workspace before spawning
+    // children, so child processes can join without readiness polling.
+
     var built_opt: ?topo_build.BuiltTopo = null;
     defer {
         c_abi.boot.haltForTileProcess();
@@ -172,7 +202,7 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         std.debug.print("tile_process: shmem path too long for tile {d}\n", .{spec.tile_idx});
         return 1;
     };
-    const topo_spec = topology_spec.TopologySpec.readFromFile(io, std.Io.Dir.cwd(), topology_spec_path) catch |err| {
+    const topo_spec = readAbsoluteTopology(io, topology_spec_path) catch |err| {
         std.debug.print("tile_process: failed to read topology spec for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
@@ -180,7 +210,7 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     var channels_buf: [topology_spec.max_channels]link_mod.Channel = undefined;
     const topo_desc = topo_spec.toTopology(&tiles_buf, &channels_buf);
 
-    const built = topo_build.build(allocator, topo_desc, spec.workspace_name.slice()) catch |err| {
+    const built = topo_build.build(allocator, topo_desc, topo_spec.workspace_name.slice(), topo_spec.metric_port) catch |err| {
         std.debug.print("tile_process: failed to rebuild topology for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };

@@ -43,8 +43,8 @@ fn halted(cnc: *c_abi.cnc.Cnc) bool {
 // runtime/launch_spec.zig's LaunchSpec.
 // ---------------------------------------------------------------------------
 
-const process_config_magic: u32 = 0x544b5043; // "TKPC"
-const process_config_version: u16 = 1;
+pub const process_config_magic: u32 = 0x544b5043; // "TKPC"
+pub const process_config_version: u16 = 1;
 
 pub const StuckTileHook = struct {
     tile_idx: u32,
@@ -60,7 +60,7 @@ pub const ProcessRuntimeConfig = struct {
     stuck_tile: ?StuckTileHook = null,
 };
 
-const ProcessConfigFile = struct {
+pub const ProcessConfigFile = struct {
     magic_field: u32 = process_config_magic,
     version_field: u16 = process_config_version,
     cfg: ProcessRuntimeConfig = .{},
@@ -68,13 +68,13 @@ const ProcessConfigFile = struct {
 
 pub fn writeProcessConfig(cfg: ProcessRuntimeConfig, io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !void {
     const file_struct = ProcessConfigFile{ .cfg = cfg };
-    var file = try dir.createFile(io, sub_path, .{});
+    var file = try rt.file_io.createFile(io, dir, sub_path);
     defer file.close(io);
     try file.writePositionalAll(io, std.mem.asBytes(&file_struct), 0);
 }
 
 pub fn readProcessConfig(io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !ProcessRuntimeConfig {
-    var file = try dir.openFile(io, sub_path, .{});
+    var file = try rt.file_io.openFile(io, dir, sub_path);
     defer file.close(io);
     var file_struct: ProcessConfigFile = undefined;
     const buf = std.mem.asBytes(&file_struct);
@@ -263,7 +263,7 @@ pub fn runAuditProcess(
 // ---------------------------------------------------------------------------
 
 test "ProcessConfig round-trips through a file" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     const cfg = ProcessRuntimeConfig{
@@ -287,7 +287,7 @@ test "ProcessConfig round-trips through a file" {
 }
 
 test "ProcessConfig readProcessConfig rejects a truncated file" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var file = try tmp.dir.createFile(std.testing.io, "short.config", .{});
@@ -298,7 +298,7 @@ test "ProcessConfig readProcessConfig rejects a truncated file" {
 }
 
 test "ProcessConfig readProcessConfig rejects a bad magic" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var file_struct = ProcessConfigFile{};

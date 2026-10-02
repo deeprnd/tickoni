@@ -9,7 +9,7 @@ const rt = @import("runtime");
 const TileId = rt.tile.TileId;
 const TileDescriptor = rt.tile.TileDescriptor;
 const Channel = rt.link.Channel;
-const Topology = rt.topology.Topology;
+pub const Topology = rt.topology.Topology;
 const WorkspaceName = rt.link.WorkspaceName;
 
 /// Whether a declared product topology has a supervisor/CLI dispatch path
@@ -17,9 +17,9 @@ const WorkspaceName = rt.link.WorkspaceName;
 /// `runnable`: src/app/tickoni/supervisor.zig has a start path for it and
 /// src/app/tickoni/main.zig's CLI exposes a command for that path.
 /// `planned`: a declared architectural target with no dispatch path yet —
-/// Supervisor.startPaymentPipeline()/startPaymentPipelineProcess() assume
-/// exactly the 8 Phase 0 tile roles and will fail closed (assert) if handed
-/// a differently-shaped topology.
+/// Supervisor.startPaymentPipelineProcess() assumes exactly the 8 Phase 0
+/// tile roles and will fail closed (assert) if handed a differently-shaped
+/// topology.
 pub const TopologyStatus = enum { runnable, planned };
 
 // Static backing arrays for paymentPipeline — avoids returning pointers to
@@ -31,7 +31,7 @@ const payment_tiles = [_]TileDescriptor{
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
     .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-    .{ .id = TileId.parse("tkmetr") catch unreachable, .name = "metric_tile" },
+    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
 };
 const payment_channels = [_]Channel{
@@ -54,7 +54,7 @@ const investment_tiles = [_]TileDescriptor{
     .{ .id = TileId.parse("tktool") catch unreachable, .name = "tool_broker_tile" },
     .{ .id = TileId.parse("tkadpt") catch unreachable, .name = "adapter_tile" },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-    .{ .id = TileId.parse("tkmetr") catch unreachable, .name = "metric_tile" },
+    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
 };
 

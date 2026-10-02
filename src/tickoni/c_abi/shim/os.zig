@@ -6,6 +6,7 @@ pub const c = struct {
     pub extern fn tk_self_exe_path(buf: [*]u8, buf_len: usize) c_int;
     pub extern fn tk_parent_pid(pid: c_int) c_int;
     pub extern fn tk_kill_process(pid: c_int) c_int;
+    pub extern fn tk_kill_process_group(pgid: c_int) c_int;
     pub extern fn tk_write(fd: c_int, buf: [*]const u8, count: usize) usize;
     pub extern fn tk_isatty(fd: c_int) c_int;
     pub extern fn tk_fflush() void;

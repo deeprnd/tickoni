@@ -756,7 +756,27 @@ STEM_(run1)( ulong                        in_cnt,
   }
 }
 
-FD_FN_UNUSED static void
+/* ---------------------------------------------------------------------
+   External linkage for STEM_(run).  By default this is static (internal
+   to the STEM instance).  To export stem_run for use by other C files
+   (e.g. tk_metric_tile.c), undefine STEM_EXPORT before including
+   fd_stem.c and define it as empty:
+
+     #undef STEM_EXPORT
+     #define STEM_EXPORT
+     #include "fd_stem.c"
+
+   The #ifndef guard here ensures that when fd_stem.c is compiled
+   standalone (via gmake), STEM_EXPORT defaults to static.  When
+   included from fd_metric_tile.c, the pre-#defined STEM_EXPORT
+   (empty) takes precedence.
+   --------------------------------------------------------------------- */
+
+#if !defined(STEM_EXPORT)
+#define STEM_EXPORT static
+#endif
+
+STEM_EXPORT void
 STEM_(run)( fd_topo_t *      topo,
             fd_topo_tile_t * tile ) {
   const fd_frag_meta_t * in_mcache[ FD_TOPO_MAX_LINKS ];

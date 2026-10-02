@@ -77,6 +77,13 @@ int tk_kill_process( int pid ) {
   return kill( pid, SIGKILL );
 }
 
+int tk_kill_process_group( int pgid ) {
+  /* Negative pgid kills the entire process group. Used for emergency
+   * teardown of stuck tiles (epoll_wait blocks can survive SIGKILL
+   * on individual PIDs but are interrupted by group-wide delivery). */
+  return kill( -pgid, SIGKILL );
+}
+
 int tk_write( int fd, void const * buf, size_t count ) {
   ssize_t n = write( fd, buf, count );
   return n<0 ? 0 : (int)n;
@@ -140,6 +147,13 @@ int tk_parent_pid( int pid ) {
 
 int tk_kill_process( int pid ) {
   return kill( pid, SIGKILL );
+}
+
+int tk_kill_process_group( int pgid ) {
+  /* Negative pgid kills the entire process group. Used for emergency
+   * teardown of stuck tiles (epoll_wait blocks can survive SIGKILL
+   * on individual PIDs but are interrupted by group-wide delivery). */
+  return kill( -pgid, SIGKILL );
 }
 
 int tk_write( int fd, void const * buf, size_t count ) {

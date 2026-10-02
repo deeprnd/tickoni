@@ -47,4 +47,4 @@ build-qt:
 # Firedancer outputs live under `build/` (BUILDDIR variants).
 # Zig/Tickoni outputs live under `target/` and `zig-out/`.
 clean-all:
-    rm -rf build/ target/ zig-out/
+    rm -rf build/ target/

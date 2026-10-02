@@ -1,6 +1,7 @@
 const std = @import("std");
 const conformance = @import("conformance");
 const diagnostic = @import("diagnostic");
+const util = @import("util");
 
 pub const RunnerError = error{
     LiveEffectsEnabled,
@@ -111,7 +112,7 @@ pub fn runWithBackend(
 }
 
 test "runner builds conformance artifact from backend outputs" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "audit.jsonl", .data = "{}\n" });

@@ -23,12 +23,12 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
     .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-    .{ .id = TileId.parse("tkmetr") catch unreachable, .name = "metric_tile" },
+    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
 };
 
 test "process_cpu_placement_integration: two tiles sharing one cpu get distinct pids and still complete" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -45,11 +45,13 @@ test "process_cpu_placement_integration: two tiles sharing one cpu get distinct 
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
+    const port = util.metricPort();
     const event_count: u64 = 16;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     });
 
     const report = sup.processPlacementReport().?;
@@ -83,7 +85,7 @@ test "process_cpu_placement_integration: two tiles sharing one cpu get distinct 
 }
 
 test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails closed before spawning" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -97,7 +99,7 @@ test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails
         .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
         .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
         .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-        .{ .id = TileId.parse("tkmetr") catch unreachable, .name = "metric_tile" },
+        .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
         .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
     };
     const topo = rt.topology.Topology{
@@ -108,9 +110,11 @@ test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
+    const port = util.metricPort();
     try std.testing.expectError(error.CpuIdMalformed, sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     }));
 
     // Fail-closed means no partial topology: no process was spawned and
@@ -140,7 +144,7 @@ test "process_cpu_placement_integration: shared-core rejected when sharing is no
         .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
         .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
         .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-        .{ .id = TileId.parse("tkmetr") catch unreachable, .name = "metric_tile" },
+        .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
         .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
     };
     const topo = rt.topology.Topology{
@@ -165,7 +169,7 @@ test "process_cpu_placement_integration: exclusive and shared on the same cpu co
         .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
         .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
         .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-        .{ .id = TileId.parse("tkmetr") catch unreachable, .name = "metric_tile" },
+        .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
         .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
     };
     const topo = rt.topology.Topology{
@@ -191,7 +195,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     const event_count: u64 = 16;
 
     // --- Run floating baseline (no explicit placement declarations) ---
-    var tmp_floating = std.testing.tmpDir(.{});
+    var tmp_floating = util.tmpDir();
     defer tmp_floating.cleanup();
     var floating_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const floating_len = try tmp_floating.dir.realPath(std.testing.io, &floating_path_buf);
@@ -201,10 +205,12 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     var floating_sup = try Supervisor.init(std.testing.allocator, floating_topo);
     defer floating_sup.deinit();
 
+    const port = util.metricPort();
     try floating_sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = floating_run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     });
 
     const floating_max_polls: u32 = 400;
@@ -229,7 +235,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     }
 
     // --- Run shared-core (two tiles on CPU 0, explicit shared) ---
-    var tmp_shared = std.testing.tmpDir(.{});
+    var tmp_shared = util.tmpDir();
     defer tmp_shared.cleanup();
     var shared_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const shared_len = try tmp_shared.dir.realPath(std.testing.io, &shared_path_buf);
@@ -246,6 +252,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
         .run_dir = shared_run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     });
 
     const shared_max_polls: u32 = 400;

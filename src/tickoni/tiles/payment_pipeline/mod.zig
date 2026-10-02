@@ -7,7 +7,6 @@ const dedupe = @import("dedupe.zig");
 const policy = @import("policy.zig");
 const audit_stage = @import("audit_stage.zig");
 const replay = @import("replay.zig");
-const metric = @import("metric.zig");
 const diag = @import("diag.zig");
 
 pub const audit_sink = @import("audit_sink.zig");
@@ -25,7 +24,6 @@ pub const runDedupe = dedupe.runDedupe;
 pub const runPolicy = policy.runPolicy;
 pub const runAudit = audit_stage.runAudit;
 pub const runReplay = replay.runReplay;
-pub const runMetric = metric.runMetric;
 pub const runDiag = diag.runDiag;
 pub const syntheticPayment = runtime.syntheticPayment;
 pub const stableEventHash = runtime.stableEventHash;
@@ -80,7 +78,6 @@ test {
     _ = @import("policy.zig");
     _ = @import("audit_stage.zig");
     _ = @import("replay.zig");
-    _ = @import("metric.zig");
     _ = @import("diag.zig");
     _ = @import("process.zig");
 }

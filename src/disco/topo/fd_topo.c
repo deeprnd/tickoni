@@ -32,7 +32,7 @@ fd_topo_join_workspace( fd_topo_t *      topo,
   FD_TEST( fd_cstr_printf_check( name, PATH_MAX, NULL, "%s_%s.wksp", topo->app_name, wksp->name ) );
 
   wksp->wksp = fd_wksp_join( fd_shmem_join( name, mode, dump, NULL, NULL, NULL ) );
-  if( FD_UNLIKELY( !wksp->wksp ) ) FD_LOG_ERR(( "fd_wksp_join failed" ));
+  if( FD_UNLIKELY( !wksp->wksp ) ) FD_LOG_ERR(( "fd_wksp_join failed: name=%s", name ));
 }
 
 FD_FN_PURE static int

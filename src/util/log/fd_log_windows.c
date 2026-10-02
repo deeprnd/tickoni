@@ -365,6 +365,28 @@ fd_log_private_stack_discover( ulong stack_sz,
   *opt_stack1 = 0UL;
 }
 
+/* ── Log level storage ──────────────────────────────────────────────────
+ * Mirrors the Linux fd_log.c pattern: each level is volatile so that
+ * concurrent code reading the threshold sees a consistent value.
+ */
+static int fd_log_private_colorize;      /* 0  outside boot/halt */
+static int fd_log_private_level_logfile; /* 0  outside boot/halt */
+static int fd_log_private_level_stderr;  /* 2  outside boot/halt (NOTICE) */
+static int fd_log_private_level_flush;   /* 0  outside boot/halt */
+static int fd_log_private_level_core;    /* 0  outside boot/halt */
+
+int fd_log_colorize( void )          { return fd_log_private_colorize; }
+int fd_log_level_logfile( void )     { return fd_log_private_level_logfile; }
+int fd_log_level_stderr( void )      { return fd_log_private_level_stderr; }
+int fd_log_level_flush( void )       { return fd_log_private_level_flush; }
+int fd_log_level_core( void )        { return fd_log_private_level_core; }
+
+void fd_log_colorize_set( int mode )           { fd_log_private_colorize = mode; }
+void fd_log_level_logfile_set( int level )     { fd_log_private_level_logfile = level; }
+void fd_log_level_stderr_set( int level )      { fd_log_private_level_stderr = level; }
+void fd_log_level_flush_set( int level )       { fd_log_private_level_flush = level; }
+void fd_log_level_core_set( int level )        { fd_log_private_level_core = level; }
+
 /* ── Boot / Halt ──────────────────────────────────────────────────────── */
 
 void
@@ -381,6 +403,14 @@ fd_log_private_boot( int *    pargc,
   /* Set default clock */
   fd_log_private_clock_func = fd_log_wallclock_host;
   fd_log_private_clock_args = NULL;
+
+  /* Default levels — NOTICE threshold on stderr, everything else off.
+   * Matches Linux fd_log.c defaults (level_stderr=2, others=0). */
+  fd_log_private_colorize      = 0;
+  fd_log_private_level_logfile = 0;
+  fd_log_private_level_stderr  = 2;
+  fd_log_private_level_flush   = 0;
+  fd_log_private_level_core    = 0;
 }
 
 void
@@ -405,7 +435,6 @@ fd_log_private_boot_custom( ulong        app_id,
                             int          level_core,
                             int          log_fd,
                             char const * log_path ) {
-  (void)app;
   (void)thread_id;
   (void)thread;
   (void)host_id;
@@ -418,16 +447,20 @@ fd_log_private_boot_custom( ulong        app_id,
   (void)user_id;
   (void)user;
   (void)dedup;
-  (void)colorize;
-  (void)level_logfile;
-  (void)level_stderr;
-  (void)level_flush;
-  (void)level_core;
   (void)log_fd;
   (void)log_path;
 
   fd_log_private_boot( NULL, NULL );
   fd_log_private_app_id_set( app_id );
+
+  /* Store user-supplied levels (caller may set level_stderr=0 for DEBUG). */
+  if( app  ) fd_log_private_app_set( app );
+  if( host ) fd_log_private_host_set( host );
+  fd_log_colorize_set( colorize );
+  fd_log_level_logfile_set( level_logfile );
+  fd_log_level_stderr_set( level_stderr );
+  fd_log_level_flush_set( level_flush );
+  fd_log_level_core_set( level_core );
 }
 
 void
@@ -469,8 +502,8 @@ fd_log_private_1( int          level,
                   char const * msg ) {
   (void)func;
 
-  /* Only emit if level >= stderr threshold (matching Linux default of 2 = NOTICE) */
-  if( level < 2 ) return;
+  /* Emit if level >= stderr threshold (matches Linux fd_log.c). */
+  if( level < fd_log_level_stderr() ) return;
 
   char cstr[ FD_LOG_WALLCLOCK_CSTR_BUF_SZ ];
   fd_log_wallclock_cstr( now, cstr );

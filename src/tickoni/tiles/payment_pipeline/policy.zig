@@ -28,17 +28,17 @@ pub fn runPolicy(state: *PaymentPipelineState) void {
         } else if (msg.duplicate) {
             msg.decision = .duplicate_drop;
             msg.decided_by = audit_sink.tile_id_tkpoly;
-            log.debug("tkpoly", "runPolicy", "duplicate_drop at offset") catch {};
+            log.kvFmt("tkpoly", "runPolicy", "offset={d} decision=duplicate_drop account={d} idempotency_key={d}", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.idempotency_key });
         } else if (msg.raw.amount_cents > state.config.policy_limit_cents) {
             msg.decision = .deny;
             msg.decided_by = audit_sink.tile_id_tkpoly;
             _ = state.denied.fetchAdd(1, .release);
-            log.debug("tkpoly", "runPolicy", "denied at offset") catch {};
+            log.kvFmt("tkpoly", "runPolicy", "offset={d} decision=deny account={d} amount={d}c limit={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents, state.config.policy_limit_cents });
         } else {
             msg.decision = .allow;
             msg.decided_by = audit_sink.tile_id_tkpoly;
             _ = state.allowed.fetchAdd(1, .release);
-            log.debug("tkpoly", "runPolicy", "allowed at offset") catch {};
+            log.kvFmt("tkpoly", "runPolicy", "offset={d} decision=allow account={d} amount={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents });
         }
         state.q_poly_audit.push(msg, &state.stop) catch break;
     }

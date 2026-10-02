@@ -25,14 +25,14 @@ pub fn runNormalize(state: *PaymentPipelineState) void {
             msg.event_hash = runtime.stableEventHash(msg.raw);
             msg.decision = .malformed_drop;
             msg.decided_by = audit_sink.tile_id_tknorm;
-            log.err("tknorm", "runNormalize", "malformed event at offset") catch {};
+            log.kvFmt("tknorm", "runNormalize", "offset={d} event_hash={x} account={d} reason=malformed", .{ msg.raw.source_offset, msg.event_hash, msg.raw.account_id });
             state.q_norm_dedu.push(msg, &state.stop) catch break;
             continue;
         }
         msg.pipeline_hops += 1;
         msg.event_hash = runtime.stableEventHash(msg.raw);
         _ = state.normalized.fetchAdd(1, .release);
-        log.debug("tknorm", "runNormalize", "normalized event") catch {};
+        log.kvFmt("tknorm", "runNormalize", "offset={d} event_hash={x} account={d} amount={d}c", .{ msg.raw.source_offset, msg.event_hash, msg.raw.account_id, msg.raw.amount_cents });
         state.q_norm_dedu.push(msg, &state.stop) catch break;
     }
     log.debug("tknorm", "runNormalize", "done") catch {};

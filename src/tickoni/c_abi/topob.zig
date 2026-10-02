@@ -16,6 +16,7 @@
 ///
 /// Link requirements: -lfd_disco -lfd_ballet -lfd_waltz -lfd_tango
 /// -lfd_util and shim/topob.c at link time.
+const std = @import("std");
 const topo_run = @import("topo_run.zig");
 const wksp_mod = @import("wksp.zig");
 
@@ -63,6 +64,18 @@ extern fn tk_topo_wksp_set_ptr(topo: *Topo, wksp_idx: usize, wksp_ptr: *wksp_mod
 extern fn tk_topo_wksp_footprint(topo: *Topo, wksp_idx: usize) usize;
 extern fn tk_topo_wksp_part_max(topo: *Topo, wksp_idx: usize) usize;
 extern fn tk_topob_auto_layout(topo: *Topo, cpu_idx: [*]const usize) void;
+extern fn tk_topob_set_obj_property_ulong(topo: *Topo, obj_id: usize, key: [*:0]const u8, val: usize) void;
+extern fn tk_topob_set_tile_obj_property_ulong(topo: *Topo, tile_name: [*:0]const u8, tile_kind_id: usize, key: [*:0]const u8, val: usize) void;
+extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
+extern fn tk_topo_tile_obj_id(topo: *const Topo, tile_id: usize) usize;
+extern fn tk_topo_tile_set_metric_port(topo: *Topo, tile_id: usize, port: c_ushort) void;
+extern fn tk_topo_obj_offset(topo: *const Topo, obj_id: usize) usize;
+extern fn tk_topo_validate_tile_object_offsets(topo: *const Topo) c_int;
+extern fn tk_topob_debug_wksp_objs_internal(topo: *Topo) void;
+
+pub fn topobDebugWkspObjIds(topo: *Topo) void {
+    tk_topob_debug_wksp_objs_internal(topo);
+}
 
 // ---------------------------------------------------------------------------
 // Public Zig wrappers.
@@ -201,4 +214,86 @@ pub fn topoWkspPartMax(topo: *Topo, wksp_idx: usize) usize {
 
 pub fn topobAutoLayout(topo: *Topo, cpu_idx: [*]const usize) void {
     tk_topob_auto_layout(topo, cpu_idx);
+}
+
+/// Set a ulong property on the topology's props POD for a given object.
+/// Used to inject tile-specific metadata (e.g. scratch footprint) before
+/// fd_topob_finish computes the layout.
+pub fn topobSetObjPropertyUlong(topo: *Topo, obj_id: usize, key: [*:0]const u8, val: usize) void {
+    tk_topob_set_obj_property_ulong(topo, obj_id, key, val);
+}
+
+/// Convenience: look up a tile by name, then set a ulong property on its
+/// "tile" object.  Used by topo_build.zig to inject the tkmetr tile's custom
+/// scratch footprint before fd_topob_finish computes the layout.
+pub fn topobSetTileObjPropertyUlong(topo: *Topo, tile_name: [*:0]const u8, tile_kind_id: usize, key: [*:0]const u8, val: usize) void {
+    tk_topob_set_tile_obj_property_ulong(topo, tile_name, tile_kind_id, key, val);
+}
+
+/// Return the scratch footprint for a named tile.  Returns TK_METRIC_RUN's
+/// scratch footprint for "metric", 1UL for everything else.
+pub fn tickoniTileScratchFootprint(tile_name: [*:0]const u8) usize {
+    return tk_topob_tickoni_tile_scratch_footprint(tile_name);
+}
+
+/// Return the scratch object id assigned by fd_topob_tile.
+pub fn topoTileObjId(topo: *const Topo, tile_id: usize) usize {
+    return tk_topo_tile_obj_id(topo, tile_id);
+}
+
+/// Set prometheus_listen_port for the metric tile.
+/// Used by topo_build.zig to ensure the metric tile's HTTP server
+/// binds to the expected port (7999 from Firedancer config).
+pub fn topoTileSetMetricPort(topo: *Topo, tile_id: usize, port: c_ushort) void {
+    tk_topo_tile_set_metric_port(topo, tile_id, port);
+}
+
+/// Returns the offset assigned to an object by fd_topob_finish.
+pub fn topoObjOffset(topo: *const Topo, obj_id: usize) usize {
+    return tk_topo_obj_offset(topo, obj_id);
+}
+
+/// Returns true when every object referenced by every tile has been assigned
+/// a nonzero offset by fd_topob_finish.
+pub fn topoValidateTileObjectOffsets(topo: *const Topo) bool {
+    return tk_topo_validate_tile_object_offsets(topo) != 0;
+}
+
+// ---------------------------------------------------------------------------
+// Tests — constants, type smoke, and compile-time surface checks.
+// ---------------------------------------------------------------------------
+
+test "not_found is ~0 (all bits set)" {
+    try std.testing.expectEqual(@as(usize, ~@as(usize, 0)), not_found);
+}
+
+test "shmem_join_mode constants are 0 and 1" {
+    try std.testing.expectEqual(shmem_join_mode_read_only, 0);
+    try std.testing.expectEqual(shmem_join_mode_read_write, 1);
+}
+
+test "core_dump_level constants are in expected order" {
+    try std.testing.expectEqual(core_dump_level_disabled, 0);
+    try std.testing.expectEqual(core_dump_level_minimal, 1);
+    try std.testing.expectEqual(core_dump_level_regular, 2);
+    try std.testing.expectEqual(core_dump_level_full, 3);
+    try std.testing.expectEqual(core_dump_level_never, 4);
+}
+
+test "topob.zig module exposes expected public types" {
+    // Smoke: verify the re-exported types from topo_run.zig compile.
+    const _t1: ?*Topo = null;
+    const _t2: ?*TopoTile = null;
+    _ = _t1;
+    _ = _t2;
+}
+
+test "topob.zig module exposes expected constant functions" {
+    // Smoke: these functions exist and return usize.
+    // They call C externs, so we can't run them without linkage,
+    // but we can verify they compile and have the right signature.
+    const t = @TypeOf(topoSizeof);
+    const u = @TypeOf(topoAlignof);
+    _ = t;
+    _ = u;
 }

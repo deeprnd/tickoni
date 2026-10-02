@@ -17,7 +17,7 @@ const topologies = @import("topologies");
 const Supervisor = supervisor_mod.Supervisor;
 
 test "process_pipeline_integration: process-mode payment pipeline matches expected decision counts" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -26,8 +26,12 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
 
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
-    defer sup.deinit();
+    defer {
+        sup.stopProcess(std.testing.io);
+        sup.deinit();
+    }
 
+    const port = util.metricPort();
     const event_count: u64 = 32;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
@@ -38,6 +42,10 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
         // up to date. See ProcessPipelineConfig.tile_exe_path's doc
         // comment in src/app/tickoni/supervisor.zig.
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        // Use unique workspace name to avoid shared-memory collisions
+        // when multiple test binaries run in parallel.
+        .workspace_name = "test0",
+        .metric_port = port,
     });
 
     // Poll for the real completion signal (audited count reaches
@@ -52,6 +60,38 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
     }
 
     const metrics = sup.snapshotProcessMetrics();
+
+    // CRASH DETECTION: check for tile crashes BEFORE stopProcess(),
+    // because stopProcess()'s stale-recovery path can reclassify real
+    // crashes as clean .stopped states. If a tile crashed during the
+    // poll window, we must fail the test here.
+    if (sup.hasCrashed()) {
+        std.debug.print("process_pipeline_integration: CRASH DETECTED\n", .{});
+        for (sup.monitor()) |h| {
+            if (h.state == .crashed) {
+                std.debug.print(
+                    "  tile {d} crashed: exit_code={d} reason={s}\n",
+                    .{ h.tile_idx, h.exit_code, @tagName(h.crashed_because) },
+                );
+            }
+        }
+        // Dump per-tile log paths for diagnostics
+        const logs_dir = try std.fmt.allocPrint(
+            std.testing.allocator,
+            "{s}/logs",
+            .{run_dir},
+        );
+        defer std.testing.allocator.free(logs_dir);
+        var dir = try std.Io.Dir.cwd().openDir(std.testing.io, logs_dir, .{});
+        defer dir.close(std.testing.io);
+        var iter = dir.iterate();
+        while (try iter.next(std.testing.io)) |entry| {
+            std.debug.print("  log: {s}\n", .{entry.name});
+        }
+        std.testing.allocator.free(logs_dir);
+        std.debug.panic("TileCrashed", .{});
+    }
+
     sup.stopProcess(std.testing.io);
 
     // Matches src/tickoni/tiles/payment_pipeline/runtime.zig's
@@ -78,7 +118,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
 }
 
 test "process_pipeline_integration: stopProcess prefers clean exit over transient stale classification" {
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = util.tmpDir();
     defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -87,8 +127,12 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
 
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
-    defer sup.deinit();
+    defer {
+        sup.stopProcess(std.testing.io);
+        sup.deinit();
+    }
 
+    const port = util.metricPort();
     const event_count: u64 = 8;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
@@ -96,6 +140,8 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
         .heartbeat_interval_ns = 20 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 1 * std.time.ns_per_ms,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = "test1",
+        .metric_port = port,
     });
 
     const max_polls: u32 = 400;
@@ -106,6 +152,21 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
     }
 
     util.process.sleepNanos(5 * std.time.ns_per_ms);
+
+    // CRASH DETECTION: same pattern as above
+    if (sup.hasCrashed()) {
+        std.debug.print("stopProcess clean exit: CRASH DETECTED\n", .{});
+        for (sup.monitor()) |h| {
+            if (h.state == .crashed) {
+                std.debug.print(
+                    "  tile {d} crashed: exit_code={d} reason={s}\n",
+                    .{ h.tile_idx, h.exit_code, @tagName(h.crashed_because) },
+                );
+            }
+        }
+        std.debug.panic("TileCrashed", .{});
+    }
+
     sup.stopProcess(std.testing.io);
 
     for (sup.monitor()) |h| {

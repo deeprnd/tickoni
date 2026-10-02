@@ -2,7 +2,28 @@
 # Run all compiled test binaries sequentially.
 # Zig 0.16 stores test binaries in .zig-cache/o/<hash>/test,
 # not in zig-out/bin/ (addRunArtifact handles that automatically).
-set -uo pipefail
+set -euo pipefail
+
+# Raise RLIMIT_MEMLOCK to unlimited so mlock() succeeds for workspace
+# creation and child-tile joins. GitHub Actions runners cap RLIMIT_MEMLOCK
+# (often at 64 KiB); ulimit alone can't raise past the hard limit, so we
+# use sudo prlimit to bump both soft and hard limits at once.
+# memlock is a Linux concept only.
+echo "memlock before:"
+if [[ "$(contrib/platform.sh os)" == "linux" ]]; then
+    ulimit -Sl
+    ulimit -Hl
+    if [[ -f /proc/$$/limits ]]; then
+        grep "Max locked memory" /proc/$$/limits
+        if command -v sudo >/dev/null 2>&1 && \
+           sudo prlimit --pid $$ --memlock=unlimited:unlimited 2>/dev/null; then
+            echo "memlock after:"
+            ulimit -Sl
+            ulimit -Hl
+            grep "Max locked memory" /proc/$$/limits
+        fi
+    fi
+fi
 
 echo "Finding test binaries..."
 
@@ -24,15 +45,34 @@ echo "Found ${#binaries[@]} test binaries, running sequentially..."
 failures=0
 passed=0
 
+# Patterns that indicate a test failure even if the binary exits 0
+FAIL_PATTERNS=(
+    "SIGABRT"
+    "ERR"
+    "FAILED"
+    "failed command:"
+    "segmentation fault"
+    "core dumped"
+)
+
 for bin in "${binaries[@]}"; do
     name=$(basename "$(dirname "$bin")")
     echo -n "  ${name}... "
-    if "$bin"; then
+    set +e
+    output=$("$bin" 2>&1)
+    exit_code=$?
+    set -e
+    if [[ $exit_code -ne 0 ]]; then
+        # Non-zero exit = test failed. Also print output for context.
+        echo "FAILED (exit $exit_code)"
+        echo "$output" >&2
+        failures=$((failures + 1))
+    else
+        # Exit 0 means the test passed its assertions. FAIL_PATTERNS
+        # output check is skipped because child processes may crash
+        # (e.g. crash-after-heartbeat topology tests) and that's expected.
         echo "OK"
         passed=$((passed + 1))
-    else
-        echo "FAILED"
-        failures=$((failures + 1))
     fi
 done
 

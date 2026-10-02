@@ -53,7 +53,7 @@ They do not replace the runtime.
 │  tkagnt -> tktool -> tkadpt                                                   │
 │    finance-native tool broker and signed/stub adapters                        │
 │                                                                               │
-│  tkrepl, tkmetr, tkdiag, future tkexec                                        │
+│  tkrepl, metric, tkdiag, future tkexec                                        │
 │    replay, metrics, diagnostics, approved privileged execution                │
 └───────────────────────────────┬───────────────────────────────────────────────┘
                                 │
@@ -183,7 +183,7 @@ Privileged action executor
 ## Phase 0 Runtime Spike
 
 Current implementation status: the Zig supervisor runs the Phase 0 financial
-event spike in dev/test mode:
+event spike in process mode:
 
 ```text
 synthetic payment stream
@@ -194,7 +194,7 @@ synthetic payment stream
   -> tkaudt
 
 tkrepl -> deterministic re-injection path
-tkmetr -> runtime metrics
+metric -> runtime metrics
 tkdiag -> process and queue diagnostics
 ```
 
@@ -218,8 +218,7 @@ workers named as tiles. For tier scope, see
 [`platform-tiers.md`](platform-tiers.md). In Linux full-runtime process mode:
 
 - each configured tile runs as a supervisor-managed OS process with its own
-  address space; a thread-only topology may remain for fast dev/unit tests but
-  does not satisfy process-isolation acceptance;
+  address space; there is no thread-mode compatibility lane.
 - correctness-bearing links use Firedancer Tango `mcache`/`dcache` shared
   memory, with `fseq` or `fctl` progress/flow-control state so reliable links
   backpressure instead of dropping;
@@ -485,7 +484,7 @@ platform, fuzzing, or performance stories.
 | `tkpoly` | `policy_tile` | Evaluate versioned capability policy for runtime-visible decisions |
 | `tkaudt` | `audit_tile` | Own append-only hash-chain ordering and JSONL export |
 | `tkrepl` | `replay_tile` | Re-inject replay capsules with external effects disabled and report divergence |
-| `tkmetr` | `metric_tile` | Export queue, tile, and runtime metrics |
+| `metric` | `metric_tile` | Export queue, tile, and runtime metrics |
 | `tkdiag` | `diag_tile` | Export process, queue, crash, and supervisor diagnostics |
 
 ### Link Shape
@@ -499,7 +498,7 @@ Phase 0 links are implemented with this shape:
 | `tkdedu_tkpoly` | `tkdedu` | `tkpoly` | reliable | deduplicated event decision input |
 | `tkpoly_tkaudt` | `tkpoly` | `tkaudt` | reliable | policy decision and event envelope |
 | `tkrepl_tkings` | `tkrepl` | `tkings` or replay entrypoint | reliable in replay mode | replay capsule event |
-| `*_tkmetr` | tile-local producers | `tkmetr` | unreliable where safe | metrics samples |
+| `*_metric` | tile-local producers | `metric` | unreliable where safe | metrics samples |
 | `*_tkdiag` | tile-local producers | `tkdiag` | unreliable where safe | diagnostics samples |
 
 Correctness-bearing event and audit links should prefer bounded reliable flow
@@ -731,16 +730,35 @@ Tickoni avoids using Docker as the primary security model for the runtime.
 Docker may be useful for development and packaging, but the runtime security
 model should be lower-level and explicit.
 
+**Platform divergence:** `fd_sandbox_enter` (Firedancer's Linux sandbox) executes
+17 steps, 10 of which are Linux-only syscalls (namespaces, user namespaces,
+capabilities, seccomp, Landlock, keyring, pivot_root). These do not exist on
+macOS or Windows. The architecture doc describes the Linux full-runtime tier as
+the reference; retail tiers (macOS, Windows) have process-level isolation only
+(separate address spaces, UID/GID switching, resource limits). The Linux
+full-runtime tier is the only tier with seccomp/Landlock enforcement. See
+[`platform-tiers.md`](platform-tiers.md) for the full step-by-step breakdown
+and macOS/Windows equivalents.
+
 Runtime isolation:
 
 - small tile processes
-- seccomp profiles
-- dropped capabilities
-- restricted filesystem access
+- seccomp profiles (Linux full-runtime tier only; see platform-tiers.md)
+- dropped capabilities (Linux full-runtime tier only; see platform-tiers.md)
+- restricted filesystem access (Landlock on Linux; sandbox_init on macOS; none
+  on Windows)
 - explicit network permissions
 - shared-memory channels
 - bounded resources
 - crash-only process design
+
+**CPU placement note:** CPU affinity (`sched_setaffinity` / `cpuset`) is a
+Firedancer-thread-model optimization with zero benefit in Tickoni's
+process-model. The supervisor does not call any affinity API; tile processes run
+with whatever the OS scheduler assigns. Shared-core placement (`shared`) is
+Tickoni-owned config policy, visible in metrics/diagnostics, but does not invoke
+kernel-level pinning. See [`platform-tiers.md`](platform-tiers.md) for the full
+reasoning.
 
 Agent and adapter isolation:
 

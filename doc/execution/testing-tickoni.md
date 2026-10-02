@@ -41,7 +41,7 @@ Tickoni repository.
   <!-- badge:cov-fd:end -->
 
   <!-- badge:cov-tk:start -->
-  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-89.9%25-yellowgreen?style=flat-square" />
+  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-89.3%25-yellowgreen?style=flat-square" />
   <!-- badge:cov-tk:end -->
 
   <!-- badge:demo:start -->

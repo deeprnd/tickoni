@@ -1,5 +1,6 @@
-#if FD_HAS_LINUX
-#define _GNU_SOURCE
+#if FD_HAS_MACOS
+#ifndef _DARWIN_C_SOURCE
+#define _DARWIN_C_SOURCE
 #endif
 #include "topo_run_platform.h"
 
@@ -64,3 +65,5 @@ tk_topo_platform_join_tile_workspaces( fd_topo_t *      topo,
 
   (void)tile;
 }
+
+#endif /* FD_HAS_MACOS */

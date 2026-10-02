@@ -64,7 +64,10 @@ endif
 # On macOS, use the dedicated macOS build profile which auto-detects
 # architecture (Apple Silicon vs x86_64) and sets correct flags.
 # On Windows/MSYS, use the dedicated Windows clang profile.
-# On Linux, use native detection (native_config.sh).
+# On Linux x86_64, use the fixed Haswell baseline from the canonical GCC or
+# Clang profile. CI build artifacts run on different hosts in later stages, so
+# host-native instructions are not safe. Other Linux architectures retain
+# native detection until they have a canonical fixed profile.
 # Windows detection: primarily via uname (MINGW/MSYS/CYGWIN/Windows_NT),
 # with FD_WINDOWS_ARCH env var as fallback (set by fd-build-windows.sh).
 UNAME?=$(shell uname)
@@ -83,6 +86,15 @@ else ifneq (,$(FD_WINDOWS_ARCH))
     include config/machine/windows_gcc.mk
   endif
 else
-  include config/machine/native.mk
+  UNAME_M?=$(shell uname -m)
+  ifeq ($(UNAME_M),x86_64)
+    ifneq (,$(findstring clang,$(CC)))
+      include config/machine/linux_clang_x86_64.mk
+    else
+      include config/machine/linux_gcc_x86_64.mk
+    endif
+  else
+    include config/machine/native.mk
+  endif
 endif
 include config/extra/with-hosted.mk

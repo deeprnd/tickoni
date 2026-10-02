@@ -40,6 +40,7 @@ pub const IntegrationModules = struct {
     shared_c_abi: *std.Build.Module,
     shared_util: *std.Build.Module,
     shared_topologies: *std.Build.Module,
+    tile_reg_mod: *std.Build.Module,
 };
 
 /// ModuleFactory encapsulates the creation of all integration-test
@@ -262,6 +263,7 @@ pub const ModuleFactory = struct {
             .optimize = self.optimize,
             .imports = &.{
                 .{ .name = "mock_http_support", .module = mock_http_support_mod },
+                .{ .name = "util", .module = self.shared.util },
             },
         });
 
@@ -271,6 +273,7 @@ pub const ModuleFactory = struct {
             .optimize = self.optimize,
             .imports = &.{
                 .{ .name = "mock_http_support", .module = mock_http_support_mod },
+                .{ .name = "util", .module = self.shared.util },
             },
         });
 
@@ -315,6 +318,7 @@ pub const ModuleFactory = struct {
             .shared_c_abi = self.shared.c_abi,
             .shared_util = self.shared.util,
             .shared_topologies = self.shared.topologies,
+            .tile_reg_mod = self.shared.tile_registry,
         };
     }
 };

@@ -9,8 +9,14 @@
     "actionlint": {
       "version": "1.7.12"
     },
+    "minisign": {
+      "version": "0.12"
+    },
+    "ccache": {
+      "version": "4.14.1"
+    },
     "zig": {
-      "version": "0.17.0-dev.2151+2ec5523d5",
+      "version": "0.17.0-dev.2320+1e770dbef",
       "options": {
         "minisign_key": "RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
       }
@@ -489,11 +495,12 @@
       "install_method": {
         "linux": "apt",
         "macos": "brew",
-        "windows": "winget"
+        "windows": "minisign_download"
       },
       "parameters": {
         "package": "minisign",
-        "winget_id": "jedisct1.minisign"
+        "version_ref": "minisign",
+        "sha256": "37b600344e20c19314b2e82813db2bfdcc408b77b876f7727889dbd46d539479"
       },
       "idempotent_check": "command -v minisign"
     },
@@ -539,7 +546,7 @@
         "components": ["Microsoft.VisualStudio.Workload.VCTools", "Microsoft.VisualStudio.Component.VC.Tools.ARM64"],
         "override": "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --includeRecommended --quiet --norestart"
       },
-      "idempotent_check": "command -v cl"
+      "idempotent_check": "msvc"
     },
     "make": {
       "category": "build",
@@ -610,11 +617,15 @@
     "ccache": {
       "category": "build",
       "platform": "windows",
-      "install_method": "winget",
+      "install_method": "ccache_download",
       "parameters": {
-        "package": "Ccache.Ccache"
+        "sha256": {
+          "windows-x86": "6219f3865ca59aec41ee4b678df171d5d35855ecb2b6dbbbd20690b3a68af7b4",
+          "windows-arm": "28121851c8c2c8b76214cfc5e119d769fbc39e93d27862e4e3a556905ebd23b2"
+        }
       },
-      "idempotent_check": "command -v ccache"
+      "idempotent_check": "command -v ccache",
+      "version_ref": "ccache"
     },
     "zig": {
       "category": "zig",

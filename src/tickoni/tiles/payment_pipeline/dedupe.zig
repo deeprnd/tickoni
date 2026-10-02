@@ -22,7 +22,7 @@ pub fn runDedupe(state: *PaymentPipelineState) void {
         if (msg.decision != .malformed_drop and state.seenOrRemember(msg)) {
             msg.duplicate = true;
             _ = state.duplicates.fetchAdd(1, .release);
-            log.err("tkdedu", "runDedupe", "duplicate event at offset") catch {};
+            log.kvFmt("tkdedu", "runDedupe", "offset={d} idempotency_key={d} event_hash={x} reason=duplicate", .{ msg.raw.source_offset, msg.raw.idempotency_key, msg.event_hash });
         }
         state.q_dedu_poly.push(msg, &state.stop) catch break;
     }

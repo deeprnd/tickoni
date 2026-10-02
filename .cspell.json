@@ -200,6 +200,7 @@
     "DONT",
     "DONTFORK",
     "Doptimize",
+    "Dperf",
     "Dtest",
     "Dtopo",
     "dupenv",

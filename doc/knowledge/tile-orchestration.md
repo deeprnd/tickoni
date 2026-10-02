@@ -84,7 +84,9 @@ stack of conventions and guardrails:
 
 1. A topology describes tiles, workspaces, links, per-tile input link arrays,
    per-tile output link arrays, metrics storage, CPU placement, memory
-   footprint, and sandbox-relevant details.
+   footprint, and sandbox-relevant details. (See
+   [workspace-management.md](../knowledge/workspace-management.md) for workspace
+   lifecycle, backing strategy, and the Firedancer vs Tickoni divergence.)
 2. A tile run descriptor provides callbacks and resource policy:
    footprint/alignment, privileged init, unprivileged init, run callback,
    allowed file descriptors, seccomp policy, file/address-space/process
@@ -276,11 +278,13 @@ The Linux full-runtime tier reuses Firedancer orchestration as deeply as the
 Tickoni boundary allows:
 
 - topology construction via `fd_topob.c` (the real Firedancer topology builder)
-- workspace creation and join via `fd_wksp_*`
+- workspace creation and join via `fd_wksp_*` (normal-page backing; see
+  [workspace-management.md](../knowledge/workspace-management.md) for the
+  hugetlbfs vs normal-page divergence)
 - link filling for `mcache`, `dcache`, `fseq`, and related state
 - sandbox entry and allowed-fd/seccomp discipline where supported
 - metrics registration or equivalent per-tile health visibility
-- process/thread launch semantics where the selected Linux mode uses them
+- process launch semantics where the selected Linux mode uses them
 - crash and shutdown semantics
 - stem-loop guard patterns for shutdown, housekeeping, credit, and heartbeat
 - per-tile CPU placement via `fd_topo_cpus_init()` +
@@ -300,8 +304,9 @@ pattern is:
    `memset`-zeros the entire `fd_topo_t`, zeroing every field including Solana
    union fields (xdp, sock, gossip, quic, etc.).
 
-2. **Create workspaces:** `fd_topob_wksp(topo, name, footprint, ...)` for each
-   workspace (tickoni_wksp, metrics_wksp, etc.).
+2. **Create workspaces:** `fd_topob_wksp(topo, name)` declares workspace names.
+   The supervisor then creates and joins them with normal-page backing (see
+   [workspace-management.md](../knowledge/workspace-management.md)).
 
 3. **Create links:** `fd_topob_link(topo, name, ...)` for each inter-tile link.
 
@@ -393,7 +398,7 @@ difference is **how** each harness determines cpu_idx for each tile:
 | Step | Firedancer harness (`topology.c`) | Tickoni harness (`topo_build.zig`) |
 |------|----------------------------------|------------------------------------|
 | Build | `fd_topob_new(topo, name)` | `topobNew(buf.ptr, app_name)` |
-| Workspace | `fd_topob_wksp(topo, name)` | `topobWksp(topo, name)` |
+| Workspace | `fd_topob_wksp(topo, name)` | `topobWksp(topo, name)` | Real creation handled by supervisor (see [workspace-management.md](../knowledge/workspace-management.md)). |
 | Links | `fd_topob_link(topo, name, ...)` | `topobLink(topo, name, ...)` |
 | Tiles | `fd_topob_tile(topo, name, wksp, metrics, 0, 0, 0, 0)` | `topobTile(topo, name, wksp, wksp, 0)` |
 | CPU layout | `fd_topob_auto_layout(topo, 0)` | `topobAutoLayout(topo, cpu_idx_arr)` |
@@ -511,10 +516,15 @@ which are not adapter modules themselves but core orchestration components:
   and fail-closed on truncation. Parent writes once; each child reads,
   rebuilds an identical `fd_topo_t`, and finds its own tile index in it.
 
-- **`cpu_placement.zig`** (`src/tickoni/runtime/cpu_placement.zig`): implements
+|- **`cpu_placement.zig`** (`src/tickoni/runtime/cpu_placement.zig`): implements
   the Tickoni CPU placement model with `CpuPlacement` enum variants
   `exclusive`, `shared`, and `floating`, plus `validateStatic()` that enforces
   exclusive collision detection and shared/exclusive co-existence rules.
+  CPU affinity is a Firedancer-thread-model optimization with zero benefit in
+  Tickoni's process-model — the IPC boundary already breaks the cache-locality
+  chain that makes pinning valuable. See [platform-tiers.md](platform-tiers.md)
+  for the full reasoning. The supervisor does not call `sched_setaffinity`,
+  `SetThreadAffinityMask`, or any affinity API.
 
 #### 11-Item Reuse Categorization (from audit 8.md)
 
@@ -543,8 +553,8 @@ require deliberate Tickoni implementation or are explicitly not reused:
 
 5. **Tile registry** — `fd_topo_run_tile_t` serves as a per-tile registry. Tickoni
    implements this in `src/app/tickoni/tile_registry.zig` (not `topology.zig`).
-   The registry is keyed by tile ID and owns: thread-mode run callback
-   (`RunFn`), process-mode run callback (`ProcessFn`), counter schema
+   The registry is keyed by tile ID and owns: process-mode run callback
+   (`ProcessFn`), counter schema
    (`CounterSchemaEntry`), expected link cardinality (`in_cnt`/`out_cnt`),
    and diagnostics naming. Beyond lookup and cardinality, the registry also
    owns **process-mode dispatch wiring** (link-joining shape per tile — each
@@ -712,9 +722,7 @@ The tile registry is the single product-facing answer to:
 
 - this tile id's logical name
 - supported runtime tiers
-- thread/dev run callback, if any
-- Linux full-runtime run callback or adapter entry, if any
-- process/retail run callback, if any
+- process-mode run callback (`ProcessFn`), if any
 - expected link cardinality
 - counter/metric schema
 - diagnostics naming
@@ -892,3 +900,10 @@ Retail runtimes implement the same Tickoni boundary with explicit guarantees.
 The architecture should make it hard to accidentally rebuild Firedancer in
 parallel, and equally hard to let Firedancer validator semantics leak into
 Tickoni's financial product model.
+
+## Related Docs
+
+- [Tile Topology](tile-topology.md) — tile IDs, link shapes, workspace mapping modes, reuse/exclude table
+- [Workspace Management](workspace-management.md) — workspace lifecycle, backing strategy, the Firedancer vs Tickoni divergence, object callbacks
+- [Architecture](architecture.md) — system layers, Firedancer infrastructure reuse boundary
+- [Auth Tiles](auth-tiles.md) — keyswitch objects (same topology infrastructure, no workspace coupling)

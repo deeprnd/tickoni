@@ -5,7 +5,8 @@
    via topo_run_platform.h. The orchestration below stays identical across
    Linux and macOS; only the leaf operations vary. */
 
-#if FD_HAS_LINUX
+#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
+#if FD_HAS_LINUX || FD_HAS_MACOS
 #define _GNU_SOURCE
 #endif
 
@@ -142,3 +143,4 @@ tk_topo_run_tile( void * topo,
   FD_LOG_DEBUG(( "tk_topo_run_tile: tile=%s:%lu completed", tile_c->name, tile_c->kind_id ));
   FD_MGAUGE_SET( TILE, STATUS, 2UL );
 }
+#endif

@@ -26,7 +26,7 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile", .cpu_placement = .{ .shared = 0 } },
     .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile", .cpu_placement = .{ .shared = 0 } },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-    .{ .id = TileId.parse("tkmetr") catch unreachable, .name = "metric_tile" },
+    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
 };
 
@@ -41,7 +41,7 @@ const exclusive_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile", .cpu_placement = .{ .exclusive = 0 } },
     .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile", .cpu_placement = .{ .exclusive = 1 } },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-    .{ .id = TileId.parse("tkmetr") catch unreachable, .name = "metric_tile" },
+    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
 };
 
@@ -51,10 +51,12 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) 
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
+    const port = util.metricPort();
     try sup.startPaymentPipelineProcess(io, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = port,
     });
 
     const max_polls: u32 = 400; // 2s bound at 5ms per poll
@@ -75,7 +77,7 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) 
 }
 
 test "process_demo_parity: floating, shared-core, and exclusive-core CPU placement all reach identical pipeline metrics" {
-    var tmp_floating = std.testing.tmpDir(.{});
+    var tmp_floating = util.tmpDir();
     defer tmp_floating.cleanup();
     var floating_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const floating_len = try tmp_floating.dir.realPath(std.testing.io, &floating_path_buf);
@@ -83,7 +85,7 @@ test "process_demo_parity: floating, shared-core, and exclusive-core CPU placeme
 
     const floating_metrics = try runToCompletion(std.testing.io, topologies.paymentPipelineProcess(), floating_run_dir);
 
-    var tmp_shared = std.testing.tmpDir(.{});
+    var tmp_shared = util.tmpDir();
     defer tmp_shared.cleanup();
     var shared_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const shared_len = try tmp_shared.dir.realPath(std.testing.io, &shared_path_buf);
@@ -95,7 +97,7 @@ test "process_demo_parity: floating, shared-core, and exclusive-core CPU placeme
     };
     const shared_metrics = try runToCompletion(std.testing.io, shared_topo, shared_run_dir);
 
-    var tmp_exclusive = std.testing.tmpDir(.{});
+    var tmp_exclusive = util.tmpDir();
     defer tmp_exclusive.cleanup();
     var exclusive_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const exclusive_len = try tmp_exclusive.dir.realPath(std.testing.io, &exclusive_path_buf);

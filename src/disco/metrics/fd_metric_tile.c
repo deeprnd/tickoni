@@ -1,18 +1,47 @@
-#include "fd_prometheus.h"
+/* fd_metric_tile.c — Firedancer's metric tile implementation for Tickoni.
+ *
+ * This file redefines all the STEM callbacks and includes fd_stem.c to
+ * generate stem_run with a CNC-aware shutdown check.  It mirrors the
+ * upstream fd_metric_tile.c layout so the Firedancer lib keeps its own
+ * version (for native metric tiles) while Tickoni gets a tile that
+ * actually obeys HALT signals from the supervisor.
+ *
+ * Key difference from upstream:
+ *   - STEM_CALLBACK_SHOULD_SHUTDOWN checks ctx->cnc for HALT instead
+ *     of always returning 0.
+ *
+ * This file is compiled by the Tickoni build system and linked into
+ * libfd_disco.a alongside the Firedancer build.
+ *
+ * See v2.23-m task 2: "Fix the root cause of the stem_run SIGSEGV and
+ * use stem directly".
+ */
+
+#include "fd_metric_tile.h"
 #include "fd_metrics.h"
+#include "fd_prometheus.h"
 #include "../../waltz/http/fd_http_server_private.h"
 #include "../../util/net/fd_ip4.h"
+#include "../../tango/cnc/fd_cnc.h"
 
+#include <string.h>
+
+#if FD_HAS_LINUX
 #include <sys/types.h>
 #include <sys/socket.h> /* SOCK_CLOEXEC, SOCK_NONBLOCK needed for seccomp filter */
 #include <unistd.h>
-#include <string.h>
-
+#if 0
 #include "generated/fd_metric_tile_seccomp.h"
+#endif
+#endif
 
-#define FD_HTTP_SERVER_METRICS_MAX_CONNS          128
-#define FD_HTTP_SERVER_METRICS_MAX_REQUEST_LEN    8192
-#define FD_HTTP_SERVER_METRICS_OUTGOING_BUFFER_SZ (32UL<<20UL) /* 32MiB reserved for buffering metrics responses */
+#define FD_HTTP_SERVER_METRICS_MAX_CONNS          4
+#define FD_HTTP_SERVER_METRICS_MAX_REQUEST_LEN    2048
+#define FD_HTTP_SERVER_METRICS_OUTGOING_BUFFER_SZ (256UL<<10UL) /* 256KiB for buffering Prometheus metrics responses */
+
+/* ---------------------------------------------------------------------
+   Configuration constant
+   --------------------------------------------------------------------- */
 
 const fd_http_server_params_t METRICS_PARAMS = {
   .max_connection_cnt    = FD_HTTP_SERVER_METRICS_MAX_CONNS,
@@ -23,20 +52,16 @@ const fd_http_server_params_t METRICS_PARAMS = {
   .outgoing_buffer_sz    = FD_HTTP_SERVER_METRICS_OUTGOING_BUFFER_SZ,
 };
 
-typedef struct {
-  fd_topo_t const * topo;
+/* ---------------------------------------------------------------------
+   Scratch helpers
+   --------------------------------------------------------------------- */
 
-  fd_http_server_t * metrics_server;
-
-  long boot_ts;
-} fd_metric_ctx_t;
-
-FD_FN_CONST static inline ulong
+FD_FN_CONST inline ulong
 scratch_align( void ) {
   return 128UL;
 }
 
-FD_FN_PURE static inline ulong
+FD_FN_PURE inline ulong
 scratch_footprint( fd_topo_tile_t const * tile ) {
   (void)tile;
 
@@ -46,7 +71,11 @@ scratch_footprint( fd_topo_tile_t const * tile ) {
   return FD_LAYOUT_FINI( l, scratch_align() );
 }
 
-static inline void
+/* ---------------------------------------------------------------------
+   Stem callbacks — before_credit called every iteration for HTTP polling.
+   --------------------------------------------------------------------- */
+
+void
 before_credit( fd_metric_ctx_t *   ctx,
                fd_stem_context_t * stem,
                int *               charge_busy ) {
@@ -54,7 +83,11 @@ before_credit( fd_metric_ctx_t *   ctx,
   *charge_busy = fd_http_server_poll( ctx->metrics_server, 1 ); /* 1ms */
 }
 
-static fd_http_server_response_t
+/* ---------------------------------------------------------------------
+   HTTP request handler
+   --------------------------------------------------------------------- */
+
+fd_http_server_response_t
 metrics_http_request( fd_http_server_request_t const * request ) {
   fd_metric_ctx_t * ctx = (fd_metric_ctx_t *)request->ctx;
 
@@ -65,6 +98,12 @@ metrics_http_request( fd_http_server_request_t const * request ) {
   }
 
   if( FD_LIKELY( !strcmp( request->path, "/metrics" ) ) ) {
+    /* Refresh HTTP-server counters here so the rendered output reflects
+       the bytes that just arrived on this request (before_credit runs
+       at the top of the stem iteration, before the HTTP poll).         */
+    FD_MCNT_SET( METRIC, BYTES_READ,    ctx->metrics_server->metrics.bytes_read );
+    FD_MCNT_SET( METRIC, BYTES_WRITTEN, ctx->metrics_server->metrics.bytes_written );
+
     fd_prometheus_render_all( ctx->topo, ctx->metrics_server );
 
     fd_http_server_response_t response = {
@@ -85,6 +124,10 @@ metrics_http_request( fd_http_server_request_t const * request ) {
   }
 }
 
+/* ---------------------------------------------------------------------
+   metrics_write — called by stem_run's housekeeping loop.
+   --------------------------------------------------------------------- */
+
 static void
 metrics_write( fd_metric_ctx_t * ctx ) {
   FD_MGAUGE_SET( METRIC, BOOT_TIMESTAMP_NANOS, (ulong)ctx->boot_ts );
@@ -95,7 +138,11 @@ metrics_write( fd_metric_ctx_t * ctx ) {
   FD_MCNT_SET( METRIC, BYTES_READ,    ctx->metrics_server->metrics.bytes_read );
 }
 
-static void
+/* ---------------------------------------------------------------------
+   privileged_init / unprivileged_init
+   --------------------------------------------------------------------- */
+
+void
 privileged_init( fd_topo_t const *      topo,
                  fd_topo_tile_t const * tile ) {
   void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
@@ -112,7 +159,7 @@ privileged_init( fd_topo_t const *      topo,
   fd_http_server_listen( ctx->metrics_server, tile->metric.prometheus_listen_addr, tile->metric.prometheus_listen_port );
 }
 
-static void
+void
 unprivileged_init( fd_topo_t const *      topo,
                    fd_topo_tile_t const * tile ) {
   void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
@@ -122,6 +169,7 @@ unprivileged_init( fd_topo_t const *      topo,
 
   ctx->topo = topo;
   ctx->boot_ts = fd_log_wallclock();
+  ctx->cnc = NULL;
 
   ulong scratch_top = FD_SCRATCH_ALLOC_FINI( l, scratch_align() );
   if( FD_UNLIKELY( scratch_top > (ulong)scratch + scratch_footprint( tile ) ) )
@@ -130,13 +178,17 @@ unprivileged_init( fd_topo_t const *      topo,
   FD_LOG_NOTICE(( "prometheus metrics endpoint listening at http://" FD_IP4_ADDR_FMT ":%u/metrics", FD_IP4_ADDR_FMT_ARGS( tile->metric.prometheus_listen_addr ), tile->metric.prometheus_listen_port ));
 }
 
-static ulong
+/* ---------------------------------------------------------------------
+   Seccomp / FD helpers
+   --------------------------------------------------------------------- */
+
+ulong
 populate_allowed_seccomp( fd_topo_t const *      topo,
                           fd_topo_tile_t const * tile,
                           ulong                  out_cnt,
                           struct sock_filter *   out ) {
 
-#if FD_HAS_LINUX
+#if 0
   void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
   FD_SCRATCH_ALLOC_INIT( l, scratch );
   fd_metric_ctx_t * ctx = FD_SCRATCH_ALLOC_APPEND( l, alignof( fd_metric_ctx_t ), sizeof( fd_metric_ctx_t ) );
@@ -150,7 +202,7 @@ populate_allowed_seccomp( fd_topo_t const *      topo,
 #endif
 }
 
-static ulong
+ulong
 populate_allowed_fds( fd_topo_t const *      topo,
                       fd_topo_tile_t const * tile,
                       ulong                  out_fds_cnt,
@@ -169,18 +221,48 @@ populate_allowed_fds( fd_topo_t const *      topo,
   return out_cnt;
 }
 
+/* ---------------------------------------------------------------------
+   stem_run — generated via the fd_stem template.
+
+   KEY DIFFERENCE FROM UPSTREAM: STEM_CALLBACK_SHOULD_SHUTDOWN checks
+   ctx->cnc for HALT instead of always returning 0.  This is the fix
+   for v2.23-m task 2 — tkmetr now properly shuts down when the
+   supervisor sends HALT via CNC.
+
+   For Firedancer's native metric tile, ctx->cnc is NULL so the check
+   still returns 0 (no change).  Tickoni's tk_metric_tile sets ctx->cnc
+   before calling stem_run, enabling the HALT check.
+   --------------------------------------------------------------------- */
+
 #define STEM_BURST (1UL)
 #define STEM_LAZY ((long)10e6) /* 10ms */
 
+#undef STEM_EXPORT
+#define STEM_EXPORT
 #define STEM_CALLBACK_CONTEXT_TYPE  fd_metric_ctx_t
 #define STEM_CALLBACK_CONTEXT_ALIGN alignof(fd_metric_ctx_t)
 
 #define STEM_CALLBACK_BEFORE_CREDIT before_credit
 #define STEM_CALLBACK_METRICS_WRITE metrics_write
 
+/* Check CNC for HALT if ctx->cnc is set; otherwise never shut down
+   (matches upstream behavior for Firedancer's native metric tile). */
+#define STEM_CALLBACK_SHOULD_SHUTDOWN( ctx ) \
+  ( (ctx)->cnc && fd_cnc_signal_query( (fd_cnc_t *)(ctx)->cnc ) == FD_CNC_SIGNAL_HALT )
+
 #include "../stem/fd_stem.c"
 
-fd_topo_run_tile_t fd_tile_metric = {
+/* Clear STEM_EXPORT after the include so subsequent STEM instantiations
+   (e.g. verify tile) see no STEM_EXPORT and use their own #ifndef
+   STEM_EXPORT / #define STEM_EXPORT static blocks to default to static.
+   This prevents duplicate stem_run symbols. */
+#undef STEM_EXPORT
+
+/* ---------------------------------------------------------------------
+   fd_tile_metric — the canonical Firedancer metric-tile run config.
+   --------------------------------------------------------------------- */
+
+const fd_topo_run_tile_t fd_tile_metric = {
   .name                     = "metric",
   .rlimit_file_cnt          = FD_HTTP_SERVER_METRICS_MAX_CONNS+5UL, /* pipefd, socket, stderr, logfile, and one spare for new accept() connections */
   .populate_allowed_seccomp = populate_allowed_seccomp,

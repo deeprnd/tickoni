@@ -14,6 +14,7 @@
 const std = @import("std");
 const helpers = @import("build-lib/lib/helpers.zig");
 const test_lanes = @import("build-lib/build_test_lanes.zig");
+const perf_lane = @import("build-lib/lanes/perf.zig");
 
 /// Validate a build-time path option: reject empty strings, path traversal,
 /// and paths exceeding a reasonable length to prevent linking arbitrary archives.
@@ -32,6 +33,7 @@ pub fn build(b: *std.Build) void {
         return;
     };
     const build_tests = b.option(bool, "test", "Compile and run Tickoni test binaries") orelse false;
+    const build_perf = b.option(bool, "perf", "Compile and run Tickoni performance test binaries") orelse false;
 
     const shared = @import("build-lib/mod/modules.zig").modules(b, target, optimize);
     const tm = @import("build-lib/mod/test_modules.zig").testModules(b, target, optimize, shared);
@@ -184,6 +186,17 @@ pub fn build(b: *std.Build) void {
 
         // Unit + integration + system lanes
         test_lanes.registerTestLanes(b, check_step, shared, tm, target, optimize, fd_lib_dir, exe, exe_install);
+    }
+
+    // Performance lane — always wired (not gated by -Dtest), so perf tests
+    // can run independently without pulling in the full test suite.
+    if (build_perf) {
+        const perf_step = b.step("perf-test", "Run Tickoni performance tests (Linux-only)");
+        perf_step.dependOn(&exe_install.step);
+        perf_lane.strategy(b, .{
+            .shared = shared,
+            .fd_lib_dir = fd_lib_dir,
+        }, target, optimize, perf_step);
     }
 
     // Coverage lane (always available)

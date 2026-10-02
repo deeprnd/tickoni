@@ -23,7 +23,7 @@
    (fd_topo_t, fd_topo_tile_t, fd_topo_obj_t, fd_topo_obj_callbacks_t)
    exist in Tickoni. */
 
-#if FD_HAS_LINUX
+#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
 #define _GNU_SOURCE
 #endif
 
@@ -160,12 +160,29 @@ static fd_topo_obj_callbacks_t tk_obj_cb_metrics = {
   .new       = metrics_new,
 };
 
-/* Tickoni-owned "tile" object: Phase 0 tiles need no fd_scratch tile-local
-   memory, so this is a deliberate minimal (not zero — fd_topob_finish's
-   NUMA-assignment step requires every object to have a non-zero
-   footprint) placeholder, NOT a call into fdctl_tile_run()/TILES[]. */
+/* Tickoni-owned "tile" object footprint.
+
+   Phase 0 pipeline tiles need no fd_scratch tile-local memory, so their
+   footprint is 1UL (not zero — fd_topob_finish's NUMA-assignment step
+   requires every object to have a non-zero footprint).
+
+   The metric tile (tkmetr) uses Firedancer's fd_stem-based run loop with
+   fd_http_server and needs ~32MB+ scratch.  Its scratch footprint is set
+   as a property ("tickoni.scratch_footprint") by topo_build.zig and
+   queried here instead. */
 static ulong
-tile_footprint( fd_topo_t const * topo FD_FN_UNUSED, fd_topo_obj_t const * obj FD_FN_UNUSED ) {
+tile_footprint( fd_topo_t const * topo, fd_topo_obj_t const * obj ) {
+  /* Find the tile that owns this "tile" object. */
+  for ( ulong i = 0UL; i < topo->tile_cnt; i++ ) {
+    if ( topo->tiles[ i ].tile_obj_id == obj->id ) {
+      /* Query the custom scratch footprint property set by topo_build.zig.
+         Returns 0UL (def) if not set — falls through to 1UL below. */
+      ulong scratch = fd_pod_queryf_ulong(
+        topo->props, 0UL, "obj.%lu.%s", obj->id, "tickoni.scratch_footprint" );
+      if ( scratch != 0UL ) return scratch;
+      break;
+    }
+  }
   return 1UL;
 }
 
@@ -243,10 +260,7 @@ tk_topo_alignof( void ) { return alignof( fd_topo_t ); }
 
 void *
 tk_topob_new( void * mem, char const * app_name ) {
-  FD_LOG_NOTICE(( "tk_topob_new: mem=%p app_name=%s", mem, app_name ));
-  void * result = fd_topob_new( mem, app_name );
-  FD_LOG_DEBUG(( "tk_topob_new: result=%p", result ));
-  return result;
+  return fd_topob_new( mem, app_name );
 }
 
 ulong
@@ -310,9 +324,77 @@ tk_topob_tile_out( void * topo, char const * tile_name, ulong tile_kind_id, char
   fd_topob_tile_out( (fd_topo_t *)topo, tile_name, tile_kind_id, link_name, link_kind_id );
 }
 
+/* Force normal-page workspace for Tickoni.
+
+   Firedancer's fd_topob_finish() selects page size from the total
+   workspace footprint: gigantic if > 8 MiB, huge otherwise.  Both
+   huge and gigantic need hugetlbfs which isn't available on retail
+   hardware, macOS, or Windows.  Set max_page_size to NORMAL *before*
+   the upstream finish so it picks normal 4 KiB pages.  This matches
+   the supervisor which creates files under `.normal/` with
+   shmem_normal_page_sz (4096). */
 void
 tk_topob_finish( void * topo ) {
+  ((fd_topo_t *)topo)->max_page_size = FD_SHMEM_NORMAL_PAGE_SZ;
   fd_topob_finish( (fd_topo_t *)topo, TK_CALLBACKS );
+}
+
+/* Set a ulong property on the props POD for a given object.
+
+   Used by topo_build.zig to inject the tkmetr tile's custom scratch
+   footprint before fd_topob_finish computes the layout. */
+void
+tk_topob_set_obj_property_ulong( void * topo, ulong obj_id, char const * key, ulong val ) {
+  fd_pod_insertf_ulong( ((fd_topo_t *)topo)->props, val,
+                        "obj.%lu.%s", obj_id, key );
+}
+
+/* Convenience: look up a tile by name/kind_id, then set a ulong property on
+   its "tile" object.  Used by topo_build.zig to inject the tkmetr tile's
+   custom scratch footprint before fd_topob_finish. */
+void
+tk_topob_set_tile_obj_property_ulong( void * topo, char const * tile_name,
+                                       ulong tile_kind_id,
+                                       char const * key, ulong val ) {
+  fd_topo_t * t = (fd_topo_t *)topo;
+  ulong tile_id = fd_topo_find_tile( t, tile_name, tile_kind_id );
+  if( tile_id == ULONG_MAX ) return;
+  fd_pod_insertf_ulong( t->props, val,
+                        "obj.%lu.%s", t->tiles[ tile_id ].tile_obj_id, key );
+}
+
+/* Topology helper: find the object ID of the first object of type
+   `obj_type` that belongs to the given tile (i.e. is listed in the
+   tile's uses_obj_id[]).  Returns ULONG_MAX if not found.
+
+   Used by tk_metric_run to find the CNC object for shutdown checking
+   without resorting to a raw strcmp scan.  See v2.23-m task 3. */
+ulong
+tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_type ) {
+  fd_topo_tile_t const * tile = &topo->tiles[ tile_id ];
+  for( ulong i = 0UL; i < tile->uses_obj_cnt; i++ ) {
+    ulong obj_id = tile->uses_obj_id[ i ];
+    if( !strcmp( topo->objs[ obj_id ].name, obj_type ) ) return obj_id;
+  }
+  return ULONG_MAX;
+}
+
+/* Include the metric tile header for TK_METRIC_RUN and footprint helper.
+   The header provides a wrapper (tk_metric_scratch_footprint()) so that
+   topob.c never needs the full fd_topo_run_tile_t definition — it only
+   sees the extern declaration and the thin accessor.  See v2.23-m task 4.
+   Linux-only: tk_metric_tile.c references symbols from fd_metric_tile.c. */
+#if FD_HAS_LINUX
+#include "../topo_run/tk_metric_tile.h"
+#endif
+
+ulong
+tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {
+#if FD_HAS_LINUX
+  if( strcmp( tile_name, "metric" ) == 0 )
+    return tk_metric_scratch_footprint();
+#endif
+  return 1UL;
 }
 
 int
@@ -413,4 +495,71 @@ tk_topo_tile_set_allow_shutdown( void * topo, ulong tile_id, int allow ) {
 void *
 tk_topo_tile_ptr( void * topo, ulong tile_id ) {
   return &((fd_topo_t *)topo)->tiles[ tile_id ];
+}
+
+ulong
+tk_topo_obj_offset( void const * topo_, ulong obj_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  return obj_id<topo->obj_cnt ? topo->objs[ obj_id ].offset : 0UL;
+}
+
+static int
+tk_topo_obj_has_offset( fd_topo_t const * topo, ulong obj_id ) {
+  return obj_id<topo->obj_cnt && topo->objs[ obj_id ].offset;
+}
+
+int
+tk_topo_validate_tile_object_offsets( void const * topo_ ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  for( ulong i=0UL; i<topo->tile_cnt; i++ ) {
+    fd_topo_tile_t const * tile = &topo->tiles[ i ];
+    if( FD_UNLIKELY( !tk_topo_obj_has_offset( topo, tile->tile_obj_id    ) ||
+                     !tk_topo_obj_has_offset( topo, tile->metrics_obj_id ) ) ) return 0;
+
+    if( FD_UNLIKELY( tile->id_keyswitch_obj_id!=ULONG_MAX &&
+                     !tk_topo_obj_has_offset( topo, tile->id_keyswitch_obj_id ) ) ) return 0;
+    if( FD_UNLIKELY( tile->av_keyswitch_obj_id!=ULONG_MAX &&
+                     !tk_topo_obj_has_offset( topo, tile->av_keyswitch_obj_id ) ) ) return 0;
+
+    for( ulong j=0UL; j<tile->in_cnt; j++ )
+      if( FD_UNLIKELY( !tk_topo_obj_has_offset( topo, tile->in_link_fseq_obj_id[ j ] ) ) ) return 0;
+    for( ulong j=0UL; j<tile->uses_obj_cnt; j++ )
+      if( FD_UNLIKELY( !tk_topo_obj_has_offset( topo, tile->uses_obj_id[ j ] ) ) ) return 0;
+  }
+  return 1;
+}
+
+ulong
+tk_topo_tile_obj_id( void const * topo, ulong tile_id ) {
+  return ((fd_topo_t const *)topo)->tiles[ tile_id ].tile_obj_id;
+}
+
+/* Set prometheus_listen_port for the metric tile.  Used by topo_build.zig
+   so the metric tile's HTTP server binds to the expected port. */
+void
+tk_topo_tile_set_metric_port( void * topo, ulong tile_id, ushort port ) {
+  ((fd_topo_t *)topo)->tiles[ tile_id ].metric.prometheus_listen_port = port;
+}
+
+/* Debug: print workspace-to-object mapping.
+   Called from topo_build.zig before topob_finish to diagnose
+   "no object found for workspace" errors. */
+void
+tk_topob_debug_wksp_objs_internal( void * topo ) {
+  fd_topo_t * t = (fd_topo_t *)topo;
+  fprintf(stderr, "\n[topo_build debug] wksp_cnt=%lu obj_cnt=%lu tile_cnt=%lu link_cnt=%lu\n",
+          t->wksp_cnt, t->obj_cnt, t->tile_cnt, t->link_cnt);
+  for( ulong w=0UL; w<t->wksp_cnt; w++ ) {
+    ulong obj_cnt = 0UL;
+    for( ulong o=0UL; o<t->obj_cnt; o++ )
+      if( t->objs[ o ].wksp_id==w ) obj_cnt++;
+    fprintf(stderr, "  wksp[%lu] '%s' => %lu objects", w, t->workspaces[ w ].name, obj_cnt);
+    if( obj_cnt==0UL )
+      fprintf(stderr, " *** EMPTY! ***");
+    fprintf(stderr, "\n");
+    for( ulong o=0UL; o<t->obj_cnt; o++ ) {
+      if( t->objs[ o ].wksp_id==w )
+        fprintf(stderr, "    obj[%lu] '%s' (wksp_id=%lu)\n", o, t->objs[ o ].name, t->objs[ o ].wksp_id);
+    }
+  }
 }

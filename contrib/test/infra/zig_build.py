@@ -18,8 +18,13 @@ def run_zig_build(target, run_tests):
 
     Returns exit code.
     """
+    # Use script directory to resolve paths, not os.getcwd() — 'just' changes
+    # cwd to the directory of the imported justfile (e.g. just/test/) which
+    # breaks relative path resolution for fd_lib_dir, build_orch, etc.
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.normpath(os.path.join(script_dir, "..", "..", ".."))
     env = os.environ.copy()
-    env.setdefault("ZIG_GLOBAL_CACHE_DIR", os.path.join(os.environ.get("TICKONI_ROOT", os.getcwd()), "build", ".zig-global-cache"))
+    env.setdefault("ZIG_GLOBAL_CACHE_DIR", os.path.join(repo_root, "build", ".zig-global-cache"))
 
     # Ensure fd-lib-dir exists — the build orchestrator must compile
     # libfd_ballet.a, libfd_util.a, etc. before Zig can link them.
@@ -33,7 +38,7 @@ def run_zig_build(target, run_tests):
             os.path.dirname(os.path.abspath(__file__)),
             "..", "build", "orchestrator.py",
         )
-    fd_lib_dir_abs = os.path.join(os.getcwd(), "build/fd-tickoni-fd/lib")
+    fd_lib_dir_abs = os.path.join(repo_root, "build/fd-tickoni-fd/lib")
     if not os.path.isdir(fd_lib_dir_abs) or not os.listdir(fd_lib_dir_abs):
         print(f"fd-lib-dir {fd_lib_dir_abs} not found — building Firedancer libs first")
         subprocess.run([sys.executable, build_orch, "build-fd", "fd-tickoni-fd", "test"], check=True)
@@ -42,7 +47,11 @@ def run_zig_build(target, run_tests):
     if run_tests:
         cmd.append("-Dtest=true")
 
-    cmd.extend(["-Dfd-lib-dir=build/fd-tickoni-fd/lib"])
+    # Use absolute path — zig passes fd_lib_dir through to C compiler
+    # commands as a relative path. When cwd differs from repo root (e.g.
+    # `just` imports justfile from a subdirectory), relative resolution
+    # fails.
+    cmd.extend([f"-Dfd-lib-dir={fd_lib_dir_abs}"])
     cmd.append(target)
     cmd.append("--summary")
     cmd.append("all")

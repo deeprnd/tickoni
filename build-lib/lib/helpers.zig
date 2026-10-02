@@ -1,6 +1,5 @@
 /// Build helpers for supervisor executable, CLI executable, check step,
 /// and fixture path verification. Extracted from build.zig.
-
 const std = @import("std");
 const shims = @import("shims.zig");
 const codec = @import("codec.zig");
@@ -63,6 +62,7 @@ pub fn createSupervisorExe(
         exe.root_module.linkLibrary(codec.addTickoniSupervisorShimLibrary(b, target, optimize));
         codec.addWindowsFdManifestFixups(b, exe, b.fmt("{s}/fd_windows_zig_supervisor_link.txt", .{fd_lib_dir}));
         codec.addTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
+        exe.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_zstd.a", .{fd_lib_dir}) });
     } else if (target.result.cpu.arch == .aarch64) {
         codec.linkTickoniCodec(b, exe, fd_lib_dir);
         firedancer.linkTickoniFiredancer(b, exe, fd_lib_dir);
@@ -70,12 +70,20 @@ pub fn createSupervisorExe(
         tile_run.linkTickoniTileRun(b, exe, fd_lib_dir);
         codec.addTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
         exe.root_module.linkSystemLibrary("atomic", .{});
+        exe.root_module.linkSystemLibrary("zstd", .{});
     } else {
         codec.linkTickoniCodec(b, exe, fd_lib_dir);
         firedancer.linkTickoniFiredancer(b, exe, fd_lib_dir);
         topo_run.linkTickoniTopoRun(b, exe, fd_lib_dir);
         tile_run.linkTickoniTileRun(b, exe, fd_lib_dir);
         codec.addTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
+        exe.root_module.linkSystemLibrary("zstd", .{});
+    }
+
+    // Linux-only: memfd_create() for topology handoff (v2.25 orchestrator migration).
+    if (target.result.os.tag == .linux) {
+        exe.root_module.link_libc = true;
+        exe.root_module.addIncludePath(b.path("src/tickoni/c_abi/include"));
     }
     return exe;
 }
@@ -110,7 +118,7 @@ pub fn createCliExe(
         .root_module = cli_main_mod,
     });
     cli_exe.root_module.addCSourceFiles(.{
-        .files = &.{ "src/tickoni/util/compiler_version.c" },
+        .files = &.{"src/tickoni/util/compiler_version.c"},
     });
     if (target.result.os.tag == .windows) {
         cli_exe.root_module.linkLibrary(codec.addTickoniCodecShimLibrary(b, target, optimize, "tickoni-codec-shims"));
@@ -135,12 +143,13 @@ pub fn createCheckStep(
         const ensure_dir = b.addSystemCommand(&.{ "mkdir", "-p", cache_o_dir });
         c_compile_check_step.dependOn(&ensure_dir.step);
     }
+    const shim_c_flags = std.mem.join(b.allocator, " ", shims.shimCFlagsFor(target.result)) catch @panic("OOM");
     inline for (shims.shim_c_files) |shim_file| {
         const c_check = b.addSystemCommand(&.{
             "sh", "-c",
-            b.fmt("zig cc -target {s} -c -I src -std=c17 -UBMI2 -ULZCNT -DFD_HAS_HOSTED=1 {s} -o {s}/{s}.o {s} 2>&1 || true", .{
+            b.fmt("zig cc -target {s} -c -I src -std=c17 -UBMI2 -ULZCNT -DFD_HAS_HOSTED=1 {s} -o {s}/{s}.o {s} 2>&1", .{
                 shims.buildTriple(b, target),
-                shims.shimCFlagsFor(target.result)[0],
+                shim_c_flags,
                 cache_o_dir,
                 shim_file,
                 b.fmt("src/tickoni/c_abi/shim/{s}", .{shim_file}),
@@ -151,9 +160,9 @@ pub fn createCheckStep(
     {
         const getrandom_check = b.addSystemCommand(&.{
             "sh", "-c",
-            b.fmt("zig cc -target {s} -c -I src -I src/util -I src/disco -I src/ballet -std=c17 -DFD_HAS_HOSTED=1 {s} -o {s}/test_fd_shmem_getrandom.o {s} 2>&1 || true", .{
+            b.fmt("zig cc -target {s} -c -I src -I src/util -I src/disco -I src/ballet -std=c17 -DFD_HAS_HOSTED=1 {s} -o {s}/test_fd_shmem_getrandom.o {s} 2>&1", .{
                 shims.buildTriple(b, target),
-                shims.shimCFlagsFor(target.result)[0],
+                shim_c_flags,
                 cache_o_dir,
                 "src/util/shmem/test_fd_shmem_getrandom.c",
             }),

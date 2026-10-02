@@ -10,7 +10,7 @@
   <!-- badge:build:end -->
 
   <!-- badge:unit:start -->
-  <img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-passing-brightgreen?style=flat-square" />
+  <img alt="Unit Tests" src="https://img.shields.io/badge/unit%20tests-unknown-lightgrey?style=flat-square" />
   <!-- badge:unit:end -->
 
   <!-- badge:integration:start -->
@@ -18,15 +18,15 @@
   <!-- badge:integration:end -->
 
   <!-- badge:security:start -->
-  <img alt="Security" src="https://img.shields.io/badge/security-passing-brightgreen?style=flat-square" />
+  <img alt="Security" src="https://img.shields.io/badge/security-unknown-lightgrey?style=flat-square" />
   <!-- badge:security:end -->
 
   <!-- badge:system:start -->
-  <img alt="System Tests" src="https://img.shields.io/badge/system%20tests-passing-brightgreen?style=flat-square" />
+  <img alt="System Tests" src="https://img.shields.io/badge/system%20tests-unknown-lightgrey?style=flat-square" />
   <!-- badge:system:end -->
 
   <!-- badge:cov-tk:start -->
-  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-89.9%25-yellowgreen?style=flat-square" />
+  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-89.3%25-yellowgreen?style=flat-square" />
   <!-- badge:cov-tk:end -->
     
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-blue?style=flat-square" />

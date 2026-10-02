@@ -77,7 +77,7 @@ Full Firedancer registers these tile kinds in the canonical C application.
 | `net` | [`src/disco/net/xdp/fd_xdp_tile.c`](../../src/disco/net/xdp/fd_xdp_tile.c) | XDP network mode | Kernel-bypass network I/O tile. It receives packets from AF_XDP rings, demultiplexes incoming UDP flows into topology links, and transmits packets produced by other tiles. |
 | `sock` | [`src/disco/net/sock/fd_sock_tile.c`](../../src/disco/net/sock/fd_sock_tile.c) | socket network mode | Socket-backed network I/O tile used instead of `net` when XDP is not selected. It batches `recvmmsg`/`sendmmsg` style UDP traffic into the same topology link model. |
 | `netlnk` | [`src/disco/netlink/fd_netlink_tile.c`](../../src/disco/netlink/fd_netlink_tile.c) | conditional network support | Netlink listener for kernel route, neighbor, and interface state. XDP networking uses it to keep packet forwarding metadata current. |
-| `metric` | [`src/disco/metrics/fd_metric_tile.c`](../../src/disco/metrics/fd_metric_tile.c) | always | Prometheus HTTP endpoint for tile metrics. It uses `fd_http_server` and renders `/metrics` from the topology metric workspaces. |
+| `metric` | [`src/disco/metrics/fd_metric_tile.c`](../../src/disco/metrics/fd_metric_tile.c) | always | Prometheus HTTP endpoint for tile metrics. It runs an embedded `fd_http_server` on a configurable port, renders `/metrics` from the topology metric workspaces, and has zero in/out pipeline links — it is a pure observer reading from `metric_in`. Scratch footprint is a few hundred KiB (4 connection slots, 256 KiB outgoing buffer). |
 | `diag` | [`src/disco/diag/fd_diag_tile.c`](../../src/disco/diag/fd_diag_tile.c) | always | Runtime diagnostics tile. It samples tile process state, `/proc` CPU and interrupt data, selected validator health signals, and crash/death visibility. |
 | `genesi` | [`src/discof/genesis/fd_genesi_tile.c`](../../src/discof/genesis/fd_genesi_tile.c) | startup | Genesis bootstrap tile. It loads or retrieves Solana genesis, validates expected hash and shred version, initializes the accounts database on bootstrap, and publishes genesis metadata. |
 | `ipecho` | [`src/discof/ipecho/fd_ipecho_tile.c`](../../src/discof/ipecho/fd_ipecho_tile.c) | bootstrap/network | Shred-version discovery and serving tile. It queries entrypoints for the shred version and exposes an IP echo service for peers. |
@@ -165,9 +165,9 @@ financial meaning.
 | `net` | Mostly generic packet I/O, but configured around validator UDP flows | Useful only if Tickoni later needs high-rate packet ingress/egress below normal HTTP/WebSocket APIs, such as market-data UDP capture or colocated adapter feeds. Not needed for the current in-process spike. | Adapt only the generic packet-I/O discipline; do not inherit validator packet schemas. |
 | `sock` | Mostly generic UDP socket I/O | Useful for lower-rate UDP adapter feeds or tests where XDP is unnecessary. Not a replacement for `tkapi` HTTP/WebSocket. | Adapt only if Tickoni needs low-level UDP feeds. |
 | `netlnk` | Generic Linux network metadata | Useful with `net` if Tickoni owns route/neighbour-aware packet I/O. | Keep paired with low-level network work; otherwise omit. |
-| `metric` | Mostly generic, but assumes Firedancer metric layout and C topology | Useful model for `tkmetr` Prometheus export and `fd_http_server` integration. | Keep metric workspace/rendering patterns; expose Tickoni metric names instead of validator metric schema. |
+| `metric` | Mostly generic, but assumes Firedancer metric layout and C topology | Useful model for `metric` Prometheus export and `fd_http_server` integration. | Keep metric workspace/rendering patterns; expose Tickoni metric names instead of validator metric schema. |
 | `diag` | Mixed: generic process diagnostics plus validator health checks | Useful model for `tkdiag` process, queue, crash, CPU, and interrupt diagnostics. | Minimal adaptation: remove validator-specific replay/tower/bundle checks and keep process/topology sampling. |
-| `fd_http_server` used by `metric`, `rpc`, and `gui` | Generic HTTP/WebSocket infrastructure, not itself a tile | Useful for `tkapi`, `tkmetr`, and `tkdiag` HTTP surfaces. | Reuse the HTTP/WebSocket substrate, not Solana RPC or GUI schemas. |
+| `fd_http_server` used by `metric`, `rpc`, and `gui` | Generic HTTP/WebSocket infrastructure, not itself a tile | Useful for `tkapi`, `metric`, and `tkdiag` HTTP surfaces. | Reuse the HTTP/WebSocket substrate, not Solana RPC or GUI schemas. |
 | `src/disco/topo` and `src/disco/stem` | Generic tile lifecycle/polling substrate | Useful for process lifecycle, workspace construction, link validation, bounded polling, and backpressure. | Use as lifecycle/backpressure reference material. Avoid adding Tickoni fields to upstream-hot `fd_topo.h`. |
 | `src/tango` | Generic queue substrate | Core Tickoni shared-memory queue and flow-control substrate. | Reuse with Tickoni-owned link schemas. |
 | `src/util/sandbox` and generated seccomp pattern | Generic sandbox infrastructure with per-tile policies | Useful for tile isolation, file descriptor discipline, Landlock/seccomp, and crash-only operation. | Adapt per Tickoni tile class. |
@@ -205,11 +205,11 @@ Tickoni should reuse stable systems substrate, not validator semantics.
 | `src/tango/mcache` and `src/tango/dcache` | Shared-memory fragment queues for correctness-bearing inter-process links |
 | `src/tango/fseq` or `src/tango/fctl` | Reliable consumer progress and producer backpressure |
 | `src/tango/cnc` | Tile boot, heartbeat, halt, and fail state |
-| `src/util/sandbox` | Process sandboxing, namespaces, file descriptor checks, Landlock, and seccomp |
+| `src/util/sandbox` | Process sandboxing on Linux only — namespaces, file descriptor checks, Landlock, and seccomp (see [platform-tiers.md](platform-tiers.md) for the step-by-step Linux-only breakdown and macOS/Windows equivalents) |
 | `src/disco/topo` | Reference for process lifecycle and workspace construction |
 | `src/disco/stem` | Reference for bounded polling loops and backpressure |
 | `src/disco/metrics` | Reference for low-overhead per-tile metrics; do not copy validator metric names as financial facts |
-| `src/waltz/http` | HTTP/WebSocket substrate for `tkapi`, `tkmetr`, and diagnostics surfaces |
+| `src/waltz/http` | HTTP/WebSocket substrate for `tkapi`, `metric`, and diagnostics surfaces |
 | `net`, `sock`, `netlnk` tile implementations | Optional low-level network ingress/egress substrate when a Tickoni workflow proves it needs packet-tile performance |
 | Crash-only process model | Keep: unexpected tile failure tears down the runtime |
 
@@ -234,9 +234,8 @@ Firedancer or vendored C headers. Avoid adding Tickoni fields to
 ### Process And Core Placement Boundary
 
 In Tickoni Linux full-runtime process mode, a tile is a supervisor-managed OS
-process with its own address space. A thread-backed topology may remain as a
-dev/test compatibility lane, but it is not the process-isolation target for
-runtime hardening work.
+process with its own address space. Process mode is the only dispatch path;
+there is no thread-mode compatibility lane.
 
 CPU placement is Tickoni-owned policy layered on top of the Firedancer
 substrate. Tickoni should support:
@@ -266,6 +265,9 @@ fragment bounds errors; link depth, MTU, burst, or fragment-size mismatches;
 non-advancing reliable consumers; accidental heap-backed correctness queues in
 process mode; and forced tile crashes that must not corrupt sibling tile state.
 
+See [workspace-management.md](workspace-management.md) for workspace lifecycle,
+the Firedancer vs Tickoni backing divergence, and the object callback system.
+
 These tests prove Tickoni's boundary around reused Firedancer substrate. They
 do not require fuzzing every Firedancer workspace internal, proving arbitrary
 kernel memory-attack resistance, or claiming production throughput saturation.
@@ -276,7 +278,7 @@ Three approaches were evaluated for how the supervisor discovers which tile
 processes to launch and how it knows their expected link cardinality:
 
 1. **Option A — Tile registry (single source of truth).** A Zig table maps
-   tile ID to logical name, process/thread callback, link cardinality, and
+   tile ID to logical name, process-mode callback, link cardinality, and
    metric schema. The supervisor reads from this table exclusively. This is the
    recommended approach because it eliminates duplicate mappings and keeps
    launch logic generic.
@@ -393,7 +395,7 @@ and demo paths are Tickoni-owned support roots around the runtime.
 | `tkaudt` | `audit_tile` | Own append-only hash-chain ordering and JSONL export |
 | `tkevid` | `evidence_tile` | Store and retrieve content-addressed evidence blobs |
 | `tkrepl` | `replay_tile` | Re-inject replay capsules with external effects disabled and report divergence |
-| `tkmetr` | `metric_tile` | Export Tickoni runtime metrics |
+| `metric` | `metric_tile` | Export Tickoni runtime metrics |
 | `tkdiag` | `diag_tile` | Export process, queue, and crash diagnostics |
 | `tkdisp` | `agent_dispatch_tile` | Schedule bounded stub agent runs by role, synthetic case, priority, and remaining budget |
 | `tkagnt` | `agent_worker_tile` | Run memory-isolated role agents without direct shell, unrestricted syscall, or unrestricted network access |
@@ -427,7 +429,7 @@ tkapi  -> tkpoly -> tkexec          approved sensitive actions only
 all boundary events -> tkaudt
 evidence records    -> tkevid
 replay capsule      -> tkrepl -> deterministic pipeline with tkexec disabled
-all tile metrics    -> tkmetr
+all tile metrics    -> metric
 ```
 
 AI is not part of the deterministic event critical path. A case can be created,
@@ -470,7 +472,7 @@ runtime no longer depends on it.
 | `sign` | Replace, do not morph. Validator keyguard policy is not a fintech action-signing policy. | Narrow signing support owned by `tkexec`; split a `tksign` tile later if needed |
 | `accdb`, `store`, `funk`, `progcache`, `txncache`, `banks` | Exclude. They are Solana runtime state. | Dedicated case, evidence, audit, and connector stores |
 | `event` | Exclude. It is an outbound Solana telemetry exporter. | `tkings`, `tkaudt` |
-| `metric`, `diag` | Reimplement with Tickoni IDs while reusing the generic metrics and sandbox substrate where practical. | `tkmetr`, `tkdiag` |
+| `metric` | Reimplement with Tickoni IDs while reusing the generic metrics and sandbox substrate where practical. | `metric`, `tkdiag` | Scratch footprint is a few hundred KiB (4 connection slots, 256 KiB out buffer). |
 | `rpc`, `gui`, `guih`, `plugin` | Exclude as validator tiles. The validator RPC and GUI data model do not fit CaseOps. The plugin fanout pattern may still be useful if Tickoni needs a governed connector or marketplace surface. | `tkapi` and a separate CaseOps frontend |
 | `bundle` | Exclude. Jito bundles are Solana-specific. | None |
 | `resolh`, `resolv` | Exclude. Solana lookup resolution is unrelated to financial entity enrichment. | Add a new `tkenty` enrichment tile only when a workflow requires it |
