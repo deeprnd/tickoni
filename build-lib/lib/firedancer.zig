@@ -33,4 +33,7 @@ fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) void 
         },
         .flags = shims.shimCFlagsFor(target_info),
     });
+    if (target_info.os.tag == .windows) {
+        step.root_module.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
+    }
 }

@@ -89,6 +89,7 @@ pub fn addTickoniShimLibrary(
             .files = &.{"src/tickoni/c_abi/shim/windows_crt.c"},
             .flags = shims.shimCFlagsFor(target.result),
         });
+        mod.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
     }
     return b.addLibrary(.{
         .name = name,
