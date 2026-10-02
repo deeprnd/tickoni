@@ -4,6 +4,27 @@
 # not in zig-out/bin/ (addRunArtifact handles that automatically).
 set -euo pipefail
 
+# Raise RLIMIT_MEMLOCK to unlimited so mlock() succeeds for workspace
+# creation and child-tile joins. GitHub Actions runners cap RLIMIT_MEMLOCK
+# (often at 64 KiB); ulimit alone can't raise past the hard limit, so we
+# use sudo prlimit to bump both soft and hard limits at once.
+# memlock is a Linux concept only.
+echo "memlock before:"
+if [[ "$(contrib/platform.sh os)" == "linux" ]]; then
+    ulimit -Sl
+    ulimit -Hl
+    if [[ -f /proc/$$/limits ]]; then
+        grep "Max locked memory" /proc/$$/limits
+        if command -v sudo >/dev/null 2>&1 && \
+           sudo prlimit --pid $$ --memlock=unlimited:unlimited 2>/dev/null; then
+            echo "memlock after:"
+            ulimit -Sl
+            ulimit -Hl
+            grep "Max locked memory" /proc/$$/limits
+        fi
+    fi
+fi
+
 echo "Finding test binaries..."
 
 # Prefer explicit artifact paths passed from build.zig. Fall back to cache

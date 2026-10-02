@@ -30,12 +30,14 @@
 #include <sys/types.h>
 #include <sys/socket.h> /* SOCK_CLOEXEC, SOCK_NONBLOCK needed for seccomp filter */
 #include <unistd.h>
+#if 0
 #include "generated/fd_metric_tile_seccomp.h"
 #endif
+#endif
 
-#define FD_HTTP_SERVER_METRICS_MAX_CONNS          128
-#define FD_HTTP_SERVER_METRICS_MAX_REQUEST_LEN    8192
-#define FD_HTTP_SERVER_METRICS_OUTGOING_BUFFER_SZ (32UL<<20UL) /* 32MiB reserved for buffering metrics responses */
+#define FD_HTTP_SERVER_METRICS_MAX_CONNS          4
+#define FD_HTTP_SERVER_METRICS_MAX_REQUEST_LEN    2048
+#define FD_HTTP_SERVER_METRICS_OUTGOING_BUFFER_SZ (256UL<<10UL) /* 256KiB for buffering Prometheus metrics responses */
 
 /* ---------------------------------------------------------------------
    Configuration constant
@@ -186,7 +188,7 @@ populate_allowed_seccomp( fd_topo_t const *      topo,
                           ulong                  out_cnt,
                           struct sock_filter *   out ) {
 
-#if FD_HAS_LINUX
+#if 0
   void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
   FD_SCRATCH_ALLOC_INIT( l, scratch );
   fd_metric_ctx_t * ctx = FD_SCRATCH_ALLOC_APPEND( l, alignof( fd_metric_ctx_t ), sizeof( fd_metric_ctx_t ) );
