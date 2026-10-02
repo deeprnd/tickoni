@@ -120,7 +120,7 @@ This is a product security decision, not just an engineering preference.
 **Rules applied:**
 - Configurable port explicitly documented ✓
 - Observer role (zero links) reinforced ✓
-- Scratch footprint (~32 MiB) documented ✓
+- Scratch footprint (few hundred KiB: 4 connections, 256 KiB buffer) documented ✓
 - `metric_tile_obj_id` in `BuiltTopo` documented ✓
 
 ### Task 4: Fix Tile Registry Description (LOW)
