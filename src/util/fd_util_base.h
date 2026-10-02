@@ -1019,7 +1019,15 @@ fd_type_pun_const( void const * p ) {
 #if FD_HAS_THREADS /* Potentially more than one thread in the process */
 
 #ifndef FD_TL
+#if FD_HAS_WINDOWS
+/* Tickoni process-mode tiles are one tile per child process.  PE TLS is not
+   reliably initialized for these self-executed Windows ARM children, while a
+   process-local global has the required isolation and is shared by the tile's
+   threads. */
+#define FD_TL
+#else
 #define FD_TL __thread
+#endif
 #endif
 
 #define FD_ONCE_BEGIN do {                                                \
