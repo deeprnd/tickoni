@@ -5,6 +5,7 @@
 
 #include "fd_aes_base.h"
 #include "fd_aes_gcm.h"
+#include "fixture_aes_128_gcm_unroll.h"
 
 #if FD_USING_GCC && __GNUC__ >= 15
 #pragma GCC diagnostic ignored "-Wunterminated-string-initialization"
@@ -487,8 +488,6 @@ test_aes_128_gcm( void ) {
 }
 
 /* AES-GCM unroll tests ***********************************************/
-
-FD_IMPORT_BINARY( fixture_aes_128_gcm_unroll, "src/ballet/aes/fixtures/gcm-ciphertext.bin" );
 
 static void
 test_aes_128_gcm_unroll( void ) {

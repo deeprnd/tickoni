@@ -552,6 +552,26 @@ __extension__ typedef unsigned __int128 uint128;
   extern type  const name[] __attribute__((aligned(1<<(lg_align)))); \
   extern ulong const name##_sz
 
+#elif defined(_WIN32)
+
+/* Clang's Windows GNU target uses COFF rather than ELF.  Keep binary imports
+   in a read-only COFF section and use the same public symbol contract as the
+   ELF and Mach-O implementations. */
+#define FD_IMPORT( name, path, type, lg_align, footer )      \
+  __asm__( ".section .rdata,\"dr\"\n"                       \
+           ".globl " #name "\n"                              \
+           FD_ASM_LG_ALIGN(lg_align)                         \
+           #name ":\n"                                       \
+           ".incbin \"" path "\"\n"                          \
+           footer "\n"                                       \
+           ".globl " #name "_sz\n"                           \
+           FD_ASM_LG_ALIGN(3)                                \
+           #name "_sz:\n"                                    \
+           ".quad . - " #name "\n"                           \
+           ".text\n" );                                      \
+  extern type  const name[] __attribute__((aligned(1<<(lg_align)))); \
+  extern ulong const name##_sz
+
 #endif
 
 /* FD_IMPORT_{BINARY,CSTR} are common cases for FD_IMPORT.
