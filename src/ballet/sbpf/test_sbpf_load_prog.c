@@ -11,7 +11,30 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#if FD_HAS_WINDOWS
+#include <io.h>       /* _close */
+#include <malloc.h>   /* _aligned_malloc, _aligned_free */
+#define close _close
+#define S_ISREG( mode ) (((mode) & _S_IFMT)==_S_IFREG)
+static inline void *
+fd_test_aligned_alloc( ulong align, ulong sz ) {
+  return _aligned_malloc( sz, align );
+}
+static inline void
+fd_test_aligned_free( void * p ) {
+  _aligned_free( p );
+}
+#else
 #include <unistd.h> /* close */
+static inline void *
+fd_test_aligned_alloc( ulong align, ulong sz ) {
+  return aligned_alloc( align, sz );
+}
+static inline void
+fd_test_aligned_free( void * p ) {
+  free( p );
+}
+#endif
 
 uint const _syscalls[] = {
   0xb6fc1a11, 0x686093bb, 0x207559bd, 0x5c2a3178, 0x52ba5096,
@@ -85,7 +108,7 @@ main( int     argc,
 
   ulong  prog_align     = fd_sbpf_program_align();
   ulong  prog_footprint = fd_sbpf_program_footprint( &elf_info );
-  void * prog_buf       = aligned_alloc( prog_align, prog_footprint );
+  void * prog_buf       = fd_test_aligned_alloc( prog_align, prog_footprint );
   if( FD_UNLIKELY( !prog_buf ) )
     FD_LOG_ERR(( "aligned_alloc(%#lx, %#lx) failed (%i-%s)", prog_align, prog_footprint, errno, fd_io_strerror( errno ) ));
 
@@ -93,7 +116,7 @@ main( int     argc,
   FD_TEST( prog );
 
   fd_sbpf_syscalls_t * syscalls = fd_sbpf_syscalls_new(
-      aligned_alloc( fd_sbpf_syscalls_align(), fd_sbpf_syscalls_footprint() ) );
+      fd_test_aligned_alloc( fd_sbpf_syscalls_align(), fd_sbpf_syscalls_footprint() ) );
   FD_TEST( syscalls );
 
   /* Load and reloc program */
@@ -142,8 +165,8 @@ main( int     argc,
   free( rodata   );
   free( scratch );
   free( bin_buf  );
-  free( prog_buf );
-  free( fd_sbpf_syscalls_delete( syscalls ) );
+  fd_test_aligned_free( prog_buf );
+  fd_test_aligned_free( fd_sbpf_syscalls_delete( syscalls ) );
 
   if( FD_UNLIKELY( 0!=fclose( bin_file ) ) ) FD_LOG_WARNING(( "fclose() failed (%i-%s)", errno, fd_io_strerror( errno ) ));
 

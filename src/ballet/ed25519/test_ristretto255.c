@@ -5,6 +5,10 @@
 #include "../hex/fd_hex.h"
 #include "fd_ristretto255.h"
 
+#if FD_HAS_WINDOWS
+#include <malloc.h>
+#endif
+
 #if FD_USING_GCC && __GNUC__ >= 15
 #pragma GCC diagnostic ignored "-Wunterminated-string-initialization"
 #endif
@@ -475,7 +479,12 @@ test_multiscalar_mul( fd_rng_t * rng ) {
 #define MSM_N 1024
 // to speed up decompression, we copy 15 points at a time, so we need to alloc a multiple of 15
 #define MSM_N_MALLOC (MSM_N/15+1)*15
-  fd_ristretto255_point_t *   f = aligned_alloc( alignof(fd_ristretto255_point_t), MSM_N_MALLOC * sizeof(fd_ristretto255_point_t) );
+  fd_ristretto255_point_t * f =
+#if FD_HAS_WINDOWS
+    _aligned_malloc( MSM_N_MALLOC * sizeof(fd_ristretto255_point_t), alignof(fd_ristretto255_point_t) );
+#else
+    aligned_alloc( alignof(fd_ristretto255_point_t), MSM_N_MALLOC * sizeof(fd_ristretto255_point_t) );
+#endif
   uchar _a[MSM_N][32]; uchar * a = (uchar *)_a;
 
   for( ulong i=0; i<MSM_N; i++ )
@@ -498,7 +507,11 @@ test_multiscalar_mul( fd_rng_t * rng ) {
     log_bench( fd_cstr_printf( cstr, 128UL, NULL, "fd_ristretto255_multi_scalar_mul(%lu)", sz ), iter/sz, dt );
   }
 
-  free(f);
+#if FD_HAS_WINDOWS
+  _aligned_free( f );
+#else
+  free( f );
+#endif
 }
 
 static void
