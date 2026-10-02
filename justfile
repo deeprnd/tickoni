@@ -74,32 +74,27 @@ test-unit-fd-macos-arm:
     @echo "SKIPPED: test-unit-fd-macos-arm — lz4 needs more porting"
 
 test-unit-fd-windows-x86:
-    # DISABLED: access violation (0xc0000005) during cmake/gmake.exe
-    # from Strawberry Perl. Requires more work before this lane can run.
-    # python3 contrib/build/orchestrator.py --platform windows-x86 build-fd {{ fd_tickoni_build }} test clang --arch x86_64
-    # {{ make }} SHELL=/usr/bin/bash -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal --page-cnt 131072"
-    @echo "SKIPPED: test-unit-fd-windows-x86 — access violation (0xc0000005) in cmake/gmake.exe (Strawberry Perl)" >&2
+    # Uses SHELL=/usr/bin/bash to work around MSYS2 miniperl access violation (0xc0000005).
+    python3 contrib/build/orchestrator.py --platform windows-x86 build-fd {{ fd_tickoni_build }} test clang --arch x86_64
+    {{ make }} SHELL=/usr/bin/bash -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal --page-cnt 131072"
 
 test-unit-fd-windows-arm:
-    # DISABLED: access violation (0xc0000005) during cmake/gmake.exe
-    # from Strawberry Perl. Requires more work before this lane can run.
-    # python3 contrib/build/orchestrator.py --platform windows-arm build-fd {{ fd_tickoni_build }} test clang --arch arm64
-    # {{ make }} SHELL=/usr/bin/bash -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal --page-cnt 131072"
-    @echo "SKIPPED: test-unit-fd-windows-arm — access violation (0xc0000005) in cmake/gmake.exe (Strawberry Perl)"
+    # Uses SHELL=/usr/bin/bash to work around MSYS2 miniperl access violation (0xc0000005).
+    python3 contrib/build/orchestrator.py --platform windows-arm build-fd {{ fd_tickoni_build }} test clang --arch arm64
+    {{ make }} SHELL=/usr/bin/bash -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal --page-cnt 131072"
 
 test-unit-fd:
     #!/usr/bin/env bash
     set -euo pipefail
-    # NOTE: macOS and Windows FD unit tests disabled (macOS: lz4 needs more porting;
-    # Windows: access violation in cmake/gmake.exe from Strawberry Perl).
-    # macOS and Windows still build FD libs but do not run FD tests.
+    # macOS FD unit tests disabled (lz4 needs more porting).
+    # Windows FD unit tests enabled (SHELL=/usr/bin/bash works around MSYS2 miniperl AV).
     case "{{ os }}-{{ arch }}" in
       linux-x86) exec just test-unit-fd-linux-x86-gcc ;;
       linux-arm) exec just test-unit-fd-linux-arm-gcc ;;
       macos-x86) echo "test-unit-fd on macos-x86 is disabled — lz4 needs more porting" >&2; exit 1 ;;
       macos-arm) echo "test-unit-fd on macos-arm is disabled — lz4 needs more porting" >&2; exit 1 ;;
-      windows-x86) echo "test-unit-fd on windows-x86 is disabled — access violation (0xc0000005) in cmake/gmake.exe (Strawberry Perl)" >&2 ;;
-      windows-arm) echo "test-unit-fd on windows-arm is disabled — access violation (0xc0000005) in cmake/gmake.exe (Strawberry Perl)" >&2 ;;
+      windows-x86) exec just test-unit-fd-windows-x86 ;;
+      windows-arm) exec just test-unit-fd-windows-arm ;;
       *) echo "unsupported host platform for test-unit-fd: {{ os }}-{{ arch }}" >&2; exit 1 ;;
     esac
 
