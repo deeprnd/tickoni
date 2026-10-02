@@ -580,19 +580,7 @@ pub const Supervisor = struct {
             state.children[i] = child;
 
             switch (tile.cpu_placement) {
-                .exclusive, .shared => |cpu| {
-                    var cpu_set: util.cpu.CpuSet = undefined;
-                    util.cpu.zero(&cpu_set);
-                    util.cpu.set(&cpu_set, cpu);
-                    // sched_setaffinity takes a numeric PID; on Windows
-                    // std.process.Child.Id is ?*anyopaque (HANDLE), not an
-                    // integer, so @intCast fails at compile time.  The
-                    // non-Linux stub in util.cpu.setAffinity is a no-op
-                    // anyway, so gate the call behind a Linux check.
-                    if (builtin.os.tag == .linux)
-                        try util.cpu.setAffinity(@intCast(child.id.?), &cpu_set);
-                },
-                .floating => {},
+                .exclusive, .shared, .floating => {},
             }
         }
     }
