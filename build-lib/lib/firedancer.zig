@@ -20,6 +20,8 @@ pub fn linkTickoniFiredancer(b: *std.Build, step: *std.Build.Step.Compile, fd_li
 fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) void {
     step.root_module.link_libc = true;
     step.root_module.addIncludePath(b.path("src"));
+    step.root_module.addIncludePath(b.path("src/util/shmem"));
+    step.root_module.addIncludePath(b.path("src/util/wksp"));
     const target_info = step.root_module.resolved_target.?.result;
     step.root_module.addCSourceFiles(.{
         .files = &.{
