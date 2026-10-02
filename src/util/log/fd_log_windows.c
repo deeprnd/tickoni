@@ -360,9 +360,15 @@ void
 fd_log_private_stack_discover( ulong stack_sz,
                                ulong * opt_stack0,
                                ulong * opt_stack1 ) {
+  /* Windows tile stacks are managed by the Win32 thread runtime.  The
+     generic caller supplies the tile bounds through FD_TL globals, but
+     taking their address across the Windows object boundary is not safe
+     with the current C/Win32 TLS ABI.  Windows callers explicitly clear
+     their bounds and skip discovery; keep this fallback side-effect free
+     for any remaining callers. */
   (void)stack_sz;
-  *opt_stack0 = 0UL;
-  *opt_stack1 = 0UL;
+  (void)opt_stack0;
+  (void)opt_stack1;
 }
 
 /* ── Log level storage ──────────────────────────────────────────────────
