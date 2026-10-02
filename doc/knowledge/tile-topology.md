@@ -472,7 +472,7 @@ runtime no longer depends on it.
 | `sign` | Replace, do not morph. Validator keyguard policy is not a fintech action-signing policy. | Narrow signing support owned by `tkexec`; split a `tksign` tile later if needed |
 | `accdb`, `store`, `funk`, `progcache`, `txncache`, `banks` | Exclude. They are Solana runtime state. | Dedicated case, evidence, audit, and connector stores |
 | `event` | Exclude. It is an outbound Solana telemetry exporter. | `tkings`, `tkaudt` |
-| `metric`, `diag` | Reimplement with Tickoni IDs while reusing the generic metrics and sandbox substrate where practical. | `metric`, `tkdiag` |
+| `metric` | Reimplement with Tickoni IDs while reusing the generic metrics and sandbox substrate where practical. | `metric`, `tkdiag` | Scratch footprint is a few hundred KiB (4 connection slots, 256 KiB out buffer). |
 | `rpc`, `gui`, `guih`, `plugin` | Exclude as validator tiles. The validator RPC and GUI data model do not fit CaseOps. The plugin fanout pattern may still be useful if Tickoni needs a governed connector or marketplace surface. | `tkapi` and a separate CaseOps frontend |
 | `bundle` | Exclude. Jito bundles are Solana-specific. | None |
 | `resolh`, `resolv` | Exclude. Solana lookup resolution is unrelated to financial entity enrichment. | Add a new `tkenty` enrichment tile only when a workflow requires it |

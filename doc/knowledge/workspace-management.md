@@ -106,7 +106,7 @@ Tickoni separates workspaces by **concern and access pattern** rather than creat
 
 **`tickoni_tkpay0`** (main workspace) — the correctness-bearing workspace. It hosts all mcache/dcache links (the tkings→tknorm→tkdedu→tkpoly→tkaudt pipeline), audit chain state, replay buffers, fseq progress counters, and cnc control objects. Every pipeline tile joins this workspace because correctness data flows through it.
 
-**`tickoni_metric`** (metric tile workspace) — the metric tile's own scratch space. The metric tile has no mcache/dcache links; it only needs its own address space to host an embedded `fd_http_server` (~32 MiB scratch region allocated as a "tile" object) and its HTTP server state. It does **not** need the main workspace.
+**`tickoni_metric`** (metric tile workspace) — the metric tile's own scratch space. The metric tile has no mcache/dcache links; it only needs its own address space to host an embedded `fd_http_server` (a few hundred KiB: 4 connection slots, 256 KiB outgoing buffer) and its HTTP server state. It does **not** need the main workspace.
 
 **`tickoni_metric_in`** (metrics data workspace) — a shared metrics data store. Every pipeline tile writes metrics samples (per-tile counters, fseq progress, backpressure waits) into this workspace. The metric tile reads them all to render Prometheus `/metrics`. By keeping metrics data in a separate workspace, the metric tile can read without contending on the main workspace's memory.
 
@@ -163,7 +163,7 @@ graph TB
     end
 
     subgraph "tickoni_metric (metric workspace)"
-        M1["HTTP server state<br/>~32 MiB scratch"]
+        M1["HTTP server state<br/>~few hundred KiB scratch"]
         M2["fd_http_server"]
     end
 
@@ -401,7 +401,7 @@ The metric tile (`metric`) is the only tile that explicitly needs two workspaces
 to function:
 
 - **Own workspace** (`tickoni_metric`): hosts the tile's process context and
-  scratch region (~32 MiB, allocated as a "tile" object with custom footprint
+  scratch region (a few hundred KiB: 4 connections, 256 KiB out buffer, allocated as a "tile" object with custom footprint
   set via `topobSetObjPropertyUlong("tickoni.scratch_footprint")`)
 - **Metrics data workspace** (`tickoni_metric_in`): hosts all metrics objects
   written by every pipeline tile

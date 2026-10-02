@@ -115,7 +115,7 @@ This is a product security decision, not just an engineering preference.
 
 **Files edited:**
 1. `doc/knowledge/tile-topology.md` — Tile registry table row (line 80): added "configurable port", "zero in/out pipeline links", "pure observer reading from `metric_in`" to the metric tile description.
-2. `doc/knowledge/workspace-management.md` — Lines 413-415: added "configurable port", "serving `/metrics` to external consumers", "scratch workspace (~32 MiB) hosts HTTP server state", and "`metric_tile_obj_id` field in `BuiltTopo` carries the object ID".
+2. `doc/knowledge/workspace-management.md` — Lines 413-415: added "configurable port", "serving `/metrics` to external consumers", "scratch workspace (a few hundred KiB: 4 connections, 256 KiB out buffer) hosts HTTP server state", and "`metric_tile_obj_id` field in `BuiltTopo` carries the object ID". Also updated lines 109, 166, 404: "~32 MiB" → "a few hundred KiB (4 connections, 256 KiB out buffer)".
 
 **Rules applied:**
 - Configurable port explicitly documented ✓
