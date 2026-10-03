@@ -1,0 +1,919 @@
+just test-integration-tk
+py -3 C:/Users/victorgenin/git/tickoni/scripts/dispatch test-integration-tk
+# Uses SHELL=/usr/bin/bash to work around MSYS2 miniperl access violation (0xc0000005).
+set -euo pipefail
+(cd C:/Users/victorgenin/git/tickoni && ZIG_LOCAL_CACHE_DIR=$(git rev-parse --show-toplevel)/build/.zig-cache ZIG_GLOBAL_CACHE_DIR=$(git rev-parse --show-toplevel)/build/.zig-global-cache zig build -p $(git rev-parse --show-toplevel)/build/zig-out -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib integration-test)
+memlock before:
+Finding test binaries...
+Found 1 test binaries, running sequentially...
+  f93f6ec42a14acde1bf6b252662fe2fe... OK
+All 1 tests passed.
+memlock before:
+Finding test binaries...
+Found 1 test binaries, running sequentially...
+  4db3d259bf763d91cfffc618d6c711e0... OK
+All 1 tests passed.
+memlock before:
+Finding test binaries...
+Found 1 test binaries, running sequentially...
+  491000e0459834139b86a1e03a568d2d... OK
+All 1 tests passed.
+memlock before:
+Finding test binaries...
+Found 1 test binaries, running sequentially...
+  1d1c1ce5477df3a52b15b31533a02204... OK
+All 1 tests passed.
+memlock before:
+Finding test binaries...
+Found 1 test binaries, running sequentially...
+  40a736a347effdd0e897d481e4ac867c... OK
+All 1 tests passed.
+memlock before:
+Finding test binaries...
+Found 1 test binaries, running sequentially...
+  70066eb4252210adffab685978d79238... FAILED (exit 3)
+1/6 test_process_topology.test.process_topology_integration: every tile is a distinct OS process parented by the supervisor...WARNING 10-03 11:03:39.503000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_id=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_id=0)
+    obj[15] 'metrics' (wksp_id=0)
+    obj[16] 'tile' (wksp_id=0)
+    obj[17] 'metrics' (wksp_id=0)
+    obj[18] 'tile' (wksp_id=0)
+    obj[19] 'metrics' (wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[21] 'metrics' (wksp_id=0)
+    obj[28] 'cnc' (wksp_id=0)
+    obj[29] 'cnc' (wksp_id=0)
+    obj[30] 'cnc' (wksp_id=0)
+    obj[31] 'cnc' (wksp_id=0)
+    obj[32] 'cnc' (wksp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34] 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp_id=0)
+    obj[37] 'fseq' (wksp_id=0)
+    obj[38] 'fseq' (wksp_id=0)
+    obj[39] 'fseq' (wksp_id=0)
+  wksp[1] 'metric' => 2 objects
+    obj[22] 'tile' (wksp_id=1)
+    obj[23] 'metrics' (wksp_id=1)
+  wksp[2] 'metric_in' => 4 objects
+    obj[24] 'fseq' (wksp_id=2)
+    obj[25] 'fseq' (wksp_id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+WARNING 10-03 11:03:39.553000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_id=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_id=0)
+    obj[15] 'metrics' (wksp_id=0)
+    obj[16] 'tile' (wksp_id=0)
+    obj[17] 'metrics' (wksp_id=0)
+    obj[18] 'tile' (wksp_id=0)
+    obj[19] 'metrics' (wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[21] 'metrics' (wksp_id=0)
+    obj[28] 'cnc' (wksp_id=0)
+    obj[29] 'cnc' (wksp_id=0)
+    obj[30] 'cnc' (wksp_id=0)
+    obj[31] 'cnc' (wksp_id=0)
+    obj[32] 'cnc' (wksp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34] 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp_id=0)
+    obj[37] 'fseq' (wksp_id=0)
+    obj[38] 'fseq' (wksp_id=0)
+    obj[39] 'fseq' (wksp_id=0)
+  wksp[1] 'metric' => 2 objects
+    obj[22] 'tile' (wksp_id=1)
+    obj[23] 'metrics' (wksp_id=1)
+  wksp[2] WARN'metric_in' => 4 objects
+    obj[24] 'fseq' (wksp_id=2)
+    obj[25] 'fseq' (wksp_id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+ING 10-03 11:03:39.575000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+WARNING 10-03 11:03:39.591000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+WARNING 10-03 11:03:39.592000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_id=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_id=0)
+    obj[15] 'metrics' (wksp_id=0)
+    obj[16] 'tile' (wksp_id=0)
+    obj[17] 'metrics' (wksp_id=0)
+    obj[18] 'tile' (wksp_id=0)
+    obj[19] 'metrics' (wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[21] 'metrics' (wksp_id=0)
+    obj[28] 'cnc' (wksp_id=0)
+    obj[29] 'cnc' (wksp_id=0)
+    obj[30] 'cnc' (wksp_id=0)
+    obj[31] 'cnc' (wksp_id=0)
+    obj[32] 'cnc' (wksp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34] 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp_id=0)
+    obj[37] 'fseq' (wksp_id=0)
+    obj[38] 'fseq' (wksp_id=0)
+    obj[39] 'fseq' (wksp_id=0)
+  wksp[1] 'metric' => 2 objects
+    obj[22] 'tile' (wksp_id=1)
+    obj[23] 'metrics' (wksp_id=1)
+  wksp[2] 'metric_in' => 4 objects
+    obj[24] 'fseq' (wksp_id=2)
+    obj[25] 'fseq' (wksp_id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_id=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_id=0)
+    obj[15] 'metrics' (wksp_id=0)
+    obj[16] 'tile' (wksp_id=0)
+    obj[17] 'metrics' (wksp_id=0)
+    obj[18] 'tile' (wksp_id=0)
+    obj[19] 'metrics' (wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[21] 'metrics' (wksp_id=0)
+    obj[28] 'cnc' (wksp_id=0)
+    obj[29] 'cnc' (wksp_id=0)
+    obj[30] 'cnc' (wksp_id=0)
+    obj[31] 'cnc' (wksp_id=0)
+    obj[32] 'cnc' (wksp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34] 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp_id=0)
+    obj[37] 'fseq' (wksp_id=0)
+    obj[38] 'fseq' (wksp_id=0)
+    obj[39] 'fseq' (wksp_id=0)
+  wksp[1] 'metric' => 2 objects
+    obj[22] 'tile' (wksp_id=1)
+    obj[23] 'metrics' (wksp_id=1)
+  wksp[2] 'metric_in' => 4 objects
+    obj[24] 'fseq' (wksp_id=2)
+    obj[25] 'fseq' (wksp_id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_id=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_id=0)
+    obj[15] 'metrics' (wksp_id=0)
+    obj[16] 'tile' (wksp_id=0)
+    obj[17] 'metrics' (wksp_id=0)
+    obj[18] 'tile' (wksp_id=0)
+    obj[19] 'metrics' (wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[21] 'metrics' (wksp_id=0)
+    obj[28] 'cnc' (wksp_id=0)
+    obj[29] 'cnc' (wksp_id=0)
+    obj[30] 'cnc' (wksp_id=0)
+    obj[31] 'cnc' (wksp_id=0)
+    obj[32] 'cnc' (wksp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34]WARNING 10-03 11:03:39.619000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+ 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp_id=0)
+    obj[37] 'fseq' (wksp_id=0)
+    obj[38] 'fseq' (wksp_id=0)
+    obj[39] 'fseq' (wksp_id=0)
+  wksp[1] 'metric' => 2 objects
+    obj[22] 'tile' (wksp_id=1)
+    obj[23] 'metrics' (wksp_id=1)
+  wksp[2] 'metric_in' => 4 objects
+    obj[24] 'fseq' (wksp_id=2)
+    obj[25] 'fseq' (wksp_id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+WARNING 10-03 11:03:39.632000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+WARNING 10-03 11:03:39.634000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=WARNING 10-03 11:03:39.638000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_id=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_id=0)
+    obj[15] 'metrics' (wksp_id=0)
+    obj[16] 'tile' (wksp_id=0)
+    obj[17] 'metrics' (wksp_id=0)
+    obj[18] 'tile' (wksp_id=0)
+    obj[19] 'metrics' (wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[21] 'metrics' (wksp_id=0)
+    obj[28] 'cnc' (wksp_id=0)
+    obj[29] 'cnc' (wksp_id=0)
+    obj[30] 'cnc' (wksp_id=0)
+    obj[31] 'cnc' (wksp_id=0)
+    obj[32] 'cnc' (wksp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34] 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp_id=0)
+    obj[37] 'fseq' (wksp_id=0)
+    obj[38] 'fseq' (wksp_id=0)
+0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_id=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tk   po ab yjob0['j [1=34>9] ] '3 4't fioseq' (lbjectswek'
+s  p (_wi kd s=o0pb)_j
+[ i d0=]w0 k)'s
+m cp a[c 1h ]eo 'b' (wkmje[st1pr5_i]ic d''= m0=e)>t
+ r 2i c  so' b oj(bewjck[t1ss]
+p  _' id dc =ao0cb)j
+h[ e2 '  obj[1 (wk6] sp'ti_le' id=0(w)
+  ksp_id=0)
+
+ o[tbjopo _bu[o17] iblj[2'd]  'mcmetdeb2raicuchgs']e  (wwk'ksp_is (pd=_wcn]k t'=til0e' s)(
+wksp  _p id =0)3
+  o b j[1o 8bobjj__[3]i 'c] ddc'=at1ic)lh
+ e e' '   ob((jww[2kks3s]pp _i'_dime=tric0d)=0)
+s
+'   (w  k nt=s4p_i 0 d t =o1bi)j
+[l19e_] c n't =8 lmeotribnicjs'k _[c(ntww=4ksp]k sp_4'mc
+id=ac0)h e wk[2]'s p['0m
+ e    (]t 'wrtic_kobjkpay[sp2i_i0d'= => 0n03)4
+'  =>  4] 'o tb ojectilbs ej
+     ' (wobj[0]k oe'mcactsc
+b  j [he'5sp (w ok_bs]i 'ddjp[cach2_=id=00))
+
+  4]e'o b' fsej[q(w1]'  k o(s bjp'w[_2idkd1] s'pme=0ctar)che' _(iicswd=2ks')
+p
+(  _id=w  0)  ks
+  objp[ _id6 = ob ]j [o20b)j5[']mc2]
+'fsa  ecqhe'm c ache' 'obj  [((2'w8w]  'k(sp_kidwkcncsp_=0's) p(
+  _wk s ipdob=j[03_i])d
+ =  0 'i )d=2)
+
+  dob c ac   hobj[7] 'j[26dcaeo' (w]bj [k's2pfs9e_] 'qicnd=c' '0( w)(k
+wks   spp_id= _io2dc=hb0e)j'
+[ 4](w   k' smpcac _hoidb=ej[0)
+'3 0]   'c(n wc 'k (wobkspj_[8)
+]   sipd=0)
+ _'  i d obj[t=30)1i
+  l]e  ' ob ' c(njcwobj[5['2 (wkspk]_ 'id7]d ='0)
+fssp e_qi'  (wkspca_idc h =o2b)d=je0)[
+ 3' 2]  o
+'cnc (b' (jwkwksp_is[dp9_id==]0 )
+    0'mobj[33)et] 'cncri'
+  (wksp_c s ' (wksi p_idd=0)=0
+) o   b
+o bjj  [6]  [3o4']mc b'acnc' (wchej'[k 1s0(]wksp_ip _'id=0)
+dt   ile =o0'b (wksp_)id=0)j[
+    o3
+bj5] 'cnc   [ obj[7'] 'dcac1 1h(ewks] 'me' ptrics'(w_i ksp_(idwkdsp_id=0)
+==00))
+    obj
+    obj[36   ][ 8] obj'fseq[' (w1 'ti2leksp_id=]0 )'til
+e' (wk' s    opbj[37] '(_fid=wksp0)seq'
+ _i   obj[13] 'md=etrics' (wksp_id 0=)0(
+)
+w  k  sobj[9]p    obj[14_id]'=metrics 'tile' '0 )((
+w kwsk s  obj[pp3_id=0)
+8_] i  d=0' fseq' ()wksp_id
+o bj[10]=    obj[10')t
+    5] oiblj[39] ''em'etrics'  (wksfseq(p_i' wksp_idd(w=ksp_id=0=)
+    ob0)
+  wkj[11s0p][ 'metrics')1
+   ] obj[1 'me6tric' => ]  'ti2 obl(e'wjkescts
+  p _id=0)
+(wksp_  i  o  objbjd[=0)[22]12]  ''tile' (w
+ktile s'p_id (= 1  wkso)bpj[17]
+_id'=metric 0 )  obj[s
+' (wk2    objs3p_[id=0]13)
+]  'm' m  etriecs' (wt roics' (kswpb_kjsp_id[=id=0)
+11 8] 'ti) l  o
+  bejw'ksp[ [(124] 'tiw]lke' (wks sp'_id=0)mpetric__
+i i  d=0)
+  n ' => 4o b j[19]  o'bj[15] moeb'jmetricsetcts
+  ' r i(cs' (wks wokbj[24] p_id=0)
+'    obj[20]f 'tile' ss(weqp_id=k'0 )s
+p_id=(  w0)
+k    osbp  ob_j[i2j[11] 'me6d=tri2] cs' ()w
+ksp_id=0    o')
+   t obj[2iblje' (wk8] '[s2p5] 'fseqc_nic' (wk' (sdp_id=0=wk)sp_id=
+02)
+     )
+o    ob bj[j[2296] 'cnc] 'o bj '(wfk[ss17p]e_q' 'mi (wkd=0)
+ estrics p' _ (wksp i_oid=0)
+db=j [30] '2 c  objn)
+c'  (w[ 1 k 8]sp_i o'bj[2td7i]= 'fle0')s
+     obj[(31] 'cewqknc's '(wksp_ pi(_wid=0)
+kd=s p _id=02)
+)  obj[19]
+    ob 'metricjs' (w[ksp_id=0)
+    obj[232] 'cnc' (0] 'tilewksp' (w_id=ksp_0id=0)
+ )
+     obj[3  obj[21] '3] 'metriccs' (wksp_id=nc' (wksp_i0)
+    obj[28] 'cnc'd=0)
+     ob(j[34]wksp_id=0)
+    obj[ 'cn29] 'cnc' (wksp_id=0c' (w)
+   k obj[30] 'cnc' (wkssp_idp=0)
+   _id=0)
+ obj [35] 'cnc'    obj[31] 'cn(wksp_ic' (wksp_id=0)d=0)
+
+       obj[36] 'fs obj[32] 'eq' (wkcsp_id=0)
+ nc' (   obj[37] wksp_id=0)
+   'fseq'  obj[33(] 'cnc' wksp_(wksp_idid=0=)
+    o0)
+  bj[38] 'fs  obje[34] 'cnc' (wq' (wksksp_id=0)
+p_id =0)
+      ob j[35] 'cobj[n39] 'cfseq' (wksp' (wksp_id=0)
+_id=0)
+    o  wksp[1] 'metbj[36] 'ric' =>fseq'  (wks2p_id=0)
+    obj[37] obj ects
+  'fseq' (wk sp_id=0)
+     obj[obj[3822] ]'tile 'fs'eq' ( (wkwksp_sp_id=1)
+ id=0)
+     obj[3  ob9] 'j[23f] 'metriseq' (wksp_idcs' (wks=0)
+  wp_id=ksp[1] 'metric' 1)
+ => 2 wks p[2] 'metric_in'objects => 4 objects
+
+ obj[22] 'tile' (wk    sobj[24] 'fp_id=1)s
+    obj[23] 'meeq' t(wkspr_id=2)
+i    obj[25] 'cs' (wksp_id=1)
+f  wksp[2seq' ](wksp_id=2)
+  'met ric_in'   ob=j[26] 'fseq> 4 object' (wksp_ids
+  =2)
+     obj[27] obj[24] 'fseq' (wksp_id=2)
+ 'fseq' (wksp_id=2)
+    obj[25] 'fseq' (wksp_id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+OK
+2/6 test_process_topology.test.process_topology_integration: supervisor marks a truly stuck tile stale while blocked consumers keep heartbeating...WARNING 10-03 11:03:39.758000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_id=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_id=0)
+    obj[15] 'metrics' (wksp_id=0)
+    obj[16] 'tile' (wksp_id=0)
+    obj[17] 'metrics' (wksp_id=0)
+    obj[18] 'tile' (wksp_id=0)
+    obj[19] 'metrics' (wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[21] 'metrics' (wksp_id=0)
+    obj[28] 'cnc' (wksp_id=0)
+    obj[29] 'cnc' (wksp_id=0)
+    obj[30] 'cnc' (wksp_id=0)
+    obj[31] 'cnc' (wksp_id=0)
+    obj[32] 'cnc' (wksp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34] 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp_id=0)
+    obj[37] 'fseq' (wksp_id=0)
+    obj[38] 'fseq' (wksp_id=0)
+    obj[39] 'fseq' (wksp_id=0)
+  wksp[1] 'metric' => 2 objects
+    obj[22] 'tile' (wksp_id=1)
+    obj[23] 'metrics' (wksp_id=1)
+  wksp[2] 'metric_in' => 4 objects
+    obj[24] 'fseq' (wksp_id=2)
+    obj[25] 'fseq' (wksp_id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+WARNING 10-03 11:03:39.790000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+WARNING 10-03 11:03:39.802000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): st
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_id=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_id=0)
+    obj[15] 'metrics' (wksp_id=0)
+    obj[16] 'tile' (wksp_id=0)
+    obj[17] 'metrics' (wksp_id=0)
+    obj[18] 'tile' (wksp_id=0)
+    obj[19] 'metrics' (wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[21] 'metrics' (wksp_id=0)
+    obj[28] 'cnc' (wksp_id=0)
+    obj[29] 'cnc' (wksp_id=0)
+    obj[30] 'cnc' (wksp_id=0)
+    obj[31] 'cnc' (wksp_id=0)
+    obj[32] 'cnc' (wksp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34] 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp_id=0)
+    obj[37] 'fseq' (wksp_id=0)
+    obj[38] 'fseq' (wksp_id=0)
+    obj[39] 'fseq' (wksp_id=0)
+  wksp[1] 'metric' => 2 objects
+    obj[22] 'tile' (wksp_id=1)
+    obj[23] 'metrics' (wksp_id=1)
+  wksp[2] 'metric_in' => 4 objects
+    obj[24] 'fseq' (wksp_id=2)
+    obj[25] 'fseq' (wksp_id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+ack diagnostics not available on tile 0; attempting to continue
+WARNING 10-03 11:03:39.818000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_id=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_id=0)
+    obj[15] 'metrics' (wksp_id=0)
+    obj[16] 'tile' (wksp_id=0)
+    obj[17] 'metrics' (wksp_id=0)
+    obj[18] 'tile' (wksp_id=0)
+    obj[19] 'metrics' (wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[21] 'metrics' (wksp_id=0)
+    obj[28] 'cnc' (wksp_id=0)
+    obj[29] 'cnc' (wksp_id=0)
+    obj[30] 'cnc' (wksp_id=0)
+    obj[31] 'cnc' (wksp_id=0)
+    obj[32] 'cnc' (wksp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34] 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp_id=0)
+    obj[37] 'fseq' (wksp_id=0)
+    obj[38] 'fseq' (wksp_id=0)
+    obj[39] 'fseq' (wksp_id=0)
+  wksp[1] 'metric' => 2 objects
+    obj[22] 'tile' (wksp_id=1)
+    obj[23] 'metrics' (wksp_id=1)
+  wksp[2] 'metric_in' => 4 objects
+    obj[24] 'fseq' (wksp_id=2)
+    obj[25] 'fseq' (wksp_id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+WARNING 10-03 11:03:39.827000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+thread 8672 panic: reached unreachable code
+error return context:
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_id=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_id=0)
+    obj[15] 'metrics' (wksp_id=0)
+    obj[16] 'tile' (wksp_id=0)
+    obj[17] 'metrics' (wksp_id=0)
+    obj[18] 'tile' (wksp_id=0)
+    obj[19] 'metrics' (wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[21] 'metrics' (wksp_id=0)
+    obj[28] 'cnc' (wksp_id=0)
+    obj[29] 'cnc' (wksp_id=0)
+    obj[30] 'cnc' (wksp_id=0)
+    obj[31] 'cnc' (wksp_id=0)
+    obj[32] 'cnc' (wksp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34] 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp_id=0)
+    obj[37] 'fseq' (wksp_id=0)
+    obj[38] 'fseq' (wksp_id=0)
+    obj[39] 'fseq' (wksp_id=0)
+  wksp[1] 'metric' => 2 objects
+    obj[22] 'tile' (wksp_id=1)
+    obj[23] 'metrics' (wksp_id=1)
+  wksp[2] 'metric_in' => 4 objects
+    obj[24] 'fseq' (wksp_id=2)
+    obj[25] 'fseq' (wksp_id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_iWARNING 10-03 11:03:39.843000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+d=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_id=0)
+    obj[15] 'metrics' (wksp_id=0)
+    obj[16] 'tile' (wksp_id=0)
+    obj[17] 'metrics' (wksp_id=0)
+    obj[18] 'tile' (wksp_id=0)
+    obj[19] 'metrics' (wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[21] 'metrics' (wksp_id=0)
+    obj[28] 'cnc' (wksp_id=0)
+    obj[29] 'cnc' (wksp_id=0)
+    obj[30] 'cnc' (wksp_id=0)
+    obj[31] 'cnc' (wksp_id=0)
+    obj[32] 'cnc' (wksp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34] 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp_id=0)
+    obj[37] 'fseq' (wksp_id=0)
+    obj[38] 'fseq' (wksp_id=0)
+    obj[39] 'fseq' (wksp_id=0)
+  wksp[1] 'metric' => 2 objects
+    obj[22] 'tile' (wksp_id=1)
+    obj[23] 'metrics' (wksp_id=1)
+  wksp[2] 'metric_in' => 4 objects
+    obj[24] 'fseq' (wksp_id=2)
+    obj[25] 'fseq' (wksp_id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+WARNING 10-03 11:03:39.849000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_id=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_id=0)
+    obj[15] 'metrics' (wksp_id=0)
+    obj[16] 'tile' (wksp_id=0)
+    obj[17] 'metrics' (wksp_id=0)
+    obj[18] 'tile' (wksp_id=0)
+    obj[19] 'metrics' (wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[21] 'metrics' (wksp_id=0)
+    obj[28] 'cnc' (wksp_id=0)
+    obj[29] 'cnc' (wksp_id=0)
+    obj[30] 'cnc' (wksp_id=0)
+    obj[31] 'cnc' (wksp_id=0)
+    obj[32] 'cnc' (wksp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34] 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp_id=0)
+    obj[37] 'fseq' (wksp_id=0)
+    obj[38] 'fseq' (wksp_id=0)
+    obj[39] 'fseq' (wksp_id=0)
+  wksp[1] 'metric' => 2 objects
+    obj[22] 'tile' (wksp_id=1)
+    obj[23] 'metrics' (wksp_id=1)
+  wksp[2] 'metric_in' => 4 objects
+    obj[24] 'fseq' (wksp_id=2)
+    obj[25] 'fseq' (wksp_id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+WARNING 10-03 11:03:39.866000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_id=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_id=0)
+    obj[15] 'metrics' (wksp_id=0)
+    obj[16] 'tile' (wksp_id=0)
+    obj[17] 'metrics' (wksp_id=0)
+    obj[18] 'tile' (wksp_id=0)
+    obj[19] 'metrics' (wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[21] 'metrics' (wksp_id=0)
+    obj[28] 'cnc' (wksp_id=0)
+    obj[29] 'cnc' (wksp_id=0)
+    obj[30] 'cnc' (wksp_id=0)
+    obj[31] 'cnc' (wksp_id=0)
+    obj[32] 'cnc' (wksp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34] 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp_id=0)
+    obj[37] 'fseq' (wksp_id=0)
+    obj[38] 'fseq' (wksp_id=0)
+    obj[39] 'fseq' (wksp_id=0)
+  wksp[1] 'metric' => 2 objects
+    obj[22] 'tile' (wksp_id=1)
+    obj[23] 'metrics' (wksp_id=1)
+  wksp[2] 'metric_in' => 4 objects
+    obj[24] 'fseq' (wksp_id=2)
+    obj[25] 'fseq' (wksp_id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+WARNING 10-03 11:03:39.870000 0      [cpu] [thread] fd_tile_threads_platform_windows.c(674): stack diagnostics not available on tile 0; attempting to continue
+C:\Users\victorgenin\AppData\Local\Programs\Zig\zig-aarch64-windows-0.17.0-dev.1770+5d7cf3f34\lib\std\testing.zig:614:14: 0x7ff768261083 in expect (test_zcu.obj)
+    if (!ok) return error.TestUnexpectedResult;
+             ^
+
+stack trace:
+C:\Users\victorgenin\AppData\Local\Programs\Zig\zig-aarch64-windows-0.17.0-dev.1770+5d7cf3f34\lib\std\debug.zig:442:14: 0x7ff7680da407 in assert (test_zcu.obj)
+    if (!ok) unreachable; // assertion failure
+             ^
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_idC:\Users\victorgenin\git\tickoni\src\app\tickoni\supervisor.zig:254:25: 0x7ff768261b57 in deinit (test_zcu.obj)
+=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_        std.debug.assert(self.process_state == null);
+id=0)
+    obj[15] 'metrics' (wksp_id=0)
+    obj[16] 'tile' (wksp_id=0)
+    obj[17] 'metrics' (wksp_id=0)
+    obj[18] 'tile' (wksp_id=0)
+    obj[19] 'metrics' (wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[21] 'metrics' (wksp_id=0)
+    obj[28] 'cnc' (wksp_id=0)
+    obj[29] 'cnc' (wksp_id=0)
+    obj[30] 'cnc' (wksp_id=0)
+    obj[31] 'cnc' (wksp_id=0)
+    obj[32] 'cnc' (wksp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34] 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp_id=0)
+    obj[37] 'fseq' (wksp_id=0)
+    obj[38] 'fseq' (wksp_id=0)
+    obj[39] 'fseq' (wksp_id=0)
+  wksp[1] 'metric' => 2 objects
+    obj[22] 'tile' (wksp_id=1)
+    obj[23] 'me      t ric      s'            (^
+wksp_id=1)
+  wksp[2] 'metric_in' => 4 objects
+    obj[24] 'fseq' (wksp_id=2)
+    obj[25] 'fseq' (wksp_id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+
+[topo_build debug] wksp_cnt=3 obj_cnt=40 tile_cnt=8 link_cnt=4
+  wksp[0] 'tkpay0' => 34 objects
+    obj[0] 'mcache' (wksp_id=0)
+    obj[1] 'dcache' (wksp_id=0)
+    obj[2] 'mcache' (wksp_id=0)
+    obj[3] 'dcache' (wksp_id=0)
+    obj[4] 'mcache' (wksp_id=0)
+    obj[5] 'dcache' (wksp_id=0)
+    obj[6] 'mcache' (wksp_id=0)
+    obj[7] 'dcache' (wksp_id=0)
+    obj[8] 'tile' (wksp_id=0)
+    obj[9] 'metrics' (wksp_id=0)
+    obj[10] 'tile' (wksp_id=0)
+    obj[11] 'metrics' (wksp_id=0)
+    obj[12] 'tile' (wksp_id=0)
+    obj[13] 'metrics' (wksp_id=0)
+    obj[14] 'tile' (wksp_id=0)
+    obj[15] 'metrics' (wkspC:\Users\victorgenin\git\tickoni\src\tickoni\test\integration\test_process_topology.zig_id=0)
+:74:21   :  obj[16] 'tile'0x7ff76827c67f in test.process_topology_integration: supervisor marks a truly stuck tile stale while blocked consumers keep heartbeating (test_zcu.obj (wksp)
+_id=0)
+    obj[17] 'metrics' (wksp_id=0    defer sup.deinit();
+)
+    obj[18     ] 't     ile     ' (     wksp^
+_id=0)
+   C:\Users\victorgenin\AppData\Local\Programs\Zig\zig-aarch64-windows-0.17.0-dev.1770+5d7cf3f34\lib\compiler\test_runner.zig:295:25 obj[: 0x7ff7680d801b in 19] 'metrmainTerminal (test_zcu.obj)ics'
+(wksp_id=0)
+    obj[20] 'tile' (wksp_id=0)
+    obj[        if (test_fn.func()) |_| {
+21] 'metrics' (wksp_id=0)
+          obj[      28] 'c      nc' (w ^ksp_id
+=0)
+C:\Users\victorgenin\AppData\Local\Programs\Zig\zig-aarch64-windows-0.17.0-dev.1770+5d7cf3f34\lib\compiler\test_runner.zig:73    o:28: 0xbj[297ff7680d7797 in main (] 'cnctest_zcu.obj)
+' (wksp_id=0)
+    obj[3        return mainTerminal(init);
+0      ] 'cn     c' (w     ksp_    id=0)
+     obj[3^
+1] 'cnc' (wksp_id=0)
+    C:\Users\victorgenin\AppData\Local\Programs\Zig\zig-aarch64-windows-0.17.0-dev.1770+5d7cf3f34\lib\std\start.zig:759obj[32: 0x7ff7680d55eb] 'cnc in callMain (test_zcu.obj)' (wk
+sp_id=0)
+    obj[33] 'cnc' (wksp_id=0)
+    obj[34] 'cnc' (wksp_id=0)
+    obj[35] 'cnc' (wksp_id=0)
+    obj[36] 'fseq' (wksp    if (fn_info.param_types[0].? == std.process.Init.Minimal) return wrapMain(root.main(.{
+_id=0)
+    o
+C:\Users\victorgenin\AppData\Local\Programs\Zig\zig-aarch64-windows-0.17.0-dev.1770+5d7cf3f34\lib\std\start.zig:bj[37]719:28:  'fse0x7ff7680d55eb in q' (wksp_idmain (test_zcu.obj)=0)
+    obj[
+38] 'fseq' (wksp_id=0)
+    obj[39] 'fseq' (wksp_id=0)
+  wksp[1] 'metric' =            return callMain(std.os.windows.peb().ProcessParameters.CommandLine.slice(), .global);
+>      2 ob       jects
+         obj     [22] ^
+'tile' (wksp_id=1)
+  C:\Users\victorgenin\AppData\Local\Programs\Zig\zig-aarch64-windows-0.17.0-dev.1770+5d7cf3f34\lib\libc\mingw\crt\crtexe.c:276  obj[: 0x7ff76827e5f7 in 23] '__tmainCRTStartup (crt2.obj)metric
+s' (wksp_id=1)
+  wksp[2] 'metric_in' => 4 objects
+    obj[24] 'fseq' (wksp_id=2)
+    obj[25] 'fs    ret = _tmain (argc, argv, envp);
+eq' (wksp_
+id=2)
+    obj[26] 'fseq' (wksp_id=2)
+    obj[27] 'fseq' (wksp_id=2)
+???:?:?: 0x7ffb3a55873f in ??? (KERNEL32.DLL)
+???:?:?: 0x7ffb3ac85083 in ??? (ntdll.dll)
+
+FAIL: 1 of 1 tests failed (0 passed)
+integration-test
+└─ run bash failure
+error: process exited with code 1
+failed command: cd . && bash contrib/test/run_test_series.sh ".\\build\\.zig-cache\\o\\70066eb4252210adffab685978d79238\\test.exe"
+
+Build Summary: 34/36 steps succeeded (1 failed)
+integration-test transitive failure
+└─ run bash failure
+
+error: the following build command exited with code 1:
+build\.zig-global-cache\o\c54ae02443cd10cc92e12d731a232f83\maker.exe build --zig-lib=C:\Users\victorgenin\AppData\Local\Programs\Zig\zig-aarch64-windows-0.17.0-dev.1770+5d7cf3f34\lib --zig=C:\Users\victorgenin\AppData\Local\Programs\Zig\zig-aarch64-windows-0.17.0-dev.1770+5d7cf3f34\zig.exe --global-cache=build\.zig-global-cache --seed=0xbaf59928 -p C:/Users/victorgenin/git/tickoni/build/zig-out -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib integration-test
+error: recipe `test-integration-tk-windows-arm` failed on line 34 with exit code 1
+Traceback (most recent call last):
+  File "C:\Users\victorgenin\git\tickoni\scripts\dispatch", line 90, in <module>
+    main()
+  File "C:\Users\victorgenin\git\tickoni\scripts\dispatch", line 86, in main
+    subprocess.run(["just", target], check=True)
+  File "C:\Users\victorgenin\AppData\Local\Programs\Python\Python312-arm64\Lib\subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['just', 'test-integration-tk-windows-arm']' returned non-zero exit status 1.
+←[1;31merror←[0m: ←[1mrecipe `test-integration-tk` failed on line 38 with exit code 1←[0m◙
