@@ -249,5 +249,12 @@ pub fn strategy(
         }),
     });
     codec.linkTickoniCodec(b, decision_cards_integration_test, fd_lib_dir);
-    if (!isolate_integration_lane) integration_step.dependOn(&b.addRunArtifact(decision_cards_integration_test).step);
+    if (isolate_integration_lane) {
+        const run = shims.addPlainTestRun(b, decision_cards_integration_test);
+        run.step.dependOn(previous_run_step);
+        integration_step.dependOn(&run.step);
+        previous_run_step = &run.step;
+    } else {
+        integration_step.dependOn(&b.addRunArtifact(decision_cards_integration_test).step);
+    }
 }
