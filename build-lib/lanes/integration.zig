@@ -53,6 +53,7 @@ pub fn strategy(
         "src/tickoni/test/integration/test_investment_restricted_instrument.zig",
         "src/tickoni/test/integration/test_investment_input_policy_denials.zig",
     };
+    const isolated_static_test = "src/tickoni/test/integration/test_investment_allowed_trade.zig";
 
     const static_imports = [_]std.Build.Module.Import{
         .{ .name = "adapter", .module = int_mods.adapter_int_mod },
@@ -72,6 +73,7 @@ pub fn strategy(
         .{ .name = "tkagnt", .module = int_mods.agent_int_mod },
     };
 
+    var isolated_static_run: ?*std.Build.Step.Run = null;
     inline for (static_tests) |path| {
         const integration_test = b.addTest(.{
             .root_module = b.createModule(.{
@@ -82,7 +84,11 @@ pub fn strategy(
             }),
         });
         codec.linkTickoniCodec(b, integration_test, fd_lib_dir);
-        if (!isolate_integration_lane) integration_step.dependOn(&b.addRunArtifact(integration_test).step);
+        if (isolate_integration_lane and std.mem.eql(u8, path, isolated_static_test)) {
+            isolated_static_run = shims.addPlainTestRun(b, integration_test);
+        } else if (!isolate_integration_lane) {
+            integration_step.dependOn(&b.addRunArtifact(integration_test).step);
+        }
     }
 
     // Supervisor binary must be installed before process-mode tests
@@ -125,6 +131,10 @@ pub fn strategy(
     const run_isolated_test = shims.addPlainTestRun(b, isolated_test);
     run_isolated_test.step.dependOn(&exe_install.step);
     if (isolate_integration_lane) integration_step.dependOn(&run_isolated_test.step);
+    if (isolated_static_run) |run| {
+        run.step.dependOn(&run_isolated_test.step);
+        integration_step.dependOn(&run.step);
+    }
 
     inline for (process_tests) |path| {
         const process_test = b.addTest(.{
