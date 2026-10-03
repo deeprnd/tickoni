@@ -121,6 +121,7 @@ pub fn strategy(
         "src/tickoni/test/integration/test_metric_tile_integration.zig",
         "src/tickoni/test/integration/test_process_pipeline.zig",
         "src/tickoni/test/integration/test_process_cpu_placement.zig",
+        "src/tickoni/test/integration/test_process_demo_parity.zig",
     };
 
     const proc_imports = [_]std.Build.Module.Import{
