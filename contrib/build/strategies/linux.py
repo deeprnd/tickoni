@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Linux platform strategy for Firedancer build."""
 
+from __future__ import annotations
+
 import os
 import subprocess
 
