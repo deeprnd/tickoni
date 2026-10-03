@@ -118,6 +118,7 @@ pub fn strategy(
     };
     const isolated_process_tests: []const []const u8 = &.{
         "src/tickoni/test/integration/test_link_bounds.zig",
+        "src/tickoni/test/integration/test_metric_tile_integration.zig",
     };
 
     const proc_imports = [_]std.Build.Module.Import{
