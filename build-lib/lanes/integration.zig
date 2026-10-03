@@ -45,7 +45,12 @@ pub fn strategy(
     const investment_demo_test_mod = int_mods.investment_demo_test_mod;
     const investment_demo_test = b.addTest(.{ .root_module = investment_demo_test_mod });
     codec.linkTickoniCodec(b, investment_demo_test, fd_lib_dir);
-
+    var isolated_demo_run: ?*std.Build.Step.Run = null;
+    if (isolate_integration_lane) {
+        isolated_demo_run = shims.addPlainTestRun(b, investment_demo_test);
+    } else {
+        integration_step.dependOn(&b.addRunArtifact(investment_demo_test).step);
+    }
 
     const static_tests: []const []const u8 = &.{
         "src/tickoni/test/integration/test_investment_allowed_trade.zig",
@@ -147,6 +152,11 @@ pub fn strategy(
             integration_step.dependOn(&run.step);
             previous_run_step = &run.step;
         }
+    }
+    if (isolated_demo_run) |run| {
+        run.step.dependOn(previous_run_step);
+        integration_step.dependOn(&run.step);
+        previous_run_step = &run.step;
     }
 
     inline for (process_tests) |path| {
