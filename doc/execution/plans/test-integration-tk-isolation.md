@@ -20,7 +20,7 @@ All tests start as **NOT VERIFIED** for this investigation. This is an initial t
 | 8 | `src/tickoni/test/integration/test_link_bounds.zig` | VERIFIED |
 | 9 | `src/tickoni/test/integration/test_metric_tile_integration.zig` | VERIFIED |
 | 10 | `src/tickoni/test/integration/test_process_pipeline.zig` | VERIFIED |
-| 11 | `src/tickoni/test/integration/test_process_cpu_placement.zig` | NOT VERIFIED |
+| 11 | `src/tickoni/test/integration/test_process_cpu_placement.zig` | VERIFIED |
 | 12 | `src/tickoni/test/integration/test_process_topology.zig` | VERIFIED |
 | 13 | `src/tickoni/test/integration/test_process_demo_parity.zig` | NOT VERIFIED |
 | 14 | Mock-server integration binary (`src/tickoni/test/mocks/mock_servers.zig`) | NOT VERIFIED |
@@ -38,8 +38,8 @@ All tests start as **NOT VERIFIED** for this investigation. This is an initial t
 ## Current evidence / known failures
 
 - The original `test_process_topology.zig` stale-state failure was repaired; its isolated binary passes all six tests in the Windows ARM integration lane.
-- An earlier full-lane run reported `test_process_demo_parity.zig` (`expected 16, found 24`) and `test_process_cpu_placement.zig` (`expected .stopped, found .crashed`). Those results are historical and must be rechecked when each binary is added to the isolated lane.
-- Inventory tests 1–10 are VERIFIED individually in the Windows ARM integration lane.
+- An earlier full-lane run reported `test_process_demo_parity.zig` (`expected 16, found 24`) and `test_process_cpu_placement.zig` (`expected .stopped, found .crashed`). The CPU-placement binary now passes in isolation; demo parity remains to be rechecked when added.
+- Inventory tests 1–11 are VERIFIED individually in the Windows ARM integration lane.
 
 ## Evidence log
 
@@ -57,3 +57,4 @@ All tests start as **NOT VERIFIED** for this investigation. This is an initial t
 | `test_link_bounds.zig` | `timeout 120s just test-integration-tk` (Windows ARM; sequential with preceding verified binaries) | VERIFIED — canonical lane exited 0; all nine isolated binaries passed. |
 | `test_metric_tile_integration.zig` | `timeout 120s just test-integration-tk` (Windows ARM; sequential with preceding verified binaries) | VERIFIED — canonical lane exited 0; all ten isolated binaries passed. |
 | `test_process_pipeline.zig` | `timeout 120s just test-integration-tk` (Windows ARM; sequential with preceding verified binaries) | VERIFIED — canonical lane exited 0; all eleven isolated binaries passed. |
+| `test_process_cpu_placement.zig` | `timeout 120s just test-integration-tk` (Windows ARM; sequential with preceding verified binaries) | VERIFIED — canonical lane exited 0; all twelve isolated binaries passed. |
