@@ -602,13 +602,12 @@ pub const Supervisor = struct {
                 self.handles[i].crashed_because = .none;
             },
             .exited_code => |code| {
-                if (self.handles[i].state == .stale) {
-                    self.handles[i].crashed_because = .stale;
-                } else {
-                    self.handles[i].state = .crashed;
-                    self.handles[i].exit_code = code;
-                    self.handles[i].crashed_because = .exit_code;
-                }
+                // A non-zero process exit is definitive crash evidence. A
+                // stale heartbeat may be how we first noticed the tile, but
+                // must not hide its eventual exit status.
+                self.handles[i].state = .crashed;
+                self.handles[i].exit_code = code;
+                self.handles[i].crashed_because = .exit_code;
             },
             .force_terminated => {
                 // stopProcess intentionally force-terminates children that did
@@ -721,7 +720,7 @@ pub const Supervisor = struct {
         const state = self.process_state orelse return;
         const now = util.process.monotonicNanos();
         if (now <= 0) return;
-        const now_ns: u64 = @intCast(now);
+        const now_ms: u32 = @truncate(@as(u64, @intCast(now)) / std.time.ns_per_ms);
         // Reap any exited children FIRST so we detect crashes before
         // reading cnc heartbeats.  A crashed tile's cnc is corrupted and
         // reading it can SIGSEGV/SIGABRT the supervisor; by reaping first
@@ -745,7 +744,7 @@ pub const Supervisor = struct {
                     }
                     if (exit_code == 0) continue;
                     const h = &self.handles[i];
-                    if (h.state == .starting or h.state == .running) {
+                    if (h.state != .stopped and h.state != .crashed) {
                         h.state = .crashed;
                         h.crashed_because = reason;
                         h.exit_code = @intCast(exit_code);
@@ -768,10 +767,20 @@ pub const Supervisor = struct {
             if (h.state != .starting and h.state != .running) continue;
             if (crashed_mask[i]) continue;
             const cnc = maybe_cnc orelse continue;
-            const heartbeat = c_abi.cnc.heartbeatQuery(cnc);
-            if (heartbeat <= 0) continue;
-            const heartbeat_ns: u64 = @intCast(heartbeat);
-            if (now_ns > heartbeat_ns and now_ns - heartbeat_ns > state.heartbeat_stale_after_ns) {
+            // A process can spend substantial time rebuilding and joining the
+            // topology before its tile callback reaches RUN (notably on the
+            // Windows ARM integration lane).  Its initial heartbeat is not a
+            // liveness promise for that boot interval; classify heartbeat
+            // staleness only after the tile has entered RUN.
+            if (c_abi.cnc.signalQuery(cnc) != c_abi.cnc.signal_run) continue;
+            const heartbeat_ms = c_abi.cnc.heartbeatQuery(cnc);
+            // The tile and supervisor update/read concurrently. A heartbeat
+            // written after `now_ms` was sampled is up to one tick in the
+            // future; interpret the modulo delta as signed so that race is
+            // not mistaken for an almost-49-day-old heartbeat.
+            const heartbeat_age_ms: i32 = @bitCast(now_ms -% heartbeat_ms);
+            const stale_after_ms = state.heartbeat_stale_after_ns / std.time.ns_per_ms + @intFromBool(state.heartbeat_stale_after_ns % std.time.ns_per_ms != 0);
+            if (heartbeat_age_ms > 0 and @as(u64, @intCast(heartbeat_age_ms)) > stale_after_ms) {
                 h.state = .stale;
                 h.crashed_because = .stale;
             }

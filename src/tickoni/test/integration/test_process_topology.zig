@@ -89,6 +89,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
+    errdefer sup.stopProcess(std.testing.io);
 
     const max_polls: u32 = 600;
     var poll: u32 = 0;

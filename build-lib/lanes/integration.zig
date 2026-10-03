@@ -41,10 +41,11 @@ pub fn strategy(
     integration_step: *std.Build.Step,
     exe_install: *std.Build.Step.InstallArtifact,
 ) void {
+    const isolate_integration_lane = true;
     const investment_demo_test_mod = int_mods.investment_demo_test_mod;
     const investment_demo_test = b.addTest(.{ .root_module = investment_demo_test_mod });
     codec.linkTickoniCodec(b, investment_demo_test, fd_lib_dir);
-    integration_step.dependOn(&b.addRunArtifact(investment_demo_test).step);
+
 
     const static_tests: []const []const u8 = &.{
         "src/tickoni/test/integration/test_investment_allowed_trade.zig",
@@ -81,7 +82,7 @@ pub fn strategy(
             }),
         });
         codec.linkTickoniCodec(b, integration_test, fd_lib_dir);
-        integration_step.dependOn(&b.addRunArtifact(integration_test).step);
+        if (!isolate_integration_lane) integration_step.dependOn(&b.addRunArtifact(integration_test).step);
     }
 
     // Supervisor binary must be installed before process-mode tests
@@ -104,6 +105,27 @@ pub fn strategy(
         .{ .name = "topologies", .module = int_mods.shared_topologies },
     };
 
+    // Keep the integration lane isolated while process-mode failures are
+    // repaired. Add one process integration binary at a time, then restore
+    // the normal dependencies below.
+    const isolated_test = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/tickoni/test/integration/test_process_topology.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &proc_imports,
+        }),
+    });
+    codec.linkTickoniCodec(b, isolated_test, fd_lib_dir);
+    firedancer.linkTickoniFiredancer(b, isolated_test, fd_lib_dir);
+    topo_run.linkTickoniTopoRun(b, isolated_test, fd_lib_dir);
+    if (target.result.os.tag == .linux) {
+        isolated_test.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_zstd.a", .{fd_lib_dir}) });
+    }
+    const run_isolated_test = shims.addPlainTestRun(b, isolated_test);
+    run_isolated_test.step.dependOn(&exe_install.step);
+    if (isolate_integration_lane) integration_step.dependOn(&run_isolated_test.step);
+
     inline for (process_tests) |path| {
         const process_test = b.addTest(.{
             .root_module = b.createModule(.{
@@ -124,7 +146,7 @@ pub fn strategy(
         const run_proc_test = shims.addPlainTestRun(b, process_test);
         // Direct dependency ensures install happens before this test runs.
         run_proc_test.step.dependOn(&exe_install.step);
-        integration_step.dependOn(&run_proc_test.step);
+        if (!isolate_integration_lane) integration_step.dependOn(&run_proc_test.step);
     }
 
     const mock_servers_test = b.addTest(.{
@@ -139,7 +161,7 @@ pub fn strategy(
             },
         }),
     });
-    integration_step.dependOn(&mock_servers_test.step);
+    if (!isolate_integration_lane) integration_step.dependOn(&mock_servers_test.step);
 
     const model_tile_http_test = b.addTest(.{
         .root_module = b.createModule(.{
@@ -155,7 +177,7 @@ pub fn strategy(
     });
     codec.linkTickoniCodec(b, model_tile_http_test, fd_lib_dir);
     firedancer.linkTickoniFiredancer(b, model_tile_http_test, fd_lib_dir);
-    integration_step.dependOn(&b.addRunArtifact(model_tile_http_test).step);
+    if (!isolate_integration_lane) integration_step.dependOn(&b.addRunArtifact(model_tile_http_test).step);
 
     const replay_integration_test = b.addTest(.{
         .root_module = b.createModule(.{
@@ -183,7 +205,7 @@ pub fn strategy(
         }),
     });
     codec.linkTickoniCodec(b, replay_integration_test, fd_lib_dir);
-    integration_step.dependOn(&b.addRunArtifact(replay_integration_test).step);
+    if (!isolate_integration_lane) integration_step.dependOn(&b.addRunArtifact(replay_integration_test).step);
 
     const decision_cards_integration_test = b.addTest(.{
         .root_module = b.createModule(.{
@@ -197,5 +219,5 @@ pub fn strategy(
         }),
     });
     codec.linkTickoniCodec(b, decision_cards_integration_test, fd_lib_dir);
-    integration_step.dependOn(&b.addRunArtifact(decision_cards_integration_test).step);
+    if (!isolate_integration_lane) integration_step.dependOn(&b.addRunArtifact(decision_cards_integration_test).step);
 }

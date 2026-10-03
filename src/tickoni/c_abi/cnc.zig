@@ -60,8 +60,8 @@ extern fn tk_cnc_strerror(err: c_int) [*:0]const u8;
 extern fn tk_cstr_to_cnc_signal(cstr: [*:0]const u8) u64;
 extern fn tk_cnc_signal_cstr(signal: u64, buf: [*]u8) [*:0]u8;
 extern fn tk_cnc_app_laddr(cnc: *Cnc) [*]u8;
-extern fn tk_cnc_heartbeat_query(cnc: *const Cnc) i64;
-extern fn tk_cnc_heartbeat(cnc: *Cnc, now: i64) void;
+extern fn tk_cnc_heartbeat_query(cnc: *const Cnc) u32;
+extern fn tk_cnc_heartbeat(cnc: *Cnc, now_ns: i64) void;
 extern fn tk_cnc_signal_query(cnc: *const Cnc) u64;
 extern fn tk_cnc_signal(cnc: *Cnc, s: u64) void;
 extern fn tk_cnc_close(cnc: *Cnc) void;
@@ -120,13 +120,13 @@ pub fn appLaddr(cnc: *Cnc) [*]u8 {
 }
 
 /// Mirrors the upstream cnc heartbeat-query helper.
-pub fn heartbeatQuery(cnc: *const Cnc) i64 {
+pub fn heartbeatQuery(cnc: *const Cnc) u32 {
     return tk_cnc_heartbeat_query(cnc);
 }
 
 /// Mirrors the upstream cnc heartbeat helper.
-pub fn heartbeat(cnc: *Cnc, now: i64) void {
-    tk_cnc_heartbeat(cnc, now);
+pub fn heartbeat(cnc: *Cnc, now_ns: i64) void {
+    tk_cnc_heartbeat(cnc, now_ns);
 }
 
 /// Mirrors the upstream cnc signal-query helper.
