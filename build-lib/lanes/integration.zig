@@ -57,6 +57,7 @@ pub fn strategy(
         "src/tickoni/test/integration/test_investment_allowed_trade.zig",
         "src/tickoni/test/integration/test_investment_blocked_limits.zig",
         "src/tickoni/test/integration/test_investment_restricted_instrument.zig",
+        "src/tickoni/test/integration/test_investment_input_policy_denials.zig",
     };
 
     const static_imports = [_]std.Build.Module.Import{
