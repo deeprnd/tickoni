@@ -23,15 +23,16 @@ pub fn forceTerminate(pid: std.process.Child.Id) void {
 }
 
 pub fn termProcess(pid: std.process.Child.Id) void {
-    if (builtin.os.tag != .windows) {
+    if (builtin.os.tag == .windows) {
+        const numeric_pid = os_api.c.processId(pid) catch return;
+        os_api.c.killProcess(numeric_pid);
+    } else {
         _ = os_api.kill(@intCast(pid));
     }
 }
 
 pub fn forceKillProcess(pid: std.process.Child.Id) void {
-    if (builtin.os.tag != .windows) {
-        _ = os_api.kill(@intCast(pid));
-    }
+    termProcess(pid);
 }
 
 pub fn outcomeFromTerm(term: std.process.Child.Term, force_terminated: bool) ProcessOutcome {
@@ -49,7 +50,15 @@ pub fn outcomeFromTerm(term: std.process.Child.Term, force_terminated: bool) Pro
 
 pub fn tryReapNoHang(child: *std.process.Child) PollResult {
     const pid = child.id orelse return .detached;
-    if (builtin.os.tag == .windows) return .running;
+    if (builtin.os.tag == .windows) {
+        const numeric_pid = os_api.c.processId(pid) catch return .failed;
+        const status = os_api.processPoll(numeric_pid);
+        if (status == -1) return .running;
+        if (status < 0) return .failed;
+        child.id = null;
+        if (status == 255) return .{ .reaped = .{ .signal = @enumFromInt(9) } };
+        return .{ .reaped = .{ .exited = @intCast(status) } };
+    }
 
     var status: c_int = 0;
     while (true) {

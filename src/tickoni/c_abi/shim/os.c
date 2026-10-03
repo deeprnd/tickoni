@@ -99,6 +99,11 @@ int tk_process_id_from_handle( uintptr_t handle ) {
   return (int)handle;
 }
 
+int tk_process_poll( int pid ) {
+  (void)pid;
+  return -2;
+}
+
 int tk_kill_process( int pid ) {
   return kill( pid, SIGKILL );
 }
@@ -173,6 +178,11 @@ int tk_parent_pid( int pid ) {
 
 int tk_process_id_from_handle( uintptr_t handle ) {
   return (int)handle;
+}
+
+int tk_process_poll( int pid ) {
+  (void)pid;
+  return -2;
 }
 
 int tk_kill_process( int pid ) {
@@ -270,11 +280,23 @@ int tk_process_id_from_handle( uintptr_t handle ) {
   return pid ? (int)pid : -1;
 }
 
+int tk_process_poll( int pid ) {
+  HANDLE process = OpenProcess( PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, (DWORD)pid );
+  if( FD_UNLIKELY( !process ) ) return -2;
+  DWORD wait_rc = WaitForSingleObject( process, 0U );
+  if( wait_rc==WAIT_TIMEOUT ) { CloseHandle( process ); return -1; }
+  if( wait_rc!=WAIT_OBJECT_0 ) { CloseHandle( process ); return -2; }
+  DWORD code = 0U;
+  int rc = GetExitCodeProcess( process, &code ) ? (int)(code & 0x7fffffffU) : -2;
+  CloseHandle( process );
+  return rc;
+}
+
 int tk_kill_process( int pid ) {
   HANDLE process = OpenProcess( PROCESS_TERMINATE, FALSE, (DWORD)pid );
   if( FD_UNLIKELY( !process ) ) return -1;
 
-  int rc = TerminateProcess( process, 1U ) ? 0 : -1;
+  int rc = TerminateProcess( process, 255U ) ? 0 : -1;
   CloseHandle( process );
   return rc;
 }
@@ -342,6 +364,11 @@ int tk_parent_pid( int pid ) {
 
 int tk_process_id_from_handle( uintptr_t handle ) {
   return (int)handle;
+}
+
+int tk_process_poll( int pid ) {
+  (void)pid;
+  return -2;
 }
 
 int tk_kill_process( int pid ) {

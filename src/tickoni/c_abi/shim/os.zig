@@ -8,6 +8,7 @@ pub const c = struct {
     pub extern fn tk_self_exe_path(buf: [*]u8, buf_len: usize) c_int;
     pub extern fn tk_parent_pid(pid: c_int) c_int;
     pub extern fn tk_process_id_from_handle(handle: usize) c_int;
+    pub extern fn tk_process_poll(pid: c_int) c_int;
     pub extern fn tk_port_is_in_use(port: u16) c_int;
     pub extern fn tk_kill_process(pid: c_int) c_int;
     pub extern fn tk_kill_process_group(pgid: c_int) c_int;
@@ -56,6 +57,10 @@ pub fn portIsInUse(port: u16) bool {
 
 pub fn killProcess(pid: c_int) void {
     _ = c.tk_kill_process(pid);
+}
+
+pub fn processPoll(pid: c_int) c_int {
+    return c.tk_process_poll(pid);
 }
 
 pub fn write(fd: c_int, buf: []const u8) usize {

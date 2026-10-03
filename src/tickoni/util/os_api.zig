@@ -22,6 +22,10 @@ pub fn parentPid(pid: c_int) c_int {
 pub fn kill(pid: ProcessId) void {
     c.killProcess(@intCast(pid));
 }
+
+pub fn processPoll(pid: c_int) c_int {
+    return c.processPoll(pid);
+}
 pub fn write(fd: FileDescriptor, buf: []const u8) usize {
     return c.write(@intCast(fd), buf);
 }
