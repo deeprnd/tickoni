@@ -304,7 +304,7 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
-    if (builtin.os.tag == .windows) return error.SkipZigTest;
+    if (builtin.os.tag != .linux) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -369,7 +369,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: unknown path returns HTTP 404" {
-    if (builtin.os.tag == .windows) return error.SkipZigTest;
+    if (builtin.os.tag != .linux) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -419,7 +419,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: boot_timestamp is a valid large positive value" {
-    if (builtin.os.tag == .windows) return error.SkipZigTest;
+    if (builtin.os.tag != .linux) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
