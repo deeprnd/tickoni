@@ -11,7 +11,7 @@ All tests start as **NOT VERIFIED** for this investigation. This is an initial t
 | # | Integration test file / binary | Initial status |
 |---:|---|---|
 | 1 | `src/tickoni/test/integration/test_investment_allowed_trade.zig` | VERIFIED |
-| 2 | `src/tickoni/test/integration/test_investment_blocked_limits.zig` | NOT VERIFIED |
+| 2 | `src/tickoni/test/integration/test_investment_blocked_limits.zig` | VERIFIED |
 | 3 | `src/tickoni/test/integration/test_investment_restricted_instrument.zig` | NOT VERIFIED |
 | 4 | `src/tickoni/test/integration/test_investment_input_policy_denials.zig` | NOT VERIFIED |
 | 5 | `src/tickoni/test/integration/test_investment_replay.zig` | NOT VERIFIED |
@@ -48,3 +48,4 @@ All tests start as **NOT VERIFIED** for this investigation. This is an initial t
 | All listed tests | Initial state | NOT VERIFIED |
 | `test_process_topology.zig` | `timeout 120s just test-integration-tk` (Windows ARM; isolated lane) | VERIFIED — canonical lane exited 0; all 6 tests passed. Commit `605db5a37`. |
 | `test_investment_allowed_trade.zig` | `timeout 120s just test-integration-tk` (Windows ARM; sequential with topology) | VERIFIED — canonical lane exited 0; both isolated binaries passed. |
+| `test_investment_blocked_limits.zig` | `timeout 120s just test-integration-tk` (Windows ARM; sequential with topology and allowed trade) | VERIFIED — canonical lane exited 0; all three isolated binaries passed. |

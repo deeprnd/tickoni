@@ -53,7 +53,10 @@ pub fn strategy(
         "src/tickoni/test/integration/test_investment_restricted_instrument.zig",
         "src/tickoni/test/integration/test_investment_input_policy_denials.zig",
     };
-    const isolated_static_test = "src/tickoni/test/integration/test_investment_allowed_trade.zig";
+    const isolated_static_tests: []const []const u8 = &.{
+        "src/tickoni/test/integration/test_investment_allowed_trade.zig",
+        "src/tickoni/test/integration/test_investment_blocked_limits.zig",
+    };
 
     const static_imports = [_]std.Build.Module.Import{
         .{ .name = "adapter", .module = int_mods.adapter_int_mod },
@@ -73,7 +76,7 @@ pub fn strategy(
         .{ .name = "tkagnt", .module = int_mods.agent_int_mod },
     };
 
-    var isolated_static_run: ?*std.Build.Step.Run = null;
+    var isolated_static_runs: [isolated_static_tests.len]?*std.Build.Step.Run = @splat(null);
     inline for (static_tests) |path| {
         const integration_test = b.addTest(.{
             .root_module = b.createModule(.{
@@ -84,9 +87,13 @@ pub fn strategy(
             }),
         });
         codec.linkTickoniCodec(b, integration_test, fd_lib_dir);
-        if (isolate_integration_lane and std.mem.eql(u8, path, isolated_static_test)) {
-            isolated_static_run = shims.addPlainTestRun(b, integration_test);
-        } else if (!isolate_integration_lane) {
+        for (isolated_static_tests, 0..) |selected_path, run_idx| {
+            if (isolate_integration_lane and std.mem.eql(u8, path, selected_path)) {
+                isolated_static_runs[run_idx] = shims.addPlainTestRun(b, integration_test);
+                break;
+            }
+        }
+        if (!isolate_integration_lane) {
             integration_step.dependOn(&b.addRunArtifact(integration_test).step);
         }
     }
@@ -131,9 +138,13 @@ pub fn strategy(
     const run_isolated_test = shims.addPlainTestRun(b, isolated_test);
     run_isolated_test.step.dependOn(&exe_install.step);
     if (isolate_integration_lane) integration_step.dependOn(&run_isolated_test.step);
-    if (isolated_static_run) |run| {
-        run.step.dependOn(&run_isolated_test.step);
-        integration_step.dependOn(&run.step);
+    var previous_run_step: *std.Build.Step = &run_isolated_test.step;
+    for (isolated_static_runs) |maybe_run| {
+        if (maybe_run) |run| {
+            run.step.dependOn(previous_run_step);
+            integration_step.dependOn(&run.step);
+            previous_run_step = &run.step;
+        }
     }
 
     inline for (process_tests) |path| {
