@@ -41,29 +41,51 @@ pub fn strategy(
     integration_step: *std.Build.Step,
     exe_install: *std.Build.Step.InstallArtifact,
 ) void {
-    const isolate_integration_lane = true;
-    const investment_demo_test_mod = int_mods.investment_demo_test_mod;
-    const investment_demo_test = b.addTest(.{ .root_module = investment_demo_test_mod });
-    codec.linkTickoniCodec(b, investment_demo_test, fd_lib_dir);
-    var isolated_demo_run: ?*std.Build.Step.Run = null;
-    if (isolate_integration_lane) {
-        isolated_demo_run = shims.addPlainTestRun(b, investment_demo_test);
-    } else {
-        integration_step.dependOn(&b.addRunArtifact(investment_demo_test).step);
-    }
-
     const static_tests: []const []const u8 = &.{
         "src/tickoni/test/integration/test_investment_allowed_trade.zig",
         "src/tickoni/test/integration/test_investment_blocked_limits.zig",
         "src/tickoni/test/integration/test_investment_restricted_instrument.zig",
         "src/tickoni/test/integration/test_investment_input_policy_denials.zig",
     };
-    const isolated_static_tests: []const []const u8 = &.{
-        "src/tickoni/test/integration/test_investment_allowed_trade.zig",
-        "src/tickoni/test/integration/test_investment_blocked_limits.zig",
-        "src/tickoni/test/integration/test_investment_restricted_instrument.zig",
-        "src/tickoni/test/integration/test_investment_input_policy_denials.zig",
+    const process_tests: []const []const u8 = &.{
+        "src/tickoni/test/integration/test_link_bounds.zig",
+        "src/tickoni/test/integration/test_metric_tile_integration.zig",
+        "src/tickoni/test/integration/test_process_pipeline.zig",
+        "src/tickoni/test/integration/test_process_cpu_placement.zig",
+        "src/tickoni/test/integration/test_process_demo_parity.zig",
     };
+    const test_run_count = static_tests.len + process_tests.len + 5;
+    var test_runs: [test_run_count]*std.Build.Step.Run = undefined;
+    var test_run_idx: usize = 0;
+
+    const proc_imports = [_]std.Build.Module.Import{
+        .{ .name = "runtime", .module = int_mods.shared_runtime },
+        .{ .name = "c_abi", .module = int_mods.shared_c_abi },
+        .{ .name = "util", .module = int_mods.shared_util },
+        .{ .name = "supervisor", .module = int_mods.supervisor_named_mod },
+        .{ .name = "topologies", .module = int_mods.shared_topologies },
+    };
+    const topology_test = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/tickoni/test/integration/test_process_topology.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &proc_imports,
+        }),
+    });
+    codec.linkTickoniCodec(b, topology_test, fd_lib_dir);
+    firedancer.linkTickoniFiredancer(b, topology_test, fd_lib_dir);
+    topo_run.linkTickoniTopoRun(b, topology_test, fd_lib_dir);
+    if (target.result.os.tag == .linux) {
+        topology_test.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_zstd.a", .{fd_lib_dir}) });
+    }
+    test_runs[test_run_idx] = shims.addPlainTestRun(b, topology_test);
+    test_runs[test_run_idx].step.dependOn(&exe_install.step);
+    test_run_idx += 1;
+
+    const investment_demo_test_mod = int_mods.investment_demo_test_mod;
+    const investment_demo_test = b.addTest(.{ .root_module = investment_demo_test_mod });
+    codec.linkTickoniCodec(b, investment_demo_test, fd_lib_dir);
 
     const static_imports = [_]std.Build.Module.Import{
         .{ .name = "adapter", .module = int_mods.adapter_int_mod },
@@ -83,7 +105,6 @@ pub fn strategy(
         .{ .name = "tkagnt", .module = int_mods.agent_int_mod },
     };
 
-    var isolated_static_runs: [isolated_static_tests.len]?*std.Build.Step.Run = @splat(null);
     inline for (static_tests) |path| {
         const integration_test = b.addTest(.{
             .root_module = b.createModule(.{
@@ -94,78 +115,16 @@ pub fn strategy(
             }),
         });
         codec.linkTickoniCodec(b, integration_test, fd_lib_dir);
-        for (isolated_static_tests, 0..) |selected_path, run_idx| {
-            if (isolate_integration_lane and std.mem.eql(u8, path, selected_path)) {
-                isolated_static_runs[run_idx] = shims.addPlainTestRun(b, integration_test);
-                break;
-            }
-        }
-        if (!isolate_integration_lane) {
-            integration_step.dependOn(&b.addRunArtifact(integration_test).step);
-        }
+        test_runs[test_run_idx] = shims.addPlainTestRun(b, integration_test);
+        test_run_idx += 1;
     }
+
+    test_runs[test_run_idx] = shims.addPlainTestRun(b, investment_demo_test);
+    test_run_idx += 1;
 
     // Supervisor binary must be installed before process-mode tests
     // can spawn it (tile_exe_path = "build/zig-out/bin/tickoni-supervisor").
     // Each process test run step depends on the install so the file exists.
-    const process_tests: []const []const u8 = &.{
-        "src/tickoni/test/integration/test_link_bounds.zig",
-        "src/tickoni/test/integration/test_metric_tile_integration.zig",
-        "src/tickoni/test/integration/test_process_pipeline.zig",
-        "src/tickoni/test/integration/test_process_cpu_placement.zig",
-        "src/tickoni/test/integration/test_process_topology.zig",
-        "src/tickoni/test/integration/test_process_demo_parity.zig",
-    };
-    const isolated_process_tests: []const []const u8 = &.{
-        "src/tickoni/test/integration/test_link_bounds.zig",
-        "src/tickoni/test/integration/test_metric_tile_integration.zig",
-        "src/tickoni/test/integration/test_process_pipeline.zig",
-        "src/tickoni/test/integration/test_process_cpu_placement.zig",
-        "src/tickoni/test/integration/test_process_demo_parity.zig",
-    };
-
-    const proc_imports = [_]std.Build.Module.Import{
-        .{ .name = "runtime", .module = int_mods.shared_runtime },
-        .{ .name = "c_abi", .module = int_mods.shared_c_abi },
-        .{ .name = "util", .module = int_mods.shared_util },
-        .{ .name = "supervisor", .module = int_mods.supervisor_named_mod },
-        .{ .name = "topologies", .module = int_mods.shared_topologies },
-    };
-
-    // Keep the integration lane isolated while process-mode failures are
-    // repaired. Add one process integration binary at a time, then restore
-    // the normal dependencies below.
-    const isolated_test = b.addTest(.{
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/tickoni/test/integration/test_process_topology.zig"),
-            .target = target,
-            .optimize = optimize,
-            .imports = &proc_imports,
-        }),
-    });
-    codec.linkTickoniCodec(b, isolated_test, fd_lib_dir);
-    firedancer.linkTickoniFiredancer(b, isolated_test, fd_lib_dir);
-    topo_run.linkTickoniTopoRun(b, isolated_test, fd_lib_dir);
-    if (target.result.os.tag == .linux) {
-        isolated_test.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_zstd.a", .{fd_lib_dir}) });
-    }
-    const run_isolated_test = shims.addPlainTestRun(b, isolated_test);
-    run_isolated_test.step.dependOn(&exe_install.step);
-    if (isolate_integration_lane) integration_step.dependOn(&run_isolated_test.step);
-    var previous_run_step: *std.Build.Step = &run_isolated_test.step;
-    for (isolated_static_runs) |maybe_run| {
-        if (maybe_run) |run| {
-            run.step.dependOn(previous_run_step);
-            integration_step.dependOn(&run.step);
-            previous_run_step = &run.step;
-        }
-    }
-    if (isolated_demo_run) |run| {
-        run.step.dependOn(previous_run_step);
-        integration_step.dependOn(&run.step);
-        previous_run_step = &run.step;
-    }
-
     inline for (process_tests) |path| {
         const process_test = b.addTest(.{
             .root_module = b.createModule(.{
@@ -183,21 +142,9 @@ pub fn strategy(
         if (target.result.os.tag == .linux) {
             process_test.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_zstd.a", .{fd_lib_dir}) });
         }
-        const run_proc_test = shims.addPlainTestRun(b, process_test);
-        // Direct dependency ensures install happens before this test runs.
-        run_proc_test.step.dependOn(&exe_install.step);
-        if (!isolate_integration_lane) {
-            integration_step.dependOn(&run_proc_test.step);
-        } else {
-            for (isolated_process_tests) |selected_path| {
-                if (std.mem.eql(u8, path, selected_path)) {
-                    run_proc_test.step.dependOn(previous_run_step);
-                    integration_step.dependOn(&run_proc_test.step);
-                    previous_run_step = &run_proc_test.step;
-                    break;
-                }
-            }
-        }
+        test_runs[test_run_idx] = shims.addPlainTestRun(b, process_test);
+        test_runs[test_run_idx].step.dependOn(&exe_install.step);
+        test_run_idx += 1;
     }
 
     const mock_servers_test = b.addTest(.{
@@ -213,7 +160,6 @@ pub fn strategy(
         }),
     });
     firedancer.linkTickoniFiredancer(b, mock_servers_test, fd_lib_dir);
-    if (!isolate_integration_lane) integration_step.dependOn(&mock_servers_test.step);
 
     const model_tile_http_test = b.addTest(.{
         .root_module = b.createModule(.{
@@ -229,11 +175,6 @@ pub fn strategy(
     });
     codec.linkTickoniCodec(b, model_tile_http_test, fd_lib_dir);
     firedancer.linkTickoniFiredancer(b, model_tile_http_test, fd_lib_dir);
-    const mock_and_model_run: ?*std.Build.Step.Run = if (isolate_integration_lane)
-        shims.addPlainTestRunSeries(b, &.{ mock_servers_test, model_tile_http_test })
-    else
-        null;
-    if (!isolate_integration_lane) integration_step.dependOn(&b.addRunArtifact(model_tile_http_test).step);
 
     const replay_integration_test = b.addTest(.{
         .root_module = b.createModule(.{
@@ -261,14 +202,8 @@ pub fn strategy(
         }),
     });
     codec.linkTickoniCodec(b, replay_integration_test, fd_lib_dir);
-    if (isolate_integration_lane) {
-        const run = shims.addPlainTestRun(b, replay_integration_test);
-        run.step.dependOn(previous_run_step);
-        integration_step.dependOn(&run.step);
-        previous_run_step = &run.step;
-    } else {
-        integration_step.dependOn(&b.addRunArtifact(replay_integration_test).step);
-    }
+    test_runs[test_run_idx] = shims.addPlainTestRun(b, replay_integration_test);
+    test_run_idx += 1;
 
     const decision_cards_integration_test = b.addTest(.{
         .root_module = b.createModule(.{
@@ -282,18 +217,15 @@ pub fn strategy(
         }),
     });
     codec.linkTickoniCodec(b, decision_cards_integration_test, fd_lib_dir);
-    if (isolate_integration_lane) {
-        const run = shims.addPlainTestRun(b, decision_cards_integration_test);
-        run.step.dependOn(previous_run_step);
-        integration_step.dependOn(&run.step);
-        previous_run_step = &run.step;
-    } else {
-        integration_step.dependOn(&b.addRunArtifact(decision_cards_integration_test).step);
-    }
+    test_runs[test_run_idx] = shims.addPlainTestRun(b, decision_cards_integration_test);
+    test_run_idx += 1;
 
-    if (mock_and_model_run) |run| {
-        run.step.dependOn(previous_run_step);
+    test_runs[test_run_idx] = shims.addPlainTestRunSeries(b, &.{ mock_servers_test, model_tile_http_test });
+    test_run_idx += 1;
+
+    std.debug.assert(test_run_idx == test_runs.len);
+    for (test_runs, 0..) |run, idx| {
+        if (idx > 0) run.step.dependOn(&test_runs[idx - 1].step);
         integration_step.dependOn(&run.step);
-        previous_run_step = &run.step;
     }
 }

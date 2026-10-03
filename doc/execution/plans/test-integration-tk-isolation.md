@@ -32,8 +32,8 @@ All tests start as **NOT VERIFIED** for this investigation. This is an initial t
 2. Reproduce that binary through `just test-integration-tk`. Capture each test's actual assertion separately from deferred cleanup failures; ensure failed tests still stop/reap children so teardown does not mask the original assertion.
 3. Fix the root cause in the owning production/test seam. Force rebuild the changed inputs and rerun the isolated binary until it exits successfully. Then update only that row to VERIFIED with command and evidence.
 4. Add one further integration binary to the lane, run the canonical recipe, fix its issue if present, and mark its row only after a pass. Repeat incrementally through the inventory.
-5. Restore the full integration dependency graph after all binaries have passed individually. Run `just test-integration-tk` end-to-end and record its result separately; individual passes do not substitute for aggregate verification.
-6. Remove temporary isolation scaffolding and verify the final diff contains no accidental suppression, unrelated workspace edits, or untracked generated logs.
+5. DONE — restored the full integration graph with all 15 binaries registered. The canonical `timeout 120s just test-integration-tk` aggregate run exited 0 after the build cache was warm; individual passes were not used as a substitute.
+6. DONE — removed staged-test selection/skip scaffolding. All binaries now run sequentially; only the final mock-server/model-HTTP pair shares one runner invocation. The commit is limited to the integration lane and this plan; unrelated workspace edits and untracked input files remain untouched.
 
 ## Current evidence / known failures
 
@@ -63,3 +63,4 @@ All tests start as **NOT VERIFIED** for this investigation. This is an initial t
 | `test_process_demo_parity.zig` | `timeout 120s just test-integration-tk` (Windows ARM; sequential with preceding verified binaries) | VERIFIED — canonical lane exited 0; all thirteen isolated binaries passed. |
 | Mock-server integration binary (`mock_servers.zig`) | `timeout 120s just test-integration-tk` (Windows ARM; sequential with preceding verified binaries) | VERIFIED — canonical lane exited 0; all fourteen isolated binaries passed. |
 | `test_model_tile_http.zig` | `timeout 120s just test-integration-tk` (Windows ARM; the final runner invocation executes mock-server and model HTTP binaries sequentially) | VERIFIED — canonical lane exited 0; all fifteen test binaries passed. |
+| Full integration graph | `timeout 120s just test-integration-tk` (Windows ARM; full lane, no staged selection) | VERIFIED — exit 0; 13 one-binary sequential runs plus one two-binary sequential run; all 15 binaries passed. |
