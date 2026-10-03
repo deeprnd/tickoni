@@ -56,6 +56,7 @@ pub fn strategy(
     const isolated_static_tests: []const []const u8 = &.{
         "src/tickoni/test/integration/test_investment_allowed_trade.zig",
         "src/tickoni/test/integration/test_investment_blocked_limits.zig",
+        "src/tickoni/test/integration/test_investment_restricted_instrument.zig",
     };
 
     const static_imports = [_]std.Build.Module.Import{
