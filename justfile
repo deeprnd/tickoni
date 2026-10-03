@@ -68,10 +68,12 @@ test-unit-fd-macos-x86:
     @echo "SKIPPED: test-unit-fd-macos-x86 — lz4 needs more porting"
 
 test-unit-fd-macos-arm:
-    # DISABLED: lz4 needs more porting before macOS can run.
+    # BLOCKED: the scoped Firedancer suite still relies on Linux-only runtime
+    # facilities, and vendored blst has no macOS ARM64 assembly implementation.
     # python3 contrib/build/orchestrator.py --platform macos-arm build-fd {{ fd_tickoni_build }} test clang
     # JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal --page-cnt 131072"
-    @echo "SKIPPED: test-unit-fd-macos-arm — lz4 needs more porting"
+    @echo "BLOCKED: test-unit-fd-macos-arm — macOS ARM64 support is incomplete (Linux-only runtime tests and no vendored blst assembly)"
+    @true
 
 test-unit-fd-windows-x86:
     @echo "BLOCKED: test-unit-fd-windows-x86 — Windows fmemopen support is required"
@@ -84,13 +86,13 @@ test-unit-fd-windows-arm:
 test-unit-fd:
     #!/usr/bin/env bash
     set -euo pipefail
-    # macOS FD unit tests disabled (lz4 needs more porting).
+    # macOS FD unit tests are stubbed where native support is incomplete.
     # Windows FD unit tests are stubbed until fmemopen support is available.
     case "{{ os }}-{{ arch }}" in
       linux-x86) exec just test-unit-fd-linux-x86-gcc ;;
       linux-arm) exec just test-unit-fd-linux-arm-gcc ;;
       macos-x86) echo "test-unit-fd on macos-x86 is disabled — lz4 needs more porting" >&2; exit 1 ;;
-      macos-arm) echo "test-unit-fd on macos-arm is disabled — lz4 needs more porting" >&2; exit 1 ;;
+      macos-arm) exec just test-unit-fd-macos-arm ;;
       windows-x86) exec just test-unit-fd-windows-x86 ;;
       windows-arm) exec just test-unit-fd-windows-arm ;;
       *) echo "unsupported host platform for test-unit-fd: {{ os }}-{{ arch }}" >&2; exit 1 ;;
