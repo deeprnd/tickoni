@@ -17,7 +17,7 @@ All tests start as **NOT VERIFIED** for this investigation. This is an initial t
 | 5 | `src/tickoni/test/integration/test_investment_replay.zig` | VERIFIED |
 | 6 | `src/tickoni/test/integration/test_investment_decision_cards.zig` | VERIFIED |
 | 7 | Investment demo integration binary (`investment_demo_test_mod`) | VERIFIED |
-| 8 | `src/tickoni/test/integration/test_link_bounds.zig` | NOT VERIFIED |
+| 8 | `src/tickoni/test/integration/test_link_bounds.zig` | VERIFIED |
 | 9 | `src/tickoni/test/integration/test_metric_tile_integration.zig` | NOT VERIFIED |
 | 10 | `src/tickoni/test/integration/test_process_pipeline.zig` | NOT VERIFIED |
 | 11 | `src/tickoni/test/integration/test_process_cpu_placement.zig` | NOT VERIFIED |
@@ -54,3 +54,4 @@ All tests start as **NOT VERIFIED** for this investigation. This is an initial t
 | `test_investment_replay.zig` | `timeout 120s just test-integration-tk` (Windows ARM; sequential with preceding verified binaries) | VERIFIED — canonical lane exited 0; all six isolated binaries passed. |
 | `test_investment_decision_cards.zig` | `timeout 120s just test-integration-tk` (Windows ARM; sequential with preceding verified binaries) | VERIFIED — canonical lane exited 0; all seven isolated binaries passed. |
 | Investment demo integration binary | `timeout 120s just test-integration-tk` (Windows ARM; sequential with preceding verified binaries) | VERIFIED — canonical lane exited 0; all eight isolated binaries passed. |
+| `test_link_bounds.zig` | `timeout 120s just test-integration-tk` (Windows ARM; sequential with preceding verified binaries) | VERIFIED — canonical lane exited 0; all nine isolated binaries passed. |

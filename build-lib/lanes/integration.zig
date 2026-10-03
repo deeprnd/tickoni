@@ -116,6 +116,9 @@ pub fn strategy(
         "src/tickoni/test/integration/test_process_topology.zig",
         "src/tickoni/test/integration/test_process_demo_parity.zig",
     };
+    const isolated_process_tests: []const []const u8 = &.{
+        "src/tickoni/test/integration/test_link_bounds.zig",
+    };
 
     const proc_imports = [_]std.Build.Module.Import{
         .{ .name = "runtime", .module = int_mods.shared_runtime },
@@ -179,7 +182,18 @@ pub fn strategy(
         const run_proc_test = shims.addPlainTestRun(b, process_test);
         // Direct dependency ensures install happens before this test runs.
         run_proc_test.step.dependOn(&exe_install.step);
-        if (!isolate_integration_lane) integration_step.dependOn(&run_proc_test.step);
+        if (!isolate_integration_lane) {
+            integration_step.dependOn(&run_proc_test.step);
+        } else {
+            for (isolated_process_tests) |selected_path| {
+                if (std.mem.eql(u8, path, selected_path)) {
+                    run_proc_test.step.dependOn(previous_run_step);
+                    integration_step.dependOn(&run_proc_test.step);
+                    previous_run_step = &run_proc_test.step;
+                    break;
+                }
+            }
+        }
     }
 
     const mock_servers_test = b.addTest(.{
