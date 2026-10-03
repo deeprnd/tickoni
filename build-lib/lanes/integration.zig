@@ -212,6 +212,11 @@ pub fn strategy(
             },
         }),
     });
+    firedancer.linkTickoniFiredancer(b, mock_servers_test, fd_lib_dir);
+    const mock_servers_run: ?*std.Build.Step.Run = if (isolate_integration_lane)
+        shims.addPlainTestRun(b, mock_servers_test)
+    else
+        null;
     if (!isolate_integration_lane) integration_step.dependOn(&mock_servers_test.step);
 
     const model_tile_http_test = b.addTest(.{
@@ -284,5 +289,11 @@ pub fn strategy(
         previous_run_step = &run.step;
     } else {
         integration_step.dependOn(&b.addRunArtifact(decision_cards_integration_test).step);
+    }
+
+    if (mock_servers_run) |run| {
+        run.step.dependOn(previous_run_step);
+        integration_step.dependOn(&run.step);
+        previous_run_step = &run.step;
     }
 }
