@@ -37,6 +37,20 @@ def _url_exists(url: str) -> bool:
     return result.returncode == 0
 
 
+def _installed_zig_version(executable: str) -> str | None:
+    """Return the version reported by an existing Zig executable."""
+    try:
+        result = subprocess.run(
+            [executable, "version"], capture_output=True, text=True,
+        )
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    version = result.stdout.strip()
+    return version or None
+
+
 @register('install_zig')
 class ZigInstallStrategy(InstallStrategy):
     """Install an official prebuilt Zig release."""
@@ -109,13 +123,21 @@ class ZigInstallStrategy(InstallStrategy):
             print(f"[SKIP] zig {version} already installed at {expected_install_dir}")
             return
 
-        # Check if zig is already installed and on PATH.
+        # Reuse an existing PATH installation only when it is the requested
+        # version.  Blindly accepting any `zig` on PATH prevents upgrades when
+        # a previous development build is still active in the user's shell.
         existing_path = shutil.which('zig')
         if existing_path:
-            install_dir = Path(existing_path).resolve().parent
-            self._activate_existing_install(install_dir, user_path, platform_str)
-            print(f"[SKIP] zig already on PATH: {existing_path}")
-            return
+            existing_version = _installed_zig_version(existing_path)
+            if existing_version == version:
+                install_dir = Path(existing_path).resolve().parent
+                self._activate_existing_install(install_dir, user_path, platform_str)
+                print(f"[SKIP] zig {version} already on PATH: {existing_path}")
+                return
+            print(
+                f"[upgrade] Zig on PATH is {existing_version or 'unknown'}; "
+                f"installing {version}"
+            )
 
         index_url = ZIG_INDEX_URL
         ext = ".zip" if target.endswith("-windows") else ".tar.xz"
