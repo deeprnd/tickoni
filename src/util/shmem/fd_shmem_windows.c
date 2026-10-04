@@ -39,11 +39,11 @@ static win_shmem_join_t win_shmem_joins[WIN_SHMEM_MAX_JOINS];
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
 static int win_shmem_find_region(const char *name, ulong page_sz, int *idx_out) {
-    for (int i = 0; i < win_shmem_region_cnt; i++) {
-        if (win_shmem_regions[i].created &&
+    for(int i = 0; i < win_shmem_region_cnt; i++) {
+        if(win_shmem_regions[i].created &&
             strcmp(win_shmem_regions[i].name, name) == 0 &&
             win_shmem_regions[i].page_sz == page_sz) {
-            if (idx_out) *idx_out = i;
+            if(idx_out) *idx_out = i;
             return 1;
         }
     }
@@ -52,24 +52,24 @@ static int win_shmem_find_region(const char *name, ulong page_sz, int *idx_out) 
 
 static int win_shmem_find_or_create(const char *name, ulong page_sz, int *idx_out) {
     int idx;
-    if (win_shmem_find_region(name, page_sz, &idx)) {
-        if (idx_out) *idx_out = idx;
+    if(win_shmem_find_region(name, page_sz, &idx)) {
+        if(idx_out) *idx_out = idx;
         return 1;
     }
-    if (win_shmem_region_cnt >= WIN_SHMEM_MAX_REGIONS) return 0;
+    if(win_shmem_region_cnt >= WIN_SHMEM_MAX_REGIONS) return 0;
     idx = win_shmem_region_cnt++;
     win_shmem_regions[idx].created = 0;
     win_shmem_regions[idx].ref_cnt = 0;
     win_shmem_regions[idx].mapping_handle = NULL;
     win_shmem_regions[idx].unlink_pending = 0;
-    if (idx_out) *idx_out = idx;
+    if(idx_out) *idx_out = idx;
     return 1;
 }
 
 static void win_shmem_update_info(const char *name, ulong page_sz, fd_shmem_info_t *opt_info) {
-    if (!opt_info) return;
-    for (int i = 0; i < win_shmem_region_cnt; i++) {
-        if (win_shmem_regions[i].created &&
+    if(!opt_info) return;
+    for(int i = 0; i < win_shmem_region_cnt; i++) {
+        if(win_shmem_regions[i].created &&
             strcmp(win_shmem_regions[i].name, name) == 0 &&
             win_shmem_regions[i].page_sz == page_sz) {
             opt_info->page_sz  = win_shmem_regions[i].page_sz;
@@ -83,16 +83,16 @@ static void win_shmem_update_info(const char *name, ulong page_sz, fd_shmem_info
 
 int
 fd_cstr_to_shmem_lg_page_sz(char const *cstr) {
-    if (!cstr) return FD_SHMEM_UNKNOWN_LG_PAGE_SZ;
-    if (!fd_cstr_casecmp(cstr, "normal"))   return FD_SHMEM_NORMAL_LG_PAGE_SZ;
-    if (!fd_cstr_casecmp(cstr, "huge"))     return FD_SHMEM_HUGE_LG_PAGE_SZ;
-    if (!fd_cstr_casecmp(cstr, "gigantic")) return FD_SHMEM_GIGANTIC_LG_PAGE_SZ;
+    if(!cstr) return FD_SHMEM_UNKNOWN_LG_PAGE_SZ;
+    if(!fd_cstr_casecmp(cstr, "normal"))   return FD_SHMEM_NORMAL_LG_PAGE_SZ;
+    if(!fd_cstr_casecmp(cstr, "huge"))     return FD_SHMEM_HUGE_LG_PAGE_SZ;
+    if(!fd_cstr_casecmp(cstr, "gigantic")) return FD_SHMEM_GIGANTIC_LG_PAGE_SZ;
     return FD_SHMEM_UNKNOWN_LG_PAGE_SZ;
 }
 
 char const *
 fd_shmem_lg_page_sz_to_cstr(int lg_page_sz) {
-    switch (lg_page_sz) {
+    switch(lg_page_sz) {
     case FD_SHMEM_NORMAL_LG_PAGE_SZ:   return "normal";
     case FD_SHMEM_HUGE_LG_PAGE_SZ:     return "huge";
     case FD_SHMEM_GIGANTIC_LG_PAGE_SZ: return "gigantic";
@@ -102,16 +102,16 @@ fd_shmem_lg_page_sz_to_cstr(int lg_page_sz) {
 
 ulong
 fd_cstr_to_shmem_page_sz(char const *cstr) {
-    if (!cstr) return FD_SHMEM_UNKNOWN_PAGE_SZ;
-    if (!fd_cstr_casecmp(cstr, "normal"))   return FD_SHMEM_NORMAL_PAGE_SZ;
-    if (!fd_cstr_casecmp(cstr, "huge"))     return FD_SHMEM_HUGE_PAGE_SZ;
-    if (!fd_cstr_casecmp(cstr, "gigantic")) return FD_SHMEM_GIGANTIC_PAGE_SZ;
+    if(!cstr) return FD_SHMEM_UNKNOWN_PAGE_SZ;
+    if(!fd_cstr_casecmp(cstr, "normal"))   return FD_SHMEM_NORMAL_PAGE_SZ;
+    if(!fd_cstr_casecmp(cstr, "huge"))     return FD_SHMEM_HUGE_PAGE_SZ;
+    if(!fd_cstr_casecmp(cstr, "gigantic")) return FD_SHMEM_GIGANTIC_PAGE_SZ;
     return FD_SHMEM_UNKNOWN_PAGE_SZ;
 }
 
 char const *
 fd_shmem_page_sz_to_cstr(ulong page_sz) {
-    switch (page_sz) {
+    switch(page_sz) {
     case FD_SHMEM_NORMAL_PAGE_SZ:   return "normal";
     case FD_SHMEM_HUGE_PAGE_SZ:     return "huge";
     case FD_SHMEM_GIGANTIC_PAGE_SZ: return "gigantic";
@@ -121,7 +121,7 @@ fd_shmem_page_sz_to_cstr(ulong page_sz) {
 
 ulong
 fd_shmem_name_len(char const *name) {
-    if (!name) return 0UL;
+    if(!name) return 0UL;
     ulong len = strlen(name);
     return ((0UL < len) && (len < FD_SHMEM_NAME_MAX)) ? len : 0UL;
 }
@@ -138,15 +138,15 @@ fd_shmem_create_multi(char const *name,
     (void)mode;
 
     /* Validate name */
-    if (!fd_shmem_name_len(name)) {
+    if(!fd_shmem_name_len(name)) {
         FD_LOG_WARNING(("fd_shmem_create_multi: bad name (%s)", name ? name : "NULL"));
         return EINVAL;
     }
 
     /* Validate page size — on Windows, only normal pages are supported */
-    if (page_sz != FD_SHMEM_NORMAL_PAGE_SZ) {
+    if(page_sz != FD_SHMEM_NORMAL_PAGE_SZ) {
         /* huge/gigantic fall back to normal on Windows */
-        if (page_sz != FD_SHMEM_HUGE_PAGE_SZ && page_sz != FD_SHMEM_GIGANTIC_PAGE_SZ) {
+        if(page_sz != FD_SHMEM_HUGE_PAGE_SZ && page_sz != FD_SHMEM_GIGANTIC_PAGE_SZ) {
             FD_LOG_WARNING(("fd_shmem_create_multi: bad page_sz (%lu)", page_sz));
             return EINVAL;
         }
@@ -155,32 +155,32 @@ fd_shmem_create_multi(char const *name,
     }
 
     /* Validate subregion count and pointers */
-    if (sub_cnt == 0 || !sub_page_cnt || !sub_cpu_idx) {
+    if(sub_cnt == 0 || !sub_page_cnt || !sub_cpu_idx) {
         FD_LOG_WARNING(("fd_shmem_create_multi: invalid sub_cnt or NULL pointers"));
         return EINVAL;
     }
 
     /* Compute total pages */
     ulong total_pages = 0;
-    for (ulong i = 0; i < sub_cnt; i++) {
-        if (sub_page_cnt[i] > 0) {
+    for(ulong i = 0; i < sub_cnt; i++) {
+        if(sub_page_cnt[i] > 0) {
             total_pages += sub_page_cnt[i];
         }
     }
-    if (total_pages == 0) {
+    if(total_pages == 0) {
         FD_LOG_WARNING(("fd_shmem_create_multi: zero total pages"));
         return EINVAL;
     }
 
     /* Find or create region entry */
     int idx;
-    if (!win_shmem_find_or_create(name, page_sz, &idx)) {
+    if(!win_shmem_find_or_create(name, page_sz, &idx)) {
         FD_LOG_WARNING(("fd_shmem_create_multi: max regions reached"));
         return ENOMEM;
     }
 
     /* Check if region already exists (O_EXCL semantics) */
-    if (win_shmem_regions[idx].created) {
+    if(win_shmem_regions[idx].created) {
         FD_LOG_WARNING(("fd_shmem_create_multi: region already exists (%s)", name));
         return EEXIST;
     }
@@ -198,7 +198,7 @@ fd_shmem_create_multi(char const *name,
         (DWORD)(total_bytes & 0xFFFFFFFF),
         name
     );
-    if (mapping_handle == NULL) {
+    if(mapping_handle == NULL) {
         DWORD err = GetLastError();
         FD_LOG_WARNING(("fd_shmem_create_multi: CreateFileMapping failed (%lu)", (unsigned long)err));
         return err == ERROR_ALREADY_EXISTS ? EEXIST : EINVAL;
@@ -211,7 +211,7 @@ fd_shmem_create_multi(char const *name,
         0, 0,
         total_bytes
     );
-    if (base == NULL) {
+    if(base == NULL) {
         DWORD err = GetLastError();
         CloseHandle(mapping_handle);
         FD_LOG_WARNING(("fd_shmem_create_multi: MapViewOfFile failed (%lu)", (unsigned long)err));
@@ -252,7 +252,7 @@ fd_shmem_update_multi(char const *name,
 
 int
 fd_shmem_unlink(char const *name, ulong page_sz) {
-    if (!fd_shmem_name_len(name)) {
+    if(!fd_shmem_name_len(name)) {
         FD_LOG_WARNING(("fd_shmem_unlink: bad name (%s)", name ? name : "NULL"));
         return EINVAL;
     }
@@ -260,13 +260,13 @@ fd_shmem_unlink(char const *name, ulong page_sz) {
     /* On Windows, unlink marks the region for destruction when refs drop to zero.
        If no refs exist, destroy immediately. */
     int idx;
-    if (!win_shmem_find_region(name, page_sz, &idx) &&
+    if(!win_shmem_find_region(name, page_sz, &idx) &&
         !win_shmem_find_region(name, FD_SHMEM_NORMAL_PAGE_SZ, &idx)) {
         FD_LOG_WARNING(("fd_shmem_unlink: region not found (%s)", name));
         return ENOENT;
     }
 
-    if (win_shmem_regions[idx].ref_cnt > 0) {
+    if(win_shmem_regions[idx].ref_cnt > 0) {
         /* Defer destruction */
         win_shmem_regions[idx].unlink_pending = 1;
         FD_LOG_INFO(("fd_shmem_unlink: region %s marked for deletion (pending %d refs)",
@@ -285,33 +285,33 @@ fd_shmem_unlink(char const *name, ulong page_sz) {
 
 int
 fd_shmem_info(char const *name, ulong page_sz, fd_shmem_info_t *opt_info) {
-    if (!fd_shmem_name_len(name)) {
+    if(!fd_shmem_name_len(name)) {
         FD_LOG_WARNING(("fd_shmem_info: bad name (%s)", name ? name : "NULL"));
         return EINVAL;
     }
 
     /* If page_sz is 0, try all sizes */
-    if (page_sz == 0) {
+    if(page_sz == 0) {
         fd_shmem_info_t tmp;
-        if (!fd_shmem_info(name, FD_SHMEM_GIGANTIC_PAGE_SZ, &tmp)) return 0;
-        if (!fd_shmem_info(name, FD_SHMEM_HUGE_PAGE_SZ, &tmp)) return 0;
-        if (!fd_shmem_info(name, FD_SHMEM_NORMAL_PAGE_SZ, &tmp)) return 0;
+        if(!fd_shmem_info(name, FD_SHMEM_GIGANTIC_PAGE_SZ, &tmp)) return 0;
+        if(!fd_shmem_info(name, FD_SHMEM_HUGE_PAGE_SZ, &tmp)) return 0;
+        if(!fd_shmem_info(name, FD_SHMEM_NORMAL_PAGE_SZ, &tmp)) return 0;
         return ENOENT;
     }
 
-    if (!fd_shmem_is_page_sz(page_sz)) {
+    if(!fd_shmem_is_page_sz(page_sz)) {
         FD_LOG_WARNING(("fd_shmem_info: bad page_sz (%lu)", page_sz));
         return EINVAL;
     }
 
     /* Check this specific page size */
     int idx;
-    if (!win_shmem_find_region(name, page_sz, &idx) &&
+    if(!win_shmem_find_region(name, page_sz, &idx) &&
         !win_shmem_find_region(name, FD_SHMEM_NORMAL_PAGE_SZ, &idx)) {
         return ENOENT;
     }
 
-    if (opt_info) {
+    if(opt_info) {
         opt_info->page_sz = win_shmem_regions[idx].page_sz;
         opt_info->page_cnt = win_shmem_regions[idx].page_cnt;
     }
@@ -329,12 +329,12 @@ fd_shmem_join(char const *name,
               fd_shmem_join_info_t *opt_info) {
     (void)dump; (void)join_func; (void)context;
 
-    if (!fd_shmem_name_len(name)) {
+    if(!fd_shmem_name_len(name)) {
         FD_LOG_WARNING(("fd_shmem_join: bad name (%s)", name ? name : "NULL"));
         return NULL;
     }
 
-    if (mode != FD_SHMEM_JOIN_MODE_READ_ONLY && mode != FD_SHMEM_JOIN_MODE_READ_WRITE) {
+    if(mode != FD_SHMEM_JOIN_MODE_READ_ONLY && mode != FD_SHMEM_JOIN_MODE_READ_WRITE) {
         FD_LOG_WARNING(("fd_shmem_join: invalid mode (%d)", mode));
         return NULL;
     }
@@ -346,17 +346,17 @@ fd_shmem_join(char const *name,
     ulong found_page_sz = 0;
 
     /* Try normal pages first (Windows default) */
-    if (win_shmem_find_region(name, FD_SHMEM_NORMAL_PAGE_SZ, &idx)) {
+    if(win_shmem_find_region(name, FD_SHMEM_NORMAL_PAGE_SZ, &idx)) {
         found_page_sz = FD_SHMEM_NORMAL_PAGE_SZ;
     }
 
-    if (idx < 0) {
+    if(idx < 0) {
         HANDLE mapping_handle = OpenFileMappingA(
             FILE_MAP_READ | (mode == FD_SHMEM_JOIN_MODE_READ_WRITE ? FILE_MAP_WRITE : 0),
             FALSE,
             name
         );
-        if (mapping_handle == NULL) {
+        if(mapping_handle == NULL) {
             FD_LOG_WARNING(("fd_shmem_join: region not found (%s), OpenFileMapping failed (%lu)",
                             name, (unsigned long)GetLastError()));
             return NULL;
@@ -368,7 +368,7 @@ fd_shmem_join(char const *name,
         void *probe = MapViewOfFile(mapping_handle,
                                     FILE_MAP_READ,
                                     0, 0, 0);
-        if (probe == NULL) {
+        if(probe == NULL) {
             CloseHandle(mapping_handle);
             FD_LOG_WARNING(("fd_shmem_join: MapViewOfFile probe failed for %s (%lu)",
                             name, (unsigned long)GetLastError()));
@@ -379,7 +379,7 @@ fd_shmem_join(char const *name,
         SIZE_T mapped_bytes = 0;
         void *cursor = probe;
         void *allocation_base = queried != 0 ? mbi.AllocationBase : NULL;
-        while (queried != 0 && allocation_base != NULL &&
+        while(queried != 0 && allocation_base != NULL &&
                mbi.AllocationBase == allocation_base &&
                mbi.State == MEM_COMMIT && mbi.RegionSize != 0) {
             mapped_bytes += mbi.RegionSize;
@@ -387,14 +387,14 @@ fd_shmem_join(char const *name,
             queried = VirtualQuery(cursor, &mbi, sizeof(mbi));
         }
         UnmapViewOfFile(probe);
-        if (mapped_bytes == 0 ||
+        if(mapped_bytes == 0 ||
             ((ulong)mapped_bytes % FD_SHMEM_NORMAL_PAGE_SZ) != 0) {
             CloseHandle(mapping_handle);
             FD_LOG_WARNING(("fd_shmem_join: could not determine mapping size for %s", name));
             return NULL;
         }
 
-        if (!win_shmem_find_or_create(name, FD_SHMEM_NORMAL_PAGE_SZ, &idx)) {
+        if(!win_shmem_find_or_create(name, FD_SHMEM_NORMAL_PAGE_SZ, &idx)) {
             CloseHandle(mapping_handle);
             FD_LOG_WARNING(("fd_shmem_join: max regions reached"));
             return NULL;
@@ -421,7 +421,7 @@ fd_shmem_join(char const *name,
     /* A cross-process join maps the complete section.  The size discovered
        by VirtualQuery is metadata only; it can describe a partial view and
        must not be used to truncate the actual workspace mapping. */
-    if (found_page_sz != 0 && idx >= 0 &&
+    if(found_page_sz != 0 && idx >= 0 &&
         win_shmem_regions[idx].mapping_handle != NULL &&
         win_shmem_regions[idx].ref_cnt == 1) {
         total_bytes = 0;
@@ -433,19 +433,19 @@ fd_shmem_join(char const *name,
         0, 0,
         total_bytes
     );
-    if (shmem == NULL) {
+    if(shmem == NULL) {
         DWORD err = GetLastError();
         win_shmem_regions[idx].ref_cnt--;
         FD_LOG_WARNING(("fd_shmem_join: MapViewOfFile failed for %s (%lu)", name, (unsigned long)err));
         return NULL;
     }
-    for (int i = 0; i < WIN_SHMEM_MAX_JOINS; i++) {
-        if (win_shmem_joins[i].addr == NULL) {
+    for(int i = 0; i < WIN_SHMEM_MAX_JOINS; i++) {
+        if(win_shmem_joins[i].addr == NULL) {
             win_shmem_joins[i].addr = shmem;
             win_shmem_joins[i].region_idx = idx;
             break;
         }
-        if (i == WIN_SHMEM_MAX_JOINS - 1) {
+        if(i == WIN_SHMEM_MAX_JOINS - 1) {
             UnmapViewOfFile(shmem);
             win_shmem_regions[idx].ref_cnt--;
             FD_LOG_WARNING(("fd_shmem_join: max joins reached"));
@@ -456,7 +456,7 @@ fd_shmem_join(char const *name,
                  name, shmem, page_cnt, total_bytes));
 
     /* Fill in opt_info if requested */
-    if (opt_info) {
+    if(opt_info) {
         opt_info->ref_cnt = (long)win_shmem_regions[idx].ref_cnt;
         opt_info->join = shmem;
         opt_info->shmem = shmem;
@@ -477,22 +477,22 @@ fd_shmem_leave(void *join,
                void *context) {
     (void)leave_func; (void)context;
 
-    if (!join) {
+    if(!join) {
         FD_LOG_WARNING(("fd_shmem_leave: NULL join"));
         return 1;
     }
 
     /* The process can have several simultaneous views.  Track the exact
        returned address so leaving one view decrements its own region. */
-    for (int j = 0; j < WIN_SHMEM_MAX_JOINS; j++) {
-        if (win_shmem_joins[j].addr != join) continue;
+    for(int j = 0; j < WIN_SHMEM_MAX_JOINS; j++) {
+        if(win_shmem_joins[j].addr != join) continue;
         int i = win_shmem_joins[j].region_idx;
         win_shmem_joins[j].addr = NULL;
         win_shmem_regions[i].ref_cnt--;
         UnmapViewOfFile(join);
 
         /* If region was unlinked and ref count reached zero, destroy it */
-        if (win_shmem_regions[i].ref_cnt == 0 && win_shmem_regions[i].unlink_pending) {
+        if(win_shmem_regions[i].ref_cnt == 0 && win_shmem_regions[i].unlink_pending) {
             CloseHandle(win_shmem_regions[i].mapping_handle);
             win_shmem_regions[i].created = 0;
             win_shmem_regions[i].mapping_handle = NULL;
@@ -509,14 +509,14 @@ fd_shmem_leave(void *join,
 
 int
 fd_shmem_join_query_by_name(char const *name, fd_shmem_join_info_t *opt_info) {
-    if (!fd_shmem_name_len(name)) return EINVAL;
+    if(!fd_shmem_name_len(name)) return EINVAL;
 
     int idx;
-    if (!win_shmem_find_region(name, FD_SHMEM_NORMAL_PAGE_SZ, &idx)) {
+    if(!win_shmem_find_region(name, FD_SHMEM_NORMAL_PAGE_SZ, &idx)) {
         return ENOENT;
     }
 
-    if (opt_info) {
+    if(opt_info) {
         opt_info->ref_cnt = (long)win_shmem_regions[idx].ref_cnt;
         opt_info->join = NULL; /* We don't track individual join pointers */
         opt_info->shmem = NULL;
@@ -584,27 +584,27 @@ fd_shmem_acquire_multi(ulong page_sz,
     /* Use standard heap allocation on Windows — not shared memory */
     (void)page_sz; (void)sub_cpu_idx;
 
-    if (!fd_shmem_is_page_sz(page_sz)) {
+    if(!fd_shmem_is_page_sz(page_sz)) {
         FD_LOG_WARNING(("fd_shmem_acquire_multi: bad page_sz (%lu)", page_sz));
         return NULL;
     }
-    if (sub_cnt == 0 || !sub_page_cnt) {
+    if(sub_cnt == 0 || !sub_page_cnt) {
         FD_LOG_WARNING(("fd_shmem_acquire_multi: invalid sub_cnt or NULL pointer"));
         return NULL;
     }
 
     ulong total_pages = 0;
-    for (ulong i = 0; i < sub_cnt; i++) {
+    for(ulong i = 0; i < sub_cnt; i++) {
         total_pages += sub_page_cnt[i];
     }
-    if (total_pages == 0) {
+    if(total_pages == 0) {
         FD_LOG_WARNING(("fd_shmem_acquire_multi: zero total pages"));
         return NULL;
     }
 
     ulong total_bytes = page_sz * total_pages;
     void *mem = VirtualAlloc(NULL, total_bytes, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    if (mem == NULL) {
+    if(mem == NULL) {
         FD_LOG_WARNING(("fd_shmem_acquire_multi: VirtualAlloc failed"));
         return NULL;
     }
@@ -616,14 +616,14 @@ int
 fd_shmem_release(void *mem, ulong page_sz, ulong page_cnt) {
     (void)page_sz; (void)page_cnt;
 
-    if (!mem) {
+    if(!mem) {
         FD_LOG_WARNING(("fd_shmem_release: NULL mem"));
         return -1;
     }
 
     ulong total_bytes = page_sz * page_cnt;
     BOOL result = VirtualFree(mem, 0, MEM_RELEASE);
-    if (!result) {
+    if(!result) {
         FD_LOG_WARNING(("fd_shmem_release: VirtualFree failed"));
         return -1;
     }
@@ -659,8 +659,8 @@ fd_shmem_private_halt(void) {
     FD_LOG_INFO(("fd_shmem: halting on Windows"));
 
     /* Clean up all remaining regions */
-    for (int i = 0; i < win_shmem_region_cnt; i++) {
-        if (win_shmem_regions[i].created && win_shmem_regions[i].mapping_handle) {
+    for(int i = 0; i < win_shmem_region_cnt; i++) {
+        if(win_shmem_regions[i].created && win_shmem_regions[i].mapping_handle) {
             CloseHandle(win_shmem_regions[i].mapping_handle);
             win_shmem_regions[i].created = 0;
             win_shmem_regions[i].mapping_handle = NULL;
