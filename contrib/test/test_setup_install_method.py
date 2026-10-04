@@ -33,6 +33,14 @@ def test_string_method_passes_through():
     assert _resolve_install_method("pip", "linux-x86", "yamllint") == "pip"
 
 
+def test_pipx_uses_system_package_manager_on_linux():
+    cfg = json.loads((setup_dir / "tool-versions.json").read_text())
+    method = cfg["tools"]["pipx"]["install_method"]
+
+    assert _resolve_install_method(method, "linux-x86", "pipx") == "apt"
+    assert _resolve_install_method(method, "linux-arm", "pipx") == "apt"
+
+
 @pytest.mark.parametrize(
     "platform_str,expected",
     [
