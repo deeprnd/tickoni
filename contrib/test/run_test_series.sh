@@ -11,14 +11,10 @@ set -euo pipefail
 # Only runs in CI (GITHUB_ACTIONS=true); local dev should configure
 # memlock via sysctl or profile.d, not via this script.
 # memlock is a Linux concept only.
-<<<<<<< HEAD
-if [[ "${GITHUB_ACTIONS:-}" == "true" ]] && [[ "$(contrib/platform.sh os)" == "linux" ]]; then
-=======
 # Only run on GitHub Actions runners where RLIMIT_MEMLOCK is capped;
 # skip locally to avoid prompting for sudo.
 if [[ "${GITHUB_ACTIONS:-}" == "true" ]] && \
    [[ "$(contrib/platform.sh os)" == "linux" ]]; then
->>>>>>> 7f16538d6 (test: skip memlock setup on local CI test runs)
     echo "memlock before:"
     if [[ -f /proc/$$/limits ]]; then
         ulimit -Sl
