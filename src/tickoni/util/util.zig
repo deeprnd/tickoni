@@ -25,7 +25,7 @@ pub const sandbox_defaults = @import("sandbox_defaults.zig");
 /// NOTE: bind() succeeds when the port is FREE — we want the inverse:
 /// return false on success (free) and true on failure (in use).
 pub fn portIsInUse(port: u16) bool {
-    return c_abi.os.portIsInUse(port) != 0;
+    return c_abi.os.portIsInUse(port);
 }
 
 /// Validate that a port is NOT currently in use (free to bind).
