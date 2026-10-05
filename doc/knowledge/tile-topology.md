@@ -452,6 +452,70 @@ Financial capability semantics are owned by
   never execute outside signed proposal, policy, approval, and destination
   scope.
 
+## Cross-Platform Shmem and Platform Shim Layer
+
+Story V2.10.S15 ported Firedancer's `fd_shmem` workspace infrastructure to macOS and Windows. The implementation extended the existing C shim layer rather than creating separate `cross_shmem.zig` modules as originally planned.
+
+### Platform Shim Files
+
+The cross-platform OS primitive layer lives in `src/tickoni/c_abi/shim/os.c`:
+
+| Platform | Guard | Implementation |
+| --- | --- | --- |
+| Linux | `FD_HAS_LINUX` | Native syscalls: `clock_gettime`, `nanosleep`, `readlink` (`/proc/self/exe`), `sysctl` (`/proc/<pid>/status`), `sched_get/setaffinity`, `waitpid`, `kill`, `SIGKILL` via `kill(-pgid)` for group kill |
+| macOS | `FD_HAS_MACOS` | Darwin equivalents: `_NSGetExecutablePath`, `sysctl(KERN_PROC_PID)`, no-op affinity, `waitpid`, `kill`, `SIGKILL` via `kill(-pgid)` |
+| Windows | `FD_HAS_WINDOWS` | Win32 APIs: `QueryPerformanceCounter`, `GetModuleFileNameA`, `CreateToolhelp32Snapshot`, `WaitForSingleObject`, `GetExitCodeProcess`, `OpenProcess`, `TerminateProcess` |
+| Fallback | no guard | Stub implementations for test contexts |
+
+Function catalog in `os.c`:
+
+| Function | Linux | macOS | Windows |
+| --- | --- | --- | --- |
+| `tk_port_is_in_use` | POSIX `bind()` | POSIX `bind()` | Winsock2 `bind()` |
+| `tk_monotonic_nanos` | `clock_gettime(CLOCK_MONOTONIC)` | `clock_gettime(CLOCK_MONOTONIC)` | `QueryPerformanceCounter` |
+| `tk_sleep_nanos` | `nanosleep()` | `nanosleep()` | `Sleep()` with ms rounding |
+| `tk_self_exe_path` | `readlink(/proc/self/exe)` | `_NSGetExecutablePath()` | `GetModuleFileNameA()` |
+| `tk_parent_pid` | `/proc/<pid>/status` parsing | `sysctl(KERN_PROC_PID)` | `CreateToolhelp32Snapshot` |
+| `tk_process_id_from_handle` | cast (no-op) | cast (no-op) | `GetProcessId()` |
+| `tk_process_poll` | returns -2 (unsupported) | returns -2 (unsupported) | `WaitForSingleObject(0)` + `GetExitCodeProcess` |
+| `tk_process_waitpid` | `waitpid()` | `waitpid()` | N/A (use `tk_process_poll`) |
+| `tk_kill_process` | `kill(pid, SIGKILL)` | `kill(pid, SIGKILL)` | `TerminateProcess` |
+| `tk_kill_process_group` | `kill(-pgid, SIGKILL)` | `kill(-pgid, SIGKILL)` | N/A |
+| `tk_get_affinity` | `sched_getaffinity()` | all bits set (no-op) | N/A |
+| `tk_set_affinity` | `sched_setaffinity()` | no-op | no-op |
+
+### Workspace Shim Layer
+
+`src/tickoni/c_abi/shim/wksp.c` provides the workspace create/join interface:
+
+| Platform | Shmem Backend | Include | Notes |
+| --- | --- | --- | --- |
+| Linux/macOS | POSIX `shm_open`/`mmap` (no hugetlbfs) | `util/shmem/fd_shmem_private.h` | Uses `fd_shmem_private_path()` for path resolution; full `fd_wksp_*` passthrough |
+| Windows | Firedancer `CreateFileMapping` backend | `util/shmem/fd_shmem.h` | Replaces previous ENOTSUP stubs; same `fd_wksp_*` interface |
+
+The shim functions (`tk_wksp_new_named`, `tk_wksp_delete_named`, `tk_wksp_attach`, `tk_wksp_detach`, `tk_wksp_alloc`, `tk_wksp_free`, `tk_wksp_laddr`, `tk_wksp_gaddr`, `tk_wksp_exists_named`) are thin passthroughs to Firedancer workspace primitives. The platform difference is entirely in the underlying shmem implementation, not the Tickoni shim interface.
+
+### Platform Tile Launcher Files
+
+Per-platform tile launcher files (`topo_run_platform_*.c`) own pre-boot setup and workspace join:
+
+| File | Platform | Pre-boot hooks | Workspace join |
+| --- | --- | --- | --- |
+| `topo_run_platform_linux.c` | Linux | `TK_PRE_BOOT_THREAD_NAME()` no-op | `fd_wksp_attach()` for each workspace |
+| `topo_run_platform_macos.c` | macOS | `pthread_setname_np()` for thread naming | `fd_wksp_attach()` for each workspace |
+| `topo_run_platform_windows.c` | Windows | No-op (Win32 default thread stack) | `fd_wksp_attach()` for each workspace |
+
+All three include `topo_run_platform_common.h`, which provides `tk_initialize_logging()` to eliminate ~33 lines of near-identical logging setup code per platform.
+
+### Fail-Closed Behavior
+
+On stub failure (workspace join fails, PID resolution fails, `OpenProcess` fails, env var not found, `fd_shmem_join` fails):
+- Linux/macOS stubs return -1, -2, 0, or null as appropriate
+- Windows stubs return -1, -2, or null
+- Supervisor logs stub errors and tile boot fails gracefully
+
+This is fail-closed behavior: the workspace shim layer is in place on macOS/Windows, but Firedancer's native shmem backend may still return -ENOTSUP for some operations. The supervisor logs errors and the tile boot fails gracefully.
+
 ## Existing Tile Decisions
 
 In this table, "exclude" means do not register or link the tile in the new
