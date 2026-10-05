@@ -1,3 +1,12 @@
+/// Process reaping API — cross-platform via C shim.
+///
+/// NOTE: This module retains `builtin.os.tag` branches because the
+/// Windows and POSIX reaping semantics are fundamentally incompatible.
+/// Windows uses `WaitForSingleObject` + `GetExitCodeProcess` (returns
+/// exit code directly), while POSIX uses `waitpid` (returns a status
+/// word encoding signals, exit codes, and core dumps). The C shim
+/// provides `tk_process_poll()` for Windows and `tk_process_waitpid()`
+/// for POSIX — callers use the appropriate primitive per-platform.
 const builtin = @import("builtin");
 const std = @import("std");
 const os_api = @import("os_api.zig");
@@ -57,23 +66,15 @@ pub fn tryReapNoHang(child: *std.process.Child) PollResult {
         return .{ .reaped = .{ .exited = @intCast(status) } };
     }
 
+    // POSIX path: use waitpid from C shim (tk_process_waitpid).
     var status: c_int = 0;
-    while (true) {
-        const rc = std.posix.system.waitpid(pid, &status, std.posix.W.NOHANG);
-        switch (std.posix.errno(rc)) {
-            .SUCCESS => {
-                if (rc == 0) return .running;
-                child.id = null;
-                return .{ .reaped = termFromWaitStatus(@bitCast(@as(c_uint, @intCast(status)))) };
-            },
-            .INTR => continue,
-            .CHILD => {
-                child.id = null;
-                return .detached;
-            },
-            else => return .failed,
-        }
-    }
+    const rc = os_api.c.tk_process_waitpid(@intCast(pid), &status, std.posix.W.NOHANG);
+
+    if (rc == 0) return .running;
+    if (rc < 0) return .failed;
+
+    child.id = null;
+    return .{ .reaped = termFromWaitStatus(@bitCast(@as(c_uint, @intCast(status)))) };
 }
 
 fn termFromWaitStatus(status: u32) std.process.Child.Term {
