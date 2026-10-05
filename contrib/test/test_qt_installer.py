@@ -1,18 +1,20 @@
-"""Unit tests for install.strategies.qt_installer (config resolution).
+"""Unit tests for install.strategies.qt_installer.
 
-Tests the pure config-resolution path of QtInstallerStrategy without
-hitting the network, filesystem, or subprocess.
+Tests config resolution and installer lifecycle helpers without hitting the
+network, real subprocesses, or mounted filesystems.
 """
 
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from subprocess import CompletedProcess
+from unittest.mock import call, patch
 
 import pytest
 
 # Ensure setup/ is on sys.path so the install/strategies package imports work
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from contrib.setup.install.strategies import qt_installer
 from contrib.setup.install.strategies.qt_installer import (
     QtInstallerStrategy,
     _extract_qt_version,
@@ -117,3 +119,31 @@ class TestCanonicalNames:
         for platform, (name, flags) in _CANONICAL.items():
             assert name, f"{platform} has empty canonical name"
             assert flags, f"{platform} has empty flags"
+
+
+# ── macOS DMG lifecycle ─────────────────────────────────────────────
+
+
+class TestDmgLifecycle:
+    """Test cleanup of the read-only installer volume."""
+
+    @patch("contrib.setup.install.strategies.qt_installer._run_cmd")
+    def test_busy_volume_is_force_detached(self, run_cmd):
+        mount_point = Path("/tmp/qt-installer-mount")
+        run_cmd.side_effect = [
+            CompletedProcess([], 16, stderr="Resource busy"),
+            CompletedProcess([], 0),
+        ]
+
+        qt_installer._detach_dmg(mount_point)
+
+        assert run_cmd.call_args_list == [
+            call(
+                ["hdiutil", "detach", "-quiet", str(mount_point)],
+                capture=True,
+            ),
+            call(
+                ["hdiutil", "detach", "-quiet", "-force", str(mount_point)],
+                capture=True,
+            ),
+        ]

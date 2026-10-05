@@ -64,6 +64,23 @@ def _extract_qt_version(qt_module: str) -> str:
     return f'{major}.{minor}.{patch}'
 
 
+def _detach_dmg(mount_point: Path) -> None:
+    """Detach a mounted installer DMG, forcing a busy read-only volume."""
+    detach_cmd = ['hdiutil', 'detach', '-quiet', str(mount_point)]
+    result = _run_cmd(detach_cmd, capture=True)
+    if result.returncode == 0:
+        return
+
+    print(f'[DMG] Normal detach failed; forcing detach of {mount_point}')
+    force_result = _run_cmd(
+        ['hdiutil', 'detach', '-quiet', '-force', str(mount_point)],
+        capture=True,
+    )
+    if force_result.returncode != 0:
+        detail = force_result.stderr.strip() if force_result.stderr else 'unknown error'
+        raise RuntimeError(f'failed to detach Qt installer DMG: {detail}')
+
+
 # ── Strategy ──────────────────────────────────────────────────────────────────
 
 @register('qt_installer')
@@ -261,7 +278,7 @@ class QtInstallerStrategy(InstallStrategy):
             # ── Build install command with unattended flags ───────────────────
             # Credentials: QT_USERNAME + QT_PASSWORD env vars (CI/local).
             # --pw expects the Qt Online Installer password, not an API token.
-            # Qt CLI syntax: installer --root DIR --accept-licenses ... install --username user --pw pass MODULE
+            # Qt CLI syntax: installer --root DIR --accept-licenses ... install --email user --pw pass MODULE
             qt_username = os.environ.get('QT_USERNAME', '')
             qt_password = os.environ.get('QT_PASSWORD', '')
 
@@ -288,14 +305,19 @@ class QtInstallerStrategy(InstallStrategy):
 
             # ── macOS DMG: mount it, then run the .app inside ────────────────
             if platform_str.startswith('macos'):
-                # Mount the DMG in a temp location
-                mount_point = tmpdir / 'qt-installer-mount'
-                mount_point.mkdir()
+                # Keep the mount point outside the managed download directory.
+                # If both detach attempts fail, TemporaryDirectory must not walk
+                # into the still-mounted read-only volume and mask that error.
+                mount_point = Path(tempfile.mkdtemp(prefix='qt-installer-mount-'))
                 mount_result = _run_cmd(
                     ['hdiutil', 'attach', '-quiet', '-mountpoint', str(mount_point), str(canonical)],
                     capture=True,
                 )
                 if mount_result.returncode != 0:
+                    try:
+                        mount_point.rmdir()
+                    except OSError:
+                        pass
                     print(
                         f'ERROR: failed to mount Qt installer DMG',
                         file=sys.stderr,
@@ -335,7 +357,13 @@ class QtInstallerStrategy(InstallStrategy):
 
                     result = _run_cmd([str(app_binary)] + install_cmd[1:], capture=True, env=run_env)
                 finally:
-                    _run_cmd(['hdiutil', 'detach', '-quiet', str(mount_point)], capture=True)
+                    try:
+                        _detach_dmg(mount_point)
+                    finally:
+                        try:
+                            mount_point.rmdir()
+                        except OSError:
+                            pass
 
             else:
                 # Linux: .run files are executables, run directly.
