@@ -119,7 +119,7 @@ const ProcessState = struct {
             const pid = child.id orelse continue;
             if (!util.process_api.termProcess(pid)) {
                 var msg: [128]u8 = undefined;
-                const formatted = std.fmt.bufPrint(&msg, "termProcess failed for child pid {d}", .{pid}) catch "termProcess failed";
+                const formatted = std.fmt.bufPrint(&msg, "termProcess failed for child pid {any}", .{pid}) catch "termProcess failed";
                 log.err("supervisor", "deinit", formatted);
             }
         }
