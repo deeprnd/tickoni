@@ -4,7 +4,7 @@
 /// `#if FD_HAS_LINUX` / `#elif FD_HAS_WINDOWS` guards. Zig callers
 /// use `processReap()` uniformly.
 const std = @import("std");
-const logger = @import("../logger.zig");
+const builtin = @import("builtin");
 const os_api = @import("os_api.zig");
 
 pub const ProcessOutcome = union(enum) {
@@ -31,8 +31,7 @@ pub fn termProcess(pid: std.process.Child.Id) bool {
     // Unified: processId() converts HANDLE→PID on Windows, passes through on POSIX.
     const numeric_pid = os_api.c.processId(pid) catch return false;
     os_api.c.killProcess(numeric_pid) catch |err| {
-        const log = logger.get();
-        log.debug("process_api", "termProcess", "kill returned {any}", .{err});
+        std.log.debug("process_api.termProcess: kill returned {any}", .{err});
     };
     return true;
 }
