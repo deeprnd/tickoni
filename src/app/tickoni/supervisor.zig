@@ -721,6 +721,7 @@ pub const Supervisor = struct {
                 // during the wait. Without this, FileNotFound and unexpected
                 // exit codes are silently lost and tests report "passed"
                 // because the handle is marked .stopped with .none.
+                const final_reap_time = util.process.monotonicNanos();
                 const outcome = blk2: {
                     switch (util.process_api.tryReapNoHang(&child)) {
                         // A child still running or already detached after
@@ -735,6 +736,23 @@ pub const Supervisor = struct {
                         .reaped => |t| break :blk2 util.process_api.outcomeFromTerm(t, was_forced),
                     }
                 };
+                // Diagnostic trace (v2.24.S3): per-child final-reap result.
+                {
+                    const tile = self.topo.tiles[i];
+                    var diag_buf: [256]u8 = undefined;
+                    const outcome_name = switch (outcome) {
+                        .exited_ok => "exited_ok",
+                        .exited_code => |c| std.fmt.bufPrint(&diag_buf, "exited_code({d})", .{c}) catch "exited_code",
+                        .crashed => "crashed",
+                        .force_terminated => "force_terminated",
+                        .stopped => "stopped",
+                        .unknown => "unknown",
+                    };
+                    const msg = std.fmt.bufPrint(&diag_buf,
+                        "stopProcess.wait.reap_final: tile={s}, pid={d}, was_forced={any}, outcome={s}, time={d}",
+                        .{ tile.id.slice(), child.id orelse 0, was_forced, outcome_name, final_reap_time }) catch "wait.reap_final";
+                    log.debug("supervisor", "waitProcess.final_reap", msg);
+                }
                 self.updateHandleForOutcome(i, outcome);
                 maybe_child.* = null;
             }
@@ -980,11 +998,35 @@ pub const Supervisor = struct {
         // classifies a real crash as a clean stop.
         self.reapExitedChildrenNoHang();
         self.refreshProcessHealth();
+        const halt_time = util.process.monotonicNanos();
         for (state.cncs) |maybe_cnc| {
             if (maybe_cnc) |cnc| c_abi.cnc.signal(cnc, c_abi.cnc.signal_halt);
         }
 
         const grace_deadline = util.process.monotonicNanos() + @as(i64, @intCast(state.stop_grace_ns));
+        // Diagnostic trace for shutdown investigation (v2.24.S3): log tile
+        // identity, PID, HALT time, and grace deadline so the root cause of
+        // non-clean stops is visible on the failing toolchain.
+        {
+            var diag_buf: [512]u8 = undefined;
+            var diag = std.io.fixedBufferStream(&diag_buf);
+            const pw = diag.writer();
+            pw.writeAll("stopProcess: tile_count=") catch {};
+            pw.print("{d}, halt_time={d}, grace_deadline={d}", .{ state.cncs.len, halt_time, grace_deadline }) catch {};
+            pw.writeAll(", tiles=[") catch {};
+            var first: bool = true;
+            for (state.cncs, 0..) |_, i| {
+                const tile = self.topo.tiles[i];
+                const maybe_child = state.children[i];
+                const pid = if (maybe_child) |c| c.id else null;
+                if (!first) pw.writeAll(", ") catch {};
+                first = false;
+                pw.print("{{id={s},pid={any}}}", .{ tile.id.slice(), pid }) catch {};
+            }
+            pw.writeAll("]") catch {};
+            const msg = diag_buf[0..diag.getPos()];
+            log.debug("supervisor", "stopProcess.halt", @constCast(msg));
+        }
         while (util.process.monotonicNanos() < grace_deadline) {
             self.reapExitedChildrenNoHang();
             const has_running_child = for (state.children) |maybe_child| {
@@ -1004,25 +1046,52 @@ pub const Supervisor = struct {
         for (state.cncs, 0..) |_, i| {
             const maybe_child = &state.children[i];
             var child = maybe_child.* orelse continue;
+            const tile = self.topo.tiles[i];
+            const pre_reap_time = util.process.monotonicNanos();
             switch (util.process_api.tryReapNoHang(&child)) {
                 .running => {
                     const pid = child.id orelse continue;
                     // Only record a successful kill — a failed kill request
                     // is not evidence that the supervisor caused the exit.
-                    if (util.process_api.forceTerminate(pid)) forced_termination[i] = true;
+                    const kill_success = util.process_api.forceTerminate(pid);
+                    const post_reap_time = util.process.monotonicNanos();
+                    var diag_buf: [256]u8 = undefined;
+                    const msg = std.fmt.bufPrint(&diag_buf,
+                        "stopProcess.force: tile={s}, pid={d}, " ++
+                        "pre_reap={d}, kill={any}, post_reap={d}",
+                        .{ tile.id.slice(), pid,
+                           pre_reap_time, kill_success, post_reap_time }) catch "stopProcess.force diag";
+                    log.debug("supervisor", "stopProcess.force", msg);
+                    if (kill_success) forced_termination[i] = true;
                     maybe_child.* = child;
                 },
                 .reaped => |term| {
                     // No kill was attempted for this child — it reaped between
                     // the running-check and the kill call. Classify with normal
                     // (non-forced) policy: non-zero exits remain crashes.
+                    var diag_buf: [256]u8 = undefined;
+                    const kind_msg = switch (term) {
+                        .exited => |code| std.fmt.bufPrint(&diag_buf, "exited(code={d})", .{code}) catch "exited",
+                        .signal => |sig| std.fmt.bufPrint(&diag_buf, "signal(sig={d})", .{@as(u32, @intCast(sig))}) catch "signal",
+                        .stopped => |sig| std.fmt.bufPrint(&diag_buf, "stopped(sig={d})", .{@as(u32, @intCast(sig))}) catch "stopped",
+                        .unknown => "unknown",
+                    };
+                    const msg = std.fmt.bufPrint(&diag_buf,
+                        "stopProcess.force.reaped: tile={s}, pid={d}, term={s}",
+                        .{ tile.id.slice(), child.id orelse 0, kind_msg }) catch "stopProcess.force.reaped";
+                    log.debug("supervisor", "stopProcess.force.reaped", msg);
                     self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, false));
                     maybe_child.* = null;
                 },
                 .detached => {
                     maybe_child.* = null;
                 },
-                .failed => {
+                .failed => |err| {
+                    var diag_buf: [192]u8 = undefined;
+                    const msg = std.fmt.bufPrint(&diag_buf,
+                        "stopProcess.force.failed: tile={s}, pid={d}, errno={d}",
+                        .{ tile.id.slice(), child.id orelse 0, err }) catch "stopProcess.force.failed";
+                    log.debug("supervisor", "stopProcess.force.failed", msg);
                     // Child was already reaped by another path (e.g. reapExitedChildrenNoHang).
                     // Clear the handle so deinit doesn't try to reap or kill it.
                     maybe_child.* = null;
