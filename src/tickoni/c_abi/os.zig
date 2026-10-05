@@ -146,6 +146,37 @@ pub fn processReap(pid: c_int, options: c_int) tk_process_reap_result {
 }
 
 // ---------------------------------------------------------------------------
+// Cross-platform kill and signal helpers — gate std.posix behind shim
+// ---------------------------------------------------------------------------
+
+/// Send a signal to a process. Cross-platform: uses std.posix.kill on
+/// POSIX targets, delegates to the C shim's tk_kill_process on Windows.
+pub fn killProcessSignal(pid: c_int, sig: std.posix.SIG) OsError!void {
+    if (builtin.target.os.tag == .windows) {
+        // Windows: use the C shim's TerminateProcess path (SIGKILL equivalent)
+        try killProcess(pid);
+    } else {
+        std.posix.kill(pid, sig) catch return error.KillFailed;
+    }
+}
+
+/// Return the ECHILD errno value for the current platform.
+/// Linux: 10, macOS: 77, Windows: undefined (N/A).
+pub fn eChildErrno() c_int {
+    if (builtin.target.os.tag == .linux) return 10;
+    if (builtin.target.os.tag == .macos) return 77;
+    // Windows/Freestanding: return a value that will never match real errno
+    return -1;
+}
+
+/// Return true if this platform uses waitpid-based reaping (Linux/macOS).
+/// Windows uses WaitForSingleObject instead.
+pub fn usesWaitpidReap() bool {
+    const tag = builtin.target.os.tag;
+    return tag == .linux or tag == .macos;
+}
+
+// ---------------------------------------------------------------------------
 // Tests — runtime sanity checks (require C shim linkage)
 // ---------------------------------------------------------------------------
 

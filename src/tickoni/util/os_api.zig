@@ -58,3 +58,8 @@ pub const tk_process_reap_result = c.tk_process_reap_result;
 pub fn processReap(pid: c_int, options: c_int) tk_process_reap_result {
     return c.processReap(pid, options);
 }
+
+/// Cross-platform ECHILD errno — 10 on Linux, 77 on macOS.
+pub fn eChildErrno() c_int {
+    return c.eChildErrno();
+}
