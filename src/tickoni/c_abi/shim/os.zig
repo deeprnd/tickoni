@@ -9,6 +9,7 @@ pub const c = struct {
     pub extern fn tk_parent_pid(pid: c_int) c_int;
     pub extern fn tk_process_id_from_handle(handle: usize) c_int;
     pub extern fn tk_process_poll(pid: c_int) c_int;
+    pub extern fn tk_process_waitpid(pid: c_int, status: [*]c_int, options: c_int) c_int;
     pub extern fn tk_port_is_in_use(port: u16) c_int;
     pub extern fn tk_kill_process(pid: c_int) c_int;
     pub extern fn tk_kill_process_group(pgid: c_int) c_int;

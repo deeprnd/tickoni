@@ -42,18 +42,35 @@
 #if FD_HAS_LINUX
 #include <signal.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+#include <netinet/in.h>
 #elif FD_HAS_MACOS
 #include <signal.h>
 #include <unistd.h>
 #include <mach-o/dyld.h>
 #include <sys/sysctl.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+#include <netinet/in.h>
 #endif
 
 #include "../../../util/fd_util.h"
 
 int tk_port_is_in_use( uint16_t port ) {
-  (void)port;
-  return 0;
+  /* POSIX: create TCP socket, attempt bind on 0.0.0.0:port,
+   * close socket, return non-zero if bind failed (port in use). */
+  struct sockaddr_in addr;
+  memset( &addr, 0, sizeof(addr) );
+  addr.sin_family      = AF_INET;
+  addr.sin_port        = htons( port );
+  addr.sin_addr.s_addr = htonl( INADDR_ANY );
+
+  int fd = socket( AF_INET, SOCK_STREAM, 0 );
+  if( fd < 0 ) return 0;  /* socket() failed — can't determine, assume free */
+  int busy = ( bind( fd, (struct sockaddr *)&addr, sizeof(addr) ) != 0 );
+  close( fd );
+  return busy;
 }
 
 int64_t tk_monotonic_nanos( void ) {
@@ -132,6 +149,14 @@ int tk_process_poll( int pid ) {
    * Windows overrides this with WaitForSingleObject + GetExitCodeProcess. */
   (void)pid;
   return -2;
+}
+
+int tk_process_waitpid( int pid, int * status, int options ) {
+  /* POSIX: standard waitpid(2) for non-blocking process reaping.
+   * Returns the PID on success, 0 if no child waited on, or -1 on error.
+   * Windows does not use this — use tk_process_poll() instead. */
+  pid_t rc = waitpid( (pid_t)pid, status, options );
+  return rc < 0 ? -1 : (int)rc;
 }
 
 int tk_kill_process( int pid ) {

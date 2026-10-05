@@ -23,12 +23,9 @@ pub fn forceTerminate(pid: std.process.Child.Id) void {
 }
 
 pub fn termProcess(pid: std.process.Child.Id) void {
-    if (builtin.os.tag == .windows) {
-        const numeric_pid = os_api.c.processId(pid) catch return;
-        os_api.c.killProcess(numeric_pid);
-    } else {
-        _ = os_api.kill(@intCast(pid));
-    }
+    // Unified: processId() converts HANDLE→PID on Windows, passes through on POSIX.
+    const numeric_pid = os_api.c.processId(pid) catch return;
+    os_api.c.killProcess(numeric_pid);
 }
 
 pub fn forceKillProcess(pid: std.process.Child.Id) void {
