@@ -62,8 +62,8 @@ pub fn tryReapNoHang(child: *std.process.Child) PollResult {
             child.id = null;
             break :blk switch (r.kind) {
                 1 => .{ .reaped = .{ .exited = @intCast(r.exit_code) } },
-                2 => .{ .reaped = .{ .signal = @enumFromInt(@as(u32, @intCast(r.signal))) } },
-                3 => .{ .reaped = .{ .stopped = @enumFromInt(@as(u32, @intCast(r.stop_signal))) } },
+                2 => .{ .reaped = .{ .signal = @fromBackingInt(@intCast(@as(u32, @intCast(r.signal)))) } },
+                3 => .{ .reaped = .{ .stopped = @fromBackingInt(@intCast(@as(u32, @intCast(r.stop_signal)))) } },
                 else => .{ .reaped = .{ .unknown = 0 } },
             };
         },
