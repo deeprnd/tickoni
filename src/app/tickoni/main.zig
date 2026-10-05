@@ -68,10 +68,10 @@ pub fn main(init: std.process.Init) !void {
 
     const log = logger.get();
 
-    try log.enter("main", "init");
-    defer log.exit("main", "init") catch {};
+    log.enter("main", "init");
+    defer log.exit("main", "init");
 
-    if (verbose) log.debug("main", "main", "verbose mode enabled") catch {};
+    if (verbose) log.debug("main", "main", "verbose mode enabled");
 
     // First arg is the command
     const cmd = if (arg_count > 0) args[0] else {
@@ -81,7 +81,7 @@ pub fn main(init: std.process.Init) !void {
 
     // Handle --version flag
     if (std.mem.eql(u8, cmd, "--version")) {
-        log.debug("main", "main", "version flag received") catch {};
+        log.debug("main", "main", "version flag received");
         const ver = @import("version");
         const info = ver.VersionInfo.init(init.gpa) catch |err| {
             var buf: [256]u8 = undefined;
@@ -93,7 +93,7 @@ pub fn main(init: std.process.Init) !void {
         var w = std.Io.Writer.fixed(&buf);
         try ver.formatVersionInfo(info, &w);
         try std.Io.File.writeStreamingAll(std.Io.File.stdout(), init.io, w.buffered());
-        log.exit("main", "version") catch {};
+        log.exit("main", "version");
         return;
     }
 
@@ -110,24 +110,24 @@ pub fn main(init: std.process.Init) !void {
     }
 
     if (std.mem.eql(u8, cmd, "start-process")) {
-        log.debug("main", "main", "start-process command received") catch {};
+        log.debug("main", "main", "start-process command received");
         const run_dir = it.next() orelse {
             try File.writeStreamingAll(File.stderr(), init.io, "start-process requires <run-dir>\n");
             std.process.exit(1);
         };
         try cmdStartProcess(init, topologies.paymentPipelineProcess(), run_dir, verbose);
     } else if (std.mem.eql(u8, cmd, "status")) {
-        log.debug("main", "main", "status command received") catch {};
+        log.debug("main", "main", "status command received");
         try cmdStatus(init.io, topologies.paymentPipeline());
     } else if (std.mem.eql(u8, cmd, "doctor")) {
-        log.debug("main", "main", "doctor command received") catch {};
+        log.debug("main", "main", "doctor command received");
         var format: doctor_output.Format = .text;
         while (it.next()) |a| {
             if (std.mem.eql(u8, a, "--json")) format = .json;
         }
         try cmdDoctor(init, format);
     } else if (std.mem.eql(u8, cmd, "demo")) {
-        log.debug("main", "main", "demo command received") catch {};
+        log.debug("main", "main", "demo command received");
         const demo_cmd = demo_cli.parseDemoArgs(args[1..arg_count]) catch |err| {
             var buf: [256]u8 = undefined;
             const msg = try std.fmt.bufPrint(&buf, "demo usage error: {}\n", .{err});
@@ -139,7 +139,7 @@ pub fn main(init: std.process.Init) !void {
     } else {
         var log_buf: [128]u8 = undefined;
         const msg = try std.fmt.bufPrint(&log_buf, "unknown command: {s}\n", .{cmd});
-        log.err("main", "main", msg) catch {};
+        log.err("main", "main", msg);
         try File.writeStreamingAll(File.stderr(), init.io, msg);
         try File.writeStreamingAll(File.stderr(), init.io, usage);
         std.process.exit(1);
@@ -148,13 +148,13 @@ pub fn main(init: std.process.Init) !void {
 
 fn cmdDoctor(init: std.process.Init, format: doctor_output.Format) !void {
     const log = logger.get();
-    try log.enter("cmdDoctor", "init");
-    defer log.exit("cmdDoctor", "done") catch {};
+    log.enter("cmdDoctor", "init");
+    defer log.exit("cmdDoctor", "done");
 
     var buf: [8192]u8 = undefined;
     var w = std.Io.Writer.fixed(&buf);
     const fmt_msg = try std.fmt.bufPrint(&buf, "running doctor checks, format={s}", .{@tagName(format)});
-    log.debug("main", "cmdDoctor", fmt_msg) catch {};
+    log.debug("main", "cmdDoctor", fmt_msg);
     try doctor_output.runAndFormat(init.io, init.gpa, format, &w);
     const output = w.buffered();
     try std.Io.File.writeStreamingAll(std.Io.File.stdout(), init.io, output);
@@ -168,7 +168,7 @@ fn cmdDoctor(init: std.process.Init, format: doctor_output.Format) !void {
         if (r.status == .fail) fail_count += 1;
     }
     const diag_msg = try std.fmt.bufPrint(&buf, "doctor checks complete: {d} failures", .{fail_count});
-    log.debug("main", "cmdDoctor", diag_msg) catch {};
+    log.debug("main", "cmdDoctor", diag_msg);
     std.process.exit(if (fail_count > 0) 1 else 0);
 }
 
@@ -177,8 +177,8 @@ fn cmdDoctor(init: std.process.Init, format: doctor_output.Format) !void {
 /// per-tile launch specs and the FD_SHMEM_PATH workspace backing.
 fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: []const u8, verbose: bool) !void {
     const log = logger.get();
-    try log.enter("cmdStartProcess", "init");
-    defer log.exit("cmdStartProcess", "done") catch {};
+    log.enter("cmdStartProcess", "init");
+    defer log.exit("cmdStartProcess", "done");
 
     const stdout = File.stdout();
     var sup = try Supervisor.init(init.gpa, topo);
@@ -186,10 +186,10 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
 
     var buf: [256]u8 = undefined;
     const proc_msg = try std.fmt.bufPrint(&buf, "starting process-mode pipeline: run_dir={s}", .{run_dir});
-    log.debug("main", "cmdStartProcess", proc_msg) catch {};
+    log.debug("main", "cmdStartProcess", proc_msg);
     const process_config = ProcessPipelineConfig{ .run_dir = run_dir, .verbose = verbose };
     try sup.startPaymentPipelineProcess(init.io, process_config);
-    log.debug("main", "cmdStartProcess", "process-mode pipeline started, monitoring tiles") catch {};
+    log.debug("main", "cmdStartProcess", "process-mode pipeline started, monitoring tiles");
 
     try File.writeStreamingAll(stdout, init.io, "tickoni-supervisor: process-mode pipeline started\ntiles:\n");
     for (sup.monitor()) |h| {
@@ -268,8 +268,8 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
 
 fn cmdStatus(io: std.Io, topo: rt.topology.Topology) !void {
     const log = logger.get();
-    try log.enter("cmdStatus", "init");
-    defer log.exit("cmdStatus", "done") catch {};
+    log.enter("cmdStatus", "init");
+    defer log.exit("cmdStatus", "done");
 
     const stdout = File.stdout();
     var buf: [256]u8 = undefined;
@@ -277,7 +277,7 @@ fn cmdStatus(io: std.Io, topo: rt.topology.Topology) !void {
     const topo_msg = try std.fmt.bufPrint(&buf, "showing topology: {d} tiles, {d} channels", .{
         topo.tiles.len, topo.channels.len,
     });
-    log.debug("main", "cmdStatus", topo_msg) catch {};
+    log.debug("main", "cmdStatus", topo_msg);
 
     const header = try std.fmt.bufPrint(&buf, "topology: {d} tiles, {d} channels\n", .{
         topo.tiles.len, topo.channels.len,

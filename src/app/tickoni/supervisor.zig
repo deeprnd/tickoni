@@ -120,7 +120,7 @@ const ProcessState = struct {
             if (!util.process_api.termProcess(pid)) {
                 var msg: [128]u8 = undefined;
                 const formatted = std.fmt.bufPrint(&msg, "termProcess failed for child pid {d}", .{pid}) catch "termProcess failed";
-                log.err("supervisor", "deinit", formatted) catch {};
+                log.err("supervisor", "deinit", formatted);
             }
         }
         // Wait for children to exit after SIGTERM, reaping each one.
@@ -236,8 +236,8 @@ pub const Supervisor = struct {
     /// it pins CPUs, so it has a live affinity mask to check against here.
     pub fn init(allocator: std.mem.Allocator, topo: Topology) !Supervisor {
         const log = logger.get();
-        try log.enter("supervisor", "init");
-        defer log.exit("supervisor", "init") catch {};
+        log.enter("supervisor", "init");
+        defer log.exit("supervisor", "init");
         try topo.validate();
         try tile_registry.validate(topo);
         const handles = try allocator.alloc(TileHandle, topo.tiles.len);
@@ -254,8 +254,8 @@ pub const Supervisor = struct {
     /// leaking child processes and shared memory.
     pub fn deinit(self: *Supervisor) void {
         const log = logger.get();
-        log.enter("supervisor", "deinit") catch {};
-        defer log.exit("supervisor", "deinit") catch {};
+        log.enter("supervisor", "deinit");
+        defer log.exit("supervisor", "deinit");
         std.debug.assert(self.process_state == null);
         self.allocator.free(self.handles);
     }
@@ -672,8 +672,8 @@ pub const Supervisor = struct {
     pub fn waitProcess(self: *Supervisor, io: std.Io, forced_termination: ?[]const bool) void {
         _ = io;
         const log = logger.get();
-        log.enter("supervisor", "waitProcess") catch {};
-        defer log.exit("supervisor", "waitProcess") catch {};
+        log.enter("supervisor", "waitProcess");
+        defer log.exit("supervisor", "waitProcess");
         const state = self.process_state orelse return;
         const deadline = util.process.monotonicNanos() + @as(i64, @intCast(wait_process_max_ms * std.time.ms_per_s));
         for (&state.children, 0..) |*maybe_child, i| {
@@ -693,7 +693,7 @@ pub const Supervisor = struct {
                 }
                 var msg_buf: [64]u8 = undefined;
                 const msg = std.fmt.bufPrint(&msg_buf, "timeout waiting for child tile {d}", .{i}) catch "timeout";
-                log.debug("supervisor", "waitProcess", msg) catch {};
+                log.debug("supervisor", "waitProcess", msg);
                 break :blk null;
             };
             if (term) |t| {
@@ -720,8 +720,8 @@ pub const Supervisor = struct {
 
     pub fn refreshProcessHealth(self: *Supervisor) void {
         const log = logger.get();
-        log.enter("supervisor", "refreshProcessHealth") catch {};
-        defer log.exit("supervisor", "refreshProcessHealth") catch {};
+        log.enter("supervisor", "refreshProcessHealth");
+        defer log.exit("supervisor", "refreshProcessHealth");
         const state = self.process_state orelse return;
         const now = util.process.monotonicNanos();
         if (now <= 0) return;
@@ -944,8 +944,8 @@ pub const Supervisor = struct {
     /// which hangs when the tile threads are already gone.
     pub fn stopProcess(self: *Supervisor, io: std.Io) void {
         const log = logger.get();
-        log.enter("supervisor", "stopProcess") catch {};
-        defer log.exit("supervisor", "stopProcess") catch {};
+        log.enter("supervisor", "stopProcess");
+        defer log.exit("supervisor", "stopProcess");
         const state = self.process_state orelse return;
         // Reap any already-dead children before refreshProcessHealth().
         // Otherwise refreshProcessHealth() sees a dead heartbeat, marks the
