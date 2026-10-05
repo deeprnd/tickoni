@@ -8,8 +8,8 @@ const PaymentPipelineState = runtime.PaymentPipelineState;
 
 pub fn runDiag(state: *PaymentPipelineState) void {
     const log = logger.get();
-    log.enter("tkdiag", "runDiag") catch {};
-    defer log.exit("tkdiag", "runDiag") catch {};
+    log.enter("tkdiag", "runDiag");
+    defer log.exit("tkdiag", "runDiag");
 
     while (!state.replay_checked.load(.acquire) and !state.stop.load(.acquire)) {
         const diag = state.snapshotDiag();
@@ -21,7 +21,7 @@ pub fn runDiag(state: *PaymentPipelineState) void {
     }
     _ = state.snapshotDiag();
     _ = state.diag_snapshots.fetchAdd(1, .release);
-    log.debug("tkdiag", "runDiag", "done") catch {};
+    log.debug("tkdiag", "runDiag", "done");
 }
 
 test "sandbox failure records crash diagnostics and stops diag" {

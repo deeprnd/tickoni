@@ -10,8 +10,8 @@ const PaymentPipelineState = runtime.PaymentPipelineState;
 
 pub fn runNormalize(state: *PaymentPipelineState) void {
     const log = logger.get();
-    log.enter("tknorm", "runNormalize") catch {};
-    defer log.exit("tknorm", "runNormalize") catch {};
+    log.enter("tknorm", "runNormalize");
+    defer log.exit("tknorm", "runNormalize");
 
     defer state.q_norm_dedu.close();
 
@@ -35,7 +35,7 @@ pub fn runNormalize(state: *PaymentPipelineState) void {
         log.kvFmt("tknorm", "runNormalize", "offset={d} event_hash={x} account={d} amount={d}c", .{ msg.raw.source_offset, msg.event_hash, msg.raw.account_id, msg.raw.amount_cents });
         state.q_norm_dedu.push(msg, &state.stop) catch break;
     }
-    log.debug("tknorm", "runNormalize", "done") catch {};
+    log.debug("tknorm", "runNormalize", "done");
 }
 
 test "sandbox failure records crash diagnostics and stops normalize" {

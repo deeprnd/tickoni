@@ -11,8 +11,8 @@ pub const tile_tkings: i32 = 0;
 
 pub fn runIngest(state: *PaymentPipelineState) void {
     const log = logger.get();
-    log.enter("tkings", "runIngest") catch {};
-    defer log.exit("tkings", "runIngest") catch {};
+    log.enter("tkings", "runIngest");
+    defer log.exit("tkings", "runIngest");
 
     defer state.q_ing_norm.close();
 
@@ -23,7 +23,7 @@ pub fn runIngest(state: *PaymentPipelineState) void {
             if (offset == fail_at) {
                 _ = state.sandbox_failures.fetchAdd(1, .release);
                 state.crashed_tile.store(tile_tkings, .release);
-                log.err("tkings", "runIngest", "sandbox failure triggered at offset") catch {};
+                log.err("tkings", "runIngest", "sandbox failure triggered at offset");
                 state.requestStop();
                 break;
             }
