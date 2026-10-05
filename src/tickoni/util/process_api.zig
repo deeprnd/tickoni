@@ -56,17 +56,16 @@ pub fn outcomeFromTerm(term: std.process.Child.Term, force_terminated: bool) Pro
 pub fn tryReapNoHang(child: *std.process.Child) PollResult {
     const pid = child.id orelse return .detached;
     const numeric_pid = os_api.c.processId(pid) catch return .{ .failed = null };
-    // NOHANG=1 on POSIX; 0 on Windows (WaitForSingleObject semantics use
-    // options&1==0 → block, options&1!=0 → non-blocking).  Cross-platform
-    // via comptime so std.posix is never referenced on Windows.
-    const nohang: c_int = if (builtin.os.tag == .windows) 0 else 1;
+    // Cross-platform reap options: NOHANG on POSIX, non-blocking on Windows.
+    // Determined at comptime so std.posix is never referenced on Windows.
+    const nohang: c_int = if (builtin.target.os.tag == .windows) 0 else 1;
     const r = os_api.processReap(@intCast(numeric_pid), nohang);
 
     return switch (r.pid) {
         -1 => blk: {
-            // ECHILD (10 on Linux, 77 on macOS) means the child was already
-            // reaped — it detached.  Other errors carry errno for diagnosis.
-            const is_echild: bool = if (builtin.os.tag == .linux) r.err == 10 else if (builtin.os.tag == .macos) r.err == 77 else false;
+            // ECHILD means the child was already reaped — it detached.
+            // Uses the os_api.c.eChildErrno() shim for platform-specific values.
+            const is_echild: bool = r.err == os_api.c.eChildErrno();
             if (is_echild) {
                 child.id = null;
                 break :blk .detached;

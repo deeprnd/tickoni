@@ -212,7 +212,8 @@ test "tryReapNoHang: child receives signal → .reaped .signal(9)" {
     const pid = child.id.?;
     os.sleepNanos(500 * std.time.ns_per_ms);
 
-    _ = std.posix.kill(pid, std.posix.SIG.KILL) catch {};
+    // Cross-platform kill via C shim — std.posix.kill doesn't compile on Windows.
+    _ = os.killProcess(@intCast(pid)) catch {};
 
     var reap_child = std.process.Child{ .id = @intCast(pid), .stdin = null, .stdout = null, .stderr = null, .thread_handle = undefined, .request_resource_usage_statistics = false };
     reap_child.id = pid;
