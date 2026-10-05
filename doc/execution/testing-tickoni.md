@@ -5,7 +5,7 @@ Tickoni repository.
 
 <p align="center">
   <!-- badge:build:start -->
-  <img alt="Build" src="https://img.shields.io/badge/build-passing-brightgreen?style=flat-square" />
+  <img alt="Build" src="https://img.shields.io/badge/build-failing-red?style=flat-square" />
   <!-- badge:build:end -->
 
   <!-- badge:quality:start -->
@@ -13,7 +13,7 @@ Tickoni repository.
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
-  <img alt="Security" src="https://img.shields.io/badge/security-passing-brightgreen?style=flat-square" />
+  <img alt="Security" src="https://img.shields.io/badge/security-failing-red?style=flat-square" />
   <!-- badge:security:end -->
 </p>
 
