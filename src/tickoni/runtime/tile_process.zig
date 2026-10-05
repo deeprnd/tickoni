@@ -70,7 +70,7 @@ export fn tk_tile_privileged_init(topo: *anyopaque, tile: *anyopaque) callconv(.
     const laddr = c_abi.topob.topoObjLaddr(topo_typed, g_ctx.cnc_obj_id);
     g_ctx.cnc = c_abi.cnc.cncJoin(laddr) orelse {
         const log = logger.get();
-        log.err("tile_process", "tk_tile_privileged_init", "fd_cnc_join failed") catch {};
+        log.err("tile_process", "tk_tile_privileged_init", "fd_cnc_join failed");
         std.process.exit(1);
     };
     c_abi.cnc.heartbeat(g_ctx.cnc, util.process.monotonicNanos());
@@ -105,7 +105,7 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
     const topo_typed: *c_abi.topob.Topo = @ptrCast(topo);
     const wksp = c_abi.topob.topoWkspPtr(topo_typed, g_ctx.wksp_idx) orelse {
         const log = logger.get();
-        log.err("tile_process", "tk_tile_run", "workspace not joined") catch {};
+        log.err("tile_process", "tk_tile_run", "workspace not joined");
         std.process.exit(1);
     };
 
@@ -113,7 +113,7 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
         const log = logger.get();
         var msg_buf: [256]u8 = undefined;
         const msg = std.fmt.bufPrint(&msg_buf, "work failed for tile {d} ({s}): {t}", .{ g_ctx.spec.tile_idx, g_ctx.spec.tile_id.slice(), err }) catch "work failed";
-        log.err("tile_process", "tk_tile_run", msg) catch {};
+        log.err("tile_process", "tk_tile_run", msg);
         std.process.exit(1);
     };
 
