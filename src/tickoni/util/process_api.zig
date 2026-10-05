@@ -55,16 +55,17 @@ pub fn tryReapNoHang(child: *std.process.Child) PollResult {
     const numeric_pid = os_api.c.processId(pid) catch return .failed;
     const r = os_api.processReap(@intCast(numeric_pid), std.posix.W.NOHANG);
 
-    child.id = null;
-
     return switch (r.pid) {
         -1 => .failed,
         0 => .running,
-        else => switch (r.kind) {
-            1 => .{ .reaped = .{ .exited = @intCast(r.exit_code) } },
-            2 => .{ .reaped = .{ .signal = @fromBackingInt(@intCast(@as(u32, @intCast(r.signal)))) } },
-            3 => .{ .reaped = .{ .stopped = @fromBackingInt(@intCast(@as(u32, @intCast(r.stop_signal)))) } },
-            else => .{ .reaped = .{ .unknown = 0 } },
+        else => blk: {
+            child.id = null;
+            break :blk switch (r.kind) {
+                1 => .{ .reaped = .{ .exited = @intCast(r.exit_code) } },
+                2 => .{ .reaped = .{ .signal = @enumFromInt(@as(u32, @intCast(r.signal))) } },
+                3 => .{ .reaped = .{ .stopped = @enumFromInt(@as(u32, @intCast(r.stop_signal))) } },
+                else => .{ .reaped = .{ .unknown = 0 } },
+            };
         },
     };
 }
