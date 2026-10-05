@@ -29,7 +29,7 @@ pub fn forceTerminate(pid: std.process.Child.Id) bool {
 pub fn termProcess(pid: std.process.Child.Id) bool {
     // Unified: processId() converts HANDLE→PID on Windows, passes through on POSIX.
     const numeric_pid = os_api.c.processId(pid) catch return false;
-    _ = os_api.c.killProcess(numeric_pid);
+    _ = os_api.c.killProcess(numeric_pid) catch {};
     return true;
 }
 

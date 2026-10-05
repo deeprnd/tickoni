@@ -23,23 +23,23 @@ pub fn processPoll(pid: c_int) c_int {
     return c.processPoll(pid);
 }
 pub fn write(fd: c_int, buf: []const u8) usize {
-    return c.write(@intCast(fd), buf);
+    return c.writeFd(@intCast(fd), buf);
 }
 
 pub fn isatty(fd: c_int) bool {
-    return c.isatty(@intCast(fd)) != 0;
+    return c.isTerminal(@intCast(fd)) != 0;
 }
 
 pub fn fflush() void {
-    c.fflush();
+    c.flushStderr();
 }
 
 pub fn setEnv(name: []const u8, value: []const u8) void {
-    _ = c.setenv(name.ptr, value.ptr, 1);
+    _ = c.setEnv(name.ptr, value.ptr, 1);
 }
 
 pub fn getEnv(name: []const u8) ?[]const u8 {
-    const raw = c.tk_getenv(name.ptr) orelse return null;
+    const raw = c.getenv(name.ptr) orelse return null;
     // The C shim returns a null-terminated buffer.
     // sliceTo handles [*:0] directly without manual null scan.
     return std.mem.sliceTo(raw, 0);
@@ -53,10 +53,8 @@ pub fn setAffinity(pid: c_int, cpu_set: []const u8) !void {
     try c.setAffinity(pid, cpu_set);
 }
 
-pub const tk_process_reap_result = c.c.tk_process_reap_result;
+pub const tk_process_reap_result = c.tk_process_reap_result;
 
 pub fn processReap(pid: c_int, options: c_int) tk_process_reap_result {
-    var result: tk_process_reap_result = undefined;
-    c.c.tk_process_reap(pid, options, &result);
-    return result;
+    return c.processReap(pid, options);
 }
