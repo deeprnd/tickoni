@@ -1,13 +1,8 @@
 /// Process reaping API — cross-platform via C shim.
 ///
-/// NOTE: This module retains `builtin.os.tag` branches because the
-/// Windows and POSIX reaping semantics are fundamentally incompatible.
-/// Windows uses `WaitForSingleObject` + `GetExitCodeProcess` (returns
-/// exit code directly), while POSIX uses `waitpid` (returns a status
-/// word encoding signals, exit codes, and core dumps). The C shim
-/// provides `tk_process_poll()` for Windows and `tk_process_waitpid()`
-/// for POSIX — callers use the appropriate primitive per-platform.
-const builtin = @import("builtin");
+/// All platform-specific reaping logic lives in `os.c` behind
+/// `#if FD_HAS_LINUX` / `#elif FD_HAS_WINDOWS` guards. Zig callers
+/// use `processReap()` uniformly.
 const std = @import("std");
 const os_api = @import("os_api.zig");
 
@@ -57,34 +52,19 @@ pub fn outcomeFromTerm(term: std.process.Child.Term, force_terminated: bool) Pro
 
 pub fn tryReapNoHang(child: *std.process.Child) PollResult {
     const pid = child.id orelse return .detached;
-    if (builtin.os.tag == .windows) {
-        const numeric_pid = os_api.c.processId(pid) catch return .failed;
-        const status = os_api.processPoll(numeric_pid);
-        if (status == -1) return .running;
-        if (status < 0) return .failed;
-        child.id = null;
-        if (status == 255) return .{ .reaped = .{ .signal = @fromBackingInt(@intCast(9)) } };
-        return .{ .reaped = .{ .exited = @intCast(status) } };
-    }
-
-    // POSIX path: use waitpid from C shim (tk_process_waitpid).
-    var status: c_int = 0;
-    const rc = os_api.c.c.tk_process_waitpid(@intCast(pid), &status, std.posix.W.NOHANG);
-
-    if (rc == 0) return .running;
-    if (rc < 0) return .failed;
+    const numeric_pid = os_api.c.processId(pid) catch return .failed;
+    const r = os_api.processReap(@intCast(numeric_pid), std.posix.W.NOHANG);
 
     child.id = null;
-    return .{ .reaped = termFromWaitStatus(@bitCast(@as(c_uint, @intCast(status)))) };
-}
 
-fn termFromWaitStatus(status: u32) std.process.Child.Term {
-    return if (std.posix.W.IFEXITED(status))
-        .{ .exited = std.posix.W.EXITSTATUS(status) }
-    else if (std.posix.W.IFSIGNALED(status))
-        .{ .signal = std.posix.W.TERMSIG(status) }
-    else if (std.posix.W.IFSTOPPED(status))
-        .{ .stopped = std.posix.W.STOPSIG(status) }
-    else
-        .{ .unknown = status };
+    return switch (r.pid) {
+        -1 => .failed,
+        0 => .running,
+        else => switch (r.kind) {
+            1 => .{ .reaped = .{ .exited = @intCast(r.exit_code) } },
+            2 => .{ .reaped = .{ .signal = @intCast(r.signal) } },
+            3 => .{ .reaped = .{ .stopped = @intCast(r.stop_signal) } },
+            else => .{ .reaped = .unknown },
+        },
+    };
 }

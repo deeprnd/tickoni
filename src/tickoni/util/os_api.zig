@@ -1,11 +1,7 @@
 /// Cross-platform OS abstraction — re-exports c_abi.os shim.
 /// All platform-specific code is hidden behind src/tickoni/c_abi/shim/os.c.
-const builtin = @import("builtin");
 const std = @import("std");
 pub const c = @import("c_abi").os;
-
-pub const ProcessId = if (builtin.os.tag == .windows) u32 else std.posix.pid_t;
-pub const FileDescriptor = if (builtin.os.tag == .windows) i32 else std.posix.fd_t;
 
 pub fn monotonicNanos() i64 {
     return c.monotonicNanos();
@@ -19,18 +15,18 @@ pub fn selfExePath(buf: []u8) ![]const u8 {
 pub fn parentPid(pid: c_int) c_int {
     return c.parentPid(pid) catch -1;
 }
-pub fn kill(pid: ProcessId) void {
+pub fn kill(pid: c_int) void {
     c.killProcess(@intCast(pid));
 }
 
 pub fn processPoll(pid: c_int) c_int {
     return c.processPoll(pid);
 }
-pub fn write(fd: FileDescriptor, buf: []const u8) usize {
+pub fn write(fd: c_int, buf: []const u8) usize {
     return c.write(@intCast(fd), buf);
 }
 
-pub fn isatty(fd: FileDescriptor) bool {
+pub fn isatty(fd: c_int) bool {
     return c.isatty(@intCast(fd)) != 0;
 }
 
@@ -47,4 +43,22 @@ pub fn getEnv(name: []const u8) ?[]const u8 {
     // The C shim returns a null-terminated buffer.
     // sliceTo handles [*:0] directly without manual null scan.
     return std.mem.sliceTo(raw, 0);
+}
+
+pub fn getAffinity(pid: c_int, cpu_set: []u8) !void {
+    const rc = c.tk_get_affinity(pid, cpu_set.ptr);
+    if (rc < 0) return error.GetAffinityFailed;
+}
+
+pub fn setAffinity(pid: c_int, cpu_set: []const u8) !void {
+    const rc = c.tk_set_affinity(pid, cpu_set.ptr);
+    if (rc < 0) return error.SetAffinityFailed;
+}
+
+pub const tk_process_reap_result = c.tk_process_reap_result;
+
+pub fn processReap(pid: c_int, options: c_int) tk_process_reap_result {
+    var result: tk_process_reap_result = undefined;
+    c.tk_process_reap(pid, options, &result);
+    return result;
 }
