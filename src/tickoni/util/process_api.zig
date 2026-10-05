@@ -27,18 +27,19 @@ pub const PollResult = union(enum) {
     failed,
 };
 
-pub fn forceTerminate(pid: std.process.Child.Id) void {
-    termProcess(pid);
+pub fn forceTerminate(pid: std.process.Child.Id) bool {
+    return termProcess(pid);
 }
 
-pub fn termProcess(pid: std.process.Child.Id) void {
+pub fn termProcess(pid: std.process.Child.Id) bool {
     // Unified: processId() converts HANDLE→PID on Windows, passes through on POSIX.
-    const numeric_pid = os_api.c.processId(pid) catch return;
-    os_api.c.killProcess(numeric_pid);
+    const numeric_pid = os_api.c.processId(pid) catch return false;
+    _ = os_api.c.killProcess(numeric_pid);
+    return true;
 }
 
 pub fn forceKillProcess(pid: std.process.Child.Id) void {
-    termProcess(pid);
+    _ = termProcess(pid);
 }
 
 pub fn outcomeFromTerm(term: std.process.Child.Term, force_terminated: bool) ProcessOutcome {

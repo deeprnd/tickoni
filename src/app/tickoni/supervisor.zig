@@ -116,7 +116,9 @@ const ProcessState = struct {
         for (&self.children) |*maybe_child| {
             const child = maybe_child.* orelse continue;
             const pid = child.id orelse continue;
-            util.process_api.termProcess(pid);
+            if (!util.process_api.termProcess(pid)) {
+                log.error("supervisor", "deinit", "termProcess failed for child pid {d}", .{pid}) catch {};
+            }
         }
         // Wait for children to exit after SIGTERM, reaping each one.
         // Handle outcomes are set by stopProcess via reapExitedChildrenNoHang
@@ -152,7 +154,7 @@ const ProcessState = struct {
         for (&self.children) |*maybe_child| {
             const child = maybe_child.* orelse continue;
             const pid = child.id orelse continue;
-            util.process_api.forceKillProcess(pid);
+            _ = util.process_api.termProcess(pid);
         }
         // Wait for SIGKILL'd children to die and reap them, recording outcomes.
         {
@@ -975,7 +977,7 @@ pub const Supervisor = struct {
             switch (util.process_api.tryReapNoHang(&child)) {
                 .running => {
                     const pid = child.id orelse continue;
-                    util.process_api.forceTerminate(pid);
+                    _ = util.process_api.forceTerminate(pid);
                     forced_termination[i] = true;
                     maybe_child.* = child;
                 },

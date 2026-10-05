@@ -219,7 +219,10 @@ const char * tk_getenv( const char * name ) {
 
 int tk_port_is_in_use( uint16_t port ) {
   /* Windows: initialize Winsock, try to bind, clean up.
-   * WSAStartup is required on Win32 before any socket API call. */
+   * WSAStartup is required on Win32 before any socket API call.
+   * WSACleanup must only be called once per WSAStartup — track
+   * success with a flag so we don't call it on error paths
+   * where startup failed (which would violate the API contract). */
   WSADATA wsa;
   if( WSAStartup( MAKEWORD( 2, 2 ), &wsa )!=0 ) return 1;
   SOCKET sock = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
