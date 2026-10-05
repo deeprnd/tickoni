@@ -62,7 +62,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
         .crash_after_heartbeats = crash_after,
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
-        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
     errdefer sup.stopProcess(std.testing.io);
@@ -133,7 +133,7 @@ test "shutdown_reap: child exits between running-check and kill → was_forced=f
         .event_count = event_count,
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
-        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
 
@@ -191,7 +191,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
         .crash_after_heartbeats = crash_after,
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
-        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
     errdefer sup.stopProcess(std.testing.io);
@@ -247,8 +247,8 @@ test "shutdown_reap: externally reaped child classified as .unknown not .exited_
         .run_dir = run_dir,
         .event_count = event_count,
         .heartbeat_interval_ns = 20 * std.time.ns_per_ms,
-        .heartbeat_stale_after_ns = 1 * std.time.ms_per_ms,
-        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .heartbeat_stale_after_ns = 1 * std.time.ns_per_ms,
+        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
 
@@ -310,7 +310,7 @@ test "shutdown_reap: final timeout reap classifies still-running child as .unkno
         .heartbeat_stale_after_ns = 2 * std.time.ns_per_s,
         .stuck_tile_idx = 0,
         .stuck_after_messages = 0,
-        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
     errdefer sup.stopProcess(std.testing.io);
@@ -374,7 +374,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
         .crash_after_heartbeats = crash_after,
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
-        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
     errdefer sup.stopProcess(std.testing.io);
@@ -447,7 +447,7 @@ test "shutdown_reap: non-zero exit during grace → force-phase preserves .exite
         .crash_after_heartbeats = crash_after,
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
-        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
     errdefer sup.stopProcess(std.testing.io);
