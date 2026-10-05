@@ -955,7 +955,9 @@
     "urandom",
     "vswhere",
     "xfixes",
-    "xinerama"
+    "xinerama",
+    "Dcpu",
+    "miniperl"
   ],
   "ignorePaths": [
     "opt/",

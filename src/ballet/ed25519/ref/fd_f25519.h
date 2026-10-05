@@ -23,6 +23,33 @@ struct fd_f25519 {
 };
 typedef struct fd_f25519 fd_f25519_t;
 
+#if USE_FIAT_32
+typedef uint32_t fd_f25519_fiat_word_t;
+#define FD_F25519_FIAT_LIMB_CNT 10
+FD_STATIC_ASSERT( sizeof(uint32_t)==sizeof(uint), f25519_requires_32_bit_uint );
+#else
+typedef uint64_t fd_f25519_fiat_word_t;
+#define FD_F25519_FIAT_LIMB_CNT 5
+FD_STATIC_ASSERT( sizeof(uint64_t)==sizeof(ulong), f25519_requires_64_bit_ulong );
+#endif
+
+/* fiat-crypto's fixed-width limb type can be distinct from Firedancer's uint
+   or ulong even when they have the same width (notably on macOS arm64).
+   Copying across this boundary avoids incompatible pointers and strict-aliasing
+   violations while preserving the existing representation. */
+
+static inline void
+fd_f25519_to_fiat( fd_f25519_fiat_word_t dst[FD_F25519_FIAT_LIMB_CNT],
+                   fd_f25519_t const *   src ) {
+  fd_memcpy( dst, src->el, FD_F25519_FIAT_LIMB_CNT*sizeof(fd_f25519_fiat_word_t) );
+}
+
+static inline void
+fd_f25519_from_fiat( fd_f25519_t *             dst,
+                     fd_f25519_fiat_word_t const src[FD_F25519_FIAT_LIMB_CNT] ) {
+  fd_memcpy( dst->el, src, FD_F25519_FIAT_LIMB_CNT*sizeof(fd_f25519_fiat_word_t) );
+}
+
 #include "../table/fd_f25519_table_ref.c"
 
 FD_PROTOTYPES_BEGIN
@@ -36,7 +63,13 @@ FD_25519_INLINE fd_f25519_t *
 fd_f25519_mul( fd_f25519_t * r,
                fd_f25519_t const * a,
                fd_f25519_t const * b ) {
-  fiat_25519_carry_mul( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el, (ulong *)(uintptr_t)b->el );
+  fd_f25519_fiat_word_t out [FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in_a[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in_b[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_to_fiat( in_a, a );
+  fd_f25519_to_fiat( in_b, b );
+  fiat_25519_carry_mul( out, in_a, in_b );
+  fd_f25519_from_fiat( r, out );
   return r;
 }
 
@@ -44,7 +77,11 @@ fd_f25519_mul( fd_f25519_t * r,
 FD_25519_INLINE fd_f25519_t *
 fd_f25519_sqr( fd_f25519_t * r,
                fd_f25519_t const * a ) {
-  fiat_25519_carry_square( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el );
+  fd_f25519_fiat_word_t out[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in [FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_to_fiat( in, a );
+  fiat_25519_carry_square( out, in );
+  fd_f25519_from_fiat( r, out );
   return r;
 }
 
@@ -53,8 +90,15 @@ FD_25519_INLINE fd_f25519_t *
 fd_f25519_add( fd_f25519_t * r,
                fd_f25519_t const * a,
                fd_f25519_t const * b ) {
-  fiat_25519_add( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el, (ulong *)(uintptr_t)b->el );
-  fiat_25519_carry( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)r->el );
+  fd_f25519_fiat_word_t out [FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t tmp [FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in_a[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in_b[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_to_fiat( in_a, a );
+  fd_f25519_to_fiat( in_b, b );
+  fiat_25519_add( tmp, in_a, in_b );
+  fiat_25519_carry( out, tmp );
+  fd_f25519_from_fiat( r, out );
   return r;
 }
 
@@ -63,8 +107,15 @@ FD_25519_INLINE fd_f25519_t *
 fd_f25519_sub( fd_f25519_t * r,
                fd_f25519_t const * a,
                fd_f25519_t const * b ) {
-  fiat_25519_sub( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el, (ulong *)(uintptr_t)b->el );
-  fiat_25519_carry( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)r->el );
+  fd_f25519_fiat_word_t out [FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t tmp [FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in_a[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in_b[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_to_fiat( in_a, a );
+  fd_f25519_to_fiat( in_b, b );
+  fiat_25519_sub( tmp, in_a, in_b );
+  fiat_25519_carry( out, tmp );
+  fd_f25519_from_fiat( r, out );
   return r;
 }
 
@@ -75,7 +126,13 @@ FD_25519_INLINE fd_f25519_t *
 fd_f25519_add_nr( fd_f25519_t * r,
                   fd_f25519_t const * a,
                   fd_f25519_t const * b ) {
-  fiat_25519_add( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el, (ulong *)(uintptr_t)b->el );
+  fd_f25519_fiat_word_t out [FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in_a[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in_b[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_to_fiat( in_a, a );
+  fd_f25519_to_fiat( in_b, b );
+  fiat_25519_add( out, in_a, in_b );
+  fd_f25519_from_fiat( r, out );
   return r;
 }
 
@@ -86,7 +143,13 @@ FD_25519_INLINE fd_f25519_t *
 fd_f25519_sub_nr( fd_f25519_t * r,
                   fd_f25519_t const * a,
                   fd_f25519_t const * b ) {
-  fiat_25519_sub( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el, (ulong *)(uintptr_t)b->el );
+  fd_f25519_fiat_word_t out [FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in_a[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in_b[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_to_fiat( in_a, a );
+  fd_f25519_to_fiat( in_b, b );
+  fiat_25519_sub( out, in_a, in_b );
+  fd_f25519_from_fiat( r, out );
   return r;
 }
 
@@ -94,7 +157,11 @@ fd_f25519_sub_nr( fd_f25519_t * r,
 FD_25519_INLINE fd_f25519_t *
 fd_f25519_neg( fd_f25519_t * r,
                fd_f25519_t const * a ) {
-  fiat_25519_opp( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el );
+  fd_f25519_fiat_word_t out[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in [FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_to_fiat( in, a );
+  fiat_25519_opp( out, in );
+  fd_f25519_from_fiat( r, out );
   return r;
 }
 
@@ -102,7 +169,11 @@ fd_f25519_neg( fd_f25519_t * r,
 FD_25519_INLINE fd_f25519_t *
 fd_f25519_mul_121666( fd_f25519_t * r,
                       fd_f25519_t const * a ) {
-  fiat_25519_carry_scmul_121666( (ulong *)(uintptr_t)r->el, (ulong *)(uintptr_t)a->el );
+  fd_f25519_fiat_word_t out[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in [FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_to_fiat( in, a );
+  fiat_25519_carry_scmul_121666( out, in );
+  fd_f25519_from_fiat( r, out );
   return r;
 }
 
@@ -113,7 +184,9 @@ fd_f25519_mul_121666( fd_f25519_t * r,
 FD_25519_INLINE fd_f25519_t *
 fd_f25519_frombytes( fd_f25519_t * r,
                      uchar const   buf[ 32 ] ) {
-  fiat_25519_from_bytes( (ulong *)(uintptr_t)r->el, buf );
+  fd_f25519_fiat_word_t out[FD_F25519_FIAT_LIMB_CNT];
+  fiat_25519_from_bytes( out, buf );
+  fd_f25519_from_fiat( r, out );
   return r;
 }
 
@@ -124,7 +197,9 @@ fd_f25519_frombytes( fd_f25519_t * r,
 FD_25519_INLINE uchar *
 fd_f25519_tobytes( uchar               out[ 32 ],
                    fd_f25519_t const * a ) {
-  fiat_25519_to_bytes( out, (ulong *)(uintptr_t)a->el );
+  fd_f25519_fiat_word_t in[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_to_fiat( in, a );
+  fiat_25519_to_bytes( out, in );
   return out;
 }
 
@@ -136,7 +211,13 @@ fd_f25519_if( fd_f25519_t *       r,
               int const           cond, /* 0, 1 */
               fd_f25519_t const * a0,
               fd_f25519_t const * a1 ) {
-  fiat_25519_selectznz( (ulong *)(uintptr_t)r->el, (uchar)cond, (ulong *)(uintptr_t)a1->el, (ulong *)(uintptr_t)a0->el );
+  fd_f25519_fiat_word_t out [FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in_0[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in_1[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_to_fiat( in_0, a0 );
+  fd_f25519_to_fiat( in_1, a1 );
+  fiat_25519_selectznz( out, (uchar)cond, in_1, in_0 );
+  fd_f25519_from_fiat( r, out );
   return r;
 }
 

@@ -88,7 +88,7 @@ static void
 fd_f25519_print (fd_f25519_t * f) {
   uchar s[32];
   fd_f25519_tobytes(s, f);
-  for ( int i=0; i<32; i++ ) { printf("%02x", s[i]); } printf("\n");
+  for( int i=0; i<32; i++ ) { printf("%02x", s[i]); } printf("\n");
 }
 
 FD_FN_UNUSED static void
@@ -270,8 +270,8 @@ test_point_add_sub( FD_FN_UNUSED fd_rng_t * rng ) {
   fd_ristretto255_point_add( h, g, f ); /* 0 = (-P) + P */
   FD_TEST( fd_ristretto255_point_eq( h, t ) );
 
-  for ( int i=1; i<=15; i++ ) {
-    for ( int j=1; i+j<=15; j++ ) {
+  for( int i=1; i<=15; i++ ) {
+    for( int j=1; i+j<=15; j++ ) {
       fd_ristretto255_point_decompress( f, base_point_multiples[i] );
       fd_ristretto255_point_decompress( g, base_point_multiples[j] );
       fd_ristretto255_point_decompress( t, base_point_multiples[i+j] );
@@ -491,8 +491,8 @@ test_multiscalar_mul( fd_rng_t * rng ) {
   {
     /* scalars must be random to get meaningful bench */
     fd_rng_b256(rng, _a[i]); _a[i][31] &= 0x01;
-    if (i < 15) { fd_ristretto255_point_decompress( &f[i], base_point_multiples[i % 15 + 1] ); }
-    else if (i % 15 == 0) { memcpy( &f[i], &f[0], sizeof(fd_ristretto255_point_t)*15 ); }
+    if(i < 15) { fd_ristretto255_point_decompress( &f[i], base_point_multiples[i % 15 + 1] ); }
+    else if(i % 15 == 0) { memcpy( &f[i], &f[0], sizeof(fd_ristretto255_point_t)*15 ); }
   }
 
   for( ulong sz=32; sz<=MSM_N; sz*=2 )

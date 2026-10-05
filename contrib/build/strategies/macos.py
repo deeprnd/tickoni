@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """macOS platform strategy for Firedancer build."""
 
+from __future__ import annotations
+
 import os
 import re
 import subprocess

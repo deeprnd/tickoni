@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Update badge image tags between marker comments in a markdown document."""
 
+from __future__ import annotations
+
 import json
 import sys
 from pathlib import Path

@@ -23,6 +23,10 @@ fd_f25519_rng_unsafe( fd_f25519_t * r,
   r->el[3] = fd_rng_ulong( rng );
   r->el[4] = fd_rng_ulong( rng );
 #endif
-  fiat_25519_carry( (uint64_t *)r->el, (uint64_t *)r->el );
+  fd_f25519_fiat_word_t out[FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_fiat_word_t in [FD_F25519_FIAT_LIMB_CNT];
+  fd_f25519_to_fiat( in, r );
+  fiat_25519_carry( out, in );
+  fd_f25519_from_fiat( r, out );
   return r;
 }

@@ -101,14 +101,22 @@ fd_bn254_fp_eq( fd_bn254_fp_t const * r,
 static inline fd_bn254_fp_t *
 fd_bn254_fp_from_mont( fd_bn254_fp_t * r,
                        fd_bn254_fp_t const * a ) {
-  fiat_bn254_from_montgomery( (ulong *)(uintptr_t)r->limbs, (ulong const *)(uintptr_t)a->limbs );
+  uint64_t out[4];
+  uint64_t in [4];
+  fd_bn254_uint256_to_fiat( in, a );
+  fiat_bn254_from_montgomery( out, in );
+  fd_bn254_uint256_from_fiat( r, out );
   return r;
 }
 
 static inline fd_bn254_fp_t *
 fd_bn254_fp_to_mont( fd_bn254_fp_t * r,
                      fd_bn254_fp_t const * a ) {
-  fiat_bn254_to_montgomery( (ulong *)(uintptr_t)r->limbs, (ulong const *)(uintptr_t)a->limbs );
+  uint64_t out[4];
+  uint64_t in [4];
+  fd_bn254_uint256_to_fiat( in, a );
+  fiat_bn254_to_montgomery( out, in );
+  fd_bn254_uint256_from_fiat( r, out );
   return r;
 }
 
@@ -145,7 +153,13 @@ INLINE fd_bn254_fp_t *
 fd_bn254_fp_add( fd_bn254_fp_t * r,
                  fd_bn254_fp_t const * a,
                  fd_bn254_fp_t const * b ) {
-  fiat_bn254_add( (ulong *)(uintptr_t)r->limbs, (ulong const *)(uintptr_t)a->limbs, (ulong const *)(uintptr_t)b->limbs );
+  uint64_t out[4];
+  uint64_t in_a[4];
+  uint64_t in_b[4];
+  fd_bn254_uint256_to_fiat( in_a, a );
+  fd_bn254_uint256_to_fiat( in_b, b );
+  fiat_bn254_add( out, in_a, in_b );
+  fd_bn254_uint256_from_fiat( r, out );
   return r;
 }
 
@@ -180,14 +194,24 @@ INLINE fd_bn254_fp_t *
 fd_bn254_fp_sub( fd_bn254_fp_t * r,
                  fd_bn254_fp_t const * a,
                  fd_bn254_fp_t const * b ) {
-  fiat_bn254_sub( (ulong *)(uintptr_t)r->limbs, (ulong const *)(uintptr_t)a->limbs, (ulong const *)(uintptr_t)b->limbs );
+  uint64_t out[4];
+  uint64_t in_a[4];
+  uint64_t in_b[4];
+  fd_bn254_uint256_to_fiat( in_a, a );
+  fd_bn254_uint256_to_fiat( in_b, b );
+  fiat_bn254_sub( out, in_a, in_b );
+  fd_bn254_uint256_from_fiat( r, out );
   return r;
 }
 
 INLINE fd_bn254_fp_t *
 fd_bn254_fp_neg( fd_bn254_fp_t * r,
                  fd_bn254_fp_t const * a ) {
-  fiat_bn254_opp( (ulong *)(uintptr_t)r->limbs, (ulong const *)(uintptr_t)a->limbs );
+  uint64_t out[4];
+  uint64_t in [4];
+  fd_bn254_uint256_to_fiat( in, a );
+  fiat_bn254_opp( out, in );
+  fd_bn254_uint256_from_fiat( r, out );
   return r;
 }
 
@@ -223,9 +247,13 @@ fd_bn254_fp_inv( fd_bn254_fp_t * r,
       r = a^{-1} * R^{-1} * R * R = a^{-1} * R = (a^{-1})' */
   ulong tmp[12];
   ulong z[4];
+  uint64_t out[4];
+  uint64_t in [4];
   bignum_modinv( 4, z, a->limbs, fd_bn254_const_p->limbs, tmp );
-  fiat_bn254_to_montgomery( (ulong *)(uintptr_t)r->limbs, (ulong const *)(uintptr_t)z );
-  fiat_bn254_to_montgomery( (ulong *)(uintptr_t)r->limbs, (ulong const *)(uintptr_t)r->limbs );
+  fd_memcpy( in, z, sizeof(in) );
+  fiat_bn254_to_montgomery( out, in );
+  fiat_bn254_to_montgomery( in, out );
+  fd_bn254_uint256_from_fiat( r, in );
   return r;
 #else
   fd_uint256_t p_minus_2[1];
