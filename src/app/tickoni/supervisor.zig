@@ -1009,22 +1009,65 @@ pub const Supervisor = struct {
         // non-clean stops is visible on the failing toolchain.
         {
             var diag_buf: [512]u8 = undefined;
-            var diag = std.io.fixedBufferStream(&diag_buf);
-            const pw = diag.writer();
-            pw.writeAll("stopProcess: tile_count=") catch {};
-            pw.print("{d}, halt_time={d}, grace_deadline={d}", .{ state.cncs.len, halt_time, grace_deadline }) catch {};
-            pw.writeAll(", tiles=[") catch {};
+            var w_idx: usize = 0;
+            {
+                const s = "stopProcess: tile_count=";
+                const len = s.len;
+                std.mem.copyForwards(u8, diag_buf[w_idx .. w_idx + len], s);
+                w_idx += len;
+            }
+            {
+                var buf: [64]u8 = undefined;
+                const printed = std.fmt.bufPrint(&buf, "{d}, halt_time={d}, grace_deadline={d}", .{ state.cncs.len, halt_time, grace_deadline }) catch return;
+                const len = printed.len;
+                if (w_idx + len <= diag_buf.len) {
+                    std.mem.copyForwards(u8, diag_buf[w_idx .. w_idx + len], printed);
+                    w_idx += len;
+                }
+            }
+            {
+                const s = ", tiles=[";
+                const len = s.len;
+                std.mem.copyForwards(u8, diag_buf[w_idx .. w_idx + len], s);
+                w_idx += len;
+            }
             var first: bool = true;
             for (state.cncs, 0..) |_, i| {
                 const tile = self.topo.tiles[i];
                 const maybe_child = state.children[i];
-                const pid = if (maybe_child) |c| c.id else null;
-                if (!first) pw.writeAll(", ") catch {};
+                if (!first) {
+                    const s = ", ";
+                    const len = s.len;
+                    if (w_idx + len <= diag_buf.len) {
+                        std.mem.copyForwards(u8, diag_buf[w_idx .. w_idx + len], s);
+                        w_idx += len;
+                    }
+                }
                 first = false;
-                pw.print("{{id={s},pid={any}}}", .{ tile.id.slice(), pid }) catch {};
+                if (maybe_child) |c| {
+                    var buf: [128]u8 = undefined;
+                    const printed = std.fmt.bufPrint(&buf, "{s}={any}", .{ tile.id.slice(), c.id }) catch return;
+                    const len = printed.len;
+                    if (w_idx + len <= diag_buf.len) {
+                        std.mem.copyForwards(u8, diag_buf[w_idx .. w_idx + len], printed);
+                        w_idx += len;
+                    }
+                } else {
+                    const s = "{s}=null,";
+                    const len = s.len;
+                    std.mem.copyForwards(u8, diag_buf[w_idx .. w_idx + len], s);
+                    w_idx += len;
+                }
             }
-            pw.writeAll("]") catch {};
-            const msg = diag_buf[0..diag.getPos()];
+            {
+                const s = "]";
+                const len = s.len;
+                if (w_idx + len <= diag_buf.len) {
+                    std.mem.copyForwards(u8, diag_buf[w_idx .. w_idx + len], s);
+                    w_idx += len;
+                }
+            }
+            const msg = diag_buf[0..w_idx];
             log.debug("supervisor", "stopProcess.halt", @constCast(msg));
         }
         while (util.process.monotonicNanos() < grace_deadline) {
@@ -1072,8 +1115,8 @@ pub const Supervisor = struct {
                     var diag_buf: [256]u8 = undefined;
                     const kind_msg = switch (term) {
                         .exited => |code| std.fmt.bufPrint(&diag_buf, "exited(code={d})", .{code}) catch "exited",
-                        .signal => |sig| std.fmt.bufPrint(&diag_buf, "signal(sig={d})", .{@as(u32, @intCast(sig))}) catch "signal",
-                        .stopped => |sig| std.fmt.bufPrint(&diag_buf, "stopped(sig={d})", .{@as(u32, @intCast(sig))}) catch "stopped",
+                        .signal => |sig| std.fmt.bufPrint(&diag_buf, "signal(sig={d})", .{@intFromEnum(sig)}) catch "signal",
+                        .stopped => |sig| std.fmt.bufPrint(&diag_buf, "stopped(sig={d})", .{@intFromEnum(sig)}) catch "stopped",
                         .unknown => "unknown",
                     };
                     const msg = std.fmt.bufPrint(&diag_buf,
@@ -1089,7 +1132,7 @@ pub const Supervisor = struct {
                 .failed => |err| {
                     var diag_buf: [192]u8 = undefined;
                     const msg = std.fmt.bufPrint(&diag_buf,
-                        "stopProcess.force.failed: tile={s}, pid={d}, errno={d}",
+                        "stopProcess.force.failed: tile={s}, pid={d}, errno={any}",
                         .{ tile.id.slice(), child.id orelse 0, err }) catch "stopProcess.force.failed";
                     log.debug("supervisor", "stopProcess.force.failed", msg);
                     // Child was already reaped by another path (e.g. reapExitedChildrenNoHang).
