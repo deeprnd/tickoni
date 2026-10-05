@@ -26,7 +26,11 @@
   <!-- badge:system:end -->
 
   <!-- badge:cov-tk:start -->
+<<<<<<< HEAD
   <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-89.2%25-yellowgreen?style=flat-square" />
+=======
+  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-88.2%25-yellowgreen?style=flat-square" />
+>>>>>>> 8fd9edf5d (docs: update system test badge and coverage percentage)
   <!-- badge:cov-tk:end -->
     
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-blue?style=flat-square" />
