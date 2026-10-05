@@ -985,7 +985,13 @@ pub const Supervisor = struct {
                     maybe_child.* = child;
                 },
                 .reaped => |term| {
-                    self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, false));
+                    // Treat reaped children as force-terminated too — they
+                    // exited during shutdown and should not be reported as
+                    // crashes.  The force_termination flag only gates the
+                    // signal-vs-exit disambiguation; a child that exits
+                    // between our reap check and the kill call must be
+                    // classified as stopped, not crashed.
+                    self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, true));
                     maybe_child.* = null;
                 },
                 .detached, .failed => {
