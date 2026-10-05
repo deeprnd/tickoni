@@ -56,7 +56,7 @@ pub fn tryReapNoHang(child: *std.process.Child) PollResult {
         if (status == -1) return .running;
         if (status < 0) return .failed;
         child.id = null;
-        if (status == 255) return .{ .reaped = .{ .signal = @enumFromInt(9) } };
+        if (status == 255) return .{ .reaped = .{ .signal = @fromBackingInt(@intCast(9)) } };
         return .{ .reaped = .{ .exited = @intCast(status) } };
     }
 
