@@ -55,11 +55,23 @@ pub fn strategy(
         .source_file = "src/tickoni/util/process.zig",
     }, test_step, run_cmd);
 
-    tb.registerRunTest(.{
-        .name = "test-process-api",
-        .source_file = "src/tickoni/util/test_process_api.zig",
-        .linkage = .{ .needs_libc = true },
-    }, test_step, run_cmd);
+    // test-process-api — needs c_abi module, util module, and os.c shim (libc).
+    {
+        const pa_mod = b.createModule(.{
+            .root_source_file = b.path("src/tickoni/util/test_process_api.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "c_abi", .module = shared.c_abi },
+                .{ .name = "util", .module = shared.util },
+            },
+        });
+        pa_mod.addCSourceFiles(.{ .files = &.{ "src/tickoni/c_abi/shim/os.c" } });
+        pa_mod.link_libc = true;
+        const pa_test = b.addTest(.{ .name = "test-process-api", .root_module = pa_mod });
+        test_step.dependOn(&pa_test.step);
+        run_cmd.addArtifactArg(pa_test);
+    }
 
     tb.registerRunTest(.{
         .name = "test-sandbox-defaults",
