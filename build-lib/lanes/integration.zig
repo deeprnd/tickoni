@@ -53,6 +53,7 @@ pub fn strategy(
         "src/tickoni/test/integration/test_process_pipeline.zig",
         "src/tickoni/test/integration/test_process_cpu_placement.zig",
         "src/tickoni/test/integration/test_process_demo_parity.zig",
+        "src/tickoni/test/integration/test_process_shutdown_reap.zig",
     };
     const test_run_count = static_tests.len + process_tests.len + 5;
     var test_runs: [test_run_count]*std.Build.Step.Run = undefined;

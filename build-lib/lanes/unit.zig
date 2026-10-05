@@ -56,6 +56,12 @@ pub fn strategy(
     }, test_step, run_cmd);
 
     tb.registerRunTest(.{
+        .name = "test-process-api",
+        .source_file = "src/tickoni/util/test_process_api.zig",
+        .linkage = .{ .needs_libc = true },
+    }, test_step, run_cmd);
+
+    tb.registerRunTest(.{
         .name = "test-sandbox-defaults",
         .source_file = "src/tickoni/util/sandbox_defaults.zig",
     }, test_step, run_cmd);
