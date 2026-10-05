@@ -41,16 +41,15 @@ pub fn forceKillProcess(pid: std.process.Child.Id) void {
 }
 
 pub fn outcomeFromTerm(term: std.process.Child.Term, force_terminated: bool) ProcessOutcome {
-    // When force_terminated is true, we already sent SIGKILL (or equivalent).
-    // Any exit — even non-zero — is a consequence of that forced termination,
-    // not a real crash.  The TOCTOU race between reap-check (.running) and
-    // SIGKILL means the tile may have already exited (cleanly after observing
-    // HALT, or mid-cleanup with a non-zero code) before the kill lands.
+    // Classification policy: only evidence supports intentional termination.
+    // A clean exit (0) after SIGKILL is a clean result. A non-zero exit is
+    // crash evidence regardless of whether a kill was attempted. A signal is
+    // direct evidence of a kill; an unknown exit code alone is not.
     return switch (term) {
-        .exited => |code| if (code == 0) .exited_ok else if (force_terminated) .force_terminated else .{ .exited_code = code },
+        .exited => |code| if (code == 0) if (force_terminated) .force_terminated else .exited_ok else .{ .exited_code = code },
         .signal => if (force_terminated) .force_terminated else .crashed,
         .stopped => .stopped,
-        .unknown => if (force_terminated) .force_terminated else .unknown,
+        .unknown => .unknown,
     };
 }
 

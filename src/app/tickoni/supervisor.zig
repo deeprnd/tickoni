@@ -688,6 +688,7 @@ pub const Supervisor = struct {
         const deadline = util.process.monotonicNanos() + @as(i64, @intCast(wait_process_max_ms * std.time.ms_per_s));
         for (&state.children, 0..) |*maybe_child, i| {
             var child = maybe_child.* orelse continue;
+            const was_forced = if (forced_termination) |forced| forced[i] else false;
             const term = blk: {
                 const start = util.process.monotonicNanos();
                 if (start >= deadline) break :blk null;
@@ -712,7 +713,6 @@ pub const Supervisor = struct {
                 break :blk null;
             };
             if (term) |t| {
-                const was_forced = if (forced_termination) |forced| forced[i] else false;
                 self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(t, was_forced));
                 maybe_child.* = null;
             } else {
@@ -723,17 +723,16 @@ pub const Supervisor = struct {
                 // because the handle is marked .stopped with .none.
                 const outcome = blk2: {
                     switch (util.process_api.tryReapNoHang(&child)) {
-                        .running, .detached => break :blk2 .exited_ok,
+                        // A child still running or already detached after
+                        // timeout has no known exit reason.  Do NOT classify
+                        // it as .exited_ok — the child may still be live or
+                        // have exited with a code we failed to observe.
+                        .running, .detached => break :blk2 .unknown,
                         .failed => |err| {
-                            // A final reap failure after timeout means the child
-                            // state is unknown.  Do NOT classify it as .exited_ok —
-                            // the child may still be live or have exited with a code
-                            // we failed to observe.  Classify as unknown so the handle
-                            // is not silently marked clean.
                             _ = err;
                             break :blk2 .unknown;
                         },
-                        .reaped => |t| break :blk2 util.process_api.outcomeFromTerm(t, false),
+                        .reaped => |t| break :blk2 util.process_api.outcomeFromTerm(t, was_forced),
                     }
                 };
                 self.updateHandleForOutcome(i, outcome);
@@ -1008,18 +1007,16 @@ pub const Supervisor = struct {
             switch (util.process_api.tryReapNoHang(&child)) {
                 .running => {
                     const pid = child.id orelse continue;
-                    _ = util.process_api.forceTerminate(pid);
-                    forced_termination[i] = true;
+                    // Only record a successful kill — a failed kill request
+                    // is not evidence that the supervisor caused the exit.
+                    if (util.process_api.forceTerminate(pid)) forced_termination[i] = true;
                     maybe_child.* = child;
                 },
                 .reaped => |term| {
-                    // Treat reaped children as force-terminated too — they
-                    // exited during shutdown and should not be reported as
-                    // crashes.  The force_termination flag only gates the
-                    // signal-vs-exit disambiguation; a child that exits
-                    // between our reap check and the kill call must be
-                    // classified as stopped, not crashed.
-                    self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, true));
+                    // No kill was attempted for this child — it reaped between
+                    // the running-check and the kill call. Classify with normal
+                    // (non-forced) policy: non-zero exits remain crashes.
+                    self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, false));
                     maybe_child.* = null;
                 },
                 .detached => {
