@@ -32,6 +32,7 @@ pub const tk_process_reap_result = extern struct {
     signal: c_int,
     stop_signal: c_int,
     kind: c_int,
+    err: c_int,
 };
 
 extern fn tk_process_reap(pid: c_int, options: c_int, out: *tk_process_reap_result) void;

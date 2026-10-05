@@ -55,7 +55,7 @@ pub fn outcomeFromTerm(term: std.process.Child.Term, force_terminated: bool) Pro
 
 pub fn tryReapNoHang(child: *std.process.Child) PollResult {
     const pid = child.id orelse return .detached;
-    const numeric_pid = os_api.c.processId(pid) catch return .failed{};
+    const numeric_pid = os_api.c.processId(pid) catch return .{ .failed = null };
     // NOHANG=1 on POSIX; 0 on Windows (WaitForSingleObject semantics use
     // options&1==0 → block, options&1!=0 → non-blocking).  Cross-platform
     // via comptime so std.posix is never referenced on Windows.
@@ -71,7 +71,7 @@ pub fn tryReapNoHang(child: *std.process.Child) PollResult {
                 child.id = null;
                 break :blk .detached;
             }
-            break :blk .failed{r.err};
+            break :blk .{ .failed = @as(?i32, r.err) };
         },
         0 => .running,
         else => blk: {
