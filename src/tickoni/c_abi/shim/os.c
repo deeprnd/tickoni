@@ -29,6 +29,8 @@
 #define _GNU_SOURCE
 #endif
 
+#include <errno.h>
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -244,17 +246,24 @@ typedef struct {
   int signal;
   int stop_signal;
   int kind;
+  int err;
 } tk_process_reap_result;
 
 void tk_process_reap(int pid, int options, tk_process_reap_result *out) {
   /* Linux/macOS: waitpid(2) decodes status word via WIF* macros.
    * Returns: kind=1 exited, kind=2 signaled, kind=3 stopped.
-   * pid==0 means running, pid==-1 means failed. */
+   * pid==0 means running, pid==-1 means failed.
+   * Retries on EINTR (signal interruption) so transient signals
+   * do not lose a child. Stores errno for diagnosis on real errors. */
   memset(out, 0, sizeof(*out));
   int status = 0;
-  pid_t rc = waitpid((pid_t)pid, &status, options);
+  pid_t rc;
+  do {
+    rc = waitpid((pid_t)pid, &status, options);
+  } while (rc < 0 && errno == EINTR);
   if (rc < 0) {
     out->pid = -1;
+    out->err = errno;
   } else if (rc == 0) {
     out->pid = 0;
   } else {
@@ -457,12 +466,14 @@ typedef struct {
   int signal;
   int stop_signal;
   int kind;
+  int err;
 } tk_process_reap_result;
 
 void tk_process_reap(int pid, int options, tk_process_reap_result *out) {
   /* Windows: WaitForSingleObject checks process termination.
    * GetExitCodeProcess retrieves the exit code on termination.
-   * options is ignored (Windows uses WaitForSingleObject semantics). */
+   * options is ignored (Windows uses WaitForSingleObject semantics).
+   * err is zeroed — Windows does not expose POSIX errno. */
   memset(out, 0, sizeof(*out));
   HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, (DWORD)pid);
   if (!process) {
@@ -566,6 +577,7 @@ typedef struct {
   int signal;
   int stop_signal;
   int kind;
+  int err;
 } tk_process_reap_result;
 
 void tk_process_reap(int pid, int options, tk_process_reap_result *out) {

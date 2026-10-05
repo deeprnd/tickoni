@@ -143,9 +143,12 @@ const ProcessState = struct {
                             self.children[ci] = null;
                             break;
                         },
-                        .failed => {
+                        .failed => |err| {
                             // Reap failure is non-fatal; leave child in
-                            // the array for Phase 2 to handle.
+                            // the array for Phase 2 to handle. err is the
+                            // errno that caused the failure (EINTR should
+                            // not reach here thanks to EINTR retry).
+                            _ = err;
                             break;
                         },
                     }
@@ -659,7 +662,14 @@ pub const Supervisor = struct {
                 .detached => {
                     maybe_child.* = null;
                 },
-                .failed => {},
+                .failed => |err| {
+                    // Transient reap failure (e.g. EINTR before EINTR retry
+                    // was added) or ECHILD on another thread's reap. In
+                    // either case the child handle is unknown — leave it in
+                    // the array so stopProcess's force/timeout paths can
+                    // re-attempt.  err carries the errno for diagnostics.
+                    _ = err;
+                },
             }
         }
     }
@@ -688,7 +698,12 @@ pub const Supervisor = struct {
                         },
                         .reaped => |t| break :blk t,
                         .detached => break :blk null,
-                        .failed => break :blk null,
+                        .failed => |err| {
+                            // Transient reap failure — treat like timeout and
+                            // fall through to the final reap below.
+                            _ = err;
+                            break :blk null;
+                        },
                     }
                 }
                 var msg_buf: [64]u8 = undefined;
@@ -708,7 +723,16 @@ pub const Supervisor = struct {
                 // because the handle is marked .stopped with .none.
                 const outcome = blk2: {
                     switch (util.process_api.tryReapNoHang(&child)) {
-                        .running, .detached, .failed => break :blk2 .exited_ok,
+                        .running, .detached => break :blk2 .exited_ok,
+                        .failed => |err| {
+                            // A final reap failure after timeout means the child
+                            // state is unknown.  Do NOT classify it as .exited_ok —
+                            // the child may still be live or have exited with a code
+                            // we failed to observe.  Classify as unknown so the handle
+                            // is not silently marked clean.
+                            _ = err;
+                            break :blk2 .unknown;
+                        },
                         .reaped => |t| break :blk2 util.process_api.outcomeFromTerm(t, false),
                     }
                 };
@@ -761,12 +785,16 @@ pub const Supervisor = struct {
                     state.has_child_crashed = true;
                     crashed_mask[i] = true;
                 },
-                .failed => {},
+                .failed => |err| {
+                    // Transient reap failure during health check — leave child
+                    // in array and skip it for heartbeat read. The err field
+                    // carries the errno for diagnostics.
+                    _ = err;
+                },
             }
         }
         // Read heartbeats from surviving tiles only — skip any tile whose
         // child has been reaped (crashed or stopped) so we never dereference
-        // a stale cnc pointer into a dead child's address space.
         for (state.cncs, 0..) |maybe_cnc, i| {
             const h = &self.handles[i];
             if (h.state != .starting and h.state != .running) continue;
@@ -994,7 +1022,12 @@ pub const Supervisor = struct {
                     self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, true));
                     maybe_child.* = null;
                 },
-                .detached, .failed => {
+                .detached => {
+                    maybe_child.* = null;
+                },
+                .failed => {
+                    // Child was already reaped by another path (e.g. reapExitedChildrenNoHang).
+                    // Clear the handle so deinit doesn't try to reap or kill it.
                     maybe_child.* = null;
                 },
             }
