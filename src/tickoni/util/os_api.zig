@@ -46,19 +46,17 @@ pub fn getEnv(name: []const u8) ?[]const u8 {
 }
 
 pub fn getAffinity(pid: c_int, cpu_set: []u8) !void {
-    const rc = c.tk_get_affinity(pid, cpu_set.ptr);
-    if (rc < 0) return error.GetAffinityFailed;
+    try c.getAffinity(pid, cpu_set);
 }
 
 pub fn setAffinity(pid: c_int, cpu_set: []const u8) !void {
-    const rc = c.tk_set_affinity(pid, cpu_set.ptr);
-    if (rc < 0) return error.SetAffinityFailed;
+    try c.setAffinity(pid, cpu_set);
 }
 
-pub const tk_process_reap_result = c.tk_process_reap_result;
+pub const tk_process_reap_result = c.c.tk_process_reap_result;
 
 pub fn processReap(pid: c_int, options: c_int) tk_process_reap_result {
     var result: tk_process_reap_result = undefined;
-    c.tk_process_reap(pid, options, &result);
+    c.c.tk_process_reap(pid, options, &result);
     return result;
 }
