@@ -18,6 +18,17 @@ pub const c = struct {
     pub extern fn tk_fflush() void;
     pub extern fn tk_setenv(name: [*]const u8, value: [*]const u8, overwrite: c_int) c_int;
     pub extern fn tk_getenv(name: [*]const u8) [*:0]const u8;
+    pub extern fn tk_get_affinity(pid: c_int, mask: [*]u8) c_int;
+    pub extern fn tk_set_affinity(pid: c_int, mask: [*]const u8) c_int;
+    pub const tk_process_reap_result = extern struct {
+        pid: c_int,
+        status: c_int,
+        exit_code: c_int,
+        signal: c_int,
+        stop_signal: c_int,
+        kind: c_int,
+    };
+    pub extern fn tk_process_reap(pid: c_int, options: c_int, out: *tk_process_reap_result) void;
 };
 
 pub fn monotonicNanos() i64 {
@@ -82,4 +93,20 @@ pub fn setenv(name: [*]const u8, value: [*]const u8, overwrite: c_int) c_int {
 
 pub fn tk_getenv(name: [*]const u8) ?[*:0]const u8 {
     return c.tk_getenv(name);
+}
+
+pub fn getAffinity(pid: c_int, cpu_set: []u8) !void {
+    const rc = c.tk_get_affinity(pid, cpu_set.ptr);
+    if (rc < 0) return error.GetAffinityFailed;
+}
+
+pub fn setAffinity(pid: c_int, cpu_set: []const u8) !void {
+    const rc = c.tk_set_affinity(pid, cpu_set.ptr);
+    if (rc < 0) return error.SetAffinityFailed;
+}
+
+pub fn processReap(pid: c_int, options: c_int) c.tk_process_reap_result {
+    var result: c.tk_process_reap_result = undefined;
+    c.tk_process_reap(pid, options, &result);
+    return result;
 }

@@ -40,6 +40,7 @@
 #if FD_HAS_LINUX || FD_HAS_MACOS
 
 #if FD_HAS_LINUX
+#include <sched.h>
 #include <signal.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -202,6 +203,74 @@ const char * tk_getenv( const char * name ) {
     return buf;
   }
   return NULL;
+}
+
+int tk_get_affinity(int pid, unsigned char *mask) {
+  /* Linux/macOS: sched_getaffinity returns the CPU affinity mask.
+   * On Linux this is a real syscall; on macOS it's a no-op stub.
+   * mask must point to a buffer of at least cpu_set_bytes (128) bytes. */
+#if FD_HAS_LINUX
+  size_t len = 128; /* cpu_set_bytes — matches CpuSet size */
+  int rc = sched_getaffinity((pid_t)pid, len, (cpu_set_t *)mask);
+  return rc < 0 ? -1 : 0;
+#else
+  /* macOS: no sched_getaffinity; return all bits set (all CPUs available). */
+  (void)pid;
+  for (size_t i = 0; i < 128; i++) mask[i] = 0xFF;
+  return 0;
+#endif
+}
+
+int tk_set_affinity(int pid, const unsigned char *mask) {
+  /* Linux/macOS: sched_setaffinity sets the CPU affinity mask.
+   * On Linux this is a real syscall; on macOS it's a no-op stub.
+   * mask must point to a buffer of at least cpu_set_bytes (128) bytes. */
+#if FD_HAS_LINUX
+  size_t len = 128; /* cpu_set_bytes — matches CpuSet size */
+  int rc = sched_setaffinity((pid_t)pid, len, (cpu_set_t *)mask);
+  return rc < 0 ? -1 : 0;
+#else
+  /* macOS: no sched_setaffinity; no-op. */
+  (void)pid;
+  (void)mask;
+  return 0;
+#endif
+}
+
+typedef struct {
+  int pid;
+  int status;
+  int exit_code;
+  int signal;
+  int stop_signal;
+  int kind;
+} tk_process_reap_result;
+
+void tk_process_reap(int pid, int options, tk_process_reap_result *out) {
+  /* Linux/macOS: waitpid(2) decodes status word via WIF* macros.
+   * Returns: kind=1 exited, kind=2 signaled, kind=3 stopped.
+   * pid==0 means running, pid==-1 means failed. */
+  memset(out, 0, sizeof(*out));
+  int status = 0;
+  pid_t rc = waitpid((pid_t)pid, &status, options);
+  if (rc < 0) {
+    out->pid = -1;
+  } else if (rc == 0) {
+    out->pid = 0;
+  } else {
+    out->pid = (int)rc;
+    out->status = status;
+    if (WIFEXITED(status)) {
+      out->kind = 1;
+      out->exit_code = WEXITSTATUS(status);
+    } else if (WIFSIGNALED(status)) {
+      out->kind = 2;
+      out->signal = WTERMSIG(status);
+    } else if (WIFSTOPPED(status)) {
+      out->kind = 3;
+      out->stop_signal = WSTOPSIG(status);
+    }
+  }
 }
 
 #elif FD_HAS_WINDOWS
@@ -369,6 +438,52 @@ const char * tk_getenv( const char * name ) {
   return NULL;
 }
 
+int tk_get_affinity(int pid, unsigned char *mask) {
+  /* Windows: no POSIX affinity API; no-op. */
+  (void)pid; (void)mask;
+  return 0;
+}
+
+int tk_set_affinity(int pid, const unsigned char *mask) {
+  /* Windows: no POSIX affinity API; no-op. */
+  (void)pid; (void)mask;
+  return 0;
+}
+
+typedef struct {
+  int pid;
+  int status;
+  int exit_code;
+  int signal;
+  int stop_signal;
+  int kind;
+} tk_process_reap_result;
+
+void tk_process_reap(int pid, int options, tk_process_reap_result *out) {
+  /* Windows: WaitForSingleObject checks process termination.
+   * GetExitCodeProcess retrieves the exit code on termination.
+   * options is ignored (Windows uses WaitForSingleObject semantics). */
+  memset(out, 0, sizeof(*out));
+  HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, (DWORD)pid);
+  if (!process) {
+    out->pid = -1;
+    return;
+  }
+  DWORD wait_rc = WaitForSingleObject(process, (options & 1) ? 0 : INFINITE);
+  if (wait_rc == WAIT_TIMEOUT) {
+    out->pid = 0;
+  } else if (wait_rc == WAIT_OBJECT_0) {
+    DWORD code = 0;
+    int got = GetExitCodeProcess(process, &code);
+    out->pid = pid;
+    out->kind = 1;
+    out->exit_code = got ? (int)(code & 0x7fffffff) : -1;
+  } else {
+    out->pid = -1;
+  }
+  CloseHandle(process);
+}
+
 #else
 
 /* Fallback for other hosted platforms — stubs.
@@ -430,6 +545,34 @@ void tk_fflush( void ) {
 const char * tk_getenv( const char * name ) {
   (void)name;
   return NULL;
+}
+
+int tk_get_affinity(int pid, unsigned char *mask) {
+  /* Fallback stubs — no-op affinity. */
+  (void)pid; (void)mask;
+  return 0;
+}
+
+int tk_set_affinity(int pid, const unsigned char *mask) {
+  /* Fallback stubs — no-op affinity. */
+  (void)pid; (void)mask;
+  return 0;
+}
+
+typedef struct {
+  int pid;
+  int status;
+  int exit_code;
+  int signal;
+  int stop_signal;
+  int kind;
+} tk_process_reap_result;
+
+void tk_process_reap(int pid, int options, tk_process_reap_result *out) {
+  /* Fallback stub — no-op reap. */
+  (void)pid; (void)options;
+  memset(out, 0, sizeof(*out));
+  out->pid = -1;
 }
 
 int tk_setenv( const char * name, const char * value, int overwrite ) {
