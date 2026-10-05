@@ -71,8 +71,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
     const max_polls: u32 = 400;
     var poll: u32 = 0;
     while (poll < max_polls) : (poll += 1) {
-        const snap = sup.snapshotProcessMetrics();
-        if (snap.produced > 0 or sup.hasCrashed()) break;
+        if (sup.hasCrashed()) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
 

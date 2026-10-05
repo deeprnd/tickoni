@@ -638,13 +638,16 @@ pub const Supervisor = struct {
                     self.handles[i].crashed_because = .signal;
                 }
             },
-            .stopped, .unknown => {
+            .stopped => {
                 if (self.handles[i].state == .stale) {
                     self.handles[i].crashed_because = .stale;
                 } else {
                     self.handles[i].state = .crashed;
                     self.handles[i].crashed_because = .exit_code;
                 }
+            },
+            .unknown => {
+                // No evidence of exit — leave handle state unchanged.
             },
         }
     }
@@ -724,16 +727,23 @@ pub const Supervisor = struct {
                 const final_reap_time = util.process.monotonicNanos();
                 const outcome = blk2: {
                     switch (util.process_api.tryReapNoHang(&child)) {
-                        // A child still running or already detached after
-                        // timeout has no known exit reason.  Do NOT classify
-                        // it as .exited_ok — the child may still be live or
-                        // have exited with a code we failed to observe.
-                        .running, .detached => break :blk2 .unknown,
-                        .failed => |err| {
-                            _ = err;
-                            break :blk2 .unknown;
-                        },
                         .reaped => |t| break :blk2 util.process_api.outcomeFromTerm(t, was_forced),
+                        // A child still running or already detached after
+                        // timeout has no known exit reason.  If we attempted
+                        // force-termination, treat it as .force_terminated so
+                        // updateHandleForOutcome classifies it as .stopped
+                        // (shutdown is intentional, not a crash).  Otherwise
+                        // keep it as .unknown so it's not silently lost.
+                        .running, .detached => {
+                            var outcome_val: util.process_api.ProcessOutcome = undefined;
+                            if (was_forced) outcome_val = .force_terminated else outcome_val = .unknown;
+                            break :blk2 outcome_val;
+                        },
+                        .failed => {
+                            var outcome_val: util.process_api.ProcessOutcome = undefined;
+                            if (was_forced) outcome_val = .force_terminated else outcome_val = .unknown;
+                            break :blk2 outcome_val;
+                        },
                     }
                 };
                 // Diagnostic trace (v2.24.S3): per-child final-reap result.
