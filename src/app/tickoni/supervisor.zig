@@ -110,6 +110,7 @@ const ProcessState = struct {
     /// shared-memory pointers. Skip those ops so the supervisor survives its
     /// own children's crashes instead of SIGABRT'ing during teardown.
     fn deinit(self: *ProcessState, _: std.Io, allocator: std.mem.Allocator) void {
+        const log = logger.get();
         // Phase 1: send SIGTERM to every still-running child and wait up to
         // 500 ms for a clean exit (Firedancer-style graceful shutdown).
         const sigterm_deadline = util.process.monotonicNanos() + @as(i64, 500) * std.time.ns_per_ms;
@@ -117,7 +118,9 @@ const ProcessState = struct {
             const child = maybe_child.* orelse continue;
             const pid = child.id orelse continue;
             if (!util.process_api.termProcess(pid)) {
-                log.error("supervisor", "deinit", "termProcess failed for child pid {d}", .{pid}) catch {};
+                var msg: [128]u8 = undefined;
+                const formatted = std.fmt.bufPrint(&msg, "termProcess failed for child pid {d}", .{pid}) catch "termProcess failed";
+                log.err("supervisor", "deinit", formatted) catch {};
             }
         }
         // Wait for children to exit after SIGTERM, reaping each one.

@@ -69,7 +69,7 @@ pub fn tryReapNoHang(child: *std.process.Child) PollResult {
 
     // POSIX path: use waitpid from C shim (tk_process_waitpid).
     var status: c_int = 0;
-    const rc = os_api.c.tk_process_waitpid(@intCast(pid), &status, std.posix.W.NOHANG);
+    const rc = os_api.c.c.tk_process_waitpid(@intCast(pid), &status, std.posix.W.NOHANG);
 
     if (rc == 0) return .running;
     if (rc < 0) return .failed;

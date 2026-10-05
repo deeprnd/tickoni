@@ -14,8 +14,6 @@ pub const linux_ids = @import("linux_ids.zig");
 pub const sizes = @import("sizes.zig");
 pub const sandbox_defaults = @import("sandbox_defaults.zig");
 
-
-
 /// Check whether a TCP port is already bound on localhost.
 /// Returns true if `bind()` fails (port in use or TIME_WAIT), false otherwise (port free).
 ///
