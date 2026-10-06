@@ -42,6 +42,9 @@ pub const TileState = enum {
     stale,
     /// Tile exited with a non-zero status; topology is unhealthy.
     crashed,
+    /// Shutdown reached its deadline without a terminal reap observation.
+    /// Shared process resources remain retained and cleanup may be retried.
+    unresolved,
 };
 
 /// Identifies why a tile transitioned to .crashed, for supervisor
@@ -84,7 +87,7 @@ pub const TileHandle = struct {
 
     pub fn isAlive(self: TileHandle) bool {
         return switch (self.state) {
-            .starting, .running, .stopping, .stale => true,
+            .starting, .running, .stopping, .stale, .unresolved => true,
             .stopped, .crashed => false,
         };
     }
