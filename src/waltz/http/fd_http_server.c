@@ -18,11 +18,13 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #if defined(__APPLE__)
-/* macOS lacks Linux-specific socket features. We use fcntl() for non-blocking
- * and close-on-exec, then define the flags as 0 so the caller-side code
- * (SOCK_STREAM | SOCK_NONBLOCK) stays unchanged.
+/* macOS lacks Linux-specific socket features (SOCK_NONBLOCK, SOCK_CLOEXEC,
+ * accept4, MSG_NOSIGNAL).  We compensate with fcntl(), SO_NOSIGPIPE, and
+ * explicit non-blocking setup on every socket fd so the poll()-based event
+ * loop behaves identically to Linux.
  */
 #include <fcntl.h>
+#include <signal.h>
 #ifndef SOCK_NONBLOCK
 #define SOCK_NONBLOCK 0
 #endif
@@ -30,24 +32,39 @@
 #define SOCK_CLOEXEC 0
 #endif
 
+/* macOS has no MSG_NOSIGNAL — define it as 0 so the existing call sites
+ * compile unchanged.  Since send()/sendmsg() without MSG_NOSIGNAL would
+ * raise SIGPIPE on a broken pipe, we ignore SIGPIPE globally here.
+ * The HTTP server runs in a single-threaded poll() loop so a process-wide
+ * ignore is safe and correct.
+ */
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
+
 /* macOS has no accept4() — provide a compat shim that calls accept() then
- * sets O_NONBLOCK and/or FD_CLOEXEC via fcntl().
+ * sets O_NONBLOCK and O_CLOEXEC via fcntl().  On macOS the caller passes
+ * SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC but both _NONBLOCK and _CLOEXEC
+ * are #defined as 0, so the flags field alone never indicates the desired
+ * behaviour.  We always apply both fcntl() calls unconditionally.
  */
 static inline int
 accept4_compat( int            sockfd,
                 struct sockaddr *addr,
                 socklen_t      *addrlen,
                 int              flags ) {
+  (void)flags;
   int fd = accept( sockfd, addr, addrlen );
   if( fd >= 0 ) {
-    if( flags & O_NONBLOCK ) {
-      int fl = fcntl( fd, F_GETFL );
-      if( fl >= 0 ) fcntl( fd, F_SETFL, fl | O_NONBLOCK );
-    }
-    if( flags & O_CLOEXEC ) {
-      int fl = fcntl( fd, F_GETFD );
-      if( fl >= 0 ) fcntl( fd, F_SETFD, fl | FD_CLOEXEC );
-    }
+    int fl = fcntl( fd, F_GETFL );
+    if( fl >= 0 ) fcntl( fd, F_SETFL, fl | O_NONBLOCK );
+    int fd2 = fcntl( fd, F_GETFD );
+    if( fd2 >= 0 ) fcntl( fd, F_SETFD, fd2 | FD_CLOEXEC );
+    /* Suppress SIGPIPE on accepted connections — macOS has no
+     * MSG_NOSIGNAL and sending to a broken pipe would otherwise
+     * terminate the process. */
+    int nosig = 1;
+    setsockopt( fd, SOL_SOCKET, SO_NOSIGPIPE, &nosig, sizeof( nosig ) );
   }
   return fd;
 }
@@ -354,6 +371,21 @@ fd_http_server_listen( fd_http_server_t * http,
   int optval = 1;
   if( FD_UNLIKELY( -1==setsockopt( sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof( optval ) ) ) )
     FD_LOG_ERR(( "setsockopt failed (%i-%s)", errno, strerror( errno ) ));
+
+#if defined(__APPLE__)
+  /* macOS has no SOCK_NONBLOCK and no MSG_NOSIGNAL.
+   * Make the listening socket non-blocking and set SO_NOSIGPIPE so a
+   * broken peer cannot kill the process.  MSG_NOSIGNAL is #defined as
+   * 0 on macOS, so we suppress SIGPIPE socket-locally instead of
+   * globally. */
+  {
+    int fl = fcntl( sockfd, F_GETFL );
+    if( FD_UNLIKELY( -1==fl ) ) FD_LOG_ERR(( "fcntl(F_GETFL) failed (%i-%s)", errno, strerror( errno ) ));
+    if( FD_UNLIKELY( -1==fcntl( sockfd, F_SETFL, fl | O_NONBLOCK ) ) )
+      FD_LOG_ERR(( "fcntl(F_SETFL) failed (%i-%s)", errno, strerror( errno ) ));
+  }
+  { int nosig = 1; setsockopt( sockfd, SOL_SOCKET, SO_NOSIGPIPE, &nosig, sizeof( nosig ) ); }
+#endif
 
   struct sockaddr_in addr = {
     .sin_family      = AF_INET,

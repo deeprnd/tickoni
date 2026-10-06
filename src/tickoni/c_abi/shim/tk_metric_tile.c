@@ -3,7 +3,7 @@
  * Reuses Firedancer's fd_stem-based run loop (stem_run) with
  * fd_http_server for Prometheus /metrics endpoint.
  *
- * Linux-only: depends on symbols from fd_metric_tile.c (scratch_align,
+ * Linux and macOS: depends on symbols from fd_metric_tile.c (scratch_align,
  * scratch_footprint, privileged_init, unprivileged_init, stem_run,
  * populate_allowed_seccomp, populate_allowed_fds).
  *
@@ -33,7 +33,7 @@
  *     (v2.23-m task 4) so topob.c never needs the full fd_topo_run_tile_t.
  */
 
-#if FD_HAS_LINUX
+#if FD_HAS_LINUX || FD_HAS_MACOS
 
 #define _GNU_SOURCE
 
@@ -168,4 +168,4 @@ fd_topo_run_tile_t TK_METRIC_RUN = {
   .rlimit_file_cnt_fn       = NULL,
 };
 
-#endif /* FD_HAS_LINUX */
+#endif /* FD_HAS_LINUX || FD_HAS_MACOS */
