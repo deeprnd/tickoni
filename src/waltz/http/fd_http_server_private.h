@@ -92,7 +92,8 @@ struct fd_http_server_hcache_private {
 
 struct __attribute__((aligned(FD_HTTP_SERVER_ALIGN))) fd_http_server_private {
 
-  int   socket_fd;
+  tk_http_socket_t                  socket;
+  tk_http_socket_transport_t const * transport;
 
   uchar * oring;
   ulong   oring_sz;
@@ -140,7 +141,8 @@ struct __attribute__((aligned(FD_HTTP_SERVER_ALIGN))) fd_http_server_private {
 
   struct fd_http_server_connection *    conns;
   struct fd_http_server_ws_connection * ws_conns;
-  struct pollfd *                       pollfds;
+  tk_http_socket_poll_entry_t *         poll_entries;
+  void *                                 poll_scratch;
 
   void * conn_treap;
   void * ws_conn_treap;
@@ -163,7 +165,8 @@ struct __attribute__((aligned(FD_HTTP_SERVER_ALIGN))) fd_http_server_private {
 
   struct fd_http_server_connection    conns[ ];
   struct fd_http_server_ws_connection ws_conns[ ];
-  struct pollfd                       pollfds[ ]; */
+  tk_http_socket_poll_entry_t         poll_entries[ ];
+  void                                poll_scratch[ ]; */
 };
 
 #endif /* HEADER_fd_src_waltz_http_fd_http_server_private_h */

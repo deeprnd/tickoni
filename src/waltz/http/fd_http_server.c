@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "../../util/fd_windows_compat.h"
 #include "fd_http_server_private.h"
 
@@ -9,79 +8,14 @@
 #include "fd_http.h"
 
 #include <stdarg.h>
-#include <stdio.h>
-#include <errno.h>
-#include <unistd.h>
-#include <poll.h>
-#include <stdlib.h>
+#if FD_HAS_WINDOWS
+#undef snprintf
+#undef vsnprintf
+#else
 #include <strings.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#if defined(__APPLE__)
-/* macOS lacks Linux-specific socket features (SOCK_NONBLOCK, SOCK_CLOEXEC,
- * accept4, MSG_NOSIGNAL).  We compensate with fcntl(), SO_NOSIGPIPE, and
- * explicit non-blocking setup on every socket fd so the poll()-based event
- * loop behaves identically to Linux.
- */
-#include <fcntl.h>
-#include <signal.h>
-#ifndef SOCK_NONBLOCK
-#define SOCK_NONBLOCK 0
 #endif
-#ifndef SOCK_CLOEXEC
-#define SOCK_CLOEXEC 0
-#endif
-
-/* macOS has no MSG_NOSIGNAL — define it as 0 so the existing call sites
- * compile unchanged.  Since send()/sendmsg() without MSG_NOSIGNAL would
- * raise SIGPIPE on a broken pipe, we ignore SIGPIPE globally here.
- * The HTTP server runs in a single-threaded poll() loop so a process-wide
- * ignore is safe and correct.
- */
-#ifndef MSG_NOSIGNAL
-#define MSG_NOSIGNAL 0
-#endif
-
-/* macOS has no accept4() — provide a compat shim that calls accept() then
- * sets O_NONBLOCK and O_CLOEXEC via fcntl().  On macOS the caller passes
- * SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC but both _NONBLOCK and _CLOEXEC
- * are #defined as 0, so the flags field alone never indicates the desired
- * behaviour.  We always apply both fcntl() calls unconditionally.
- */
-static inline int
-accept4_compat( int            sockfd,
-                struct sockaddr *addr,
-                socklen_t      *addrlen,
-                int              flags ) {
-  (void)flags;
-  int fd = accept( sockfd, addr, addrlen );
-  if( fd >= 0 ) {
-    int fl = fcntl( fd, F_GETFL );
-    if( fl >= 0 ) fcntl( fd, F_SETFL, fl | O_NONBLOCK );
-    int fd2 = fcntl( fd, F_GETFD );
-    if( fd2 >= 0 ) fcntl( fd, F_SETFD, fd2 | FD_CLOEXEC );
-    /* Suppress SIGPIPE on accepted connections — macOS has no
-     * MSG_NOSIGNAL and sending to a broken pipe would otherwise
-     * terminate the process. */
-    int nosig = 1;
-    setsockopt( fd, SOL_SOCKET, SO_NOSIGPIPE, &nosig, sizeof( nosig ) );
-  }
-  return fd;
-}
-#define accept4( s, a, b, f ) accept4_compat( s, a, b, f )
-
-/* macOS doesn't define these Linux-specific errno values. They are used
- * only in is_expected_network_error() to decide whether to drop a conn;
- * defining them as 0 means they'll never match an actual errno, which is
- * safe — macOS simply never returns them.
- */
-#ifndef EHOSTDOWN
-#define EHOSTDOWN 0
-#endif
-#ifndef ENONET
-#define ENONET 0
-#endif
-#endif
+#include <stdio.h>
+#include <stdlib.h>
 
 #define FD_HTTP_SERVER_POLL_CHUNK_SZ 128UL
 
@@ -126,6 +60,18 @@ accept4_compat( int            sockfd,
 #include "../../util/tmpl/fd_treap.c"
 
 #define FD_HTTP_SERVER_DEBUG 0
+
+static int
+transport_is_peer_error( tk_http_socket_result_t result ) {
+  return result.status==TK_HTTP_SOCKET_STATUS_PEER_CLOSED ||
+         result.status==TK_HTTP_SOCKET_STATUS_PEER_RESET;
+}
+
+static int
+transport_is_retry( tk_http_socket_result_t result ) {
+  return result.status==TK_HTTP_SOCKET_STATUS_WOULD_BLOCK ||
+         result.status==TK_HTTP_SOCKET_STATUS_INTERRUPTED;
+}
 
 FD_FN_CONST char const *
 fd_http_server_connection_close_reason_str( int reason ) {
@@ -179,13 +125,20 @@ fd_http_server_align( void ) {
 
 FD_FN_CONST ulong
 fd_http_server_footprint( fd_http_server_params_t params ) {
+  tk_http_socket_transport_t const * transport = tk_http_socket_transport();
+  ulong poll_entry_cnt = params.max_connection_cnt+params.max_ws_connection_cnt+1UL;
+  ulong poll_scratch_align = transport->poll_scratch_align();
+  ulong poll_scratch_footprint = transport->poll_scratch_footprint( poll_entry_cnt );
+  if( FD_UNLIKELY( !fd_ulong_is_pow2( poll_scratch_align ) ||
+                   !poll_scratch_footprint ) ) return 0UL;
   ulong l = FD_LAYOUT_INIT;
   l = FD_LAYOUT_APPEND( l, FD_HTTP_SERVER_ALIGN,                      sizeof( fd_http_server_t )                                                                         );
   l = FD_LAYOUT_APPEND( l, conn_pool_align(),                         conn_pool_footprint( params.max_connection_cnt )                                                   );
   l = FD_LAYOUT_APPEND( l, ws_conn_pool_align(),                      ws_conn_pool_footprint( params.max_ws_connection_cnt )                                             );
   l = FD_LAYOUT_APPEND( l, conn_treap_align(),                        conn_treap_footprint( params.max_connection_cnt )                                                  );
   l = FD_LAYOUT_APPEND( l, ws_conn_treap_align(),                     ws_conn_treap_footprint( params.max_ws_connection_cnt )                                            );
-  l = FD_LAYOUT_APPEND( l, alignof( struct pollfd ),                  (params.max_connection_cnt+params.max_ws_connection_cnt+1UL)*sizeof( struct pollfd )               );
+  l = FD_LAYOUT_APPEND( l, alignof( tk_http_socket_poll_entry_t ),    poll_entry_cnt*sizeof( tk_http_socket_poll_entry_t )                                                  );
+  l = FD_LAYOUT_APPEND( l, poll_scratch_align,                         poll_scratch_footprint                                                                            );
   l = FD_LAYOUT_APPEND( l, 1UL,                                       params.max_request_len*params.max_connection_cnt                                                   );
   l = FD_LAYOUT_APPEND( l, 1UL,                                       params.max_ws_recv_frame_len*params.max_ws_connection_cnt                                          );
   l = FD_LAYOUT_APPEND( l, alignof( struct fd_http_server_ws_frame ), params.max_ws_send_frame_cnt*params.max_ws_connection_cnt*sizeof( struct fd_http_server_ws_frame ) );
@@ -216,13 +169,20 @@ fd_http_server_new( void *                     shmem,
     return NULL;
   }
 
+  tk_http_socket_transport_t const * transport = tk_http_socket_transport();
+  ulong poll_entry_cnt = params.max_connection_cnt+params.max_ws_connection_cnt+1UL;
+  ulong poll_scratch_align = transport->poll_scratch_align();
+  ulong poll_scratch_footprint = transport->poll_scratch_footprint( poll_entry_cnt );
+  if( FD_UNLIKELY( !fd_ulong_is_pow2( poll_scratch_align ) ||
+                   !poll_scratch_footprint ) ) return NULL;
   FD_SCRATCH_ALLOC_INIT( l, shmem );
   fd_http_server_t * http = FD_SCRATCH_ALLOC_APPEND( l,  FD_HTTP_SERVER_ALIGN,                         sizeof(fd_http_server_t)                                                             );
   void * conn_pool        = FD_SCRATCH_ALLOC_APPEND( l,  conn_pool_align(),                            conn_pool_footprint( params.max_connection_cnt )                                     );
   void * ws_conn_pool     = FD_SCRATCH_ALLOC_APPEND( l,  ws_conn_pool_align(),                         ws_conn_pool_footprint( params.max_ws_connection_cnt )                               );
   http->conn_treap        = FD_SCRATCH_ALLOC_APPEND( l,  conn_treap_align(),                           conn_treap_footprint( params.max_connection_cnt )                                    );
   http->ws_conn_treap     = FD_SCRATCH_ALLOC_APPEND( l,  ws_conn_treap_align(),                        ws_conn_treap_footprint( params.max_ws_connection_cnt )                              );
-  http->pollfds           = FD_SCRATCH_ALLOC_APPEND( l,  alignof(struct pollfd),                       (params.max_connection_cnt+params.max_ws_connection_cnt+1UL)*sizeof( struct pollfd ) );
+  http->poll_entries      = FD_SCRATCH_ALLOC_APPEND( l,  alignof(tk_http_socket_poll_entry_t),          poll_entry_cnt*sizeof(tk_http_socket_poll_entry_t)                                  );
+  http->poll_scratch      = FD_SCRATCH_ALLOC_APPEND( l,  poll_scratch_align,                            poll_scratch_footprint                                                               );
   char * _request_bytes   = FD_SCRATCH_ALLOC_APPEND( l,  1UL,                                          params.max_request_len*params.max_connection_cnt                                     );
   uchar * _ws_recv_bytes  = FD_SCRATCH_ALLOC_APPEND( l,  1UL,                                          params.max_ws_recv_frame_len*params.max_ws_connection_cnt                            );
   struct fd_http_server_ws_frame * _ws_send_frames = FD_SCRATCH_ALLOC_APPEND( l, alignof(struct fd_http_server_ws_frame), params.max_ws_send_frame_cnt*params.max_ws_connection_cnt*sizeof(struct fd_http_server_ws_frame) );
@@ -247,6 +207,8 @@ fd_http_server_new( void *                     shmem,
   http->max_ws_recv_frame_len = params.max_ws_recv_frame_len;
   http->max_ws_send_frame_cnt = params.max_ws_send_frame_cnt;
   http->compress_websocket    = params.compress_websocket;
+  http->socket                = TK_HTTP_SOCKET_INVALID;
+  http->transport             = transport;
 
 #if FD_HAS_ZSTD
   http->zstd_ctx = ZSTD_initStaticCCtx( _zstd_ctx, ZSTD_estimateCCtxSize( FD_HTTP_ZSTD_COMPRESSION_LEVEL ) );
@@ -265,8 +227,10 @@ fd_http_server_new( void *                     shmem,
   ws_conn_treap_seed( http->ws_conns, params.max_ws_connection_cnt, 42UL );
 
   for( ulong i=0UL; i<params.max_connection_cnt; i++ ) {
-    http->pollfds[ i ].fd = -1;
-    http->pollfds[ i ].events = POLLIN | POLLOUT;
+    http->poll_entries[ i ] = (tk_http_socket_poll_entry_t){
+      .socket = TK_HTTP_SOCKET_INVALID,
+      .requested_events = TK_HTTP_SOCKET_EVENT_READ | TK_HTTP_SOCKET_EVENT_WRITE,
+    };
     http->conns[ i ] = (struct fd_http_server_connection){
       .request_bytes = _request_bytes+i*params.max_request_len,
       .parent = http->conns[ i ].parent,
@@ -274,8 +238,10 @@ fd_http_server_new( void *                     shmem,
   }
 
   for( ulong i=0UL; i<params.max_ws_connection_cnt; i++ ) {
-    http->pollfds[ params.max_connection_cnt+i ].fd = -1;
-    http->pollfds[ params.max_connection_cnt+i ].events = POLLIN | POLLOUT;
+    http->poll_entries[ params.max_connection_cnt+i ] = (tk_http_socket_poll_entry_t){
+      .socket = TK_HTTP_SOCKET_INVALID,
+      .requested_events = TK_HTTP_SOCKET_EVENT_READ | TK_HTTP_SOCKET_EVENT_WRITE,
+    };
     http->ws_conns[ i ] = (struct fd_http_server_ws_connection){
       .recv_bytes = _ws_recv_bytes+i*params.max_ws_recv_frame_len,
       .send_frames = _ws_send_frames+i*params.max_ws_send_frame_cnt,
@@ -283,8 +249,11 @@ fd_http_server_new( void *                     shmem,
     };
   }
 
-  http->pollfds[ params.max_connection_cnt+params.max_ws_connection_cnt ].fd     = -1;
-  http->pollfds[ params.max_connection_cnt+params.max_ws_connection_cnt ].events = POLLIN | POLLOUT;
+  http->poll_entries[ params.max_connection_cnt+params.max_ws_connection_cnt ] =
+    (tk_http_socket_poll_entry_t){
+      .socket = TK_HTTP_SOCKET_INVALID,
+      .requested_events = TK_HTTP_SOCKET_EVENT_READ | TK_HTTP_SOCKET_EVENT_WRITE,
+    };
 
   memset( &http->metrics, 0, sizeof( http->metrics ) );
 
@@ -315,6 +284,19 @@ fd_http_server_join( void * shhttp ) {
     return NULL;
   }
 
+  return http;
+}
+
+fd_http_server_t *
+fd_http_server_set_transport( fd_http_server_t *                     http,
+                              tk_http_socket_transport_t const * transport ) {
+  if( FD_UNLIKELY( !http || !transport ||
+                   http->socket!=TK_HTTP_SOCKET_INVALID ) ) return NULL;
+  ulong entry_cnt = http->max_conns+http->max_ws_conns+1UL;
+  if( FD_UNLIKELY( transport->poll_scratch_align()!=http->transport->poll_scratch_align() ||
+                   transport->poll_scratch_footprint( entry_cnt )>
+                     http->transport->poll_scratch_footprint( entry_cnt ) ) ) return NULL;
+  http->transport = transport;
   return http;
 }
 
@@ -349,6 +331,13 @@ fd_http_server_delete( void * shhttp ) {
     return NULL;
   }
 
+  for( ulong i=0UL; i<http->max_conns+http->max_ws_conns; i++ ) {
+    if( http->poll_entries[ i ].socket!=TK_HTTP_SOCKET_INVALID )
+      (void)http->transport->close( http->poll_entries[ i ].socket );
+  }
+  if( http->socket!=TK_HTTP_SOCKET_INVALID )
+    (void)http->transport->close( http->socket );
+  (void)http->transport->runtime_fini();
   FD_COMPILER_MFENCE();
   FD_VOLATILE( http->magic ) = 0UL;
   FD_COMPILER_MFENCE();
@@ -356,52 +345,32 @@ fd_http_server_delete( void * shhttp ) {
   return (void *)http;
 }
 
+tk_http_socket_t
+fd_http_server_socket( fd_http_server_t * http ) {
+  return http->socket;
+}
+
+#if FD_HAS_LINUX || FD_HAS_MACOS
 int
 fd_http_server_fd( fd_http_server_t * http ) {
-  return http->socket_fd;
+  return (int)http->socket;
 }
+#endif
 
 fd_http_server_t *
 fd_http_server_listen( fd_http_server_t * http,
                        uint               address,
                        ushort             port ) {
-  int sockfd = socket( AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0 );
-  if( FD_UNLIKELY( -1==sockfd ) ) FD_LOG_ERR(( "socket failed (%i-%s)", errno, strerror( errno ) ));
-
-  int optval = 1;
-  if( FD_UNLIKELY( -1==setsockopt( sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof( optval ) ) ) )
-    FD_LOG_ERR(( "setsockopt failed (%i-%s)", errno, strerror( errno ) ));
-
-#if defined(__APPLE__)
-  /* macOS has no SOCK_NONBLOCK and no MSG_NOSIGNAL.
-   * Make the listening socket non-blocking and set SO_NOSIGPIPE so a
-   * broken peer cannot kill the process.  MSG_NOSIGNAL is #defined as
-   * 0 on macOS, so we suppress SIGPIPE socket-locally instead of
-   * globally. */
-  {
-    int fl = fcntl( sockfd, F_GETFL );
-    if( FD_UNLIKELY( -1==fl ) ) FD_LOG_ERR(( "fcntl(F_GETFL) failed (%i-%s)", errno, strerror( errno ) ));
-    if( FD_UNLIKELY( -1==fcntl( sockfd, F_SETFL, fl | O_NONBLOCK ) ) )
-      FD_LOG_ERR(( "fcntl(F_SETFL) failed (%i-%s)", errno, strerror( errno ) ));
+  tk_http_socket_t socket = TK_HTTP_SOCKET_INVALID;
+  tk_http_socket_result_t result = http->transport->runtime_init();
+  if( FD_UNLIKELY( result.status!=TK_HTTP_SOCKET_STATUS_OK ) ) return NULL;
+  result = http->transport->listen( address, port, http->max_conns, &socket );
+  if( FD_UNLIKELY( result.status!=TK_HTTP_SOCKET_STATUS_OK ) ) {
+    (void)http->transport->runtime_fini();
+    return NULL;
   }
-  { int nosig = 1; setsockopt( sockfd, SOL_SOCKET, SO_NOSIGPIPE, &nosig, sizeof( nosig ) ); }
-#endif
-
-  struct sockaddr_in addr = {
-    .sin_family      = AF_INET,
-    .sin_port        = fd_ushort_bswap( port ),
-    .sin_addr.s_addr = address,
-  };
-
-  if( FD_UNLIKELY( -1==bind( sockfd, fd_type_pun( &addr ), sizeof( addr ) ) ) ) {
-    FD_LOG_ERR(( "bind(%i,AF_INET," FD_IP4_ADDR_FMT ":%u) failed (%i-%s)",
-                 sockfd, FD_IP4_ADDR_FMT_ARGS( address ), port,
-                 errno, fd_io_strerror( errno ) ));
-  }
-  if( FD_UNLIKELY( -1==listen( sockfd, (int)http->max_conns ) ) ) FD_LOG_ERR(( "listen failed (%i-%s)", errno, fd_io_strerror( errno ) ));
-
-  http->socket_fd = sockfd;
-  http->pollfds[ http->max_conns+http->max_ws_conns ].fd = http->socket_fd;
+  http->socket = socket;
+  http->poll_entries[ http->max_conns+http->max_ws_conns ].socket = socket;
 
   return http;
 }
@@ -410,14 +379,13 @@ static void
 close_conn( fd_http_server_t * http,
             ulong              conn_idx,
             int                reason ) {
-  FD_TEST( http->pollfds[ conn_idx ].fd!=-1 );
+  FD_TEST( http->poll_entries[ conn_idx ].socket!=TK_HTTP_SOCKET_INVALID );
 #if FD_HTTP_SERVER_DEBUG
-  FD_LOG_NOTICE(( "Closing connection %lu (fd=%d) (%d-%s)", conn_idx, http->pollfds[ conn_idx ].fd, reason, fd_http_server_connection_close_reason_str( reason ) ));
+  FD_LOG_NOTICE(( "Closing connection %lu (%d-%s)", conn_idx, reason, fd_http_server_connection_close_reason_str( reason ) ));
 #endif
 
-  if( FD_UNLIKELY( -1==close( http->pollfds[ conn_idx ].fd ) ) ) FD_LOG_ERR(( "close failed (%i-%s)", errno, strerror( errno ) ));
-
-  http->pollfds[ conn_idx ].fd = -1;
+  (void)http->transport->close( http->poll_entries[ conn_idx ].socket );
+  http->poll_entries[ conn_idx ].socket = TK_HTTP_SOCKET_INVALID;
   if( FD_LIKELY( conn_idx<http->max_conns ) ) {
     if( FD_LIKELY( http->callbacks.close    ) ) http->callbacks.close( conn_idx, reason, http->callback_ctx );
   } else {
@@ -455,41 +423,16 @@ fd_http_server_ws_close( fd_http_server_t * http,
   close_conn( http, http->max_conns+ws_conn_id, reason );
 }
 
-/* These are the expected network errors which just mean the connection
-   should be closed.  Any errors from an accept(2), read(2), or send(2)
-   that are not expected here will be considered fatal and terminate the
-   server. */
-
-static inline int
-is_expected_network_error( int err ) {
-  return
-    err==ENETDOWN ||
-    err==EPROTO ||
-    err==ENOPROTOOPT ||
-    err==EHOSTDOWN ||
-    err==ENONET ||
-    err==EHOSTUNREACH ||
-    err==EOPNOTSUPP ||
-    err==ENETUNREACH ||
-    err==ETIMEDOUT ||
-    err==ENETRESET ||
-    err==ECONNABORTED ||
-    err==ECONNRESET ||
-    err==EPIPE ||
-    err==EPERM || /* iptables */
-    err==ENOMEM; /* net stack OOM */
-}
-
 static void
 accept_conns( fd_http_server_t * http ) {
-  for(;;) {
-    int fd = accept4( http->socket_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC );
-
-    if( FD_UNLIKELY( -1==fd ) ) {
-      if( FD_LIKELY( EAGAIN==errno ) ) break;
-      else if( FD_LIKELY( is_expected_network_error( errno ) ) ) continue;
-      else FD_LOG_ERR(( "accept failed (%i-%s)", errno, strerror( errno ) ));
-    }
+  for( ulong accepted=0UL; accepted<http->max_conns; accepted++ ) {
+    tk_http_socket_t socket = TK_HTTP_SOCKET_INVALID;
+    tk_http_socket_result_t result =
+      http->transport->accept( http->socket, &socket );
+    if( result.status==TK_HTTP_SOCKET_STATUS_WOULD_BLOCK ||
+        result.status==TK_HTTP_SOCKET_STATUS_INTERRUPTED ) break;
+    if( result.status==TK_HTTP_SOCKET_STATUS_RESOURCE_EXHAUSTED ) break;
+    if( result.status!=TK_HTTP_SOCKET_STATUS_OK ) return;
 
     if( FD_UNLIKELY( !conn_pool_free( http->conns ) ) ) {
       conn_treap_fwd_iter_t it = conn_treap_fwd_iter_init( http->conn_treap, http->conns );
@@ -505,18 +448,18 @@ accept_conns( fd_http_server_t * http ) {
 
     ulong conn_id = conn_pool_idx_acquire( http->conns );
 
-    http->pollfds[ conn_id ].fd = fd;
+    http->poll_entries[ conn_id ].socket = socket;
     http->conns[ conn_id ].state                  = FD_HTTP_SERVER_CONNECTION_STATE_READING;
     http->conns[ conn_id ].request_bytes_read     = 0UL;
     http->conns[ conn_id ].response_bytes_written = 0UL;
 
     if( FD_UNLIKELY( http->callbacks.open ) ) {
-      http->callbacks.open( conn_id, fd, http->callback_ctx );
+      http->callbacks.open( conn_id, socket, http->callback_ctx );
     }
 
     http->metrics.connection_cnt++;
 #if FD_HTTP_SERVER_DEBUG
-    FD_LOG_NOTICE(( "Accepted connection %lu (fd=%d)", conn_id, fd ));
+    FD_LOG_NOTICE(( "Accepted connection %lu", conn_id ));
 #endif
   }
 }
@@ -531,13 +474,17 @@ read_conn_http( fd_http_server_t * http,
     return;
   }
 
-  long sz = read( http->pollfds[ conn_idx ].fd, conn->request_bytes+conn->request_bytes_read, http->max_request_len-conn->request_bytes_read );
-  if( FD_UNLIKELY( -1==sz && errno==EAGAIN ) ) return; /* No data to read, continue. */
-  else if( FD_UNLIKELY( !sz || (-1==sz && is_expected_network_error( errno ) ) ) ) {
+  ulong sz = 0UL;
+  tk_http_socket_result_t transport_result = http->transport->receive(
+      http->poll_entries[ conn_idx ].socket,
+      conn->request_bytes+conn->request_bytes_read,
+      http->max_request_len-conn->request_bytes_read, &sz );
+  if( FD_UNLIKELY( transport_is_retry( transport_result ) ) ) return;
+  if( FD_UNLIKELY( transport_is_peer_error( transport_result ) ) ) {
     close_conn( http, conn_idx, FD_HTTP_SERVER_CONNECTION_CLOSE_PEER_RESET );
     return;
   }
-  else if( FD_UNLIKELY( -1==sz ) ) FD_LOG_ERR(( "read failed (%i-%s)", errno, strerror( errno ) )); /* Unexpected programmer error, abort */
+  if( FD_UNLIKELY( transport_result.status!=TK_HTTP_SOCKET_STATUS_OK ) ) return;
 
   /* New data was read... process it */
   http->metrics.bytes_read += (ulong)sz;
@@ -560,7 +507,7 @@ read_conn_http( fd_http_server_t * http,
                                   &path, &path_len,
                                   &minor_version,
                                   headers, &num_headers,
-                                  conn->request_bytes_read - (ulong)sz );
+                                  conn->request_bytes_read - sz );
   if( FD_UNLIKELY( -2==result ) ) return; /* Request still partial, wait for more data */
   else if( FD_UNLIKELY( -1==result ) ) {
     close_conn( http, conn_idx, FD_HTTP_SERVER_CONNECTION_CLOSE_BAD_REQUEST );
@@ -757,11 +704,11 @@ read_conn_http( fd_http_server_t * http,
   }
 
   fd_http_server_response_t response = http->callbacks.request( &request );
-  if( FD_LIKELY( http->pollfds[ conn_idx ].fd==-1 ) ) return; /* Connection was closed by callback */
+  if( FD_LIKELY( http->poll_entries[ conn_idx ].socket==TK_HTTP_SOCKET_INVALID ) ) return; /* Connection was closed by callback */
   conn->response = response;
 
 #if FD_HTTP_SERVER_DEBUG
-  FD_LOG_NOTICE(( "Received %s request \"%s\" from %lu (fd=%d) response code %lu", fd_http_server_method_str( method_enum ), path_nul_terminated, conn_idx, http->pollfds[ conn_idx ].fd, conn->response.status ));
+  FD_LOG_NOTICE(( "Received %s request \"%s\" from %lu response code %lu", fd_http_server_method_str( method_enum ), path_nul_terminated, conn_idx, conn->response.status ));
 #endif
 
   if( FD_LIKELY( !conn->response.static_body ) ) conn_treap_ele_insert( http->conn_treap, conn, http->conns );
@@ -772,13 +719,18 @@ read_conn_ws( fd_http_server_t * http,
               ulong              conn_idx ) {
   struct fd_http_server_ws_connection * conn = &http->ws_conns[ conn_idx-http->max_conns ];
 
-  long sz = read( http->pollfds[ conn_idx ].fd, conn->recv_bytes+conn->recv_bytes_parsed+conn->recv_bytes_read, http->max_ws_recv_frame_len-conn->recv_bytes_parsed-conn->recv_bytes_read );
-  if( FD_UNLIKELY( -1==sz && errno==EAGAIN ) ) return; /* No data to read, continue. */
-  else if( FD_UNLIKELY( !sz || (-1==sz && is_expected_network_error( errno ) ) ) ) {
+  ulong sz = 0UL;
+  tk_http_socket_result_t transport_result = http->transport->receive(
+      http->poll_entries[ conn_idx ].socket,
+      conn->recv_bytes+conn->recv_bytes_parsed+conn->recv_bytes_read,
+      http->max_ws_recv_frame_len-conn->recv_bytes_parsed-conn->recv_bytes_read,
+      &sz );
+  if( FD_UNLIKELY( transport_is_retry( transport_result ) ) ) return;
+  if( FD_UNLIKELY( transport_is_peer_error( transport_result ) ) ) {
     close_conn( http, conn_idx, FD_HTTP_SERVER_CONNECTION_CLOSE_PEER_RESET );
     return;
   }
-  else if( FD_UNLIKELY( -1==sz ) ) FD_LOG_ERR(( "read failed (%i-%s)", errno, strerror( errno ) )); /* Unexpected programmer error, abort */
+  if( FD_UNLIKELY( transport_result.status!=TK_HTTP_SOCKET_STATUS_OK ) ) return;
 
   /* New data was read... process it */
   conn->recv_bytes_read += (ulong)sz;
@@ -911,7 +863,7 @@ again:
   uchar tmp = conn->recv_bytes[ conn->recv_bytes_parsed ];
   conn->recv_bytes[ conn->recv_bytes_parsed ] = 0; /* NUL terminate */
   http->callbacks.ws_message( conn_idx-http->max_conns, conn->recv_bytes, conn->recv_bytes_parsed, http->callback_ctx );
-  if( FD_UNLIKELY( -1==http->pollfds[ conn_idx ].fd ) ) return; /* Connection was closed by callback */
+  if( FD_UNLIKELY( http->poll_entries[ conn_idx ].socket==TK_HTTP_SOCKET_INVALID ) ) return; /* Connection was closed by callback */
   conn->recv_bytes[ conn->recv_bytes_parsed ] = tmp;
 
   conn->recv_started_msg  = 0;
@@ -1046,13 +998,17 @@ write_conn_http( fd_http_server_t * http,
       FD_LOG_ERR(( "invalid server state (%d)", conn->state ));
   }
 
-  long sz = send( http->pollfds[ conn_idx ].fd, response+conn->response_bytes_written, response_len-conn->response_bytes_written, MSG_NOSIGNAL );
-  if( FD_UNLIKELY( -1==sz && errno==EAGAIN ) ) return; /* No data was written, continue. */
-  if( FD_UNLIKELY( -1==sz && is_expected_network_error( errno ) ) ) {
+  ulong sz = 0UL;
+  tk_http_socket_result_t transport_result = http->transport->send(
+      http->poll_entries[ conn_idx ].socket,
+      response+conn->response_bytes_written,
+      response_len-conn->response_bytes_written, &sz );
+  if( FD_UNLIKELY( transport_is_retry( transport_result ) ) ) return;
+  if( FD_UNLIKELY( transport_is_peer_error( transport_result ) ) ) {
     close_conn( http, conn_idx, FD_HTTP_SERVER_CONNECTION_CLOSE_PEER_RESET );
     return;
   }
-  if( FD_UNLIKELY( -1==sz ) ) FD_LOG_ERR(( "write failed (%i-%s)", errno, strerror( errno ) )); /* Unexpected programmer error, abort */
+  if( FD_UNLIKELY( transport_result.status!=TK_HTTP_SOCKET_STATUS_OK ) ) return;
 
   http->metrics.bytes_written += (ulong)sz;
   conn->response_bytes_written += (ulong)sz;
@@ -1065,8 +1021,8 @@ write_conn_http( fd_http_server_t * http,
             return;
           }
 
-          int fd = http->pollfds[ conn_idx ].fd;
-          http->pollfds[ conn_idx ].fd = -1;
+          tk_http_socket_t socket = http->poll_entries[ conn_idx ].socket;
+          http->poll_entries[ conn_idx ].socket = TK_HTTP_SOCKET_INVALID;
 
           struct fd_http_server_connection * conn = &http->conns[ conn_idx ];
 
@@ -1089,7 +1045,7 @@ write_conn_http( fd_http_server_t * http,
           }
 
           ulong ws_conn_id = ws_conn_pool_idx_acquire( http->ws_conns );
-          http->pollfds[ http->max_conns+ws_conn_id ].fd = fd;
+          http->poll_entries[ http->max_conns+ws_conn_id ].socket = socket;
 
           http->ws_conns[ ws_conn_id ].pong_state               = FD_HTTP_SERVER_PONG_STATE_NONE;
           http->ws_conns[ ws_conn_id ].send_frame_cnt           = 0UL;
@@ -1148,13 +1104,16 @@ maybe_write_pong( fd_http_server_t * http,
   frame[ 1 ] = (uchar)conn->pong_data_len;
   fd_memcpy( frame+2UL, conn->pong_data, conn->pong_data_len );
 
-  long sz = send( http->pollfds[ conn_idx ].fd, frame+conn->pong_bytes_written, 2UL+conn->pong_data_len-conn->pong_bytes_written, MSG_NOSIGNAL );
-  if( FD_UNLIKELY( -1==sz && errno==EAGAIN ) ) return 1; /* No data was written, continue. */
-  else if( FD_UNLIKELY( -1==sz && is_expected_network_error( errno ) ) ) {
+  ulong sz = 0UL;
+  tk_http_socket_result_t transport_result = http->transport->send(
+      http->poll_entries[ conn_idx ].socket, frame+conn->pong_bytes_written,
+      2UL+conn->pong_data_len-conn->pong_bytes_written, &sz );
+  if( FD_UNLIKELY( transport_is_retry( transport_result ) ) ) return 1;
+  if( FD_UNLIKELY( transport_is_peer_error( transport_result ) ) ) {
     close_conn( http, conn_idx, FD_HTTP_SERVER_CONNECTION_CLOSE_PEER_RESET );
     return 1;
   }
-  else if( FD_UNLIKELY( -1==sz ) ) FD_LOG_ERR(( "write failed (%i-%s)", errno, strerror( errno ) )); /* Unexpected programmer error, abort */
+  if( FD_UNLIKELY( transport_result.status!=TK_HTTP_SOCKET_STATUS_OK ) ) return 1;
 
   http->metrics.bytes_written += (ulong)sz;
   conn->pong_bytes_written += (ulong)sz;
@@ -1174,7 +1133,7 @@ write_conn_ws( fd_http_server_t * http,
   if( FD_UNLIKELY( maybe_write_pong( http, conn_idx ) ) ) return;
   if( FD_UNLIKELY( !conn->send_frame_cnt ) ) return;
 
-  struct iovec iovecs[ 512UL*2UL ];
+  tk_http_socket_iovec_t iovecs[ 512UL*2UL ];
   uchar        headers[ 512UL ][ 10UL ];
 
   ulong batch_cnt = fd_ulong_min( conn->send_frame_cnt, 512UL );
@@ -1207,34 +1166,32 @@ write_conn_ws( fd_http_server_t * http,
 
       ulong header_bytes_written = fd_ulong_if( i==0UL, conn->send_frame_bytes_written, 0UL );
 
-      iovecs[ out_idx ].iov_base = headers[ i ]+header_bytes_written;
-      iovecs[ out_idx ].iov_len  = header_len-header_bytes_written;
+      iovecs[ out_idx ].base = headers[ i ]+header_bytes_written;
+      iovecs[ out_idx ].len  = header_len-header_bytes_written;
       out_idx++;
     }
 
     ulong data_bytes_written = fd_ulong_if( i==0UL && conn->send_frame_state==FD_HTTP_SERVER_SEND_FRAME_STATE_DATA, conn->send_frame_bytes_written, 0UL );
-    iovecs[ out_idx ].iov_base = http->oring+(frame->off%http->oring_sz)+data_bytes_written;
-    iovecs[ out_idx ].iov_len  = frame->len-data_bytes_written;
+    iovecs[ out_idx ].base = http->oring+(frame->off%http->oring_sz)+data_bytes_written;
+    iovecs[ out_idx ].len  = frame->len-data_bytes_written;
     out_idx++;
   }
 
-  struct msghdr msg = {0};
-  msg.msg_iov = iovecs;
-  msg.msg_iovlen = out_idx;
-
-  long sz = sendmsg( http->pollfds[ conn_idx ].fd, &msg, MSG_NOSIGNAL );
-  if( FD_UNLIKELY( -1==sz && errno==EAGAIN ) ) return; /* No data was written, continue. */
-  else if( FD_UNLIKELY( -1==sz && is_expected_network_error( errno ) ) ) {
+  ulong sz = 0UL;
+  tk_http_socket_result_t transport_result = http->transport->sendv(
+      http->poll_entries[ conn_idx ].socket, iovecs, out_idx, &sz );
+  if( FD_UNLIKELY( transport_is_retry( transport_result ) ) ) return;
+  if( FD_UNLIKELY( transport_is_peer_error( transport_result ) ) ) {
     close_conn( http, conn_idx, FD_HTTP_SERVER_CONNECTION_CLOSE_PEER_RESET );
     return;
   }
-  else if( FD_UNLIKELY( -1==sz ) ) FD_LOG_ERR(( "write failed (%i-%s)", errno, fd_io_strerror( errno ) )); /* Unexpected programmer error, abort */
+  if( FD_UNLIKELY( transport_result.status!=TK_HTTP_SOCKET_STATUS_OK ) ) return;
 
   ulong sent = (ulong)sz;
   http->metrics.bytes_written += sent;
 
   for( ulong i=0UL; i<out_idx; i++ ) {
-    ulong iov_len = iovecs[ i ].iov_len;
+    ulong iov_len = iovecs[ i ].len;
     if( FD_LIKELY( sent>=iov_len ) ) {
       conn->send_frame_bytes_written = 0UL;
 
@@ -1269,14 +1226,17 @@ write_conn( fd_http_server_t * http,
 int
 fd_http_server_poll( fd_http_server_t * http,
                      int                poll_timeout ) {
-  int nfds = fd_syscall_poll( http->pollfds, (uint)( http->max_conns+http->max_ws_conns+1UL ), poll_timeout );
-  if( FD_UNLIKELY( 0==nfds ) ) return 0;
-  else if( FD_UNLIKELY( -1==nfds && errno==EINTR ) ) return 0;
-  else if( FD_UNLIKELY( -1==nfds ) ) FD_LOG_ERR(( "poll failed (%i-%s)", errno, strerror( errno ) ));
+  ulong ready_cnt = 0UL;
+  tk_http_socket_result_t transport_result = http->transport->poll(
+      http->poll_entries, http->max_conns+http->max_ws_conns+1UL,
+      poll_timeout, http->poll_scratch, &ready_cnt );
+  if( FD_UNLIKELY( transport_is_retry( transport_result ) || !ready_cnt ) ) return 0;
+  if( FD_UNLIKELY( transport_result.status!=TK_HTTP_SOCKET_STATUS_OK ) ) return 0;
 
   /* Always check the listener socket for new connections. */
   ulong listener_idx = http->max_conns+http->max_ws_conns;
-  if( FD_UNLIKELY( http->pollfds[ listener_idx ].fd!=-1 && (http->pollfds[ listener_idx ].revents & POLLIN) ) ) {
+  if( FD_UNLIKELY( http->poll_entries[ listener_idx ].socket!=TK_HTTP_SOCKET_INVALID &&
+                   (http->poll_entries[ listener_idx ].returned_events & TK_HTTP_SOCKET_EVENT_READ) ) ) {
     accept_conns( http );
   }
 
@@ -1290,11 +1250,10 @@ fd_http_server_poll( fd_http_server_t * http,
   if( FD_UNLIKELY( end>conn_cnt ) ) end = conn_cnt;
 
   for( ulong i=start; i<end; i++ ) {
-    if( FD_UNLIKELY( -1==http->pollfds[ i ].fd ) ) continue;
-    if( FD_LIKELY( http->pollfds[ i ].revents & POLLIN  ) ) read_conn(  http, i );
-    if( FD_UNLIKELY( -1==http->pollfds[ i ].fd ) ) continue;
-    if( FD_LIKELY( http->pollfds[ i ].revents & POLLOUT ) ) write_conn( http, i );
-    /* No need to handle POLLHUP, read() will return 0 soon enough. */
+    if( FD_UNLIKELY( http->poll_entries[ i ].socket==TK_HTTP_SOCKET_INVALID ) ) continue;
+    if( FD_LIKELY( http->poll_entries[ i ].returned_events & TK_HTTP_SOCKET_EVENT_READ  ) ) read_conn(  http, i );
+    if( FD_UNLIKELY( http->poll_entries[ i ].socket==TK_HTTP_SOCKET_INVALID ) ) continue;
+    if( FD_LIKELY( http->poll_entries[ i ].returned_events & TK_HTTP_SOCKET_EVENT_WRITE ) ) write_conn( http, i );
   }
 
   http->poll_conn_idx = fd_ulong_if( end>=conn_cnt, 0UL, end );
@@ -1436,7 +1395,7 @@ fd_http_server_ws_send( fd_http_server_t * http,
      and any connections that were previously using that allotted space
      are closed.  There is a small chance that ws_conn_id is one of
      those connections, and has therefore already been closed. */
-  if( FD_LIKELY( http->pollfds[ http->max_conns+ws_conn_id ].fd==-1 ) ) {
+  if( FD_LIKELY( http->poll_entries[ http->max_conns+ws_conn_id ].socket==TK_HTTP_SOCKET_INVALID ) ) {
     http->stage_len = 0;
     http->stage_comp_len = 0;
     return 0;
@@ -1483,7 +1442,7 @@ fd_http_server_ws_broadcast( fd_http_server_t * http ) {
   }
 
   for( ulong i=0UL; i<http->max_ws_conns; i++ ) {
-    if( FD_LIKELY( http->pollfds[ http->max_conns+i ].fd==-1 ) ) continue;
+    if( FD_LIKELY( http->poll_entries[ http->max_conns+i ].socket==TK_HTTP_SOCKET_INVALID ) ) continue;
 
     struct fd_http_server_ws_connection * conn = &http->ws_conns[ i ];
     if( FD_UNLIKELY( conn->send_frame_cnt==http->max_ws_send_frame_cnt ) ) {

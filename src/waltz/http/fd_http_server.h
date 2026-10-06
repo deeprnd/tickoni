@@ -30,6 +30,7 @@
    progress. */
 
 #include "../../util/fd_util_base.h"
+#include "../../tickoni/c_abi/shim/tk_http_socket.h"
 
 #define FD_HTTP_SERVER_ALIGN       (128UL)
 
@@ -177,7 +178,9 @@ struct fd_http_server_callbacks {
      provided when constructing the HTTP server.  The open callback can
      be NULL in which case the callback will not be invoked. */
 
-  void                      ( * open        )( ulong conn_id, int sockfd, void * ctx );
+  void                      ( * open        )( ulong              conn_id,
+                                                tk_http_socket_t   socket,
+                                                void *             ctx );
 
   /* Close an HTTP request.  This is called back once all the data has
      been sent to the HTTP client, or an error condition occurs, or the
@@ -275,18 +278,31 @@ fd_http_server_new( void *                     shmem,
 fd_http_server_t *
 fd_http_server_join( void * shhttp );
 
+/* Select a transport before listen.  Shared-engine tests use this to
+   substitute a fake transport; production uses the native default. */
+
+fd_http_server_t *
+fd_http_server_set_transport( fd_http_server_t *                     http,
+                              tk_http_socket_transport_t const * transport );
+
 void *
 fd_http_server_leave( fd_http_server_t * http );
 
 void *
 fd_http_server_delete( void * shhttp );
 
-/* fd_http_server_fd returns the file descriptor of the server.  The
-   file descriptor is used to poll for incoming connections and data
-   on the server. */
+/* fd_http_server_socket returns the width-safe listener handle. */
 
+tk_http_socket_t
+fd_http_server_socket( fd_http_server_t * http );
+
+/* fd_http_server_fd is for Linux/macOS seccomp and allowed-FD callers.
+   Portable callers must use fd_http_server_socket. */
+
+#if FD_HAS_LINUX || FD_HAS_MACOS
 int
 fd_http_server_fd( fd_http_server_t * http );
+#endif
 
 fd_http_server_t *
 fd_http_server_listen( fd_http_server_t * http,

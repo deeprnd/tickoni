@@ -18,6 +18,9 @@ else ifdef FD_HAS_WINDOWS
 $(call add-objs,../../tickoni/c_abi/shim/tk_http_socket_windows,fd_waltz)
 endif
 
+$(call make-unit-test,test_http_server_transport,test_http_server_transport,fd_waltz fd_ballet fd_util)
+$(call run-unit-test,test_http_server_transport)
+
 ifndef FD_HAS_WINDOWS
 $(call make-unit-test,test_http_server,test_http_server,fd_waltz fd_ballet fd_util)
 $(call run-unit-test,test_http_server)
