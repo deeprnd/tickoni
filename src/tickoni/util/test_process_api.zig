@@ -55,31 +55,31 @@ test "outcomeFromTerm: .exited(255) without force → .exited_code(255)" {
 }
 
 test "outcomeFromTerm: .signal without force → .crashed" {
-    const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @enumFromInt(9)) }, false);
+    const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @fromBackingInt(@intCast(9))) }, false);
     try std.testing.expectEqual(ProcessOutcome.crashed, outcome);
 }
 
 test "outcomeFromTerm: .signal with force → .force_terminated" {
-    const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @enumFromInt(9)) }, true);
+    const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @fromBackingInt(@intCast(9))) }, true);
     try std.testing.expectEqual(ProcessOutcome.force_terminated, outcome);
 }
 
 test "outcomeFromTerm: .signal with different signals and force" {
     const signals = [_]u32{ 1, 2, 6, 9, 11, 15 };
     for (signals) |sig| {
-        const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @enumFromInt(sig)) }, true);
+        const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @fromBackingInt(@intCast(sig))) }, true);
         try std.testing.expectEqual(ProcessOutcome.force_terminated, outcome);
     }
     for (signals) |sig| {
-        const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @enumFromInt(sig)) }, false);
+        const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @fromBackingInt(@intCast(sig))) }, false);
         try std.testing.expectEqual(ProcessOutcome.crashed, outcome);
     }
 }
 
 test "outcomeFromTerm: .stopped → .stopped (unchanged)" {
-    const outcome = process_api.outcomeFromTerm(.{ .stopped = @as(std.posix.SIG, @enumFromInt(21)) }, false);
+    const outcome = process_api.outcomeFromTerm(.{ .stopped = @as(std.posix.SIG, @fromBackingInt(@intCast(21))) }, false);
     try std.testing.expectEqual(ProcessOutcome.stopped, outcome);
-    const outcome2 = process_api.outcomeFromTerm(.{ .stopped = @as(std.posix.SIG, @enumFromInt(21)) }, true);
+    const outcome2 = process_api.outcomeFromTerm(.{ .stopped = @as(std.posix.SIG, @fromBackingInt(@intCast(21))) }, true);
     try std.testing.expectEqual(ProcessOutcome.stopped, outcome2);
 }
 
@@ -370,12 +370,12 @@ test "updateHandleForOutcome: .exited_code(1) with stale prior state → stays .
 }
 
 test "outcomeFromTerm: .signal(9) without force → .crashed, NOT .force_terminated" {
-    const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @enumFromInt(9)) }, false);
+    const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @fromBackingInt(@intCast(9))) }, false);
     try std.testing.expectEqual(ProcessOutcome.crashed, outcome);
 }
 
 test "outcomeFromTerm: .signal(9) with force → .force_terminated" {
-    const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @enumFromInt(9)) }, true);
+    const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @fromBackingInt(@intCast(9))) }, true);
     try std.testing.expectEqual(ProcessOutcome.force_terminated, outcome);
 }
 

@@ -758,9 +758,7 @@ pub const Supervisor = struct {
                         .stopped => "stopped",
                         .unknown => "unknown",
                     };
-                    const msg = std.fmt.bufPrint(&diag_buf,
-                        "stopProcess.wait.reap_final: tile={s}, pid={d}, was_forced={any}, outcome={s}, time={d}",
-                        .{ tile.id.slice(), child.id orelse 0, was_forced, outcome_name, final_reap_time }) catch "wait.reap_final";
+                    const msg = std.fmt.bufPrint(&diag_buf, "stopProcess.wait.reap_final: tile={s}, pid={d}, was_forced={any}, outcome={s}, time={d}", .{ tile.id.slice(), child.id orelse 0, was_forced, outcome_name, final_reap_time }) catch "wait.reap_final";
                     log.debug("supervisor", "waitProcess.final_reap", msg);
                 }
                 self.updateHandleForOutcome(i, outcome);
@@ -1109,11 +1107,8 @@ pub const Supervisor = struct {
                     const kill_success = util.process_api.forceTerminate(pid);
                     const post_reap_time = util.process.monotonicNanos();
                     var diag_buf: [256]u8 = undefined;
-                    const msg = std.fmt.bufPrint(&diag_buf,
-                        "stopProcess.force: tile={s}, pid={d}, " ++
-                        "pre_reap={d}, kill={any}, post_reap={d}",
-                        .{ tile.id.slice(), pid,
-                           pre_reap_time, kill_success, post_reap_time }) catch "stopProcess.force diag";
+                    const msg = std.fmt.bufPrint(&diag_buf, "stopProcess.force: tile={s}, pid={d}, " ++
+                        "pre_reap={d}, kill={any}, post_reap={d}", .{ tile.id.slice(), pid, pre_reap_time, kill_success, post_reap_time }) catch "stopProcess.force diag";
                     log.debug("supervisor", "stopProcess.force", msg);
                     if (kill_success) forced_termination[i] = true;
                     maybe_child.* = child;
@@ -1125,13 +1120,11 @@ pub const Supervisor = struct {
                     var diag_buf: [256]u8 = undefined;
                     const kind_msg = switch (term) {
                         .exited => |code| std.fmt.bufPrint(&diag_buf, "exited(code={d})", .{code}) catch "exited",
-                        .signal => |sig| std.fmt.bufPrint(&diag_buf, "signal(sig={d})", .{@intFromEnum(sig)}) catch "signal",
-                        .stopped => |sig| std.fmt.bufPrint(&diag_buf, "stopped(sig={d})", .{@intFromEnum(sig)}) catch "stopped",
+                        .signal => |sig| std.fmt.bufPrint(&diag_buf, "signal(sig={d})", .{@backingInt(sig)}) catch "signal",
+                        .stopped => |sig| std.fmt.bufPrint(&diag_buf, "stopped(sig={d})", .{@backingInt(sig)}) catch "stopped",
                         .unknown => "unknown",
                     };
-                    const msg = std.fmt.bufPrint(&diag_buf,
-                        "stopProcess.force.reaped: tile={s}, pid={d}, term={s}",
-                        .{ tile.id.slice(), child.id orelse 0, kind_msg }) catch "stopProcess.force.reaped";
+                    const msg = std.fmt.bufPrint(&diag_buf, "stopProcess.force.reaped: tile={s}, pid={d}, term={s}", .{ tile.id.slice(), child.id orelse 0, kind_msg }) catch "stopProcess.force.reaped";
                     log.debug("supervisor", "stopProcess.force.reaped", msg);
                     self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, false));
                     maybe_child.* = null;
@@ -1141,9 +1134,7 @@ pub const Supervisor = struct {
                 },
                 .failed => |err| {
                     var diag_buf: [192]u8 = undefined;
-                    const msg = std.fmt.bufPrint(&diag_buf,
-                        "stopProcess.force.failed: tile={s}, pid={d}, errno={any}",
-                        .{ tile.id.slice(), child.id orelse 0, err }) catch "stopProcess.force.failed";
+                    const msg = std.fmt.bufPrint(&diag_buf, "stopProcess.force.failed: tile={s}, pid={d}, errno={any}", .{ tile.id.slice(), child.id orelse 0, err }) catch "stopProcess.force.failed";
                     log.debug("supervisor", "stopProcess.force.failed", msg);
                     // Child was already reaped by another path (e.g. reapExitedChildrenNoHang).
                     // Clear the handle so deinit doesn't try to reap or kill it.
