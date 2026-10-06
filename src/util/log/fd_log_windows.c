@@ -387,6 +387,9 @@ int fd_log_level_stderr( void )      { return fd_log_private_level_stderr; }
 int fd_log_level_flush( void )       { return fd_log_private_level_flush; }
 int fd_log_level_core( void )        { return fd_log_private_level_core; }
 
+/* Windows logging has no POSIX descriptor to authorize for sandbox filtering. */
+int fd_log_private_logfile_fd( void ) { return -1; }
+
 void fd_log_colorize_set( int mode )           { fd_log_private_colorize = mode; }
 void fd_log_level_logfile_set( int level )     { fd_log_private_level_logfile = level; }
 void fd_log_level_stderr_set( int level )      { fd_log_private_level_stderr = level; }

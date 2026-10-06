@@ -1039,7 +1039,7 @@ test "lifecycle retains terminal crash evidence before force" {
 
     try std.testing.expectEqual(ChildOwnership.reaped, sup.childOwnership(0));
     try std.testing.expectEqual(TileState.crashed, sup.monitor()[0].state);
-    try std.testing.expectEqual(CrashReason.exit_code, sup.monitor()[0].crashed_because);
+    try std.testing.expectEqual(rt.tile.CrashReason.exit_code, sup.monitor()[0].crashed_because);
     try std.testing.expectEqual(@as(u32, 42), sup.monitor()[0].exit_code);
     try std.testing.expect(sup.monitor()[0].termination_action == null);
 }
