@@ -217,7 +217,11 @@ populate_allowed_fds( fd_topo_t const *      topo,
   out_fds[ out_cnt++ ] = 2; /* stderr */
   if( FD_LIKELY( -1!=fd_log_private_logfile_fd() ) )
     out_fds[ out_cnt++ ] = fd_log_private_logfile_fd(); /* logfile */
+#if FD_HAS_LINUX || FD_HAS_MACOS
   out_fds[ out_cnt++ ] = fd_http_server_fd( ctx->metrics_server ); /* metrics listen socket */
+#else
+  (void)ctx; /* Windows has no POSIX allowed-FD sandbox contract. */
+#endif
   return out_cnt;
 }
 
