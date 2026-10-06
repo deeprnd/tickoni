@@ -23,21 +23,22 @@ pub const PollResult = union(enum) {
     failed: ?i32,
 };
 
-pub fn forceTerminate(pid: std.process.Child.Id) bool {
-    return termProcess(pid);
-}
+/// The exact force operation accepted by the current process shim.
+pub const TerminationAction = enum {
+    kill,
+};
 
-pub fn termProcess(pid: std.process.Child.Id) bool {
-    // Unified: processId() converts HANDLE→PID on Windows, passes through on POSIX.
-    const numeric_pid = os_api.c.processId(pid) catch return false;
-    os_api.c.killProcess(numeric_pid) catch |err| {
-        std.log.debug("process_api.termProcess: kill returned {any}", .{err});
-    };
-    return true;
-}
+pub const TerminateResult = union(enum) {
+    accepted: TerminationAction,
+    failed,
+};
 
-pub fn forceKillProcess(pid: std.process.Child.Id) void {
-    _ = termProcess(pid);
+/// Requests forceful termination.  Acceptance is recorded only when the
+/// native operation succeeds; it is not evidence that the child was reaped.
+pub fn forceTerminate(pid: std.process.Child.Id) TerminateResult {
+    const numeric_pid = os_api.c.processId(pid) catch return .failed;
+    os_api.c.killProcess(numeric_pid) catch return .failed;
+    return .{ .accepted = .kill };
 }
 
 pub fn outcomeFromTerm(term: std.process.Child.Term, force_terminated: bool) ProcessOutcome {
@@ -74,10 +75,17 @@ pub fn tryReapNoHang(child: *std.process.Child) PollResult {
         },
         0 => .running,
         else => blk: {
-            child.id = null;
             break :blk switch (r.kind) {
-                1 => .{ .reaped = .{ .exited = @intCast(r.exit_code) } },
-                2 => .{ .reaped = .{ .signal = @fromBackingInt(@intCast(@as(u32, @intCast(r.signal)))) } },
+                1 => terminal: {
+                    child.id = null;
+                    break :terminal .{ .reaped = .{ .exited = @intCast(r.exit_code) } };
+                },
+                2 => terminal: {
+                    child.id = null;
+                    break :terminal .{ .reaped = .{ .signal = @fromBackingInt(@intCast(@as(u32, @intCast(r.signal)))) } };
+                },
+                // STOPPED and unknown observations are nonterminal.  In
+                // particular, never discard the child handle for either.
                 3 => .{ .reaped = .{ .stopped = @fromBackingInt(@intCast(@as(u32, @intCast(r.stop_signal)))) } },
                 else => .{ .reaped = .{ .unknown = 0 } },
             };
