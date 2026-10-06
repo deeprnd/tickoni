@@ -262,7 +262,7 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
     );
     try File.writeStreamingAll(stdout, init.io, metrics_line);
 
-    sup.stopProcess(init.io);
+    try sup.stopProcess(init.io);
     try File.writeStreamingAll(stdout, init.io, "tickoni-supervisor: process-mode pipeline stopped\n");
 }
 
