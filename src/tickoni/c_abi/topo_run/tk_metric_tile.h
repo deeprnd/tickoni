@@ -11,11 +11,7 @@
 
 #include "../../../disco/topo/fd_topo.h"
 
-/* Windows currently links fd_http_server_windows_stub.c, not a real
-   HTTP transport.  Remove the FD_HAS_WINDOWS exclusion when that
-   transport is linked. */
-#if FD_HAS_HOSTED && (FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS) && \
-    !FD_HAS_WINDOWS
+#if FD_HAS_HOSTED && (FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS)
 #define TK_HAS_METRIC_TILE 1
 #else
 #define TK_HAS_METRIC_TILE 0
