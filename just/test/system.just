@@ -3,7 +3,7 @@
 # Tickoni system lane: opt-in real-LLM investment demo proof.
 # Full end-to-end: setup (orchestrator.py llm-server) → start server → run tests → cleanup.
 test-system-tk:
-    bash {{ justfile_dir }}/contrib/test/run_live_investment_demo.sh
+    bash {{ justfile_dir }}/contrib/test/run_system_test.sh
 
 test-system-tk-linux-x86: test-system-tk
 test-system-tk-linux-arm: test-system-tk
