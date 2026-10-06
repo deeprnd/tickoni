@@ -248,45 +248,76 @@ test "metric topology finalizes exact scratch requirements identically" {
     try std.testing.expect(required.alignment > 1);
     try std.testing.expect(required.footprint > 1);
 
-    try std.testing.expect(parent.metric_tile_idx != c_abi.topob.not_found);
-    try std.testing.expect(parent.metric_tile_obj_id != 0);
+    try std.testing.expect(parent.metric_desc_idx != c_abi.topob.not_found);
+    const parent_metric = parent.tiles[parent.metric_desc_idx];
+    const child_metric = child.tiles[child.metric_desc_idx];
+    try std.testing.expect(parent_metric.tile_obj_id != 0);
     try std.testing.expectEqual(
         required.alignment,
-        c_abi.topob.topoObjScratchAlign(parent.topo, parent.metric_tile_obj_id),
+        c_abi.topob.topoObjScratchAlign(parent.topo, parent_metric.tile_obj_id),
     );
     try std.testing.expect(
-        c_abi.topob.topoObjFootprint(parent.topo, parent.metric_tile_obj_id) >= required.footprint,
+        c_abi.topob.topoObjFootprint(parent.topo, parent_metric.tile_obj_id) >= required.footprint,
     );
     try std.testing.expectEqual(
         @as(usize, 0),
-        c_abi.topob.topoObjOffset(parent.topo, parent.metric_tile_obj_id) % required.alignment,
+        c_abi.topob.topoObjOffset(parent.topo, parent_metric.tile_obj_id) % required.alignment,
     );
     try std.testing.expect(c_abi.topob.topoValidateMetricScratch(parent.topo));
 
     try std.testing.expectEqual(parent.wksp_idx, child.wksp_idx);
     try std.testing.expectEqual(parent.metric_wksp_idx, child.metric_wksp_idx);
     try std.testing.expectEqual(parent.metric_in_wksp_idx, child.metric_in_wksp_idx);
-    try std.testing.expectEqual(parent.metric_tile_idx, child.metric_tile_idx);
-    try std.testing.expectEqual(parent.metric_tile_obj_id, child.metric_tile_obj_id);
-    try std.testing.expectEqualSlices(usize, parent.cnc_obj_id, child.cnc_obj_id);
+    try std.testing.expectEqual(parent.metric_desc_idx, child.metric_desc_idx);
+    try std.testing.expectEqualDeep(parent_metric, child_metric);
+    try std.testing.expectEqualSlices(runtime.topo_build.BuiltTile, parent.tiles, child.tiles);
     try std.testing.expectEqualSlices(runtime.topo_build.LinkObjIds, parent.link_obj_id, child.link_obj_id);
     try std.testing.expectEqual(
-        c_abi.topob.topoObjScratchAlign(parent.topo, parent.metric_tile_obj_id),
-        c_abi.topob.topoObjScratchAlign(child.topo, child.metric_tile_obj_id),
+        c_abi.topob.topoObjScratchAlign(parent.topo, parent_metric.tile_obj_id),
+        c_abi.topob.topoObjScratchAlign(child.topo, child_metric.tile_obj_id),
     );
     try std.testing.expectEqual(
-        c_abi.topob.topoObjFootprint(parent.topo, parent.metric_tile_obj_id),
-        c_abi.topob.topoObjFootprint(child.topo, child.metric_tile_obj_id),
+        c_abi.topob.topoObjFootprint(parent.topo, parent_metric.tile_obj_id),
+        c_abi.topob.topoObjFootprint(child.topo, child_metric.tile_obj_id),
     );
     try std.testing.expectEqual(
-        c_abi.topob.topoObjOffset(parent.topo, parent.metric_tile_obj_id),
-        c_abi.topob.topoObjOffset(child.topo, child.metric_tile_obj_id),
+        c_abi.topob.topoObjOffset(parent.topo, parent_metric.tile_obj_id),
+        c_abi.topob.topoObjOffset(child.topo, child_metric.tile_obj_id),
     );
     try std.testing.expectEqual(
         c_abi.topob.topoWkspFootprint(parent.topo, parent.metric_wksp_idx),
         c_abi.topob.topoWkspFootprint(child.topo, child.metric_wksp_idx),
     );
     try std.testing.expect(c_abi.topob.topoValidateMetricScratch(child.topo));
+}
+
+test "metric topology preserves descriptor identity, CNC ownership, CPU placement, and zero links" {
+    const tiles = [_]runtime.tile.TileDescriptor{
+        .{ .id = runtime.tile.TileId.parse("tkings") catch unreachable, .name = "ingest", .cpu_placement = .{ .exclusive = 2 } },
+        .{ .id = runtime.tile.TileId.parse("metric") catch unreachable, .name = "metric", .cpu_placement = .{ .exclusive = 3 } },
+        .{ .id = runtime.tile.TileId.parse("tkdiag") catch unreachable, .name = "diagnostic", .cpu_placement = .{ .exclusive = 4 } },
+    };
+    const channels = [_]runtime.link.Channel{
+        .{ .src_idx = 0, .dst_idx = 2, .depth = 64, .mtu = 128 },
+    };
+    const topology = runtime.topology.Topology{ .tiles = &tiles, .channels = &channels };
+    var built = try runtime.topo_build.build(std.testing.allocator, topology, "tkmetr_identity", 7999);
+    defer built.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 1), built.metric_desc_idx);
+    try std.testing.expectEqual(@as(usize, tiles.len), built.tiles.len);
+    for (built.tiles, 0..) |tile, descriptor_idx| {
+        try std.testing.expectEqual(descriptor_idx, tile.topo_tile_idx);
+        try std.testing.expect(tile.tile_obj_id != c_abi.topob.not_found);
+        try std.testing.expect(tile.cnc_obj_id != c_abi.topob.not_found);
+        try std.testing.expectEqual(@as(usize, 2 + descriptor_idx), c_abi.topob.topoTileCpuIdx(built.topo, tile.topo_tile_idx));
+    }
+
+    const metric = built.tiles[built.metric_desc_idx];
+    try std.testing.expectEqual(@as(usize, 0), c_abi.topob.topoTileInputCount(built.topo, metric.topo_tile_idx));
+    try std.testing.expectEqual(@as(usize, 0), c_abi.topob.topoTileOutputCount(built.topo, metric.topo_tile_idx));
+    try std.testing.expectEqual(@as(usize, 1), c_abi.topob.topoLinkConsumerCount(built.topo, 0));
+    try std.testing.expect(c_abi.topob.topoValidateTileObjectOffsets(built.topo));
 }
 
 // ---------------------------------------------------------------------------
