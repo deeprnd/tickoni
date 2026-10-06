@@ -12,9 +12,9 @@
    finding 1). mcache/dcache/fseq/metrics below are reimplemented
    identically to that file's versions (they only touch generic
    tango/metrics primitives); "tile" and "cnc" are Tickoni-owned:
-   - "tile" has zero footprint/no .new — Phase 0 tiles need no fd_scratch
-     tile-local memory. Extend this (not fdctl_tile_run) if a future
-     tile needs scratch space.
+   - "tile" has no .new. Generic tiles use a one-byte footprint; tiles
+     with C-owned scratch layouts provide alignment and footprint through
+     per-object properties.
    - "cnc" is a new object type: fd_topob has no built-in concept of cnc,
      so this makes Tickoni's cnc-per-tile a real, offset-accounted
      fd_topob object instead of an ad hoc post-hoc wksp_alloc.
@@ -35,6 +35,7 @@
 #include "../../../tango/mcache/fd_mcache.h"
 #include "../../../tango/dcache/fd_dcache.h"
 #include "../../../tango/fseq/fd_fseq.h"
+#include "../topo_run/tk_metric_tile.h"
 
 /* ---------------------------------------------------------------------
    tk_topob_auto_layout — Tickoni CPU placement.
@@ -160,35 +161,22 @@ static fd_topo_obj_callbacks_t tk_obj_cb_metrics = {
   .new       = metrics_new,
 };
 
-/* Tickoni-owned "tile" object footprint.
-
-   Phase 0 pipeline tiles need no fd_scratch tile-local memory, so their
-   footprint is 1UL (not zero — fd_topob_finish's NUMA-assignment step
-   requires every object to have a non-zero footprint).
-
-   The metric tile (tkmetr) uses Firedancer's fd_stem-based run loop with
-   fd_http_server and needs ~32MB+ scratch.  Its scratch footprint is set
-   as a property ("tickoni.scratch_footprint") by topo_build.zig and
-   queried here instead. */
+/* Tickoni-owned "tile" object sizing.  Generic tiles use one byte
+   because fd_topob_finish requires a non-zero footprint.
+   topo_build.zig sets both properties for the metric tile from
+   tk_metric_scratch_requirements(). */
 static ulong
-tile_footprint( fd_topo_t const * topo, fd_topo_obj_t const * obj ) {
-  /* Find the tile that owns this "tile" object. */
-  for ( ulong i = 0UL; i < topo->tile_cnt; i++ ) {
-    if ( topo->tiles[ i ].tile_obj_id == obj->id ) {
-      /* Query the custom scratch footprint property set by topo_build.zig.
-         Returns 0UL (def) if not set — falls through to 1UL below. */
-      ulong scratch = fd_pod_queryf_ulong(
-        topo->props, 0UL, "obj.%lu.%s", obj->id, "tickoni.scratch_footprint" );
-      if ( scratch != 0UL ) return scratch;
-      break;
-    }
-  }
-  return 1UL;
+tile_footprint( fd_topo_t const * topo,
+                fd_topo_obj_t const * obj ) {
+  return fd_pod_queryf_ulong( topo->props, 1UL,
+                              "obj.%lu.tickoni.scratch_footprint", obj->id );
 }
 
 static ulong
-tile_align( fd_topo_t const * topo FD_FN_UNUSED, fd_topo_obj_t const * obj FD_FN_UNUSED ) {
-  return 1UL;
+tile_align( fd_topo_t const * topo,
+            fd_topo_obj_t const * obj ) {
+  return fd_pod_queryf_ulong( topo->props, 1UL,
+                              "obj.%lu.tickoni.scratch_align", obj->id );
 }
 
 static fd_topo_obj_callbacks_t tk_obj_cb_tile = {
@@ -341,17 +329,17 @@ tk_topob_finish( void * topo ) {
 
 /* Set a ulong property on the props POD for a given object.
 
-   Used by topo_build.zig to inject the tkmetr tile's custom scratch
-   footprint before fd_topob_finish computes the layout. */
+   Used by topo_build.zig to inject tile-specific scratch requirements
+   before fd_topob_finish computes the layout. */
 void
 tk_topob_set_obj_property_ulong( void * topo, ulong obj_id, char const * key, ulong val ) {
   fd_pod_insertf_ulong( ((fd_topo_t *)topo)->props, val,
                         "obj.%lu.%s", obj_id, key );
 }
 
-/* Convenience: look up a tile by name/kind_id, then set a ulong property on
-   its "tile" object.  Used by topo_build.zig to inject the tkmetr tile's
-   custom scratch footprint before fd_topob_finish. */
+/* Convenience: look up a tile by name/kind_id, then set a ulong
+   property on its "tile" object.  Used by topo_build.zig to inject the
+   metric tile's scratch requirements before fd_topob_finish. */
 void
 tk_topob_set_tile_obj_property_ulong( void * topo, char const * tile_name,
                                        ulong tile_kind_id,
@@ -379,22 +367,18 @@ tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_t
   return ULONG_MAX;
 }
 
-/* Include the metric tile header for TK_METRIC_RUN and footprint helper.
-   The header provides a wrapper (tk_metric_scratch_footprint()) so that
-   topob.c never needs the full fd_topo_run_tile_t definition — it only
-   sees the extern declaration and the thin accessor.  See v2.23-m task 4.
-   Linux-only: tk_metric_tile.c references symbols from fd_metric_tile.c. */
-#if FD_HAS_LINUX
-#include "../topo_run/tk_metric_tile.h"
+void
+tk_topob_tickoni_tile_scratch_requirements( char const * tile_name,
+                                             ulong *      align,
+                                             ulong *      footprint ) {
+  *align     = 1UL;
+  *footprint = 1UL;
+#if TK_HAS_METRIC_TILE
+  if( !strcmp( tile_name, "metric" ) )
+    tk_metric_scratch_requirements( align, footprint );
+#else
+  (void)tile_name;
 #endif
-
-ulong
-tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {
-#if FD_HAS_LINUX
-  if( strcmp( tile_name, "metric" ) == 0 )
-    return tk_metric_scratch_footprint();
-#endif
-  return 1UL;
 }
 
 int
@@ -501,6 +485,56 @@ ulong
 tk_topo_obj_offset( void const * topo_, ulong obj_id ) {
   fd_topo_t const * topo = (fd_topo_t const *)topo_;
   return obj_id<topo->obj_cnt ? topo->objs[ obj_id ].offset : 0UL;
+}
+
+ulong
+tk_topo_obj_footprint( void const * topo_, ulong obj_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  return obj_id<topo->obj_cnt ? topo->objs[ obj_id ].footprint : 0UL;
+}
+
+ulong
+tk_topo_obj_scratch_align( void const * topo_, ulong obj_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  if( FD_UNLIKELY( obj_id>=topo->obj_cnt ) ) return 0UL;
+  return fd_pod_queryf_ulong( topo->props, 1UL,
+                              "obj.%lu.tickoni.scratch_align", obj_id );
+}
+
+int
+tk_topo_validate_metric_scratch( void const * topo_ ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+#if TK_HAS_METRIC_TILE
+  ulong required_align;
+  ulong required_footprint;
+  tk_metric_scratch_requirements( &required_align, &required_footprint );
+  if( FD_UNLIKELY( !required_align || !fd_ulong_is_pow2( required_align ) ||
+                   !required_footprint ) ) return 0;
+
+  for( ulong i=0UL; i<topo->tile_cnt; i++ ) {
+    fd_topo_tile_t const * tile = &topo->tiles[ i ];
+    if( strcmp( tile->name, "metric" ) ) continue;
+
+    ulong obj_id = tile->tile_obj_id;
+    if( FD_UNLIKELY( obj_id>=topo->obj_cnt ) ) return 0;
+    fd_topo_obj_t const * obj = &topo->objs[ obj_id ];
+    if( FD_UNLIKELY( strcmp( obj->name, "tile" ) ) ) return 0;
+
+    int owns_obj = 0;
+    for( ulong j=0UL; j<tile->uses_obj_cnt; j++ )
+      owns_obj |= tile->uses_obj_id[ j ]==obj_id;
+    if( FD_UNLIKELY( !owns_obj ) ) return 0;
+
+    ulong configured_align = fd_pod_queryf_ulong(
+        topo->props, 1UL, "obj.%lu.tickoni.scratch_align", obj_id );
+    if( FD_UNLIKELY( configured_align!=required_align ||
+                     obj->footprint<required_footprint ||
+                     (obj->offset & (required_align-1UL)) ) ) return 0;
+  }
+#else
+  (void)topo;
+#endif
+  return 1;
 }
 
 static int

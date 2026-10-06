@@ -3,9 +3,9 @@
  * Reuses Firedancer's fd_stem-based run loop (stem_run) with
  * fd_http_server for Prometheus /metrics endpoint.
  *
- * Linux and macOS: depends on symbols from fd_metric_tile.c (scratch_align,
- * scratch_footprint, privileged_init, unprivileged_init, stem_run,
- * populate_allowed_seccomp, populate_allowed_fds).
+ * Supported hosted platforms depend on symbols from fd_metric_tile.c
+ * (scratch_align, scratch_footprint, privileged_init, unprivileged_init,
+ * stem_run, populate_allowed_seccomp, populate_allowed_fds).
  *
  * Design notes:
  *   • We #include disco/metrics/fd_metric_tile.h (header-only declarations)
@@ -29,16 +29,17 @@
  *     iteration of stem_run.  When HALT arrives, STEM_CALLBACK_SHOULD_SHUTDOWN
  *     returns non-zero, stem_run sets tile->allow_shutdown=1 and exits.
  *   • CNC lookup uses tk_topo_find_tile_obj() (v2.23-m task 3) instead of
- *     a raw strcmp scan.  Scratch footprint uses tk_metric_scratch_footprint()
- *     (v2.23-m task 4) so topob.c never needs the full fd_topo_run_tile_t.
+ *     a raw strcmp scan.  Scratch requirements come directly from
+ *     TK_METRIC_RUN so Zig never reproduces the C layout.
  */
-
-#if FD_HAS_LINUX || FD_HAS_MACOS
 
 #define _GNU_SOURCE
 
-#include "disco/metrics/fd_metric_tile.h"
 #include "../topo_run/tk_metric_tile.h"
+
+#if TK_HAS_METRIC_TILE
+
+#include "disco/metrics/fd_metric_tile.h"
 
 /* This macro mirrors the value defined in fd_metric_tile.c so that
    tk_metric_tile.c can reference it without including the .c source. */
@@ -47,10 +48,7 @@
 #endif
 
 /* ---------------------------------------------------------------------
-   tk_metric_scratch_footprint — thin wrapper that calls through
-   TK_METRIC_RUN.scratch_footprint.  Provides a no-argument accessor
-   so topob.c never needs the full fd_topo_run_tile_t definition.
-   See v2.23-m task 4.
+   Metric scratch requirements.
    --------------------------------------------------------------------- */
 
 /* Internal footprint helper used by the struct initializer.  Takes
@@ -58,14 +56,6 @@
 static ulong
 tk_metric_scratch_footprint_tile( fd_topo_tile_t const * tile ) {
   return scratch_footprint( tile );
-}
-
-/* No-argument wrapper — delegates to TK_METRIC_RUN.scratch_footprint
-   with a NULL tile, which is sufficient since scratch_footprint in
-   fd_metric_tile.c only reads tile->uses_obj_cnt. */
-ulong
-tk_metric_scratch_footprint( void ) {
-  return TK_METRIC_RUN.scratch_footprint( NULL );
 }
 
 static ulong
@@ -168,4 +158,11 @@ fd_topo_run_tile_t TK_METRIC_RUN = {
   .rlimit_file_cnt_fn       = NULL,
 };
 
-#endif /* FD_HAS_LINUX || FD_HAS_MACOS */
+void
+tk_metric_scratch_requirements( ulong * align,
+                                ulong * footprint ) {
+  *align     = TK_METRIC_RUN.scratch_align();
+  *footprint = TK_METRIC_RUN.scratch_footprint( NULL );
+}
+
+#endif /* TK_HAS_METRIC_TILE */
