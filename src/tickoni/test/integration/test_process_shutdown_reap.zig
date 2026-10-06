@@ -65,7 +65,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
         .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io);
+    errdefer sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     // Let the tile crash and metrics advance past the crash point.
     const max_polls: u32 = 400;
@@ -88,7 +88,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
 
     // Now call stopProcess: the crashed tile must NOT be overwritten
     // by the force-phase reap. Its state should remain .crashed.
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     try std.testing.expectEqual(
         rt.tile.TileState.crashed,
@@ -152,7 +152,7 @@ test "shutdown_reap: child exits between running-check and kill → was_forced=f
 
     // Now call stopProcess: the force-phase will find all children already
     // reaped (or exiting) and classify them with was_forced=false.
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     // All tiles should be .stopped (clean) since none were forced.
     for (sup.monitor()) |h| {
@@ -193,7 +193,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
         .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io);
+    errdefer sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     // Wait for crash detection.
     const max_polls: u32 = 400;
@@ -211,7 +211,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
 
     // stopProcess: the pre-existing crashed handle must NOT be overwritten
     // by the force-phase reap or stale-recovery path.
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     // Tile 0 must remain .crashed — not silently overwritten to .stopped.
     try std.testing.expectEqual(
@@ -266,7 +266,7 @@ test "shutdown_reap: externally reaped child classified as .unknown not .exited_
     // Call stopProcess: any children that were already reaped externally
     // should be handled by the .detached arm, which leaves them as
     // unknown (no known exit reason).
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     // After stopProcess, tiles that were reaped before the force phase
     // should be .stopped (the supervisor's graceful path), but tiles that
@@ -312,7 +312,7 @@ test "shutdown_reap: final timeout reap classifies still-running child as .unkno
         .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io);
+    errdefer sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     // Wait for the stuck tile to be classified as stale.
     const max_polls: u32 = 600;
@@ -331,7 +331,7 @@ test "shutdown_reap: final timeout reap classifies still-running child as .unkno
     // stopProcess: the stuck tile will be force-killed, then waitProcess
     // will eventually reap it. The final timeout reap should classify it
     // correctly (force_terminated if the kill succeeded, unknown if not).
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     // The stale tile should be .stopped (the stale-recovery path treats
     // pre-existing stale tiles as cleanly stopped).
@@ -376,7 +376,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
         .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io);
+    errdefer sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     // Wait for crash detection.
     const max_polls: u32 = 400;
@@ -396,7 +396,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
     // stopProcess: the crash must survive. The tile identity and raw
     // failure must be retained in diagnostics independently of the
     // derived state.
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     try std.testing.expectEqual(
         rt.tile.TileState.crashed,
@@ -449,7 +449,7 @@ test "shutdown_reap: non-zero exit during grace → force-phase preserves .exite
         .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io);
+    errdefer sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     // Wait for crash detection.
     const max_polls: u32 = 400;
@@ -469,7 +469,7 @@ test "shutdown_reap: non-zero exit during grace → force-phase preserves .exite
     // child and the force-phase will classify it with was_forced=false
     // (no kill was attempted). outcomeFromTerm(.exited(1), false) must
     // return .exited_code(1), which updateHandleForOutcome preserves.
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     try std.testing.expectEqual(
         rt.tile.TileState.crashed,

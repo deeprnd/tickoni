@@ -54,7 +54,7 @@ fn runDurationNs(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) !u
 
     const metrics = sup.snapshotProcessMetrics();
     const elapsed_ns = std.math.cast(u64, util.process.monotonicNanos() - start_ns) orelse return error.DurationOverflow;
-    sup.stopProcess(io);
+    sup.stopProcess(io) catch @panic("unresolved child");
 
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);

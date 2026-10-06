@@ -53,7 +53,7 @@ test "process_topology_integration: every tile is a distinct OS process parented
     }
     const metrics = sup.snapshotProcessMetrics();
 
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
     try std.testing.expectEqual(event_count, metrics.produced);
     try std.testing.expectEqual(event_count, metrics.audited);
     for (sup.monitor()) |h| {
@@ -89,7 +89,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
         .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io);
+    errdefer sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     const max_polls: u32 = 600;
     var poll: u32 = 0;
@@ -108,7 +108,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
         try std.testing.expect(h.state != rt.tile.TileState.stale);
     }
 
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
     // After stopProcess, stale tiles are treated as cleanly stopped rather
     // than crashed — the stale classification happened before shutdown, and
     // the tile's crash/termination during stopProcess is a consequence of the
@@ -155,7 +155,7 @@ test "process_topology_integration: SIGKILL on one tile is reported by identity 
     }
     const metrics = sup.snapshotProcessMetrics();
 
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     try std.testing.expectEqual(rt.tile.TileState.crashed, sup.monitor()[tkrepl_idx].state);
     try std.testing.expectEqual(rt.tile.CrashReason.signal, sup.monitor()[tkrepl_idx].crashed_because);
@@ -210,7 +210,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
     }
     const metrics = sup.snapshotProcessMetrics();
 
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 
     try std.testing.expectEqual(rt.tile.TileState.crashed, sup.monitor()[tkrepl_idx].state);
     try std.testing.expectEqual(rt.tile.CrashReason.exit_code, sup.monitor()[tkrepl_idx].crashed_because);

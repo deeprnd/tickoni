@@ -67,7 +67,7 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) 
     }
 
     const metrics = sup.snapshotProcessMetrics();
-    sup.stopProcess(io);
+    sup.stopProcess(io) catch @panic("unresolved child");
 
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);

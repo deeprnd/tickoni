@@ -304,7 +304,7 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io);
+        sup.stopProcess(std.testing.io) catch @panic("unresolved child");
         sup.deinit();
     }
 
@@ -341,7 +341,7 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
     try std.testing.expectEqual(event_count, metrics.audited);
 
     try expectNoCrashes(&sup, run_dir);
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 }
 
 // ---------------------------------------------------------------------------
@@ -363,7 +363,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io);
+        sup.stopProcess(std.testing.io) catch @panic("unresolved child");
         sup.deinit();
     }
 
@@ -409,7 +409,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
     try std.testing.expect(bytes_consumed.? > 0);
 
     try expectNoCrashes(&sup, run_dir);
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 }
 
 // ---------------------------------------------------------------------------
@@ -427,7 +427,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io);
+        sup.stopProcess(std.testing.io) catch @panic("unresolved child");
         sup.deinit();
     }
 
@@ -457,7 +457,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
     try std.testing.expectEqual(@as(u16, 404), resp.status_code);
 
     try expectNoCrashes(&sup, run_dir);
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 }
 
 // ---------------------------------------------------------------------------
@@ -476,7 +476,7 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io);
+        sup.stopProcess(std.testing.io) catch @panic("unresolved child");
         sup.deinit();
     }
 
@@ -513,7 +513,7 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
     try std.testing.expect(boot_timestamp > 1e18);
 
     try expectNoCrashes(&sup, run_dir);
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 }
 
 // ---------------------------------------------------------------------------
@@ -531,7 +531,7 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io);
+        sup.stopProcess(std.testing.io) catch @panic("unresolved child");
         sup.deinit();
     }
 
@@ -557,7 +557,7 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
     try std.testing.expectEqual(event_count, metrics.audited);
 
     try expectNoCrashes(&sup, run_dir);
-    sup.stopProcess(std.testing.io);
+    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
 }
 
 // ---------------------------------------------------------------------------
