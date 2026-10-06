@@ -1,6 +1,5 @@
 /// Zig extern declarations for os.c cross-platform OS operations shim.
 /// All platform-specific code is in os.c behind #if FD_HAS_LINUX guards.
-const builtin = @import("builtin");
 const std = @import("std");
 
 // ---------------------------------------------------------------------------
@@ -11,12 +10,8 @@ extern fn tk_monotonic_nanos() i64;
 extern fn tk_sleep_nanos(ns: u64) void;
 extern fn tk_self_exe_path(buf: [*]u8, buf_len: usize) c_int;
 extern fn tk_parent_pid(pid: c_int) c_int;
-extern fn tk_process_id_from_handle(handle: usize) c_int;
-extern fn tk_process_poll(pid: c_int) c_int;
-extern fn tk_process_waitpid(pid: c_int, status: [*]c_int, options: c_int) c_int;
+extern fn tk_process_diagnostic_pid(process_token: usize) u32;
 extern fn tk_port_is_in_use(port: u16) c_int;
-extern fn tk_kill_process(pid: c_int) c_int;
-extern fn tk_kill_process_group(pgid: c_int) c_int;
 extern fn tk_write(fd: c_int, buf: [*]const u8, count: usize) usize;
 extern fn tk_isatty(fd: c_int) c_int;
 extern fn tk_fflush() void;
@@ -25,17 +20,55 @@ extern fn tk_getenv(name: [*]const u8) [*:0]const u8;
 extern fn tk_get_affinity(pid: c_int, mask: [*]u8) c_int;
 extern fn tk_set_affinity(pid: c_int, mask: [*]const u8) c_int;
 
-pub const tk_process_reap_result = extern struct {
-    pid: c_int,
-    status: c_int,
-    exit_code: c_int,
-    signal: c_int,
-    stop_signal: c_int,
-    kind: c_int,
-    err: c_int,
+pub const ProcessReapKind = enum(u32) {
+    running = 0,
+    exited = 1,
+    signaled = 2,
+    stopped = 3,
+    no_child = 4,
+    failed = 5,
 };
 
-extern fn tk_process_reap(pid: c_int, options: c_int, out: *tk_process_reap_result) void;
+pub const ProcessError = enum(u32) {
+    none = 0,
+    access_denied = 1,
+    invalid_process = 2,
+    invalid_argument = 3,
+    resource_exhausted = 4,
+    unsupported = 5,
+    system = 6,
+};
+
+pub const ProcessReapResult = extern struct {
+    kind: u32,
+    exit_code: u32,
+    signal: u32,
+    native_status: u32,
+    err: u32,
+    native_error: u32,
+};
+
+pub const ProcessTerminationKind = enum(u32) {
+    none = 0,
+    signal = 1,
+    exit_code = 2,
+};
+
+pub const ProcessTerminateResult = extern struct {
+    accepted: u32,
+    action_kind: u32,
+    action_value: u32,
+    err: u32,
+    native_error: u32,
+};
+
+extern fn tk_process_reap_nohang(process_token: usize, out: *ProcessReapResult) void;
+extern fn tk_process_force_terminate(process_token: usize, out: *ProcessTerminateResult) void;
+extern fn tk_process_release(process_token: usize, thread_token: usize) void;
+
+extern fn tk_process_test_eintr_then_exit(exit_code: u32) void;
+extern fn tk_process_test_native_call_count() u32;
+extern fn tk_process_test_force_failure(err: u32, native_error: u32) void;
 
 // ---------------------------------------------------------------------------
 // Error set
@@ -78,35 +111,22 @@ pub fn parentPid(pid: c_int) !c_int {
     return r;
 }
 
-/// Convert std.process.Child.Id to the numeric PID expected by the C shim.
-/// POSIX Child.Id is already a PID; Windows Child.Id is an hProcess HANDLE.
-pub fn processId(id: std.process.Child.Id) !c_int {
-    const raw: usize = if (builtin.os.tag == .windows)
-        @intFromPtr(id)
-    else
-        @intCast(id);
-    const pid = tk_process_id_from_handle(raw);
-    if (pid < 0) return error.ProcessIdNotFound;
-    return pid;
+pub fn processToken(id: std.process.Child.Id) usize {
+    return switch (@typeInfo(std.process.Child.Id)) {
+        .pointer => @intFromPtr(id),
+        .int => @intCast(id),
+        else => @compileError("unsupported std.process.Child.Id representation"),
+    };
+}
+
+/// Returns a numeric identifier only for logs and diagnostics. Lifecycle
+/// operations must retain and use the opaque child token.
+pub fn processDiagnosticPid(id: std.process.Child.Id) u32 {
+    return tk_process_diagnostic_pid(processToken(id));
 }
 
 pub fn portIsInUse(port: u16) bool {
     return tk_port_is_in_use(port) != 0;
-}
-
-pub fn killProcess(pid: c_int) !void {
-    if (tk_kill_process(pid) != 0) return error.KillFailed;
-}
-
-pub fn killProcessGroup(pgid: c_int) !void {
-    if (tk_kill_process_group(pgid) != 0) return error.KillProcessGroupFailed;
-}
-
-pub fn processPoll(pid: c_int) OsError!c_int {
-    const rc = tk_process_poll(pid);
-    if (rc <= -2) return error.ProcessPollUnsupported;
-    if (rc < 0) return error.ProcessPollFailed;
-    return rc;
 }
 
 pub fn writeFd(fd: c_int, buf: []const u8) usize {
@@ -139,41 +159,39 @@ pub fn setAffinity(pid: c_int, cpu_set: []const u8) !void {
     if (rc < 0) return error.SetAffinityFailed;
 }
 
-pub fn processReap(pid: c_int, options: c_int) tk_process_reap_result {
-    var result: tk_process_reap_result = undefined;
-    tk_process_reap(pid, options, &result);
+pub fn processReapNoHang(process_token: usize) ProcessReapResult {
+    var result: ProcessReapResult = undefined;
+    tk_process_reap_nohang(process_token, &result);
     return result;
 }
 
-// ---------------------------------------------------------------------------
-// Cross-platform kill and signal helpers — gate std.posix behind shim
-// ---------------------------------------------------------------------------
-
-/// Send a signal to a process. Cross-platform: uses std.posix.kill on
-/// POSIX targets, delegates to the C shim's tk_kill_process on Windows.
-pub fn killProcessSignal(pid: c_int, sig: std.posix.SIG) OsError!void {
-    if (builtin.target.os.tag == .windows) {
-        // Windows: use the C shim's TerminateProcess path (SIGKILL equivalent)
-        try killProcess(pid);
-    } else {
-        std.posix.kill(pid, sig) catch return error.KillFailed;
-    }
+pub fn processForceTerminate(process_token: usize) ProcessTerminateResult {
+    var result: ProcessTerminateResult = undefined;
+    tk_process_force_terminate(process_token, &result);
+    return result;
 }
 
-/// Return the ECHILD errno value for the current platform.
-/// Linux: 10, macOS: 77, Windows: undefined (N/A).
-pub fn eChildErrno() c_int {
-    if (builtin.target.os.tag == .linux) return 10;
-    if (builtin.target.os.tag == .macos) return 77;
-    // Windows/Freestanding: return a value that will never match real errno
-    return -1;
+pub fn processRelease(child: *std.process.Child) void {
+    const id = child.id orelse return;
+    const thread_token: usize = switch (@typeInfo(@TypeOf(child.thread_handle))) {
+        .pointer => @intFromPtr(child.thread_handle),
+        .void => 0,
+        else => @compileError("unsupported child thread handle representation"),
+    };
+    tk_process_release(processToken(id), thread_token);
+    child.id = null;
 }
 
-/// Return true if this platform uses waitpid-based reaping (Linux/macOS).
-/// Windows uses WaitForSingleObject instead.
-pub fn usesWaitpidReap() bool {
-    const tag = builtin.target.os.tag;
-    return tag == .linux or tag == .macos;
+pub fn processTestEintrThenExit(exit_code: u32) void {
+    tk_process_test_eintr_then_exit(exit_code);
+}
+
+pub fn processTestNativeCallCount() u32 {
+    return tk_process_test_native_call_count();
+}
+
+pub fn processTestForceFailure(err: u32, native_error: u32) void {
+    tk_process_test_force_failure(err, native_error);
 }
 
 // ---------------------------------------------------------------------------
@@ -214,7 +232,9 @@ test "getEnv/setEnv round-trip" {
     _ = setEnv(name, "", 1);
 }
 
-test "tk_process_reap_result is extern struct with correct size" {
-    // 6 fields × 4 bytes each = 24 bytes, no padding expected for extern struct
-    try std.testing.expectEqual(@as(usize, 24), @sizeOf(tk_process_reap_result));
+test "process ABI layouts match C declarations" {
+    try std.testing.expectEqual(@as(usize, 24), @sizeOf(ProcessReapResult));
+    try std.testing.expectEqual(@as(usize, 4), @alignOf(ProcessReapResult));
+    try std.testing.expectEqual(@as(usize, 20), @sizeOf(ProcessTerminateResult));
+    try std.testing.expectEqual(@as(usize, 4), @alignOf(ProcessTerminateResult));
 }

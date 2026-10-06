@@ -1,466 +1,174 @@
-/// Deterministic regression tests for process_api — Steps 1 & 4 of
-/// process-shutdown-reap-correctness plan.
-///
-/// Covers:
-/// - outcomeFromTerm() classification for all term variants + force flags
-/// - tryReapNoHang() with real child processes (running, exit, signal)
-/// - EINTR retry, ECHILD detection, and errno propagation in the shim
-///
-/// Requires: libc (for the C shim), builtin.target.os.tag check for POSIX-only tests.
 const std = @import("std");
 const builtin = @import("builtin");
 const process_api = @import("process_api.zig");
 const os = @import("c_abi").os;
 
-const ProcessOutcome = process_api.ProcessOutcome;
-const ProcessPollResult = process_api.PollResult;
-
-// ---------------------------------------------------------------------------
-// 1. outcomeFromTerm() classification tests — no process spawn needed
-// ---------------------------------------------------------------------------
-
-test "outcomeFromTerm: .exited(0) without force → .exited_ok" {
-    const outcome = process_api.outcomeFromTerm(.{ .exited = 0 }, false);
-    try std.testing.expectEqual(ProcessOutcome.exited_ok, outcome);
+fn expectOutcome(expected: process_api.ProcessOutcome, actual: process_api.ProcessOutcome) !void {
+    try std.testing.expectEqualDeep(expected, actual);
 }
 
-test "outcomeFromTerm: .exited(0) with force → .force_terminated" {
-    const outcome = process_api.outcomeFromTerm(.{ .exited = 0 }, true);
-    try std.testing.expectEqual(ProcessOutcome.force_terminated, outcome);
+test "classify applies the complete exact-action table" {
+    try expectOutcome(.clean_stop, process_api.classify(.{ .exited = 0 }, null));
+    try expectOutcome(.clean_stop, process_api.classify(.{ .exited = 0 }, .{ .exit_code = 7 }));
+    try expectOutcome(.{ .crash_exit = 7 }, process_api.classify(.{ .exited = 7 }, null));
+    try expectOutcome(.intentional_termination, process_api.classify(.{ .exited = 7 }, .{ .exit_code = 7 }));
+    try expectOutcome(.{ .crash_exit = 7 }, process_api.classify(.{ .exited = 7 }, .{ .exit_code = 8 }));
+    try expectOutcome(.{ .crash_exit = 0x12345678 }, process_api.classify(.{ .exited = 0x12345678 }, null));
+    try expectOutcome(.{ .crash_signal = 9 }, process_api.classify(.{ .signaled = 9 }, null));
+    try expectOutcome(.intentional_termination, process_api.classify(.{ .signaled = 9 }, .{ .signal = 9 }));
+    try expectOutcome(.{ .crash_signal = 15 }, process_api.classify(.{ .signaled = 15 }, .{ .signal = 9 }));
+    try expectOutcome(.{ .nonterminal_stop = 19 }, process_api.classify(.{ .stopped = 19 }, .{ .signal = 19 }));
 }
 
-test "outcomeFromTerm: .exited(1) without force → .exited_code(1)" {
-    const outcome = process_api.outcomeFromTerm(.{ .exited = 1 }, false);
-    switch (outcome) {
-        .exited_code => |code| try std.testing.expectEqual(@as(u8, 1), code),
-        else => try std.testing.expect(false),
-    }
+test "C process ABI preserves widths and alignment" {
+    try std.testing.expectEqual(@as(usize, 24), @sizeOf(os.ProcessReapResult));
+    try std.testing.expectEqual(@as(usize, 4), @alignOf(os.ProcessReapResult));
+    try std.testing.expectEqual(@as(usize, 20), @sizeOf(os.ProcessTerminateResult));
+    try std.testing.expectEqual(@as(usize, 4), @alignOf(os.ProcessTerminateResult));
 }
 
-test "outcomeFromTerm: .exited(42) with force → .exited_code(42), NOT .force_terminated" {
-    // Critical invariant: non-zero exit is crash evidence regardless of kill attempt.
-    const outcome = process_api.outcomeFromTerm(.{ .exited = 42 }, true);
-    switch (outcome) {
-        .exited_code => |code| try std.testing.expectEqual(@as(u8, 42), code),
-        else => try std.testing.expect(false),
-    }
-}
-
-test "outcomeFromTerm: .exited(255) without force → .exited_code(255)" {
-    const outcome = process_api.outcomeFromTerm(.{ .exited = 255 }, false);
-    switch (outcome) {
-        .exited_code => |code| try std.testing.expectEqual(@as(u8, 255), code),
-        else => try std.testing.expect(false),
-    }
-}
-
-test "outcomeFromTerm: .signal without force → .crashed" {
-    const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @fromBackingInt(@intCast(9))) }, false);
-    try std.testing.expectEqual(ProcessOutcome.crashed, outcome);
-}
-
-test "outcomeFromTerm: .signal with force → .force_terminated" {
-    const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @fromBackingInt(@intCast(9))) }, true);
-    try std.testing.expectEqual(ProcessOutcome.force_terminated, outcome);
-}
-
-test "outcomeFromTerm: .signal with different signals and force" {
-    const signals = [_]u32{ 1, 2, 6, 9, 11, 15 };
-    for (signals) |sig| {
-        const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @fromBackingInt(@intCast(sig))) }, true);
-        try std.testing.expectEqual(ProcessOutcome.force_terminated, outcome);
-    }
-    for (signals) |sig| {
-        const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @fromBackingInt(@intCast(sig))) }, false);
-        try std.testing.expectEqual(ProcessOutcome.crashed, outcome);
-    }
-}
-
-test "outcomeFromTerm: .stopped → .stopped (unchanged)" {
-    const outcome = process_api.outcomeFromTerm(.{ .stopped = @as(std.posix.SIG, @fromBackingInt(@intCast(21))) }, false);
-    try std.testing.expectEqual(ProcessOutcome.stopped, outcome);
-    const outcome2 = process_api.outcomeFromTerm(.{ .stopped = @as(std.posix.SIG, @fromBackingInt(@intCast(21))) }, true);
-    try std.testing.expectEqual(ProcessOutcome.stopped, outcome2);
-}
-
-test "outcomeFromTerm: .unknown → .unknown (unchanged)" {
-    const outcome = process_api.outcomeFromTerm(.{ .unknown = 0 }, false);
-    try std.testing.expectEqual(ProcessOutcome.unknown, outcome);
-    const outcome2 = process_api.outcomeFromTerm(.{ .unknown = 0 }, true);
-    try std.testing.expectEqual(ProcessOutcome.unknown, outcome2);
-}
-
-// ---------------------------------------------------------------------------
-// 2. tryReapNoHang() with real child processes — Linux/macOS only
-// ---------------------------------------------------------------------------
-
-comptime {
-    if (builtin.target.os.tag != .linux and builtin.target.os.tag != .macos)
-        @compileError("test_process_api.spawn tests require POSIX (Linux or macOS)");
-}
-
-/// Create a Threaded Io with std.testing.allocator so process spawn can allocate.
-fn createSpawnIo() std.Io {
-    var t = std.Io.Threaded.init(std.testing.allocator, .{
-        .async_limit = .nothing,
-        .concurrent_limit = .nothing,
-        .stack_size = 0,
-        .argv0 = .empty,
-        .environ = .empty,
-    });
-    const io = t.io();
-    return io;
+test "reap shim retries EINTR twice before returning exit 7" {
+    os.processTestEintrThenExit(7);
+    const result = os.processReapNoHang(1);
+    try std.testing.expectEqual(@as(u32, @backingInt(os.ProcessReapKind.exited)), result.kind);
+    try std.testing.expectEqual(@as(u32, 7), result.exit_code);
+    try std.testing.expectEqual(@as(u32, 3), os.processTestNativeCallCount());
 }
 
 const SpawnContext = struct {
     threaded: std.Io.Threaded,
-    io: std.Io,
 
     fn init() SpawnContext {
-        var t = std.Io.Threaded.init(std.testing.allocator, .{
+        return .{ .threaded = std.Io.Threaded.init(std.testing.allocator, .{
             .async_limit = .nothing,
             .concurrent_limit = .nothing,
             .stack_size = 0,
             .argv0 = .empty,
             .environ = .empty,
-        });
-        return SpawnContext{ .threaded = t, .io = t.io() };
+        }) };
     }
 
-    fn deinit(ctx: *SpawnContext) void {
-        ctx.threaded.deinit();
+    fn deinit(self: *SpawnContext) void {
+        self.threaded.deinit();
+    }
+
+    fn io(self: *SpawnContext) std.Io {
+        return self.threaded.io();
     }
 };
 
-fn spawnChild2(argv: [3][]const u8, io: std.Io) std.process.Child {
-    return std.process.spawn(io, .{ .argv = &argv }) catch unreachable;
+fn spawnLongLived(io: std.Io) !std.process.Child {
+    if (builtin.os.tag == .windows) {
+        const argv = [_][]const u8{ "cmd.exe", "/C", "ping -n 31 127.0.0.1 >NUL" };
+        return std.process.spawn(io, .{ .argv = &argv });
+    }
+    const argv = [_][]const u8{ "sh", "-c", "sleep 30" };
+    return std.process.spawn(io, .{ .argv = &argv });
 }
 
-fn waitOrKill2(child: *std.process.Child, io: std.Io) void {
-    _ = child.kill(io);
-    _ = child.wait(io) catch {};
+fn spawnExit(io: std.Io, code: u8) !std.process.Child {
+    var command_buf: [32]u8 = undefined;
+    const command = try std.fmt.bufPrint(&command_buf, "exit {d}", .{code});
+    if (builtin.os.tag == .windows) {
+        const argv = [_][]const u8{ "cmd.exe", "/C", command };
+        return std.process.spawn(io, .{ .argv = &argv });
+    }
+    const argv = [_][]const u8{ "sh", "-c", command };
+    return std.process.spawn(io, .{ .argv = &argv });
 }
 
-test "tryReapNoHang: running child → .running" {
+fn cleanupChild(child: *std.process.Child, io: std.Io) void {
+    if (child.id != null) child.kill(io);
+}
+
+fn waitForObservation(child: *std.process.Child) !process_api.Observation {
+    const deadline = os.monotonicNanos() + 2 * std.time.ns_per_s;
+    while (os.monotonicNanos() < deadline) {
+        switch (process_api.tryReapNoHang(child)) {
+            .running => os.sleepNanos(std.time.ns_per_ms),
+            .observation => |observation| return observation,
+            .no_child => return error.UnexpectedNoChild,
+            .failed => return error.ReapFailed,
+        }
+    }
+    return error.ReapTimedOut;
+}
+
+test "tryReapNoHang returns running promptly without losing ownership" {
+    var ctx = SpawnContext.init();
+    defer ctx.deinit();
+    var child = try spawnLongLived(ctx.io());
+    defer cleanupChild(&child, ctx.io());
+
+    const before = os.monotonicNanos();
+    const result = process_api.tryReapNoHang(&child);
+    const elapsed = os.monotonicNanos() - before;
+
+    try std.testing.expectEqual(process_api.PollResult.running, result);
+    try std.testing.expect(child.id != null);
+    try std.testing.expect(elapsed < 250 * std.time.ns_per_ms);
+}
+
+test "tryReapNoHang preserves clean and nonzero exits" {
     var ctx = SpawnContext.init();
     defer ctx.deinit();
 
-    const argv = [_][]const u8{ "sh", "-c", "sleep 3600" };
-    var child = spawnChild2(argv, ctx.io);
-    defer {
-        waitOrKill2(&child, ctx.io);
-    }
+    var clean = try spawnExit(ctx.io(), 0);
+    defer cleanupChild(&clean, ctx.io());
+    try std.testing.expectEqualDeep(process_api.Observation{ .exited = 0 }, try waitForObservation(&clean));
+    try std.testing.expect(clean.id == null);
 
-    const result = process_api.tryReapNoHang(&child);
-    try std.testing.expectEqual(ProcessPollResult.running, result);
+    var failed = try spawnExit(ctx.io(), 42);
+    defer cleanupChild(&failed, ctx.io());
+    try std.testing.expectEqualDeep(process_api.Observation{ .exited = 42 }, try waitForObservation(&failed));
+    try std.testing.expect(failed.id == null);
 }
 
-test "tryReapNoHang: child exits cleanly → .reaped .exited(0)" {
+test "tryReapNoHang returns no_child for an empty child record" {
+    var child = std.process.Child{
+        .id = null,
+        .thread_handle = if (builtin.os.tag == .windows) undefined else {},
+        .stdin = null,
+        .stdout = null,
+        .stderr = null,
+        .request_resource_usage_statistics = false,
+    };
+    try std.testing.expectEqual(process_api.PollResult.no_child, process_api.tryReapNoHang(&child));
+}
+
+test "forceTerminate records an accepted action before the matching terminal observation" {
     var ctx = SpawnContext.init();
     defer ctx.deinit();
+    var child = try spawnLongLived(ctx.io());
+    defer cleanupChild(&child, ctx.io());
 
-    const argv = [_][]const u8{ "sh", "-c", "exit 0" };
-    var child = spawnChild2(argv, ctx.io);
-    defer {
-        waitOrKill2(&child, ctx.io);
-    }
+    const id = child.id orelse return error.MissingChildId;
+    const action = switch (process_api.forceTerminate(id)) {
+        .accepted => |accepted| accepted,
+        .failed => return error.ForceTerminateFailed,
+    };
+    const observation = try waitForObservation(&child);
 
-    os.sleepNanos(1 * std.time.ms_per_s);
+    try expectOutcome(.intentional_termination, process_api.classify(observation, action));
+    try std.testing.expect(child.id == null);
+}
 
-    const result = process_api.tryReapNoHang(&child);
+test "forceTerminate preserves a native failure without recording an action" {
+    var ctx = SpawnContext.init();
+    defer ctx.deinit();
+    var child = try spawnLongLived(ctx.io());
+    defer cleanupChild(&child, ctx.io());
+
+    os.processTestForceFailure(@backingInt(process_api.ErrorCategory.access_denied), 5);
+    const id = child.id orelse return error.MissingChildId;
+    const result = process_api.forceTerminate(id);
+
     switch (result) {
-        .reaped => |term| switch (term) {
-            .exited => |code| try std.testing.expectEqual(@as(u8, 0), code),
-            else => try std.testing.expect(false),
+        .accepted => return error.UnexpectedForceSuccess,
+        .failed => |err| {
+            try std.testing.expectEqual(process_api.ErrorCategory.access_denied, err.category);
+            try std.testing.expectEqual(@as(u32, 5), err.native_code);
         },
-        else => try std.testing.expect(false),
     }
-}
-
-test "tryReapNoHang: child exits non-zero → .reaped .exited(n)" {
-    var ctx = SpawnContext.init();
-    defer ctx.deinit();
-
-    const argv = [_][]const u8{ "sh", "-c", "exit 42" };
-    var child = spawnChild2(argv, ctx.io);
-    defer {
-        waitOrKill2(&child, ctx.io);
-    }
-
-    os.sleepNanos(1 * std.time.ms_per_s);
-
-    const result = process_api.tryReapNoHang(&child);
-    switch (result) {
-        .reaped => |term| switch (term) {
-            .exited => |code| try std.testing.expectEqual(@as(u8, 42), code),
-            else => try std.testing.expect(false),
-        },
-        else => try std.testing.expect(false),
-    }
-}
-
-test "tryReapNoHang: child receives signal → .reaped .signal(9)" {
-    var ctx = SpawnContext.init();
-    defer ctx.deinit();
-
-    const argv = [_][]const u8{ "sh", "-c", "sleep 3600" };
-    var child = spawnChild2(argv, ctx.io);
-    defer {
-        _ = child.wait(ctx.io) catch {};
-    }
-
-    const pid = child.id.?;
-    os.sleepNanos(500 * std.time.ns_per_ms);
-
-    // Cross-platform kill via C shim — std.posix.kill doesn't compile on Windows.
-    _ = os.killProcess(@intCast(pid)) catch {};
-
-    var reap_child = std.process.Child{ .id = @intCast(pid), .stdin = null, .stdout = null, .stderr = null, .thread_handle = undefined, .request_resource_usage_statistics = false };
-    reap_child.id = pid;
-    const result = process_api.tryReapNoHang(&reap_child);
-    switch (result) {
-        .reaped => |term| switch (term) {
-            .signal => |sig| {
-                try std.testing.expectEqual(std.posix.SIG.KILL, sig);
-            },
-            else => try std.testing.expect(false),
-        },
-        else => try std.testing.expect(false),
-    }
-}
-
-test "tryReapNoHang: already-reaped child → .detached" {
-    var ctx = SpawnContext.init();
-    defer ctx.deinit();
-
-    const argv = [_][]const u8{ "sh", "-c", "exit 0" };
-    var child = spawnChild2(argv, ctx.io);
-    defer {
-        waitOrKill2(&child, ctx.io);
-    }
-
-    const result1 = process_api.tryReapNoHang(&child);
-    _ = result1;
-
-    const saved_id = child.id.?;
-    child.id = saved_id;
-    const result2 = process_api.tryReapNoHang(&child);
-    try std.testing.expectEqual(ProcessPollResult.detached, result2);
-}
-
-// ---------------------------------------------------------------------------
-// 3. outcomeFromTerm + tryReapNoHang integration: classify real child results
-// ---------------------------------------------------------------------------
-
-test "outcomeFromTerm + tryReapNoHang: real child exit(1) → .exited_code(1)" {
-    var ctx = SpawnContext.init();
-    defer ctx.deinit();
-
-    const argv = [_][]const u8{ "sh", "-c", "exit 1" };
-    var child = spawnChild2(argv, ctx.io);
-    defer {
-        waitOrKill2(&child, ctx.io);
-    }
-
-    os.sleepNanos(1 * std.time.ms_per_s);
-
-    const result = process_api.tryReapNoHang(&child);
-    switch (result) {
-        .reaped => |term| {
-            const outcome = process_api.outcomeFromTerm(term, false);
-            switch (outcome) {
-                .exited_code => |code| try std.testing.expectEqual(@as(u8, 1), code),
-                else => try std.testing.expect(false),
-            }
-        },
-        else => try std.testing.expect(false),
-    }
-}
-
-test "outcomeFromTerm + tryReapNoHang: real child exit(0) + force → .force_terminated" {
-    var ctx = SpawnContext.init();
-    defer ctx.deinit();
-
-    const argv = [_][]const u8{ "sh", "-c", "exit 0" };
-    var child = spawnChild2(argv, ctx.io);
-    defer {
-        waitOrKill2(&child, ctx.io);
-    }
-
-    os.sleepNanos(1 * std.time.ms_per_s);
-
-    const result = process_api.tryReapNoHang(&child);
-    switch (result) {
-        .reaped => |term| {
-            const outcome = process_api.outcomeFromTerm(term, true);
-            try std.testing.expectEqual(ProcessOutcome.force_terminated, outcome);
-        },
-        else => try std.testing.expect(false),
-    }
-}
-
-test "outcomeFromTerm + tryReapNoHang: real child exit(0) without force → .exited_ok" {
-    var ctx = SpawnContext.init();
-    defer ctx.deinit();
-
-    const argv = [_][]const u8{ "sh", "-c", "exit 0" };
-    var child = spawnChild2(argv, ctx.io);
-    defer {
-        waitOrKill2(&child, ctx.io);
-    }
-
-    os.sleepNanos(1 * std.time.ms_per_s);
-
-    const result = process_api.tryReapNoHang(&child);
-    switch (result) {
-        .reaped => |term| {
-            const outcome = process_api.outcomeFromTerm(term, false);
-            try std.testing.expectEqual(ProcessOutcome.exited_ok, outcome);
-        },
-        else => try std.testing.expect(false),
-    }
-}
-
-// ---------------------------------------------------------------------------
-// 4. EINTR retry verification — compile-time check that the shim includes errno.h
-// ---------------------------------------------------------------------------
-
-test "EINTR retry shim compiles — errno.h present, waitpid loop present" {
-    try std.testing.expect(true);
-}
-
-// ---------------------------------------------------------------------------
-// 5. ECHILD vs other errno — real process lifecycle
-// ---------------------------------------------------------------------------
-
-test "tryReapNoHang: ECHILD after external reap → .detached" {
-    var ctx = SpawnContext.init();
-    defer ctx.deinit();
-
-    const argv = [_][]const u8{ "sh", "-c", "exit 0" };
-    var child = spawnChild2(argv, ctx.io);
-    defer {
-        waitOrKill2(&child, ctx.io);
-    }
-
-    os.sleepNanos(1 * std.time.ms_per_s);
-    _ = child.wait(ctx.io) catch {};
-    const saved_id = child.id.?;
-    child.id = saved_id;
-
-    const result = process_api.tryReapNoHang(&child);
-    try std.testing.expectEqual(ProcessPollResult.detached, result);
-}
-
-// ---------------------------------------------------------------------------
-// 6. Supervisor boundary tests — updateHandleForOutcome
-// ---------------------------------------------------------------------------
-
-test "updateHandleForOutcome: .exited_code(1) with stale prior state → stays .crashed" {
-    const TileState = enum { starting, running, stopped, stale, crashed };
-    const CrashReason = enum { none, stale, signal, exit_code };
-
-    const handle_state: TileState = .crashed;
-    const handle_crashed: CrashReason = .exit_code;
-
-    if (handle_state == .crashed) {
-        try std.testing.expectEqual(TileState.crashed, handle_state);
-        try std.testing.expectEqual(CrashReason.exit_code, handle_crashed);
-    }
-}
-
-test "outcomeFromTerm: .signal(9) without force → .crashed, NOT .force_terminated" {
-    const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @fromBackingInt(@intCast(9))) }, false);
-    try std.testing.expectEqual(ProcessOutcome.crashed, outcome);
-}
-
-test "outcomeFromTerm: .signal(9) with force → .force_terminated" {
-    const outcome = process_api.outcomeFromTerm(.{ .signal = @as(std.posix.SIG, @fromBackingInt(@intCast(9))) }, true);
-    try std.testing.expectEqual(ProcessOutcome.force_terminated, outcome);
-}
-
-test "outcomeFromTerm: .unknown without force → .unknown, NOT .exited_ok" {
-    const outcome = process_api.outcomeFromTerm(.{ .unknown = 0 }, false);
-    try std.testing.expectEqual(ProcessOutcome.unknown, outcome);
-}
-
-test "outcomeFromTerm: .unknown with force → .unknown, NOT .exited_ok" {
-    const outcome = process_api.outcomeFromTerm(.{ .unknown = 0 }, true);
-    try std.testing.expectEqual(ProcessOutcome.unknown, outcome);
-}
-
-// ---------------------------------------------------------------------------
-// 7. Non-zero exit survives force phase — end-to-end spawn + reap
-// ---------------------------------------------------------------------------
-
-test "non-zero exit survives force-phase classification" {
-    var ctx = SpawnContext.init();
-    defer ctx.deinit();
-
-    const argv = [_][]const u8{ "sh", "-c", "exit 1" };
-    var child = spawnChild2(argv, ctx.io);
-    defer {
-        waitOrKill2(&child, ctx.io);
-    }
-
-    os.sleepNanos(1 * std.time.ms_per_s);
-
-    const result = process_api.tryReapNoHang(&child);
-    switch (result) {
-        .reaped => |term| {
-            const outcome = process_api.outcomeFromTerm(term, false);
-            switch (outcome) {
-                .exited_code => |code| try std.testing.expectEqual(@as(u8, 1), code),
-                else => try std.testing.expect(false),
-            }
-        },
-        else => try std.testing.expect(false),
-    }
-}
-
-test "child exits between running-check and kill → was_forced=false classification" {
-    var ctx = SpawnContext.init();
-    defer ctx.deinit();
-
-    const argv = [_][]const u8{ "sh", "-c", "exit 2" };
-    var child = spawnChild2(argv, ctx.io);
-    defer {
-        waitOrKill2(&child, ctx.io);
-    }
-
-    os.sleepNanos(500 * std.time.ns_per_ms);
-
-    const result = process_api.tryReapNoHang(&child);
-    switch (result) {
-        .reaped => |term| {
-            const outcome = process_api.outcomeFromTerm(term, false);
-            switch (outcome) {
-                .exited_code => |code| try std.testing.expectEqual(@as(u8, 2), code),
-                else => try std.testing.expect(false),
-            }
-        },
-        else => try std.testing.expect(false),
-    }
-}
-
-test "reaped child with exit(0) and was_forced=true → .force_terminated (not .exited_ok)" {
-    var ctx = SpawnContext.init();
-    defer ctx.deinit();
-
-    const argv = [_][]const u8{ "sh", "-c", "exit 0" };
-    var child = spawnChild2(argv, ctx.io);
-    defer {
-        waitOrKill2(&child, ctx.io);
-    }
-
-    os.sleepNanos(1 * std.time.ms_per_s);
-
-    const result = process_api.tryReapNoHang(&child);
-    switch (result) {
-        .reaped => |term| {
-            const outcome = process_api.outcomeFromTerm(term, true);
-            try std.testing.expectEqual(ProcessOutcome.force_terminated, outcome);
-        },
-        else => try std.testing.expect(false),
-    }
+    try std.testing.expect(child.id != null);
 }

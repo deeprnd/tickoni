@@ -69,6 +69,10 @@ extern fn tk_topob_set_tile_obj_property_ulong(topo: *Topo, tile_name: [*:0]cons
 extern fn tk_topob_tickoni_tile_scratch_requirements(tile_name: [*:0]const u8, alignment: *usize, footprint: *usize) void;
 extern fn tk_topo_tile_obj_id(topo: *const Topo, tile_id: usize) usize;
 extern fn tk_topo_tile_set_metric_port(topo: *Topo, tile_id: usize, port: c_ushort) void;
+extern fn tk_topo_tile_cpu_idx(topo: *const Topo, tile_id: usize) usize;
+extern fn tk_topo_tile_in_cnt(topo: *const Topo, tile_id: usize) usize;
+extern fn tk_topo_tile_out_cnt(topo: *const Topo, tile_id: usize) usize;
+extern fn tk_topo_link_consumer_cnt(topo: *const Topo, link_id: usize) usize;
 extern fn tk_topo_obj_offset(topo: *const Topo, obj_id: usize) usize;
 extern fn tk_topo_obj_footprint(topo: *const Topo, obj_id: usize) usize;
 extern fn tk_topo_obj_scratch_align(topo: *const Topo, obj_id: usize) usize;
@@ -256,6 +260,22 @@ pub fn topoTileObjId(topo: *const Topo, tile_id: usize) usize {
 /// binds to the expected port (7999 from Firedancer config).
 pub fn topoTileSetMetricPort(topo: *Topo, tile_id: usize, port: c_ushort) void {
     tk_topo_tile_set_metric_port(topo, tile_id, port);
+}
+
+pub fn topoTileCpuIdx(topo: *const Topo, tile_id: usize) usize {
+    return tk_topo_tile_cpu_idx(topo, tile_id);
+}
+
+pub fn topoTileInputCount(topo: *const Topo, tile_id: usize) usize {
+    return tk_topo_tile_in_cnt(topo, tile_id);
+}
+
+pub fn topoTileOutputCount(topo: *const Topo, tile_id: usize) usize {
+    return tk_topo_tile_out_cnt(topo, tile_id);
+}
+
+pub fn topoLinkConsumerCount(topo: *const Topo, link_id: usize) usize {
+    return tk_topo_link_consumer_cnt(topo, link_id);
 }
 
 /// Returns the offset assigned to an object by fd_topob_finish.

@@ -14,10 +14,7 @@
  *   tk_sleep_nanos          — sleep for a specified nanosecond count
  *   tk_self_exe_path        — resolve the executable's file path
  *   tk_parent_pid           — get the parent PID of a given process
- *   tk_process_id_from_handle — convert a process HANDLE to PID (Win32: returns input; POSIX: stub)
- *   tk_process_poll         — poll a process for termination status
- *   tk_kill_process         — send SIGKILL / TerminateProcess to a process
- *   tk_kill_process_group   — kill entire process group (Linux/macOS only)
+
  *   tk_write                — write to a file descriptor, returns bytes written
  *   tk_isatty               — check if a file descriptor refers to a terminal
  *   tk_fflush               — flush stderr
@@ -36,6 +33,58 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#include "os.h"
+
+#if TK_PROCESS_TEST
+static uint tk_process_test_exit_code;
+static uint tk_process_test_call_count;
+static int  tk_process_test_enabled;
+static uint tk_process_test_force_error;
+static uint tk_process_test_force_native_error;
+static int  tk_process_test_force_enabled;
+
+void
+tk_process_test_eintr_then_exit( uint exit_code ) {
+  tk_process_test_exit_code  = exit_code;
+  tk_process_test_call_count = 0U;
+  tk_process_test_enabled    = 1;
+}
+
+uint
+tk_process_test_native_call_count( void ) {
+  return tk_process_test_call_count;
+}
+
+void
+tk_process_test_force_failure( uint error,
+                               uint native_error ) {
+  tk_process_test_force_error        = error;
+  tk_process_test_force_native_error = native_error;
+  tk_process_test_force_enabled      = 1;
+}
+
+static int
+tk_process_test_reap( tk_process_reap_result_t * out ) {
+  if( !tk_process_test_enabled ) return 0;
+  tk_process_test_call_count += 3U; /* EINTR, EINTR, terminal exit */
+  tk_process_test_enabled     = 0;
+  memset( out, 0, sizeof(*out) );
+  out->kind      = TK_PROCESS_REAP_EXITED;
+  out->exit_code = tk_process_test_exit_code;
+  return 1;
+}
+
+static int
+tk_process_test_force( tk_process_terminate_result_t * out ) {
+  if( !tk_process_test_force_enabled ) return 0;
+  tk_process_test_force_enabled = 0;
+  memset( out, 0, sizeof(*out) );
+  out->error        = tk_process_test_force_error;
+  out->native_error = tk_process_test_force_native_error;
+  return 1;
+}
+#endif
 
 /* Shared Linux/macOS implementations — both platforms use POSIX clock_gettime
  * and nanosleep with identical signatures and semantics. */
@@ -141,37 +190,24 @@ int tk_parent_pid( int pid ) {
 #endif
 }
 
-int tk_process_id_from_handle( uintptr_t handle ) {
-  /* Linux/macOS: no concept of HANDLE→PID conversion; return as-is.
-   * Windows overrides this with GetProcessId(). */
-  return (int)handle;
+uint
+tk_process_diagnostic_pid( ulong process_token ) {
+  return (uint)process_token;
 }
 
-int tk_process_poll( int pid ) {
-  /* Linux/macOS: no direct poll equivalent; return -2 (unsupported).
-   * Windows overrides this with WaitForSingleObject + GetExitCodeProcess. */
-  (void)pid;
-  return -2;
-}
-
-int tk_process_waitpid( int pid, int * status, int options ) {
-  /* POSIX: standard waitpid(2) for non-blocking process reaping.
-   * Returns the PID on success, 0 if no child waited on, or -1 on error.
-   * Windows does not use this — use tk_process_poll() instead. */
-  pid_t rc = waitpid( (pid_t)pid, status, options );
-  return rc < 0 ? -1 : (int)rc;
-}
-
-int tk_kill_process( int pid ) {
-  /* POSIX kill() sends SIGKILL to the target process. Returns -1 on error. */
-  return kill( pid, SIGKILL );
-}
-
-int tk_kill_process_group( int pgid ) {
-  /* Negative pgid kills the entire process group. Used for emergency
-   * teardown of stuck tiles (epoll_wait blocks can survive SIGKILL
-   * on individual PIDs but are interrupted by group-wide delivery). */
-  return kill( -pgid, SIGKILL );
+static uint
+tk_process_error_from_errno( int err ) {
+  switch( err ) {
+  case 0:      return TK_PROCESS_ERROR_NONE;
+  case EACCES:
+  case EPERM:  return TK_PROCESS_ERROR_ACCESS_DENIED;
+  case ESRCH:  return TK_PROCESS_ERROR_INVALID_PROCESS;
+  case EINVAL: return TK_PROCESS_ERROR_INVALID_ARGUMENT;
+  case EAGAIN:
+  case ENOMEM: return TK_PROCESS_ERROR_RESOURCE_EXHAUSTED;
+  case ENOSYS: return TK_PROCESS_ERROR_UNSUPPORTED;
+  default:     return TK_PROCESS_ERROR_SYSTEM;
+  }
 }
 
 int tk_write( int fd, void const * buf, size_t count ) {
@@ -239,47 +275,71 @@ int tk_set_affinity(int pid, const unsigned char *mask) {
 #endif
 }
 
-typedef struct {
-  int pid;
-  int status;
-  int exit_code;
-  int signal;
-  int stop_signal;
-  int kind;
-  int err;
-} tk_process_reap_result;
-
-void tk_process_reap(int pid, int options, tk_process_reap_result *out) {
-  /* Linux/macOS: waitpid(2) decodes status word via WIF* macros.
-   * Returns: kind=1 exited, kind=2 signaled, kind=3 stopped.
-   * pid==0 means running, pid==-1 means failed.
-   * Retries on EINTR (signal interruption) so transient signals
-   * do not lose a child. Stores errno for diagnosis on real errors. */
-  memset(out, 0, sizeof(*out));
+void
+tk_process_reap_nohang( ulong                      process_token,
+                        tk_process_reap_result_t * out ) {
+#if TK_PROCESS_TEST
+  if( tk_process_test_reap( out ) ) return;
+#endif
+  memset( out, 0, sizeof(*out) );
   int status = 0;
   pid_t rc;
   do {
-    rc = waitpid((pid_t)pid, &status, options);
-  } while (rc < 0 && errno == EINTR);
-  if (rc < 0) {
-    out->pid = -1;
-    out->err = errno;
-  } else if (rc == 0) {
-    out->pid = 0;
+    rc = waitpid( (pid_t)process_token, &status, WNOHANG );
+  } while( FD_UNLIKELY( (rc<0) & (errno==EINTR) ) );
+  if( FD_UNLIKELY( rc<0 ) ) {
+    int err = errno;
+    if( err==ECHILD ) {
+      out->kind = TK_PROCESS_REAP_NO_CHILD;
+      return;
+    }
+    out->kind         = TK_PROCESS_REAP_FAILED;
+    out->error        = tk_process_error_from_errno( err );
+    out->native_error = (uint)err;
+  } else if( !rc ) {
+    out->kind = TK_PROCESS_REAP_RUNNING;
   } else {
-    out->pid = (int)rc;
-    out->status = status;
-    if (WIFEXITED(status)) {
-      out->kind = 1;
-      out->exit_code = WEXITSTATUS(status);
-    } else if (WIFSIGNALED(status)) {
-      out->kind = 2;
-      out->signal = WTERMSIG(status);
-    } else if (WIFSTOPPED(status)) {
-      out->kind = 3;
-      out->stop_signal = WSTOPSIG(status);
+    out->native_status = (uint)status;
+    if( WIFEXITED( status ) ) {
+      out->kind      = TK_PROCESS_REAP_EXITED;
+      out->exit_code = (uint)WEXITSTATUS( status );
+    } else if( WIFSIGNALED( status ) ) {
+      out->kind   = TK_PROCESS_REAP_SIGNALED;
+      out->signal = (uint)WTERMSIG( status );
+    } else if( WIFSTOPPED( status ) ) {
+      out->kind   = TK_PROCESS_REAP_STOPPED;
+      out->signal = (uint)WSTOPSIG( status );
+    } else {
+      out->kind         = TK_PROCESS_REAP_FAILED;
+      out->error        = TK_PROCESS_ERROR_SYSTEM;
+      out->native_error = (uint)status;
     }
   }
+}
+
+void
+tk_process_force_terminate( ulong                           process_token,
+                            tk_process_terminate_result_t * out ) {
+  memset( out, 0, sizeof(*out) );
+#if TK_PROCESS_TEST
+  if( tk_process_test_force( out ) ) return;
+#endif
+  if( FD_UNLIKELY( kill( (pid_t)process_token, SIGKILL ) ) ) {
+    int err           = errno;
+    out->error        = tk_process_error_from_errno( err );
+    out->native_error = (uint)err;
+    return;
+  }
+  out->accepted     = 1U;
+  out->action_kind  = TK_PROCESS_TERMINATION_SIGNAL;
+  out->action_value = (uint)SIGKILL;
+}
+
+void
+tk_process_release( ulong process_token,
+                    ulong thread_token ) {
+  (void)process_token;
+  (void)thread_token;
 }
 
 #elif FD_HAS_WINDOWS
@@ -372,37 +432,25 @@ int tk_parent_pid( int pid ) {
   return parent;
 }
 
-int tk_process_id_from_handle( uintptr_t handle ) {
-  /* Windows: GetProcessId converts a HANDLE to its owning PID.
-   * On POSIX, this is a no-op cast (see above). */
-  DWORD pid = GetProcessId( (HANDLE)handle );
-  return pid ? (int)pid : -1;
+uint
+tk_process_diagnostic_pid( ulong process_token ) {
+  DWORD pid = GetProcessId( (HANDLE)(uintptr_t)process_token );
+  return (uint)pid;
 }
 
-int tk_process_poll( int pid ) {
-  /* Windows: WaitForSingleObject with 0ms timeout checks if the process
-   * has exited. GetExitCodeProcess then retrieves the exit code.
-   * This is the Windows equivalent of poll(2) or select(2) for processes. */
-  HANDLE process = OpenProcess( PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, (DWORD)pid );
-  if( FD_UNLIKELY( !process ) ) return -2;
-  DWORD wait_rc = WaitForSingleObject( process, 0U );
-  if( wait_rc==WAIT_TIMEOUT ) { CloseHandle( process ); return -1; }
-  if( wait_rc!=WAIT_OBJECT_0 ) { CloseHandle( process ); return -2; }
-  DWORD code = 0U;
-  int rc = GetExitCodeProcess( process, &code ) ? (int)(code & 0x7fffffffU) : -2;
-  CloseHandle( process );
-  return rc;
-}
-
-int tk_kill_process( int pid ) {
-  /* Windows: TerminateProcess is the equivalent of POSIX SIGKILL.
-   * It is immediate and cannot be caught or ignored by the target. */
-  HANDLE process = OpenProcess( PROCESS_TERMINATE, FALSE, (DWORD)pid );
-  if( FD_UNLIKELY( !process ) ) return -1;
-
-  int rc = TerminateProcess( process, 255U ) ? 0 : -1;
-  CloseHandle( process );
-  return rc;
+static uint
+tk_process_error_from_windows( DWORD err ) {
+  switch( err ) {
+  case ERROR_SUCCESS:           return TK_PROCESS_ERROR_NONE;
+  case ERROR_ACCESS_DENIED:     return TK_PROCESS_ERROR_ACCESS_DENIED;
+  case ERROR_INVALID_HANDLE:
+  case ERROR_NOT_FOUND:         return TK_PROCESS_ERROR_INVALID_PROCESS;
+  case ERROR_INVALID_PARAMETER: return TK_PROCESS_ERROR_INVALID_ARGUMENT;
+  case ERROR_NOT_ENOUGH_MEMORY:
+  case ERROR_OUTOFMEMORY:       return TK_PROCESS_ERROR_RESOURCE_EXHAUSTED;
+  case ERROR_NOT_SUPPORTED:     return TK_PROCESS_ERROR_UNSUPPORTED;
+  default:                      return TK_PROCESS_ERROR_SYSTEM;
+  }
 }
 
 int tk_write( int fd, void const * buf, size_t count ) {
@@ -459,40 +507,64 @@ int tk_set_affinity(int pid, const unsigned char *mask) {
   return 0;
 }
 
-typedef struct {
-  int pid;
-  int status;
-  int exit_code;
-  int signal;
-  int stop_signal;
-  int kind;
-  int err;
-} tk_process_reap_result;
-
-void tk_process_reap(int pid, int options, tk_process_reap_result *out) {
-  /* Windows: WaitForSingleObject checks process termination.
-   * GetExitCodeProcess retrieves the exit code on termination.
-   * options is ignored (Windows uses WaitForSingleObject semantics).
-   * err is zeroed — Windows does not expose POSIX errno. */
-  memset(out, 0, sizeof(*out));
-  HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, (DWORD)pid);
-  if (!process) {
-    out->pid = -1;
+void
+tk_process_reap_nohang( ulong                      process_token,
+                        tk_process_reap_result_t * out ) {
+#if TK_PROCESS_TEST
+  if( tk_process_test_reap( out ) ) return;
+#endif
+  memset( out, 0, sizeof(*out) );
+  HANDLE process = (HANDLE)(uintptr_t)process_token;
+  DWORD wait_rc  = WaitForSingleObject( process, 0U );
+  out->native_status = (uint)wait_rc;
+  if( wait_rc==WAIT_TIMEOUT ) {
+    out->kind = TK_PROCESS_REAP_RUNNING;
     return;
   }
-  DWORD wait_rc = WaitForSingleObject(process, (options & 1) ? 0 : INFINITE);
-  if (wait_rc == WAIT_TIMEOUT) {
-    out->pid = 0;
-  } else if (wait_rc == WAIT_OBJECT_0) {
-    DWORD code = 0;
-    int got = GetExitCodeProcess(process, &code);
-    out->pid = pid;
-    out->kind = 1;
-    out->exit_code = got ? (int)(code & 0x7fffffff) : -1;
-  } else {
-    out->pid = -1;
+  if( FD_UNLIKELY( wait_rc!=WAIT_OBJECT_0 ) ) {
+    DWORD err         = GetLastError();
+    out->kind         = TK_PROCESS_REAP_FAILED;
+    out->error        = tk_process_error_from_windows( err );
+    out->native_error = (uint)err;
+    return;
   }
-  CloseHandle(process);
+  DWORD code = 0U;
+  if( FD_UNLIKELY( !GetExitCodeProcess( process, &code ) ) ) {
+    DWORD err         = GetLastError();
+    out->kind         = TK_PROCESS_REAP_FAILED;
+    out->error        = tk_process_error_from_windows( err );
+    out->native_error = (uint)err;
+    return;
+  }
+  out->kind      = TK_PROCESS_REAP_EXITED;
+  out->exit_code = (uint)code;
+}
+
+void
+tk_process_force_terminate( ulong                           process_token,
+                            tk_process_terminate_result_t * out ) {
+  static DWORD const force_exit_code = 0x544B494CU;
+  memset( out, 0, sizeof(*out) );
+#if TK_PROCESS_TEST
+  if( tk_process_test_force( out ) ) return;
+#endif
+  HANDLE process = (HANDLE)(uintptr_t)process_token;
+  if( FD_UNLIKELY( !TerminateProcess( process, force_exit_code ) ) ) {
+    DWORD err         = GetLastError();
+    out->error        = tk_process_error_from_windows( err );
+    out->native_error = (uint)err;
+    return;
+  }
+  out->accepted     = 1U;
+  out->action_kind  = TK_PROCESS_TERMINATION_EXIT_CODE;
+  out->action_value = (uint)force_exit_code;
+}
+
+void
+tk_process_release( ulong process_token,
+                    ulong thread_token ) {
+  if( thread_token ) CloseHandle( (HANDLE)(uintptr_t)thread_token );
+  if( process_token ) CloseHandle( (HANDLE)(uintptr_t)process_token );
 }
 
 #else
@@ -525,18 +597,9 @@ int tk_parent_pid( int pid ) {
   return -1;
 }
 
-int tk_process_id_from_handle( uintptr_t handle ) {
-  return (int)handle;
-}
-
-int tk_process_poll( int pid ) {
-  (void)pid;
-  return -2;
-}
-
-int tk_kill_process( int pid ) {
-  (void)pid;
-  return -1;
+uint
+tk_process_diagnostic_pid( ulong process_token ) {
+  return (uint)process_token;
 }
 
 int tk_write( int fd, void const * buf, size_t count ) {
@@ -570,21 +633,34 @@ int tk_set_affinity(int pid, const unsigned char *mask) {
   return 0;
 }
 
-typedef struct {
-  int pid;
-  int status;
-  int exit_code;
-  int signal;
-  int stop_signal;
-  int kind;
-  int err;
-} tk_process_reap_result;
+void
+tk_process_reap_nohang( ulong                      process_token,
+                        tk_process_reap_result_t * out ) {
+#if TK_PROCESS_TEST
+  if( tk_process_test_reap( out ) ) return;
+#endif
+  (void)process_token;
+  memset( out, 0, sizeof(*out) );
+  out->kind  = TK_PROCESS_REAP_FAILED;
+  out->error = TK_PROCESS_ERROR_UNSUPPORTED;
+}
 
-void tk_process_reap(int pid, int options, tk_process_reap_result *out) {
-  /* Fallback stub — no-op reap. */
-  (void)pid; (void)options;
-  memset(out, 0, sizeof(*out));
-  out->pid = -1;
+void
+tk_process_force_terminate( ulong                           process_token,
+                            tk_process_terminate_result_t * out ) {
+  (void)process_token;
+  memset( out, 0, sizeof(*out) );
+#if TK_PROCESS_TEST
+  if( tk_process_test_force( out ) ) return;
+#endif
+  out->error = TK_PROCESS_ERROR_UNSUPPORTED;
+}
+
+void
+tk_process_release( ulong process_token,
+                    ulong thread_token ) {
+  (void)process_token;
+  (void)thread_token;
 }
 
 int tk_setenv( const char * name, const char * value, int overwrite ) {

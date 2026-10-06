@@ -3,7 +3,6 @@
 /// Replaces ~960 lines of repetitive individual test registrations with a
 /// spec array + TestBuilder. Handles special cases (tier.zig C source,
 /// codec-linked tests, schema tests) via per-spec linkage/imports flags.
-
 const std = @import("std");
 const factory = @import("../factory.zig");
 const lane = @import("../lane.zig");
@@ -55,6 +54,20 @@ pub fn strategy(
         .source_file = "src/tickoni/util/process.zig",
     }, test_step, run_cmd);
 
+    tb.registerRunTest(.{
+        .name = "test-supervisor-lifecycle",
+        .source_file = "src/app/tickoni/supervisor.zig",
+        .imports = &.{
+            .{ .name = "runtime", .module = shared.runtime },
+            .{ .name = "tiles", .module = shared.tiles },
+            .{ .name = "c_abi", .module = shared.c_abi },
+            .{ .name = "util", .module = shared.util },
+            .{ .name = "topologies", .module = shared.topologies },
+            .{ .name = "logger", .module = shared.logger },
+        },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
+    }, test_step, run_cmd);
+
     // test-process-api — needs c_abi module, util module, and os.c shim (libc).
     {
         const pa_mod = b.createModule(.{
@@ -66,7 +79,8 @@ pub fn strategy(
                 .{ .name = "util", .module = shared.util },
             },
         });
-        pa_mod.addCSourceFiles(.{ .files = &.{ "src/tickoni/c_abi/shim/os.c" } });
+        pa_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/c_abi/shim/os.c"} });
+        pa_mod.addCMacro("TK_PROCESS_TEST", "1");
         pa_mod.link_libc = true;
         const pa_test = b.addTest(.{ .name = "test-process-api", .root_module = pa_mod });
         test_step.dependOn(&pa_test.step);

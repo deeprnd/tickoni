@@ -1,7 +1,10 @@
 /// Cross-platform OS abstraction — re-exports c_abi.os shim.
 /// All platform-specific code is hidden behind src/tickoni/c_abi/shim/os.c.
 const std = @import("std");
-pub const c = @import("c_abi").os;
+const c = @import("c_abi").os;
+
+pub const ProcessReapResult = c.ProcessReapResult;
+pub const ProcessTerminateResult = c.ProcessTerminateResult;
 
 pub fn monotonicNanos() i64 {
     return c.monotonicNanos();
@@ -14,13 +17,6 @@ pub fn selfExePath(buf: []u8) ![]const u8 {
 }
 pub fn parentPid(pid: c_int) c_int {
     return c.parentPid(pid) catch -1;
-}
-pub fn kill(pid: c_int) void {
-    c.killProcess(@intCast(pid));
-}
-
-pub fn processPoll(pid: c_int) c_int {
-    return c.processPoll(pid);
 }
 pub fn write(fd: c_int, buf: []const u8) usize {
     return c.writeFd(@intCast(fd), buf);
@@ -53,13 +49,22 @@ pub fn setAffinity(pid: c_int, cpu_set: []const u8) !void {
     try c.setAffinity(pid, cpu_set);
 }
 
-pub const tk_process_reap_result = c.tk_process_reap_result;
-
-pub fn processReap(pid: c_int, options: c_int) tk_process_reap_result {
-    return c.processReap(pid, options);
+pub fn processToken(id: std.process.Child.Id) usize {
+    return c.processToken(id);
 }
 
-/// Cross-platform ECHILD errno — 10 on Linux, 77 on macOS.
-pub fn eChildErrno() c_int {
-    return c.eChildErrno();
+pub fn processDiagnosticPid(id: std.process.Child.Id) u32 {
+    return c.processDiagnosticPid(id);
+}
+
+pub fn processReapNoHang(process_token: usize) ProcessReapResult {
+    return c.processReapNoHang(process_token);
+}
+
+pub fn processForceTerminate(process_token: usize) ProcessTerminateResult {
+    return c.processForceTerminate(process_token);
+}
+
+pub fn processRelease(child: *std.process.Child) void {
+    c.processRelease(child);
 }

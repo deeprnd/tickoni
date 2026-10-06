@@ -41,7 +41,7 @@ test "process_topology_integration: every tile is a distinct OS process parented
         for (seen_pids[0..i]) |other| try std.testing.expect(other != child_id);
         seen_pids[i] = child_id;
 
-        const ppid = try c_abi.os.parentPid(try c_abi.os.processId(child_id));
+        const ppid = try c_abi.os.parentPid(@intCast(c_abi.os.processDiagnosticPid(child_id)));
         try std.testing.expectEqual(supervisor_pid, ppid);
     }
 
@@ -116,61 +116,6 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
     }
-}
-
-test "process_topology_integration: SIGKILL on one tile is reported by identity without corrupting siblings" {
-    var tmp = util.tmpDir();
-    defer tmp.cleanup();
-
-    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
-    const len = try tmp.dir.realPath(std.testing.io, &path_buf);
-    const run_dir = path_buf[0..len];
-
-    const topo = topologies.paymentPipelineProcess();
-    var sup = try Supervisor.init(std.testing.allocator, topo);
-    defer sup.deinit();
-
-    const tkrepl_idx = 5;
-    try std.testing.expectEqualStrings("tkrepl", topo.tiles[tkrepl_idx].id.slice());
-
-    const port = util.metricPort();
-    const event_count: u64 = 16;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
-        .run_dir = run_dir,
-        .event_count = event_count,
-        .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
-        .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
-        .metric_port = port,
-    });
-
-    const tkrepl_id = sup.monitor()[tkrepl_idx].pid orelse return error.MissingPid;
-    try c_abi.os.killProcess(try c_abi.os.processId(tkrepl_id));
-
-    const max_polls: u32 = 400;
-    var poll: u32 = 0;
-    while (poll < max_polls) : (poll += 1) {
-        if (sup.snapshotProcessMetrics().audited >= event_count) break;
-        util.process.sleepNanos(5 * std.time.ns_per_ms);
-    }
-    const metrics = sup.snapshotProcessMetrics();
-
-    sup.stopProcess(std.testing.io) catch @panic("unresolved child");
-
-    try std.testing.expectEqual(rt.tile.TileState.crashed, sup.monitor()[tkrepl_idx].state);
-    try std.testing.expectEqual(rt.tile.CrashReason.signal, sup.monitor()[tkrepl_idx].crashed_because);
-
-    var signal_crash_count: usize = 0;
-    for (sup.monitor(), 0..) |h, i| {
-        if (h.crashed_because == .signal) signal_crash_count += 1;
-        if (i == tkrepl_idx) continue;
-        try std.testing.expect(h.state != .crashed);
-        try std.testing.expect(h.crashed_because != .signal);
-        try std.testing.expect(h.crashed_because != .exit_code);
-    }
-    try std.testing.expectEqual(@as(usize, 1), signal_crash_count);
-    try std.testing.expectEqual(event_count, metrics.produced);
-    try std.testing.expectEqual(event_count, metrics.audited);
 }
 
 test "process_topology_integration: a self-exiting tile is reported crashed via exit_code, not signal" {

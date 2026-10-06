@@ -222,22 +222,26 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     tile_id_buf[id_slice.len] = 0;
     const tile_id_z: [*:0]const u8 = @ptrCast(&tile_id_buf);
 
-    const tile_idx = c_abi.topob.topoFindTile(built.topo, tile_id_z, 0);
-    if (tile_idx == c_abi.topob.not_found) {
+    const topo_tile_idx = c_abi.topob.topoFindTile(built.topo, tile_id_z, 0);
+    if (topo_tile_idx == c_abi.topob.not_found) {
         std.debug.print("tile_process: tile {s} not found in rebuilt topology\n", .{id_slice});
         return 1;
     }
-    c_abi.topob.topoTileSetAllowShutdown(built.topo, tile_idx, true);
+    if (spec.tile_idx >= built.tiles.len or topo_tile_idx != built.tiles[spec.tile_idx].topo_tile_idx) {
+        std.debug.print("tile_process: descriptor identity mismatch for tile {s}\n", .{id_slice});
+        return 1;
+    }
+    c_abi.topob.topoTileSetAllowShutdown(built.topo, topo_tile_idx, true);
 
     g_ctx = .{
         .spec = &spec,
         .wksp_idx = built.wksp_idx,
-        .cnc_obj_id = built.cnc_obj_id[tile_idx],
+        .cnc_obj_id = built.tiles[spec.tile_idx].cnc_obj_id,
         .work = work,
         .io = io,
         .allocator = allocator,
     };
 
-    c_abi.topo_run.runTileSimple(built.topo, c_abi.topob.topoTilePtr(built.topo, tile_idx));
+    c_abi.topo_run.runTileSimple(built.topo, c_abi.topob.topoTilePtr(built.topo, topo_tile_idx));
     return 0;
 }

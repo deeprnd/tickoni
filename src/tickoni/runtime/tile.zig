@@ -45,6 +45,9 @@ pub const TileState = enum {
     /// Shutdown reached its deadline without a terminal reap observation.
     /// Shared process resources remain retained and cleanup may be retried.
     unresolved,
+    /// The supervisor confirmed that it no longer owns a child process but
+    /// did not receive a terminal observation for it.
+    detached,
 };
 
 /// Identifies why a tile transitioned to .crashed, for supervisor
@@ -64,14 +67,33 @@ pub const CrashReason = enum {
     signal,
 };
 
+/// Raw process evidence retained by a tile handle. These mirror the portable
+/// process API's transport values without making the runtime tile model depend
+/// on the util module (topology-only unit tests import this file directly).
+pub const ProcessObservation = union(enum) {
+    exited: u32,
+    signaled: u32,
+    stopped: u32,
+};
+
+pub const ProcessTerminationAction = union(enum) {
+    signal: u32,
+    exit_code: u32,
+};
+
+pub const ProcessError = struct {
+    category: u32,
+    native_code: u32,
+};
+
 /// Runtime handle for one tile managed by the supervisor.
 pub const TileHandle = struct {
     tile_idx: u32,
     state: TileState,
     /// Non-null when the tile runs as an in-process thread (test/dev mode).
     thread: ?std.Thread,
-    /// Meaningful only when state == .crashed.
-    exit_code: u8,
+    /// Full-width native exit code; meaningful when state == .crashed.
+    exit_code: u32,
     /// Non-null when the tile runs as a supervisor-managed OS process
     /// (v2.14 process mode).
     pid: ?std.process.Child.Id = null,
@@ -80,6 +102,12 @@ pub const TileHandle = struct {
     cpu_placement: cpu_placement.CpuPlacement = .floating,
     /// Meaningful only when state == .crashed.
     crashed_because: CrashReason = .none,
+    /// The unclassified process observation that last changed this handle.
+    observation: ?ProcessObservation = null,
+    /// The exact accepted force action, if any, for this run.
+    termination_action: ?ProcessTerminationAction = null,
+    /// The last reap/terminate failure; retained through shutdown diagnostics.
+    last_process_error: ?ProcessError = null,
 
     pub fn init(idx: u32) TileHandle {
         return .{ .tile_idx = idx, .state = .stopped, .thread = null, .exit_code = 0 };
@@ -88,7 +116,7 @@ pub const TileHandle = struct {
     pub fn isAlive(self: TileHandle) bool {
         return switch (self.state) {
             .starting, .running, .stopping, .stale, .unresolved => true,
-            .stopped, .crashed => false,
+            .stopped, .crashed, .detached => false,
         };
     }
 };

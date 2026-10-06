@@ -114,9 +114,8 @@ pub const ChildRecord = struct {
     halt_timestamp: ?i64 = null,
     force_action: ?util.process_api.TerminationAction = null,
     force_timestamp: ?i64 = null,
-    terminal_observation: ?std.process.Child.Term = null,
-    last_portable_reap_error: ?i32 = null,
-    last_native_reap_error: ?i32 = null,
+    terminal_observation: ?util.process_api.Observation = null,
+    last_reap_error: ?util.process_api.ProcessError = null,
     reap_error_count: u32 = 0,
 };
 
@@ -442,7 +441,7 @@ pub const Supervisor = struct {
         // wkspAlloc); how children join them (LaunchSpec's gaddr fields)
         // is unchanged.
         for (self.topo.tiles, 0..) |_, i| {
-            const laddr = c_abi.topob.topoObjLaddr(built_topo.topo, built_topo.cnc_obj_id[i]);
+            const laddr = c_abi.topob.topoObjLaddr(built_topo.topo, built_topo.tiles[i].cnc_obj_id);
             state.cnc_gaddrs[i] = c_abi.wksp.wkspGaddr(wksp, laddr);
             state.cncs[i] = c_abi.cnc.cncJoin(laddr) orelse return error.CncJoinFailed;
         }
@@ -552,7 +551,7 @@ pub const Supervisor = struct {
             state.children[i] = .{
                 .child = child,
                 .ownership = .owned,
-                .numeric_pid = if (child.id) |pid| @intCast(util.os_api.c.processId(pid) catch 0) else 0,
+                .numeric_pid = if (child.id) |pid| util.os_api.processDiagnosticPid(pid) else 0,
             };
 
             switch (tile.cpu_placement) {
@@ -570,14 +569,14 @@ pub const Supervisor = struct {
         // what the shutdown sequence does to its process.
         if (self.handles[i].state == .crashed) return;
         switch (outcome) {
-            .exited_ok => {
+            .clean_stop, .intentional_termination => {
                 // A clean exit after stopProcess() should be treated as a
                 // normal stop even if refreshProcessHealth() transiently
                 // marked the tile stale before the halt/reap completed.
                 self.handles[i].state = .stopped;
                 self.handles[i].crashed_because = .none;
             },
-            .exited_code => |code| {
+            .crash_exit => |code| {
                 // A non-zero process exit is definitive crash evidence. A
                 // stale heartbeat may be how we first noticed the tile, but
                 // must not hide its eventual exit status.
@@ -585,37 +584,62 @@ pub const Supervisor = struct {
                 self.handles[i].exit_code = code;
                 self.handles[i].crashed_because = .exit_code;
             },
-            .force_terminated => {
-                // stopProcess intentionally force-terminates children that did
-                // not observe CNC HALT within the bounded grace period. The
-                // outcome is part of requested shutdown, not a tile crash.
-                self.handles[i].state = .stopped;
-                self.handles[i].crashed_because = .none;
+            .crash_signal => {
+                self.handles[i].state = .crashed;
+                self.handles[i].crashed_because = .signal;
             },
-            .crashed => {
-                if (self.handles[i].state == .stale) {
-                    // Tile was stale when stopProcess() began — the crash is a
-                    // consequence of the shutdown sequence (tile stopped
-                    // heartbeating while waiting for the halt signal), not a
-                    // real crash. Treat it as a clean stop, matching the
-                    // .exited_ok path's intent.
-                    self.handles[i].state = .stopped;
-                    self.handles[i].crashed_because = .none;
-                } else {
-                    self.handles[i].state = .crashed;
-                    self.handles[i].crashed_because = .signal;
+            .nonterminal_stop => {},
+        }
+    }
+
+    fn retainObservation(handle: *TileHandle, observation: util.process_api.Observation) void {
+        handle.observation = switch (observation) {
+            .exited => |code| .{ .exited = code },
+            .signaled => |signal| .{ .signaled = signal },
+            .stopped => |signal| .{ .stopped = signal },
+        };
+    }
+
+    fn retainAction(handle: *TileHandle, action: util.process_api.TerminationAction) void {
+        handle.termination_action = switch (action) {
+            .signal => |signal| .{ .signal = signal },
+            .exit_code => |code| .{ .exit_code = code },
+        };
+    }
+
+    fn retainError(handle: *TileHandle, err: util.process_api.ProcessError) void {
+        handle.last_process_error = .{
+            .category = @backingInt(err.category),
+            .native_code = err.native_code,
+        };
+    }
+
+    fn recordPollResult(self: *Supervisor, i: usize, result: util.process_api.PollResult) void {
+        const state = self.process_state orelse return;
+        const record = &state.children[i];
+        switch (result) {
+            .running => {},
+            .no_child => {
+                record.ownership = .detached;
+                record.child = null;
+                if (self.handles[i].state != .crashed) self.handles[i].state = .detached;
+            },
+            .failed => |err| {
+                record.last_reap_error = err;
+                record.reap_error_count +|= 1;
+                retainError(&self.handles[i], err);
+            },
+            .observation => |observation| {
+                retainObservation(&self.handles[i], observation);
+                switch (observation) {
+                    .stopped => {},
+                    .exited, .signaled => {
+                        record.terminal_observation = observation;
+                        record.ownership = .reaped;
+                        record.child = null;
+                        self.updateHandleForOutcome(i, util.process_api.classify(observation, record.force_action));
+                    },
                 }
-            },
-            .stopped => {
-                if (self.handles[i].state == .stale) {
-                    self.handles[i].crashed_because = .stale;
-                } else {
-                    self.handles[i].state = .crashed;
-                    self.handles[i].crashed_because = .exit_code;
-                }
-            },
-            .unknown => {
-                // No evidence of exit — leave handle state unchanged.
             },
         }
     }
@@ -625,30 +649,7 @@ pub const Supervisor = struct {
         const record = &state.children[i];
         if (record.ownership != .owned) return;
         const child = &(record.child orelse return);
-        switch (self.process_operations.poll(child)) {
-            .running => {},
-            .detached => {
-                record.ownership = .detached;
-                record.child = null;
-                if (self.handles[i].state != .crashed) self.handles[i].state = .stopped;
-            },
-            .failed => |err| {
-                record.last_portable_reap_error = err;
-                record.last_native_reap_error = err;
-                record.reap_error_count +|= 1;
-            },
-            .reaped => |term| switch (term) {
-                .exited, .signal => {
-                    record.terminal_observation = term;
-                    record.ownership = .reaped;
-                    record.child = null;
-                        self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, record.force_action != null));
-                },
-                // STOPPED and unknown are observations, but not terminal
-                // ownership evidence.
-                .stopped, .unknown => {},
-            },
-        }
+        self.recordPollResult(i, self.process_operations.poll(child));
     }
 
     fn pollAllOwned(self: *Supervisor) bool {
@@ -685,30 +686,19 @@ pub const Supervisor = struct {
                 suppress_cnc[i] = true;
                 continue;
             });
-            switch (self.process_operations.poll(child)) {
+            const result = self.process_operations.poll(child);
+            self.recordPollResult(i, result);
+            switch (result) {
                 .running => {},
-                .failed => |err| {
-                    record.last_portable_reap_error = err;
-                    record.last_native_reap_error = err;
-                    record.reap_error_count +|= 1;
-                    suppress_cnc[i] = true;
+                .observation => |observation| switch (observation) {
+                    .stopped => suppress_cnc[i] = true,
+                    .exited, .signaled => suppress_cnc[i] = true,
                 },
-                .detached => {
-                    record.ownership = .detached;
-                    record.child = null;
-                    suppress_cnc[i] = true;
-                },
-                .reaped => |term| switch (term) {
-                    .exited, .signal => {
-                        record.terminal_observation = term;
-                        record.ownership = .reaped;
-                        record.child = null;
-                        self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, record.force_action != null));
-                        if (self.handles[i].state == .crashed) state.has_child_crashed = true;
-                        suppress_cnc[i] = true;
-                    },
-                    .stopped, .unknown => suppress_cnc[i] = true,
-                },
+                .no_child, .failed => suppress_cnc[i] = true,
+            }
+            if (self.handles[i].state == .crashed) {
+                state.has_child_crashed = true;
+                suppress_cnc[i] = true;
             }
         }
         // Read heartbeats from surviving tiles only — skip any tile whose
@@ -922,6 +912,7 @@ pub const Supervisor = struct {
                 .accepted => |action| {
                     record.force_action = action;
                     record.force_timestamp = self.process_operations.now();
+                    retainAction(&self.handles[i], action);
                 },
                 .failed => {},
             }
@@ -942,7 +933,7 @@ pub const Supervisor = struct {
             unresolved = true;
             self.handles[i].state = .unresolved;
             var buf: [384]u8 = undefined;
-            const msg = std.fmt.bufPrint(&buf, "unresolved child: tile={s} pid={d} halt={any} force={any} force_time={any} portable_error={any} native_error={any} retries={d}", .{ self.topo.tiles[i].id.slice(), record.numeric_pid, record.halt_timestamp, record.force_action, record.force_timestamp, record.last_portable_reap_error, record.last_native_reap_error, record.reap_error_count }) catch "unresolved child";
+            const msg = std.fmt.bufPrint(&buf, "unresolved child: tile={s} pid={d} halt={any} force={any} force_time={any} reap_error={any} retries={d}", .{ self.topo.tiles[i].id.slice(), record.numeric_pid, record.halt_timestamp, record.force_action, record.force_timestamp, record.last_reap_error, record.reap_error_count }) catch "unresolved child";
             log.err("supervisor", "stopProcess", msg);
         }
         if (unresolved) return error.UnresolvedChild;
@@ -1018,4 +1009,222 @@ test "Supervisor monitor returns correct tile count" {
     defer sup.deinit();
 
     try std.testing.expectEqual(topo.tiles.len, sup.monitor().len);
+}
+
+fn installLifecycleTestState(sup: *Supervisor) !*ProcessState {
+    const state = try sup.allocator.create(ProcessState);
+    state.* = undefined;
+    state.children = std.mem.zeroes([8]ChildRecord);
+    state.cncs = std.mem.zeroes([8]?*c_abi.cnc.Cnc);
+    state.stop_grace_ns = 0;
+    sup.process_state = state;
+    return state;
+}
+
+fn removeLifecycleTestState(sup: *Supervisor) void {
+    const state = sup.process_state orelse return;
+    sup.process_state = null;
+    sup.allocator.destroy(state);
+}
+
+test "lifecycle retains terminal crash evidence before force" {
+    const topo = topologies.paymentPipeline();
+    var sup = try Supervisor.init(std.testing.allocator, topo);
+    defer sup.deinit();
+    _ = try installLifecycleTestState(&sup);
+    defer removeLifecycleTestState(&sup);
+
+    sup.process_state.?.children[0].ownership = .owned;
+    sup.recordPollResult(0, .{ .observation = .{ .exited = 42 } });
+
+    try std.testing.expectEqual(ChildOwnership.reaped, sup.childOwnership(0));
+    try std.testing.expectEqual(TileState.crashed, sup.monitor()[0].state);
+    try std.testing.expectEqual(CrashReason.exit_code, sup.monitor()[0].crashed_because);
+    try std.testing.expectEqual(@as(u32, 42), sup.monitor()[0].exit_code);
+    try std.testing.expect(sup.monitor()[0].termination_action == null);
+}
+
+test "lifecycle retains ownership across reap failure" {
+    const topo = topologies.paymentPipeline();
+    var sup = try Supervisor.init(std.testing.allocator, topo);
+    defer sup.deinit();
+    _ = try installLifecycleTestState(&sup);
+    defer removeLifecycleTestState(&sup);
+
+    const err = util.process_api.ProcessError{ .category = .system, .native_code = 123 };
+    sup.process_state.?.children[0].ownership = .owned;
+    sup.recordPollResult(0, .{ .failed = err });
+
+    try std.testing.expectEqual(ChildOwnership.owned, sup.childOwnership(0));
+    try std.testing.expectEqual(@as(u32, 1), sup.process_state.?.children[0].reap_error_count);
+    try std.testing.expectEqualDeep(err, sup.monitor()[0].last_process_error.?);
+    try std.testing.expectEqual(TileState.stopped, sup.monitor()[0].state);
+}
+
+test "lifecycle marks confirmed no-child as detached" {
+    const topo = topologies.paymentPipeline();
+    var sup = try Supervisor.init(std.testing.allocator, topo);
+    defer sup.deinit();
+    _ = try installLifecycleTestState(&sup);
+    defer removeLifecycleTestState(&sup);
+
+    sup.process_state.?.children[0].ownership = .owned;
+    sup.recordPollResult(0, .no_child);
+
+    try std.testing.expectEqual(ChildOwnership.detached, sup.childOwnership(0));
+    try std.testing.expectEqual(TileState.detached, sup.monitor()[0].state);
+}
+
+test "lifecycle only accepts an exact recorded force action" {
+    const topo = topologies.paymentPipeline();
+    var sup = try Supervisor.init(std.testing.allocator, topo);
+    defer sup.deinit();
+    _ = try installLifecycleTestState(&sup);
+    defer removeLifecycleTestState(&sup);
+
+    sup.process_state.?.children[0].ownership = .owned;
+    sup.process_state.?.children[0].force_action = .{ .exit_code = 0x544B494C };
+    sup.recordPollResult(0, .{ .observation = .{ .exited = 0x544B494C } });
+
+    try std.testing.expectEqual(ChildOwnership.reaped, sup.childOwnership(0));
+    try std.testing.expectEqual(TileState.stopped, sup.monitor()[0].state);
+    try std.testing.expectEqualDeep(util.process_api.TerminationAction{ .exit_code = 0x544B494C }, sup.process_state.?.children[0].force_action.?);
+}
+
+const DeadlineScript = struct {
+    now_ns: i64 = 0,
+    sleep_count: u32 = 0,
+
+    fn now(context: ?*anyopaque) i64 {
+        const self: *DeadlineScript = @ptrCast(@alignCast(context.?));
+        return self.now_ns;
+    }
+
+    fn sleep(context: ?*anyopaque, ns: u64) void {
+        const self: *DeadlineScript = @ptrCast(@alignCast(context.?));
+        self.now_ns += @intCast(ns);
+        self.sleep_count += 1;
+    }
+};
+
+test "lifecycle uses one reap deadline for all unresolved children" {
+    const topo = topologies.paymentPipeline();
+    var sup = try Supervisor.init(std.testing.allocator, topo);
+    defer sup.deinit();
+    const state = try installLifecycleTestState(&sup);
+    defer removeLifecycleTestState(&sup);
+
+    state.children[0].ownership = .owned;
+    state.children[1].ownership = .owned;
+    var script = DeadlineScript{};
+    sup.setProcessOperations(.{
+        .context = &script,
+        .now_fn = DeadlineScript.now,
+        .sleep_fn = DeadlineScript.sleep,
+    });
+
+    try std.testing.expectError(error.UnresolvedChild, sup.stopProcess(std.testing.io));
+    try std.testing.expectEqual(TileState.unresolved, sup.monitor()[0].state);
+    try std.testing.expectEqual(TileState.unresolved, sup.monitor()[1].state);
+    try std.testing.expectEqual(ChildOwnership.owned, sup.childOwnership(0));
+    try std.testing.expectEqual(ChildOwnership.owned, sup.childOwnership(1));
+    try std.testing.expectEqual(@as(u32, 1000), script.sleep_count);
+}
+
+fn lifecycleFakeChild() std.process.Child {
+    var child = std.mem.zeroes(std.process.Child);
+    child.id = switch (@typeInfo(std.process.Child.Id)) {
+        .pointer => @ptrFromInt(1),
+        .int => 1,
+        else => @compileError("unsupported std.process.Child.Id representation"),
+    };
+    return child;
+}
+
+const ForceScript = struct {
+    poll_results: []const util.process_api.PollResult,
+    terminate_result: util.process_api.TerminateResult,
+    poll_count: usize = 0,
+    terminate_count: u32 = 0,
+    now_ns: i64 = 0,
+
+    fn poll(context: ?*anyopaque, _: *std.process.Child) util.process_api.PollResult {
+        const self: *ForceScript = @ptrCast(@alignCast(context.?));
+        const result = if (self.poll_count < self.poll_results.len) self.poll_results[self.poll_count] else .running;
+        self.poll_count += 1;
+        return result;
+    }
+
+    fn terminate(context: ?*anyopaque, _: std.process.Child.Id) util.process_api.TerminateResult {
+        const self: *ForceScript = @ptrCast(@alignCast(context.?));
+        self.terminate_count += 1;
+        return self.terminate_result;
+    }
+
+    fn now(context: ?*anyopaque) i64 {
+        const self: *ForceScript = @ptrCast(@alignCast(context.?));
+        return self.now_ns;
+    }
+
+    fn sleep(context: ?*anyopaque, ns: u64) void {
+        const self: *ForceScript = @ptrCast(@alignCast(context.?));
+        self.now_ns += @intCast(ns);
+    }
+};
+
+test "lifecycle observes an exit between grace polling and force" {
+    const topo = topologies.paymentPipeline();
+    var sup = try Supervisor.init(std.testing.allocator, topo);
+    defer sup.deinit();
+    const state = try installLifecycleTestState(&sup);
+    defer removeLifecycleTestState(&sup);
+
+    const polls = [_]util.process_api.PollResult{ .running, .{ .observation = .{ .exited = 42 } } };
+    var script = ForceScript{ .poll_results = &polls, .terminate_result = .{ .accepted = .{ .exit_code = 0x544B494C } } };
+    state.children[0] = .{ .child = lifecycleFakeChild(), .ownership = .owned };
+    state.children[1].ownership = .owned;
+    sup.setProcessOperations(.{ .context = &script, .poll_fn = ForceScript.poll, .terminate_fn = ForceScript.terminate, .now_fn = ForceScript.now, .sleep_fn = ForceScript.sleep });
+
+    try std.testing.expectError(error.UnresolvedChild, sup.stopProcess(std.testing.io));
+    try std.testing.expectEqual(@as(u32, 0), script.terminate_count);
+    try std.testing.expectEqual(ChildOwnership.reaped, sup.childOwnership(0));
+    try std.testing.expectEqual(TileState.crashed, sup.monitor()[0].state);
+    try std.testing.expectEqual(ChildOwnership.owned, sup.childOwnership(1));
+}
+
+test "lifecycle retains ownership after an accepted force without reap" {
+    const topo = topologies.paymentPipeline();
+    var sup = try Supervisor.init(std.testing.allocator, topo);
+    defer sup.deinit();
+    const state = try installLifecycleTestState(&sup);
+    defer removeLifecycleTestState(&sup);
+
+    var script = ForceScript{ .poll_results = &.{}, .terminate_result = .{ .accepted = .{ .exit_code = 0x544B494C } } };
+    state.children[0] = .{ .child = lifecycleFakeChild(), .ownership = .owned };
+    sup.setProcessOperations(.{ .context = &script, .poll_fn = ForceScript.poll, .terminate_fn = ForceScript.terminate, .now_fn = ForceScript.now, .sleep_fn = ForceScript.sleep });
+
+    try std.testing.expectError(error.UnresolvedChild, sup.stopProcess(std.testing.io));
+    try std.testing.expectEqual(@as(u32, 1), script.terminate_count);
+    try std.testing.expectEqual(ChildOwnership.owned, sup.childOwnership(0));
+    try std.testing.expectEqual(TileState.unresolved, sup.monitor()[0].state);
+    try std.testing.expectEqualDeep(util.process_api.TerminationAction{ .exit_code = 0x544B494C }, sup.monitor()[0].termination_action.?);
+}
+
+test "lifecycle retains ownership after a failed force request" {
+    const topo = topologies.paymentPipeline();
+    var sup = try Supervisor.init(std.testing.allocator, topo);
+    defer sup.deinit();
+    const state = try installLifecycleTestState(&sup);
+    defer removeLifecycleTestState(&sup);
+
+    const err = util.process_api.ProcessError{ .category = .access_denied, .native_code = 5 };
+    var script = ForceScript{ .poll_results = &.{}, .terminate_result = .{ .failed = err } };
+    state.children[0] = .{ .child = lifecycleFakeChild(), .ownership = .owned };
+    sup.setProcessOperations(.{ .context = &script, .poll_fn = ForceScript.poll, .terminate_fn = ForceScript.terminate, .now_fn = ForceScript.now, .sleep_fn = ForceScript.sleep });
+
+    try std.testing.expectError(error.UnresolvedChild, sup.stopProcess(std.testing.io));
+    try std.testing.expectEqual(@as(u32, 1), script.terminate_count);
+    try std.testing.expectEqual(ChildOwnership.owned, sup.childOwnership(0));
+    try std.testing.expectEqual(TileState.unresolved, sup.monitor()[0].state);
+    try std.testing.expect(sup.monitor()[0].termination_action == null);
 }

@@ -575,6 +575,30 @@ tk_topo_tile_set_metric_port( void * topo, ulong tile_id, ushort port ) {
   ((fd_topo_t *)topo)->tiles[ tile_id ].metric.prometheus_listen_port = port;
 }
 
+ulong
+tk_topo_tile_cpu_idx( void const * topo, ulong tile_id ) {
+  fd_topo_t const * t = (fd_topo_t const *)topo;
+  return tile_id<t->tile_cnt ? t->tiles[ tile_id ].cpu_idx : ULONG_MAX;
+}
+
+ulong
+tk_topo_tile_in_cnt( void const * topo, ulong tile_id ) {
+  fd_topo_t const * t = (fd_topo_t const *)topo;
+  return tile_id<t->tile_cnt ? t->tiles[ tile_id ].in_cnt : ULONG_MAX;
+}
+
+ulong
+tk_topo_tile_out_cnt( void const * topo, ulong tile_id ) {
+  fd_topo_t const * t = (fd_topo_t const *)topo;
+  return tile_id<t->tile_cnt ? t->tiles[ tile_id ].out_cnt : ULONG_MAX;
+}
+
+ulong
+tk_topo_link_consumer_cnt( void const * topo, ulong link_id ) {
+  fd_topo_t const * t = (fd_topo_t const *)topo;
+  return link_id<t->link_cnt ? fd_topo_link_consumer_cnt( t, &t->links[ link_id ] ) : ULONG_MAX;
+}
+
 /* Debug: print workspace-to-object mapping.
    Called from topo_build.zig before topob_finish to diagnose
    "no object found for workspace" errors. */
