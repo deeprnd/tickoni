@@ -219,25 +219,74 @@ fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) !void {
 }
 
 // ---------------------------------------------------------------------------
-// Test: finalized metric topology references only laid-out objects.
+// Test: finalized metric scratch matches C requirements in parent/child rebuilds.
 // ---------------------------------------------------------------------------
 
-test "metric topology finalizes every tile-referenced object" {
+test "metric topology finalizes exact scratch requirements identically" {
     const port = util.metricPort();
     std.debug.print("\n  [tkmetr-test] metric_port = {d}\n", .{port});
 
-    var built = try runtime.topo_build.build(
+    var parent = try runtime.topo_build.build(
         std.testing.allocator,
         topologies.paymentPipelineProcess(),
         "tkmetr0",
         port,
     );
-    defer built.deinit(std.testing.allocator);
+    defer parent.deinit(std.testing.allocator);
 
-    try std.testing.expect(built.metric_tile_idx != c_abi.topob.not_found);
-    try std.testing.expect(built.metric_tile_obj_id != 0);
-    try std.testing.expect(c_abi.topob.topoObjOffset(built.topo, built.metric_tile_obj_id) != 0);
-    try std.testing.expect(c_abi.topob.topoValidateTileObjectOffsets(built.topo));
+    // A child reconstructs the topology from the same description. Building a
+    // second copy here exercises that deterministic rebuild path directly.
+    var child = try runtime.topo_build.build(
+        std.testing.allocator,
+        topologies.paymentPipelineProcess(),
+        "tkmetr0",
+        port,
+    );
+    defer child.deinit(std.testing.allocator);
+
+    const required = c_abi.topob.tickoniTileScratchRequirements("metric");
+    try std.testing.expect(required.alignment > 1);
+    try std.testing.expect(required.footprint > 1);
+
+    try std.testing.expect(parent.metric_tile_idx != c_abi.topob.not_found);
+    try std.testing.expect(parent.metric_tile_obj_id != 0);
+    try std.testing.expectEqual(
+        required.alignment,
+        c_abi.topob.topoObjScratchAlign(parent.topo, parent.metric_tile_obj_id),
+    );
+    try std.testing.expect(
+        c_abi.topob.topoObjFootprint(parent.topo, parent.metric_tile_obj_id) >= required.footprint,
+    );
+    try std.testing.expectEqual(
+        @as(usize, 0),
+        c_abi.topob.topoObjOffset(parent.topo, parent.metric_tile_obj_id) % required.alignment,
+    );
+    try std.testing.expect(c_abi.topob.topoValidateMetricScratch(parent.topo));
+
+    try std.testing.expectEqual(parent.wksp_idx, child.wksp_idx);
+    try std.testing.expectEqual(parent.metric_wksp_idx, child.metric_wksp_idx);
+    try std.testing.expectEqual(parent.metric_in_wksp_idx, child.metric_in_wksp_idx);
+    try std.testing.expectEqual(parent.metric_tile_idx, child.metric_tile_idx);
+    try std.testing.expectEqual(parent.metric_tile_obj_id, child.metric_tile_obj_id);
+    try std.testing.expectEqualSlices(usize, parent.cnc_obj_id, child.cnc_obj_id);
+    try std.testing.expectEqualSlices(runtime.topo_build.LinkObjIds, parent.link_obj_id, child.link_obj_id);
+    try std.testing.expectEqual(
+        c_abi.topob.topoObjScratchAlign(parent.topo, parent.metric_tile_obj_id),
+        c_abi.topob.topoObjScratchAlign(child.topo, child.metric_tile_obj_id),
+    );
+    try std.testing.expectEqual(
+        c_abi.topob.topoObjFootprint(parent.topo, parent.metric_tile_obj_id),
+        c_abi.topob.topoObjFootprint(child.topo, child.metric_tile_obj_id),
+    );
+    try std.testing.expectEqual(
+        c_abi.topob.topoObjOffset(parent.topo, parent.metric_tile_obj_id),
+        c_abi.topob.topoObjOffset(child.topo, child.metric_tile_obj_id),
+    );
+    try std.testing.expectEqual(
+        c_abi.topob.topoWkspFootprint(parent.topo, parent.metric_wksp_idx),
+        c_abi.topob.topoWkspFootprint(child.topo, child.metric_wksp_idx),
+    );
+    try std.testing.expect(c_abi.topob.topoValidateMetricScratch(child.topo));
 }
 
 // ---------------------------------------------------------------------------

@@ -66,10 +66,13 @@ extern fn tk_topo_wksp_part_max(topo: *Topo, wksp_idx: usize) usize;
 extern fn tk_topob_auto_layout(topo: *Topo, cpu_idx: [*]const usize) void;
 extern fn tk_topob_set_obj_property_ulong(topo: *Topo, obj_id: usize, key: [*:0]const u8, val: usize) void;
 extern fn tk_topob_set_tile_obj_property_ulong(topo: *Topo, tile_name: [*:0]const u8, tile_kind_id: usize, key: [*:0]const u8, val: usize) void;
-extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
+extern fn tk_topob_tickoni_tile_scratch_requirements(tile_name: [*:0]const u8, alignment: *usize, footprint: *usize) void;
 extern fn tk_topo_tile_obj_id(topo: *const Topo, tile_id: usize) usize;
 extern fn tk_topo_tile_set_metric_port(topo: *Topo, tile_id: usize, port: c_ushort) void;
 extern fn tk_topo_obj_offset(topo: *const Topo, obj_id: usize) usize;
+extern fn tk_topo_obj_footprint(topo: *const Topo, obj_id: usize) usize;
+extern fn tk_topo_obj_scratch_align(topo: *const Topo, obj_id: usize) usize;
+extern fn tk_topo_validate_metric_scratch(topo: *const Topo) c_int;
 extern fn tk_topo_validate_tile_object_offsets(topo: *const Topo) c_int;
 extern fn tk_topob_debug_wksp_objs_internal(topo: *Topo) void;
 
@@ -217,23 +220,30 @@ pub fn topobAutoLayout(topo: *Topo, cpu_idx: [*]const usize) void {
 }
 
 /// Set a ulong property on the topology's props POD for a given object.
-/// Used to inject tile-specific metadata (e.g. scratch footprint) before
+/// Used to inject tile-specific metadata (e.g. scratch requirements) before
 /// fd_topob_finish computes the layout.
 pub fn topobSetObjPropertyUlong(topo: *Topo, obj_id: usize, key: [*:0]const u8, val: usize) void {
     tk_topob_set_obj_property_ulong(topo, obj_id, key, val);
 }
 
 /// Convenience: look up a tile by name, then set a ulong property on its
-/// "tile" object.  Used by topo_build.zig to inject the tkmetr tile's custom
-/// scratch footprint before fd_topob_finish computes the layout.
+/// "tile" object. Used by topo_build.zig to inject the metric tile's scratch
+/// requirements before fd_topob_finish computes the layout.
 pub fn topobSetTileObjPropertyUlong(topo: *Topo, tile_name: [*:0]const u8, tile_kind_id: usize, key: [*:0]const u8, val: usize) void {
     tk_topob_set_tile_obj_property_ulong(topo, tile_name, tile_kind_id, key, val);
 }
 
-/// Return the scratch footprint for a named tile.  Returns TK_METRIC_RUN's
-/// scratch footprint for "metric", 1UL for everything else.
-pub fn tickoniTileScratchFootprint(tile_name: [*:0]const u8) usize {
-    return tk_topob_tickoni_tile_scratch_footprint(tile_name);
+pub const ScratchRequirements = struct {
+    alignment: usize,
+    footprint: usize,
+};
+
+/// Return C-owned scratch requirements for a named tile. Metric requirements
+/// come directly from TK_METRIC_RUN; generic tiles require one byte.
+pub fn tickoniTileScratchRequirements(tile_name: [*:0]const u8) ScratchRequirements {
+    var requirements: ScratchRequirements = undefined;
+    tk_topob_tickoni_tile_scratch_requirements(tile_name, &requirements.alignment, &requirements.footprint);
+    return requirements;
 }
 
 /// Return the scratch object id assigned by fd_topob_tile.
@@ -251,6 +261,22 @@ pub fn topoTileSetMetricPort(topo: *Topo, tile_id: usize, port: c_ushort) void {
 /// Returns the offset assigned to an object by fd_topob_finish.
 pub fn topoObjOffset(topo: *const Topo, obj_id: usize) usize {
     return tk_topo_obj_offset(topo, obj_id);
+}
+
+/// Returns the finalized footprint assigned by fd_topob_finish.
+pub fn topoObjFootprint(topo: *const Topo, obj_id: usize) usize {
+    return tk_topo_obj_footprint(topo, obj_id);
+}
+
+/// Returns the configured scratch alignment for a tile object.
+pub fn topoObjScratchAlign(topo: *const Topo, obj_id: usize) usize {
+    return tk_topo_obj_scratch_align(topo, obj_id);
+}
+
+/// Verifies that every metric tile owns a sufficiently sized and aligned
+/// finalized scratch object.
+pub fn topoValidateMetricScratch(topo: *const Topo) bool {
+    return tk_topo_validate_metric_scratch(topo) != 0;
 }
 
 /// Returns true when every object referenced by every tile has been assigned

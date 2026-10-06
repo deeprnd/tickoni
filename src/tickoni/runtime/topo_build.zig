@@ -211,17 +211,13 @@ pub fn build(
     c_abi.topob.topobAutoLayout(topo, @as([*]const usize, cpu_idx_arr.ptr));
     allocator.free(cpu_idx_arr);
 
-    // Set per-tile scratch footprint properties so tile_footprint() in
-    // topob.c can query them.  Only the metric tile has a non-default footprint;
-    // every other tile gets 1UL (which the property setter silently skips
-    // since 1UL == the default).
-    const scratch_key: [*:0]const u8 = "tickoni.scratch_footprint";
-    for (topo_desc.tiles) |t| {
-        var tile_name_buf: [8]u8 = undefined;
-        const fp = c_abi.topob.tickoniTileScratchFootprint(toZ(&tile_name_buf, t.id.slice()));
-        if (fp > 1) {
-            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.id.slice()), 0, scratch_key, fp);
-        }
+    // Set both metric scratch properties before topobFinish. This build path
+    // is shared by the parent and every child rebuild, so all processes derive
+    // the same C-owned metric layout without reproducing it in Zig.
+    if (metric_tile_idx != c_abi.topob.not_found) {
+        const requirements = c_abi.topob.tickoniTileScratchRequirements("metric");
+        c_abi.topob.topobSetTileObjPropertyUlong(topo, "metric", 0, "tickoni.scratch_align", requirements.alignment);
+        c_abi.topob.topobSetTileObjPropertyUlong(topo, "metric", 0, "tickoni.scratch_footprint", requirements.footprint);
     }
 
     const cnc_obj_id = try allocator.alloc(usize, topo_desc.tiles.len);
@@ -261,6 +257,14 @@ pub fn build(
         0;
 
     c_abi.topob.topobFinish(topo);
+
+    // Fail topology construction before the supervisor can spawn children if
+    // the metric tile does not own an adequately sized and aligned object.
+    if (metric_tile_idx != c_abi.topob.not_found and
+        !c_abi.topob.topoValidateMetricScratch(topo))
+    {
+        return error.InvalidMetricScratchLayout;
+    }
 
     if (metric_tile_idx != c_abi.topob.not_found) {
         c_abi.topob.topoTileSetMetricPort(topo, metric_tile_idx, metric_port);
