@@ -36,6 +36,8 @@
 
 #include "os.h"
 
+#define TK_CPU_SET_BYTES (128UL)
+
 #if TK_PROCESS_TEST
 static uint tk_process_test_exit_code;
 static uint tk_process_test_call_count;
@@ -246,15 +248,15 @@ const char * tk_getenv( const char * name ) {
 int tk_get_affinity(int pid, unsigned char *mask) {
   /* Linux/macOS: sched_getaffinity returns the CPU affinity mask.
    * On Linux this is a real syscall; on macOS it's a no-op stub.
-   * mask must point to a buffer of at least cpu_set_bytes (128) bytes. */
+   * mask must point to a buffer of at least TK_CPU_SET_BYTES bytes. */
 #if FD_HAS_LINUX
-  size_t len = 128; /* cpu_set_bytes — matches CpuSet size */
+  size_t len = TK_CPU_SET_BYTES; /* cpu_set_bytes — matches CpuSet size */
   int rc = sched_getaffinity((pid_t)pid, len, (cpu_set_t *)mask);
   return rc < 0 ? -1 : 0;
 #else
   /* macOS: no sched_getaffinity; return all bits set (all CPUs available). */
   (void)pid;
-  for (size_t i = 0; i < 128; i++) mask[i] = 0xFF;
+  for (size_t i = 0; i < TK_CPU_SET_BYTES; i++) mask[i] = 0xFF;
   return 0;
 #endif
 }
@@ -262,9 +264,9 @@ int tk_get_affinity(int pid, unsigned char *mask) {
 int tk_set_affinity(int pid, const unsigned char *mask) {
   /* Linux/macOS: sched_setaffinity sets the CPU affinity mask.
    * On Linux this is a real syscall; on macOS it's a no-op stub.
-   * mask must point to a buffer of at least cpu_set_bytes (128) bytes. */
+   * mask must point to a buffer of at least TK_CPU_SET_BYTES bytes. */
 #if FD_HAS_LINUX
-  size_t len = 128; /* cpu_set_bytes — matches CpuSet size */
+  size_t len = TK_CPU_SET_BYTES; /* cpu_set_bytes — matches CpuSet size */
   int rc = sched_setaffinity((pid_t)pid, len, (cpu_set_t *)mask);
   return rc < 0 ? -1 : 0;
 #else
@@ -503,11 +505,11 @@ const char * tk_getenv( const char * name ) {
 
 int tk_get_affinity(int pid, unsigned char *mask) {
   /* Windows exposes the process affinity mask as a native ULONG_PTR rather
-   * than a POSIX cpu_set_t.  Tickoni's CpuSet is 128 bytes; copy the native
-   * mask into its low bytes and clear the remainder so callers never inspect
-   * uninitialized data.  pid==0 means the current process. */
+   * than a POSIX cpu_set_t.  Tickoni's CpuSet is TK_CPU_SET_BYTES bytes;
+   * copy the native mask into its low bytes and clear the remainder so
+   * callers never inspect uninitialized data.  pid==0 means the current process. */
   if( FD_UNLIKELY( !mask ) ) return -1;
-  memset( mask, 0, 128UL );
+  memset( mask, 0, TK_CPU_SET_BYTES );
 
   HANDLE process = pid==0 ? GetCurrentProcess() : OpenProcess( PROCESS_QUERY_INFORMATION, FALSE, (DWORD)pid );
   if( FD_UNLIKELY( !process ) ) return -1;
