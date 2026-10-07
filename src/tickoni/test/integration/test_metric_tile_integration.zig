@@ -53,7 +53,7 @@ fn httpGetProcess(host: []const u8, port: u16, path: []const u8, timeout_ms: u32
     defer std.testing.allocator.free(port_str);
     defer std.testing.allocator.free(timeout_str);
 
-    const result = try std.process.run(std.testing.allocator, std.testing.io, .{
+    const result = std.process.run(std.testing.allocator, std.testing.io, .{
         .argv = &.{
             PYTHON,
             script_path,
@@ -64,13 +64,17 @@ fn httpGetProcess(host: []const u8, port: u16, path: []const u8, timeout_ms: u32
         },
         .stdout_limit = .limited(65536),
         .timeout = .{ .duration = .{ .raw = .{ .nanoseconds = @as(i96, 10) * std.time.ns_per_s }, .clock = .awake } },
-    });
+    }) catch |err| {
+        std.debug.print("\n[metric-http-debug] process error={s} host={s} port={d} path={s}\n", .{ @errorName(err), host, port, path });
+        return err;
+    };
     defer {
         std.testing.allocator.free(result.stdout);
         std.testing.allocator.free(result.stderr);
     }
 
     if (result.stdout.len == 0) {
+        std.debug.print("\n[metric-http-debug] empty stdout stderr={s}\n", .{result.stderr});
         return error.NoOutput;
     }
 
@@ -116,6 +120,7 @@ fn httpGetProcess(host: []const u8, port: u16, path: []const u8, timeout_ms: u32
     }
 
     if (has_error) {
+        std.debug.print("\n[metric-http-debug] response stdout={s}\n", .{result.stdout});
         return error.HttpRequestFailed;
     }
     if (body_str == null) {
