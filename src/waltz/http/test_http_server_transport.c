@@ -1,6 +1,7 @@
 #include "fd_http_server.h"
 #include "../../util/fd_util.h"
 
+#include <poll.h>
 #include <stdlib.h>
 #if FD_HAS_WINDOWS
 #include <malloc.h>
@@ -44,7 +45,7 @@ fake_ok( void ) {
 
 static ulong
 fake_poll_scratch_align( void ) {
-  return alignof( ulong );
+  return (ulong)_Alignof( struct pollfd );
 }
 
 static ulong
