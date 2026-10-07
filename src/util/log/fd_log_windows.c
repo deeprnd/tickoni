@@ -29,8 +29,8 @@
 /* Windows FILETIME epoch offset to UNIX epoch in 100-ns intervals
  * File time = 100-ns intervals since 1601-01-01 UTC
  * UNIX epoch = 1970-01-01 UTC
- * Difference = 11644473600 seconds = 1164447360000000000 100-ns intervals */
-#define FD_FILETIME_TO_UNIX_NS 116444736000000000LL
+ * Difference = 11644473600 seconds = 116444736000000000 100-ns ticks */
+#define FD_FILETIME_TO_UNIX_100NS 116444736000000000ULL
 /* Seconds per hour (replaces `(long)3600L`) */
 #define FD_NS_PER_HOUR  3600L
 /* Seconds per day (replaces `(long)86400L`) */
@@ -82,12 +82,8 @@ fd_log_wallclock( void ) {
     ULARGE_INTEGER ui;
     ui.LowPart  = ft.dwLowDateTime;
     ui.HighPart = ft.dwHighDateTime;
-    /* File time = 100-ns intervals since 1601-01-01 UTC
-     * UNIX epoch = 1970-01-01 UTC
-     * Difference = 11644473600 seconds
-     * Use long long to avoid 32-bit truncation, then cast to long for return.
-     * On Windows x64/ARM64, long is 64-bit so this fits. */
-    return (long)( ui.QuadPart * 100LL - FD_FILETIME_TO_UNIX_NS );
+    /* Convert FILETIME's 100-ns ticks to Unix nanoseconds. */
+    return (long)( ( ui.QuadPart - FD_FILETIME_TO_UNIX_100NS ) * 100ULL );
   }
   return fd_log_private_clock_func( fd_log_private_clock_args );
 }
@@ -99,7 +95,7 @@ fd_log_wallclock_nanos( void ) {
   ULARGE_INTEGER ui;
   ui.LowPart  = ft.dwLowDateTime;
   ui.HighPart = ft.dwHighDateTime;
-  return (long long)( ui.QuadPart * 100LL - FD_FILETIME_TO_UNIX_NS );
+  return (long long)( ( ui.QuadPart - FD_FILETIME_TO_UNIX_100NS ) * 100ULL );
 }
 
 long
@@ -110,8 +106,7 @@ fd_log_wallclock_host( void const * _ ) {
   ULARGE_INTEGER ui;
   ui.LowPart  = ft.dwLowDateTime;
   ui.HighPart = ft.dwHighDateTime;
-  long long offset_ns = FD_FILETIME_TO_UNIX_NS;
-  return (long)( ui.QuadPart * 100LL - offset_ns );
+  return (long)( ( ui.QuadPart - FD_FILETIME_TO_UNIX_100NS ) * 100ULL );
 }
 
 void
