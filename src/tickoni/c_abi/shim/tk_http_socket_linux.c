@@ -314,17 +314,17 @@ tk_linux_local_port( tk_http_socket_t socket,
   if( FD_UNLIKELY( !tk_linux_fd( socket, &fd ) ) )
     return tk_linux_error( EINVAL );
 
-  struct { struct sockaddr sa; struct sockaddr_in sin; } addr;
+  struct sockaddr_in addr;
   memset( &addr, 0, sizeof(addr) );
   socklen_t addr_sz = (socklen_t)sizeof(addr);
-  if( FD_UNLIKELY( getsockname( fd, &addr.sa,
+  if( FD_UNLIKELY( getsockname( fd, fd_type_pun( (void *)&addr ),
                                 &addr_sz )<0 ) )
     return tk_linux_error( errno );
   if( FD_UNLIKELY( addr_sz<(socklen_t)sizeof(addr) ||
-                   addr.sin.sin_family!=AF_INET ) )
+                   addr.sin_family!=AF_INET ) )
     return tk_linux_error( EINVAL );
 
-  *out_port = ntohs( addr.sin.sin_port );
+  *out_port = ntohs( addr.sin_port );
   return tk_linux_result( TK_HTTP_SOCKET_STATUS_OK, 0 );
 }
 

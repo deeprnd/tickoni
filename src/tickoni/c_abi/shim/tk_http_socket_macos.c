@@ -346,7 +346,7 @@ tk_macos_local_port( tk_http_socket_t socket,
 
   struct sockaddr_in addr;
   socklen_t addr_sz = (socklen_t)sizeof(addr);
-  if( FD_UNLIKELY( getsockname( fd, (struct sockaddr *)&addr,
+  if( FD_UNLIKELY( getsockname( fd, fd_type_pun( (void *)&addr ),
                                 &addr_sz )<0 ) )
     return tk_macos_error( errno );
   if( FD_UNLIKELY( addr_sz<(socklen_t)sizeof(addr) ||

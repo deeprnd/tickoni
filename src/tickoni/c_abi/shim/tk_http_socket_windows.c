@@ -364,7 +364,7 @@ tk_windows_local_port( tk_http_socket_t socket,
   struct sockaddr_in addr;
   int addr_sz = (int)sizeof(addr);
   if( FD_UNLIKELY( getsockname( tk_windows_socket( socket ),
-                                (struct sockaddr *)&addr,
+                                fd_type_pun( (void *)&addr ),
                                 &addr_sz )==SOCKET_ERROR ) )
     return tk_windows_error( (uint)WSAGetLastError() );
   if( FD_UNLIKELY( addr_sz<(int)sizeof(addr) ||
