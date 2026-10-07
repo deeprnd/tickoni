@@ -380,6 +380,7 @@
     "NOHANG",
     "NOPAT",
     "noqa",
+    "notin",
     "notionals",
     "numa",
     "NUMA",
