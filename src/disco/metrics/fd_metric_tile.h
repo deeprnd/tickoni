@@ -35,7 +35,7 @@ extern const fd_http_server_params_t METRICS_PARAMS;
 typedef struct {
   fd_topo_t const * topo;
   fd_http_server_t * metrics_server;
-  long boot_ts;
+  long long boot_ts;
   /* Optional CNC pointer for shutdown checking.  When non-NULL,
      STEM_CALLBACK_SHOULD_SHUTDOWN (defined in fd_metric_tile.c)
      checks ctx->cnc for HALT each iteration of stem_run.  When

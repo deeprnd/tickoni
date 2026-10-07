@@ -335,6 +335,11 @@ fd_log_group_id_query( ulong group_id ) {
 
 /* WALLCLOCK APIS *****************************************************/
 
+long long
+fd_log_wallclock_nanos( void ) {
+  return (long long)fd_log_wallclock();
+}
+
 long
 fd_log_wallclock_host( void const * _ ) {
   (void)_;

@@ -582,6 +582,7 @@ long fd_log_wallclock_host( void const * _ ); /* fd_clock_func_t compat */
    if desired. */
 
 long fd_log_wallclock( void ); /* FIXME: Make fd_clock_func_t compat */
+long long fd_log_wallclock_nanos( void );
 
 /* fd_log_wallclock_set configures the log to use "clock( args )" as its
    time source.  This time source should report ns since the UNIX epoch

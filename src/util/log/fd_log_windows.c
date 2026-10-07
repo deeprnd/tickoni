@@ -92,6 +92,16 @@ fd_log_wallclock( void ) {
   return fd_log_private_clock_func( fd_log_private_clock_args );
 }
 
+long long
+fd_log_wallclock_nanos( void ) {
+  FILETIME ft;
+  GetSystemTimePreciseAsFileTime( &ft );
+  ULARGE_INTEGER ui;
+  ui.LowPart  = ft.dwLowDateTime;
+  ui.HighPart = ft.dwHighDateTime;
+  return (long long)( ui.QuadPart * 100LL - FD_FILETIME_TO_UNIX_NS );
+}
+
 long
 fd_log_wallclock_host( void const * _ ) {
   (void)_;
