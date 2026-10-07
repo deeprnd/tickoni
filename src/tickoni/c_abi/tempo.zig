@@ -50,6 +50,10 @@ test "asyncMin returns a power of two for a valid scheduler configuration" {
     try std.testing.expect(std.math.isPowerOfTwo(value));
 }
 
+test "tickPerNs returns a positive calibration" {
+    try std.testing.expect(tickPerNs(null) > 0.0);
+}
+
 test "asyncReload stays within the expected range" {
     const async_min: usize = 64;
     const value = asyncReload(async_min);

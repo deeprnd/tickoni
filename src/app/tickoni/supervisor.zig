@@ -1057,7 +1057,10 @@ test "lifecycle retains ownership across reap failure" {
 
     try std.testing.expectEqual(ChildOwnership.owned, sup.childOwnership(0));
     try std.testing.expectEqual(@as(u32, 1), sup.process_state.?.children[0].reap_error_count);
-    try std.testing.expectEqualDeep(err, sup.monitor()[0].last_process_error.?);
+    try std.testing.expectEqualDeep(rt.tile.ProcessError{
+        .category = @backingInt(err.category),
+        .native_code = err.native_code,
+    }, sup.monitor()[0].last_process_error.?);
     try std.testing.expectEqual(TileState.stopped, sup.monitor()[0].state);
 }
 
@@ -1132,13 +1135,21 @@ test "lifecycle uses one reap deadline for all unresolved children" {
 }
 
 fn lifecycleFakeChild() std.process.Child {
-    var child = std.mem.zeroes(std.process.Child);
-    child.id = switch (@typeInfo(std.process.Child.Id)) {
-        .pointer => @ptrFromInt(1),
-        .int => 1,
-        else => @compileError("unsupported std.process.Child.Id representation"),
+    return .{
+        .id = switch (@typeInfo(std.process.Child.Id)) {
+            .pointer => @ptrFromInt(1),
+            .int => 1,
+            else => @compileError("unsupported std.process.Child.Id representation"),
+        },
+        .thread_handle = switch (builtin.target.os.tag) {
+            .windows => @ptrFromInt(1),
+            else => {},
+        },
+        .stdin = null,
+        .stdout = null,
+        .stderr = null,
+        .request_resource_usage_statistics = false,
     };
-    return child;
 }
 
 const ForceScript = struct {
@@ -1207,7 +1218,7 @@ test "lifecycle retains ownership after an accepted force without reap" {
     try std.testing.expectEqual(@as(u32, 1), script.terminate_count);
     try std.testing.expectEqual(ChildOwnership.owned, sup.childOwnership(0));
     try std.testing.expectEqual(TileState.unresolved, sup.monitor()[0].state);
-    try std.testing.expectEqualDeep(util.process_api.TerminationAction{ .exit_code = 0x544B494C }, sup.monitor()[0].termination_action.?);
+    try std.testing.expectEqualDeep(rt.tile.ProcessTerminationAction{ .exit_code = 0x544B494C }, sup.monitor()[0].termination_action.?);
 }
 
 test "lifecycle retains ownership after a failed force request" {

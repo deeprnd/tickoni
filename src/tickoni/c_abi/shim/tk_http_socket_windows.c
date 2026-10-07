@@ -71,10 +71,9 @@ tk_windows_handle( SOCKET socket ) {
 
 static uint
 tk_windows_configure_socket( SOCKET socket ) {
-  if( FD_UNLIKELY( !SetHandleInformation( (HANDLE)(UINT_PTR)socket,
-                                          HANDLE_FLAG_INHERIT, 0U ) ) )
-    return (uint)GetLastError();
-
+  /* WSASocketW already requested WSA_FLAG_NO_HANDLE_INHERIT.  SOCKET is a
+     Winsock resource, not a Win32 HANDLE for SetHandleInformation; the latter
+     fails before the listener reaches bind/listen on Windows. */
   u_long nonblocking = 1UL;
   if( FD_UNLIKELY( ioctlsocket( socket, FIONBIO, &nonblocking )==
                    SOCKET_ERROR ) )
