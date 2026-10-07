@@ -366,6 +366,8 @@ fd_http_server_listen( fd_http_server_t * http,
   if( FD_UNLIKELY( result.status!=TK_HTTP_SOCKET_STATUS_OK ) ) return NULL;
   result = http->transport->listen( address, port, http->max_conns, &socket );
   if( FD_UNLIKELY( result.status!=TK_HTTP_SOCKET_STATUS_OK ) ) {
+    FD_LOG_WARNING(( "HTTP listen failed status=%u native_error=%u address=%u port=%u",
+                     (uint)result.status, result.native_error, address, (uint)port ));
     (void)http->transport->runtime_fini();
     return NULL;
   }

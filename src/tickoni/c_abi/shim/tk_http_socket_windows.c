@@ -16,7 +16,7 @@ _Static_assert( sizeof(tk_http_socket_t)==8UL,
 _Static_assert( sizeof(tk_http_socket_t)>=sizeof(SOCKET),
                 "tk_http_socket_t must hold SOCKET without narrowing" );
 
-static volatile LONG tk_windows_runtime_refs;
+static volatile LONG tk_windows_runtime_initialized;
 
 static tk_http_socket_result_t
 tk_windows_result( tk_http_socket_status_t status,
@@ -83,38 +83,28 @@ tk_windows_configure_socket( SOCKET socket ) {
 
 static tk_http_socket_result_t
 tk_windows_runtime_init( void ) {
-  WSADATA data;
-  int error = WSAStartup( MAKEWORD( 2, 2 ), &data );
-  if( FD_UNLIKELY( error ) ) return tk_windows_error( (uint)error );
+  if( InterlockedCompareExchange( &tk_windows_runtime_initialized, 1L, 0L )==0L ) {
+    WSADATA data;
+    int error = WSAStartup( MAKEWORD( 2, 2 ), &data );
+    if( FD_UNLIKELY( error ) ) {
+      InterlockedExchange( &tk_windows_runtime_initialized, 0L );
+      return tk_windows_error( (uint)error );
+    }
 
-  if( FD_UNLIKELY( LOBYTE( data.wVersion )!=2 ||
-                   HIBYTE( data.wVersion )!=2 ) ) {
-    (void)WSACleanup();
-    return tk_windows_error( (uint)WSAVERNOTSUPPORTED );
-  }
-
-  LONG refs = InterlockedIncrement( &tk_windows_runtime_refs );
-  if( FD_UNLIKELY( refs<=0L ) ) {
-    (void)InterlockedDecrement( &tk_windows_runtime_refs );
-    (void)WSACleanup();
-    return tk_windows_error( (uint)WSAENOBUFS );
+    if( FD_UNLIKELY( LOBYTE( data.wVersion )!=2 ||
+                     HIBYTE( data.wVersion )!=2 ) ) {
+      InterlockedExchange( &tk_windows_runtime_initialized, 0L );
+      return tk_windows_error( (uint)WSAVERNOTSUPPORTED );
+    }
   }
   return tk_windows_result( TK_HTTP_SOCKET_STATUS_OK, 0U );
 }
 
 static tk_http_socket_result_t
 tk_windows_runtime_fini( void ) {
-  LONG refs;
-  for(;;) {
-    refs = InterlockedCompareExchange( &tk_windows_runtime_refs, 0L, 0L );
-    if( FD_UNLIKELY( refs<=0L ) )
-      return tk_windows_error( (uint)WSAEINVAL );
-    if( InterlockedCompareExchange( &tk_windows_runtime_refs,
-                                    refs-1L, refs )==refs ) break;
-  }
-
-  if( FD_UNLIKELY( WSACleanup()==SOCKET_ERROR ) )
-    return tk_windows_error( (uint)WSAGetLastError() );
+  /* Winsock is process-global.  Keep the provider initialized until process
+     exit so a port probe or another tile cannot tear it down underneath an
+     active HTTP server. */
   return tk_windows_result( TK_HTTP_SOCKET_STATUS_OK, 0U );
 }
 
@@ -140,24 +130,24 @@ tk_windows_listen( uint               address,
     return tk_windows_error( (uint)WSAEINVAL );
   *out_socket = TK_HTTP_SOCKET_INVALID;
 
-  SOCKET socket = WSASocketW( AF_INET, SOCK_STREAM, IPPROTO_TCP,
-                              NULL, 0U, WSA_FLAG_NO_HANDLE_INHERIT );
-  if( FD_UNLIKELY( socket==INVALID_SOCKET ) )
+  SOCKET listener_socket = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+  if( FD_UNLIKELY( listener_socket==INVALID_SOCKET ) ) {
     return tk_windows_error( (uint)WSAGetLastError() );
+  }
 
-  uint error = tk_windows_configure_socket( socket );
+  uint error = tk_windows_configure_socket( listener_socket );
   if( FD_UNLIKELY( error ) ) {
-    (void)closesocket( socket );
+    (void)closesocket( listener_socket );
     return tk_windows_error( error );
   }
 
   BOOL exclusive = TRUE;
-  if( FD_UNLIKELY( setsockopt( socket, SOL_SOCKET,
+  if( FD_UNLIKELY( setsockopt( listener_socket, SOL_SOCKET,
                                SO_EXCLUSIVEADDRUSE,
                                (char const *)&exclusive,
                                (int)sizeof(exclusive) )==SOCKET_ERROR ) ) {
     error = (uint)WSAGetLastError();
-    (void)closesocket( socket );
+    (void)closesocket( listener_socket );
     return tk_windows_error( error );
   }
 
@@ -167,19 +157,19 @@ tk_windows_listen( uint               address,
   addr.sin_port        = htons( port );
   addr.sin_addr.s_addr = address;
 
-  if( FD_UNLIKELY( bind( socket, (struct sockaddr const *)&addr,
+  if( FD_UNLIKELY( bind( listener_socket, (struct sockaddr const *)&addr,
                          (int)sizeof(addr) )==SOCKET_ERROR ) ) {
     error = (uint)WSAGetLastError();
-    (void)closesocket( socket );
+    (void)closesocket( listener_socket );
     return tk_windows_error( error );
   }
-  if( FD_UNLIKELY( listen( socket, (int)backlog )==SOCKET_ERROR ) ) {
+  if( FD_UNLIKELY( listen( listener_socket, (int)backlog )==SOCKET_ERROR ) ) {
     error = (uint)WSAGetLastError();
-    (void)closesocket( socket );
+    (void)closesocket( listener_socket );
     return tk_windows_error( error );
   }
 
-  *out_socket = tk_windows_handle( socket );
+  *out_socket = tk_windows_handle( listener_socket );
   return tk_windows_result( TK_HTTP_SOCKET_STATUS_OK, 0U );
 }
 

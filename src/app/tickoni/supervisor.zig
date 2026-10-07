@@ -531,6 +531,16 @@ pub const Supervisor = struct {
             var env = std.process.Environ.Map.init(self.allocator);
             defer env.deinit();
 
+            // Winsock provider DLL initialization on Windows requires the
+            // Windows runtime root variables even though the tile otherwise
+            // runs with an explicit, non-inherited environment.
+            if (@import("builtin").os.tag == .windows) {
+                if (std.c.getenv("SystemRoot")) |value| try env.put("SystemRoot", std.mem.span(value));
+                if (std.c.getenv("WINDIR")) |value| try env.put("WINDIR", std.mem.span(value));
+                if (std.c.getenv("SystemDrive")) |value| try env.put("SystemDrive", std.mem.span(value));
+                if (std.c.getenv("PATH")) |value| try env.put("PATH", std.mem.span(value));
+            }
+
             var argv_buf: [4][]const u8 = undefined;
             var argv_count: usize = 3;
             argv_buf[0] = self_exe_path;

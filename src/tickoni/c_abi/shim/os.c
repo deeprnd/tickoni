@@ -355,16 +355,23 @@ tk_process_release( ulong process_token,
 
 #include "../../../util/fd_util.h"
 
+static volatile LONG tk_winsock_initialized;
+
 int tk_port_is_in_use( uint16_t port ) {
-  /* Windows: initialize Winsock, try to bind, clean up.
+  /* Windows: initialize Winsock once per process, then try to bind.
    * WSAStartup is required on Win32 before any socket API call.
    * WSACleanup must only be called once per WSAStartup — track
    * success with a flag so we don't call it on error paths
    * where startup failed (which would violate the API contract). */
-  WSADATA wsa;
-  if( WSAStartup( MAKEWORD( 2, 2 ), &wsa )!=0 ) return 1;
+  if( InterlockedCompareExchange( &tk_winsock_initialized, 1L, 0L )==0L ) {
+    WSADATA wsa;
+    if( WSAStartup( MAKEWORD( 2, 2 ), &wsa )!=0 ) {
+      InterlockedExchange( &tk_winsock_initialized, 0L );
+      return 1;
+    }
+  }
   SOCKET sock = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
-  if( sock==INVALID_SOCKET ) { WSACleanup(); return 1; }
+  if( sock==INVALID_SOCKET ) return 1;
   struct sockaddr_in addr;
   memset( &addr, 0, sizeof(addr) );
   addr.sin_family      = AF_INET;
@@ -372,7 +379,6 @@ int tk_port_is_in_use( uint16_t port ) {
   addr.sin_addr.s_addr = htonl( INADDR_ANY );
   int busy = bind( sock, (struct sockaddr *)&addr, sizeof(addr) )!=0;
   closesocket( sock );
-  WSACleanup();
   return busy;
 }
 
