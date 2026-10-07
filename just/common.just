@@ -412,7 +412,8 @@ mem-drop-caches:
 kill-test:
 	#!/usr/bin/env bash
 	set -euo pipefail
-	echo "killing test processes (user: $USER)..."
+	user="${USER:-${USERNAME:-unknown}}"
+	echo "killing test processes (user: $user)..."
 	case "{{ os }}" in
 	  linux)
 	    # Phase 1: kill child tile processes first (tkings, tknorm, tkdedu, etc.)
@@ -440,19 +441,20 @@ kill-test:
 	    echo "done."
 	    ;;
 	  windows)
-	    # Windows: use taskkill with image-name filters for tk* and test-*
-	    # taskkill /FI "IMAGENAME eq ..." matches the image name only
-	    # We also try WMIC for broader matching on full command line
-	    for img in tkings tknorm tkdedu tkcase tkpoly tkaudt tkrepl tkmetr tkdiag tkdisp tkagnt tkmodl tktool tkadpt tkapi tickoni-supervisor; do
-	      taskkill /F /FI "IMAGENAME eq ${img}.exe" /T > /dev/null 2>&1 || true
-	    done
-	    # Kill any zig-out/test-* processes by matching the path
-	    taskkill /F /FI "CMDLINE eq *zig-out/bin/test-*" /T > /dev/null 2>&1 || true
-	    taskkill /F /FI "CMDLINE eq *target/debug/test-*" /T > /dev/null 2>&1 || true
-	    # Kill any remaining tickoni-* processes
-	    for img in $(wmic process where "name like '%tickoni%'" get name /value 2>/dev/null | grep -oP '[a-z-]+\.exe' | sort -u || true); do
-	      taskkill /F /FI "IMAGENAME eq $img" /T > /dev/null 2>&1 || true
-	    done
+	    # Git Bash does not always export USER, and taskkill has no CMDLINE
+	    # filter. Query Win32_Process so generated test executable names and
+	    # their Windows path separators are handled consistently.
+	    powershell.exe -NoProfile -NonInteractive -Command '
+	      $imageNames = @("tkings.exe", "tknorm.exe", "tkdedu.exe", "tkcase.exe", "tkpoly.exe", "tkaudt.exe", "tkrepl.exe", "tkmetr.exe", "tkdiag.exe", "tkdisp.exe", "tkagnt.exe", "tkmodl.exe", "tktool.exe", "tkadpt.exe", "tkapi.exe", "tickoni-supervisor.exe")
+	      $processes = Get-CimInstance Win32_Process | Where-Object {
+	        $_.Name -notin @("powershell.exe", "pwsh.exe") -and (
+	          $_.Name -in $imageNames -or $_.CommandLine -like "*zig-out*bin*test-*" -or $_.CommandLine -like "*target*debug*test-*" -or $_.CommandLine -like "*target*release*test-*"
+	        )
+	      }
+	      foreach ($process in $processes) {
+	        & taskkill.exe /F /PID $process.ProcessId /T *> $null
+	      }
+	    ' 2>/dev/null || true
 	    echo "done."
 	    ;;
 	  *)
