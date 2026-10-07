@@ -24,6 +24,8 @@ const Supervisor = supervisor_mod.Supervisor;
 
 const METRICS_HOST = "127.0.0.1";
 const PYTHON = if (builtin.os.tag == .windows) "py" else "python3";
+const HTTP_READY_MAX_ATTEMPTS: u8 = 20;
+const HTTP_REQUEST_TIMEOUT_MS: u32 = 500;
 
 // ---------------------------------------------------------------------------
 // HTTP client: subprocess + Python script.
@@ -301,7 +303,7 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
         .{ .src_idx = 0, .dst_idx = 2, .depth = 64, .mtu = 128 },
     };
     const topology = runtime.topology.Topology{ .tiles = &tiles, .channels = &channels };
-    var built = try runtime.topo_build.build(std.testing.allocator, topology, "tkmetr_identity", 7999);
+    var built = try runtime.topo_build.build(std.testing.allocator, topology, "tkmetr_id", 7999);
     defer built.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(usize, 1), built.metric_desc_idx);
@@ -416,8 +418,9 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
 
-    // Fetch /metrics — single request, fail immediately if metrics are missing.
-    const resp = httpGetProcess(METRICS_HOST, port, "/metrics", 5000) catch |err| {
+    // The independently-started listener can begin accepting after the
+    // pipeline has already completed, so wait for listener readiness.
+    const resp = httpGetWithRetry(METRICS_HOST, port, "/metrics", HTTP_READY_MAX_ATTEMPTS, HTTP_REQUEST_TIMEOUT_MS) catch |err| {
         std.debug.panic("Failed to fetch /metrics: {s}", .{@errorName(err)});
     };
     defer std.testing.allocator.free(resp.body);
@@ -480,8 +483,8 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
 
-    // Fetch /foo — single request, expect 404
-    const resp = httpGetProcess(METRICS_HOST, port, "/foo", 5000) catch |err| {
+    // Wait for listener readiness, then expect 404.
+    const resp = httpGetWithRetry(METRICS_HOST, port, "/foo", HTTP_READY_MAX_ATTEMPTS, HTTP_REQUEST_TIMEOUT_MS) catch |err| {
         std.debug.panic("Failed to connect to HTTP server on port {d}: {s}", .{ port, @errorName(err) });
     };
     defer std.testing.allocator.free(resp.body);
@@ -529,8 +532,8 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
 
-    // Fetch /metrics — single request, fail immediately if metrics are missing.
-    const resp = httpGetProcess(METRICS_HOST, port, "/metrics", 5000) catch |err| {
+    // Wait for listener readiness before reading the boot timestamp.
+    const resp = httpGetWithRetry(METRICS_HOST, port, "/metrics", HTTP_READY_MAX_ATTEMPTS, HTTP_REQUEST_TIMEOUT_MS) catch |err| {
         std.debug.panic("Failed to fetch /metrics: {s}", .{@errorName(err)});
     };
     defer std.testing.allocator.free(resp.body);
