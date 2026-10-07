@@ -24,6 +24,7 @@ def run_zig_build(target, run_tests):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.normpath(os.path.join(script_dir, "..", "..", ".."))
     env = os.environ.copy()
+    env.setdefault("ZIG_LOCAL_CACHE_DIR", os.path.join(repo_root, "build", ".zig-cache"))
     env.setdefault("ZIG_GLOBAL_CACHE_DIR", os.path.join(repo_root, "build", ".zig-global-cache"))
 
     # Ensure fd-lib-dir exists — the build orchestrator must compile

@@ -59,6 +59,11 @@ FAIL_PATTERNS=(
 )
 
 for bin in "${binaries[@]}"; do
+    # Zig emits Windows-native paths when the build runs under Git Bash.
+    # Convert them back to MSYS paths before Bash tries to execute them.
+    if command -v cygpath >/dev/null 2>&1; then
+        bin="$(cygpath -u "$bin")"
+    fi
     name=$(basename "$(dirname "$bin")")
     echo -n "  ${name}... "
     output_file=$(mktemp "${TMPDIR:-/tmp}/tickoni-test.XXXXXX")
