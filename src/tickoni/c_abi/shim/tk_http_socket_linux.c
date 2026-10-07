@@ -24,7 +24,7 @@
 static tk_http_socket_result_t
 tk_linux_result( tk_http_socket_status_t status,
                  int                     native_error ) {
-  tk_http_socket_result_t result = { status, native_error };
+  tk_http_socket_result_t result = { status, (uint)native_error };
   return result;
 }
 
@@ -111,13 +111,13 @@ tk_linux_listen( uint               address,
     return tk_linux_error( error );
   }
 
-  struct sockaddr_in addr;
+  struct { struct sockaddr sa; struct sockaddr_in sin; } addr;
   memset( &addr, 0, sizeof(addr) );
-  addr.sin_family      = AF_INET;
-  addr.sin_port        = htons( port );
-  addr.sin_addr.s_addr = address;
+  addr.sin.sin_family      = AF_INET;
+  addr.sin.sin_port        = htons( port );
+  addr.sin.sin_addr.s_addr = address;
 
-  if( FD_UNLIKELY( bind( fd, (struct sockaddr *)&addr,
+  if( FD_UNLIKELY( bind( fd, &addr.sa,
                          (socklen_t)sizeof(addr) )<0 ) ) {
     int error = errno;
     (void)close( fd );
@@ -314,16 +314,17 @@ tk_linux_local_port( tk_http_socket_t socket,
   if( FD_UNLIKELY( !tk_linux_fd( socket, &fd ) ) )
     return tk_linux_error( EINVAL );
 
-  struct sockaddr_in addr;
+  struct { struct sockaddr sa; struct sockaddr_in sin; } addr;
+  memset( &addr, 0, sizeof(addr) );
   socklen_t addr_sz = (socklen_t)sizeof(addr);
-  if( FD_UNLIKELY( getsockname( fd, (struct sockaddr *)&addr,
+  if( FD_UNLIKELY( getsockname( fd, &addr.sa,
                                 &addr_sz )<0 ) )
     return tk_linux_error( errno );
   if( FD_UNLIKELY( addr_sz<(socklen_t)sizeof(addr) ||
-                   addr.sin_family!=AF_INET ) )
+                   addr.sin.sin_family!=AF_INET ) )
     return tk_linux_error( EINVAL );
 
-  *out_port = ntohs( addr.sin_port );
+  *out_port = ntohs( addr.sin.sin_port );
   return tk_linux_result( TK_HTTP_SOCKET_STATUS_OK, 0 );
 }
 
