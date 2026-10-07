@@ -502,8 +502,23 @@ const char * tk_getenv( const char * name ) {
 }
 
 int tk_get_affinity(int pid, unsigned char *mask) {
-  /* Windows: no POSIX affinity API; no-op. */
-  (void)pid; (void)mask;
+  /* Windows exposes the process affinity mask as a native ULONG_PTR rather
+   * than a POSIX cpu_set_t.  Tickoni's CpuSet is 128 bytes; copy the native
+   * mask into its low bytes and clear the remainder so callers never inspect
+   * uninitialized data.  pid==0 means the current process. */
+  if( FD_UNLIKELY( !mask ) ) return -1;
+  memset( mask, 0, 128UL );
+
+  HANDLE process = pid==0 ? GetCurrentProcess() : OpenProcess( PROCESS_QUERY_INFORMATION, FALSE, (DWORD)pid );
+  if( FD_UNLIKELY( !process ) ) return -1;
+
+  DWORD_PTR process_mask = 0;
+  DWORD_PTR system_mask  = 0;
+  int ok = GetProcessAffinityMask( process, &process_mask, &system_mask );
+  if( pid!=0 ) CloseHandle( process );
+  if( FD_UNLIKELY( !ok ) ) return -1;
+
+  memcpy( mask, &process_mask, sizeof(process_mask) );
   return 0;
 }
 
