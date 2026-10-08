@@ -23,7 +23,7 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
     .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
+    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric" },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
 };
 
@@ -101,7 +101,7 @@ test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails
         .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
         .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
         .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-        .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
+        .{ .id = TileId.parse("metric") catch unreachable, .name = "metric" },
         .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
     };
     const topo = rt.topology.Topology{
@@ -147,7 +147,7 @@ test "process_cpu_placement_integration: shared-core rejected when sharing is no
         .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
         .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
         .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-        .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
+        .{ .id = TileId.parse("metric") catch unreachable, .name = "metric" },
         .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
     };
     const topo = rt.topology.Topology{
@@ -173,7 +173,7 @@ test "process_cpu_placement_integration: exclusive and shared on the same cpu co
         .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
         .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
         .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-        .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
+        .{ .id = TileId.parse("metric") catch unreachable, .name = "metric" },
         .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
     };
     const topo = rt.topology.Topology{
