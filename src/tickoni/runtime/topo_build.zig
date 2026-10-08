@@ -37,6 +37,9 @@ pub const concrete_workspace_name_cap: usize = 64;
 pub fn concreteWorkspaceName(buf: []u8, workspace_name: []const u8) ![:0]const u8 {
     const printed = try std.fmt.bufPrint(buf[0 .. buf.len - 1], "{s}_{s}.wksp", .{ app_name, workspace_name });
     buf[printed.len] = 0;
+    // Verify the concrete name matches the Firedancer join format.
+    std.debug.assert(std.mem.startsWith(u8, buf[0..printed.len], "tickoni_"));
+    std.debug.assert(std.mem.endsWith(u8, buf[0..printed.len], ".wksp"));
     return @ptrCast(buf[0..printed.len :0]);
 }
 
@@ -163,6 +166,8 @@ pub fn build(
         // topobTileIn) read from metric_in workspace without moving the main
         // pipeline links.
         link_ids[i] = c_abi.topob.topobLink(topo, linkNameZ(&link_name_buf, i), wksp_name_z, ch.depth, ch.mtu, 1);
+        // Verify link was registered with expected name (catches link name typos).
+        std.debug.assert(c_abi.topob.topoValidateLinkExists(topo, linkNameZ(&link_name_buf, i)));
     }
 
     const cpu_idx_arr = try allocator.alloc(usize, topo_desc.tiles.len);
@@ -174,10 +179,14 @@ pub fn build(
         if (std.mem.eql(u8, t.id.slice(), "metric")) continue;
         var tile_name_buf: [16]u8 = undefined;
         _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, t.id.slice()), wksp_name_z, wksp_name_z, 0);
+        // Verify tile was registered with expected name (catches tile name typos).
+        std.debug.assert(c_abi.topob.topoValidateTileExists(topo, toZ(&tile_name_buf, t.id.slice())));
     }
     if (has_metric_tile) {
         var tile_name_buf: [16]u8 = undefined;
         _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, "metric"), "metric", "metric", 0);
+        // Verify metric tile was registered.
+        std.debug.assert(c_abi.topob.topoValidateTileExists(topo, toZ(&tile_name_buf, "metric")));
     }
 
     // Detect metric tile after all tiles are registered.
@@ -211,16 +220,19 @@ pub fn build(
     c_abi.topob.topobAutoLayout(topo, @as([*]const usize, cpu_idx_arr.ptr));
     allocator.free(cpu_idx_arr);
 
-    // Set per-tile scratch footprint properties so tile_footprint() in
-    // topob.c can query them.  Only the metric tile has a non-default footprint;
-    // every other tile gets 1UL (which the property setter silently skips
-    // since 1UL == the default).
-    const scratch_key: [*:0]const u8 = "tickoni.scratch_footprint";
+    // Set per-tile scratch footprint and alignment properties so
+    // tile_footprint() / tile_align() in topob.c can query them.
+    // Only the metric tile has a non-default footprint; every other
+    // tile gets 1UL (which the property setter silently skips since
+    // 1UL == the default).
+    const scratch_footprint_key: [*:0]const u8 = "tickoni.scratch_footprint";
+    const scratch_align_key: [*:0]const u8 = "tickoni.scratch_align";
     for (topo_desc.tiles) |t| {
         var tile_name_buf: [8]u8 = undefined;
-        const fp = c_abi.topob.tickoniTileScratchFootprint(toZ(&tile_name_buf, t.id.slice()));
-        if (fp > 1) {
-            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.id.slice()), 0, scratch_key, fp);
+        const reqs = c_abi.topob.tickoniTileScratchRequirements(toZ(&tile_name_buf, t.id.slice()));
+        if (reqs.footprint > 1) {
+            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.id.slice()), 0, scratch_footprint_key, reqs.footprint);
+            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.id.slice()), 0, scratch_align_key, reqs.alignment);
         }
     }
 
@@ -229,6 +241,9 @@ pub fn build(
     for (0..topo_desc.tiles.len) |i| {
         // v2.22.S4 Task 0: CNC objects stay in app workspace for all tiles
         const obj_id = c_abi.topob.topobObj(topo, "cnc", wksp_name_z);
+        // Verify CNC object was created in the expected workspace (catches
+        // workspace name mismatches — the most common 3-hour bug).
+        std.debug.assert(c_abi.topob.topoValidateObjInWksp(topo, "cnc", wksp_name_z) != c_abi.topob.not_found);
         c_abi.topob.topobTileUses(topo, i, obj_id, true);
         cnc_obj_id[i] = obj_id;
     }
@@ -244,6 +259,16 @@ pub fn build(
         const link_name_z = linkNameZ(&link_name_buf, i);
         const fseq_obj_id = c_abi.topob.topobTileIn(topo, dst_name_z, 0, wksp_name_z, link_name_z, 0, true, true);
         c_abi.topob.topobTileOut(topo, src_name_z, 0, link_name_z, 0);
+        // Verify channel wiring: src tile has out_cnt >= 1, dst tile has in_cnt >= 1.
+        // Catches stale src_idx/dst_idx that reference deleted tiles.
+        const src_tile_id = c_abi.topob.topoFindTile(topo, src_name_z, 0);
+        const dst_tile_id = c_abi.topob.topoFindTile(topo, dst_name_z, 0);
+        std.debug.assert(src_tile_id != c_abi.topob.not_found);
+        std.debug.assert(dst_tile_id != c_abi.topob.not_found);
+        const src_out_cnt = c_abi.topob.topoTileOutputCount(topo, src_tile_id);
+        const dst_in_cnt = c_abi.topob.topoTileInputCount(topo, dst_tile_id);
+        std.debug.assert(src_out_cnt > 0);
+        std.debug.assert(dst_in_cnt > 0);
         link_obj_id[i] = .{
             .mcache_obj_id = c_abi.topob.topoLinkMcacheObjId(topo, link_ids[i]),
             .dcache_obj_id = c_abi.topob.topoLinkDcacheObjId(topo, link_ids[i]),
@@ -261,6 +286,10 @@ pub fn build(
         0;
 
     c_abi.topob.topobFinish(topo);
+
+    // Verify all object offsets are valid after topobFinish (catches
+    // layout/offset computation bugs before any tile crashes).
+    std.debug.assert(c_abi.topob.topoValidateTileObjectOffsets(topo));
 
     if (metric_tile_idx != c_abi.topob.not_found) {
         c_abi.topob.topoTileSetMetricPort(topo, metric_tile_idx, metric_port);

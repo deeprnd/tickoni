@@ -14,10 +14,10 @@
 ///
 /// Usage:
 ///   const log = @import("logger").get();
-///   log.enter("module", "func") catch {};
-///   defer log.exit("module", "func") catch {};
-///   log.debug("module", "message") catch {};
-///   log.kv("module", "key1=val1 key2=val2") catch {};
+///   log.enter("module", "func");
+///   defer log.exit("module", "func");
+///   log.debug("module", "message");
+///   log.kv("module", "key1=val1 key2=val2");
 const std = @import("std");
 const util = @import("util");
 
@@ -102,7 +102,7 @@ pub const Logger = struct {
         return false;
     }
 
-    /// Write an entry to stderr.
+    /// Write an entry to stderr. Returns error for formatting overflow.
     pub fn write(self: *Logger, level: Level, module: []const u8, func: []const u8, message: []const u8) !void {
         if (@backingInt(level) < @backingInt(self.level)) return;
         if (level == .debug and !self.shouldLogModule(module, level)) return;
@@ -143,52 +143,94 @@ pub const Logger = struct {
         }
     }
 
-    /// Log at panic level (always enabled, always flushed).
-    pub fn panic(self: *Logger, module: []const u8, func: []const u8, message: []const u8) !void {
+    /// Write a log entry that never fails. Catches formatting overflow and
+    /// falls back to a raw message without module/func context.
+    fn writeSafe(self: *Logger, level: Level, module: []const u8, func: []const u8, message: []const u8) void {
+        if (@backingInt(level) < @backingInt(self.level)) return;
+        if (level == .debug and !self.shouldLogModule(module, level)) return;
+
         const ts: i64 = util.os_api.monotonicNanos();
-        const line = try std.fmt.bufPrint(&self.line_buf, "\x1b[1;31m{d} PANIC [{s}] {s}: {s}\x1b[0m\n", .{
-            ts, module, func, message,
-        });
+        const level_str: []const u8 = switch (level) {
+            .debug => "DEBUG",
+            .info => "INFO",
+            .notice => "NOTICE",
+            .warning => "WARNING",
+            .err => "ERR",
+            .crit => "CRIT",
+            .alert => "ALERT",
+            .emerg => "EMERG",
+        };
+
+        const color_code = if (self.colorize) switch (level) {
+            .debug => "\x1b[34m",
+            .info => "\x1b[32m",
+            .notice => "\x1b[33m",
+            .warning => "\x1b[33m",
+            .err => "\x1b[31m",
+            .crit => "\x1b[1;31m",
+            .alert => "\x1b[1;31m",
+            .emerg => "\x1b[1;31m",
+        } else "";
+        const reset = if (self.colorize) "\x1b[0m" else "";
+
+        var buf: [512]u8 = undefined;
+        const line = std.fmt.bufPrint(&buf, "{s}{d} {s} [{s}] {s}: {s}{s}\n", .{
+            color_code, ts, level_str, module, func, message, reset,
+        }) catch {
+            // Fallback: write raw message without formatting context
+            const raw = std.fmt.bufPrint(&buf, "{s} {d} [{s}] {s}{s}\n", .{
+                color_code, ts, level_str, message, reset,
+            }) catch return;
+            _ = util.os_api.write(2, raw);
+            if (@backingInt(level) >= @backingInt(Level.warning)) util.os_api.fflush();
+            return;
+        };
         _ = util.os_api.write(2, line);
+        if (@backingInt(level) >= @backingInt(Level.warning)) util.os_api.fflush();
+    }
+
+    /// Log at panic level (always enabled, always flushed).
+    pub fn panic(self: *Logger, module: []const u8, func: []const u8, message: []const u8) void {
+        self.writeSafe(.emerg, module, func, message);
         util.os_api.fflush();
     }
 
     /// Log at error level (always enabled, always flushed).
-    pub fn err(self: *Logger, module: []const u8, func: []const u8, message: []const u8) !void {
-        try self.write(.err, module, func, message);
+    pub fn err(self: *Logger, module: []const u8, func: []const u8, message: []const u8) void {
+        self.writeSafe(.err, module, func, message);
     }
 
     /// Log at debug level (only with sufficient level and matching module).
-    pub fn debug(self: *Logger, module: []const u8, func: []const u8, message: []const u8) !void {
-        try self.write(.debug, module, func, message);
+    pub fn debug(self: *Logger, module: []const u8, func: []const u8, message: []const u8) void {
+        self.writeSafe(.debug, module, func, message);
     }
 
     /// Log at info level (only with sufficient level).
-    pub fn info(self: *Logger, module: []const u8, func: []const u8, message: []const u8) !void {
-        try self.write(.info, module, func, message);
+    pub fn info(self: *Logger, module: []const u8, func: []const u8, message: []const u8) void {
+        self.writeSafe(.info, module, func, message);
     }
 
     /// Log method entry: "module.func: enter"
-    pub fn enter(self: *Logger, module: []const u8, func: []const u8) !void {
-        try self.debug(module, func, "enter");
+    pub fn enter(self: *Logger, module: []const u8, func: []const u8) void {
+        self.writeSafe(.debug, module, func, "enter");
     }
 
     /// Log method exit: "module.func: exit"
-    pub fn exit(self: *Logger, module: []const u8, func: []const u8) !void {
-        try self.write(.debug, module, func, "exit");
+    pub fn exit(self: *Logger, module: []const u8, func: []const u8) void {
+        self.writeSafe(.debug, module, func, "exit");
     }
 
     /// Log with key-value pairs: {key=val ...} appended before the message.
     /// Zero-allocation: uses a stack buffer (matches fd_log_private_0's
     /// static-buffer pattern — no heap allocs, safe in hot path).
-    pub fn kv(self: *Logger, module: []const u8, func: []const u8, kv_pairs: []const u8, message: []const u8) !void {
+    pub fn kv(self: *Logger, module: []const u8, func: []const u8, kv_pairs: []const u8, message: []const u8) void {
         var tmp: [1024]u8 = undefined;
         const combined = std.fmt.bufPrint(&tmp, "{s} {s}", .{ kv_pairs, message }) catch {
             // If combined message exceeds buffer, fall back to just message
-            try self.write(.debug, module, func, message);
+            self.writeSafe(.debug, module, func, message);
             return;
         };
-        try self.write(.debug, module, func, combined);
+        self.writeSafe(.debug, module, func, combined);
     }
 
     /// Log with key-value pairs and a format string — handles formatting
@@ -205,7 +247,7 @@ pub const Logger = struct {
             // If formatting fails, skip the log entry
             return;
         };
-        self.write(.debug, module, func, combined) catch {};
+        self.writeSafe(.debug, module, func, combined);
     }
 };
 
@@ -297,15 +339,15 @@ test "Logger.isVerbose" {
 
 test "Logger.panic and err always write" {
     var log = Logger{};
-    try log.panic("test", "func", "panic message");
-    try log.err("test", "func", "err message");
+    log.panic("test", "func", "panic message");
+    log.err("test", "func", "err message");
 }
 
 test "Logger.enter and exit format correctly" {
     var log = Logger{};
     log.level = .debug;
-    try log.enter("module", "function");
-    try log.exit("module", "function");
+    log.enter("module", "function");
+    log.exit("module", "function");
 }
 
 test "Logger.module filtering" {

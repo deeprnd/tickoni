@@ -70,7 +70,7 @@ export fn tk_tile_privileged_init(topo: *anyopaque, tile: *anyopaque) callconv(.
     const laddr = c_abi.topob.topoObjLaddr(topo_typed, g_ctx.cnc_obj_id);
     g_ctx.cnc = c_abi.cnc.cncJoin(laddr) orelse {
         const log = logger.get();
-        log.err("tile_process", "tk_tile_privileged_init", "fd_cnc_join failed") catch {};
+        log.err("tile_process", "tk_tile_privileged_init", "fd_cnc_join failed");
         std.process.exit(1);
     };
     c_abi.cnc.heartbeat(g_ctx.cnc, util.process.monotonicNanos());
@@ -105,7 +105,7 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
     const topo_typed: *c_abi.topob.Topo = @ptrCast(topo);
     const wksp = c_abi.topob.topoWkspPtr(topo_typed, g_ctx.wksp_idx) orelse {
         const log = logger.get();
-        log.err("tile_process", "tk_tile_run", "workspace not joined") catch {};
+        log.err("tile_process", "tk_tile_run", "workspace not joined");
         std.process.exit(1);
     };
 
@@ -113,7 +113,7 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
         const log = logger.get();
         var msg_buf: [256]u8 = undefined;
         const msg = std.fmt.bufPrint(&msg_buf, "work failed for tile {d} ({s}): {t}", .{ g_ctx.spec.tile_idx, g_ctx.spec.tile_id.slice(), err }) catch "work failed";
-        log.err("tile_process", "tk_tile_run", msg) catch {};
+        log.err("tile_process", "tk_tile_run", msg);
         std.process.exit(1);
     };
 
@@ -222,22 +222,26 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     tile_id_buf[id_slice.len] = 0;
     const tile_id_z: [*:0]const u8 = @ptrCast(&tile_id_buf);
 
-    const tile_idx = c_abi.topob.topoFindTile(built.topo, tile_id_z, 0);
-    if (tile_idx == c_abi.topob.not_found) {
+    const topo_tile_idx = c_abi.topob.topoFindTile(built.topo, tile_id_z, 0);
+    if (topo_tile_idx == c_abi.topob.not_found) {
         std.debug.print("tile_process: tile {s} not found in rebuilt topology\n", .{id_slice});
         return 1;
     }
-    c_abi.topob.topoTileSetAllowShutdown(built.topo, tile_idx, true);
+    if (spec.tile_idx >= built.cnc_obj_id.len or topo_tile_idx != c_abi.topob.topoFindTile(built.topo, tile_id_z, 0)) {
+        std.debug.print("tile_process: descriptor identity mismatch for tile {s}\n", .{id_slice});
+        return 1;
+    }
+    c_abi.topob.topoTileSetAllowShutdown(built.topo, topo_tile_idx, true);
 
     g_ctx = .{
         .spec = &spec,
         .wksp_idx = built.wksp_idx,
-        .cnc_obj_id = built.cnc_obj_id[tile_idx],
+        .cnc_obj_id = built.cnc_obj_id[spec.tile_idx],
         .work = work,
         .io = io,
         .allocator = allocator,
     };
 
-    c_abi.topo_run.runTileSimple(built.topo, c_abi.topob.topoTilePtr(built.topo, tile_idx));
+    c_abi.topo_run.runTileSimple(built.topo, c_abi.topob.topoTilePtr(built.topo, topo_tile_idx));
     return 0;
 }

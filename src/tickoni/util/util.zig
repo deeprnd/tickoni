@@ -5,6 +5,7 @@
 /// Import as @import("util") in files that use the build module system.
 const std = @import("std");
 const c = std.c;
+const c_abi = @import("c_abi");
 pub const cpu = @import("cpu.zig");
 pub const process = @import("process.zig");
 pub const process_api = @import("process_api.zig");
@@ -13,26 +14,10 @@ pub const linux_ids = @import("linux_ids.zig");
 pub const sizes = @import("sizes.zig");
 pub const sandbox_defaults = @import("sandbox_defaults.zig");
 
-/// Inline struct mirroring `struct sockaddr_in` for Zig 0.17 which
-/// removed `std.posix.sockaddr_in` from the public API.
-const sockaddr_in = extern struct {
-    sin_family: u16,
-    sin_port: u16,
-    sin_addr: u32,
-    sin_zero: [8]u8 = undefined,
-};
-
-/// Host-to-network short (16-bit). Zig 0.17 removed std.posix.ntohs and
-/// std.mem.hostToNetwork.  Inline byte swap works because we know this is
-/// little-endian on x86_64 and the struct fields expect network byte order.
-fn htons(x: u16) u16 {
-    return (x >> 8) | (x << 8);
-}
-
 /// Check whether a TCP port is already bound on localhost.
 /// Returns true if `bind()` fails (port in use or TIME_WAIT), false otherwise (port free).
 ///
-/// This is used by `metricPort()` to skip ports still in TIME_WAIT
+/// This is used by `nextMetricPort()` to skip ports still in TIME_WAIT
 /// from a previous test run.  We use TCP sockets because the metric
 /// tile's HTTP server binds TCP — a UDP bind check would miss TCP
 /// TIME_WAIT ports.
@@ -40,32 +25,7 @@ fn htons(x: u16) u16 {
 /// NOTE: bind() succeeds when the port is FREE — we want the inverse:
 /// return false on success (free) and true on failure (in use).
 pub fn portIsInUse(port: u16) bool {
-    const fd_i = std.posix.system.socket(
-        std.posix.system.AF.INET,
-        std.posix.system.SOCK.STREAM,
-        0, // TCP (protocol 6)
-    );
-    if (fd_i > 2147483647) return true; // socket() failed, treat as busy
-    const fd = @as(c_int, @intCast(@as(i64, @intCast(fd_i))));
-    defer _ = std.posix.system.close(fd);
-
-    // SO_REUSEADDR allows re-binding even in TIME_WAIT, but we want
-    // to *detect* TIME_WAIT ports, so we intentionally do NOT set it.
-    // If bind() fails here, the port is truly busy.
-
-    var bind_addr: sockaddr_in = undefined;
-    @setEvalBranchQuota(10000);
-    bind_addr = sockaddr_in{
-        .sin_family = @as(u16, @intCast(std.posix.system.AF.INET)),
-        .sin_port = htons(port),
-        .sin_addr = 0, // INADDR_ANY (0.0.0.0)
-        .sin_zero = undefined,
-    };
-    const sin_size: std.posix.socklen_t = @intCast(@sizeOf(sockaddr_in));
-
-    // bind() == 0 means the port is FREE (we can bind it) → return false
-    // bind() != 0 means the port is BUSY (EADDRINUSE on TCP) → return true
-    return (std.posix.system.bind(fd, @ptrCast(&bind_addr), sin_size) != 0);
+    return c_abi.os.portIsInUse(port);
 }
 
 /// Validate that a port is NOT currently in use (free to bind).
@@ -93,7 +53,7 @@ pub fn validateNotUsedPort(port: u16) bool {
 const _metric_port_step: u16 = 100;
 
 var _metric_port_counter: u16 = 7999;
-pub fn metricPort() u16 {
+pub fn nextMetricPort() u16 {
     while (true) {
         const result = _metric_port_counter;
         _metric_port_counter = _metric_port_counter +% _metric_port_step;

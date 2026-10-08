@@ -62,6 +62,21 @@ The Firedancer-style topology answers for current links are:
 | `tkmetr` telemetry | `tkmetr` owns metric snapshots. | Atomic counters and queue-watermark reads in `PaymentPipelineState`. | All tiles publish counters; `tkmetr` reads snapshots. | No correctness queue in the spike. | Observational; future telemetry may be lossy with counted drops. | Shutdown takes a final snapshot. | Produced, normalized, invalid, duplicates, allowed, denied, audited, depth, waits, max latency hops. |
 | `tkdiag` diagnostics | `tkdiag` owns diagnostic snapshots. | Atomic crash, sandbox, audit, and replay fields in `PaymentPipelineState`. | Tiles publish diagnostics; `tkdiag` reads snapshots. | No correctness queue in the spike. | Observational; crash state is reliable. | Sandbox failure marks the owning tile crashed and requests runtime stop; shutdown takes a final snapshot. | Sandbox failures, crashed tile, audit count, replay status. |
 
+### Cross-Platform Shmem and Workspace Shim (V2.10.S15)
+
+Story V2.10.S15 extended the workspace shim layer to macOS and Windows:
+
+| Platform | Shim file | Shmem backend | Tile launcher | Notes |
+| --- | --- | --- | --- | --- |
+| Linux | `wksp.c` (POSIX block) | POSIX `shm_open`/`mmap` | `topo_run_platform_linux.c` | Native shmem; `fd_wksp_*` passthrough |
+| macOS | `wksp.c` (POSIX block) | POSIX `shm_open`/`mmap` | `topo_run_platform_macos.c` | Darwin `_NSGetExecutablePath`, `pthread_setname_np` |
+| Windows | `wksp.c` (Windows block) | Firedancer `CreateFileMapping` | `topo_run_platform_windows.c` | Replaces previous ENOTSUP stubs; `WaitForSingleObject` process poll |
+| Fallback | `wksp.c` (no block) | N/A | N/A | Stub returns for test contexts |
+
+The shared header `topo_run_platform_common.h` provides `tk_initialize_logging()` used by all three platform launcher files, eliminating ~33 lines of duplicated logging setup.
+
+Fail-closed: on stub failure the workspace shim returns -1/-2/0/null; the supervisor logs errors and tile boot fails gracefully. This is the expected blocked flow — the shim layer is in place but Firedancer's native shmem backend may still return -ENOTSUP.
+
 Before the topology leaves the in-process spike, replace the heap-backed rings
 with the selected shared-memory queue backing and keep these link answers
 current:

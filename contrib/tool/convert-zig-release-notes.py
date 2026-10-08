@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 """Convert Zig release-notes.html to clean Markdown."""
+import sys
 import re
 from html.parser import HTMLParser
 
-with open('tickoni/doc/knowledge/zig/release-notes.html', 'r') as f:
+<<<<<<< HEAD
+with open('../../doc/knowledge/zig/release-notes-0.17.html', 'r') as f:
+=======
+version = sys.argv[1] if len(sys.argv) > 1 else '0.16'
+
+input_path = f'doc/knowledge/zig/release-notes-{version}.html'
+with open(input_path, 'r') as f:
+>>>>>>> a56f98eef (tool: make convert-zig-release-notes.py version-parameterized)
     html = f.read()
 
 # Step 1: Extract body content
@@ -241,7 +249,11 @@ md = '\n'.join(cleaned)
 md = re.sub(r'\n{4,}', '\n\n\n', md)
 md = md.strip() + '\n'
 
-output_path = 'tickoni/doc/knowledge/zig/release-notes-0.16.md'
+<<<<<<< HEAD
+output_path = '../../tickoni/doc/knowledge/zig/release-notes-0.17.md'
+=======
+output_path = f'doc/knowledge/zig/release-notes-{version}.md'
+>>>>>>> a56f98eef (tool: make convert-zig-release-notes.py version-parameterized)
 with open(output_path, 'w') as f:
     f.write(md)
 

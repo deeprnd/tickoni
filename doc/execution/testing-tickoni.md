@@ -23,7 +23,7 @@ Tickoni repository.
   <!-- badge:unit:end -->
 
   <!-- badge:integration:start -->
-  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-passing-brightgreen?style=flat-square" />
+  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-failing-red?style=flat-square" />
   <!-- badge:integration:end -->
 
   <!-- badge:system:start -->
@@ -41,7 +41,11 @@ Tickoni repository.
   <!-- badge:cov-fd:end -->
 
   <!-- badge:cov-tk:start -->
-  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-89.3%25-yellowgreen?style=flat-square" />
+<<<<<<< HEAD
+  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-88.0%25-yellowgreen?style=flat-square" />
+=======
+  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-88.2%25-yellowgreen?style=flat-square" />
+>>>>>>> 8fd9edf5d (docs: update system test badge and coverage percentage)
   <!-- badge:cov-tk:end -->
 
   <!-- badge:demo:start -->

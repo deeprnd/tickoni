@@ -5,6 +5,10 @@
 #include "../hex/fd_hex.h"
 #include "fd_ristretto255.h"
 
+#if FD_HAS_WINDOWS
+#include <malloc.h>
+#endif
+
 #if FD_USING_GCC && __GNUC__ >= 15
 #pragma GCC diagnostic ignored "-Wunterminated-string-initialization"
 #endif
@@ -84,7 +88,7 @@ static void
 fd_f25519_print (fd_f25519_t * f) {
   uchar s[32];
   fd_f25519_tobytes(s, f);
-  for ( int i=0; i<32; i++ ) { printf("%02x", s[i]); } printf("\n");
+  for( int i=0; i<32; i++ ) { printf("%02x", s[i]); } printf("\n");
 }
 
 FD_FN_UNUSED static void
@@ -266,8 +270,8 @@ test_point_add_sub( FD_FN_UNUSED fd_rng_t * rng ) {
   fd_ristretto255_point_add( h, g, f ); /* 0 = (-P) + P */
   FD_TEST( fd_ristretto255_point_eq( h, t ) );
 
-  for ( int i=1; i<=15; i++ ) {
-    for ( int j=1; i+j<=15; j++ ) {
+  for( int i=1; i<=15; i++ ) {
+    for( int j=1; i+j<=15; j++ ) {
       fd_ristretto255_point_decompress( f, base_point_multiples[i] );
       fd_ristretto255_point_decompress( g, base_point_multiples[j] );
       fd_ristretto255_point_decompress( t, base_point_multiples[i+j] );
@@ -475,15 +479,20 @@ test_multiscalar_mul( fd_rng_t * rng ) {
 #define MSM_N 1024
 // to speed up decompression, we copy 15 points at a time, so we need to alloc a multiple of 15
 #define MSM_N_MALLOC (MSM_N/15+1)*15
-  fd_ristretto255_point_t *   f = aligned_alloc( alignof(fd_ristretto255_point_t), MSM_N_MALLOC * sizeof(fd_ristretto255_point_t) );
+  fd_ristretto255_point_t * f =
+#if FD_HAS_WINDOWS
+    _aligned_malloc( MSM_N_MALLOC * sizeof(fd_ristretto255_point_t), alignof(fd_ristretto255_point_t) );
+#else
+    aligned_alloc( alignof(fd_ristretto255_point_t), MSM_N_MALLOC * sizeof(fd_ristretto255_point_t) );
+#endif
   uchar _a[MSM_N][32]; uchar * a = (uchar *)_a;
 
   for( ulong i=0; i<MSM_N; i++ )
   {
     /* scalars must be random to get meaningful bench */
     fd_rng_b256(rng, _a[i]); _a[i][31] &= 0x01;
-    if (i < 15) { fd_ristretto255_point_decompress( &f[i], base_point_multiples[i % 15 + 1] ); }
-    else if (i % 15 == 0) { memcpy( &f[i], &f[0], sizeof(fd_ristretto255_point_t)*15 ); }
+    if(i < 15) { fd_ristretto255_point_decompress( &f[i], base_point_multiples[i % 15 + 1] ); }
+    else if(i % 15 == 0) { memcpy( &f[i], &f[0], sizeof(fd_ristretto255_point_t)*15 ); }
   }
 
   for( ulong sz=32; sz<=MSM_N; sz*=2 )
@@ -498,7 +507,11 @@ test_multiscalar_mul( fd_rng_t * rng ) {
     log_bench( fd_cstr_printf( cstr, 128UL, NULL, "fd_ristretto255_multi_scalar_mul(%lu)", sz ), iter/sz, dt );
   }
 
-  free(f);
+#if FD_HAS_WINDOWS
+  _aligned_free( f );
+#else
+  free( f );
+#endif
 }
 
 static void

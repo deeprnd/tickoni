@@ -143,6 +143,12 @@ FD_TL ulong fd_tile_private_stack0;
 FD_TL ulong fd_tile_private_stack1;
 static ushort fd_tile_private_cpu_id[ FD_TILE_MAX ];
 
+static void
+fd_tile_private_stack_clear( void ) {
+  fd_tile_private_stack0 = 0UL;
+  fd_tile_private_stack1 = 0UL;
+}
+
 ulong fd_tile_id0( void ) { return fd_tile_private_id0; }
 ulong fd_tile_id1( void ) { return fd_tile_private_id1; }
 ulong fd_tile_cnt( void ) { return fd_tile_private_cnt; }
@@ -266,8 +272,10 @@ fd_tile_private_manager( void * _args ) {
     fd_tile_private_stack0 = (ulong)stack;
     fd_tile_private_stack1 = (ulong)stack + stack_sz;
   } else {
-    /* Discover stack bounds via VirtualQuery */
-    fd_log_private_stack_discover( stack_sz, &fd_tile_private_stack0, &fd_tile_private_stack1 );
+    /* The Win32 default thread stack is not exposed through the generic
+       POSIX-style discovery helper.  Leave diagnostics disabled rather
+       than passing the FD_TL globals through the incompatible ABI path. */
+    fd_tile_private_stack_clear();
     if( FD_UNLIKELY( !fd_tile_private_stack0 ) )
       FD_LOG_WARNING(( "stack diagnostics not available on this tile; attempting to continue" ));
   }
@@ -658,9 +666,9 @@ fd_tile_private_map_boot( ushort * tile_to_cpu,
 
   /* Discover stack bounds for tile 0 */
 #if !FD_HAS_ASAN
-  fd_log_private_stack_discover( fd_log_private_main_stack_sz(),
-                                 &fd_tile_private_stack0,
-                                 &fd_tile_private_stack1 );
+  /* The Win32 default thread stack is not exposed through the generic
+     POSIX-style discovery helper. */
+  fd_tile_private_stack_clear();
   if( FD_UNLIKELY( !fd_tile_private_stack0 ) )
     FD_LOG_WARNING(( "stack diagnostics not available on tile 0; "
                      "attempting to continue" ));

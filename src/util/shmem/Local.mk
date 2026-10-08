@@ -1,8 +1,8 @@
 $(call add-hdrs,fd_shmem.h)
 
 ifdef FD_HAS_WINDOWS
-# Windows build lane uses stub; non-Windows keeps the real shmem admin/user implementation.
-$(call add-objs,fd_shmem_windows_stub,fd_util)
+# Windows build lane now uses the real CreateFileMapping backend.
+$(call add-objs,fd_shmem_windows,fd_util)
 else
 $(call add-objs,fd_shmem_admin fd_shmem_user,fd_util)
 endif

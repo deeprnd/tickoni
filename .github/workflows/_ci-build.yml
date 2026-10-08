@@ -146,7 +146,7 @@ jobs:
         uses: taiki-e/install-action@just
 
       - name: Cache MSVC Build Tools
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         if: runner.os == 'Windows'
         with:
           path: |
@@ -156,7 +156,7 @@ jobs:
             msvc-${{ runner.os }}-${{ matrix.platform }}-
 
       - name: Cache Zig SDK
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.local/zig-*
@@ -167,7 +167,7 @@ jobs:
             zig-${{ runner.os }}-${{ matrix.platform }}-
 
       - name: Cache Firedancer deps (snappy, rockdb, OpenSSL)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             build/fd-deps

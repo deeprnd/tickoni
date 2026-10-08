@@ -105,5 +105,13 @@ jobs:
           name: ${{ matrix.artifact-name }}
           path: .
 
+      - name: Configure hugepages and memory limits (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo prlimit --pid $$ --nofile=65536 --memlock=unlimited
+          sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || true
+          sudo src/util/shmem/fd_shmem_cfg init 0700 "$USER" ""
+          just mem-alloc-auto || true
+
       - name: Run integration tests
         run: just ${{ matrix.test-recipe }}

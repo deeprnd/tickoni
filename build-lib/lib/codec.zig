@@ -5,6 +5,13 @@ pub fn buildPath(b: *std.Build, path: []const u8) std.Build.LazyPath {
     return if (std.fs.path.isAbsolute(path)) b.graph.cwdRelativePath(path) else b.path(path);
 }
 
+fn containsLibrary(libs: []const []const u8, name: []const u8) bool {
+    for (libs) |lib| {
+        if (std.mem.eql(u8, lib, name)) return true;
+    }
+    return false;
+}
+
 /// Link the Firedancer system libraries (crypto, stdc++, and the
 /// given FD archive list). Windows and ARM64 Linux use explicit archive paths to
 /// preserve link order and avoid pkg-config.BAT probing.
@@ -31,6 +38,9 @@ pub fn addTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, f
         // and preserves link order.
         for (libs) |lib| {
             step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/lib{s}.a", .{ fd_lib_dir, lib }) });
+        }
+        if (containsLibrary(libs, "fd_waltz")) {
+            step.root_module.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
         }
         linkTickoniWindowsUuid(b, step, fd_lib_dir);
         step.root_module.link_libcpp = true;
@@ -75,6 +85,11 @@ pub fn addTickoniShimLibrary(
         .link_libc = true,
     });
     mod.addIncludePath(b.path("src"));
+    // Windows workspace shims include Firedancer headers by basename
+    // (fd_shmem.h and fd_wksp.h). Keep those headers resolvable for the
+    // supervisor shim module just as the relative Linux includes are.
+    mod.addIncludePath(b.path("src/util/shmem"));
+    mod.addIncludePath(b.path("src/util/wksp"));
     mod.addCSourceFiles(.{
         .files = files,
         .flags = shims.shimCFlagsFor(target.result),
@@ -84,6 +99,7 @@ pub fn addTickoniShimLibrary(
             .files = &.{"src/tickoni/c_abi/shim/windows_crt.c"},
             .flags = shims.shimCFlagsFor(target.result),
         });
+        mod.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
     }
     return b.addLibrary(.{
         .name = name,

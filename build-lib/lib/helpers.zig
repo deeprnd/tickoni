@@ -147,7 +147,7 @@ pub fn createCheckStep(
     inline for (shims.shim_c_files) |shim_file| {
         const c_check = b.addSystemCommand(&.{
             "sh", "-c",
-            b.fmt("zig cc -target {s} -c -I src -std=c17 -UBMI2 -ULZCNT -DFD_HAS_HOSTED=1 {s} -o {s}/{s}.o {s} 2>&1", .{
+            b.fmt("zig cc -target {s} -c -I src -I src/util/shmem -I src/util/wksp -std=c17 -UBMI2 -ULZCNT -DFD_HAS_HOSTED=1 {s} -o {s}/{s}.o {s} 2>&1", .{
                 shims.buildTriple(b, target),
                 shim_c_flags,
                 cache_o_dir,

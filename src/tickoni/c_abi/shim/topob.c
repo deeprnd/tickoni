@@ -397,6 +397,22 @@ tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {
   return 1UL;
 }
 
+void
+tk_topob_tickoni_tile_scratch_requirements( char const * tile_name,
+                                            ulong * alignment_out,
+                                            ulong * footprint_out ) {
+#if FD_HAS_LINUX
+  if( strcmp( tile_name, "metric" ) == 0 ) {
+    ulong footprint = tk_metric_scratch_footprint();
+    *alignment_out  = fd_scratch_smem_align();
+    *footprint_out  = fd_scratch_smem_footprint( footprint );
+    return;
+  }
+#endif
+  *alignment_out = 1UL;
+  *footprint_out = 1UL;
+}
+
 int
 tk_topo_create_workspace( void * topo, ulong wksp_idx, int update_existing ) {
   fd_topo_t * t = (fd_topo_t *)topo;
@@ -472,6 +488,21 @@ tk_topo_wksp_set_ptr( void * topo, ulong wksp_idx, void * wksp_ptr ) {
   ((fd_topo_t *)topo)->workspaces[ wksp_idx ].wksp = (fd_wksp_t *)wksp_ptr;
 }
 
+void
+tk_topo_wksp_set_page_cnt( void * topo, ulong wksp_idx, ulong page_cnt ) {
+  ((fd_topo_t *)topo)->workspaces[ wksp_idx ].page_cnt = page_cnt;
+}
+
+void
+tk_topo_wksp_set_known_footprint( void * topo, ulong wksp_idx, ulong known_footprint ) {
+  ((fd_topo_t *)topo)->workspaces[ wksp_idx ].known_footprint = known_footprint;
+}
+
+void
+tk_topo_wksp_set_numa_idx( void * topo, ulong wksp_idx, ulong numa_idx ) {
+  ((fd_topo_t *)topo)->workspaces[ wksp_idx ].numa_idx = numa_idx;
+}
+
 ulong
 tk_topo_wksp_footprint( void * topo, ulong wksp_idx ) {
   return ((fd_topo_t *)topo)->workspaces[ wksp_idx ].total_footprint;
@@ -480,6 +511,13 @@ tk_topo_wksp_footprint( void * topo, ulong wksp_idx ) {
 ulong
 tk_topo_wksp_part_max( void * topo, ulong wksp_idx ) {
   return ((fd_topo_t *)topo)->workspaces[ wksp_idx ].part_max;
+}
+
+/* Return the total number of workspaces in the topology.
+   Used by automated verification to iterate all workspaces. */
+ulong
+tk_topo_wksp_cnt( void * topo ) {
+  return ((fd_topo_t *)topo)->wksp_cnt;
 }
 
 /* V1.14.S8.T4: fd_topob_tile() never sets allow_shutdown (defaults to 0
@@ -529,6 +567,49 @@ tk_topo_validate_tile_object_offsets( void const * topo_ ) {
   return 1;
 }
 
+/* Return the scratch alignment for a tile's scratch object.
+   Queried by tests to verify the metric tile scratch is properly aligned. */
+ulong
+tk_topo_obj_scratch_align( void const * topo_, ulong obj_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  if( obj_id >= topo->obj_cnt ) return 0UL;
+  return fd_pod_queryf_ulong( topo->props, 0UL, "obj.%lu.%s", obj_id, "tickoni.scratch_align" );
+}
+
+/* Return the scratch footprint for a tile's scratch object.
+   Queried by tests to verify the metric tile scratch is properly sized. */
+ulong
+tk_topo_obj_footprint( void const * topo_, ulong obj_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  if( obj_id >= topo->obj_cnt ) return 0UL;
+  return fd_pod_queryf_ulong( topo->props, 0UL, "obj.%lu.%s", obj_id, "tickoni.scratch_footprint" );
+}
+
+/* Validate that every metric tile has a properly sized and aligned scratch
+   object. Checks that: (1) the tile owns a scratch object with the
+   tickoni.scratch_footprint property set, (2) that property is > 1UL, and
+   (3) the object offset satisfies the alignment requirement.
+   Only tiles with a non-default footprint property are considered. */
+int
+tk_topo_validate_metric_scratch( void const * topo_ ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  int found = 0;
+  for( ulong i = 0UL; i < topo->tile_cnt; i++ ) {
+    fd_topo_tile_t const * tile = &topo->tiles[ i ];
+    ulong footprint = fd_pod_queryf_ulong(
+      topo->props, 0UL, "obj.%lu.%s", tile->tile_obj_id, "tickoni.scratch_footprint" );
+    /* Skip tiles without a custom footprint (generic tiles). */
+    if( footprint <= 1UL ) continue;
+    ulong align = fd_pod_queryf_ulong(
+      topo->props, 0UL, "obj.%lu.%s", tile->tile_obj_id, "tickoni.scratch_align" );
+    if( align <= 1UL ) return 0;
+    ulong offset = topo->objs[ tile->tile_obj_id ].offset;
+    if( offset % align != 0UL ) return 0;
+    found = 1;
+  }
+  return found;
+}
+
 ulong
 tk_topo_tile_obj_id( void const * topo, ulong tile_id ) {
   return ((fd_topo_t const *)topo)->tiles[ tile_id ].tile_obj_id;
@@ -562,4 +643,43 @@ tk_topob_debug_wksp_objs_internal( void * topo ) {
         fprintf(stderr, "    obj[%lu] '%s' (wksp_id=%lu)\n", o, t->objs[ o ].name, t->objs[ o ].wksp_id);
     }
   }
+}
+
+/* Return the number of output links for a tile.
+   Used by topo_build.zig to verify channel wiring (src tile has out_cnt>=1). */
+ulong
+tk_topo_tile_out_cnt( void const * topo_, ulong tile_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  return tile_id<topo->tile_cnt ? topo->tiles[ tile_id ].out_cnt : 0UL;
+}
+
+/* Return the number of input links for a tile.
+   Used by topo_build.zig to verify channel wiring (dst tile has in_cnt>=1). */
+ulong
+tk_topo_tile_in_cnt( void const * topo_, ulong tile_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  return tile_id<topo->tile_cnt ? topo->tiles[ tile_id ].in_cnt : 0UL;
+}
+
+/* Return the CPU index for a tile.
+   Used by topo_build.zig to verify CPU placement. */
+ulong
+tk_topo_tile_cpu_idx( void const * topo_, ulong tile_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  return tile_id<topo->tile_cnt ? topo->tiles[ tile_id ].cpu_idx : 0UL;
+}
+
+/* Given a link_id, count the number of tiles that consume this link
+   as an input. Used by tests and validation to verify wiring. */
+ulong
+tk_topo_link_consumer_cnt( void const * topo_, ulong link_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  ulong cnt = 0UL;
+  for( ulong i=0UL; i<topo->tile_cnt; i++ ) {
+    fd_topo_tile_t const * tile = &topo->tiles[ i ];
+    for( ulong j=0UL; j<tile->in_cnt; j++ ) {
+      if( FD_UNLIKELY( tile->in_link_id[ j ] == link_id ) ) cnt++;
+    }
+  }
+  return cnt;
 }

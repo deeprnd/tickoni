@@ -29,8 +29,8 @@
 /* Windows FILETIME epoch offset to UNIX epoch in 100-ns intervals
  * File time = 100-ns intervals since 1601-01-01 UTC
  * UNIX epoch = 1970-01-01 UTC
- * Difference = 11644473600 seconds = 1164447360000000000 100-ns intervals */
-#define FD_FILETIME_TO_UNIX_NS 116444736000000000LL
+ * Difference = 11644473600 seconds = 116444736000000000 100-ns ticks */
+#define FD_FILETIME_TO_UNIX_100NS 116444736000000000ULL
 /* Seconds per hour (replaces `(long)3600L`) */
 #define FD_NS_PER_HOUR  3600L
 /* Seconds per day (replaces `(long)86400L`) */
@@ -82,14 +82,20 @@ fd_log_wallclock( void ) {
     ULARGE_INTEGER ui;
     ui.LowPart  = ft.dwLowDateTime;
     ui.HighPart = ft.dwHighDateTime;
-    /* File time = 100-ns intervals since 1601-01-01 UTC
-     * UNIX epoch = 1970-01-01 UTC
-     * Difference = 11644473600 seconds
-     * Use long long to avoid 32-bit truncation, then cast to long for return.
-     * On Windows x64/ARM64, long is 64-bit so this fits. */
-    return (long)( ui.QuadPart * 100LL - FD_FILETIME_TO_UNIX_NS );
+    /* Convert FILETIME's 100-ns ticks to Unix nanoseconds. */
+    return (long)( ( ui.QuadPart - FD_FILETIME_TO_UNIX_100NS ) * 100ULL );
   }
   return fd_log_private_clock_func( fd_log_private_clock_args );
+}
+
+long long
+fd_log_wallclock_nanos( void ) {
+  FILETIME ft;
+  GetSystemTimePreciseAsFileTime( &ft );
+  ULARGE_INTEGER ui;
+  ui.LowPart  = ft.dwLowDateTime;
+  ui.HighPart = ft.dwHighDateTime;
+  return (long long)( ( ui.QuadPart - FD_FILETIME_TO_UNIX_100NS ) * 100ULL );
 }
 
 long
@@ -100,8 +106,7 @@ fd_log_wallclock_host( void const * _ ) {
   ULARGE_INTEGER ui;
   ui.LowPart  = ft.dwLowDateTime;
   ui.HighPart = ft.dwHighDateTime;
-  long long offset_ns = FD_FILETIME_TO_UNIX_NS;
-  return (long)( ui.QuadPart * 100LL - offset_ns );
+  return (long)( ( ui.QuadPart - FD_FILETIME_TO_UNIX_100NS ) * 100ULL );
 }
 
 void
@@ -360,9 +365,15 @@ void
 fd_log_private_stack_discover( ulong stack_sz,
                                ulong * opt_stack0,
                                ulong * opt_stack1 ) {
+  /* Windows tile stacks are managed by the Win32 thread runtime.  The
+     generic caller supplies the tile bounds through FD_TL globals, but
+     taking their address across the Windows object boundary is not safe
+     with the current C/Win32 TLS ABI.  Windows callers explicitly clear
+     their bounds and skip discovery; keep this fallback side-effect free
+     for any remaining callers. */
   (void)stack_sz;
-  *opt_stack0 = 0UL;
-  *opt_stack1 = 0UL;
+  (void)opt_stack0;
+  (void)opt_stack1;
 }
 
 /* ── Log level storage ──────────────────────────────────────────────────
@@ -380,6 +391,9 @@ int fd_log_level_logfile( void )     { return fd_log_private_level_logfile; }
 int fd_log_level_stderr( void )      { return fd_log_private_level_stderr; }
 int fd_log_level_flush( void )       { return fd_log_private_level_flush; }
 int fd_log_level_core( void )        { return fd_log_private_level_core; }
+
+/* Windows logging has no POSIX descriptor to authorize for sandbox filtering. */
+int fd_log_private_logfile_fd( void ) { return -1; }
 
 void fd_log_colorize_set( int mode )           { fd_log_private_colorize = mode; }
 void fd_log_level_logfile_set( int level )     { fd_log_private_level_logfile = level; }

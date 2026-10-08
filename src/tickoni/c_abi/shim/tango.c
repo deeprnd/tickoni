@@ -1,6 +1,8 @@
 /* Thin wrappers around Firedancer Tango queue/control primitives.
    Tickoni code binds only to Tickoni-owned tk_* symbols. */
 
+#include <stdint.h>
+
 #include "../../../tango/mcache/fd_mcache.h"
 #include "../../../tango/dcache/fd_dcache.h"
 #include "../../../tango/fseq/fd_fseq.h"
@@ -125,7 +127,10 @@ ulong tk_tempo_async_reload( ulong async_min ) { return fd_tempo_async_reload( t
 
 ulong tk_cnc_align( void ) { return fd_cnc_align(); }
 ulong tk_cnc_footprint( ulong app_sz ) { return fd_cnc_footprint( app_sz ); }
-void * tk_cnc_new( void * shmem, ulong app_sz, ulong cnc_type, long now ) { return fd_cnc_new( shmem, app_sz, cnc_type, now ); }
+void * tk_cnc_new( void * shmem, ulong app_sz, ulong type, int64_t now_ns ) {
+  uint32_t now_ms = (uint32_t)((uint64_t)now_ns / 1000000ULL);
+  return fd_cnc_new( shmem, app_sz, type, (long)now_ms );
+}
 fd_cnc_t * tk_cnc_join( void * shcnc ) { return fd_cnc_join( shcnc ); }
 void * tk_cnc_leave( fd_cnc_t const * cnc ) { return fd_cnc_leave( cnc ); }
 void * tk_cnc_delete( void * shcnc ) { return fd_cnc_delete( shcnc ); }
@@ -135,8 +140,11 @@ char const * tk_cnc_strerror( int err ) { return fd_cnc_strerror( err ); }
 ulong tk_cstr_to_cnc_signal( char const * cstr ) { return fd_cstr_to_cnc_signal( cstr ); }
 char * tk_cnc_signal_cstr( ulong signal, char * buf ) { return fd_cnc_signal_cstr( signal, buf ); }
 void * tk_cnc_app_laddr( fd_cnc_t * cnc ) { return fd_cnc_app_laddr( cnc ); }
-long tk_cnc_heartbeat_query( fd_cnc_t const * cnc ) { return fd_cnc_heartbeat_query( cnc ); }
-void tk_cnc_heartbeat( fd_cnc_t * cnc, long now ) { fd_cnc_heartbeat( cnc, now ); }
+uint32_t tk_cnc_heartbeat_query( fd_cnc_t const * cnc ) { return (uint32_t)fd_cnc_heartbeat_query( cnc ); }
+void tk_cnc_heartbeat( fd_cnc_t * cnc, int64_t now_ns ) {
+  uint32_t now_ms = (uint32_t)((uint64_t)now_ns / 1000000ULL);
+  fd_cnc_heartbeat( cnc, (long)now_ms );
+}
 ulong tk_cnc_signal_query( fd_cnc_t const * cnc ) { return fd_cnc_signal_query( cnc ); }
 void tk_cnc_signal( fd_cnc_t * cnc, ulong signal ) { fd_cnc_signal( cnc, signal ); }
 void tk_cnc_close( fd_cnc_t * cnc ) { fd_cnc_close( cnc ); }

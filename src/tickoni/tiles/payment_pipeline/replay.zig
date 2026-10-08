@@ -15,14 +15,14 @@ const PolicyDecision = runtime.PolicyDecision;
 
 pub fn runReplay(state: *PaymentPipelineState) void {
     const log = logger.get();
-    log.enter("tkrepl", "runReplay") catch {};
-    defer log.exit("tkrepl", "runReplay") catch {};
+    log.enter("tkrepl", "runReplay");
+    defer log.exit("tkrepl", "runReplay");
 
     while (!state.audit_done.load(.acquire)) {
         if (state.stop.load(.acquire) and state.crashed_tile.load(.acquire) != runtime.crash_none) {
             state.replay_checked.store(true, .release);
             state.replay_match.store(false, .release);
-            log.err("tkrepl", "runReplay", "aborting replay due to crash") catch {};
+            log.err("tkrepl", "runReplay", "aborting replay due to crash");
             return;
         }
         std.Thread.yield() catch {};
@@ -33,7 +33,7 @@ pub fn runReplay(state: *PaymentPipelineState) void {
     state.replay_divergences.store(divergences, .release);
     state.replay_match.store(divergences == 0, .release);
     state.replay_checked.store(true, .release);
-    log.debug("tkrepl", "runReplay", "replay check complete") catch {};
+    log.debug("tkrepl", "runReplay", "replay check complete");
 }
 
 fn deterministicReplayDivergences(state: *PaymentPipelineState, log: *logger.Logger) u64 {

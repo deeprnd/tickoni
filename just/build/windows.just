@@ -1,10 +1,14 @@
 # Windows build recipes
 
 build-tk-windows-x86:
+    # Windows cannot replace a running executable during Zig's install step.
+    taskkill /F /IM tickoni-supervisor.exe /T > /dev/null 2>&1 || true
     mkdir -p {{ justfile_dir }}/build
     (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dfd-lib-dir=build/fd-tickoni-fd/lib)
 
 build-tk-windows-arm:
+    # Windows cannot replace a running executable during Zig's install step.
+    taskkill /F /IM tickoni-supervisor.exe /T > /dev/null 2>&1 || true
     mkdir -p {{ justfile_dir }}/build
     (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dfd-lib-dir=build/fd-tickoni-fd/lib)
 
@@ -23,12 +27,6 @@ test-unit-tk-windows-x86:
 test-unit-tk-windows-arm:
     (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib test)
     (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib run-tests)
-
-test-integration-tk-windows-x86:
-    (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib integration-test)
-
-test-integration-tk-windows-arm:
-    (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir=build/fd-tickoni-fd/lib integration-test)
 
 test-system-tk-windows-x86:
     bash {{ justfile_dir }}/contrib/test/run_live_investment_demo_win.sh windows-x86

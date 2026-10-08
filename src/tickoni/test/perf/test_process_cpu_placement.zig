@@ -25,7 +25,7 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile", .cpu_placement = .{ .shared = 0 } },
     .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile", .cpu_placement = .{ .shared = 0 } },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile", .cpu_placement = .{ .shared = 0 } },
-    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile", .cpu_placement = .{ .shared = 0 } },
+    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric", .cpu_placement = .{ .shared = 0 } },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile", .cpu_placement = .{ .shared = 0 } },
 };
 
@@ -37,7 +37,7 @@ fn runDurationNs(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) !u
     defer sup.deinit();
 
     const start_ns = util.process.monotonicNanos();
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     try sup.startPaymentPipelineProcess(io, .{
         .run_dir = run_dir,
         .event_count = event_count,
@@ -54,7 +54,7 @@ fn runDurationNs(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) !u
 
     const metrics = sup.snapshotProcessMetrics();
     const elapsed_ns = std.math.cast(u64, util.process.monotonicNanos() - start_ns) orelse return error.DurationOverflow;
-    sup.stopProcess(io);
+    sup.stopProcess(io) catch @panic("unresolved child");
 
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);

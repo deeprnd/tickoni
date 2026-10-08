@@ -136,7 +136,8 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
     };
     const topo = topology.Topology{ .tiles = &tiles, .channels = &channels };
 
-    const spec = try TopologySpec.fromTopology(topo, 7999);
+    const port = util.nextMetricPort();
+    const spec = try TopologySpec.fromTopology(topo, port);
     try spec.writeToFile(std.testing.io, tmp.dir, "topology.spec");
 
     const read_back = try TopologySpec.readFromFile(std.testing.io, tmp.dir, "topology.spec");
@@ -180,8 +181,9 @@ test "TopologySpec readFromFile rejects a bad magic" {
 }
 
 test "TopologySpec fromTopology fails closed on too many tiles" {
+    const port = util.nextMetricPort();
     var tiles: [max_tiles + 1]tile.TileDescriptor = undefined;
     for (&tiles) |*t| t.* = .{ .id = tile.TileId.parse("tkfoo") catch unreachable, .name = "t", .cpu_placement = .floating };
     const topo = topology.Topology{ .tiles = &tiles, .channels = &.{} };
-    try std.testing.expectError(error.TooManyTiles, TopologySpec.fromTopology(topo, 7999));
+    try std.testing.expectError(error.TooManyTiles, TopologySpec.fromTopology(topo, port));
 }

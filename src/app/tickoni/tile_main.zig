@@ -17,10 +17,10 @@ const logger = @import("logger");
 
 pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) u8 {
     const log = logger.get();
-    log.enter("tile_main", "run") catch {};
-    defer log.exit("tile_main", "run") catch {};
+    log.enter("tile_main", "run");
+    defer log.exit("tile_main", "run");
 
-    log.debug("tile_main", "run", "loading spec from file") catch {};
+    log.debug("tile_main", "run", "loading spec from file");
     return rt.tile_process.run(io, allocator, spec_path, runPipelineStage);
 }
 
@@ -37,11 +37,11 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) u8 {
 /// no-op here.
 fn runPipelineStage(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) !void {
     const log = logger.get();
-    try log.enter("tile_main", "runPipelineStage");
-    defer log.exit("tile_main", "runPipelineStage") catch {};
+    log.enter("tile_main", "runPipelineStage");
+    defer log.exit("tile_main", "runPipelineStage");
 
     const entry = tile_registry.findById(spec.tile_id) orelse return error.UnregisteredTile;
-    log.debug("tile_main", "runPipelineStage", "tile found in registry") catch {};
+    log.debug("tile_main", "runPipelineStage", "tile found in registry");
     const process_fn = entry.process_fn orelse return;
     try process_fn(io, wksp, spec, cnc, allocator);
 }

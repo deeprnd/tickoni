@@ -14,6 +14,26 @@
 
 #include <stdlib.h>
 #include <string.h>
+#if FD_HAS_WINDOWS
+#include <malloc.h> /* _aligned_malloc, _aligned_free */
+static inline void *
+fd_test_aligned_alloc( ulong align, ulong sz ) {
+  return _aligned_malloc( sz, align );
+}
+static inline void
+fd_test_aligned_free( void * p ) {
+  _aligned_free( p );
+}
+#else
+static inline void *
+fd_test_aligned_alloc( ulong align, ulong sz ) {
+  return aligned_alloc( align, sz );
+}
+static inline void
+fd_test_aligned_free( void * p ) {
+  free( p );
+}
+#endif
 
 /* Same syscall hash set as test_sbpf_loader.c.  reject_broken_elfs is 0
    (runtime), so syscall resolution is not enforced at load; using the same
@@ -55,8 +75,8 @@ do_load( uchar const *              bin,
   ulong rodata_sz = fast ? info->load_buf_sz : info->bin_sz;
 
   out->rodata   = malloc( fd_ulong_max( rodata_sz, 1UL ) );
-  out->prog_buf = aligned_alloc( fd_sbpf_program_align(), fd_sbpf_program_footprint( info ) );
-  out->sys_buf  = aligned_alloc( fd_sbpf_syscalls_align(), fd_sbpf_syscalls_footprint() );
+  out->prog_buf = fd_test_aligned_alloc( fd_sbpf_program_align(), fd_sbpf_program_footprint( info ) );
+  out->sys_buf  = fd_test_aligned_alloc( fd_sbpf_syscalls_align(), fd_sbpf_syscalls_footprint() );
   out->scratch  = fast ? NULL : malloc( fd_ulong_max( bin_sz, 1UL ) );
   FD_TEST( out->rodata && out->prog_buf && out->sys_buf );
 
@@ -79,7 +99,7 @@ do_load( uchar const *              bin,
 static void
 free_loaded( loaded_t * l ) {
   fd_sbpf_program_delete( l->prog );
-  free( l->rodata ); free( l->prog_buf ); free( l->sys_buf );
+  free( l->rodata ); fd_test_aligned_free( l->prog_buf ); fd_test_aligned_free( l->sys_buf );
   if( l->scratch ) free( l->scratch );
 }
 
