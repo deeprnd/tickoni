@@ -644,3 +644,19 @@ tk_topob_debug_wksp_objs_internal( void * topo ) {
     }
   }
 }
+
+/* Return the number of output links for a tile.
+   Used by topo_build.zig to verify channel wiring (src tile has out_cnt>=1). */
+ulong
+tk_topo_tile_out_cnt( void const * topo_, ulong tile_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  return tile_id<topo->tile_cnt ? topo->tiles[ tile_id ].out_cnt : 0UL;
+}
+
+/* Return the number of input links for a tile.
+   Used by topo_build.zig to verify channel wiring (dst tile has in_cnt>=1). */
+ulong
+tk_topo_tile_in_cnt( void const * topo_, ulong tile_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  return tile_id<topo->tile_cnt ? topo->tiles[ tile_id ].in_cnt : 0UL;
+}

@@ -327,6 +327,27 @@ pub fn topoValidateTileObjectOffsets(topo: *const Topo) bool {
     return tk_topo_validate_tile_object_offsets(topo) != 0;
 }
 
+/// Returns true when a tile with the given name exists in the topology.
+pub fn topoValidateTileExists(topo: *const Topo, tile_name: [*:0]const u8) bool {
+    return tk_topo_validate_tile_exists(topo, tile_name) != 0;
+}
+
+/// Returns true when a link with the given name exists in the topology.
+pub fn topoValidateLinkExists(topo: *const Topo, link_name: [*:0]const u8) bool {
+    return tk_topo_validate_link_exists(topo, link_name) != 0;
+}
+
+/// Returns the object id when an object of the given type exists in the
+/// given workspace, or not_found when it does not.
+pub fn topoValidateObjInWksp(topo: *const Topo, obj_type: [*:0]const u8, wksp_name: [*:0]const u8) usize {
+    return tk_topo_validate_obj_in_wksp(topo, obj_type, wksp_name);
+}
+
+/// Returns true when the workspace at the given index has been joined.
+pub fn topoValidateWorkspaceJoined(topo: *const Topo, wksp_idx: usize) bool {
+    return tk_topo_validate_workspace_joined(topo, wksp_idx) != 0;
+}
+
 // ---------------------------------------------------------------------------
 // Tests — constants, type smoke, and compile-time surface checks.
 // ---------------------------------------------------------------------------
