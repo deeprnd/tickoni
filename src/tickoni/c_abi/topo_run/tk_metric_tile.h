@@ -6,18 +6,10 @@
    single header prevents two independent extern declarations and
    makes the FFI boundary explicit.  See v2.23-m task 0.
 */
-#ifndef HEADER_fd_src_tickoni_c_abi_topo_run_tk_metric_tile_h
-#define HEADER_fd_src_tickoni_c_abi_topo_run_tk_metric_tile_h
+#ifndef __TK_METRIC_TILE_H__
+#define __TK_METRIC_TILE_H__
 
 #include "../../../disco/topo/fd_topo.h"
-
-#if FD_HAS_HOSTED && (FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS)
-#define TK_HAS_METRIC_TILE 1
-#else
-#define TK_HAS_METRIC_TILE 0
-#endif
-
-#if TK_HAS_METRIC_TILE
 
 /* Extern declaration — full definition lives in tk_metric_tile.c. */
 extern fd_topo_run_tile_t TK_METRIC_RUN;
@@ -26,15 +18,13 @@ extern fd_topo_run_tile_t TK_METRIC_RUN;
    never need to know the symbol name. */
 extern fd_topo_run_tile_t * tk_get_metric_run_tile( void );
 
-/* tk_metric_scratch_requirements returns the exact alignment and
-   footprint required by TK_METRIC_RUN.  Keeping both queries here
-   prevents Zig from reproducing the metric context or HTTP server
-   layout. */
-void
-tk_metric_scratch_requirements( ulong * align,
-                                ulong * footprint );
+/* Query the scratch footprint for the metric tile without needing a
+   fd_topo_tile_t pointer.  Calls through TK_METRIC_RUN.scratch_footprint.
 
-#endif /* TK_HAS_METRIC_TILE */
+   This keeps topob.c from depending on the full fd_topo_run_tile_t
+   definition — it only sees the extern declaration and this thin
+   accessor.  See v2.23-m task 4. */
+extern ulong tk_metric_scratch_footprint( void );
 
 /* Topology helper: find the object ID of the first object of type
    `obj_type` that belongs to the given tile (i.e. is listed in the
@@ -46,4 +36,4 @@ tk_metric_scratch_requirements( ulong * align,
 extern ulong tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id,
                                     char const * obj_type );
 
-#endif /* HEADER_fd_src_tickoni_c_abi_topo_run_tk_metric_tile_h */
+#endif /* __TK_METRIC_TILE_H__ */

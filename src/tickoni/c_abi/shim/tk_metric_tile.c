@@ -3,9 +3,9 @@
  * Reuses Firedancer's fd_stem-based run loop (stem_run) with
  * fd_http_server for Prometheus /metrics endpoint.
  *
- * Supported hosted platforms depend on symbols from fd_metric_tile.c
- * (scratch_align, scratch_footprint, privileged_init, unprivileged_init,
- * stem_run, populate_allowed_seccomp, populate_allowed_fds).
+ * Linux-only: depends on symbols from fd_metric_tile.c (scratch_align,
+ * scratch_footprint, privileged_init, unprivileged_init, stem_run,
+ * populate_allowed_seccomp, populate_allowed_fds).
  *
  * Design notes:
  *   • We #include disco/metrics/fd_metric_tile.h (header-only declarations)
@@ -29,17 +29,16 @@
  *     iteration of stem_run.  When HALT arrives, STEM_CALLBACK_SHOULD_SHUTDOWN
  *     returns non-zero, stem_run sets tile->allow_shutdown=1 and exits.
  *   • CNC lookup uses tk_topo_find_tile_obj() (v2.23-m task 3) instead of
- *     a raw strcmp scan.  Scratch requirements come directly from
- *     TK_METRIC_RUN so Zig never reproduces the C layout.
+ *     a raw strcmp scan.  Scratch footprint uses tk_metric_scratch_footprint()
+ *     (v2.23-m task 4) so topob.c never needs the full fd_topo_run_tile_t.
  */
+
+#if FD_HAS_LINUX
 
 #define _GNU_SOURCE
 
-#include "../topo_run/tk_metric_tile.h"
-
-#if TK_HAS_METRIC_TILE
-
 #include "disco/metrics/fd_metric_tile.h"
+#include "../topo_run/tk_metric_tile.h"
 
 /* This macro mirrors the value defined in fd_metric_tile.c so that
    tk_metric_tile.c can reference it without including the .c source. */
@@ -48,7 +47,10 @@
 #endif
 
 /* ---------------------------------------------------------------------
-   Metric scratch requirements.
+   tk_metric_scratch_footprint — thin wrapper that calls through
+   TK_METRIC_RUN.scratch_footprint.  Provides a no-argument accessor
+   so topob.c never needs the full fd_topo_run_tile_t definition.
+   See v2.23-m task 4.
    --------------------------------------------------------------------- */
 
 /* Internal footprint helper used by the struct initializer.  Takes
@@ -56,6 +58,14 @@
 static ulong
 tk_metric_scratch_footprint_tile( fd_topo_tile_t const * tile ) {
   return scratch_footprint( tile );
+}
+
+/* No-argument wrapper — delegates to TK_METRIC_RUN.scratch_footprint
+   with a NULL tile, which is sufficient since scratch_footprint in
+   fd_metric_tile.c only reads tile->uses_obj_cnt. */
+ulong
+tk_metric_scratch_footprint( void ) {
+  return TK_METRIC_RUN.scratch_footprint( NULL );
 }
 
 static ulong
@@ -71,10 +81,7 @@ tk_metric_scratch_align( void ) {
 static void
 tk_metric_privileged_init( fd_topo_t const *      topo,
                            fd_topo_tile_t const * tile ) {
-  FD_LOG_INFO(( "tkmetr: privileged_init started for tile %s (obj_id=%lu)",
-                tile->id, tile->tile_obj_id ));
   privileged_init( topo, tile );
-  FD_LOG_INFO(( "tkmetr: privileged_init complete for tile %s", tile->id ));
 }
 
 /* ---------------------------------------------------------------------
@@ -105,12 +112,11 @@ tk_metric_unprivileged_init( fd_topo_t const *      topo,
 static void
 tk_metric_run( fd_topo_t *      topo,
                fd_topo_tile_t * tile ) {
-  void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
-  fd_metric_ctx_t * ctx = (fd_metric_ctx_t *)scratch;
-
   /* ctx is the first object allocated from scratch (after privileged_init
      and unprivileged_init).  We set ctx->cnc here so stem_run's
      STEM_CALLBACK_SHOULD_SHUTDOWN can detect HALT from the supervisor. */
+  void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
+  fd_metric_ctx_t * ctx = (fd_metric_ctx_t *)scratch;
 
   /* Find the CNC object for this tile and set ctx->cnc so
      STEM_CALLBACK_SHOULD_SHUTDOWN can detect HALT. */
@@ -118,11 +124,6 @@ tk_metric_run( fd_topo_t *      topo,
   if( cnc_obj_id != ULONG_MAX ) {
     void * cnc_laddr = fd_topo_obj_laddr( topo, cnc_obj_id );
     ctx->cnc = cnc_laddr;
-    FD_LOG_INFO(( "tkmetr: tile %s joined CNC (obj_id=%lu, addr=%p)",
-                  tile->id, cnc_obj_id, cnc_laddr ));
-  } else {
-    FD_LOG_WARNING(( "tkmetr: tile %s CNC object not found — shutdown will rely on external signal",
-                     tile->id ));
   }
 
   stem_run( topo, tile );
@@ -167,11 +168,4 @@ fd_topo_run_tile_t TK_METRIC_RUN = {
   .rlimit_file_cnt_fn       = NULL,
 };
 
-void
-tk_metric_scratch_requirements( ulong * align,
-                                ulong * footprint ) {
-  *align     = TK_METRIC_RUN.scratch_align();
-  *footprint = TK_METRIC_RUN.scratch_footprint( NULL );
-}
-
-#endif /* TK_HAS_METRIC_TILE */
+#endif /* FD_HAS_LINUX */

@@ -61,6 +61,9 @@ extern fn tk_topo_link_dcache_obj_id(topo: *Topo, link_id: usize) usize;
 extern fn tk_topo_wksp_ptr(topo: *Topo, wksp_idx: usize) ?*wksp_mod.Wksp;
 extern fn tk_topo_tile_set_allow_shutdown(topo: *Topo, tile_id: usize, allow: c_int) void;
 extern fn tk_topo_wksp_set_ptr(topo: *Topo, wksp_idx: usize, wksp_ptr: *wksp_mod.Wksp) void;
+extern fn tk_topo_wksp_set_page_cnt(topo: *Topo, wksp_idx: usize, page_cnt: usize) void;
+extern fn tk_topo_wksp_set_known_footprint(topo: *Topo, wksp_idx: usize, known_footprint: usize) void;
+extern fn tk_topo_wksp_set_numa_idx(topo: *Topo, wksp_idx: usize, numa_idx: usize) void;
 extern fn tk_topo_wksp_footprint(topo: *Topo, wksp_idx: usize) usize;
 extern fn tk_topo_wksp_part_max(topo: *Topo, wksp_idx: usize) usize;
 extern fn tk_topob_auto_layout(topo: *Topo, cpu_idx: [*]const usize) void;
@@ -206,6 +209,21 @@ pub fn topoWkspPtr(topo: *Topo, wksp_idx: usize) ?*wksp_mod.Wksp {
 /// non-null; they don't inspect page_sz.
 pub fn topoWkspSetPtr(topo: *Topo, wksp_idx: usize, wksp_ptr: *wksp_mod.Wksp) void {
     tk_topo_wksp_set_ptr(topo, wksp_idx, wksp_ptr);
+}
+
+/// Match Firedancer's fd_topo_create_workspace / fd_topo_join_workspace
+/// by initializing the remaining fd_topo_wksp_t fields that child tile
+/// processes may read during fd_topo_workspace_fill or fd_topo_fill_tile.
+pub fn topoWkspSetPageCnt(topo: *Topo, wksp_idx: usize, page_cnt: usize) void {
+    tk_topo_wksp_set_page_cnt(topo, wksp_idx, page_cnt);
+}
+
+pub fn topoWkspSetKnownFootprint(topo: *Topo, wksp_idx: usize, known_footprint: usize) void {
+    tk_topo_wksp_set_known_footprint(topo, wksp_idx, known_footprint);
+}
+
+pub fn topoWkspSetNumaIdx(topo: *Topo, wksp_idx: usize, numa_idx: usize) void {
+    tk_topo_wksp_set_numa_idx(topo, wksp_idx, numa_idx);
 }
 
 /// fd_topob_finish's computed total byte footprint for this workspace —

@@ -357,6 +357,12 @@ pub const Supervisor = struct {
 
         // Helper: create and attach a named workspace, storing ptr in a
         // caller-provided slot.
+        var metric_footprint: usize = 0;
+        var metric_part_max: usize = 0;
+        var metric_page_cnt: usize = 0;
+        var metric_in_footprint: usize = 0;
+        var metric_in_part_max: usize = 0;
+        var metric_in_page_cnt: usize = 0;
         var metric_wksp_ptr: ?*c_abi.wksp.Wksp = null;
         var metric_in_wksp_ptr: ?*c_abi.wksp.Wksp = null;
         var auxiliary_workspaces_owned_by_state = false;
@@ -366,9 +372,9 @@ pub const Supervisor = struct {
         };
 
         if (metric_wksp_idx != c_abi.topob.not_found) {
-            const metric_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metric_wksp_idx);
-            const metric_part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, metric_wksp_idx);
-            const metric_page_cnt = metric_footprint / c_abi.wksp.shmem_normal_page_sz + 16;
+            metric_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metric_wksp_idx);
+            metric_part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, metric_wksp_idx);
+            metric_page_cnt = metric_footprint / c_abi.wksp.shmem_normal_page_sz + 16;
             var metric_sub_page_cnt: [1]usize = .{metric_page_cnt};
             var metric_sub_cpu_idx: [1]usize = .{0};
             var metric_name_buf: [64]u8 = undefined;
@@ -379,9 +385,9 @@ pub const Supervisor = struct {
             }
         }
         if (metric_in_wksp_idx != c_abi.topob.not_found) {
-            const metric_in_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metric_in_wksp_idx);
-            const metric_in_part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, metric_in_wksp_idx);
-            const metric_in_page_cnt = metric_in_footprint / c_abi.wksp.shmem_normal_page_sz + 16;
+            metric_in_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metric_in_wksp_idx);
+            metric_in_part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, metric_in_wksp_idx);
+            metric_in_page_cnt = metric_in_footprint / c_abi.wksp.shmem_normal_page_sz + 16;
             var metric_in_sub_page_cnt: [1]usize = .{metric_in_page_cnt};
             var metric_in_sub_cpu_idx: [1]usize = .{0};
             var metric_in_name_buf: [64]u8 = undefined;
@@ -394,14 +400,24 @@ pub const Supervisor = struct {
 
         // v2.22.S4 Task 0: Set wksp ptr + create objects for metric/metric_in
         // so parent-side topoObjLaddr/gaddr resolves valid content.
+        // Also initialize all fd_topo_wksp_t fields (page_cnt, known_footprint,
+        // numa_idx) that Firedancer's fd_topo_create_workspace sets, so child
+        // tile processes reading these fields during fd_topo_workspace_fill
+        // get valid values instead of zero.
         if (metric_wksp_ptr) |metric_wksp| {
             if (metric_wksp_idx == c_abi.topob.not_found) return error.MissingMetricWorkspaceIdx;
             c_abi.topob.topoWkspSetPtr(built_topo.topo, metric_wksp_idx, metric_wksp);
+            c_abi.topob.topoWkspSetPageCnt(built_topo.topo, metric_wksp_idx, metric_page_cnt);
+            c_abi.topob.topoWkspSetKnownFootprint(built_topo.topo, metric_wksp_idx, metric_footprint);
+            c_abi.topob.topoWkspSetNumaIdx(built_topo.topo, metric_wksp_idx, 0);
             c_abi.topob.topoWkspNew(built_topo.topo, metric_wksp_idx);
         }
         if (metric_in_wksp_ptr) |metric_in_wksp| {
             if (metric_in_wksp_idx == c_abi.topob.not_found) return error.MissingMetricInWorkspaceIdx;
             c_abi.topob.topoWkspSetPtr(built_topo.topo, metric_in_wksp_idx, metric_in_wksp);
+            c_abi.topob.topoWkspSetPageCnt(built_topo.topo, metric_in_wksp_idx, metric_in_page_cnt);
+            c_abi.topob.topoWkspSetKnownFootprint(built_topo.topo, metric_in_wksp_idx, metric_in_footprint);
+            c_abi.topob.topoWkspSetNumaIdx(built_topo.topo, metric_in_wksp_idx, 0);
             c_abi.topob.topoWkspNew(built_topo.topo, metric_in_wksp_idx);
         }
 
@@ -410,6 +426,9 @@ pub const Supervisor = struct {
         // has no .new) via the same fd_topob callback array used to
         // compute the layout above.
         c_abi.topob.topoWkspSetPtr(built_topo.topo, built_topo.wksp_idx, wksp);
+        c_abi.topob.topoWkspSetPageCnt(built_topo.topo, built_topo.wksp_idx, page_cnt);
+        c_abi.topob.topoWkspSetKnownFootprint(built_topo.topo, built_topo.wksp_idx, footprint);
+        c_abi.topob.topoWkspSetNumaIdx(built_topo.topo, built_topo.wksp_idx, 0);
         c_abi.topob.topoWkspNew(built_topo.topo, built_topo.wksp_idx);
 
         const state = try self.allocator.create(ProcessState);
@@ -441,7 +460,7 @@ pub const Supervisor = struct {
         // wkspAlloc); how children join them (LaunchSpec's gaddr fields)
         // is unchanged.
         for (self.topo.tiles, 0..) |_, i| {
-            const laddr = c_abi.topob.topoObjLaddr(built_topo.topo, built_topo.tiles[i].cnc_obj_id);
+            const laddr = c_abi.topob.topoObjLaddr(built_topo.topo, built_topo.cnc_obj_id[i]);
             state.cnc_gaddrs[i] = c_abi.wksp.wkspGaddr(wksp, laddr);
             state.cncs[i] = c_abi.cnc.cncJoin(laddr) orelse return error.CncJoinFailed;
         }

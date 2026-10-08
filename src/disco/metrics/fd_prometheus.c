@@ -5,8 +5,6 @@
 #include "../topo/fd_topo.h"
 #include "../../waltz/http/fd_http_server.h"
 
-
-
 struct fd_prom_render {
   fd_http_server_t * http;
   ulong              last_name_hash;
@@ -71,7 +69,7 @@ render_link( fd_prom_render_t *        r,
   }
   char name_buf[ 256 ];
   char const * name = metric_export_name( metric, name_buf, sizeof(name_buf) );
-  fd_http_server_printf( r->http, "%s{kind=\"%s\",kind_id=\"%lu\",link_kind=\"%s\",link_kind_id=\"%lu\"} %lu\n", name, tile->name, (ulong)tile->kind_id, link->name, (ulong)link->kind_id, (ulong)value );
+  fd_http_server_printf( r->http, "%s{kind=\"%s\",kind_id=\"%lu\",link_kind=\"%s\",link_kind_id=\"%lu\"} %lu\n", name, tile->name, tile->kind_id, link->name, link->kind_id, value );
 }
 
 static void
@@ -101,13 +99,13 @@ render_histogram( fd_prom_render_t *        r,
         double edgef = fd_metrics_convert_ticks_to_seconds( edge-1 );
         FD_TEST( fd_cstr_printf_check( le_str, sizeof( le_str ), NULL, "%.17g", edgef ) );
       } else {
-        FD_TEST( fd_cstr_printf_check( le_str, sizeof( le_str ), NULL, "%lu", (ulong)(edge-1) ) );
+        FD_TEST( fd_cstr_printf_check( le_str, sizeof( le_str ), NULL, "%lu", edge-1 ) );
       }
       le = le_str;
     }
 
-    FD_TEST( fd_cstr_printf_check( value_str, sizeof( value_str ), NULL, "%lu", (ulong)value ));
-    fd_http_server_printf( r->http, "%s_bucket{kind=\"%s\",kind_id=\"%lu\",le=\"%s\"} %s\n", metric->name, tile->name, (ulong)tile->kind_id, le, value_str );
+    FD_TEST( fd_cstr_printf_check( value_str, sizeof( value_str ), NULL, "%lu", value ));
+    fd_http_server_printf( r->http, "%s_bucket{kind=\"%s\",kind_id=\"%lu\",le=\"%s\"} %s\n", metric->name, tile->name, tile->kind_id, le, value_str );
   }
 
   char sum_str[ 64 ];
@@ -115,11 +113,11 @@ render_histogram( fd_prom_render_t *        r,
     double sumf = fd_metrics_convert_ticks_to_seconds( *(fd_metrics_tile( tile->metrics ) + metric->offset + FD_HISTF_BUCKET_CNT) );
     FD_TEST( fd_cstr_printf_check( sum_str, sizeof( sum_str ), NULL, "%.17g", sumf ) );
   } else {
-    FD_TEST( fd_cstr_printf_check( sum_str, sizeof( sum_str ), NULL, "%lu", (ulong)*(fd_metrics_tile( tile->metrics ) + metric->offset + FD_HISTF_BUCKET_CNT) ));
+    FD_TEST( fd_cstr_printf_check( sum_str, sizeof( sum_str ), NULL, "%lu", *(fd_metrics_tile( tile->metrics ) + metric->offset + FD_HISTF_BUCKET_CNT) ));
   }
 
-  fd_http_server_printf( r->http, "%s_sum{kind=\"%s\",kind_id=\"%lu\"} %s\n", metric->name, tile->name, (ulong)tile->kind_id, sum_str );
-  fd_http_server_printf( r->http, "%s_count{kind=\"%s\",kind_id=\"%lu\"} %s\n", metric->name, tile->name, (ulong)tile->kind_id, value_str );
+  fd_http_server_printf( r->http, "%s_sum{kind=\"%s\",kind_id=\"%lu\"} %s\n", metric->name, tile->name, tile->kind_id, sum_str );
+  fd_http_server_printf( r->http, "%s_count{kind=\"%s\",kind_id=\"%lu\"} %s\n", metric->name, tile->name, tile->kind_id, value_str );
 }
 
 static void
@@ -131,19 +129,19 @@ render_counter( fd_prom_render_t *        r,
 
   char name_buf[ 256 ];
   char const * name = metric_export_name( metric, name_buf, sizeof(name_buf) );
-  fd_http_server_printf( r->http, "%s{kind=\"%s\",kind_id=\"%lu\"", name, tile->name, (ulong)tile->kind_id );
+  fd_http_server_printf( r->http, "%s{kind=\"%s\",kind_id=\"%lu\"", name, tile->name, tile->kind_id );
   if( metric->enum_name ) {
     fd_http_server_printf( r->http, ",%s=\"%s\"", metric->enum_name, metric->enum_variant );
   }
   switch( metric->converter ) {
   case FD_METRICS_CONVERTER_NANOSECONDS:
-    fd_http_server_printf( r->http, "} %lu\n", (ulong)fd_metrics_convert_ticks_to_nanoseconds( raw_value ) );
+    fd_http_server_printf( r->http, "} %lu\n", fd_metrics_convert_ticks_to_nanoseconds( raw_value ) );
     break;
   case FD_METRICS_CONVERTER_SECONDS:
     fd_http_server_printf( r->http, "} %e\n", fd_metrics_convert_ticks_to_seconds( raw_value ) );
     break;
   case FD_METRICS_CONVERTER_NONE:
-    fd_http_server_printf( r->http, "} %lu\n", (ulong)raw_value );
+    fd_http_server_printf( r->http, "} %lu\n", raw_value );
     break;
   default:
     FD_LOG_ERR(( "unknown converter %i", metric->converter ));

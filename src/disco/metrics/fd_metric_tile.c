@@ -156,8 +156,7 @@ privileged_init( fd_topo_t const *      topo,
     .request = metrics_http_request,
   };
   ctx->metrics_server = fd_http_server_join( fd_http_server_new( _metrics, METRICS_PARAMS, metrics_callbacks, ctx ) );
-  if( FD_UNLIKELY( !fd_http_server_listen( ctx->metrics_server, tile->metric.prometheus_listen_addr, tile->metric.prometheus_listen_port ) ) )
-    FD_LOG_ERR(( "failed to listen for Prometheus metrics on port %u", tile->metric.prometheus_listen_port ));
+  fd_http_server_listen( ctx->metrics_server, tile->metric.prometheus_listen_addr, tile->metric.prometheus_listen_port );
 }
 
 void
@@ -169,7 +168,7 @@ unprivileged_init( fd_topo_t const *      topo,
   fd_metric_ctx_t * ctx = FD_SCRATCH_ALLOC_APPEND( l, alignof( fd_metric_ctx_t ), sizeof( fd_metric_ctx_t ) );
 
   ctx->topo = topo;
-  ctx->boot_ts = fd_log_wallclock_nanos();
+  ctx->boot_ts = fd_log_wallclock();
   ctx->cnc = NULL;
 
   ulong scratch_top = FD_SCRATCH_ALLOC_FINI( l, scratch_align() );
@@ -218,11 +217,7 @@ populate_allowed_fds( fd_topo_t const *      topo,
   out_fds[ out_cnt++ ] = 2; /* stderr */
   if( FD_LIKELY( -1!=fd_log_private_logfile_fd() ) )
     out_fds[ out_cnt++ ] = fd_log_private_logfile_fd(); /* logfile */
-#if FD_HAS_LINUX || FD_HAS_MACOS
   out_fds[ out_cnt++ ] = fd_http_server_fd( ctx->metrics_server ); /* metrics listen socket */
-#else
-  (void)ctx; /* Windows has no POSIX allowed-FD sandbox contract. */
-#endif
   return out_cnt;
 }
 
