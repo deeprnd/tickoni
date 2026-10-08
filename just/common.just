@@ -52,7 +52,7 @@ justfile_dir := `git rev-parse --show-toplevel`
 # defaults here must stay in sync with what the CI workflows expect.
 fd_tickoni_build := "fd-tickoni-fd"
 fd_tickoni_dir := "build/fd-tickoni-fd"
-fd_tickoni_lib := "build/fd-tickoni-fd/lib"
+fd_tickoni_lib := "$(git rev-parse --show-toplevel)/build/fd-tickoni-fd/lib"
 
 fd_gcc_build := "fd-gcc"
 fd_gcc_dir := "build/fd-gcc"
