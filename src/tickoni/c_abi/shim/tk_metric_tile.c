@@ -71,7 +71,10 @@ tk_metric_scratch_align( void ) {
 static void
 tk_metric_privileged_init( fd_topo_t const *      topo,
                            fd_topo_tile_t const * tile ) {
+  FD_LOG_INFO(( "tkmetr: privileged_init started for tile %s (obj_id=%lu)",
+                tile->id, tile->tile_obj_id ));
   privileged_init( topo, tile );
+  FD_LOG_INFO(( "tkmetr: privileged_init complete for tile %s", tile->id ));
 }
 
 /* ---------------------------------------------------------------------
@@ -102,11 +105,12 @@ tk_metric_unprivileged_init( fd_topo_t const *      topo,
 static void
 tk_metric_run( fd_topo_t *      topo,
                fd_topo_tile_t * tile ) {
+  void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
+  fd_metric_ctx_t * ctx = (fd_metric_ctx_t *)scratch;
+
   /* ctx is the first object allocated from scratch (after privileged_init
      and unprivileged_init).  We set ctx->cnc here so stem_run's
      STEM_CALLBACK_SHOULD_SHUTDOWN can detect HALT from the supervisor. */
-  void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
-  fd_metric_ctx_t * ctx = (fd_metric_ctx_t *)scratch;
 
   /* Find the CNC object for this tile and set ctx->cnc so
      STEM_CALLBACK_SHOULD_SHUTDOWN can detect HALT. */
@@ -114,6 +118,11 @@ tk_metric_run( fd_topo_t *      topo,
   if( cnc_obj_id != ULONG_MAX ) {
     void * cnc_laddr = fd_topo_obj_laddr( topo, cnc_obj_id );
     ctx->cnc = cnc_laddr;
+    FD_LOG_INFO(( "tkmetr: tile %s joined CNC (obj_id=%lu, addr=%p)",
+                  tile->id, cnc_obj_id, cnc_laddr ));
+  } else {
+    FD_LOG_WARNING(( "tkmetr: tile %s CNC object not found — shutdown will rely on external signal",
+                     tile->id ));
   }
 
   stem_run( topo, tile );

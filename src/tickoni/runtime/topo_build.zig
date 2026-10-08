@@ -250,6 +250,13 @@ pub fn build(
     log.kvFmt("topo_build", "build", "calling topobDebugWkspObjIds", .{});
     c_abi.topob.topobDebugWkspObjIds(topo);
 
+    // Set the metric tile's prometheus_listen_addr and port BEFORE
+    // topobFinish so the tile's privileged_init() reads the correct port
+    // when calling fd_http_server_listen().
+    if (metric_desc_idx != c_abi.topob.not_found) {
+        c_abi.topob.topoTileSetMetricPort(topo, built_tiles[metric_desc_idx].topo_tile_idx, metric_port);
+    }
+
     c_abi.topob.topobFinish(topo);
 
     // Fail topology construction before the supervisor can spawn children if
@@ -258,10 +265,6 @@ pub fn build(
         !c_abi.topob.topoValidateMetricScratch(topo))
     {
         return error.InvalidMetricScratchLayout;
-    }
-
-    if (metric_desc_idx != c_abi.topob.not_found) {
-        c_abi.topob.topoTileSetMetricPort(topo, built_tiles[metric_desc_idx].topo_tile_idx, metric_port);
     }
 
     return .{

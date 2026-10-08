@@ -242,6 +242,7 @@ cnc_align( fd_topo_t const * topo FD_FN_UNUSED, fd_topo_obj_t const * obj FD_FN_
 
 static void
 cnc_new( fd_topo_t const * topo, fd_topo_obj_t const * obj ) {
+  long ts = -fd_log_wallclock();
   ulong cnc_type = ULONG_MAX;
   for( ulong i=0UL; i<topo->tile_cnt; i++ ) {
     fd_topo_tile_t const * tile = &topo->tiles[ i ];
@@ -250,8 +251,31 @@ cnc_new( fd_topo_t const * topo, fd_topo_obj_t const * obj ) {
     }
     if( FD_UNLIKELY( cnc_type!=ULONG_MAX ) ) break;
   }
+  long elapsed = fd_log_wallclock() + ts;
+  FD_LOG_NOTICE(( "cnc_new: obj[%lu] '%s' wksp_id=%lu cnc_type=%lu found=%d elapsed=%ldms",
+                  obj->id, obj->name, obj->wksp_id, cnc_type,
+                  cnc_type!=ULONG_MAX, elapsed/(1000L*1000L) ));
+  if( cnc_type==ULONG_MAX ) {
+    FD_LOG_NOTICE(( "cnc_new FAIL: no tile owns obj[%lu] '%s':", obj->id, obj->name ));
+    for( ulong i=0UL; i<topo->tile_cnt; i++ ) {
+      fd_topo_tile_t const * tile = &topo->tiles[ i ];
+      FD_LOG_NOTICE(( "  tile[%lu] '%s' uses_obj_cnt=%lu uses=[",
+                      i, tile->name, tile->uses_obj_cnt ));
+      for( ulong j=0UL; j<tile->uses_obj_cnt; j++ ) {
+        if( j ) FD_LOG_NOTICE(( "," ));
+        FD_LOG_NOTICE(( "%lu", tile->uses_obj_id[ j ] ));
+      }
+      FD_LOG_NOTICE(( "]" ));
+    }
+    FD_LOG_NOTICE(( "cnc_new FAIL: looking for obj[%lu]", obj->id ));
+  }
   FD_TEST( cnc_type!=ULONG_MAX );
-  FD_TEST( fd_cnc_new( fd_topo_obj_laddr( topo, obj->id ), 64UL, cnc_type, fd_log_wallclock() ) );
+  void *laddr = fd_topo_obj_laddr( topo, obj->id );
+  long now = fd_log_wallclock();
+  FD_LOG_NOTICE(( "cnc_new: calling fd_cnc_new( laddr=%p, 64, %lu, %ld )", laddr, cnc_type, now ));
+  void *rc = fd_cnc_new( laddr, 64UL, cnc_type, now );
+  FD_LOG_NOTICE(( "cnc_new: fd_cnc_new returned %p", rc ));
+  FD_TEST( rc != NULL );
 }
 
 static fd_topo_obj_callbacks_t tk_obj_cb_cnc = {
