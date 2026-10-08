@@ -37,7 +37,7 @@ fn runDurationNs(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) !u
     defer sup.deinit();
 
     const start_ns = util.process.monotonicNanos();
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     try sup.startPaymentPipelineProcess(io, .{
         .run_dir = run_dir,
         .event_count = event_count,

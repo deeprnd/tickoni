@@ -51,7 +51,7 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) 
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     try sup.startPaymentPipelineProcess(io, .{
         .run_dir = run_dir,
         .event_count = event_count,

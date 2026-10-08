@@ -219,7 +219,11 @@ fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) !void {
         defer dir.close(std.testing.io);
         var iter = dir.iterate();
         while (try iter.next(std.testing.io)) |entry| {
-            std.debug.print("  log: {s}\n", .{entry.name});
+            const full_path = try std.fs.path.join(std.testing.allocator, &.{ run_dir, "logs", entry.name });
+            defer std.testing.allocator.free(full_path);
+            const content = std.Io.Dir.cwd().readFileAlloc(std.testing.io, full_path, std.testing.allocator, .limited(65536)) catch "";
+            defer std.testing.allocator.free(content);
+            std.debug.print("  === {s} ===\n{s}\n  === end ===\n", .{ entry.name, content });
         }
         std.debug.panic("TileCrashed", .{});
     }
@@ -230,7 +234,7 @@ fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) !void {
 // ---------------------------------------------------------------------------
 
 test "metric topology finalizes exact scratch requirements identically" {
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     std.debug.print("\n  [tkmetr-test] metric_port = {d}\n", .{port});
 
     var parent = try runtime.topo_build.build(
@@ -308,7 +312,8 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
         .{ .src_idx = 0, .dst_idx = 2, .depth = 64, .mtu = 128 },
     };
     const topology = runtime.topology.Topology{ .tiles = &tiles, .channels = &channels };
-    var built = try runtime.topo_build.build(std.testing.allocator, topology, "tkmetr_id", 7999);
+    const port = util.nextMetricPort();
+    var built = try runtime.topo_build.build(std.testing.allocator, topology, "tkmetr_id", port);
     defer built.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(usize, 1), built.metric_desc_idx);
@@ -321,9 +326,14 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
     }
 
     const metric = built.tiles[built.metric_desc_idx];
-    try std.testing.expectEqual(@as(usize, 0), c_abi.topob.topoTileInputCount(built.topo, metric.topo_tile_idx));
+    // Metric tile is a real polled observer — it should have one input link
+    // from the single channel (Firedancer model: metric subscribes from
+    // metric_in workspace, not a passive observer with zero links).
+    try std.testing.expectEqual(@as(usize, 1), c_abi.topob.topoTileInputCount(built.topo, metric.topo_tile_idx));
     try std.testing.expectEqual(@as(usize, 0), c_abi.topob.topoTileOutputCount(built.topo, metric.topo_tile_idx));
-    try std.testing.expectEqual(@as(usize, 1), c_abi.topob.topoLinkConsumerCount(built.topo, 0));
+    // Link 0 has 2 consumers: the channel consumer (tkrnorm) and the metric tile observer
+    // (both share the same link name "ch0" in Firedancer's topology model).
+    try std.testing.expectEqual(@as(usize, 2), c_abi.topob.topoLinkConsumerCount(built.topo, 0));
     try std.testing.expect(c_abi.topob.topoValidateTileObjectOffsets(built.topo));
 }
 
@@ -346,7 +356,7 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
         sup.deinit();
     }
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     std.debug.print("\n  [tkmetr-test] metric_port = {d}\n", .{port});
 
     // Verify tkmetr tile exists in topology
@@ -405,7 +415,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
         sup.deinit();
     }
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     std.debug.print("\n  [tkmetr-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 10;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
@@ -470,7 +480,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
         sup.deinit();
     }
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     std.debug.print("\n  [tkmetr-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 10;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
@@ -519,7 +529,7 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
         sup.deinit();
     }
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     std.debug.print("\n  [tkmetr-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 10;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
@@ -574,7 +584,7 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
         sup.deinit();
     }
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     std.debug.print("\n  [tkmetr-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 4;
     try sup.startPaymentPipelineProcess(std.testing.io, .{

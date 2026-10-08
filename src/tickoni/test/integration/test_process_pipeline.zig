@@ -31,7 +31,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
         sup.deinit();
     }
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     const event_count: u64 = 32;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
@@ -132,7 +132,7 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
         sup.deinit();
     }
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     const event_count: u64 = 8;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,

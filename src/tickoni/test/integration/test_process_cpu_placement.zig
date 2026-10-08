@@ -45,7 +45,7 @@ test "process_cpu_placement_integration: two tiles sharing one cpu get distinct 
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     const event_count: u64 = 16;
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
@@ -110,7 +110,7 @@ test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     try std.testing.expectError(error.CpuIdMalformed, sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
@@ -205,7 +205,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     var floating_sup = try Supervisor.init(std.testing.allocator, floating_topo);
     defer floating_sup.deinit();
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     try floating_sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = floating_run_dir,
         .event_count = event_count,

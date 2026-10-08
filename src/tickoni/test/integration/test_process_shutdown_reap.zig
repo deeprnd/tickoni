@@ -55,7 +55,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
     var crash_after: [8]u32 = std.mem.zeroes([8]u32);
     crash_after[5] = 1;
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     try spawnPipeline(&sup, std.testing.io, .{
         .run_dir = run_dir,
         .event_count = 16,
@@ -125,7 +125,7 @@ test "shutdown_reap: child exits between running-check and kill → was_forced=f
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     const event_count: u64 = 16;
     try spawnPipeline(&sup, std.testing.io, .{
         .run_dir = run_dir,
@@ -183,7 +183,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
     var crash_after: [8]u32 = std.mem.zeroes([8]u32);
     crash_after[0] = 1;
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     try spawnPipeline(&sup, std.testing.io, .{
         .run_dir = run_dir,
         .event_count = 16,
@@ -240,7 +240,7 @@ test "shutdown_reap: externally reaped child classified as .unknown not .exited_
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     const event_count: u64 = 8;
     try spawnPipeline(&sup, std.testing.io, .{
         .run_dir = run_dir,
@@ -301,7 +301,7 @@ test "shutdown_reap: final timeout reap classifies still-running child as .unkno
 
     // Tile 0 freezes after 0 messages (stuck_tile_idx=0) — it will never
     // exit during the grace period, forcing the final timeout reap path.
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     try spawnPipeline(&sup, std.testing.io, .{
         .run_dir = run_dir,
         .event_count = 16,
@@ -366,7 +366,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
     var crash_after: [8]u32 = std.mem.zeroes([8]u32);
     crash_after[5] = 1;
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     try spawnPipeline(&sup, std.testing.io, .{
         .run_dir = run_dir,
         .event_count = 16,
@@ -439,7 +439,7 @@ test "shutdown_reap: non-zero exit during grace → force-phase preserves .exite
     var crash_after: [8]u32 = std.mem.zeroes([8]u32);
     crash_after[5] = 1;
 
-    const port = util.metricPort();
+    const port = util.nextMetricPort();
     try spawnPipeline(&sup, std.testing.io, .{
         .run_dir = run_dir,
         .event_count = 16,

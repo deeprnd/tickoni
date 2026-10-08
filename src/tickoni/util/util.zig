@@ -17,7 +17,7 @@ pub const sandbox_defaults = @import("sandbox_defaults.zig");
 /// Check whether a TCP port is already bound on localhost.
 /// Returns true if `bind()` fails (port in use or TIME_WAIT), false otherwise (port free).
 ///
-/// This is used by `metricPort()` to skip ports still in TIME_WAIT
+/// This is used by `nextMetricPort()` to skip ports still in TIME_WAIT
 /// from a previous test run.  We use TCP sockets because the metric
 /// tile's HTTP server binds TCP — a UDP bind check would miss TCP
 /// TIME_WAIT ports.
@@ -53,7 +53,7 @@ pub fn validateNotUsedPort(port: u16) bool {
 const _metric_port_step: u16 = 100;
 
 var _metric_port_counter: u16 = 7999;
-pub fn metricPort() u16 {
+pub fn nextMetricPort() u16 {
     while (true) {
         const result = _metric_port_counter;
         _metric_port_counter = _metric_port_counter +% _metric_port_step;
