@@ -431,6 +431,18 @@ pub const Supervisor = struct {
         c_abi.topob.topoWkspSetNumaIdx(built_topo.topo, built_topo.wksp_idx, 0);
         c_abi.topob.topoWkspNew(built_topo.topo, built_topo.wksp_idx);
 
+        // Verify all known topology workspaces were joined and have non-zero footprint.
+        // Catches wksp join failures (ptr=NULL) and allocation failures early.
+        {
+            // Verify the three workspaces were joined and have non-zero footprint.
+            std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.wksp_idx));
+            std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx) > 0);
+            std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_wksp_idx));
+            std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_wksp_idx) > 0);
+            std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_in_wksp_idx));
+            std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_in_wksp_idx) > 0);
+        }
+
         const state = try self.allocator.create(ProcessState);
         state.* = .{
             .wksp = wksp,
