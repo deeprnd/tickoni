@@ -38,11 +38,30 @@ pub fn registerTestLanes(
     // Integration modules
     const int_mods = integration_lane.createIntModules(b, shared, tm, target, optimize, exe);
 
-    const integration_step = b.step("integration-test", "Run Tickoni mock-backed integration tests");
+    // Infra lane — supervisor, tile lifecycle, Tango links, mock servers.
+    const integration_infr_step = b.step(
+        "integration-test-infra",
+        "Run Tickoni infrastructure integration tests",
+    );
     // Supervisor binary must exist at prefix before process-mode tests
     // spawn it (tile_exe_path = "build/zig-out/bin/tickoni-supervisor").
-    integration_step.dependOn(&exe_install.step);
-    integration_lane.strategy(b, int_mods, target, optimize, fd_lib_dir, integration_step, exe_install);
+    integration_infr_step.dependOn(&exe_install.step);
+    integration_lane.strategy(b, int_mods, .infra, target, optimize, fd_lib_dir, integration_infr_step, exe_install);
+
+    // Domain lane — investment policy, allowed/blocked trades, replay.
+    const integration_domain_step = b.step(
+        "integration-test-domain",
+        "Run Tickoni domain integration tests",
+    );
+    integration_lane.strategy(b, int_mods, .domain, target, optimize, fd_lib_dir, integration_domain_step, exe_install);
+
+    // Combined lane — runs both infra and domain.
+    const integration_step = b.step(
+        "integration-test",
+        "Run all Tickoni integration tests (infra + domain)",
+    );
+    integration_step.dependOn(integration_infr_step);
+    integration_step.dependOn(integration_domain_step);
 
     const system_step = b.step("system-test", "Run all src/tickoni/test/system proofs");
     system_lane.strategy(b, .{
