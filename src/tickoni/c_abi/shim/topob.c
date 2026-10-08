@@ -660,3 +660,26 @@ tk_topo_tile_in_cnt( void const * topo_, ulong tile_id ) {
   fd_topo_t const * topo = (fd_topo_t const *)topo_;
   return tile_id<topo->tile_cnt ? topo->tiles[ tile_id ].in_cnt : 0UL;
 }
+
+/* Return the CPU index for a tile.
+   Used by topo_build.zig to verify CPU placement. */
+ulong
+tk_topo_tile_cpu_idx( void const * topo_, ulong tile_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  return tile_id<topo->tile_cnt ? topo->tiles[ tile_id ].cpu_idx : 0UL;
+}
+
+/* Given a link_id, count the number of tiles that consume this link
+   as an input. Used by tests and validation to verify wiring. */
+ulong
+tk_topo_link_consumer_cnt( void const * topo_, ulong link_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  ulong cnt = 0UL;
+  for( ulong i=0UL; i<topo->tile_cnt; i++ ) {
+    fd_topo_tile_t const * tile = &topo->tiles[ i ];
+    for( ulong j=0UL; j<tile->in_cnt; j++ ) {
+      if( FD_UNLIKELY( tile->in_link_id[ j ] == link_id ) ) cnt++;
+    }
+  }
+  return cnt;
+}
