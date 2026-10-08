@@ -778,7 +778,32 @@ pub const Supervisor = struct {
     pub fn snapshotProcessMetrics(self: *const Supervisor) ProcessMetricSnapshot {
         const state = self.process_state orelse return .{};
         var snap = ProcessMetricSnapshot{};
+        // Build a suppression mask from live children / non-crashed handles.
+        // A crashed child's CNC is corrupted and reading it SIGABRTs the
+        // supervisor — the same guard used in refreshProcessHealth.
+        var suppress_cnc: [8]bool = std.mem.zeroes([8]bool);
+        for (&state.children, 0..) |*record, i| {
+            if (record.ownership != .owned) {
+                suppress_cnc[i] = true;
+                continue;
+            }
+            const child = &(record.child orelse {
+                suppress_cnc[i] = true;
+                continue;
+            });
+            const result = self.process_operations.poll(child);
+            switch (result) {
+                .running => {},
+                .observation => |obs| switch (obs) {
+                    .stopped => suppress_cnc[i] = true,
+                    .exited, .signaled => suppress_cnc[i] = true,
+                },
+                .no_child, .failed => suppress_cnc[i] = true,
+            }
+            if (self.handles[i].state == .crashed) suppress_cnc[i] = true;
+        }
         for (self.topo.tiles, 0..) |tile, i| {
+            if (suppress_cnc[i]) continue;
             const cnc = state.cncs[i] orelse continue;
             const entry = tile_registry.findById(tile.id) orelse continue;
             for (entry.counters) |c| {
@@ -855,6 +880,20 @@ pub const Supervisor = struct {
         const tile = self.topo.tiles[tile_idx];
         const entry = tile_registry.findById(tile.id) orelse return error.TileNotFound;
         var snap = ProcessMetricSnapshot{};
+        // Guard: skip CNC reads for crashed/terminated children — same
+        // suppress_cnc logic as snapshotProcessMetrics().
+        const record = &state.children[tile_idx];
+        if (record.ownership != .owned) return error.CncUnreadable;
+        if (self.handles[tile_idx].state == .crashed) return error.CncUnreadable;
+        const child = &(record.child orelse return error.CncUnreadable);
+        const result = self.process_operations.poll(child);
+        switch (result) {
+            .running => {},
+            .observation => |obs| switch (obs) {
+                .stopped, .exited, .signaled => return error.CncUnreadable,
+            },
+            .no_child, .failed => return error.CncUnreadable,
+        }
         for (entry.counters) |c| {
             const v = rt.cnc_counters.appCounterRead(cnc, c.idx);
             switch (c.field) {
