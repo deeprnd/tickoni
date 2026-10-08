@@ -81,6 +81,10 @@ extern fn tk_topo_obj_footprint(topo: *const Topo, obj_id: usize) usize;
 extern fn tk_topo_obj_scratch_align(topo: *const Topo, obj_id: usize) usize;
 extern fn tk_topo_validate_metric_scratch(topo: *const Topo) c_int;
 extern fn tk_topo_validate_tile_object_offsets(topo: *const Topo) c_int;
+extern fn tk_topo_validate_tile_exists(topo: *const Topo, tile_name: [*:0]const u8) c_int;
+extern fn tk_topo_validate_link_exists(topo: *const Topo, link_name: [*:0]const u8) c_int;
+extern fn tk_topo_validate_obj_in_wksp(topo: *const Topo, obj_type: [*:0]const u8, wksp_name: [*:0]const u8) usize;
+extern fn tk_topo_validate_workspace_joined(topo: *const Topo, wksp_idx: usize) c_int;
 extern fn tk_topob_debug_wksp_objs_internal(topo: *Topo) void;
 
 pub fn topobDebugWkspObjIds(topo: *Topo) void {

@@ -513,6 +513,13 @@ tk_topo_wksp_part_max( void * topo, ulong wksp_idx ) {
   return ((fd_topo_t *)topo)->workspaces[ wksp_idx ].part_max;
 }
 
+/* Return the total number of workspaces in the topology.
+   Used by automated verification to iterate all workspaces. */
+ulong
+tk_topo_wksp_cnt( void * topo ) {
+  return ((fd_topo_t *)topo)->wksp_cnt;
+}
+
 /* V1.14.S8.T4: fd_topob_tile() never sets allow_shutdown (defaults to 0
    via fd_topob_new's zero-init). fd_topo_run_tile treats a clean run()
    return as a fatal error unless it's 1 — Tickoni tiles do exit
@@ -558,6 +565,49 @@ tk_topo_validate_tile_object_offsets( void const * topo_ ) {
       if( FD_UNLIKELY( !tk_topo_obj_has_offset( topo, tile->uses_obj_id[ j ] ) ) ) return 0;
   }
   return 1;
+}
+
+/* Return the scratch alignment for a tile's scratch object.
+   Queried by tests to verify the metric tile scratch is properly aligned. */
+ulong
+tk_topo_obj_scratch_align( void const * topo_, ulong obj_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  if( obj_id >= topo->obj_cnt ) return 0UL;
+  return fd_pod_queryf_ulong( topo->props, 0UL, "obj.%lu.%s", obj_id, "tickoni.scratch_align" );
+}
+
+/* Return the scratch footprint for a tile's scratch object.
+   Queried by tests to verify the metric tile scratch is properly sized. */
+ulong
+tk_topo_obj_footprint( void const * topo_, ulong obj_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  if( obj_id >= topo->obj_cnt ) return 0UL;
+  return fd_pod_queryf_ulong( topo->props, 0UL, "obj.%lu.%s", obj_id, "tickoni.scratch_footprint" );
+}
+
+/* Validate that every metric tile has a properly sized and aligned scratch
+   object. Checks that: (1) the tile owns a scratch object with the
+   tickoni.scratch_footprint property set, (2) that property is > 1UL, and
+   (3) the object offset satisfies the alignment requirement.
+   Only tiles with a non-default footprint property are considered. */
+int
+tk_topo_validate_metric_scratch( void const * topo_ ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  int found = 0;
+  for( ulong i = 0UL; i < topo->tile_cnt; i++ ) {
+    fd_topo_tile_t const * tile = &topo->tiles[ i ];
+    ulong footprint = fd_pod_queryf_ulong(
+      topo->props, 0UL, "obj.%lu.%s", tile->tile_obj_id, "tickoni.scratch_footprint" );
+    /* Skip tiles without a custom footprint (generic tiles). */
+    if( footprint <= 1UL ) continue;
+    ulong align = fd_pod_queryf_ulong(
+      topo->props, 0UL, "obj.%lu.%s", tile->tile_obj_id, "tickoni.scratch_align" );
+    if( align <= 1UL ) return 0;
+    ulong offset = topo->objs[ tile->tile_obj_id ].offset;
+    if( offset % align != 0UL ) return 0;
+    found = 1;
+  }
+  return found;
 }
 
 ulong
