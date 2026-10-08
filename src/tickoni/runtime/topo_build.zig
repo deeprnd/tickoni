@@ -19,6 +19,7 @@ const c_abi = @import("c_abi");
 const topology = @import("topology.zig");
 const cpu_placement = @import("cpu_placement.zig");
 const logger = @import("logger");
+const util = @import("util");
 
 const Topo = c_abi.topob.Topo;
 
@@ -181,7 +182,7 @@ pub fn build(
         var tile_name_buf: [16]u8 = undefined;
         const is_metric = std.mem.eql(u8, t.id.slice(), "metric");
         const tile_wksp = if (is_metric) "metric" else wksp_name_z;
-        const metrics_wksp = if (has_metric_tile) "metric_in" else wksp_name_z;
+        const metrics_wksp = if (has_metric_tile and is_metric) "metric_in" else wksp_name_z;
         const topo_tile_idx = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, t.id.slice()), tile_wksp, metrics_wksp, 0);
         built_tiles[i] = .{
             .topo_tile_idx = topo_tile_idx,
@@ -190,6 +191,21 @@ pub fn build(
         };
         cpu_idx_arr[topo_tile_idx] = tileCpuIdx(topo_tile_idx, t.cpu_placement);
         if (is_metric) metric_desc_idx = i;
+    }
+
+    // v2.22.S4: Wire each channel's output link into the metric tile's
+    // inputs via the metric_in workspace BEFORE topobAutoLayout so that
+    // the metric tile's in_cnt is set correctly by the layout engine
+    // (Firedancer model — metric tile subscribes from metric_in, not
+    // a passive observer with zero links).
+    if (metric_desc_idx != c_abi.topob.not_found) {
+        for (topo_desc.channels, 0..) |_, i| {
+            var tile_name_buf: [16]u8 = undefined;
+            var in_name_buf: [16]u8 = undefined;
+            var link_name_buf: [8]u8 = undefined;
+            const link_name_z = linkNameZ(&link_name_buf, i);
+            _ = c_abi.topob.topobTileIn(topo, toZ(&tile_name_buf, "metric"), 0, toZ(&in_name_buf, "metric_in"), link_name_z, 0, true, true);
+        }
     }
 
     c_abi.topob.topobAutoLayout(topo, @as([*]const usize, cpu_idx_arr.ptr));
@@ -287,7 +303,8 @@ test "build produces a topology for the linear Phase 0 chain" {
     };
     const topo_desc = topology.Topology{ .tiles = &tiles, .channels = &channels };
 
-    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 7999);
+    const port = util.nextMetricPort();
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0", port);
     defer built.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(usize, 5), built.tiles.len);
@@ -298,6 +315,7 @@ test "build produces a topology for the linear Phase 0 chain" {
 }
 
 test "descriptor-indexed records preserve metric identity and zero links" {
+    const port = util.nextMetricPort();
     const tiles = [_]tile_mod.TileDescriptor{
         .{ .id = tile_mod.TileId.parse("tkings") catch unreachable, .name = "ingest", .cpu_placement = .{ .exclusive = 2 } },
         .{ .id = tile_mod.TileId.parse("metric") catch unreachable, .name = "metric", .cpu_placement = .{ .exclusive = 3 } },
@@ -307,7 +325,7 @@ test "descriptor-indexed records preserve metric identity and zero links" {
         .{ .src_idx = 0, .dst_idx = 2, .depth = 64, .mtu = 128 },
     };
     const topo_desc = topology.Topology{ .tiles = &tiles, .channels = &channels };
-    var built = try build(std.testing.allocator, topo_desc, "identity", 7999);
+    var built = try build(std.testing.allocator, topo_desc, "identity", port);
     defer built.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(usize, 1), built.metric_desc_idx);
@@ -319,7 +337,10 @@ test "descriptor-indexed records preserve metric identity and zero links" {
     }
 
     const metric = built.tiles[built.metric_desc_idx];
-    try std.testing.expectEqual(@as(usize, 0), c_abi.topob.topoTileInputCount(built.topo, metric.topo_tile_idx));
+    // Metric tile is a real polled observer — it should have one input link
+    // from the single channel (Firedancer model: metric subscribes from
+    // metric_in workspace, not a passive observer with zero links).
+    try std.testing.expectEqual(@as(usize, 1), c_abi.topob.topoTileInputCount(built.topo, metric.topo_tile_idx));
     try std.testing.expectEqual(@as(usize, 0), c_abi.topob.topoTileOutputCount(built.topo, metric.topo_tile_idx));
     try std.testing.expectEqual(@as(usize, 1), c_abi.topob.topoLinkConsumerCount(built.topo, 0));
 }

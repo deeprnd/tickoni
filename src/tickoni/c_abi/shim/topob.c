@@ -151,7 +151,44 @@ metrics_align( fd_topo_t const * topo FD_FN_UNUSED, fd_topo_obj_t const * obj FD
 
 static void
 metrics_new( fd_topo_t const * topo, fd_topo_obj_t const * obj ) {
-  FD_TEST( fd_metrics_new( fd_topo_obj_laddr( topo, obj->id ), VAL("in_cnt") ) );
+  long ts = -fd_log_wallclock();
+
+  /* Build the key string we'll query, so we can report it exactly */
+  char key_buf[64];
+  int key_len = snprintf( key_buf, sizeof(key_buf), "obj.%lu.in_cnt", obj->id );
+  key_buf[ key_len < 0 ? 0 : key_len ] = '\0';
+
+  ulong in_cnt = fd_pod_queryf_ulong( topo->props, ULONG_MAX, "obj.%lu.in_cnt", obj->id );
+  long elapsed = fd_log_wallclock() + ts;
+
+  FD_LOG_NOTICE(( "metrics_new: obj[%lu] '%s' wksp_id=%lu key='%.*s' in_cnt_query=%lu elapsed=%ldms",
+                  obj->id, obj->name, obj->wksp_id, key_len, key_buf, in_cnt, elapsed / (1000L*1000L) ));
+
+  if( FD_UNLIKELY( in_cnt==ULONG_MAX ) ) {
+    /* Dump all keys in topo->props so we can see what was actually written */
+    FD_LOG_NOTICE(( "metrics_new FAIL: dumping all props keys for obj[%lu] '%s':", obj->id, obj->name ));
+    for( fd_pod_iter_t iter=fd_pod_iter_init( topo->props ); !fd_pod_iter_done( iter ); iter=fd_pod_iter_next( iter ) ) {
+      fd_pod_info_t info = fd_pod_iter_info( iter );
+      if( info.val_type == FD_POD_VAL_TYPE_ULONG ) {
+        ulong val; fd_ulong_svw_dec( info.val, &val );
+        FD_LOG_NOTICE(( "  props key='%.*s' val=%lu", (int)info.key_sz, info.key, val ));
+      } else {
+        FD_LOG_NOTICE(( "  props key='%.*s' type=%d", (int)info.key_sz, info.key, info.val_type ));
+      }
+    }
+    FD_LOG_ERR(( "obj.%lu.in_cnt was not set", obj->id ));
+  }
+
+  /* Cross-check: find which tile owns this metrics object */
+  for( ulong t=0UL; t<topo->tile_cnt; t++ ) {
+    if( topo->tiles[ t ].metrics_obj_id == obj->id ) {
+      FD_LOG_NOTICE(( "metrics_new: obj[%lu] matches tile[%lu] '%s' metrics_obj_id, tile->in_cnt=%lu",
+                      obj->id, t, topo->tiles[ t ].name, topo->tiles[ t ].in_cnt ));
+      break;
+    }
+  }
+
+  FD_TEST( fd_metrics_new( fd_topo_obj_laddr( topo, obj->id ), in_cnt ) );
 }
 
 static fd_topo_obj_callbacks_t tk_obj_cb_metrics = {
@@ -568,10 +605,15 @@ tk_topo_tile_obj_id( void const * topo, ulong tile_id ) {
   return ((fd_topo_t const *)topo)->tiles[ tile_id ].tile_obj_id;
 }
 
-/* Set prometheus_listen_port for the metric tile.  Used by topo_build.zig
-   so the metric tile's HTTP server binds to the expected port. */
+/* Set prometheus_listen_addr and prometheus_listen_port for the metric tile.
+   Used by topo_build.zig so the metric tile's HTTP server binds to
+   127.0.0.1:<port>. Without setting the address, prometheus_listen_addr
+   remains 0 and the HTTP server fails to accept connections from clients. */
 void
 tk_topo_tile_set_metric_port( void * topo, ulong tile_id, ushort port ) {
+  uint addr;
+  ((fd_topo_t *)topo)->tiles[ tile_id ].metric.prometheus_listen_addr =
+    fd_cstr_to_ip4_addr( "127.0.0.1", &addr ) ? addr : 0;
   ((fd_topo_t *)topo)->tiles[ tile_id ].metric.prometheus_listen_port = port;
 }
 
