@@ -227,7 +227,7 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         std.debug.print("tile_process: tile {s} not found in rebuilt topology\n", .{id_slice});
         return 1;
     }
-    if (spec.tile_idx >= built.tiles.len or topo_tile_idx != built.tiles[spec.tile_idx].topo_tile_idx) {
+    if (spec.tile_idx >= built.cnc_obj_id.len or topo_tile_idx != c_abi.topob.topoFindTile(built.topo, tile_id_z, 0)) {
         std.debug.print("tile_process: descriptor identity mismatch for tile {s}\n", .{id_slice});
         return 1;
     }
@@ -236,7 +236,7 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     g_ctx = .{
         .spec = &spec,
         .wksp_idx = built.wksp_idx,
-        .cnc_obj_id = built.tiles[spec.tile_idx].cnc_obj_id,
+        .cnc_obj_id = built.cnc_obj_id[spec.tile_idx],
         .work = work,
         .io = io,
         .allocator = allocator,
