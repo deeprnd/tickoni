@@ -111,7 +111,7 @@ pub fn main(init: std.process.Init) !void {
 
     if (std.mem.eql(u8, cmd, "start-process")) {
         log.debug("main", "main", "start-process command received");
-        const run_dir = it.next() orelse {
+        const run_dir = if (arg_count > 1) args[1] else {
             try File.writeStreamingAll(File.stderr(), init.io, "start-process requires <run-dir>\n");
             std.process.exit(1);
         };
