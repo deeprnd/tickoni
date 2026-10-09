@@ -17,7 +17,8 @@ const topologies = @import("topologies");
 const Supervisor = supervisor_mod.Supervisor;
 
 test "process_pipeline_integration: process-mode payment pipeline matches expected decision counts" {
-    if (true) return error.SkipZigTest;
+    // Temporarily enabled for strace debugging
+    // if (true) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 

@@ -455,9 +455,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
 
     // The independently-started listener can begin accepting after the
     // pipeline has already completed, so wait for listener readiness.
-    const resp = httpGetWithRetry(METRICS_HOST, port, "/metrics", HTTP_READY_MAX_ATTEMPTS, HTTP_REQUEST_TIMEOUT_MS) catch |err| {
-        std.debug.panic("Failed to fetch /metrics: {s}", .{@errorName(err)});
-    };
+    const resp = try httpGetWithRetry(METRICS_HOST, port, "/metrics", HTTP_READY_MAX_ATTEMPTS, HTTP_REQUEST_TIMEOUT_MS);
     defer std.testing.allocator.free(resp.body);
 
     // DEBUG: dump the raw response body
