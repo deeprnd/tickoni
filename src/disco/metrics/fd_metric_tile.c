@@ -156,7 +156,12 @@ privileged_init( fd_topo_t const *      topo,
     .request = metrics_http_request,
   };
   ctx->metrics_server = fd_http_server_join( fd_http_server_new( _metrics, METRICS_PARAMS, metrics_callbacks, ctx ) );
-  fd_http_server_listen( ctx->metrics_server, tile->metric.prometheus_listen_addr, tile->metric.prometheus_listen_port );
+  if( FD_UNLIKELY( !fd_http_server_listen( ctx->metrics_server,
+                                          tile->metric.prometheus_listen_addr,
+                                          tile->metric.prometheus_listen_port ) ) )
+    FD_LOG_ERR(( "prometheus listen failed on " FD_IP4_ADDR_FMT ":%u",
+                 FD_IP4_ADDR_FMT_ARGS( tile->metric.prometheus_listen_addr ),
+                 tile->metric.prometheus_listen_port ));
 }
 
 void
