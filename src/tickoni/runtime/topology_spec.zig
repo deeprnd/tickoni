@@ -17,6 +17,7 @@ const cpu_placement = @import("cpu_placement.zig");
 const link = @import("link.zig");
 const topology = @import("topology.zig");
 const util = @import("util");
+const logger = @import("logger");
 
 pub const magic: u32 = 0x544b5453; // "TKST"
 pub const version: u16 = 2;
@@ -44,6 +45,9 @@ pub const TopologySpec = struct {
     metric_port: u16 = 7999,
 
     pub fn fromTopology(topo: topology.Topology, metric_port: u16) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec {
+        const log = logger.get();
+        log.enter("topology_spec", "TopologySpec.fromTopology");
+        defer log.exit("topology_spec", "TopologySpec.fromTopology");
         if (topo.tiles.len > max_tiles) return error.TooManyTiles;
         if (topo.channels.len > max_channels) return error.TooManyChannels;
 
@@ -73,6 +77,9 @@ pub const TopologySpec = struct {
     /// TileDescriptor.name is diagnostics-only and not part of the wire
     /// format — reconstructed here as the same string as id.slice().
     pub fn toTopology(self: *const TopologySpec, tiles_buf: []tile.TileDescriptor, channels_buf: []link.Channel) topology.Topology {
+        const log = logger.get();
+        log.enter("topology_spec", "TopologySpec.toTopology");
+        defer log.exit("topology_spec", "TopologySpec.toTopology");
         std.debug.assert(tiles_buf.len >= self.tile_cnt);
         std.debug.assert(channels_buf.len >= self.channel_cnt);
         for (0..self.tile_cnt) |i| {

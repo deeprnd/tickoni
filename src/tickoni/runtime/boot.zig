@@ -19,6 +19,7 @@
 /// string memory afterward, so nothing needs to outlive the call.
 const std = @import("std");
 const c_abi = @import("c_abi");
+const logger = @import("logger");
 
 pub const shmem_path_cap: usize = 256;
 
@@ -88,6 +89,9 @@ pub fn bootWithSyntheticArgv(
     shmem_path: ?[]const u8,
     log_path: []const u8,
 ) error{ShmemPathTooLong}!void {
+    const log = logger.get();
+    log.enter("boot", "bootWithSyntheticArgv");
+    defer log.exit("boot", "bootWithSyntheticArgv");
     var prog_name_buf: ProgNameBuf = undefined;
     var flag_name_buf: FlagNameBuf = undefined;
     var shmem_path_buf: [shmem_path_cap]u8 = undefined;

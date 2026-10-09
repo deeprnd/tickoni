@@ -27,6 +27,7 @@ const tile = @import("tile.zig");
 const cpu_placement = @import("cpu_placement.zig");
 const link = @import("link.zig");
 const util = @import("util");
+const logger = @import("logger");
 
 pub const magic: u32 = 0x544b5350; // "TKSP"
 pub const version: u16 = 1;
@@ -81,6 +82,9 @@ pub const LaunchSpec = struct {
         channels: []const link.Channel = &.{},
         link_handles: []const link.LinkHandles = &.{},
     }) error{ ShmemPathTooLong, TooManyInLinks, TooManyOutLinks }!LaunchSpec {
+        const log = logger.get();
+        log.enter("launch_spec", "LaunchSpec.init");
+        defer log.exit("launch_spec", "LaunchSpec.init");
         if (fields.shmem_path.len > shmem_path_cap) return error.ShmemPathTooLong;
         var spec = LaunchSpec{
             .tile_idx = fields.tile_idx,

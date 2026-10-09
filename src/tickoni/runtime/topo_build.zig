@@ -35,6 +35,9 @@ pub const concrete_workspace_name_cap: usize = 64;
 /// `fd_topo_join_workspace()` resolves the same region after rebuilding the
 /// topology.
 pub fn concreteWorkspaceName(buf: []u8, workspace_name: []const u8) ![:0]const u8 {
+    const log = logger.get();
+    log.enter("topo_build", "concreteWorkspaceName");
+    defer log.exit("topo_build", "concreteWorkspaceName");
     const printed = try std.fmt.bufPrint(buf[0 .. buf.len - 1], "{s}_{s}.wksp", .{ app_name, workspace_name });
     buf[printed.len] = 0;
     // Verify the concrete name matches the Firedancer join format.
@@ -116,9 +119,10 @@ pub fn build(
     workspace_name: []const u8,
     metric_port: u16,
 ) !BuiltTopo {
-    std.debug.assert(c_abi.topob.topoAlignof() <= topo_alloc_align.toByteUnits());
-
     const log = logger.get();
+    log.enter("topo_build", "build");
+    defer log.exit("topo_build", "build");
+    std.debug.assert(c_abi.topob.topoAlignof() <= topo_alloc_align.toByteUnits());
 
     const size = c_abi.topob.topoSizeof();
     log.kvFmt("topo_build", "build", "size={d} align={d}", .{ size, topo_alloc_align.toByteUnits() });

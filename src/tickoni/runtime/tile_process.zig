@@ -65,11 +65,13 @@ var g_ctx: struct {
 /// shim/topob.c do), then performs the same BOOT->RUN heartbeat+signal
 /// transition tile_process.zig always has.
 export fn tk_tile_privileged_init(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
+    const log = logger.get();
+    log.enter("tile_process", "tk_tile_privileged_init");
+    defer log.exit("tile_process", "tk_tile_privileged_init");
     _ = tile;
     const topo_typed: *c_abi.topob.Topo = @ptrCast(topo);
     const laddr = c_abi.topob.topoObjLaddr(topo_typed, g_ctx.cnc_obj_id);
     g_ctx.cnc = c_abi.cnc.cncJoin(laddr) orelse {
-        const log = logger.get();
         log.err("tile_process", "tk_tile_privileged_init", "fd_cnc_join failed");
         std.process.exit(1);
     };
@@ -101,16 +103,17 @@ export fn tk_tile_privileged_init(topo: *anyopaque, tile: *anyopaque) callconv(.
 /// observable behavior (non-zero exit, cnc never reaches BOOT) the
 /// crash-isolation tests (v2.14.S1.T12) check for.
 export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
+    const log = logger.get();
+    log.enter("tile_process", "tk_tile_run");
+    defer log.exit("tile_process", "tk_tile_run");
     _ = tile;
     const topo_typed: *c_abi.topob.Topo = @ptrCast(topo);
     const wksp = c_abi.topob.topoWkspPtr(topo_typed, g_ctx.wksp_idx) orelse {
-        const log = logger.get();
         log.err("tile_process", "tk_tile_run", "workspace not joined");
         std.process.exit(1);
     };
 
     g_ctx.work(g_ctx.io, wksp, g_ctx.spec, g_ctx.cnc, g_ctx.allocator) catch |err| {
-        const log = logger.get();
         var msg_buf: [256]u8 = undefined;
         const msg = std.fmt.bufPrint(&msg_buf, "work failed for tile {d} ({s}): {t}", .{ g_ctx.spec.tile_idx, g_ctx.spec.tile_id.slice(), err }) catch "work failed";
         log.err("tile_process", "tk_tile_run", msg);
@@ -172,6 +175,9 @@ fn readAbsoluteTopology(io: std.Io, abs_path: []const u8) anyerror!topology_spec
 }
 
 pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work: WorkFn) u8 {
+    const log = logger.get();
+    log.enter("tile_process", "run");
+    defer log.exit("tile_process", "run");
     const spec = readAbsoluteFile(io, spec_path) catch |err| {
         std.debug.print("tile_process: failed to read launch spec {s}: {t}\n", .{ spec_path, err });
         return 1;
