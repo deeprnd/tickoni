@@ -235,6 +235,9 @@ pub const Supervisor = struct {
     /// topo.channels to be a tango_shm topology sharing exactly one
     /// workspace (paymentPipelineProcess() builds this shape).
     pub fn startPaymentPipelineProcess(self: *Supervisor, io: std.Io, config: ProcessPipelineConfig) !void {
+        const log = logger.get();
+        log.enter("supervisor", "startPaymentPipelineProcess");
+        defer log.exit("supervisor", "startPaymentPipelineProcess");
         std.debug.assert(self.process_state == null);
         std.debug.assert(self.topo.tiles.len == 8);
 
@@ -288,9 +291,11 @@ pub const Supervisor = struct {
         // hard-require huge/gigantic pages, which v2.14.S1 rejected for
         // Tickoni; see topob.zig's topoWkspSetPtr doc comment ("finding
         // 3") for the reused-layout-math/own-memory hybrid this drives.
+        log.debug("supervisor", "startPaymentPipelineProcess", "building topology via topo_build.build");
         var built_topo = try rt.topo_build.build(self.allocator, self.topo, workspace_name_slice, config.metric_port);
         var built_topo_owned_by_state = false;
         errdefer if (!built_topo_owned_by_state) built_topo.deinit(self.allocator);
+        log.kvFmt("supervisor", "startPaymentPipelineProcess", "topology built successfully, footprint={d} pages", .{c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx) / c_abi.wksp.shmem_normal_page_sz});
 
         // v2.14.S8.T4: the actual shmem region name must match exactly
         // what fd_topo_join_workspace (called inside fd_topo_run_tile,
@@ -304,10 +309,12 @@ pub const Supervisor = struct {
         // same named region as long as the string matches.
         var workspace_name_z_buf: [rt.topo_build.concrete_workspace_name_cap]u8 = undefined;
         const workspace_name_z = try rt.topo_build.concreteWorkspaceName(&workspace_name_z_buf, workspace_name_slice);
+        log.kvFmt("supervisor", "startPaymentPipelineProcess", "concrete workspace name: {s}", .{workspace_name_z});
         // Best-effort cleanup of a stale workspace left behind by a prior
         // crashed or killed supervisor; fd_wksp_new_named uses O_EXCL and
         // would otherwise fail closed forever on the same run_dir/name.
         if (c_abi.wksp.wkspExistsNamed(workspace_name_z)) {
+            log.debug("supervisor", "startPaymentPipelineProcess", "stale workspace exists, cleaning up");
             _ = c_abi.wksp.wkspDeleteNamed(workspace_name_z);
         }
         // Also clean up any stale metric/metric_in workspaces from a prior
@@ -338,11 +345,15 @@ pub const Supervisor = struct {
         var sub_page_cnt = [_]usize{page_cnt};
         var sub_cpu_idx = [_]usize{0};
         const part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, built_topo.wksp_idx);
+        log.kvFmt("supervisor", "startPaymentPipelineProcess", "workspace params: footprint={d} pages={d} part_max={d}", .{ footprint, page_cnt, part_max });
 
         // Create the main workspace.
+        log.kvFmt("supervisor", "startPaymentPipelineProcess", "creating main workspace: {s}", .{workspace_name_z});
         const rc = c_abi.wksp.wkspNewNamed(workspace_name_z, c_abi.wksp.shmem_normal_page_sz, 1, &sub_page_cnt, &sub_cpu_idx, 0o600, 1, part_max);
         if (rc != 0) return error.WkspCreateFailed;
+        log.kvFmt("supervisor", "startPaymentPipelineProcess", "main workspace created (rc={d})", .{rc});
         const wksp = c_abi.wksp.wkspAttach(workspace_name_z) orelse return error.WkspAttachFailed;
+        log.debug("supervisor", "startPaymentPipelineProcess", "main workspace attached successfully");
 
         errdefer _ = c_abi.wksp.wkspDetach(wksp);
 
@@ -535,8 +546,15 @@ pub const Supervisor = struct {
         topology_spec.workspace_name = try rt.link.WorkspaceName.parse(workspace_name_slice);
         try topology_spec.writeToFile(io, std.Io.Dir.cwd(), topology_spec_path);
 
+        const spawn_log = logger.get();
+        {
+            var buf: [128]u8 = undefined;
+            const msg = std.fmt.bufPrint(&buf, "starting payment pipeline process: tile_cnt={d}", .{self.topo.tiles.len}) catch "starting payment pipeline process";
+            spawn_log.info("supervisor", "spawn", msg);
+        }
         for (self.handles, 0..) |*h, i| {
             const tile = self.topo.tiles[i];
+            spawn_log.kvFmt("supervisor", "spawn", "tile_idx={d} tile_id={s}", .{ i, tile.id.slice() });
 
             const spec = try rt.launch_spec.LaunchSpec.init(.{
                 .tile_idx = @intCast(i),
@@ -586,6 +604,9 @@ pub const Supervisor = struct {
                 .environ_map = &env,
             });
 
+            spawn_log.kvFmt("supervisor", "spawn", "tile={s} tile_idx={d} pid={any} spec={s}", .{
+                tile.id.slice(), i, child.id, spec_path,
+            });
             h.pid = child.id;
             h.cpu_placement = tile.cpu_placement;
             h.state = .running;
@@ -597,6 +618,16 @@ pub const Supervisor = struct {
 
             switch (tile.cpu_placement) {
                 .exclusive, .shared, .floating => {},
+            }
+        }
+
+        // Broadcast BOOT signal to all tiles so they wake up from
+        // stem_run() → fd_cnc_signal_query() and transition to RUN.
+        // This is the Firedancer lifecycle: supervisor must explicitly
+        // signal BOOT after spawning, otherwise tiles block forever.
+        for (state.cncs) |maybe_cnc| {
+            if (maybe_cnc) |cnc| {
+                c_abi.cnc.signal(cnc, c_abi.cnc.signal_boot);
             }
         }
     }
