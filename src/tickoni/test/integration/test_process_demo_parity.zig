@@ -80,7 +80,6 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8, 
 test "process_demo_parity: floating, shared-core, and exclusive-core CPU placement all reach identical pipeline metrics" {
     if (false) return error.SkipZigTest;
     var tmp_floating = util.tmpDir();
-    defer tmp_floating.cleanup();
     var floating_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const floating_len = try tmp_floating.dir.realPath(std.testing.io, &floating_path_buf);
     const floating_run_dir = floating_path_buf[0..floating_len];
@@ -89,7 +88,6 @@ test "process_demo_parity: floating, shared-core, and exclusive-core CPU placeme
     const floating_metrics = try runToCompletion(std.testing.io, topologies.paymentPipelineProcess(), floating_run_dir, util.nextWorkspaceName(&ws_buf));
 
     var tmp_shared = util.tmpDir();
-    defer tmp_shared.cleanup();
     var shared_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const shared_len = try tmp_shared.dir.realPath(std.testing.io, &shared_path_buf);
     const shared_run_dir = shared_path_buf[0..shared_len];
@@ -101,7 +99,6 @@ test "process_demo_parity: floating, shared-core, and exclusive-core CPU placeme
     const shared_metrics = try runToCompletion(std.testing.io, shared_topo, shared_run_dir, util.nextWorkspaceName(&ws_buf));
 
     var tmp_exclusive = util.tmpDir();
-    defer tmp_exclusive.cleanup();
     var exclusive_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const exclusive_len = try tmp_exclusive.dir.realPath(std.testing.io, &exclusive_path_buf);
     const exclusive_run_dir = exclusive_path_buf[0..exclusive_len];
@@ -112,8 +109,35 @@ test "process_demo_parity: floating, shared-core, and exclusive-core CPU placeme
     };
     const exclusive_metrics = try runToCompletion(std.testing.io, exclusive_topo, exclusive_run_dir, util.nextWorkspaceName(&ws_buf));
 
-    try std.testing.expectEqual(floating_metrics, shared_metrics);
-    try std.testing.expectEqual(floating_metrics, exclusive_metrics);
+    // Compare all fields except metric_boot_timestamp (varies by wall-clock time
+    // across runs; CPU placement is a scheduling policy, not a correctness
+    // dimension — pipeline counters must match).
+    try std.testing.expectEqual(floating_metrics.produced, shared_metrics.produced);
+    try std.testing.expectEqual(floating_metrics.normalized, shared_metrics.normalized);
+    try std.testing.expectEqual(floating_metrics.invalid, shared_metrics.invalid);
+    try std.testing.expectEqual(floating_metrics.duplicates, shared_metrics.duplicates);
+    try std.testing.expectEqual(floating_metrics.allowed, shared_metrics.allowed);
+    try std.testing.expectEqual(floating_metrics.denied, shared_metrics.denied);
+    try std.testing.expectEqual(floating_metrics.audited, shared_metrics.audited);
+    try std.testing.expectEqual(floating_metrics.replay_checked, shared_metrics.replay_checked);
+    try std.testing.expectEqual(floating_metrics.replay_match, shared_metrics.replay_match);
+    try std.testing.expectEqual(floating_metrics.metric_snapshots, shared_metrics.metric_snapshots);
+    try std.testing.expectEqual(floating_metrics.metric_backpressure_waits, shared_metrics.metric_backpressure_waits);
+    try std.testing.expectEqual(floating_metrics.diag_crash_count, shared_metrics.diag_crash_count);
+    try std.testing.expectEqual(floating_metrics.diag_sandbox_count, shared_metrics.diag_sandbox_count);
+    try std.testing.expectEqual(floating_metrics.produced, exclusive_metrics.produced);
+    try std.testing.expectEqual(floating_metrics.normalized, exclusive_metrics.normalized);
+    try std.testing.expectEqual(floating_metrics.invalid, exclusive_metrics.invalid);
+    try std.testing.expectEqual(floating_metrics.duplicates, exclusive_metrics.duplicates);
+    try std.testing.expectEqual(floating_metrics.allowed, exclusive_metrics.allowed);
+    try std.testing.expectEqual(floating_metrics.denied, exclusive_metrics.denied);
+    try std.testing.expectEqual(floating_metrics.audited, exclusive_metrics.audited);
+    try std.testing.expectEqual(floating_metrics.replay_checked, exclusive_metrics.replay_checked);
+    try std.testing.expectEqual(floating_metrics.replay_match, exclusive_metrics.replay_match);
+    try std.testing.expectEqual(floating_metrics.metric_snapshots, exclusive_metrics.metric_snapshots);
+    try std.testing.expectEqual(floating_metrics.metric_backpressure_waits, exclusive_metrics.metric_backpressure_waits);
+    try std.testing.expectEqual(floating_metrics.diag_crash_count, exclusive_metrics.diag_crash_count);
+    try std.testing.expectEqual(floating_metrics.diag_sandbox_count, exclusive_metrics.diag_sandbox_count);
     try std.testing.expectEqual(event_count, floating_metrics.produced);
     try std.testing.expectEqual(event_count, floating_metrics.audited);
 }

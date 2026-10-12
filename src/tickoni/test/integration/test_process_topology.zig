@@ -15,7 +15,6 @@ const Supervisor = supervisor_mod.Supervisor;
 test "process_topology_integration: every tile is a distinct OS process parented by the supervisor" {
     if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
-    defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const len = try tmp.dir.realPath(std.testing.io, &path_buf);
@@ -68,7 +67,6 @@ test "process_topology_integration: every tile is a distinct OS process parented
 test "process_topology_integration: supervisor marks a truly stuck tile stale while blocked consumers keep heartbeating" {
     if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
-    defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const len = try tmp.dir.realPath(std.testing.io, &path_buf);
@@ -137,7 +135,6 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
 test "process_topology_integration: a self-exiting tile is reported crashed via exit_code, not signal" {
     if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
-    defer tmp.cleanup();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const len = try tmp.dir.realPath(std.testing.io, &path_buf);

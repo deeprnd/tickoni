@@ -204,7 +204,6 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
 
     // --- Run floating baseline (no explicit placement declarations) ---
     var tmp_floating = util.tmpDir();
-    defer tmp_floating.cleanup();
     var floating_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const floating_len = try tmp_floating.dir.realPath(std.testing.io, &floating_path_buf);
     const floating_run_dir = floating_path_buf[0..floating_len];
@@ -246,7 +245,6 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
 
     // --- Run shared-core (two tiles on CPU 0, explicit shared) ---
     var tmp_shared = util.tmpDir();
-    defer tmp_shared.cleanup();
     var shared_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const shared_len = try tmp_shared.dir.realPath(std.testing.io, &shared_path_buf);
     const shared_run_dir = shared_path_buf[0..shared_len];
