@@ -64,6 +64,24 @@ pub fn nextMetricPort() u16 {
     return @intCast(port);
 }
 
+/// Generate a unique workspace name for integration tests.
+///
+/// Uses the same counter-based pattern as nextMetricPort() — a static
+/// counter seeded with getpid() ensures successive calls produce distinct
+/// names like "topo_0", "topo_1", etc.  Callers must provide a buffer
+/// (at least 16 bytes) to hold the formatted string.
+var _ws_name_counter: u32 = 0;
+
+pub fn nextWorkspaceName(buf: []u8) []const u8 {
+    if (_ws_name_counter == 0) {
+        _ws_name_counter = @as(u32, @intCast(std.c.getpid())) & 0xFFFF;
+    }
+
+    const n = std.fmt.bufPrint(buf, "topo_{d}", .{_ws_name_counter}) catch unreachable;
+    _ws_name_counter += 1;
+    return buf[0..n.len];
+}
+
 /// Drop-in replacement for std.testing.tmpDir() that respects
 /// ZIG_LOCAL_CACHE_DIR.  When set (as in the justfile), creates temp
 /// directories under $ZIG_LOCAL_CACHE_DIR/tmp/ — the same cache the
