@@ -322,18 +322,31 @@ pub fn build(
     }
 
     // Populate tile_infos from Firedancer tile order. tile_infos[i] gives
-    // the correct TileId for Firedancer index i — this is the single source
-    // of truth for any post-build index-based access.
+    // the correct TileId and CPU placement for Firedancer index i — this is
+    // the single source of truth for any post-build index-based access.
+    //
+    // tile_placements was captured during the register loop, indexed by
+    // descriptor position (i.e., tile_placements[d] is the CPU placement
+    // for topo_desc.tiles[d]). Since Firedancer tile order differs from
+    // descriptor order (metric/tkdiag swap), we look up by matching tile
+    // name rather than trusting the index.
     const tile_infos_cnt = topo_desc.tiles.len;
     const tile_infos = try allocator.alloc(Info, tile_infos_cnt);
     defer allocator.free(tile_infos);
     for (tile_infos, 0..) |*info, firedancer_idx| {
         const name_z = c_abi.topob.topoTileName(topo, @as(c_uint, @intCast(firedancer_idx)));
         const tile_id = rt.tile.TileId.parse(name_z) catch unreachable;
-        info.* = .{
-            .tile_id = tile_id,
-            .cpu_placement = tile_placements[firedancer_idx],
-        };
+        // Find the descriptor whose id matches this Firedancer tile name;
+        // use that descriptor's CPU placement.
+        for (topo_desc.tiles, 0..) |d, d_idx| {
+            if (std.mem.eql(u8, d.id.slice(), name_z)) {
+                info.* = .{
+                    .tile_id = tile_id,
+                    .cpu_placement = tile_placements[d_idx],
+                };
+                break;
+            }
+        }
     }
 
     return .{

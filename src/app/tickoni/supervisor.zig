@@ -239,7 +239,6 @@ pub const Supervisor = struct {
         log.enter("supervisor", "startPaymentPipelineProcess");
         defer log.exit("supervisor", "startPaymentPipelineProcess");
         std.debug.assert(self.process_state == null);
-        std.debug.assert(self.topo.tiles.len == 8);
 
         // Fail closed on any tile pinned to a CPU id this process cannot
         // actually use, before spawning anything — pinning more
@@ -481,8 +480,9 @@ pub const Supervisor = struct {
         // parent-side so stopProcess can signal halt. Only how these
         // objects get created changed (fd_topob instead of a hand-rolled
         // wkspAlloc); how children join them (LaunchSpec's gaddr fields)
-        // is unchanged.
-        for (self.topo.tiles, 0..) |_, i| {
+        // is unchanged. tile_infos is indexed by Firedancer tile index,
+        // so built_topo.cnc_obj_id[i] is correct for every Firedancer i.
+        for (built_topo.tile_infos, 0..) |_, i| {
             const laddr = c_abi.topob.topoObjLaddr(built_topo.topo, built_topo.cnc_obj_id[i]);
             state.cnc_gaddrs[i] = c_abi.wksp.wkspGaddr(wksp, laddr);
             state.cncs[i] = c_abi.cnc.cncJoin(laddr) orelse return error.CncJoinFailed;
@@ -549,17 +549,17 @@ pub const Supervisor = struct {
         const spawn_log = logger.get();
         {
             var buf: [128]u8 = undefined;
-            const msg = std.fmt.bufPrint(&buf, "starting payment pipeline process: tile_cnt={d}", .{self.topo.tiles.len}) catch "starting payment pipeline process";
+            const msg = std.fmt.bufPrint(&buf, "starting payment pipeline process: tile_cnt={d}", .{built_topo.tile_infos.len}) catch "starting payment pipeline process";
             spawn_log.info("supervisor", "spawn", msg);
         }
         for (self.handles, 0..) |*h, i| {
-            const tile = self.topo.tiles[i];
-            spawn_log.kvFmt("supervisor", "spawn", "tile_idx={d} tile_id={s}", .{ i, tile.id.slice() });
+            const info = built_topo.tile_infos[i];
+            spawn_log.kvFmt("supervisor", "spawn", "tile_idx={d} tile_id={s}", .{ i, info.tile_id.slice() });
 
             const spec = try rt.launch_spec.LaunchSpec.init(.{
                 .tile_idx = @intCast(i),
-                .tile_id = tile.id,
-                .cpu_placement = tile.cpu_placement,
+                .tile_id = info.tile_id,
+                .cpu_placement = info.cpu_placement,
                 .workspace_name = try rt.link.WorkspaceName.parse(workspace_name_slice),
                 .cnc_gaddr = state.cnc_gaddrs[i],
                 .shmem_path = config.run_dir,
@@ -605,10 +605,10 @@ pub const Supervisor = struct {
             });
 
             spawn_log.kvFmt("supervisor", "spawn", "tile={s} tile_idx={d} pid={any} spec={s}", .{
-                tile.id.slice(), i, child.id, spec_path,
+                info.tile_id.slice(), i, child.id, spec_path,
             });
             h.pid = child.id;
-            h.cpu_placement = tile.cpu_placement;
+            h.cpu_placement = info.cpu_placement;
             h.state = .running;
             state.children[i] = .{
                 .child = child,
@@ -616,7 +616,7 @@ pub const Supervisor = struct {
                 .numeric_pid = if (child.id) |pid| util.os_api.processDiagnosticPid(pid) else 0,
             };
 
-            switch (tile.cpu_placement) {
+            switch (info.cpu_placement) {
                 .exclusive, .shared, .floating => {},
             }
         }
@@ -803,7 +803,7 @@ pub const Supervisor = struct {
     /// v2.14.S1.T14: a snapshot of all tile cnc counters read in process
     /// mode (see snapshotProcessMetrics below). Pipeline tiles (tkings →
     /// tkrnorm → tkdedu → tkpoly → tkaudt) write event-flow counters;
-    /// observer tiles (tkrepl, tkmetr, tkdiag) write diagnostic counters.
+    /// observer tiles (tkrepl, metric, tkdiag) write diagnostic counters.
     /// The supervisor publishes its own local counters into its cnc
     /// app-region (see runtime/cnc_counters.zig's appCounter{Read,Write} and
     /// src/tickoni/tiles/payment_pipeline/process.zig's per-tile counter
@@ -819,13 +819,14 @@ pub const Supervisor = struct {
         allowed: u64 = 0,
         denied: u64 = 0,
         audited: u64 = 0,
-        // Observer counters (tkrepl, tkmetr, tkdiag)
+        // Observer counters (tkrepl, metric, tkdiag)
         replay_checked: u64 = 0,
         replay_match: u64 = 0,
         metric_snapshots: u64 = 0,
         metric_backpressure_waits: u64 = 0,
         diag_crash_count: u64 = 0,
         diag_sandbox_count: u64 = 0,
+        metric_boot_timestamp: u64 = 0,
     };
 
     /// v2.14.S1.T14 visibility: the CPU placement layout validated at
@@ -857,17 +858,17 @@ pub const Supervisor = struct {
             switch (result) {
                 .running => {},
                 .observation => |obs| switch (obs) {
-                    .stopped => suppress_cnc[i] = true,
+                    .stopped => {}, // clean stop via CNC HALT — CNC is still valid and readable
                     .exited, .signaled => suppress_cnc[i] = true,
                 },
                 .no_child, .failed => suppress_cnc[i] = true,
             }
             if (self.handles[i].state == .crashed) suppress_cnc[i] = true;
         }
-        for (self.topo.tiles, 0..) |tile, i| {
+        for (state.built_topo.tile_infos, 0..) |info, i| {
             if (suppress_cnc[i]) continue;
             const cnc = state.cncs[i] orelse continue;
-            const entry = tile_registry.findById(tile.id) orelse continue;
+            const entry = tile_registry.findById(info.tile_id) orelse continue;
             for (entry.counters) |c| {
                 const v = rt.cnc_counters.appCounterRead(cnc, c.idx);
                 switch (c.field) {
@@ -884,6 +885,7 @@ pub const Supervisor = struct {
                     .metric_backpressure_waits => snap.metric_backpressure_waits = v,
                     .diag_crashed_tile => snap.diag_crash_count = v,
                     .diag_sandbox_failures => snap.diag_sandbox_count = v,
+                    .metric_boot_timestamp => snap.metric_boot_timestamp = v,
                 }
             }
         }
@@ -907,6 +909,7 @@ pub const Supervisor = struct {
         metric_backpressure_waits: u64 = 0,
         diag_crash_count: u64 = 0,
         diag_sandbox_count: u64 = 0,
+        metric_boot_timestamp: u64 = 0,
     };
 
     /// Convert a plain ProcessMetricSnapshot into a timestamped version.
@@ -926,6 +929,7 @@ pub const Supervisor = struct {
             .metric_backpressure_waits = snap.metric_backpressure_waits,
             .diag_crash_count = snap.diag_crash_count,
             .diag_sandbox_count = snap.diag_sandbox_count,
+            .metric_boot_timestamp = snap.metric_boot_timestamp,
         };
     }
 
@@ -939,8 +943,8 @@ pub const Supervisor = struct {
     pub fn snapshotProcessMetricsForTile(self: *const Supervisor, tile_idx: usize) !ProcessMetricSnapshot {
         const state = self.process_state orelse return error.NoProcessState;
         const cnc = state.cncs[tile_idx] orelse return error.CncNotFound;
-        const tile = self.topo.tiles[tile_idx];
-        const entry = tile_registry.findById(tile.id) orelse return error.TileNotFound;
+        const info = state.built_topo.tile_infos[tile_idx];
+        const entry = tile_registry.findById(info.tile_id) orelse return error.TileNotFound;
         var snap = ProcessMetricSnapshot{};
         // Guard: skip CNC reads for crashed/terminated children — same
         // suppress_cnc logic as snapshotProcessMetrics().
@@ -972,6 +976,7 @@ pub const Supervisor = struct {
                 .metric_backpressure_waits => snap.metric_backpressure_waits = v,
                 .diag_crashed_tile => snap.diag_crash_count = v,
                 .diag_sandbox_failures => snap.diag_sandbox_count = v,
+                .metric_boot_timestamp => snap.metric_boot_timestamp = v,
             }
         }
         return snap;
@@ -1044,7 +1049,7 @@ pub const Supervisor = struct {
             unresolved = true;
             self.handles[i].state = .unresolved;
             var buf: [384]u8 = undefined;
-            const msg = std.fmt.bufPrint(&buf, "unresolved child: tile={s} pid={d} halt={any} force={any} force_time={any} reap_error={any} retries={d}", .{ self.topo.tiles[i].id.slice(), record.numeric_pid, record.halt_timestamp, record.force_action, record.force_timestamp, record.last_reap_error, record.reap_error_count }) catch "unresolved child";
+            const msg = std.fmt.bufPrint(&buf, "unresolved child: tile={s} pid={d} halt={any} force={any} force_time={any} reap_error={any} retries={d}", .{ state.built_topo.tile_infos[i].tile_id.slice(), record.numeric_pid, record.halt_timestamp, record.force_action, record.force_timestamp, record.last_reap_error, record.reap_error_count }) catch "unresolved child";
             log.err("supervisor", "stopProcess", msg);
         }
         if (unresolved) return error.UnresolvedChild;
