@@ -140,11 +140,8 @@ char const * tk_cnc_strerror( int err ) { return fd_cnc_strerror( err ); }
 ulong tk_cstr_to_cnc_signal( char const * cstr ) { return fd_cstr_to_cnc_signal( cstr ); }
 char * tk_cnc_signal_cstr( ulong signal, char * buf ) { return fd_cnc_signal_cstr( signal, buf ); }
 void * tk_cnc_app_laddr( fd_cnc_t * cnc ) { return fd_cnc_app_laddr( cnc ); }
-uint32_t tk_cnc_heartbeat_query( fd_cnc_t const * cnc ) { return (uint32_t)fd_cnc_heartbeat_query( cnc ); }
-void tk_cnc_heartbeat( fd_cnc_t * cnc, int64_t now_ns ) {
-  uint32_t now_ms = (uint32_t)((uint64_t)now_ns / 1000000ULL);
-  fd_cnc_heartbeat( cnc, (long)now_ms );
-}
+long tk_cnc_heartbeat_query( fd_cnc_t const * cnc ) { return fd_cnc_heartbeat_query( cnc ); }
+void tk_cnc_heartbeat( fd_cnc_t * cnc, long now ) { fd_cnc_heartbeat( cnc, now ); }
 ulong tk_cnc_signal_query( fd_cnc_t const * cnc ) { return fd_cnc_signal_query( cnc ); }
 void tk_cnc_signal( fd_cnc_t * cnc, ulong signal ) { fd_cnc_signal( cnc, signal ); }
 void tk_cnc_close( fd_cnc_t * cnc ) { fd_cnc_close( cnc ); }
