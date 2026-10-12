@@ -242,20 +242,22 @@ test "metric topology finalizes exact scratch requirements identically" {
     const port = util.nextMetricPort();
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
 
+    var parent_ws: [16]u8 = undefined;
     var parent = try runtime.topo_build.build(
         std.testing.allocator,
         topologies.paymentPipelineProcess(),
-        "metric0",
+        util.nextWorkspaceName(&parent_ws),
         port,
     );
     defer parent.deinit(std.testing.allocator);
 
     // A child reconstructs the topology from the same description. Building a
     // second copy here exercises that deterministic rebuild path directly.
+    var child_ws: [16]u8 = undefined;
     var child = try runtime.topo_build.build(
         std.testing.allocator,
         topologies.paymentPipelineProcess(),
-        "metric0",
+        util.nextWorkspaceName(&child_ws),
         port,
     );
     defer child.deinit(std.testing.allocator);
@@ -323,7 +325,8 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
     };
     const topology = runtime.topology.Topology{ .tiles = &tiles, .channels = &channels };
     const port = util.nextMetricPort();
-    var built = try runtime.topo_build.build(std.testing.allocator, topology, "metric_id", port);
+    var ws_buf: [16]u8 = undefined;
+    var built = try runtime.topo_build.build(std.testing.allocator, topology, util.nextWorkspaceName(&ws_buf), port);
     defer built.deinit(std.testing.allocator);
 
     // metric_tile_idx is the Firedancer topology index (not the descriptor
@@ -382,11 +385,12 @@ test "metric_tile_integration: topology with metric builds and starts" {
     try std.testing.expect(found_metric_tile);
 
     const event_count: u64 = 1000;
+    var ws_buf: [16]u8 = undefined;
     try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
-        .workspace_name = "metr0",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
 
@@ -431,11 +435,12 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
     const port = util.nextMetricPort();
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 1000;
+    var ws_buf: [16]u8 = undefined;
     try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
-        .workspace_name = "metr1",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
 
@@ -507,11 +512,12 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
     const port = util.nextMetricPort();
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 10;
+    var ws_buf: [16]u8 = undefined;
     try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
-        .workspace_name = "metr2",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
 
@@ -560,11 +566,12 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
     const port = util.nextMetricPort();
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 10;
+    var ws_buf: [16]u8 = undefined;
     try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
-        .workspace_name = "metr4",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
 
@@ -619,11 +626,12 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
     const port = util.nextMetricPort();
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 4;
+    var ws_buf: [16]u8 = undefined;
     try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
-        .workspace_name = "metr5",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
 
@@ -691,11 +699,12 @@ test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
     const port = util.nextMetricPort();
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 10;
+    var ws_buf: [16]u8 = undefined;
     try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
-        .workspace_name = "metr6",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
 
