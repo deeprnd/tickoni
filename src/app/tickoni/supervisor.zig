@@ -848,7 +848,7 @@ pub const Supervisor = struct {
         return state.placement_report;
     }
 
-    pub fn snapshotProcessMetrics(self: *const Supervisor) ProcessMetricSnapshot {
+    pub fn snapshotProcessMetrics(self: *Supervisor) ProcessMetricSnapshot {
         const state = self.process_state orelse return .{};
         var snap = ProcessMetricSnapshot{};
         // Build a suppression mask from live children / non-crashed handles.
@@ -865,6 +865,7 @@ pub const Supervisor = struct {
                 continue;
             });
             const result = self.process_operations.poll(child);
+            self.recordPollResult(i, result);
             switch (result) {
                 .running => {},
                 .observation => |obs| switch (obs) {
@@ -950,7 +951,7 @@ pub const Supervisor = struct {
     }
 
     /// Read metrics for a single tile in process-mode.
-    pub fn snapshotProcessMetricsForTile(self: *const Supervisor, tile_idx: usize) !ProcessMetricSnapshot {
+    pub fn snapshotProcessMetricsForTile(self: *Supervisor, tile_idx: usize) !ProcessMetricSnapshot {
         const state = self.process_state orelse return error.NoProcessState;
         const cnc = state.cncs[tile_idx] orelse return error.CncNotFound;
         const info = state.built_topo.tile_infos[tile_idx];
@@ -963,6 +964,7 @@ pub const Supervisor = struct {
         if (self.handles[tile_idx].state == .crashed) return error.CncUnreadable;
         const child = &(record.child orelse return error.CncUnreadable);
         const result = self.process_operations.poll(child);
+        self.recordPollResult(tile_idx, result);
         switch (result) {
             .running => {},
             .observation => |obs| switch (obs) {
