@@ -166,7 +166,7 @@ static fd_topo_obj_callbacks_t tk_obj_cb_metrics = {
    footprint is 1UL (not zero — fd_topob_finish's NUMA-assignment step
    requires every object to have a non-zero footprint).
 
-   The metric tile (tkmetr) uses Firedancer's fd_stem-based run loop with
+   The metric tile uses Firedancer's fd_stem-based run loop with
    fd_http_server and needs ~32MB+ scratch.  Its scratch footprint is set
    as a property ("tickoni.scratch_footprint") by topo_build.zig and
    queried here instead. */
@@ -341,7 +341,7 @@ tk_topob_finish( void * topo ) {
 
 /* Set a ulong property on the props POD for a given object.
 
-   Used by topo_build.zig to inject the tkmetr tile's custom scratch
+   Used by topo_build.zig to inject the metric tile's custom scratch
    footprint before fd_topob_finish computes the layout. */
 void
 tk_topob_set_obj_property_ulong( void * topo, ulong obj_id, char const * key, ulong val ) {
@@ -350,7 +350,7 @@ tk_topob_set_obj_property_ulong( void * topo, ulong obj_id, char const * key, ul
 }
 
 /* Convenience: look up a tile by name/kind_id, then set a ulong property on
-   its "tile" object.  Used by topo_build.zig to inject the tkmetr tile's
+   its "tile" object.  Used by topo_build.zig to inject the metric tile's
    custom scratch footprint before fd_topob_finish. */
 void
 tk_topob_set_tile_obj_property_ulong( void * topo, char const * tile_name,
@@ -620,6 +620,8 @@ tk_topo_tile_obj_id( void const * topo, ulong tile_id ) {
 void
 tk_topo_tile_set_metric_port( void * topo, ulong tile_id, ushort port ) {
   ((fd_topo_t *)topo)->tiles[ tile_id ].metric.prometheus_listen_port = port;
+  /* Hardcode 127.0.0.1 — Firedancer stores this as network-byte-order uint. */
+  ((fd_topo_t *)topo)->tiles[ tile_id ].metric.prometheus_listen_addr = 2130706439;
 }
 
 /* Debug: print workspace-to-object mapping.
@@ -667,6 +669,14 @@ ulong
 tk_topo_tile_cpu_idx( void const * topo_, ulong tile_id ) {
   fd_topo_t const * topo = (fd_topo_t const *)topo_;
   return tile_id<topo->tile_cnt ? topo->tiles[ tile_id ].cpu_idx : 0UL;
+}
+
+/* Return the name (tile id string) for a tile index.
+   Used by topo_build.zig to populate BuiltTopo.tile_infos after build(). */
+char const *
+tk_topo_tile_name( void const * topo_, ulong tile_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  return tile_id<topo->tile_cnt ? topo->tiles[ tile_id ].name : NULL;
 }
 
 /* Given a link_id, count the number of tiles that consume this link

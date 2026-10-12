@@ -86,6 +86,7 @@ extern fn tk_topo_validate_link_exists(topo: *const Topo, link_name: [*:0]const 
 extern fn tk_topo_validate_obj_in_wksp(topo: *const Topo, obj_type: [*:0]const u8, wksp_name: [*:0]const u8) usize;
 extern fn tk_topo_validate_workspace_joined(topo: *const Topo, wksp_idx: usize) c_int;
 extern fn tk_topob_debug_wksp_objs_internal(topo: *Topo) void;
+extern fn tk_topo_tile_name(topo: *const Topo, tile_id: usize) [*:0]const u8;
 
 pub fn topobDebugWkspObjIds(topo: *Topo) void {
     tk_topob_debug_wksp_objs_internal(topo);
@@ -294,6 +295,10 @@ pub fn topoTileInputCount(topo: *const Topo, tile_id: usize) usize {
 
 pub fn topoTileOutputCount(topo: *const Topo, tile_id: usize) usize {
     return tk_topo_tile_out_cnt(topo, tile_id);
+}
+
+pub fn topoTileName(topo: *const Topo, tile_id: usize) [*:0]const u8 {
+    return tk_topo_tile_name(topo, tile_id);
 }
 
 pub fn topoLinkConsumerCount(topo: *const Topo, link_id: usize) usize {
