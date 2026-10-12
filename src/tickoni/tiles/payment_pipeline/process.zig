@@ -271,8 +271,7 @@ pub fn runAuditProcess(
 // ---------------------------------------------------------------------------
 
 test "ProcessConfig round-trips through a file" {
-    var tmp = util.tmpDir();
-    defer tmp.cleanup();
+    const tmp = util.tmpDir();
 
     const cfg = ProcessRuntimeConfig{
         .pipeline = .{
@@ -296,7 +295,6 @@ test "ProcessConfig round-trips through a file" {
 
 test "ProcessConfig readProcessConfig rejects a truncated file" {
     var tmp = util.tmpDir();
-    defer tmp.cleanup();
 
     var file = try tmp.dir.createFile(std.testing.io, "short.config", .{});
     try file.writePositionalAll(std.testing.io, &[_]u8{ 1, 2, 3, 4 }, 0);
@@ -307,7 +305,6 @@ test "ProcessConfig readProcessConfig rejects a truncated file" {
 
 test "ProcessConfig readProcessConfig rejects a bad magic" {
     var tmp = util.tmpDir();
-    defer tmp.cleanup();
 
     var file_struct = ProcessConfigFile{};
     file_struct.magic_field = 0xdeadbeef;
