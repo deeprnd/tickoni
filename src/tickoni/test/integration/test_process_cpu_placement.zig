@@ -211,7 +211,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     defer floating_sup.deinit();
 
     const port = util.nextMetricPort();
-    try floating_sup.startPaymentPipelineProcess(std.testing.io, topo, .{
+    try floating_sup.startPaymentPipelineProcess(std.testing.io, floating_topo, .{
         .run_dir = floating_run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
@@ -253,7 +253,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     var shared_sup = try Supervisor.init(std.testing.allocator, shared_topo);
     defer shared_sup.deinit();
 
-    try shared_sup.startPaymentPipelineProcess(std.testing.io, topo, .{
+    try shared_sup.startPaymentPipelineProcess(std.testing.io, shared_topo, .{
         .run_dir = shared_run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",

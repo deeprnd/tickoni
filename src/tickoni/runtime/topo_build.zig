@@ -199,17 +199,27 @@ pub fn build(
         std.debug.assert(c_abi.topob.topoValidateLinkExists(topo, linkNameZ(&link_name_buf, i)));
     }
 
-    const cpu_idx_arr = try allocator.alloc(usize, topo_desc.tiles.len);
-    errdefer allocator.free(cpu_idx_arr);
     // Register tiles: all non-metric tiles go into the app workspace.
     // The metric tile (if present) goes into the "metric" workspace.
-    // Capture cpu placements for tile_infos (needed after topobFinish).
+    // Capture cpu placements and Firedancer index mapping during register
+    // so tile_infos can be built without looking up topo_desc after the build
+    // (topo_desc is a one-time input, not reused).
     const tile_placements = try allocator.alloc(cpu_placement.CpuPlacement, topo_desc.tiles.len);
     errdefer allocator.free(tile_placements);
+    const cpu_idx_arr = try allocator.alloc(usize, topo_desc.tiles.len);
+    errdefer allocator.free(cpu_idx_arr);
+    const fd_tile_idx_by_desc = try allocator.alloc(usize, topo_desc.tiles.len);
+    errdefer allocator.free(fd_tile_idx_by_desc);
+    var non_metric_count: usize = 0;
     for (topo_desc.tiles, 0..) |t, i| {
         cpu_idx_arr[i] = tileCpuIdx(i, t.cpu_placement);
         tile_placements[i] = t.cpu_placement;
-        if (std.mem.eql(u8, t.id.slice(), "metric")) continue;
+        if (std.mem.eql(u8, t.id.slice(), "metric")) {
+            fd_tile_idx_by_desc[i] = c_abi.topob.not_found;
+            continue;
+        }
+        fd_tile_idx_by_desc[i] = non_metric_count;
+        non_metric_count += 1;
         var tile_name_buf: [16]u8 = undefined;
         _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, t.id.slice()), wksp_name_z, wksp_name_z, 0);
         // Verify tile was registered with expected name (catches tile name typos).
@@ -220,6 +230,13 @@ pub fn build(
         _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, "metric"), "metric", "metric", 0);
         // Verify metric tile was registered.
         std.debug.assert(c_abi.topob.topoValidateTileExists(topo, toZ(&tile_name_buf, "metric")));
+        // Metric tile is always last in Firedancer order.
+        for (topo_desc.tiles, 0..) |t, d_idx| {
+            if (std.mem.eql(u8, t.id.slice(), "metric")) {
+                fd_tile_idx_by_desc[d_idx] = non_metric_count;
+                break;
+            }
+        }
     }
 
     // Detect metric tile after all tiles are registered.
@@ -328,25 +345,26 @@ pub fn build(
         c_abi.topob.topoTileSetMetricPort(topo, metric_tile_idx, metric_port);
     }
 
-    // Populate tile_infos from Firedancer tile order. tile_infos[i] gives
-    // the correct TileId and CPU placement for Firedancer index i — this is
-    // the post-build source of truth for any index-based access.
-    //
-    // tile_placements was captured during the register loop, indexed by
-    // descriptor position (i.e., tile_placements[d] is the CPU placement
-    // for topo_desc.tiles[d]). Since Firedancer tile order differs from
-    // descriptor order (metric/tkdiag swap), we look up by matching tile
-    // name rather than trusting the index.
+    // Build tile_infos indexed by Firedancer tile idx, using the pre-captured
+    // fd_tile_idx_by_desc mapping. No lookup into topo_desc after the build
+    // — topo_desc was a one-time input.
     const tile_infos_cnt = topo_desc.tiles.len;
     const tile_infos = try allocator.alloc(BuiltTopoTileInfo, tile_infos_cnt);
     defer allocator.free(tile_infos);
     for (tile_infos, 0..) |*info, firedancer_idx| {
         const name_z = c_abi.topob.topoTileName(topo, @as(c_uint, @intCast(firedancer_idx)));
-        const tile_id = tile.TileId.parse(name_z) catch unreachable;
-        // Find the descriptor whose id matches this Firedancer tile name;
-        // use that descriptor's CPU placement.
-        for (topo_desc.tiles, 0..) |d, d_idx| {
-            if (std.mem.eql(u8, d.id.slice(), name_z)) {
+        // Cast to opaque pointer slice to index into the NUL-terminated string.
+        const name_raw: [*]const u8 = @ptrCast(name_z);
+        var len: usize = 0;
+        while (len < 16) : (len += 1) {
+            if (name_raw[len] == 0) break;
+        }
+        var name_buf: [16]u8 = undefined;
+        @memcpy(name_buf[0..len], name_raw);
+        const tile_id = tile.TileId.parse(name_buf[0..len]) catch unreachable;
+        // Find the descriptor whose Firedancer index matches this one.
+        for (fd_tile_idx_by_desc, 0..) |fd_idx, d_idx| {
+            if (fd_idx == firedancer_idx) {
                 info.* = .{
                     .tile_id = tile_id,
                     .cpu_placement = tile_placements[d_idx],
