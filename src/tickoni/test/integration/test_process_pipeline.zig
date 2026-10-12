@@ -17,7 +17,7 @@ const topologies = @import("topologies");
 const Supervisor = supervisor_mod.Supervisor;
 
 test "process_pipeline_integration: process-mode payment pipeline matches expected decision counts" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -34,6 +34,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
 
     const port = util.nextMetricPort();
     const event_count: u64 = 32;
+    var ws_buf: [16]u8 = undefined;
     try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
@@ -43,9 +44,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
         // up to date. See ProcessPipelineConfig.tile_exe_path's doc
         // comment in src/app/tickoni/supervisor.zig.
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
-        // Use unique workspace name to avoid shared-memory collisions
-        // when multiple test binaries run in parallel.
-        .workspace_name = "test0",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
 
@@ -119,7 +118,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
 }
 
 test "process_pipeline_integration: stopProcess prefers clean exit over transient stale classification" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -136,13 +135,14 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
 
     const port = util.nextMetricPort();
     const event_count: u64 = 8;
+    var ws_buf: [16]u8 = undefined;
     try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .heartbeat_interval_ns = 20 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 1 * std.time.ns_per_ms,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
-        .workspace_name = "test1",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
 
