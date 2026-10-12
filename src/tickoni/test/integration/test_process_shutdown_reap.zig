@@ -30,9 +30,10 @@ const ProcessPipelineConfig = supervisor_mod.ProcessPipelineConfig;
 fn spawnPipeline(
     sup: *Supervisor,
     io: std.Io,
+    topo: rt.topology.Topology,
     config: ProcessPipelineConfig,
 ) !void {
-    try sup.startPaymentPipelineProcess(io, config);
+    try sup.startPaymentPipelineProcess(io, topo, config);
 }
 
 // ---------------------------------------------------------------------------
@@ -57,7 +58,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
     crash_after[5] = 1;
 
     const port = util.nextMetricPort();
-    try spawnPipeline(&sup, std.testing.io, .{
+    try spawnPipeline(&sup, std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = 16,
         .crash_after_heartbeats = crash_after,
@@ -129,7 +130,7 @@ test "shutdown_reap: child exits between running-check and kill → was_forced=f
 
     const port = util.nextMetricPort();
     const event_count: u64 = 16;
-    try spawnPipeline(&sup, std.testing.io, .{
+    try spawnPipeline(&sup, std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
@@ -187,7 +188,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
     crash_after[0] = 1;
 
     const port = util.nextMetricPort();
-    try spawnPipeline(&sup, std.testing.io, .{
+    try spawnPipeline(&sup, std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = 16,
         .crash_after_heartbeats = crash_after,
@@ -246,7 +247,7 @@ test "shutdown_reap: externally reaped child classified as .unknown not .exited_
 
     const port = util.nextMetricPort();
     const event_count: u64 = 8;
-    try spawnPipeline(&sup, std.testing.io, .{
+    try spawnPipeline(&sup, std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .heartbeat_interval_ns = 20 * std.time.ns_per_ms,
@@ -307,7 +308,7 @@ test "shutdown_reap: final timeout reap classifies still-running child as .unkno
     // Tile 0 freezes after 0 messages (stuck_tile_idx=0) — it will never
     // exit during the grace period, forcing the final timeout reap path.
     const port = util.nextMetricPort();
-    try spawnPipeline(&sup, std.testing.io, .{
+    try spawnPipeline(&sup, std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = 16,
         .heartbeat_interval_ns = 50 * std.time.ns_per_ms,
@@ -373,7 +374,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
     crash_after[5] = 1;
 
     const port = util.nextMetricPort();
-    try spawnPipeline(&sup, std.testing.io, .{
+    try spawnPipeline(&sup, std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = 16,
         .crash_after_heartbeats = crash_after,
@@ -447,7 +448,7 @@ test "shutdown_reap: non-zero exit during grace → force-phase preserves .exite
     crash_after[5] = 1;
 
     const port = util.nextMetricPort();
-    try spawnPipeline(&sup, std.testing.io, .{
+    try spawnPipeline(&sup, std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = 16,
         .crash_after_heartbeats = crash_after,

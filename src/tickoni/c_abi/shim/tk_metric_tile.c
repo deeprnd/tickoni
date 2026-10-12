@@ -1,4 +1,4 @@
-/* tk_metric_tile.c — Tickoni's metric tile (tkmetr) implementation.
+/* tk_metric_tile.c — Tickoni's metric tile implementation.
  *
  * Reuses Firedancer's fd_stem-based run loop (stem_run) with
  * fd_http_server for Prometheus /metrics endpoint.
@@ -39,6 +39,7 @@
 
 #include "disco/metrics/fd_metric_tile.h"
 #include "../topo_run/tk_metric_tile.h"
+#include "../../tango/cnc/fd_cnc.h"
 
 /* This macro mirrors the value defined in fd_metric_tile.c so that
    tk_metric_tile.c can reference it without including the .c source. */
@@ -93,6 +94,19 @@ static void
 tk_metric_unprivileged_init( fd_topo_t const *      topo,
                              fd_topo_tile_t const * tile ) {
   unprivileged_init( topo, tile );
+
+  /* Write boot_ts to CNC app-region immediately so the supervisor can
+     read it without timing issues. Index 2 = metric_boot_timestamp
+     (indices 0,1 are metric_snapshots and metric_backpressure_waits). */
+  void * scratch = (void *)fd_topo_obj_laddr( topo, tile->tile_obj_id );
+  fd_metric_ctx_t * ctx = (fd_metric_ctx_t *)scratch;
+  ulong cnc_obj_id = tk_topo_find_tile_obj( (fd_topo_t *)topo, tile->id, "cnc" );
+  if( cnc_obj_id != ULONG_MAX ) {
+    void * cnc_laddr = fd_topo_obj_laddr( (fd_topo_t *)topo, cnc_obj_id );
+    ctx->cnc = cnc_laddr;
+    ((ulong *)fd_cnc_app_laddr((fd_cnc_t *)cnc_laddr))[2] = (ulong)ctx->boot_ts;
+    ((ulong *)fd_cnc_app_laddr((fd_cnc_t *)cnc_laddr))[3] = 0xCAFEBABE;
+  }
 }
 
 /* ---------------------------------------------------------------------
@@ -118,12 +132,35 @@ tk_metric_run( fd_topo_t *      topo,
   void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
   fd_metric_ctx_t * ctx = (fd_metric_ctx_t *)scratch;
 
+  /* DIAG: log that we reached tk_metric_run */
+  FD_LOG_NOTICE(( "tk_metric_run: entering, tile_id=%u tile_obj_id=%lu boot_ts=%ld",
+                  tile->id, tile->tile_obj_id, (long)ctx->boot_ts ));
+
   /* Find the CNC object for this tile and set ctx->cnc so
      STEM_CALLBACK_SHOULD_SHUTDOWN can detect HALT. */
   ulong cnc_obj_id = tk_topo_find_tile_obj( topo, tile->id, "cnc" );
   if( cnc_obj_id != ULONG_MAX ) {
     void * cnc_laddr = fd_topo_obj_laddr( topo, cnc_obj_id );
     ctx->cnc = cnc_laddr;
+
+    /* Write boot_ts to the CNC app-region so the supervisor can read it
+       across the process boundary without needing to inspect scratch.
+       Index 2 is reserved for metric_boot_timestamp (indices 0,1 are
+       metric_snapshots and metric_backpressure_waits per tile_registry).
+       This is the diagnostic hook for "boot_timestamp is a valid large
+       positive value" — if the supervisor reads 0, unprivileged_init
+       never ran (tile crashed in privileged_init), and HTTP never
+       started. If the supervisor reads a valid timestamp but HTTP fails,
+       the problem is isolated to the HTTP subsystem. */
+    ulong app_laddr = (ulong)fd_cnc_app_laddr((fd_cnc_t *)cnc_laddr);
+    FD_LOG_NOTICE(( "tk_metric_run: writing boot_ts=%ld to cnc_app_laddr=%lu obj_id=%lu",
+                    (long)ctx->boot_ts, app_laddr, cnc_obj_id ));
+    ((ulong *)fd_cnc_app_laddr((fd_cnc_t *)cnc_laddr))[2] = (ulong)ctx->boot_ts;
+    /* Verify write */
+    ulong verify = ((ulong *)fd_cnc_app_laddr((fd_cnc_t *)cnc_laddr))[2];
+    FD_LOG_NOTICE(( "tk_metric_run: verify write boot_ts=%lu", (ulong)verify ));
+  } else {
+    FD_LOG_NOTICE(( "tk_metric_run: cnc not found for tile, cnc_obj_id=ULONG_MAX" ));
   }
 
   stem_run( topo, tile );

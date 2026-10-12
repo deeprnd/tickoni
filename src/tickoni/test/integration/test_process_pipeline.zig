@@ -35,7 +35,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
 
     const port = util.nextMetricPort();
     const event_count: u64 = 32;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         // /proc/self/exe would resolve to this test binary, not
@@ -137,7 +137,7 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
 
     const port = util.nextMetricPort();
     const event_count: u64 = 8;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .heartbeat_interval_ns = 20 * std.time.ns_per_ms,

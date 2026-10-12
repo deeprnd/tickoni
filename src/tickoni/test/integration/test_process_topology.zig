@@ -27,7 +27,7 @@ test "process_topology_integration: every tile is a distinct OS process parented
 
     const port = util.nextMetricPort();
     const event_count: u64 = 8;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
@@ -81,7 +81,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
     // near-zero threshold. The contract under test is topology-health
     // classification (only the intentionally frozen upstream tile goes stale),
     // not sub-100ms reaction time.
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = 16,
         .heartbeat_interval_ns = 50 * std.time.ns_per_ms,
@@ -140,7 +140,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
 
     const port = util.nextMetricPort();
     const event_count: u64 = 16;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .crash_after_heartbeats = crash_after_heartbeats,
@@ -198,7 +198,7 @@ test "process_topology_integration: process mode refuses to start a heap_dev-bac
     defer sup.deinit();
 
     const port = util.nextMetricPort();
-    try std.testing.expectError(error.ProcessModeRequiresTangoShm, sup.startPaymentPipelineProcess(std.testing.io, .{
+    try std.testing.expectError(error.ProcessModeRequiresTangoShm, sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .metric_port = port,

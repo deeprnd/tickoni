@@ -152,14 +152,18 @@ privileged_init( fd_topo_t const *      topo,
 
   fd_http_server_t * _metrics = FD_SCRATCH_ALLOC_APPEND( l, fd_http_server_align(), fd_http_server_footprint( METRICS_PARAMS ) );
 
+  FD_LOG_NOTICE(( "metric_tile: priv_init prometheus_listen_addr=%u port=%u",
+                  tile->metric.prometheus_listen_addr, tile->metric.prometheus_listen_port ));
   fd_http_server_callbacks_t metrics_callbacks = {
     .request = metrics_http_request,
   };
   ctx->metrics_server = fd_http_server_join( fd_http_server_new( _metrics, METRICS_PARAMS, metrics_callbacks, ctx ) );
+  if( FD_UNLIKELY( !ctx->metrics_server ) )
+    FD_LOG_ERR(( "metric_tile: fd_http_server_new returned NULL" ));
   if( FD_UNLIKELY( !fd_http_server_listen( ctx->metrics_server,
                                           tile->metric.prometheus_listen_addr,
                                           tile->metric.prometheus_listen_port ) ) )
-    FD_LOG_ERR(( "prometheus listen failed on " FD_IP4_ADDR_FMT ":%u",
+    FD_LOG_ERR(( "metric_tile: prometheus listen failed on " FD_IP4_ADDR_FMT ":%u",
                  FD_IP4_ADDR_FMT_ARGS( tile->metric.prometheus_listen_addr ),
                  tile->metric.prometheus_listen_port ));
 }
@@ -231,7 +235,7 @@ populate_allowed_fds( fd_topo_t const *      topo,
 
    KEY DIFFERENCE FROM UPSTREAM: STEM_CALLBACK_SHOULD_SHUTDOWN checks
    ctx->cnc for HALT instead of always returning 0.  This is the fix
-   for v2.23-m task 2 — tkmetr now properly shuts down when the
+   for v2.23-m task 2 — metric now properly shuts down when the
    supervisor sends HALT via CNC.
 
    For Firedancer's native metric tile, ctx->cnc is NULL so the check

@@ -361,16 +361,23 @@ fd_http_server_t *
 fd_http_server_listen( fd_http_server_t * http,
                        uint               address,
                        ushort             port ) {
+  FD_LOG_NOTICE(( "fd_http_server_listen: listening on " FD_IP4_ADDR_FMT ":%u max_conns=%lu",
+                   FD_IP4_ADDR_FMT_ARGS( address ), (uint)port, http->max_conns ));
   tk_http_socket_t socket = TK_HTTP_SOCKET_INVALID;
   tk_http_socket_result_t result = http->transport->runtime_init();
-  if( FD_UNLIKELY( result.status!=TK_HTTP_SOCKET_STATUS_OK ) ) return NULL;
+  if( FD_UNLIKELY( result.status!=TK_HTTP_SOCKET_STATUS_OK ) ) {
+    FD_LOG_WARNING(( "fd_http_server_listen: runtime_init failed status=%u",
+                     (uint)result.status ));
+    return NULL;
+  }
   result = http->transport->listen( address, port, http->max_conns, &socket );
   if( FD_UNLIKELY( result.status!=TK_HTTP_SOCKET_STATUS_OK ) ) {
-    FD_LOG_WARNING(( "HTTP listen failed status=%u native_error=%u address=%u port=%u",
+    FD_LOG_WARNING(( "fd_http_server_listen: listen failed status=%u native_error=%u address=%u port=%u",
                      (uint)result.status, result.native_error, address, (uint)port ));
     (void)http->transport->runtime_fini();
     return NULL;
   }
+  FD_LOG_NOTICE(( "fd_http_server_listen: OK socket=%lu", (unsigned long)socket ));
   http->socket = socket;
   http->poll_entries[ http->max_conns+http->max_ws_conns ].socket = socket;
 

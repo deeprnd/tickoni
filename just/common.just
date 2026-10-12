@@ -445,7 +445,7 @@ kill-test:
 	    # filter. Query Win32_Process so generated test executable names and
 	    # their Windows path separators are handled consistently.
 	    powershell.exe -NoProfile -NonInteractive -Command '
-	      $imageNames = @("tkings.exe", "tknorm.exe", "tkdedu.exe", "tkcase.exe", "tkpoly.exe", "tkaudt.exe", "tkrepl.exe", "tkmetr.exe", "tkdiag.exe", "tkdisp.exe", "tkagnt.exe", "tkmodl.exe", "tktool.exe", "tkadpt.exe", "tkapi.exe", "tickoni-supervisor.exe")
+	      $imageNames = @("tkings.exe", "tknorm.exe", "tkdedu.exe", "tkcase.exe", "tkpoly.exe", "tkaudt.exe", "tkrepl.exe", "metric.exe", "tkdiag.exe", "tkdisp.exe", "tkagnt.exe", "tkmodl.exe", "tktool.exe", "tkadpt.exe", "tkapi.exe", "tickoni-supervisor.exe")
 	      $processes = Get-CimInstance Win32_Process | Where-Object {
 	        $_.Name -notin @("powershell.exe", "pwsh.exe") -and (
 	          $_.Name -in $imageNames -or $_.CommandLine -like "*zig-out*bin*test-*" -or $_.CommandLine -like "*target*debug*test-*" -or $_.CommandLine -like "*target*release*test-*"

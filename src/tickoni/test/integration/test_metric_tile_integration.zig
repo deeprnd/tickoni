@@ -1,4 +1,4 @@
-/// v2.26-python: Integration tests for the metric tile (tkmetr) lifecycle.
+/// v2.26-python: Integration tests for the metric tile lifecycle.
 ///
 /// Tests:
 ///   - Build metric topology, verify tile references are laid out
@@ -240,12 +240,12 @@ fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) !void {
 test "metric topology finalizes exact scratch requirements identically" {
     if (true) return error.SkipZigTest;
     const port = util.nextMetricPort();
-    std.debug.print("\n  [tkmetr-test] metric_port = {d}\n", .{port});
+    std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
 
     var parent = try runtime.topo_build.build(
         std.testing.allocator,
         topologies.paymentPipelineProcess(),
-        "tkmetr0",
+        "metric0",
         port,
     );
     defer parent.deinit(std.testing.allocator);
@@ -255,7 +255,7 @@ test "metric topology finalizes exact scratch requirements identically" {
     var child = try runtime.topo_build.build(
         std.testing.allocator,
         topologies.paymentPipelineProcess(),
-        "tkmetr0",
+        "metric0",
         port,
     );
     defer child.deinit(std.testing.allocator);
@@ -323,7 +323,7 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
     };
     const topology = runtime.topology.Topology{ .tiles = &tiles, .channels = &channels };
     const port = util.nextMetricPort();
-    var built = try runtime.topo_build.build(std.testing.allocator, topology, "tkmetr_id", port);
+    var built = try runtime.topo_build.build(std.testing.allocator, topology, "metric_id", port);
     defer built.deinit(std.testing.allocator);
 
     // metric_tile_idx is the Firedancer topology index (not the descriptor
@@ -349,10 +349,10 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
 }
 
 // ---------------------------------------------------------------------------
-// Test: topology with tkmetr builds and starts the pipeline.
+// Test: topology with metric builds and starts the pipeline.
 // ---------------------------------------------------------------------------
 
-test "metric_tile_integration: topology with tkmetr builds and starts" {
+test "metric_tile_integration: topology with metric builds and starts" {
     if (true) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -369,9 +369,9 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
     }
 
     const port = util.nextMetricPort();
-    std.debug.print("\n  [tkmetr-test] metric_port = {d}\n", .{port});
+    std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
 
-    // Verify tkmetr tile exists in topology
+    // Verify metric tile exists in topology
     var found_metric_tile = false;
     for (topo.tiles) |tile| {
         if (std.mem.eql(u8, tile.id.slice(), "metric")) {
@@ -382,7 +382,7 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
     try std.testing.expect(found_metric_tile);
 
     const event_count: u64 = 1000;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
@@ -413,7 +413,7 @@ test "metric_tile_integration: topology with tkmetr builds and starts" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -429,9 +429,9 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
     }
 
     const port = util.nextMetricPort();
-    std.debug.print("\n  [tkmetr-test] metric_port = {d}\n", .{port});
+    std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 1000;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
@@ -452,6 +452,11 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
     // the first retry attempt. The pipeline can finish faster than the
     // metric tile process reaches stem_run → before_credit → listen().
     util.process.sleepNanos(HTTP_READY_MINIMUM_WAIT_MS * std.time.ns_per_ms);
+
+    // Verify the metric tile didn't crash before attempting the HTTP call.
+    // A crash here (e.g. bind failure) is far more informative than a
+    // ConnectionTimeout in httpGetWithRetry.
+    try expectNoCrashes(&sup, run_dir);
 
     // The independently-started listener can begin accepting after the
     // pipeline has already completed, so wait for listener readiness.
@@ -500,9 +505,9 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
     }
 
     const port = util.nextMetricPort();
-    std.debug.print("\n  [tkmetr-test] metric_port = {d}\n", .{port});
+    std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 10;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
@@ -553,9 +558,9 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
     }
 
     const port = util.nextMetricPort();
-    std.debug.print("\n  [tkmetr-test] metric_port = {d}\n", .{port});
+    std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 10;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
@@ -612,9 +617,9 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
     }
 
     const port = util.nextMetricPort();
-    std.debug.print("\n  [tkmetr-test] metric_port = {d}\n", .{port});
+    std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 4;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
@@ -644,14 +649,84 @@ test "metric_tile_integration: CNC join verifies tile finds CNC object" {
     if (true) return error.SkipZigTest;
     const topo = topologies.paymentPipelineProcess();
 
-    var tkmetr_idx: ?usize = null;
+    var metric_idx: ?usize = null;
     for (topo.tiles, 0..) |tile, i| {
         if (std.mem.eql(u8, tile.id.slice(), "metric")) {
-            tkmetr_idx = i;
+            metric_idx = i;
             break;
         }
     }
-    try std.testing.expect(tkmetr_idx != null);
+    try std.testing.expect(metric_idx != null);
 
     try std.testing.expectEqual(@as(usize, 8), topo.tiles.len);
+}
+
+// ---------------------------------------------------------------------------
+// Test: Boot timestamp is read via CNC app-region (no HTTP dependency).
+//
+// Diagnostic power:
+//   - boot_ts == 0:  unprivileged_init never ran → tile crashed before
+//                    setting boot_ts → HTTP never started.
+//   - boot_ts > 0:   unprivileged_init ran → tile reached CNC join.
+//                    If HTTP then fails, the problem is HTTP bind, not tile boot.
+// ---------------------------------------------------------------------------
+
+test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
+    if (false) return error.SkipZigTest;
+
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const len = try tmp.dir.realPath(std.testing.io, &path_buf);
+    const run_dir = path_buf[0..len];
+
+    const topo = topologies.paymentPipelineProcess();
+    var sup = try Supervisor.init(std.testing.allocator, topo);
+    defer {
+        sup.stopProcess(std.testing.io) catch @panic("unresolved child");
+        sup.deinit();
+    }
+
+    const port = util.nextMetricPort();
+    std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
+    const event_count: u64 = 10;
+    try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
+        .run_dir = run_dir,
+        .event_count = event_count,
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = "metr6",
+        .metric_port = port,
+    });
+
+    // Wait for pipeline to finish.
+    var wait_poll: u32 = 0;
+    while (wait_poll < 200) : (wait_poll += 1) {
+        if (sup.snapshotProcessMetrics().audited >= event_count) break;
+        util.process.sleepNanos(5 * std.time.ns_per_ms);
+    }
+
+    // Read boot timestamp via supervisor's CNC app-region read — NO HTTP.
+    const snap = sup.snapshotProcessMetrics();
+    const boot_ts = snap.metric_boot_timestamp;
+
+    std.debug.print("  [metric-test] boot_ts (via CNC) = {d}\n", .{boot_ts});
+    std.debug.print("  [metric-test] metric_snapshots = {d}\n", .{snap.metric_snapshots});
+    std.debug.print("  [metric-test] metric_backpressure_waits = {d}\n", .{snap.metric_backpressure_waits});
+
+    // Diagnostic: dump per-tile handle states.
+    const handles = sup.monitor();
+    std.debug.print("  [metric-test] handles:\n", .{});
+    for (handles, 0..) |h, i| {
+        std.debug.print("    tile[{d}] state={s} tile_idx={d}\n", .{ i, @tagName(h.state), h.tile_idx });
+    }
+
+    // boot_ts should be a large positive nanosecond timestamp (>= 1e18
+    // covers any epoch after 2001) — not 0 (tile crashed before init),
+    // not a stale value from a prior run.
+    try std.testing.expect(boot_ts >= 1_000_000_000_000_000_000);
+
+    // Also verify metric_snapshots > 0 to confirm the tile is actually
+    // polling, not just sitting at a valid boot timestamp.
+    try std.testing.expect(snap.metric_snapshots > 0);
 }

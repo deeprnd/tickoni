@@ -31,7 +31,7 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) u8 {
 /// sequence (signal every cnc to halt, wait for exit) stays uniform
 /// whether or not a tile has pipeline work.
 ///
-/// tkrepl/tkmetr/tkdiag have no process-mode pipeline role yet — see the
+/// tkrepl/metric/tkdiag have no process-mode pipeline role yet — see the
 /// module doc comment in tiles/payment_pipeline/process.zig for the scope
 /// boundary; their tile_registry entry has process_fn == null and is a
 /// no-op here.

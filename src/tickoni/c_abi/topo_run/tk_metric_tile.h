@@ -1,5 +1,5 @@
 /* Shared extern declaration for TK_METRIC_RUN — the Firedancer-based
-   metric-tile fd_topo_run_tile_t used by tkmetr.
+   metric-tile fd_topo_run_tile_t used by the metric tile.
 
    Both tile_run.c (process-mode dispatcher) and topob.c (topology
    builder) need to reference this symbol.  Consolidating into a

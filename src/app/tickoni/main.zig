@@ -188,14 +188,16 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
     const proc_msg = try std.fmt.bufPrint(&buf, "starting process-mode pipeline: run_dir={s}", .{run_dir});
     log.debug("main", "cmdStartProcess", proc_msg);
     const process_config = ProcessPipelineConfig{ .run_dir = run_dir, .verbose = verbose };
-    try sup.startPaymentPipelineProcess(init.io, process_config);
+    try sup.startPaymentPipelineProcess(init.io, topo, process_config);
     log.debug("main", "cmdStartProcess", "process-mode pipeline started, monitoring tiles");
 
     try File.writeStreamingAll(stdout, init.io, "tickoni-supervisor: process-mode pipeline started\ntiles:\n");
+    const state = sup.process_state orelse unreachable;
     for (sup.monitor()) |h| {
+        const tile_name = state.built_topo.tile_infos[h.tile_idx].tile_id.slice();
         const line = try std.fmt.bufPrint(&buf, "  [{d}] {s}  pid={?}  state={s}\n", .{
             h.tile_idx,
-            topo.tiles[h.tile_idx].name,
+            tile_name,
             h.pid,
             @tagName(h.state),
         });
@@ -229,7 +231,7 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
         for (0..count) |i| {
             const p = prev_per_tile[i];
             const c = curr_per_tile[i];
-            const tile = topo.tiles[i];
+            const tile_id = state.built_topo.tile_infos[i].tile_id;
             const delta_prod = @as(i64, @intCast(c.produced)) - @as(i64, @intCast(p.produced));
             const delta_norm = @as(i64, @intCast(c.normalized)) - @as(i64, @intCast(p.normalized));
             const delta_inv = @as(i64, @intCast(c.invalid)) - @as(i64, @intCast(p.invalid));
@@ -238,11 +240,11 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
             const delta_deny = @as(i64, @intCast(c.denied)) - @as(i64, @intCast(p.denied));
             const delta_audit = @as(i64, @intCast(c.audited)) - @as(i64, @intCast(p.audited));
             if (delta_prod != 0 or delta_norm != 0 or delta_inv != 0 or delta_dup != 0 or delta_allow != 0 or delta_deny != 0 or delta_audit != 0) {
-                const tile_id_str = tile.id.slice();
+                const tile_name = tile_id.slice();
                 const line = try std.fmt.bufPrint(
                     &buf,
                     "  tile={s}  dP={d} dN={d} dI={d} dD={d} dA={d} dR={d} dU={d}\n",
-                    .{ tile_id_str, delta_prod, delta_norm, delta_inv, delta_dup, delta_allow, delta_deny, delta_audit },
+                    .{ tile_name, delta_prod, delta_norm, delta_inv, delta_dup, delta_allow, delta_deny, delta_audit },
                 );
                 try File.writeStreamingAll(stdout, init.io, line);
             }

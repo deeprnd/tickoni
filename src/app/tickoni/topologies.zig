@@ -79,7 +79,7 @@ const investment_channels = [_]Channel{
 /// Phase 0 in-process pipeline used by the Tickoni product supervisor.
 ///
 ///   tkings -> tknorm -> tkdedu -> tkpoly -> tkaudt
-///   tkrepl, tkmetr, and tkdiag observe the deterministic run.
+///   tkrepl, metric, and tkdiag observe the deterministic run.
 ///
 /// No Solana validator tiles are registered in this topology.
 /// Status: runnable, via `tickoni-supervisor start` (Supervisor.startPaymentPipeline).

@@ -193,7 +193,10 @@ fn resolvedHeartbeatIntervalNs(config: ProcessPipelineConfig, multiplier: u64) u
 
 pub const Supervisor = struct {
     allocator: std.mem.Allocator,
-    topo: Topology,
+    /// Tile count, set from topo_desc.tiles.len during init. Used to size
+    /// handles and verify consistency. The actual TileId for each index
+    /// comes from built_topo.tile_infos post-build.
+    tile_count: usize,
     handles: []TileHandle,
     /// Non-null while a v2.14 process-mode pipeline is running.
     process_state: ?*ProcessState = null,
@@ -214,7 +217,7 @@ pub const Supervisor = struct {
         for (handles, 0..) |*h, i| h.* = TileHandle.init(@intCast(i));
         return .{
             .allocator = allocator,
-            .topo = topo,
+            .tile_count = topo.tiles.len,
             .handles = handles,
         };
     }
@@ -234,7 +237,7 @@ pub const Supervisor = struct {
     /// by Firedancer Tango shared memory (v2.14.S1). Requires
     /// topo.channels to be a tango_shm topology sharing exactly one
     /// workspace (paymentPipelineProcess() builds this shape).
-    pub fn startPaymentPipelineProcess(self: *Supervisor, io: std.Io, config: ProcessPipelineConfig) !void {
+    pub fn startPaymentPipelineProcess(self: *Supervisor, io: std.Io, topo: Topology, config: ProcessPipelineConfig) !void {
         const log = logger.get();
         log.enter("supervisor", "startPaymentPipelineProcess");
         defer log.exit("supervisor", "startPaymentPipelineProcess");
@@ -249,11 +252,11 @@ pub const Supervisor = struct {
         // resulting layout for diagnostics visibility (v2.14.S1.T14).
         var available_cpus: util.cpu.CpuSet = undefined;
         try util.cpu.getAffinity(0, &available_cpus);
-        const placement_report = try rt.cpu_placement.validate(self.topo, &available_cpus);
+        const placement_report = try rt.cpu_placement.validate(topo, &available_cpus);
 
         const workspace_name_slice = config.workspace_name;
         if (workspace_name_slice.len == 0) return error.MissingWorkspaceName;
-        for (self.topo.channels) |ch| {
+        for (topo.channels) |ch| {
             if (ch.backing != .tango_shm) return error.ProcessModeRequiresTangoShm;
         }
 
@@ -291,7 +294,7 @@ pub const Supervisor = struct {
         // Tickoni; see topob.zig's topoWkspSetPtr doc comment ("finding
         // 3") for the reused-layout-math/own-memory hybrid this drives.
         log.debug("supervisor", "startPaymentPipelineProcess", "building topology via topo_build.build");
-        var built_topo = try rt.topo_build.build(self.allocator, self.topo, workspace_name_slice, config.metric_port);
+        var built_topo = try rt.topo_build.build(self.allocator, topo, workspace_name_slice, config.metric_port);
         var built_topo_owned_by_state = false;
         errdefer if (!built_topo_owned_by_state) built_topo.deinit(self.allocator);
         log.kvFmt("supervisor", "startPaymentPipelineProcess", "topology built successfully, footprint={d} pages", .{c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx) / c_abi.wksp.shmem_normal_page_sz});
@@ -493,9 +496,9 @@ pub const Supervisor = struct {
         // gaddr-based LinkHandles shape rt.link.create used to build by
         // hand.
         var link_handles_buf: [8]rt.link.LinkHandles = undefined;
-        std.debug.assert(self.topo.channels.len <= link_handles_buf.len);
-        const link_handles = link_handles_buf[0..self.topo.channels.len];
-        for (self.topo.channels, 0..) |ch, i| {
+        std.debug.assert(topo.channels.len <= link_handles_buf.len);
+        const link_handles = link_handles_buf[0..topo.channels.len];
+        for (topo.channels, 0..) |ch, i| {
             const ids = built_topo.link_obj_id[i];
             link_handles[i] = .{
                 .mcache_gaddr = c_abi.wksp.wkspGaddr(wksp, c_abi.topob.topoObjLaddr(built_topo.topo, ids.mcache_obj_id)),
@@ -538,7 +541,7 @@ pub const Supervisor = struct {
         // config (see topology_spec.zig's module doc, "finding 5").
         const topology_spec_path = try std.fmt.allocPrint(self.allocator, "{s}/topology.spec", .{config.run_dir});
         defer self.allocator.free(topology_spec_path);
-        var topology_spec = try rt.topology_spec.TopologySpec.fromTopology(self.topo, config.metric_port);
+        var topology_spec = try rt.topology_spec.TopologySpec.fromTopology(topo, config.metric_port);
         // Override workspace_name with the runtime config value so
         // child tiles look for the readiness marker at the right path
         // (tests set a unique workspace_name like "test0"; the topology
@@ -565,7 +568,7 @@ pub const Supervisor = struct {
                 .shmem_path = config.run_dir,
                 .heartbeat_interval_ns = config.heartbeat_interval_ns,
                 .crash_after_heartbeats = config.crash_after_heartbeats[i],
-                .channels = self.topo.channels,
+                .channels = topo.channels,
                 .link_handles = link_handles,
             });
             const spec_path = try std.fmt.allocPrint(self.allocator, "{s}/tile_{d}.spec", .{ config.run_dir, i });

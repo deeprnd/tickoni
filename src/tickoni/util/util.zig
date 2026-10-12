@@ -41,31 +41,27 @@ pub fn validateNotUsedPort(port: u16) bool {
     return !portIsInUse(port);
 }
 
-/// Shared port counter for integration tests.
+/// Generate a random unprivileged port for integration tests.
 ///
-/// Auto-increments from 7999 (Firedancer default) on each call.  All
-/// integration test modules import this same util module, so the counter
-/// advances across all tests in a single binary, preventing EADDRINUSE
-/// when tests run in parallel or back-to-back with TIME_WAIT sockets.
-/// Port step of 100 ensures that even with aggressive TIME_WAIT recycling,
-/// consecutive test runs never collide — TIME_WAIT holds sockets for up to
-/// 60 s, so 100-port spacing gives ~60 tests of headroom before wrapping.
-const _metric_port_step: u16 = 100;
+/// Uses a simple counter seeded from getpid() to pick from
+/// [30000, 65535].  Each successive test call increments the counter,
+/// so successive calls never collide.  This eliminates TIME_WAIT port
+/// conflicts without OS-specific socket code.
+var _metric_port_counter: u16 = 0;
 
-var _metric_port_counter: u16 = 7999;
 pub fn nextMetricPort() u16 {
-    while (true) {
-        const result = _metric_port_counter;
-        _metric_port_counter = _metric_port_counter +% _metric_port_step;
+    const low: u16 = 30000;
+    const span: u16 = 35536; // 65535 - 30000 + 1
 
-        // Skip privileged ports (< 1024) — require root to bind.
-        // Counter can wrap from u16 max; unprivileged ports are
-        // (1024..=65535), so wrapping through 0..1023 is harmless.
-        if (result < 1024) continue;
-
-        // Skip ports still in TIME_WAIT from prior test runs.
-        if (!portIsInUse(result)) return result;
+    // Seed the counter once per process using pid (unique per test run).
+    if (_metric_port_counter == 0) {
+        _metric_port_counter = @as(u16, @intCast(std.c.getpid() & 0xFFFF));
     }
+
+    // Map into [low, low+span)
+    const port = @as(u32, low) + (_metric_port_counter % span);
+    _metric_port_counter += 1;
+    return @intCast(port);
 }
 
 /// Drop-in replacement for std.testing.tmpDir() that respects
@@ -132,7 +128,12 @@ pub const TmpDir = struct {
     pub fn cleanup(self: *TmpDir) void {
         const io = std.testing.io;
         self.dir.close(io);
-        self.parent_dir.deleteTree(io, self.sub_path[0..12]) catch {};
+
+        // Guard: keep temp dirs (and their log files) when TICKONI_KEEP_LOGS=1
+        const keep = c.getenv("TICKONI_KEEP_LOGS");
+        if (keep == null or std.mem.sliceTo(keep.?, 0)[0] != '1') {
+            self.parent_dir.deleteTree(io, self.sub_path[0..12]) catch {};
+        }
         self.parent_dir.close(io);
         self.cache_dir.close(io);
         self.* = undefined;

@@ -52,7 +52,7 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) 
     defer sup.deinit();
 
     const port = util.nextMetricPort();
-    try sup.startPaymentPipelineProcess(io, .{
+    try sup.startPaymentPipelineProcess(io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",

@@ -83,7 +83,7 @@ export fn tk_tile_privileged_init(topo: *anyopaque, tile: *anyopaque) callconv(.
     // enough that the race rarely mattered in practice. Rebuilding the
     // whole topology before a tile can even join its cnc (v2.14.S8.T4)
     // is much slower, especially for tiles with no pipeline work
-    // (tkrepl/tkmetr/tkdiag) that the supervisor's poll-for-real-progress
+    // (tkrepl/metric/tkdiag) that the supervisor's poll-for-real-progress
     // callers have no reason to wait for — so a HALT sent while such a
     // tile is still booting is no longer a rare edge case. Checking first
     // costs nothing and makes the existing documented caveat fail safe

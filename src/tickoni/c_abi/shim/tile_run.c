@@ -13,7 +13,7 @@
    topo_run.c/topob.c's own standalone adapter unit tests, which is why
    this stays out of topo_run.c itself.
 
-   For the metric tile (tkmetr), we dispatch to TK_METRIC_RUN instead
+   For the metric tile, we dispatch to TK_METRIC_RUN instead
    of TK_TILE_RUN. TK_METRIC_RUN is defined in tk_metric_tile.c and
    uses Firedancer's fd_stem-based run loop with fd_http_server.
 */
@@ -98,7 +98,7 @@ static fd_topo_run_tile_t TK_TILE_RUN = {
    tk_topo_run_tile(), which mirrors the same launch order where upstream's
    Linux-only implementation is unavailable.
 
-   For the metric tile (tkmetr), dispatches to TK_METRIC_RUN instead of
+   For the metric tile, dispatches to TK_METRIC_RUN instead of
    TK_TILE_RUN. TK_METRIC_RUN uses Firedancer's fd_stem-based run loop
    with fd_http_server for /metrics, so it cannot use TK_TILE_RUN's
    Zig callbacks. */
