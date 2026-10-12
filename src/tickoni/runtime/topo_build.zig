@@ -287,12 +287,15 @@ pub fn build(
 
     const cnc_obj_id = try allocator.alloc(usize, topo_desc.tiles.len);
     errdefer allocator.free(cnc_obj_id);
-    // v2.22.S4 Task 0: create ONE shared CNC in the app workspace, then
-    // assign it to every tile.  Each tile must use the same CNC object so
-    // HALT signals and boot_ts propagate across the process boundary.
-    const cnc_obj = c_abi.topob.topobObj(topo, "cnc", wksp_name_z);
-    std.debug.assert(c_abi.topob.topoValidateObjInWksp(topo, "cnc", wksp_name_z) != c_abi.topob.not_found);
+    // v2.14.S8.T6: create one CNC per tile so the supervisor can detect
+    // per-tile heartbeat staleness independently.  Each tile writes to
+    // its own CNC; the supervisor sends BOOT/HALT to each tile's CNC.
+    // Call topobObj separately per tile — fd_topob_obj creates a distinct
+    // object each time — so each tile gets its own CNC sharing the "cnc"
+    // type string (needed by tk_topo_find_tile_obj in topob.c, which
+    // matches the metric tile's shutdown CNC lookup).
     for (0..topo_desc.tiles.len) |i| {
+        const cnc_obj = c_abi.topob.topobObj(topo, "cnc", wksp_name_z);
         c_abi.topob.topobTileUses(topo, i, cnc_obj, true);
         cnc_obj_id[i] = cnc_obj;
     }

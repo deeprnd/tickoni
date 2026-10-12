@@ -90,6 +90,18 @@ fn loadProcessConfig(io: std.Io, spec: *const rt.launch_spec.LaunchSpec) !tiles.
     if (n != @sizeOf(tiles.process.ProcessConfigFile)) return error.ProcessConfigTruncated;
     if (file_struct.magic_field != tiles.process.process_config_magic) return error.ProcessConfigBadMagic;
     if (file_struct.version_field != tiles.process.process_config_version) return error.ProcessConfigUnsupportedVersion;
+    const stuck_str = if (file_struct.cfg.stuck_tile) |h| blk: {
+        var id_buf: [32]u8 = undefined;
+        break :blk std.fmt.bufPrint(&id_buf, "{d}", .{h.tile_idx}) catch "unknown";
+    } else "null";
+    std.log.warn(
+        "tile {d}: loaded process config, stuck_tile={s}, event_count={d}",
+        .{
+            spec.tile_idx,
+            stuck_str,
+            file_struct.cfg.pipeline.event_count,
+        },
+    );
     return file_struct.cfg;
 }
 

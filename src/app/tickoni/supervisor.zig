@@ -749,8 +749,7 @@ pub const Supervisor = struct {
         log.enter("supervisor", "refreshProcessHealth");
         defer log.exit("supervisor", "refreshProcessHealth");
         const state = self.process_state orelse return;
-        const now = self.process_operations.now();
-        const now_ms: u32 = @truncate(@as(u64, @intCast(now)) / std.time.ns_per_ms);
+        const now_ns = self.process_operations.now();
         // Reap any exited children FIRST so we detect crashes before
         // reading cnc heartbeats.  A crashed tile's cnc is corrupted and
         // reading it can SIGSEGV/SIGABRT the supervisor; by reaping first
@@ -793,15 +792,18 @@ pub const Supervisor = struct {
             // liveness promise for that boot interval; classify heartbeat
             // staleness only after the tile has entered RUN.
             const sig = c_abi.cnc.signalQuery(cnc);
-            if (sig != c_abi.cnc.signal_run and sig != c_abi.cnc.signal_boot) continue;
-            const heartbeat_ms = c_abi.cnc.heartbeatQuery(cnc);
-            // The tile and supervisor update/read concurrently. A heartbeat
-            // written after `now_ms` was sampled is up to one tick in the
-            // future; interpret the modulo delta as signed so that race is
-            // not mistaken for an almost-49-day-old heartbeat.
-            const heartbeat_age_ms: i32 = @bitCast(now_ms -% heartbeat_ms);
-            const stale_after_ms = state.heartbeat_stale_after_ns / std.time.ns_per_ms + @intFromBool(state.heartbeat_stale_after_ns % std.time.ns_per_ms != 0);
-            if (heartbeat_age_ms > 0 and @as(u64, @intCast(heartbeat_age_ms)) > stale_after_ms) {
+            if (sig != c_abi.cnc.signal_run) continue;
+            const heartbeat_ns = c_abi.cnc.heartbeatQuery(cnc);
+            // Firedancer's heartbeat is app-defined — we pass monotonic nanoseconds.
+            // Compare nanosecond age against nanosecond threshold, same units.
+            const heartbeat_age_ns: i64 = now_ns - heartbeat_ns;
+            if (i == 0) log.kvFmt("supervisor", "refreshProcessHealth",
+                "tile {d}: sig={d} hb_ns={d} age_ns={d} stale_ns={d}",
+                .{ i, sig, heartbeat_ns, heartbeat_age_ns, state.heartbeat_stale_after_ns });
+            if (heartbeat_age_ns > 0 and heartbeat_age_ns > state.heartbeat_stale_after_ns) {
+                log.kvFmt("supervisor", "refreshProcessHealth",
+                    "tile {d} marked stale: age_ns={d} > stale_ns={d}",
+                    .{ i, heartbeat_age_ns, state.heartbeat_stale_after_ns });
                 h.state = .stale;
                 h.crashed_because = .stale;
             }
@@ -866,7 +868,7 @@ pub const Supervisor = struct {
             switch (result) {
                 .running => {},
                 .observation => |obs| switch (obs) {
-                    .stopped => {}, // clean stop via CNC HALT — CNC is still valid and readable
+                    .stopped => suppress_cnc[i] = true,
                     .exited, .signaled => suppress_cnc[i] = true,
                 },
                 .no_child, .failed => suppress_cnc[i] = true,
