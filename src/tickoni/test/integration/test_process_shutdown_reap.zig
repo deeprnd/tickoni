@@ -41,7 +41,7 @@ fn spawnPipeline(
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -58,6 +58,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
     crash_after[5] = 1;
 
     const port = util.nextMetricPort();
+    var ws_buf: [16]u8 = undefined;
     try spawnPipeline(&sup, std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = 16,
@@ -65,6 +66,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
     errdefer sup.stopProcess(std.testing.io) catch @panic("unresolved child");
@@ -116,7 +118,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: child exits between running-check and kill → was_forced=false classification" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -130,12 +132,14 @@ test "shutdown_reap: child exits between running-check and kill → was_forced=f
 
     const port = util.nextMetricPort();
     const event_count: u64 = 16;
+    var ws_buf: [16]u8 = undefined;
     try spawnPipeline(&sup, std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
 
@@ -171,7 +175,7 @@ test "shutdown_reap: child exits between running-check and kill → was_forced=f
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: pre-existing crash survives stopProcess" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -188,6 +192,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
     crash_after[0] = 1;
 
     const port = util.nextMetricPort();
+    var ws_buf: [16]u8 = undefined;
     try spawnPipeline(&sup, std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = 16,
@@ -195,6 +200,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
     errdefer sup.stopProcess(std.testing.io) catch @panic("unresolved child");
@@ -233,7 +239,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: externally reaped child classified as .unknown not .exited_ok" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -247,12 +253,14 @@ test "shutdown_reap: externally reaped child classified as .unknown not .exited_
 
     const port = util.nextMetricPort();
     const event_count: u64 = 8;
+    var ws_buf: [16]u8 = undefined;
     try spawnPipeline(&sup, std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .heartbeat_interval_ns = 20 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 1 * std.time.ns_per_ms,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
 
@@ -293,7 +301,7 @@ test "shutdown_reap: externally reaped child classified as .unknown not .exited_
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: final timeout reap classifies still-running child as .unknown" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -308,6 +316,7 @@ test "shutdown_reap: final timeout reap classifies still-running child as .unkno
     // Tile 0 freezes after 0 messages (stuck_tile_idx=0) — it will never
     // exit during the grace period, forcing the final timeout reap path.
     const port = util.nextMetricPort();
+    var ws_buf: [16]u8 = undefined;
     try spawnPipeline(&sup, std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = 16,
@@ -316,6 +325,7 @@ test "shutdown_reap: final timeout reap classifies still-running child as .unkno
         .stuck_tile_idx = 0,
         .stuck_after_messages = 0,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
     errdefer sup.stopProcess(std.testing.io) catch @panic("unresolved child");
@@ -355,7 +365,7 @@ test "shutdown_reap: final timeout reap classifies still-running child as .unkno
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -374,6 +384,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
     crash_after[5] = 1;
 
     const port = util.nextMetricPort();
+    var ws_buf: [16]u8 = undefined;
     try spawnPipeline(&sup, std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = 16,
@@ -381,6 +392,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
     errdefer sup.stopProcess(std.testing.io) catch @panic("unresolved child");
@@ -430,7 +442,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: non-zero exit during grace → force-phase preserves .exited_code" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -448,6 +460,7 @@ test "shutdown_reap: non-zero exit during grace → force-phase preserves .exite
     crash_after[5] = 1;
 
     const port = util.nextMetricPort();
+    var ws_buf: [16]u8 = undefined;
     try spawnPipeline(&sup, std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = 16,
@@ -455,6 +468,7 @@ test "shutdown_reap: non-zero exit during grace → force-phase preserves .exite
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
     errdefer sup.stopProcess(std.testing.io) catch @panic("unresolved child");

@@ -13,7 +13,7 @@ const util = @import("util");
 const Supervisor = supervisor_mod.Supervisor;
 
 test "process_topology_integration: every tile is a distinct OS process parented by the supervisor" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -27,10 +27,13 @@ test "process_topology_integration: every tile is a distinct OS process parented
 
     const port = util.nextMetricPort();
     const event_count: u64 = 8;
+    var ws_buf: [16]u8 = undefined;
+    const workspace_name = util.nextWorkspaceName(&ws_buf);
     try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = workspace_name,
         .metric_port = port,
     });
 
@@ -63,7 +66,7 @@ test "process_topology_integration: every tile is a distinct OS process parented
 }
 
 test "process_topology_integration: supervisor marks a truly stuck tile stale while blocked consumers keep heartbeating" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -81,6 +84,8 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
     // near-zero threshold. The contract under test is topology-health
     // classification (only the intentionally frozen upstream tile goes stale),
     // not sub-100ms reaction time.
+    var ws_buf: [16]u8 = undefined;
+    const workspace_name = util.nextWorkspaceName(&ws_buf);
     try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = 16,
@@ -89,6 +94,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
         .stuck_tile_idx = 0,
         .stuck_after_messages = 0,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = workspace_name,
         .metric_port = port,
     });
     errdefer sup.stopProcess(std.testing.io) catch @panic("unresolved child");
@@ -129,7 +135,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
 }
 
 test "process_topology_integration: a self-exiting tile is reported crashed via exit_code, not signal" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -148,6 +154,8 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
 
     const port = util.nextMetricPort();
     const event_count: u64 = 16;
+    var ws_buf: [16]u8 = undefined;
+    const workspace_name = util.nextWorkspaceName(&ws_buf);
     try sup.startPaymentPipelineProcess(std.testing.io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
@@ -155,6 +163,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = workspace_name,
         .metric_port = port,
     });
 
@@ -186,7 +195,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
 }
 
 test "process_topology_integration: process mode refuses to start a heap_dev-backed channel" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
@@ -215,7 +224,7 @@ test "process_topology_integration: process mode refuses to start a heap_dev-bac
 }
 
 test "process_topology_integration: process mode refuses to start with a missing workspace name" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const base = topologies.paymentPipelineProcess();
     var channels: [4]rt.topology.Channel = undefined;
     @memcpy(&channels, base.channels[0..4]);

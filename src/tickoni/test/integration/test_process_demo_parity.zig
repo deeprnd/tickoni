@@ -47,7 +47,7 @@ const exclusive_core_tiles = [_]rt.topology.TileDescriptor{
 
 const event_count: u64 = 24;
 
-fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) !Supervisor.ProcessMetricSnapshot {
+fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8, workspace_name: []const u8) !Supervisor.ProcessMetricSnapshot {
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
@@ -56,6 +56,7 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) 
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = workspace_name,
         .metric_port = port,
     });
 
@@ -77,14 +78,15 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) 
 }
 
 test "process_demo_parity: floating, shared-core, and exclusive-core CPU placement all reach identical pipeline metrics" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp_floating = util.tmpDir();
     defer tmp_floating.cleanup();
     var floating_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const floating_len = try tmp_floating.dir.realPath(std.testing.io, &floating_path_buf);
     const floating_run_dir = floating_path_buf[0..floating_len];
 
-    const floating_metrics = try runToCompletion(std.testing.io, topologies.paymentPipelineProcess(), floating_run_dir);
+    var ws_buf: [16]u8 = undefined;
+    const floating_metrics = try runToCompletion(std.testing.io, topologies.paymentPipelineProcess(), floating_run_dir, util.nextWorkspaceName(&ws_buf));
 
     var tmp_shared = util.tmpDir();
     defer tmp_shared.cleanup();
@@ -96,7 +98,7 @@ test "process_demo_parity: floating, shared-core, and exclusive-core CPU placeme
         .tiles = &shared_core_tiles,
         .channels = topologies.paymentPipelineProcess().channels,
     };
-    const shared_metrics = try runToCompletion(std.testing.io, shared_topo, shared_run_dir);
+    const shared_metrics = try runToCompletion(std.testing.io, shared_topo, shared_run_dir, util.nextWorkspaceName(&ws_buf));
 
     var tmp_exclusive = util.tmpDir();
     defer tmp_exclusive.cleanup();
@@ -108,7 +110,7 @@ test "process_demo_parity: floating, shared-core, and exclusive-core CPU placeme
         .tiles = &exclusive_core_tiles,
         .channels = topologies.paymentPipelineProcess().channels,
     };
-    const exclusive_metrics = try runToCompletion(std.testing.io, exclusive_topo, exclusive_run_dir);
+    const exclusive_metrics = try runToCompletion(std.testing.io, exclusive_topo, exclusive_run_dir, util.nextWorkspaceName(&ws_buf));
 
     try std.testing.expectEqual(floating_metrics, shared_metrics);
     try std.testing.expectEqual(floating_metrics, exclusive_metrics);
