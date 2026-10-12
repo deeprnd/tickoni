@@ -63,7 +63,7 @@ test "process_topology_integration: every tile is a distinct OS process parented
 }
 
 test "process_topology_integration: supervisor marks a truly stuck tile stale while blocked consumers keep heartbeating" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -107,6 +107,11 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
 
     for (sup.monitor(), 0..) |h, i| {
         if (i == 0) continue;
+        const state_name = @tagName(h.state);
+        const sig_val = if (sup.process_state.?.cncs[i]) |c| c_abi.cnc.signalQuery(c) else 0;
+        const hb_val = if (sup.process_state.?.cncs[i]) |c| c_abi.cnc.heartbeatQuery(c) else 0;
+        const live = if (sup.monitor()[i].pid) |pid| pid else 0;
+        std.debug.print("[test] tile {d}: state={s} sig={d} hb_ms={d} pid={d}\n", .{ i, state_name, sig_val, hb_val, live });
         try std.testing.expect(h.state != rt.tile.TileState.stale);
     }
 

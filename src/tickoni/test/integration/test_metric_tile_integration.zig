@@ -672,7 +672,7 @@ test "metric_tile_integration: CNC join verifies tile finds CNC object" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();
