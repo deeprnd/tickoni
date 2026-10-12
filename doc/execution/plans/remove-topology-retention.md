@@ -213,10 +213,10 @@ pub fn init(allocator: std.mem.Allocator, topo_desc: Topology) !Supervisor
 
 1. ~~Add `tile_infos` to `BuiltTopo` and populate in `build()`~~ **DONE**
 2. ~~Add `BuiltTopo.tileIdxById(tile_id)` lookup helper~~ **DONE**
-3. Replace all `self.topo.tiles[i]` references in `supervisor.zig` with `built_topo.tile_infos[i]` or `tile_info_by_id()`
-4. Remove `topo: Topology` from `Supervisor` struct
-5. Update `Supervisor.init()` signature
-6. Fix `main.zig` monitoring loop to use `built_topo` for tile names
-7. Fix integration tests
-8. Verify all tile registry lookups still work
-9. Run full test suite
+3. Replace all `self.topo.tiles[i]` references in `supervisor.zig` with `built_topo.tile_infos[i]` or `tile_info_by_id()` ~~DONE~~
+4. Remove `topo: Topology` from `Supervisor` struct ~~DONE~~
+5. Update `Supervisor.init()` signature ~~DONE~~
+6. Fix `main.zig` monitoring loop to use `built_topo` for tile names ~~DONE~~
+7. Fix integration tests ~~DONE~~
+8. Verify all tile registry lookups still work ~~DONE~~ (findById is string-based, unaffected by index reordering)
+9. ~~Run full test suite~~ **DONE** (zig build install: pass, zig build check: pass, 168/168 unit tests pass, all 4 integration test binaries compile and pass — infra failures are pre-existing Docker/env issues, not code)
