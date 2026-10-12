@@ -92,6 +92,14 @@ fn sleepNanos(ns: u64) void {
 fn maybeBlockForTest(process_cfg: ProcessRuntimeConfig, tile_idx: u32, completed_messages: u64) void {
     const hook = process_cfg.stuck_tile orelse return;
     if (hook.tile_idx != tile_idx or completed_messages < hook.after_messages) return;
+    std.log.warn(
+        "stuck_tile hook triggered: tile_idx={d}, after_messages={d}, sleep_ns={d} — entering infinite block",
+        .{
+            hook.tile_idx,
+            hook.after_messages,
+            hook.sleep_ns,
+        },
+    );
     while (true) sleepNanos(hook.sleep_ns);
 }
 

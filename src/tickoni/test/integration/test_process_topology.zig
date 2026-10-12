@@ -63,7 +63,7 @@ test "process_topology_integration: every tile is a distinct OS process parented
 }
 
 test "process_topology_integration: supervisor marks a truly stuck tile stale while blocked consumers keep heartbeating" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -85,7 +85,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
         .run_dir = run_dir,
         .event_count = 16,
         .heartbeat_interval_ns = 50 * std.time.ns_per_ms,
-        .heartbeat_stale_after_ns = 2 * std.time.ns_per_s,
+        .heartbeat_stale_after_ns = 1 * std.time.ns_per_s,
         .stuck_tile_idx = 0,
         .stuck_after_messages = 0,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
@@ -97,6 +97,9 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
     var poll: u32 = 0;
     while (poll < max_polls) : (poll += 1) {
         sup.refreshProcessHealth();
+        const hb_val = if (sup.process_state.?.cncs[0]) |c| c_abi.cnc.heartbeatQuery(c) else 0;
+        const sig_val = if (sup.process_state.?.cncs[0]) |c| c_abi.cnc.signalQuery(c) else 0;
+        std.debug.print("[test] poll {d}: tile0 state={s} sig={d} hb_ns={d}\n", .{ poll, @tagName(sup.monitor()[0].state), sig_val, hb_val });
         if (sup.monitor()[0].state == rt.tile.TileState.stale) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
