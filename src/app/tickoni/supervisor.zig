@@ -446,14 +446,19 @@ pub const Supervisor = struct {
 
         // Verify all known topology workspaces were joined and have non-zero footprint.
         // Catches wksp join failures (ptr=NULL) and allocation failures early.
+        // Metric workspaces are only created when the metric tile is present,
+        // so skip their validation when has_metric_tile is false.
         {
-            // Verify the three workspaces were joined and have non-zero footprint.
             std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.wksp_idx));
             std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx) > 0);
-            std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_wksp_idx));
-            std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_wksp_idx) > 0);
-            std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_in_wksp_idx));
-            std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_in_wksp_idx) > 0);
+            if (built_topo.metric_wksp_idx != c_abi.topob.not_found) {
+                std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_wksp_idx));
+                std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_wksp_idx) > 0);
+            }
+            if (built_topo.metric_in_wksp_idx != c_abi.topob.not_found) {
+                std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_in_wksp_idx));
+                std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_in_wksp_idx) > 0);
+            }
         }
 
         const state = try self.allocator.create(ProcessState);
@@ -745,7 +750,6 @@ pub const Supervisor = struct {
         defer log.exit("supervisor", "refreshProcessHealth");
         const state = self.process_state orelse return;
         const now = self.process_operations.now();
-        if (now <= 0) return;
         const now_ms: u32 = @truncate(@as(u64, @intCast(now)) / std.time.ns_per_ms);
         // Reap any exited children FIRST so we detect crashes before
         // reading cnc heartbeats.  A crashed tile's cnc is corrupted and
@@ -788,7 +792,8 @@ pub const Supervisor = struct {
             // Windows ARM integration lane).  Its initial heartbeat is not a
             // liveness promise for that boot interval; classify heartbeat
             // staleness only after the tile has entered RUN.
-            if (c_abi.cnc.signalQuery(cnc) != c_abi.cnc.signal_run) continue;
+            const sig = c_abi.cnc.signalQuery(cnc);
+            if (sig != c_abi.cnc.signal_run and sig != c_abi.cnc.signal_boot) continue;
             const heartbeat_ms = c_abi.cnc.heartbeatQuery(cnc);
             // The tile and supervisor update/read concurrently. A heartbeat
             // written after `now_ms` was sampled is up to one tick in the

@@ -205,11 +205,11 @@ pub fn build(
     // so tile_infos can be built without looking up topo_desc after the build
     // (topo_desc is a one-time input, not reused).
     const tile_placements = try allocator.alloc(cpu_placement.CpuPlacement, topo_desc.tiles.len);
-    errdefer allocator.free(tile_placements);
+    defer allocator.free(tile_placements);
     const cpu_idx_arr = try allocator.alloc(usize, topo_desc.tiles.len);
-    errdefer allocator.free(cpu_idx_arr);
+    defer allocator.free(cpu_idx_arr);
     const fd_tile_idx_by_desc = try allocator.alloc(usize, topo_desc.tiles.len);
-    errdefer allocator.free(fd_tile_idx_by_desc);
+    defer allocator.free(fd_tile_idx_by_desc);
     var non_metric_count: usize = 0;
     for (topo_desc.tiles, 0..) |t, i| {
         cpu_idx_arr[i] = tileCpuIdx(i, t.cpu_placement);
@@ -268,7 +268,6 @@ pub fn build(
     }
 
     c_abi.topob.topobAutoLayout(topo, @as([*]const usize, cpu_idx_arr.ptr));
-    allocator.free(cpu_idx_arr);
 
     // Set per-tile scratch footprint and alignment properties so
     // tile_footprint() / tile_align() in topob.c can query them.
@@ -350,7 +349,6 @@ pub fn build(
     // — topo_desc was a one-time input.
     const tile_infos_cnt = topo_desc.tiles.len;
     const tile_infos = try allocator.alloc(BuiltTopoTileInfo, tile_infos_cnt);
-    defer allocator.free(tile_infos);
     for (tile_infos, 0..) |*info, firedancer_idx| {
         const name_z = c_abi.topob.topoTileName(topo, @as(c_uint, @intCast(firedancer_idx)));
         // Cast to opaque pointer slice to index into the NUL-terminated string.
