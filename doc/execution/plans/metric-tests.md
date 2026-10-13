@@ -75,22 +75,6 @@ Once you have tests 4, 3, and 2, you can answer every failure mode without touch
 
 The HTTP tests become a narrow diagnosis of "why isn't the HTTP server responding when we know the tile is alive" instead of "why did everything fail."
 
-Want me to write any of these tests?
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-
-────────────────────────────────────────
-● which ones of the suggested tests already covered by the integration infra lane?
-────────────────────────────────────────
-
-  ┊ 🔎 preparing search_files…
-  ┊ 🔎 grep      test ".*integration  0.0s
-  ┊ 🔎 find      snapshotProcessMetrics|snapshotProcessMetricsForTile  0.0s
-  ┊ 🔎 preparing search_files…
-  ┊ 📖 preparing read_file…
-  ┊ 🔎 grep      snapshotProcessMetrics|snapshotProcess  0.1s
-  ┊ 📖 read      test_process_topology.zig  0.0s
-
-╭─ ☤ Hermes ──────────────────────────────────────────────────────────────────────────────────────╮
 Now let me check what snapshotProcessMetrics actually returns and what fields are already exposed:
 
 Based on my review of the existing test suite and supervisor infrastructure, here's the mapping:
