@@ -12,6 +12,7 @@
 const std = @import("std");
 const rt = @import("runtime");
 const c_abi = @import("c_abi");
+const util = @import("util");
 const tiles = @import("tiles");
 
 /// Process-mode run callback: joins this tile's links from the launch spec
@@ -114,6 +115,46 @@ fn loadProcessConfig(io: std.Io, spec: *const rt.launch_spec.LaunchSpec) !tiles.
 // file is the actual single source of truth, not just a lookup table
 // pointing back at scattered per-tile logic.
 // ---------------------------------------------------------------------------
+
+/// v2.22.S4 Task 0: process-mode work function for the observer (metric) tile.
+/// In Firedancer thread-mode, boot_ts is written by tk_metric_unprivileged_init
+/// and tk_metric_run (C). In Tickoni process-mode those functions are never
+/// called, so this wrapper writes boot_ts (wall-clock nanoseconds) to CNC index 2
+/// so the supervisor can verify the tile reached CNC join.
+fn metricProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
+    _ = io;
+    _ = wksp;
+    _ = spec;
+    _ = allocator;
+    // Write boot_ts to CNC index 2 so supervisor can read it without timing issues.
+    const boot_ts: u64 = @intCast(c_abi.os.fdLogWallclock());
+    std.debug.print("[metric-process] boot_ts={d} cnc_ptr={x} idx=2\n", .{ boot_ts, @intFromPtr(cnc) });
+    rt.cnc_counters.appCounterWrite(cnc, 2, boot_ts);
+    std.debug.print("[metric-process] wrote boot_ts={d} to cnc index 2\n", .{ boot_ts });
+
+    // Process-mode metric polling loop — mirrors what Firedancer's stem_run
+    // does for the metric tile in thread-mode.  Keeps the tile alive,
+    // increments metric_snapshots (CNC index 0) each iteration, heartbeats,
+    // and exits only when the supervisor sends HALT.
+    const poll_dt: i64 = 5_000_000; // 5 ms between iterations
+    var snapshots: u64 = 0;
+
+    while (true) {
+        // Increment the snapshot counter.
+        snapshots += 1;
+        rt.cnc_counters.appCounterWrite(cnc, 0, snapshots);
+
+        // Heartbeat so the supervisor doesn't mark us stale.
+        c_abi.cnc.heartbeat(cnc, util.process.monotonicNanos());
+
+        // Check for HALT signal.  signalQuery returns the current signal
+        // value; HALT (3) means the supervisor asked us to shut down.
+        if (c_abi.cnc.signalQuery(cnc) == c_abi.cnc.signal_halt) break;
+
+        // Sleep briefly before the next iteration.
+        c_abi.os.sleepNanos(@intCast(poll_dt));
+    }
+}
 
 fn tkingsProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
     _ = allocator;
@@ -221,11 +262,14 @@ pub const entries = [_]TileEntry{
     },
     .{
         .id = id("metric"),
+        .process_fn = metricProcess,
         .counters = &.{
             .{ .idx = 0, .field = .metric_snapshots },
             .{ .idx = 1, .field = .metric_backpressure_waits },
             .{ .idx = 2, .field = .metric_boot_timestamp },
         },
+        .in_cnt = 0,
+        .out_cnt = 0,
     },
     .{
         .id = id("tkdiag"),
@@ -302,7 +346,7 @@ test "findById returns null for an unregistered id" {
 }
 
 test "process_fn is null for tiles with no process-mode role" {
-    inline for (.{ "tkrepl", "metric", "tkdiag" }) |name| {
+    inline for (.{ "tkrepl", "tkdiag" }) |name| {
         const tile_id = try rt.tile.TileId.parse(name);
         const entry = findById(tile_id).?;
         try std.testing.expectEqual(@as(?ProcessFn, null), entry.process_fn);

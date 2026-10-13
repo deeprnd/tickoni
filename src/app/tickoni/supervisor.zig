@@ -879,9 +879,11 @@ pub const Supervisor = struct {
         for (state.built_topo.tile_infos, 0..) |info, i| {
             if (suppress_cnc[i]) continue;
             const cnc = state.cncs[i] orelse continue;
+            std.debug.print("[sup-snap] tile={s} firedancer_idx={d} cnc={x}\n", .{ info.tile_id.slice(), i, @intFromPtr(cnc) });
             const entry = tile_registry.findById(info.tile_id) orelse continue;
             for (entry.counters) |c| {
                 const v = rt.cnc_counters.appCounterRead(cnc, c.idx);
+                std.debug.print("[sup-snap] tile={s} firedancer_idx={d} counter_idx={d} field={s} val={d}\n", .{ info.tile_id.slice(), i, c.idx, @tagName(c.field), v });
                 switch (c.field) {
                     .produced => snap.produced = v,
                     .normalized => snap.normalized = v,
