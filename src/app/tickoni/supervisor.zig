@@ -280,7 +280,11 @@ pub const Supervisor = struct {
         var supervisor_log_path: [256]u8 = undefined;
         const supervisor_log = std.fmt.bufPrint(&supervisor_log_path, "{s}/logs/supervisor.log", .{config.run_dir}) catch "";
 
-        try rt.boot.bootWithSyntheticArgv(config.run_dir, supervisor_log);
+        // Supervisor boot: lightweight boot that initializes version,
+        // logging, and shared-memory subsystems without creating tile
+        // threads (fd_tile_private_boot). The supervisor spawns tile
+        // processes that boot their own tile threads independently.
+        try rt.boot.bootLite(config.run_dir, supervisor_log);
         var boot_needs_halt = true;
         errdefer if (boot_needs_halt) c_abi.boot.halt();
 
@@ -797,13 +801,9 @@ pub const Supervisor = struct {
             // Firedancer's heartbeat is app-defined — we pass monotonic nanoseconds.
             // Compare nanosecond age against nanosecond threshold, same units.
             const heartbeat_age_ns: i64 = now_ns - heartbeat_ns;
-            if (i == 0) log.kvFmt("supervisor", "refreshProcessHealth",
-                "tile {d}: sig={d} hb_ns={d} age_ns={d} stale_ns={d}",
-                .{ i, sig, heartbeat_ns, heartbeat_age_ns, state.heartbeat_stale_after_ns });
+            if (i == 0) log.kvFmt("supervisor", "refreshProcessHealth", "tile {d}: sig={d} hb_ns={d} age_ns={d} stale_ns={d}", .{ i, sig, heartbeat_ns, heartbeat_age_ns, state.heartbeat_stale_after_ns });
             if (heartbeat_age_ns > 0 and heartbeat_age_ns > state.heartbeat_stale_after_ns) {
-                log.kvFmt("supervisor", "refreshProcessHealth",
-                    "tile {d} marked stale: age_ns={d} > stale_ns={d}",
-                    .{ i, heartbeat_age_ns, state.heartbeat_stale_after_ns });
+                log.kvFmt("supervisor", "refreshProcessHealth", "tile {d} marked stale: age_ns={d} > stale_ns={d}", .{ i, heartbeat_age_ns, state.heartbeat_stale_after_ns });
                 h.state = .stale;
                 h.crashed_because = .stale;
             }
