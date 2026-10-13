@@ -93,7 +93,9 @@ tk_metric_privileged_init( fd_topo_t const *      topo,
 static void
 tk_metric_unprivileged_init( fd_topo_t const *      topo,
                              fd_topo_tile_t const * tile ) {
+  FD_LOG_NOTICE(( "tk_metric_unprivileged_init: ENTER tile_id=%u tile_obj_id=%lu", tile->id, tile->tile_obj_id ));
   unprivileged_init( topo, tile );
+  FD_LOG_NOTICE(( "tk_metric_unprivileged_init: after unprivileged_init, tile_id=%u", tile->id ));
 
   /* Write boot_ts to CNC app-region immediately so the supervisor can
      read it without timing issues. Index 2 = metric_boot_timestamp

@@ -6,6 +6,7 @@ const std = @import("std");
 // Extern declarations (bare, module-scoped — canonical pattern)
 // ---------------------------------------------------------------------------
 
+extern fn fd_log_wallclock() i64;
 extern fn tk_monotonic_nanos() i64;
 extern fn tk_sleep_nanos(ns: u64) void;
 extern fn tk_self_exe_path(buf: [*]u8, buf_len: usize) c_int;
@@ -93,6 +94,10 @@ pub const OsError = error{
 
 pub fn monotonicNanos() i64 {
     return tk_monotonic_nanos();
+}
+
+pub fn fdLogWallclock() i64 {
+    return fd_log_wallclock();
 }
 
 pub fn sleepNanos(ns: u64) void {
