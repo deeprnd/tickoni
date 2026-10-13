@@ -848,6 +848,14 @@ pub const Supervisor = struct {
         return state.placement_report;
     }
 
+    /// Returns the underlying fd_topo_t built at start time, for
+    /// post-run verification (workspace join, object placement). Null
+    /// when no process-mode pipeline has been started.
+    pub fn getTopo(self: *const Supervisor) ?*c_abi.topob.Topo {
+        const state = self.process_state orelse return null;
+        return state.built_topo.topo;
+    }
+
     pub fn snapshotProcessMetrics(self: *Supervisor) ProcessMetricSnapshot {
         const state = self.process_state orelse return .{};
         var snap = ProcessMetricSnapshot{};
