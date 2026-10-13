@@ -679,6 +679,14 @@ tk_topo_tile_name( void const * topo_, ulong tile_id ) {
   return tile_id<topo->tile_cnt ? topo->tiles[ tile_id ].name : NULL;
 }
 
+/* Return the workspace id for an object.
+   Used by tests to verify object-to-workspace placement. */
+ulong
+tk_topo_obj_wksp_id( void const * topo_, ulong obj_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  return obj_id < topo->obj_cnt ? topo->objs[ obj_id ].wksp_id : ULONG_MAX;
+}
+
 /* Given a link_id, count the number of tiles that consume this link
    as an input. Used by tests and validation to verify wiring. */
 ulong
