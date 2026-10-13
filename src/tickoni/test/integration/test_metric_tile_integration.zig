@@ -680,7 +680,7 @@ test "metric_tile_integration: CNC join verifies tile finds CNC object" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -712,6 +712,19 @@ test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
     var wait_poll: u32 = 0;
     while (wait_poll < 200) : (wait_poll += 1) {
         if (sup.snapshotProcessMetrics().audited >= event_count) break;
+        util.process.sleepNanos(5 * std.time.ns_per_ms);
+    }
+
+    // Wait for the metric tile to reach unprivileged_init() and begin
+    // polling snapshots. The pipeline tiles finish faster than the
+    // metric tile's child process can join its workspace and run its
+    // callbacks, so we poll for a valid boot_ts (>= 1e18) and active
+    // snapshots before asserting.
+    const max_ready_poll: u32 = 400;
+    var ready_poll: u32 = 0;
+    while (ready_poll < max_ready_poll) : (ready_poll += 1) {
+        const snap2 = sup.snapshotProcessMetrics();
+        if (snap2.metric_boot_timestamp >= 1_000_000_000_000_000_000 and snap2.metric_snapshots > 0) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
 

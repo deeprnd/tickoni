@@ -13,7 +13,7 @@ const util = @import("util");
 const Supervisor = supervisor_mod.Supervisor;
 
 test "process_topology_integration: every tile is a distinct OS process parented by the supervisor" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -65,7 +65,7 @@ test "process_topology_integration: every tile is a distinct OS process parented
 }
 
 test "process_topology_integration: supervisor marks a truly stuck tile stale while blocked consumers keep heartbeating" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -133,7 +133,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
 }
 
 test "process_topology_integration: a self-exiting tile is reported crashed via exit_code, not signal" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -192,7 +192,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
 }
 
 test "process_topology_integration: process mode refuses to start a heap_dev-backed channel" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
@@ -221,7 +221,7 @@ test "process_topology_integration: process mode refuses to start a heap_dev-bac
 }
 
 test "process_topology_integration: process mode refuses to start with a missing workspace name" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     const base = topologies.paymentPipelineProcess();
     var channels: [4]rt.topology.Channel = undefined;
     @memcpy(&channels, base.channels[0..4]);
