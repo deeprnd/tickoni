@@ -87,6 +87,8 @@ extern fn tk_topo_validate_obj_in_wksp(topo: *const Topo, obj_type: [*:0]const u
 extern fn tk_topo_validate_workspace_joined(topo: *const Topo, wksp_idx: usize) c_int;
 extern fn tk_topob_debug_wksp_objs_internal(topo: *Topo) void;
 extern fn tk_topo_tile_name(topo: *const Topo, tile_id: usize) [*:0]const u8;
+extern fn tk_topo_wksp_cnt(topo: *const Topo) usize;
+extern fn tk_topo_obj_wksp_id(topo: *const Topo, obj_id: usize) usize;
 
 pub fn topobDebugWkspObjIds(topo: *Topo) void {
     tk_topob_debug_wksp_objs_internal(topo);
@@ -351,6 +353,18 @@ pub fn topoValidateObjInWksp(topo: *const Topo, obj_type: [*:0]const u8, wksp_na
 /// Returns true when the workspace at the given index has been joined.
 pub fn topoValidateWorkspaceJoined(topo: *const Topo, wksp_idx: usize) bool {
     return tk_topo_validate_workspace_joined(topo, wksp_idx) != 0;
+}
+
+/// Returns the workspace id for an object, or not_found if the obj_id is
+/// out of range. Used by tests to verify object-to-workspace placement.
+pub fn topoObjWkspId(topo: *const Topo, obj_id: usize) usize {
+    return tk_topo_obj_wksp_id(topo, obj_id);
+}
+
+/// Returns the number of declared workspaces in the topology.
+/// Used by tests to iterate and verify every workspace is joined.
+pub fn topoWkspCnt(topo: *const Topo) usize {
+    return @as(usize, @intCast(tk_topo_wksp_cnt(topo)));
 }
 
 // ---------------------------------------------------------------------------
