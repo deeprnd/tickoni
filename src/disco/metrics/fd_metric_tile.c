@@ -79,8 +79,16 @@ void
 before_credit( fd_metric_ctx_t *   ctx,
                fd_stem_context_t * stem,
                int *               charge_busy ) {
-  (void)stem;
   *charge_busy = fd_http_server_poll( ctx->metrics_server, 1 ); /* 1ms */
+  (void)stem;
+
+  /* Increment metric_snapshots counter (CNC app-region index 0) each
+     stem_run iteration so the supervisor can observe the tile is alive
+     and polling, without needing to talk to the HTTP server. */
+  if( FD_LIKELY( ctx->cnc != NULL ) ) {
+    ulong *app = (ulong *)fd_cnc_app_laddr((fd_cnc_t *)ctx->cnc);
+    app[0]++;
+  }
 }
 
 /* ---------------------------------------------------------------------

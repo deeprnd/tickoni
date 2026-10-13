@@ -720,8 +720,6 @@ test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
     const boot_ts = snap.metric_boot_timestamp;
 
     std.debug.print("  [metric-test] boot_ts (via CNC) = {d}\n", .{boot_ts});
-    std.debug.print("  [metric-test] metric_snapshots = {d}\n", .{snap.metric_snapshots});
-    std.debug.print("  [metric-test] metric_backpressure_waits = {d}\n", .{snap.metric_backpressure_waits});
 
     // Diagnostic: dump per-tile handle states.
     const handles = sup.monitor();
