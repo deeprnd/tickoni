@@ -130,7 +130,7 @@ fn metricProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
     const boot_ts: u64 = @intCast(c_abi.os.fdLogWallclock());
     std.debug.print("[metric-process] boot_ts={d} cnc_ptr={x} idx=2\n", .{ boot_ts, @intFromPtr(cnc) });
     rt.cnc_counters.appCounterWrite(cnc, 2, boot_ts);
-    std.debug.print("[metric-process] wrote boot_ts={d} to cnc index 2\n", .{ boot_ts });
+    std.debug.print("[metric-process] wrote boot_ts={d} to cnc index 2\n", .{boot_ts});
 
     // Process-mode metric polling loop — mirrors what Firedancer's stem_run
     // does for the metric tile in thread-mode.  Keeps the tile alive,
