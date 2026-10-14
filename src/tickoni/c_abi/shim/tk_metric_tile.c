@@ -58,7 +58,10 @@
    a fd_topo_tile_t pointer as required by the callback signature. */
 static ulong
 tk_metric_scratch_footprint_tile( fd_topo_tile_t const * tile ) {
-  return scratch_footprint( tile );
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_scratch_footprint_tile ENTER" ));
+  ulong result = scratch_footprint( tile );
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_scratch_footprint_tile EXIT %lu", result ));
+  return result;
 }
 
 /* No-argument wrapper — delegates to TK_METRIC_RUN.scratch_footprint
@@ -66,12 +69,18 @@ tk_metric_scratch_footprint_tile( fd_topo_tile_t const * tile ) {
    fd_metric_tile.c only reads tile->uses_obj_cnt. */
 ulong
 tk_metric_scratch_footprint( void ) {
-  return TK_METRIC_RUN.scratch_footprint( NULL );
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_scratch_footprint ENTER" ));
+  ulong result = TK_METRIC_RUN.scratch_footprint( NULL );
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_scratch_footprint EXIT %lu", result ));
+  return result;
 }
 
 static ulong
 tk_metric_scratch_align( void ) {
-  return scratch_align();
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_scratch_align ENTER" ));
+  ulong result = scratch_align();
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_scratch_align EXIT %lu", result ));
+  return result;
 }
 
 /* ---------------------------------------------------------------------
@@ -82,7 +91,9 @@ tk_metric_scratch_align( void ) {
 static void
 tk_metric_privileged_init( fd_topo_t const *      topo,
                            fd_topo_tile_t const * tile ) {
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_privileged_init ENTER tile_id=%u", tile->id ));
   privileged_init( topo, tile );
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_privileged_init EXIT tile_id=%u", tile->id ));
 }
 
 /* ---------------------------------------------------------------------
@@ -93,9 +104,9 @@ tk_metric_privileged_init( fd_topo_t const *      topo,
 static void
 tk_metric_unprivileged_init( fd_topo_t const *      topo,
                              fd_topo_tile_t const * tile ) {
-  FD_LOG_NOTICE(( "tk_metric_unprivileged_init: ENTER tile_id=%u tile_obj_id=%lu", tile->id, tile->tile_obj_id ));
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_unprivileged_init ENTER tile_id=%u tile_obj_id=%lu", tile->id, tile->tile_obj_id ));
   unprivileged_init( topo, tile );
-  FD_LOG_NOTICE(( "tk_metric_unprivileged_init: after unprivileged_init, tile_id=%u", tile->id ));
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_unprivileged_init after unprivileged_init tile_id=%u", tile->id ));
 
   /* Write boot_ts to CNC app-region immediately so the supervisor can
      read it without timing issues. Index 2 = metric_boot_timestamp
@@ -128,6 +139,8 @@ tk_metric_unprivileged_init( fd_topo_t const *      topo,
 static void
 tk_metric_run( fd_topo_t *      topo,
                fd_topo_tile_t * tile ) {
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_run ENTER tile_id=%u tile_obj_id=%lu", tile->id, tile->tile_obj_id ));
+
   /* ctx is the first object allocated from scratch (after privileged_init
      and unprivileged_init).  We set ctx->cnc here so stem_run's
      STEM_CALLBACK_SHOULD_SHUTDOWN can detect HALT from the supervisor. */
@@ -166,6 +179,8 @@ tk_metric_run( fd_topo_t *      topo,
   }
 
   stem_run( topo, tile );
+
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_run EXIT tile_id=%u", tile->id ));
 }
 
 /* ---------------------------------------------------------------------

@@ -621,7 +621,7 @@ void
 tk_topo_tile_set_metric_port( void * topo, ulong tile_id, ushort port ) {
   ((fd_topo_t *)topo)->tiles[ tile_id ].metric.prometheus_listen_port = port;
   /* Hardcode 127.0.0.1 — Firedancer stores this as network-byte-order uint. */
-  ((fd_topo_t *)topo)->tiles[ tile_id ].metric.prometheus_listen_addr = 2130706439;
+  ((fd_topo_t *)topo)->tiles[ tile_id ].metric.prometheus_listen_addr = 16777343;
 }
 
 /* Debug: print workspace-to-object mapping.

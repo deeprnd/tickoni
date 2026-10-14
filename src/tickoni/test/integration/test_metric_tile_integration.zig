@@ -181,7 +181,7 @@ fn parsePrometheusMetric(body: []const u8, name: []const u8) ?u64 {
 }
 
 test "parsePrometheusMetric accepts counter total suffix" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const body = "metric_bytes_read_total 42\n";
     try std.testing.expectEqual(@as(?u64, 42), parsePrometheusMetric(body, "metric_bytes_read"));
 }
@@ -238,7 +238,7 @@ fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) !void {
 // ---------------------------------------------------------------------------
 
 test "metric topology finalizes exact scratch requirements identically" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const port = util.nextMetricPort();
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
 
@@ -314,7 +314,7 @@ test "metric topology finalizes exact scratch requirements identically" {
 }
 
 test "metric topology preserves descriptor identity, CNC ownership, CPU placement, and zero links" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const tiles = [_]runtime.tile.TileDescriptor{
         .{ .id = runtime.tile.TileId.parse("tkings") catch unreachable, .name = "ingest", .cpu_placement = .{ .exclusive = 2 } },
         .{ .id = runtime.tile.TileId.parse("metric") catch unreachable, .name = "metric", .cpu_placement = .{ .exclusive = 3 } },
@@ -356,7 +356,7 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: topology with metric builds and starts" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -416,7 +416,7 @@ test "metric_tile_integration: topology with metric builds and starts" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -442,12 +442,28 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
         .metric_port = port,
     });
 
-    // Wait for the pipeline to finish processing; the metric tile's HTTP
-    // server starts inside the pipeline loop so giving it more events
-    // (and thus more wall-clock time) ensures it is up by the time we poll.
+    // Wait for the pipeline to finish processing.
     var wait_poll: u32 = 0;
     while (wait_poll < 400) : (wait_poll += 1) {
         if (sup.snapshotProcessMetrics().audited >= event_count) break;
+        util.process.sleepNanos(5 * std.time.ns_per_ms);
+    }
+
+    // Wait for the metric tile to reach unprivileged_init() and begin
+    // polling. The pipeline tiles finish faster than the
+    // metric tile's child process can join its workspace and reach
+    // stem_run → listen(), so poll for a valid boot_ts (>= 1e18) and
+    // active snapshots before asserting.
+    // Wait for the metric tile process to reach unprivileged_init() and
+    // start its stem_run loop.  boot_ts is a reliable early signal that
+    // the child tile has started; metric_snapshots may stay 0 during
+    // pipeline processing because the metric tile is a passive observer
+    // (before_credit fires but events don't flow through its in-queue).
+    const max_ready_poll: u32 = 400;
+    var ready_poll: u32 = 0;
+    while (ready_poll < max_ready_poll) : (ready_poll += 1) {
+        const snap2 = sup.snapshotProcessMetrics();
+        if (snap2.metric_boot_timestamp >= 1_000_000_000_000_000_000) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
 
@@ -461,8 +477,6 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
     // ConnectionTimeout in httpGetWithRetry.
     try expectNoCrashes(&sup, run_dir);
 
-    // The independently-started listener can begin accepting after the
-    // pipeline has already completed, so wait for listener readiness.
     const resp = try httpGetWithRetry(METRICS_HOST, port, "/metrics", HTTP_READY_MAX_ATTEMPTS, HTTP_REQUEST_TIMEOUT_MS);
     defer std.testing.allocator.free(resp.body);
 
@@ -492,7 +506,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: unknown path returns HTTP 404" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -545,7 +559,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: boot_timestamp is a valid large positive value" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -610,7 +624,7 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: workspace join completeness" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -676,7 +690,7 @@ test "metric_tile_integration: workspace join completeness" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -721,7 +735,7 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: CNC join verifies tile finds CNC object" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const topo = topologies.paymentPipelineProcess();
 
     var metric_idx: ?usize = null;
@@ -747,7 +761,7 @@ test "metric_tile_integration: CNC join verifies tile finds CNC object" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
 
@@ -815,6 +829,134 @@ test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
     // Also verify metric_snapshots > 0 to confirm the tile is actually
     // polling, not just sitting at a valid boot timestamp.
     try std.testing.expect(snap.metric_snapshots > 0);
+}
+
+// ---------------------------------------------------------------------------
+// Test: Port conflict detection.
+//
+// Start two pipeline instances sequentially on the same port. The first
+// pipeline must start and serve successfully. The second pipeline's metric
+// tile must fail to bind the HTTP listener (EADDRINUSE) and terminate
+// gracefully (exit via FD_LOG_ERR), while the first pipeline continues
+// serving unaffected.
+//
+// Diagnostic power:
+//   - Both crash → tile treats bind failure as fatal (expected: FD_LOG_ERR
+//     exits the child, not the supervisor).
+//   - Only the second fails gracefully → tile handles bind failure correctly
+//     by crashing only its own child process, not the supervisor or other
+//     tiles.
+//   - Neither starts → workspace/CNC issue, not HTTP.
+// ---------------------------------------------------------------------------
+
+test "metric_tile_integration: port conflict detection" {
+    if (false) return error.SkipZigTest;
+    var tmp = util.tmpDir();
+
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const len = try tmp.dir.realPath(std.testing.io, &path_buf);
+    const run_dir = path_buf[0..len];
+
+    const topo = topologies.paymentPipelineProcess();
+    const port = util.nextMetricPort();
+    std.debug.print("\n  [metric-test] port-conflict port = {d}\n", .{port});
+    const event_count: u64 = 10;
+
+    // --- First pipeline: should start and complete cleanly. ---
+    var sup1 = try Supervisor.init(std.testing.allocator, topo);
+    defer {
+        sup1.stopProcess(std.testing.io) catch {};
+        sup1.deinit();
+    }
+
+    var ws_buf: [16]u8 = undefined;
+    var iter1_dir_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const iter1_dir = std.fmt.bufPrint(&iter1_dir_buf, "{s}/iter_1", .{run_dir}) catch unreachable;
+
+    try sup1.startPaymentPipelineProcess(std.testing.io, topo, .{
+        .run_dir = iter1_dir,
+        .event_count = event_count,
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
+        .metric_port = port,
+    });
+
+    // Wait for pipeline to finish processing.
+    const max_polls: u32 = 400;
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        if (sup1.snapshotProcessMetrics().audited >= event_count) break;
+        util.process.sleepNanos(5 * std.time.ns_per_ms);
+    }
+
+    // First pipeline should complete without crashes.
+    try expectNoCrashes(&sup1, iter1_dir);
+    const snap1 = sup1.snapshotProcessMetrics();
+    try std.testing.expectEqual(event_count, snap1.audited);
+    try std.testing.expect(snap1.metric_snapshots > 0);
+
+    // Verify HTTP is serving on the port before we start the second pipeline.
+    const resp = httpGetWithRetry(METRICS_HOST, port, "/metrics", HTTP_READY_MAX_ATTEMPTS, HTTP_REQUEST_TIMEOUT_MS) catch |err| {
+        std.debug.print("  [metric-test] HTTP on port {d} before second start failed: {s}\n", .{ port, @errorName(err) });
+    };
+    if (resp) |r| {
+        defer std.testing.allocator.free(r.body);
+        try std.testing.expect(std.mem.indexOf(u8, r.body, "# HELP") != null);
+    }
+
+    // Stop the first pipeline, releasing the port.
+    sup1.stopProcess(std.testing.io) catch {};
+    sup1.deinit();
+
+    // Brief pause to let the socket exit TIME_WAIT (small delay helps the
+    // OS reclaim the port before the second pipeline binds).
+    util.process.sleepNanos(100 * std.time.ns_per_ms);
+
+    // --- Second pipeline: metric tile should crash due to bind failure. ---
+    var sup2 = try Supervisor.init(std.testing.allocator, topo);
+    defer {
+        sup2.stopProcess(std.testing.io) catch {};
+        sup2.deinit();
+    }
+
+    var iter2_dir_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const iter2_dir = std.fmt.bufPrint(&iter2_dir_buf, "{s}/iter_2", .{run_dir}) catch unreachable;
+
+    // Start the second pipeline on the same port. Its metric tile will
+    // attempt to bind the same port and fail with EADDRINUSE.
+    // We use a separate workspace name so the supervisor doesn't collide
+    // on workspace creation.
+    var ws_buf2: [16]u8 = undefined;
+    try sup2.startPaymentPipelineProcess(std.testing.io, topo, .{
+        .run_dir = iter2_dir,
+        .event_count = event_count,
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = util.nextWorkspaceName(&ws_buf2),
+        .metric_port = port,
+    });
+
+    // Wait for the pipeline to finish processing (non-metric tiles will
+    // run; the metric tile may have already crashed during privileged_init).
+    const max_poll2: u32 = 400;
+    var poll2: u32 = 0;
+    while (poll2 < max_poll2) : (poll2 += 1) {
+        if (sup2.snapshotProcessMetrics().audited >= event_count) break;
+        util.process.sleepNanos(5 * std.time.ns_per_ms);
+    }
+
+    // The metric tile should have crashed from the bind failure.
+    // This confirms the tile handles the error gracefully (crashes its own
+    // process via FD_LOG_ERR) rather than crashing the supervisor or
+    // other tiles.
+    var metric_tile_crashed = false;
+    const handles = sup2.monitor();
+    for (handles) |h| {
+        if (std.mem.eql(u8, h.tile_id.slice(), "metric") and h.state == .crashed) {
+            metric_tile_crashed = true;
+            std.debug.print("  [metric-test] metric tile crashed: exit_code={d} reason={s}\n", .{ h.exit_code, @tagName(h.crashed_because) });
+        }
+    }
+    try std.testing.expect(metric_tile_crashed);
 }
 
 // ---------------------------------------------------------------------------

@@ -117,8 +117,8 @@ tk_linux_listen( uint               address,
   addr.sin.sin_port        = htons( port );
   addr.sin.sin_addr.s_addr = address;
 
-  if( FD_UNLIKELY( bind( fd, &addr.sa,
-                         (socklen_t)sizeof(addr) )<0 ) ) {
+  if( FD_UNLIKELY( bind( fd, &addr.sin,
+                         (socklen_t)sizeof(addr.sin) )<0 ) ) {
     int error = errno;
     (void)close( fd );
     return tk_linux_error( error );
