@@ -103,10 +103,26 @@ pub const BuiltTopo = struct {
     tile_infos: []BuiltTopoTileInfo,
 
     pub fn deinit(self: *BuiltTopo, allocator: std.mem.Allocator) void {
-        allocator.free(self.cnc_obj_id);
-        allocator.free(self.link_obj_id);
-        allocator.free(self.tile_infos);
-        allocator.free(self.buf);
+        // Guard: free() on &.{} (empty inline array) is a stack address —
+        // allocator reads garbage metadata and GPEs under kcov. Only free
+        // slices that came from heap allocations (len > 0).
+        // Zero slices after free so a second deinit() call is a safe no-op.
+        if (self.cnc_obj_id.len > 0) {
+            allocator.free(self.cnc_obj_id);
+            self.cnc_obj_id = &.{};
+        }
+        if (self.link_obj_id.len > 0) {
+            allocator.free(self.link_obj_id);
+            self.link_obj_id = &.{};
+        }
+        if (self.tile_infos.len > 0) {
+            allocator.free(self.tile_infos);
+            self.tile_infos = &.{};
+        }
+        if (self.buf.len > 0) {
+            allocator.free(self.buf);
+            self.buf = &.{};
+        }
     }
 
     /// Returns the Firedancer index for a tile ID, or not_found.
