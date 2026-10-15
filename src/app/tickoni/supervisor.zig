@@ -472,8 +472,7 @@ pub const Supervisor = struct {
             }
         }
 
-        const bytes = try self.allocator.alignedAlloc(
-            u8, .fromByteUnits(@alignOf(ProcessState)), @sizeOf(ProcessState));
+        const bytes = try self.allocator.alignedAlloc(u8, .fromByteUnits(@alignOf(ProcessState)), @sizeOf(ProcessState));
         const state: *ProcessState = @ptrCast(@alignCast(bytes));
         state.* = .{
             .wksp = wksp,
@@ -1168,8 +1167,7 @@ test "Supervisor monitor returns correct tile count" {
 }
 
 fn installLifecycleTestState(sup: *Supervisor) !*ProcessState {
-    const bytes = try sup.allocator.alignedAlloc(
-        u8, .fromByteUnits(@alignOf(ProcessState)), @sizeOf(ProcessState));
+    const bytes = try sup.allocator.alignedAlloc(u8, .fromByteUnits(@alignOf(ProcessState)), @sizeOf(ProcessState));
     const state: *ProcessState = @ptrCast(@alignCast(bytes));
     state.* = undefined;
     state.children = std.mem.zeroes([8]ChildRecord);
