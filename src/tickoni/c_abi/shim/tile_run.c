@@ -47,7 +47,7 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
    Firedancer's fd_stem-based run loop with fd_http_server for /metrics.
    Shared header prevents two independent extern declarations.
    Linux or macOS: tk_metric_tile.c depends on symbols from fd_metric_tile.c. */
-#if FD_HAS_LINUX || FD_HAS_MACOS
+#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
 #include "../topo_run/tk_metric_tile.h"
 #endif
 
@@ -125,7 +125,7 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
 
   /* Dispatch to TK_METRIC_RUN for metric tile — it uses fd_stem +
      fd_http_server instead of Zig callbacks. */
-#if FD_HAS_LINUX || FD_HAS_MACOS
+#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
   if( tile_is_metric( tile_c ) ) {
     FD_LOG_NOTICE(( "tile_run: dispatching TK_METRIC_RUN for metric tile" ));
     run_tile = &TK_METRIC_RUN;

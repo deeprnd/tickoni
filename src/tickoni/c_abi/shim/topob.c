@@ -384,13 +384,13 @@ tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_t
    topob.c never needs the full fd_topo_run_tile_t definition — it only
    sees the extern declaration and the thin accessor.  See v2.23-m task 4.
    Linux or macOS: tk_metric_tile.c references symbols from fd_metric_tile.c. */
-#if FD_HAS_LINUX || FD_HAS_MACOS
+#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
 #include "../topo_run/tk_metric_tile.h"
 #endif
 
 ulong
 tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {
-#if FD_HAS_LINUX || FD_HAS_MACOS
+#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
   if( strcmp( tile_name, "metric" ) == 0 )
     return tk_metric_scratch_footprint();
 #endif
@@ -401,7 +401,7 @@ void
 tk_topob_tickoni_tile_scratch_requirements( char const * tile_name,
                                             ulong * alignment_out,
                                             ulong * footprint_out ) {
-#if FD_HAS_LINUX || FD_HAS_MACOS
+#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
   if( strcmp( tile_name, "metric" ) == 0 ) {
     ulong footprint = tk_metric_scratch_footprint();
     *alignment_out  = fd_scratch_smem_align();

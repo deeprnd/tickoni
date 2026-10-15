@@ -33,7 +33,7 @@
  *     (v2.23-m task 4) so topob.c never needs the full fd_topo_run_tile_t.
  */
 
-#if FD_HAS_LINUX || FD_HAS_MACOS
+#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
 
 #define _GNU_SOURCE
 
