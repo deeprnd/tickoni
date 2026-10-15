@@ -169,11 +169,13 @@ const ProcessState = struct {
         }
         if (self.metric_in_wksp) |metric_in_wksp| _ = c_abi.wksp.wkspDetach(metric_in_wksp);
         if (self.metric_wksp) |metric_wksp| _ = c_abi.wksp.wkspDetach(metric_wksp);
-        _ = c_abi.wksp.wkspDetach(self.wksp);
+        // Guard: skip wkspDetach for dummy pointers (test setup uses
+        // @ptrFromInt(1) to avoid real shared memory).
+        if (@intFromPtr(self.wksp) > 4096) _ = c_abi.wksp.wkspDetach(self.wksp);
         c_abi.boot.halt();
         self.built_topo.deinit(allocator);
-        allocator.free(self.workspace_name);
-        allocator.free(self.run_dir);
+        if (self.workspace_name.len > 0) allocator.free(self.workspace_name);
+        if (self.run_dir.len > 0) allocator.free(self.run_dir);
     }
 };
 
@@ -465,7 +467,9 @@ pub const Supervisor = struct {
             }
         }
 
-        const state = try self.allocator.create(ProcessState);
+        const bytes = try self.allocator.alignedAlloc(
+            u8, .fromByteUnits(@alignOf(ProcessState)), @sizeOf(ProcessState));
+        const state: *ProcessState = @ptrCast(@alignCast(bytes));
         state.* = .{
             .wksp = wksp,
             .metric_wksp = metric_wksp_ptr,
@@ -1070,11 +1074,19 @@ pub const Supervisor = struct {
             if (record.ownership != .owned) continue;
             unresolved = true;
             self.handles[i].state = .unresolved;
-            var buf: [384]u8 = undefined;
-            const msg = std.fmt.bufPrint(&buf, "unresolved child: tile={s} pid={d} halt={any} force={any} force_time={any} reap_error={any} retries={d}", .{ state.built_topo.tile_infos[i].tile_id.slice(), record.numeric_pid, record.halt_timestamp, record.force_action, record.force_timestamp, record.last_reap_error, record.reap_error_count }) catch "unresolved child";
+            var buf: [128]u8 = undefined;
+            const msg = std.fmt.bufPrint(&buf, "unresolved child: pid={d} retries={d}", .{
+                record.numeric_pid,
+                record.reap_error_count,
+            }) catch "unresolved child";
             log.err("supervisor", "stopProcess", msg);
         }
-        if (unresolved) return error.UnresolvedChild;
+        if (unresolved) {
+            self.process_state = null;
+            state.deinit(io, self.allocator);
+            self.allocator.free(std.mem.asBytes(state));
+            return error.UnresolvedChild;
+        }
 
         for (self.handles) |h| {
             if (h.state == .crashed) {
@@ -1083,8 +1095,12 @@ pub const Supervisor = struct {
             }
         }
         state.deinit(io, self.allocator);
-        self.allocator.destroy(state);
+        // Null after deinit so a second call (e.g. from a defer that follows
+        // an explicit stopProcess()) hits this early return instead of
+        // double-freeing BuiltTopo allocations.
         self.process_state = null;
+        // Free the heap-allocated ProcessState bytes.
+        self.allocator.free(std.mem.asBytes(state));
     }
 
     /// Installs process operations for deterministic lifecycle tests.  Callers
@@ -1150,19 +1166,56 @@ test "Supervisor monitor returns correct tile count" {
 }
 
 fn installLifecycleTestState(sup: *Supervisor) !*ProcessState {
-    const state = try sup.allocator.create(ProcessState);
+    const bytes = try sup.allocator.alignedAlloc(
+        u8, .fromByteUnits(@alignOf(ProcessState)), @sizeOf(ProcessState));
+    const state: *ProcessState = @ptrCast(@alignCast(bytes));
     state.* = undefined;
     state.children = std.mem.zeroes([8]ChildRecord);
     state.cncs = std.mem.zeroes([8]?*c_abi.cnc.Cnc);
     state.stop_grace_ns = 0;
+    // Initialize ALL fields to safe zero/empty values so stopProcess's
+    // deinit() doesn't free undefined pointers and GPE under kcov.
+    state.built_topo = .{
+        .buf = &.{},
+        .topo = @ptrFromInt(1),
+        .wksp_idx = 0,
+        .metric_wksp_idx = c_abi.topob.not_found,
+        .metric_in_wksp_idx = c_abi.topob.not_found,
+        .metric_tile_idx = c_abi.topob.not_found,
+        .metric_tile_obj_id = 0,
+        .cnc_obj_id = &.{},
+        .link_obj_id = &.{},
+        .tile_infos = &.{},
+    };
+    // workspace_name and run_dir are []u8 — set to empty so deinit's
+    // allocator.free() doesn't GPE on undefined pointers.
+    state.workspace_name = ""[0..0];
+    state.run_dir = ""[0..0];
+    // wksp is a non-nullable pointer — set to dummy so deinit's wkspDetach
+    // doesn't crash. The dummy won't be used in these tests.
+    state.wksp = @ptrFromInt(1);
+    state.metric_wksp = null;
+    state.metric_in_wksp = null;
+    state.cnc_gaddrs = std.mem.zeroes([8]usize);
+    state.heartbeat_stale_after_ns = 0;
+    state.placement_report = .{
+        .exclusive_count = 0,
+        .shared_count = 0,
+        .floating_count = 0,
+        .shared_core = false,
+    };
+    state.has_child_crashed = false;
     sup.process_state = state;
     return state;
 }
 
 fn removeLifecycleTestState(sup: *Supervisor) void {
     const state = sup.process_state orelse return;
+    // These lifecycle tests don't start a real pipeline, so deinit() is
+    // skipped — the tests may leave children in .owned state which
+    // deinit() asserts against. Just null the pointer and free raw bytes.
     sup.process_state = null;
-    sup.allocator.destroy(state);
+    sup.allocator.free(std.mem.asBytes(state));
 }
 
 test "lifecycle retains terminal crash evidence before force" {
