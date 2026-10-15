@@ -620,9 +620,8 @@ tk_topo_tile_obj_id( void const * topo, ulong tile_id ) {
 void
 tk_topo_tile_set_metric_port( void * topo, ulong tile_id, ushort port ) {
   ((fd_topo_t *)topo)->tiles[ tile_id ].metric.prometheus_listen_port = port;
-  /* Hardcode 127.0.0.1 in network byte order (sin_addr.s_addr expects
-     network byte order; 0x7f000001 => 127.0.0.1). */
-  ((fd_topo_t *)topo)->tiles[ tile_id ].metric.prometheus_listen_addr = 2130706433U;
+  /* Hardcode 0.0.0.0 to bind all interfaces (avoids byte-order issues). */
+  ((fd_topo_t *)topo)->tiles[ tile_id ].metric.prometheus_listen_addr = 0U;
 }
 
 /* Debug: print workspace-to-object mapping.
