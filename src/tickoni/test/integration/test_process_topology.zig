@@ -117,7 +117,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
         const state_name = @tagName(h.state);
         const sig_val = if (sup.process_state.?.cncs[i]) |c| c_abi.cnc.signalQuery(c) else 0;
         const hb_val = if (sup.process_state.?.cncs[i]) |c| c_abi.cnc.heartbeatQuery(c) else 0;
-        const live = if (sup.monitor()[i].pid) |pid| @as(u64, @intFromPtr(pid)) else 0;
+        const live = if (sup.monitor()[i].pid) |pid| @as(u64, @intCast(pid)) else 0;
         std.debug.print("[test] tile {d}: state={s} sig={d} hb_ms={d} pid={d}\n", .{ i, state_name, sig_val, hb_val, live });
         try std.testing.expect(h.state != rt.tile.TileState.stale);
     }
