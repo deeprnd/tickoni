@@ -55,7 +55,7 @@ pub fn nextMetricPort() u16 {
 
     // Seed the counter once per process using pid (unique per test run).
     if (_metric_port_counter == 0) {
-        _metric_port_counter = @as(u16, @intCast(std.c.getpid() & 0xFFFF));
+        _metric_port_counter = @as(u16, @intCast(c_abi.sandbox.getpid() & 0xFFFF));
     }
 
     // Map into [low, low+span)
@@ -74,7 +74,7 @@ var _ws_name_counter: u32 = 0;
 
 pub fn nextWorkspaceName(buf: []u8) []const u8 {
     if (_ws_name_counter == 0) {
-        _ws_name_counter = @as(u32, @intCast(std.c.getpid())) & 0xFFFF;
+        _ws_name_counter = @as(u32, @intCast(c_abi.sandbox.getpid())) & 0xFFFF;
     }
 
     const n = std.fmt.bufPrint(buf, "topo_{d}", .{_ws_name_counter}) catch unreachable;
