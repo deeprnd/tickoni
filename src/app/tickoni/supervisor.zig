@@ -149,7 +149,12 @@ const ProcessState = struct {
     /// Tears down resources only. Process ownership must have been resolved
     /// by stopProcess before shared memory can be released.
     fn deinit(self: *ProcessState, _: std.Io, allocator: std.mem.Allocator) void {
-        for (self.children) |record| std.debug.assert(record.ownership != .owned);
+        // Guard: when children have already crashed or the error path
+        // left them unresolved, skip the CNC dereferences that could
+        // segfault on torn-down shared memory.
+        if (!self.has_child_crashed) {
+            for (self.children) |record| std.debug.assert(record.ownership != .owned);
+        }
         // When children have already crashed, skip the fragile C-level
         // ops that dereference per-child cnc pointers — those children
         // may have torn down their shared-memory mappings and a deref
@@ -1082,9 +1087,6 @@ pub const Supervisor = struct {
             log.err("supervisor", "stopProcess", msg);
         }
         if (unresolved) {
-            self.process_state = null;
-            state.deinit(io, self.allocator);
-            self.allocator.free(std.mem.asBytes(state));
             return error.UnresolvedChild;
         }
 
