@@ -37,20 +37,6 @@ def _url_exists(url: str) -> bool:
     return result.returncode == 0
 
 
-def _installed_zig_version(executable: str) -> str | None:
-    """Return the version reported by an existing Zig executable."""
-    try:
-        result = subprocess.run(
-            [executable, "version"], capture_output=True, text=True,
-        )
-    except OSError:
-        return None
-    if result.returncode != 0:
-        return None
-    version = result.stdout.strip()
-    return version or None
-
-
 @register('install_zig')
 class ZigInstallStrategy(InstallStrategy):
     """Install an official prebuilt Zig release."""
@@ -111,33 +97,19 @@ class ZigInstallStrategy(InstallStrategy):
 
     def _install(self, version: str, target: str, install_root: str, user_path: bool, platform_str: str) -> None:
         """Core Zig installation logic."""
-        install_root_path = Path(os.path.expandvars(install_root))
-        expected_install_dir = install_root_path / f"zig-{target}-{version}"
-        executable_name = "zig.exe" if target.endswith("-windows") else "zig"
-
-        # CI restores the exact versioned installation directory from cache, but
-        # each workflow step starts with a fresh PATH.  Reuse that verified,
-        # target-specific install rather than downloading and extracting it again.
-        if (expected_install_dir / executable_name).is_file():
-            self._activate_existing_install(expected_install_dir, user_path, platform_str)
-            print(f"[SKIP] zig {version} already installed at {expected_install_dir}")
-            return
-
-        # Reuse an existing PATH installation only when it is the requested
-        # version.  Blindly accepting any `zig` on PATH prevents upgrades when
-        # a previous development build is still active in the user's shell.
+        # Check if zig is already installed and on PATH.
         existing_path = shutil.which('zig')
         if existing_path:
-            existing_version = _installed_zig_version(existing_path)
-            if existing_version == version:
-                install_dir = Path(existing_path).resolve().parent
-                self._activate_existing_install(install_dir, user_path, platform_str)
-                print(f"[SKIP] zig {version} already on PATH: {existing_path}")
-                return
-            print(
-                f"[upgrade] Zig on PATH is {existing_version or 'unknown'}; "
-                f"installing {version}"
-            )
+            install_dir = Path(existing_path).resolve().parent
+            install_dir_str = str(install_dir)
+            gh_path = os.environ.get("GITHUB_PATH")
+            if gh_path and not self._github_path_already_written(gh_path, install_dir_str):
+                with open(gh_path, "a") as fh:
+                    fh.write(install_dir_str + os.linesep)
+                print(f"[github-path] {install_dir} (existing zig on PATH)")
+            os.environ['PATH'] = f"{install_dir_str}{os.pathsep}{os.environ['PATH']}"
+            print(f"[done] zig already on PATH: {existing_path}")
+            return
 
         index_url = ZIG_INDEX_URL
         ext = ".zip" if target.endswith("-windows") else ".tar.xz"
@@ -245,15 +217,55 @@ class ZigInstallStrategy(InstallStrategy):
 
         print(f"[done] zig version={version} target={target} install_dir={install_dir}")
 
-    def _activate_existing_install(self, install_dir: Path, user_path: bool, platform_str: str) -> None:
-        """Activate a known Zig install for this process and later CI steps."""
+    def _write_env_file(self, install_dir: Path):
+        """Write a self-contained env file for zig and source it in shell configs.
+
+        This is the universal fallback so setup-env is truly self-contained:
+        the user never has to edit shell configs manually.
+        """
+        env_dir = Path(os.path.expanduser("~/.local/share/zig"))
+        env_dir.mkdir(parents=True, exist_ok=True)
         install_dir_str = str(install_dir)
-        if platform_str.startswith("windows"):
-            self._handle_windows_path(install_dir, user_path)
+
+        if os.name == "nt":
+            env_file = env_dir / "env.bat"
+            env_file.write_text(f'set "PATH={install_dir_str};%PATH%"\n')
+            print(f"[env] wrote {env_file}")
+            # Source from Windows registry (user-level) as fallback
+            import ctypes
+            try:
+                import winreg
+                with winreg.OpenKey(
+                    winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_SET_VALUE
+                ) as key:
+                    current = winreg.QueryValueEx(key, "PATH")[0].lower()
+                    if install_dir_str.lower() not in current:
+                        new_path = install_dir_str + ";" + winreg.QueryValueEx(key, "PATH")[0]
+                        winreg.SetValueEx(key, "PATH", 0, winreg.REG_EXPAND_SZ, new_path)
+                        print(f"[env] updated user PATH in registry")
+            except Exception:
+                print(f"[env] could not update Windows registry (manual PATH needed)")
         else:
-            self._handle_posix_path(install_dir)
-        if install_dir_str not in os.environ.get('PATH', '').split(os.pathsep):
-            os.environ['PATH'] = f"{install_dir_str}{os.pathsep}{os.environ['PATH']}"
+            env_file = env_dir / "env.sh"
+            env_file.write_text(
+                f'export PATH="{install_dir_str}:$PATH"\n'
+            )
+            print(f"[env] wrote {env_file}")
+            # Source from common shell configs if they exist.
+            for shell_rc in [
+                os.path.expanduser("~/.bashrc"),
+                os.path.expanduser("~/.zshrc"),
+                os.path.expanduser("~/.profile"),
+            ]:
+                shell_rc = Path(shell_rc)
+                if not shell_rc.exists():
+                    continue
+                src_line = f'. "{env_file}"'
+                rc_text = shell_rc.read_text()
+                if src_line not in rc_text:
+                    rc_text += "\n\n# Zig (setup-env auto-generated)\n" + src_line + "\n"
+                    shell_rc.write_text(rc_text)
+                    print(f"[shell] sourced {env_file} in {shell_rc}")
 
     def _handle_windows_path(self, install_dir: Path, user_path: bool):
         install_dir_str = str(install_dir)
@@ -273,6 +285,8 @@ class ZigInstallStrategy(InstallStrategy):
             )
             subprocess.run(["powershell.exe", "-NoProfile", "-Command", ps], check=True)
             print(f"[user-path] prepend {install_dir}")
+        if not gh_path:
+            self._write_env_file(install_dir)
 
     def _handle_posix_path(self, install_dir: Path):
         install_dir_str = str(install_dir)
@@ -282,5 +296,4 @@ class ZigInstallStrategy(InstallStrategy):
                 fh.write(install_dir_str + os.linesep)
             print(f"[github-path] {install_dir}")
         if not gh_path:
-            print(f"[activation] add Zig to your shell PATH with:")
-            print(f'  export PATH="{install_dir}:$PATH"')
+            self._write_env_file(install_dir)
