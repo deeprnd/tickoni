@@ -538,6 +538,10 @@ test-unit-tk-macos-x86: test-unit-tk-linux-x86
 
 test-unit-tk-macos-arm: test-unit-tk-linux-x86
 
+test-unit-tk-windows-x86: test-unit-tk-linux-x86
+
+test-unit-tk-windows-arm: test-unit-tk-linux-x86
+
 test-unit-tk:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -578,11 +582,9 @@ test-integration-tk-linux-x86:
 
 test-integration-tk-linux-arm: test-integration-tk-linux-x86
 
-test-integration-tk-macos-x86:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+test-integration-tk-macos-x86: test-integration-tk-linux-x86
 
-test-integration-tk-macos-arm:
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+test-integration-tk-macos-arm: test-integration-tk-linux-x86
 
 test-integration-tk:
     #!/usr/bin/env bash
@@ -598,21 +600,6 @@ test-integration-tk:
     esac
 
 # ── Windows-specific test recipes ────────────────────────────────────────────
-
-# Windows x86_64 unit test: build FD libs for Windows x86_64, then run Zig tests.
-test-unit-tk-windows-x86:
-    mkdir -p build
-    bash -lc 'set -o pipefail; just build-fd-windows-x86 2>&1 | tee build/fd-windows-x86.log'
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
-
-# Windows ARM64 unit test: build FD libs for Windows ARM64, then run Zig tests.
-test-unit-tk-windows-arm:
-    mkdir -p build
-    bash -lc 'set -o pipefail; just build-fd-windows-arm 2>&1 | tee build/fd-windows-arm.log'
-    rm -rf .zig-cache
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test
-    ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
 
 # Windows x86_64 integration test: build FD libs for Windows x86_64, then run Zig integration tests.
 test-integration-tk-windows-x86:
