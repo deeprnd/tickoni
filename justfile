@@ -351,11 +351,9 @@ build-fd-linux-arm-gcc:
     python3 contrib/build/orchestrator.py --platform linux-arm build-fd fd-arm libs gcc-14
 
 build-fd-macos-x86:
-    brew install llvm
     env JUST_GMAKE="$(brew --prefix)/bin/gmake" python3 contrib/build/orchestrator.py --platform macos-x86 build-fd fd-tickoni-fd libs clang "lz4 blst zstd"
 
 build-fd-macos-arm:
-    brew install llvm
     env JUST_GMAKE="$(brew --prefix)/bin/gmake" python3 contrib/build/orchestrator.py --platform macos-arm build-fd fd-tickoni-fd libs clang "lz4 blst zstd"
 
 build-fd-windows-x86:
@@ -425,12 +423,12 @@ test-unit-fd-linux-x86-gcc:
         LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-12 LD=gcc-12 run-unit-test TEST_OPTS="$TEST_OPTS"
 
 test-unit-fd-macos-x86:
-    python3 contrib/build/orchestrator.py --platform macos-x86 build-fd {{ fd_tickoni_build }} test clang
-    JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal --page-cnt 131072"
+    python3 contrib/build/orchestrator.py --platform macos-x86 build-fd {{ fd_tickoni_build }} test clang --build-target unit-test
+    just test-unit-tk
 
 test-unit-fd-macos-arm:
-    python3 contrib/build/orchestrator.py --platform macos-arm build-fd {{ fd_tickoni_build }} test clang
-    JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal --page-cnt 131072"
+    python3 contrib/build/orchestrator.py --platform macos-arm build-fd {{ fd_tickoni_build }} test clang --build-target unit-test
+    just test-unit-tk
 
 test-unit-fd-windows-x86:
     python3 contrib/build/orchestrator.py --platform windows-x86 build-fd {{ fd_tickoni_build }} test clang --arch x86_64
