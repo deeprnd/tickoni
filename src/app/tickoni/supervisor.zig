@@ -640,16 +640,6 @@ pub const Supervisor = struct {
                 .exclusive, .shared, .floating => {},
             }
         }
-
-        // Broadcast BOOT signal to all tiles so they wake up from
-        // stem_run() → fd_cnc_signal_query() and transition to RUN.
-        // This is the Firedancer lifecycle: supervisor must explicitly
-        // signal BOOT after spawning, otherwise tiles block forever.
-        for (state.cncs) |maybe_cnc| {
-            if (maybe_cnc) |cnc| {
-                c_abi.cnc.signal(cnc, c_abi.cnc.signal_boot);
-            }
-        }
     }
 
     fn updateHandleForOutcome(self: *Supervisor, i: usize, outcome: util.process_api.ProcessOutcome) void {
