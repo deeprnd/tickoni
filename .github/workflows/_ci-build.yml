@@ -189,7 +189,15 @@ jobs:
       - name: Build Tickoni supervisor
         run: just ${{ matrix.build-tk-recipe }}
 
+      - name: Setup Qt
+        if: matrix.build-qt-recipe != ''
+        env:
+          QT_USERNAME: ${{ secrets.QT_USERNAME }}
+          QT_PASSWORD: ${{ secrets.QT_PASSWORD }}
+        run: just setup-qt-${{ matrix.platform }}
+
       - name: Build Qt terminal
+        if: matrix.build-qt-recipe != ''
         env:
           QT_USERNAME: ${{ secrets.QT_USERNAME }}
           QT_PASSWORD: ${{ secrets.QT_PASSWORD }}
