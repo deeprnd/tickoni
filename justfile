@@ -736,7 +736,17 @@ quality-proto-check-all:
 # ── Quality: All ───────────────────────────────────────────────────────────
 
 quality-check-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py quality bash -c "just quality-format-check-all && just quality-lint-check-all && just quality-proto-check-all"
+    {{ python }} contrib/tool/readme/run-badged-command.py quality bash -c "just quality-format-check-all && just quality-lint-check-all && just quality-proto-check-all && just quality-yaml-check-linux && just quality-spell-check-linux"
+
+# ── Quality: YAML ──────────────────────────────────────────────────────────
+
+quality-yaml-check-linux:
+    find . -name '*.yaml' -o -name '*.yml' | grep -vE '^(./opt|./node_modules|./build/.zig-global-cache|./build|./target|./zig-out|\\.git)/' | xargs -r yamllint -f parsable
+
+# ── Quality: Spell ─────────────────────────────────────────────────────────
+
+quality-spell-check-linux:
+    cspell lint --no-progress .
 
 # ── Security: CodeQL ───────────────────────────────────────────────────────
 
