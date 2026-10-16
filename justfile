@@ -403,7 +403,7 @@ clean-all:
 # recipe that sources the script and passes the computed values via env vars
 # to make.
 dynamic-test-opts:
-    @source contrib/test/run_unit_tests_dynamic.sh
+    @python3 contrib/test/infra/dynamic_test_opts.py
 
 test-all:
     @just test-unit-all
@@ -419,7 +419,7 @@ test-unit-fd-linux-x86-gcc:
     timeout=600
     python3 contrib/build/orchestrator.py --platform linux-x86 build-fd {{ fd_tickoni_build }} test gcc-12
     # Source dynamic resource detection to compute safe --page-cnt and -j
-    eval "$(bash contrib/test/run_unit_tests_dynamic.sh | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
+    eval "$(python3 contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
     echo "Running unit tests with: $TEST_OPTS"
     {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
         LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-12 LD=gcc-12 run-unit-test TEST_OPTS="$TEST_OPTS"
