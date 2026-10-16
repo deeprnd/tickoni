@@ -6,6 +6,7 @@ const codec = @import("codec.zig");
 pub fn linkTickoniTopoRun(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8) void {
     addTickoniTopoRunShims(b, step);
     codec.addTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_disco", "fd_ballet", "fd_waltz" });
+    step.root_module.linkSystemLibrary("zstd", .{});
 }
 
 /// Add topo_run shim C sources (topo_run.c, platform-specific file, topob.c,

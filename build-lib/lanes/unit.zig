@@ -65,7 +65,7 @@ pub fn strategy(
             .{ .name = "topologies", .module = shared.topologies },
             .{ .name = "logger", .module = shared.logger },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
     }, test_step, run_cmd);
 
     // test-process-api — needs c_abi module, util module, and os.c shim (libc).
