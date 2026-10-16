@@ -771,12 +771,12 @@ pub const Supervisor = struct {
         for (&state.children, 0..) |*record, i| {
             if (record.ownership != .owned) {
                 suppress_cnc[i] = true;
-                std.debug.print("[sup-refresh] tile {d}: ownership not owned, suppressing cnc\n", .{ i });
+                std.debug.print("[sup-refresh] tile {d}: ownership not owned, suppressing cnc\n", .{i});
                 continue;
             }
             const child = &(record.child orelse {
                 suppress_cnc[i] = true;
-                std.debug.print("[sup-refresh] tile {d}: no child ptr, suppressing cnc\n", .{ i });
+                std.debug.print("[sup-refresh] tile {d}: no child ptr, suppressing cnc\n", .{i});
                 continue;
             });
             const result = self.process_operations.poll(child);
@@ -792,7 +792,7 @@ pub const Supervisor = struct {
             if (self.handles[i].state == .crashed) {
                 state.has_child_crashed = true;
                 suppress_cnc[i] = true;
-                std.debug.print("[sup-refresh] tile {d}: already crashed, suppressing cnc\n", .{ i });
+                std.debug.print("[sup-refresh] tile {d}: already crashed, suppressing cnc\n", .{i});
             }
         }
         // Read heartbeats from surviving tiles only — skip any tile whose
@@ -801,15 +801,15 @@ pub const Supervisor = struct {
             const h = &self.handles[i];
             std.debug.print("[sup-refresh] tile {d}: state={s} suppress={any}\n", .{ i, @tagName(h.state), suppress_cnc[i] });
             if (h.state != .starting and h.state != .running) {
-                std.debug.print("[sup-refresh] tile {d}: not starting/running, skipping\n", .{ i });
+                std.debug.print("[sup-refresh] tile {d}: not starting/running, skipping\n", .{i});
                 continue;
             }
             if (suppress_cnc[i]) {
-                std.debug.print("[sup-refresh] tile {d}: suppressed, skipping cnc read\n", .{ i });
+                std.debug.print("[sup-refresh] tile {d}: suppressed, skipping cnc read\n", .{i});
                 continue;
             }
             const cnc = maybe_cnc orelse {
-                std.debug.print("[sup-refresh] tile {d}: cnc ptr null, skipping\n", .{ i });
+                std.debug.print("[sup-refresh] tile {d}: cnc ptr null, skipping\n", .{i});
                 continue;
             };
             // A process can spend substantial time rebuilding and joining the
