@@ -120,4 +120,4 @@ src/util/fd_version_generated1.h
 src/app/firedancer/version.h
 src/app/firedancer/version2.h
 
-justfile.bak
+*.bak
