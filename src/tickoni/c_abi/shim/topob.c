@@ -535,9 +535,15 @@ tk_topo_tile_ptr( void * topo, ulong tile_id ) {
   return &((fd_topo_t *)topo)->tiles[ tile_id ];
 }
 
+/* Return the offset of a tile's scratch object.
+   Takes a tile index (as returned by topoFindTile), looks up the
+   tile's tile_obj_id, then returns that object's offset. */
 ulong
-tk_topo_obj_offset( void const * topo_, ulong obj_id ) {
+tk_topo_obj_offset( void const * topo_, ulong tile_id ) {
   fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  if( tile_id >= topo->tile_cnt ) return 0UL;
+  fd_topo_tile_t const * tile = &topo->tiles[ tile_id ];
+  ulong obj_id = tile->tile_obj_id;
   return obj_id<topo->obj_cnt ? topo->objs[ obj_id ].offset : 0UL;
 }
 
@@ -568,19 +574,29 @@ tk_topo_validate_tile_object_offsets( void const * topo_ ) {
 }
 
 /* Return the scratch alignment for a tile's scratch object.
-   Queried by tests to verify the metric tile scratch is properly aligned. */
+   Takes a tile index (as returned by topoFindTile), looks up the
+   tile's tile_obj_id, then queries the property set by
+   topobSetTileObjPropertyUlong. */
 ulong
-tk_topo_obj_scratch_align( void const * topo_, ulong obj_id ) {
+tk_topo_obj_scratch_align( void const * topo_, ulong tile_id ) {
   fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  if( tile_id >= topo->tile_cnt ) return 0UL;
+  fd_topo_tile_t const * tile = &topo->tiles[ tile_id ];
+  ulong obj_id = tile->tile_obj_id;
   if( obj_id >= topo->obj_cnt ) return 0UL;
   return fd_pod_queryf_ulong( topo->props, 0UL, "obj.%lu.%s", obj_id, "tickoni.scratch_align" );
 }
 
 /* Return the scratch footprint for a tile's scratch object.
-   Queried by tests to verify the metric tile scratch is properly sized. */
+   Takes a tile index (as returned by topoFindTile), looks up the
+   tile's tile_obj_id, then queries the property set by
+   topobSetTileObjPropertyUlong. */
 ulong
-tk_topo_obj_footprint( void const * topo_, ulong obj_id ) {
+tk_topo_obj_footprint( void const * topo_, ulong tile_id ) {
   fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  if( tile_id >= topo->tile_cnt ) return 0UL;
+  fd_topo_tile_t const * tile = &topo->tiles[ tile_id ];
+  ulong obj_id = tile->tile_obj_id;
   if( obj_id >= topo->obj_cnt ) return 0UL;
   return fd_pod_queryf_ulong( topo->props, 0UL, "obj.%lu.%s", obj_id, "tickoni.scratch_footprint" );
 }
