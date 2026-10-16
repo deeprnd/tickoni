@@ -36,13 +36,9 @@ fd_clang_build := "fd-clang"
 fd_clang_dir := "build/fd-clang"
 fd_clang_lib := "build/fd-clang/lib"
 
-fd_arm_build := "fd-arm"
-fd_arm_dir := "build/fd-arm"
-fd_arm_lib := "build/fd-arm/lib"
-
 fd_cov_build := "fd-cov"
-fd_cov_dir := "build/fd-cov"
-fd_cov_lib := "build/fd-cov/lib"
+fd_cov_dir   := "build/fd-cov"
+fd_cov_lib   := "build/fd-cov/lib"
 
 default:
     @just --list
@@ -435,7 +431,7 @@ build-fd-linux-x86-clang:
     python3 contrib/build/orchestrator.py --platform linux-x86 build-fd fd-clang libs clang-18
 
 build-fd-linux-arm-gcc:
-    python3 contrib/build/orchestrator.py --platform linux-arm build-fd fd-arm libs gcc-14
+    python3 contrib/build/orchestrator.py --platform linux-arm build-fd fd-tickoni-fd libs gcc-14
 
 build-fd-macos-x86:
     env JUST_GMAKE="$(brew --prefix)/bin/gmake" python3 contrib/build/orchestrator.py --platform macos-x86 build-fd fd-tickoni-fd libs clang "lz4 blst zstd"
