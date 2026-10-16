@@ -762,6 +762,7 @@ pub const Supervisor = struct {
         defer log.exit("supervisor", "refreshProcessHealth");
         const state = self.process_state orelse return;
         const now_ns = self.process_operations.now();
+        std.debug.print("[sup-refresh] now_ns={d} stale_ns={d} tile_count={d}\n", .{ now_ns, state.heartbeat_stale_after_ns, state.cncs.len });
         // Reap any exited children FIRST so we detect crashes before
         // reading cnc heartbeats.  A crashed tile's cnc is corrupted and
         // reading it can SIGSEGV/SIGABRT the supervisor; by reaping first
@@ -770,10 +771,12 @@ pub const Supervisor = struct {
         for (&state.children, 0..) |*record, i| {
             if (record.ownership != .owned) {
                 suppress_cnc[i] = true;
+                std.debug.print("[sup-refresh] tile {d}: ownership not owned, suppressing cnc\n", .{ i });
                 continue;
             }
             const child = &(record.child orelse {
                 suppress_cnc[i] = true;
+                std.debug.print("[sup-refresh] tile {d}: no child ptr, suppressing cnc\n", .{ i });
                 continue;
             });
             const result = self.process_operations.poll(child);
@@ -789,28 +792,42 @@ pub const Supervisor = struct {
             if (self.handles[i].state == .crashed) {
                 state.has_child_crashed = true;
                 suppress_cnc[i] = true;
+                std.debug.print("[sup-refresh] tile {d}: already crashed, suppressing cnc\n", .{ i });
             }
         }
         // Read heartbeats from surviving tiles only — skip any tile whose
         // child has been reaped (crashed or stopped) so we never dereference
         for (state.cncs, 0..) |maybe_cnc, i| {
             const h = &self.handles[i];
-            if (h.state != .starting and h.state != .running) continue;
-            if (suppress_cnc[i]) continue;
-            const cnc = maybe_cnc orelse continue;
+            std.debug.print("[sup-refresh] tile {d}: state={s} suppress={any}\n", .{ i, @tagName(h.state), suppress_cnc[i] });
+            if (h.state != .starting and h.state != .running) {
+                std.debug.print("[sup-refresh] tile {d}: not starting/running, skipping\n", .{ i });
+                continue;
+            }
+            if (suppress_cnc[i]) {
+                std.debug.print("[sup-refresh] tile {d}: suppressed, skipping cnc read\n", .{ i });
+                continue;
+            }
+            const cnc = maybe_cnc orelse {
+                std.debug.print("[sup-refresh] tile {d}: cnc ptr null, skipping\n", .{ i });
+                continue;
+            };
             // A process can spend substantial time rebuilding and joining the
             // topology before its tile callback reaches RUN (notably on the
             // Windows ARM integration lane).  Its initial heartbeat is not a
             // liveness promise for that boot interval; classify heartbeat
             // staleness only after the tile has entered RUN.
             const sig = c_abi.cnc.signalQuery(cnc);
+            std.debug.print("[sup-refresh] tile {d}: sig={d} (expect {d}=RUN)\n", .{ i, sig, c_abi.cnc.signal_run });
             if (sig != c_abi.cnc.signal_run) continue;
             const heartbeat_ns = c_abi.cnc.heartbeatQuery(cnc);
             // Firedancer's heartbeat is app-defined — we pass monotonic nanoseconds.
             // Compare nanosecond age against nanosecond threshold, same units.
             const heartbeat_age_ns: i64 = now_ns - heartbeat_ns;
+            std.debug.print("[sup-refresh] tile {d}: hb_ns={d} age_ns={d} stale_ns={d}\n", .{ i, heartbeat_ns, heartbeat_age_ns, state.heartbeat_stale_after_ns });
             if (i == 0) log.kvFmt("supervisor", "refreshProcessHealth", "tile {d}: sig={d} hb_ns={d} age_ns={d} stale_ns={d}", .{ i, sig, heartbeat_ns, heartbeat_age_ns, state.heartbeat_stale_after_ns });
             if (heartbeat_age_ns > 0 and heartbeat_age_ns > state.heartbeat_stale_after_ns) {
+                std.debug.print("[sup-refresh] tile {d}: *** MARKED STALE *** age_ns={d} > stale_ns={d}\n", .{ i, heartbeat_age_ns, state.heartbeat_stale_after_ns });
                 log.kvFmt("supervisor", "refreshProcessHealth", "tile {d} marked stale: age_ns={d} > stale_ns={d}", .{ i, heartbeat_age_ns, state.heartbeat_stale_after_ns });
                 h.state = .stale;
                 h.crashed_because = .stale;
