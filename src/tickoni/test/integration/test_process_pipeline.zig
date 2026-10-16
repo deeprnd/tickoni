@@ -17,7 +17,7 @@ const topologies = @import("topologies");
 const Supervisor = supervisor_mod.Supervisor;
 
 test "process_pipeline_integration: process-mode payment pipeline matches expected decision counts" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -27,7 +27,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io);
+        sup.stopProcess(std.testing.io) catch {};
         sup.deinit();
     }
 
@@ -49,6 +49,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
     const max_polls: u32 = 400; // 2s bound at 5ms per poll
     var poll: u32 = 0;
     while (poll < max_polls) : (poll += 1) {
+        sup.reapExitedChildrenNoHang();
         if (sup.snapshotProcessMetrics().audited >= event_count) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
@@ -86,7 +87,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
         std.debug.panic("TileCrashed", .{});
     }
 
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 
     // Matches src/tickoni/tiles/payment_pipeline/runtime.zig's
     // syntheticPayment for event_count=32 with default policy/injection
@@ -112,7 +113,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
 }
 
 test "process_pipeline_integration: stopProcess prefers clean exit over transient stale classification" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -122,7 +123,7 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io);
+        sup.stopProcess(std.testing.io) catch {};
         sup.deinit();
     }
 
@@ -142,6 +143,7 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
     const max_polls: u32 = 400;
     var poll: u32 = 0;
     while (poll < max_polls) : (poll += 1) {
+        sup.reapExitedChildrenNoHang();
         if (sup.snapshotProcessMetrics().audited >= event_count) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
@@ -162,7 +164,7 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
         std.debug.panic("TileCrashed", .{});
     }
 
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);

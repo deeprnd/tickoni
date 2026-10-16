@@ -28,7 +28,7 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
 };
 
 test "process_cpu_placement_integration: two tiles sharing one cpu get distinct pids and still complete" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -76,7 +76,7 @@ test "process_cpu_placement_integration: two tiles sharing one cpu get distinct 
     }
 
     const metrics = sup.snapshotProcessMetrics();
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 
     try std.testing.expectEqual(event_count, metrics.produced);
     try std.testing.expectEqual(event_count, metrics.audited);
@@ -88,7 +88,7 @@ test "process_cpu_placement_integration: two tiles sharing one cpu get distinct 
 }
 
 test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails closed before spawning" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -140,7 +140,7 @@ test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails
 // the structural check from cpu_placement.zig's validateStatic() exercised at
 // the full supervisor process-level, not just in a unit-test topology.
 test "process_cpu_placement_integration: shared-core rejected when sharing is not explicit" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     // Two tiles declare the same exclusive CPU id — neither uses `.shared`,
     // so validateStatic() must return CpuPlacementConflict.
     const undeclared_collide_tiles = [_]rt.topology.TileDescriptor{
@@ -168,7 +168,7 @@ test "process_cpu_placement_integration: shared-core rejected when sharing is no
 // this is also a structural conflict because exclusive implies sole ownership
 // of that CPU. validateStatic() requires both sides to declare shared.
 test "process_cpu_placement_integration: exclusive and shared on the same cpu conflicts" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const mixed_tiles = [_]rt.topology.TileDescriptor{
         .{ .id = TileId.parse("tkings") catch unreachable, .name = "ingest_tile", .cpu_placement = .{ .exclusive = 1 } },
         .{ .id = TileId.parse("tknorm") catch unreachable, .name = "normalize_tile", .cpu_placement = .{ .shared = 1 } },
@@ -199,7 +199,7 @@ test "process_cpu_placement_integration: exclusive and shared on the same cpu co
 //   - functional pipeline completion is unchanged
 // not a wall-clock throughput comparison that assumes real kernel pinning.
 test "process_cpu_placement_integration: shared-core reporting changes placement metadata, not correctness" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const event_count: u64 = 16;
 
     // --- Run floating baseline (no explicit placement declarations) ---
@@ -237,7 +237,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
         for (floating_seen_pids[0..i]) |other| try std.testing.expect(other != pid);
         floating_seen_pids[i] = pid;
     }
-    floating_sup.stopProcess(std.testing.io);
+    floating_sup.stopProcess(std.testing.io) catch {};
     for (floating_sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
         try std.testing.expectEqual(rt.tile.CrashReason.none, h.crashed_because);
@@ -280,7 +280,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
         for (shared_seen_pids[0..i]) |other| try std.testing.expect(other != pid);
         shared_seen_pids[i] = pid;
     }
-    shared_sup.stopProcess(std.testing.io);
+    shared_sup.stopProcess(std.testing.io) catch {};
     for (shared_sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
         try std.testing.expectEqual(rt.tile.CrashReason.none, h.crashed_because);

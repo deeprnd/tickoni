@@ -181,7 +181,7 @@ fn parsePrometheusMetric(body: []const u8, name: []const u8) ?u64 {
 }
 
 test "parsePrometheusMetric accepts counter total suffix" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const body = "metric_bytes_read_total 42\n";
     try std.testing.expectEqual(@as(?u64, 42), parsePrometheusMetric(body, "metric_bytes_read"));
 }
@@ -238,7 +238,7 @@ fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) !void {
 // ---------------------------------------------------------------------------
 
 test "metric topology finalizes exact scratch requirements identically" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const port = util.nextMetricPort();
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
 
@@ -247,6 +247,7 @@ test "metric topology finalizes exact scratch requirements identically" {
         std.testing.allocator,
         topologies.paymentPipelineProcess(),
         util.nextWorkspaceName(&parent_ws),
+        0,
     );
     defer parent.deinit(std.testing.allocator);
 
@@ -257,6 +258,7 @@ test "metric topology finalizes exact scratch requirements identically" {
         std.testing.allocator,
         topologies.paymentPipelineProcess(),
         util.nextWorkspaceName(&child_ws),
+        0,
     );
     defer child.deinit(std.testing.allocator);
 
@@ -305,7 +307,7 @@ test "metric topology finalizes exact scratch requirements identically" {
 }
 
 test "metric topology preserves descriptor identity, CNC ownership, CPU placement, and zero links" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const tiles = [_]runtime.tile.TileDescriptor{
         .{ .id = runtime.tile.TileId.parse("tkings") catch unreachable, .name = "ingest", .cpu_placement = .{ .exclusive = 2 } },
         .{ .id = runtime.tile.TileId.parse("metric") catch unreachable, .name = "metric", .cpu_placement = .{ .exclusive = 3 } },
@@ -316,7 +318,7 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
     };
     const topology = runtime.topology.Topology{ .tiles = &tiles, .channels = &channels };
     var ws_buf: [16]u8 = undefined;
-    var built = try runtime.topo_build.build(std.testing.allocator, topology, util.nextWorkspaceName(&ws_buf));
+    var built = try runtime.topo_build.build(std.testing.allocator, topology, util.nextWorkspaceName(&ws_buf), 0);
     defer built.deinit(std.testing.allocator);
 
     const tkings_id = c_abi.topob.topoFindTile(built.topo, "tkings", 0);
@@ -342,7 +344,7 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: topology with metric builds and starts" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -352,7 +354,7 @@ test "metric_tile_integration: topology with metric builds and starts" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io);
+        sup.stopProcess(std.testing.io) catch {};
         sup.deinit();
     }
 
@@ -390,7 +392,7 @@ test "metric_tile_integration: topology with metric builds and starts" {
     try std.testing.expectEqual(event_count, metrics.audited);
 
     try expectNoCrashes(&sup, run_dir);
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 }
 
 // ---------------------------------------------------------------------------
@@ -402,7 +404,7 @@ test "metric_tile_integration: topology with metric builds and starts" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -412,7 +414,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io);
+        sup.stopProcess(std.testing.io) catch {};
         sup.deinit();
     }
 
@@ -484,7 +486,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
     try std.testing.expect(bytes_consumed.? > 0);
 
     try expectNoCrashes(&sup, run_dir);
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 }
 
 // ---------------------------------------------------------------------------
@@ -492,7 +494,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: unknown path returns HTTP 404" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -502,7 +504,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io);
+        sup.stopProcess(std.testing.io) catch {};
         sup.deinit();
     }
 
@@ -536,7 +538,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
     try std.testing.expectEqual(@as(u16, 404), resp.status_code);
 
     try expectNoCrashes(&sup, run_dir);
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 }
 
 // ---------------------------------------------------------------------------
@@ -545,7 +547,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: boot_timestamp is a valid large positive value" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -555,7 +557,7 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io);
+        sup.stopProcess(std.testing.io) catch {};
         sup.deinit();
     }
 
@@ -596,7 +598,7 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
     try std.testing.expect(boot_timestamp > 1e18);
 
     try expectNoCrashes(&sup, run_dir);
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 }
 
 // ---------------------------------------------------------------------------
@@ -610,7 +612,7 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: workspace join completeness" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -620,7 +622,7 @@ test "metric_tile_integration: workspace join completeness" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io);
+        sup.stopProcess(std.testing.io) catch {};
         sup.deinit();
     }
 
@@ -669,7 +671,7 @@ test "metric_tile_integration: workspace join completeness" {
 
     // Verify the metric tile didn't crash.
     try expectNoCrashes(&sup, run_dir);
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 }
 
 // ---------------------------------------------------------------------------
@@ -677,7 +679,7 @@ test "metric_tile_integration: workspace join completeness" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -687,7 +689,7 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io);
+        sup.stopProcess(std.testing.io) catch {};
         sup.deinit();
     }
 
@@ -714,7 +716,7 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
     try std.testing.expectEqual(event_count, metrics.audited);
 
     try expectNoCrashes(&sup, run_dir);
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 }
 
 // ---------------------------------------------------------------------------
@@ -722,7 +724,7 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: CNC join verifies tile finds CNC object" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const topo = topologies.paymentPipelineProcess();
 
     var metric_idx: ?usize = null;
@@ -748,7 +750,7 @@ test "metric_tile_integration: CNC join verifies tile finds CNC object" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
 
@@ -759,7 +761,7 @@ test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io);
+        sup.stopProcess(std.testing.io) catch {};
         sup.deinit();
     }
 
@@ -833,7 +835,7 @@ test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: sequential pipeline runs on same port" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -851,7 +853,7 @@ test "metric_tile_integration: sequential pipeline runs on same port" {
 
         var sup = try Supervisor.init(std.testing.allocator, topo);
         defer {
-            sup.stopProcess(std.testing.io);
+            sup.stopProcess(std.testing.io) catch {};
             sup.deinit();
         }
 

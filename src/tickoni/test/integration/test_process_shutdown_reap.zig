@@ -40,7 +40,7 @@ fn spawnPipeline(
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -67,12 +67,15 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io);
+    errdefer sup.stopProcess(std.testing.io) catch {};
 
     // Let the tile crash and metrics advance past the crash point.
+    // Must actively reap exited children so the supervisor can update the
+    // handle state to .crashed.
     const max_polls: u32 = 400;
     var poll: u32 = 0;
     while (poll < max_polls) : (poll += 1) {
+        sup.reapExitedChildrenNoHang();
         if (sup.hasCrashed()) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
@@ -90,7 +93,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
 
     // Now call stopProcess: the crashed tile must NOT be overwritten
     // by the force-phase reap. Its state should remain .crashed.
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 
     try std.testing.expectEqual(
         rt.tile.TileState.crashed,
@@ -116,7 +119,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: child exits between running-check and kill → was_forced=false classification" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -156,7 +159,7 @@ test "shutdown_reap: child exits between running-check and kill → was_forced=f
 
     // Now call stopProcess: the force-phase will find all children already
     // reaped (or exiting) and classify them with was_forced=false.
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 
     // All tiles should be .stopped (clean) since none were forced.
     for (sup.monitor()) |h| {
@@ -172,7 +175,7 @@ test "shutdown_reap: child exits between running-check and kill → was_forced=f
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: pre-existing crash survives stopProcess" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -199,12 +202,14 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io);
+    errdefer sup.stopProcess(std.testing.io) catch {};
 
-    // Wait for crash detection.
+    // Wait for crash detection. Must actively reap exited children so the
+    // supervisor can update the handle state to .crashed.
     const max_polls: u32 = 400;
     var poll: u32 = 0;
     while (poll < max_polls) : (poll += 1) {
+        sup.reapExitedChildrenNoHang();
         if (sup.hasCrashed()) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
@@ -217,7 +222,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
 
     // stopProcess: the pre-existing crashed handle must NOT be overwritten
     // by the force-phase reap or stale-recovery path.
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 
     // Tile 0 must remain .crashed — not silently overwritten to .stopped.
     try std.testing.expectEqual(
@@ -235,7 +240,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: externally reaped child classified as .unknown not .exited_ok" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -274,7 +279,7 @@ test "shutdown_reap: externally reaped child classified as .unknown not .exited_
     // Call stopProcess: any children that were already reaped externally
     // should be handled by the .detached arm, which leaves them as
     // unknown (no known exit reason).
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 
     // After stopProcess, tiles that were reaped before the force phase
     // should be .stopped (the supervisor's graceful path), but tiles that
@@ -296,7 +301,7 @@ test "shutdown_reap: externally reaped child classified as .unknown not .exited_
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: final timeout reap classifies still-running child as .unknown" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -322,7 +327,7 @@ test "shutdown_reap: final timeout reap classifies still-running child as .unkno
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io);
+    errdefer sup.stopProcess(std.testing.io) catch {};
 
     // Wait for the stuck tile to be classified as stale.
     const max_polls: u32 = 600;
@@ -341,7 +346,7 @@ test "shutdown_reap: final timeout reap classifies still-running child as .unkno
     // stopProcess: the stuck tile will be force-killed, then waitProcess
     // will eventually reap it. The final timeout reap should classify it
     // correctly (force_terminated if the kill succeeded, unknown if not).
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 
     // The stale tile should be .stopped (the stale-recovery path treats
     // pre-existing stale tiles as cleanly stopped).
@@ -359,7 +364,7 @@ test "shutdown_reap: final timeout reap classifies still-running child as .unkno
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -388,12 +393,14 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io);
+    errdefer sup.stopProcess(std.testing.io) catch {};
 
-    // Wait for crash detection.
+    // Wait for crash detection. Must actively reap exited children so the
+    // supervisor can update the handle state to .crashed.
     const max_polls: u32 = 400;
     var poll: u32 = 0;
     while (poll < max_polls) : (poll += 1) {
+        sup.reapExitedChildrenNoHang();
         if (sup.hasCrashed()) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
@@ -408,7 +415,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
     // stopProcess: the crash must survive. The tile identity and raw
     // failure must be retained in diagnostics independently of the
     // derived state.
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 
     try std.testing.expectEqual(
         rt.tile.TileState.crashed,
@@ -435,7 +442,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: non-zero exit during grace → force-phase preserves .exited_code" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -463,12 +470,14 @@ test "shutdown_reap: non-zero exit during grace → force-phase preserves .exite
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io);
+    errdefer sup.stopProcess(std.testing.io) catch {};
 
-    // Wait for crash detection.
+    // Wait for crash detection. Must actively reap exited children so the
+    // supervisor can update the handle state to .crashed.
     const max_polls: u32 = 400;
     var poll: u32 = 0;
     while (poll < max_polls) : (poll += 1) {
+        sup.reapExitedChildrenNoHang();
         if (sup.hasCrashed()) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
@@ -483,7 +492,7 @@ test "shutdown_reap: non-zero exit during grace → force-phase preserves .exite
     // child and the force-phase will classify it with was_forced=false
     // (no kill was attempted). outcomeFromTerm(.exited(1), false) must
     // return .exited_code(1), which updateHandleForOutcome preserves.
-    sup.stopProcess(std.testing.io);
+    try sup.stopProcess(std.testing.io);
 
     try std.testing.expectEqual(
         rt.tile.TileState.crashed,
