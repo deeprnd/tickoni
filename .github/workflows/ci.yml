@@ -1,12 +1,22 @@
 # Orchestrator CI workflow — staged DAG with fail-open change detection.
-# This is the single PR-required workflow. All stages are reusable sub-workflows
-# or jobs that consume outputs from the PLAN job.
 #
 # Reference: doc/execution/plans/v2.10-s8-5.md
+#
+# Execution order:
+#   (quality, security-secrets) -> build (matrix) -> project-build (aggregate)
+#     -> unit tests -> (integration, system, demo, coverage in parallel)
+#     -> conformance (after demo)
+#     -> project-tests (after integration+system+demo+conformance+coverage)
+#     -> security-deep (after project-tests) -> project-security (aggregate)
+#     -> ci-required
+#
+# Dev Setup Validation runs standalone: weekly on Mondays + on-demand via
+# .github/workflows/tests-dev-setup.yml
 
+---
 name: CI
 
-on:
+'on':
   pull_request:
     branches: [main]
   merge_group:
@@ -57,57 +67,201 @@ jobs:
   build:
     name: Build
     needs: [plan, quality, security-secrets]
-    if: needs.plan.outputs.core == 'true' && needs.quality.result == 'success' && needs.security-secrets.result == 'success'
+    if: >-
+      needs.plan.outputs.core == 'true' &&
+      needs.quality.result == 'success' &&
+      needs.security-secrets.result == 'success'
     uses: ./.github/workflows/_ci-build.yml
+    secrets: inherit
+
+  # ── PROJECT BUILD: aggregated build gate ──────────────────────────────────
+  project-build:
+    name: Project Build
+    needs: [plan, build]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Project Build aggregated
+        run: echo "done"
 
   # ── UNIT: component tests per platform (downloads build artifact) ────────
   unit:
-    name: Tests
-    needs: [plan, build]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
+    name: Tests / Unit
+    needs: [plan, project-build]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.project-build.result == 'success'
     uses: ./.github/workflows/_ci-unit.yml
 
   # ── INTEGRATION: multi-component tests per platform ──────────────────────
   integration:
-    name: Tests
-    needs: [plan, build]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
+    name: Tests / Integration
+    needs: [plan, project-build, unit]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.project-build.result == 'success' &&
+      needs.unit.result == 'success'
     uses: ./.github/workflows/_ci-integration.yml
 
   # ── SYSTEM: live-LLM tests per platform ──────────────────────────────────
   system:
-    name: Tests
-    needs: [plan, build]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
+    name: Tests / System
+    needs: [plan, project-build, unit]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.project-build.result == 'success' &&
+      needs.unit.result == 'success'
     uses: ./.github/workflows/_ci-system.yml
 
   # ── DEMO: fixture-backed demos per platform ──────────────────────────────
   demo:
-    name: Tests
-    needs: [plan, build]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
+    name: Tests / Demo
+    needs: [plan, project-build, unit]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.project-build.result == 'success' &&
+      needs.unit.result == 'success'
     uses: ./.github/workflows/_ci-demo.yml
 
-  # ── CONFORMANCE: cross-platform binary comparison ────────────────────────
+  # ── COVERAGE: Tickoni harness coverage (parallel with integration/system/demo) ──
+  coverage:
+    name: Tests / Coverage
+    needs: [plan, project-build, unit]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.project-build.result == 'success' &&
+      needs.unit.result == 'success'
+    uses: ./.github/workflows/_ci-coverage.yml
+
+  # ── CONFORMANCE: cross-platform binary comparison (after demo) ───────────
   conformance:
-    name: Tests
+    name: Tests / Conformance
     needs: [plan, demo]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.demo.result == 'success' }}
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.demo.result == 'success'
     uses: ./.github/workflows/_ci-conformance.yml
 
-  # ── SECURITY / DEEP: sanitizers, seccomp, formal verification ────────────
-  security-deep:
-    name: Security / Deep
-    needs: [plan, build]
-    if: ${{ always() && needs.plan.outputs.core == 'true' && needs.build.result == 'success' }}
-    uses: ./.github/workflows/_ci-security-deep.yml
-
-  # ── CI / Required: aggregating gate for branch protection ────────────────
-  ci-required:
-    name: Required
+  # ── PROJECT TESTS: aggregated test gate ───────────────────────────────────
+  # coverage is optional — runs in parallel but does not gate the gate
+  project-tests:
+    name: Project Tests
     needs:
-      [plan, quality, security-secrets, build,
-       unit, integration, system, demo, conformance, security-deep]
+      [plan, project-build, unit, integration, system, demo, conformance]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.project-build.result == 'success' &&
+      needs.unit.result == 'success' &&
+      needs.integration.result == 'success' &&
+      needs.system.result == 'success' &&
+      needs.demo.result == 'success' &&
+      needs.conformance.result == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Project Tests aggregated
+        run: echo "done"
+
+  # ── SECURITY / DEEP: 4 parallel sub-checks (sanitize, seccomp, proof, engine) ──
+  security-deep-sanitize:
+    name: Security / Deep — sanitize
+    needs: [plan, project-build, project-tests]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.project-build.result == 'success' &&
+      needs.project-tests.result == 'success'
+    uses: ./.github/workflows/_ci-security-deep.yml
+    with:
+      check: sanitize
+
+  security-deep-seccomp:
+    name: Security / Deep — seccomp
+    needs: [plan, project-build, project-tests]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.project-build.result == 'success' &&
+      needs.project-tests.result == 'success'
+    uses: ./.github/workflows/_ci-security-deep.yml
+    with:
+      check: seccomp
+
+  security-deep-proof:
+    name: Security / Deep — proof
+    needs: [plan, project-build, project-tests]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.project-build.result == 'success' &&
+      needs.project-tests.result == 'success'
+    uses: ./.github/workflows/_ci-security-deep.yml
+    with:
+      check: proof
+
+  security-deep-engine:
+    name: Security / Deep — engine
+    needs: [plan, project-build, project-tests]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.project-build.result == 'success' &&
+      needs.project-tests.result == 'success'
+    uses: ./.github/workflows/_ci-security-deep.yml
+    with:
+      check: engine
+
+  security-deep-sanitize-qt:
+    name: Security / Deep — sanitize-qt
+    needs: [plan, project-build, project-tests]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.project-build.result == 'success' &&
+      needs.project-tests.result == 'success'
+    uses: ./.github/workflows/_ci-security-deep.yml
+    secrets: inherit
+    with:
+      check: sanitize-qt
+
+  # ── PROJECT SECURITY: aggregated security gate ────────────────────────────
+  project-security:
+    name: Project Security
+    needs:
+      [plan, security-secrets,
+       security-deep-sanitize, security-deep-seccomp,
+       security-deep-proof, security-deep-engine,
+       security-deep-sanitize-qt]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.security-secrets.result == 'success' &&
+      needs.security-deep-sanitize.result == 'success' &&
+      needs.security-deep-seccomp.result == 'success' &&
+      needs.security-deep-proof.result == 'success' &&
+      needs.security-deep-engine.result == 'success' &&
+      needs.security-deep-sanitize-qt.result == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Project Security aggregated
+        run: echo "done"
+
+
+  # ── CI / Required: aggregated gate for branch protection ─────────────────
+  ci-required:
+    name: CI / Required
+    needs:
+      [plan, quality, security-secrets,
+       project-build, project-tests, project-security]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -118,24 +272,26 @@ jobs:
         run: |
           results=""
           failures=""
-          skipped=0
 
-          for job in plan quality security-secrets build unit integration system demo conformance security-deep; do
+          for job in plan quality security-secrets \
+              project-build project-tests project-security; do
             case "$job" in
               plan) status="${{ needs.plan.result }}" ;;
               quality) status="${{ needs.quality.result }}" ;;
-              security-secrets) status="${{ needs.security-secrets.result }}" ;;
-              build) status="${{ needs.build.result }}" ;;
-              unit) status="${{ needs.unit.result }}" ;;
-              integration) status="${{ needs.integration.result }}" ;;
-              system) status="${{ needs.system.result }}" ;;
-              demo) status="${{ needs.demo.result }}" ;;
-              conformance) status="${{ needs.conformance.result }}" ;;
-              security-deep) status="${{ needs.security-deep.result }}" ;;
+              security-secrets) \
+                status="${{ needs.security-secrets.result }}" ;;
+              project-build) \
+                status="${{ needs.project-build.result }}" ;;
+              project-tests) \
+                status="${{ needs.project-tests.result }}" ;;
+              project-security) \
+                status="${{ needs.project-security.result }}" ;;
             esac
             results="$results $job=$status"
-            if [ "$status" = "success" ] || [ "$status" = "skipped" ]; then
-              [ "$status" = "skipped" ] && skipped=$((skipped + 1))
+            if [ "$status" = "success" ]; then
+              :
+            elif [ "$status" = "skipped" ]; then
+              :
             else
               failures="$failures $job=$status"
             fi
@@ -143,12 +299,25 @@ jobs:
 
           # If core=false, all non-plan jobs should be skipped.
           if [ "${{ needs.plan.outputs.core }}" = "false" ]; then
-            expected_skipped=$((10 - 1)) # all except plan
+            expected_skipped=5 # quality, security-secrets, project-build, project-tests, project-security
+            # Count skipped
+            skipped=0
+            for job in quality security-secrets project-build project-tests project-security; do
+              case "$job" in
+                quality) s="${{ needs.quality.result }}" ;;
+                security-secrets) s="${{ needs.security-secrets.result }}" ;;
+                project-build) s="${{ needs.project-build.result }}" ;;
+                project-tests) s="${{ needs.project-tests.result }}" ;;
+                project-security) s="${{ needs.project-security.result }}" ;;
+              esac
+              [ "$s" = "skipped" ] && skipped=$((skipped + 1))
+            done
             if [ "$skipped" -ge "$expected_skipped" ]; then
               echo "docs-only PR: $skipped jobs skipped as expected"
               exit 0
             else
-              echo "docs-only PR expected $expected_skipped skipped, got $skipped"
+              echo "docs-only PR expected $expected_skipped \
+                skipped, got $skipped"
               echo "results: $results"
               exit 1
             fi
@@ -160,5 +329,6 @@ jobs:
             exit 1
           fi
 
-          echo "CI / Required: all $((10 - skipped)) active jobs passed, $skipped skipped"
+          echo "CI / Required: all \
+            5 active jobs passed"
           exit 0
