@@ -265,6 +265,31 @@ setup-security-macos-x86:
 setup-security-windows-x86:
     {{ python }} contrib/setup/orchestrator.py core,security --platform windows-x86
 
+# ── Qt 6 installation (for Qt terminal) ──────────────────────────────────────
+# Credentials from .env file (local) or GitHub secrets (CI).
+# Local: copy .env.example → .env and fill in QT_USERNAME and QT_PASSWORD
+# CI: set QT_USERNAME and QT_PASSWORD as repository secrets
+#   → they propagate to the runner env automatically.
+# Note: orchestrator.py automatically loads .env when present.
+
+setup-qt-linux-x86:
+    python3 contrib/setup/orchestrator.py qt --platform linux-x86
+
+setup-qt-linux-arm:
+    python3 contrib/setup/orchestrator.py qt --platform linux-arm
+
+setup-qt-macos-x86:
+    python3 contrib/setup/orchestrator.py qt --platform macos-x86
+
+setup-qt-macos-arm:
+    python3 contrib/setup/orchestrator.py qt --platform macos-arm
+
+setup-qt-windows-x86:
+    {{ python }} contrib/setup/orchestrator.py qt --platform windows-x86
+
+setup-qt-windows-arm:
+    {{ python }} contrib/setup/orchestrator.py qt --platform windows-arm
+
 test-prep-linux-x86:
     # NO-OP — memory setup moved to workflow YAML where sudo is available.
 
@@ -308,6 +333,56 @@ build-tk:
       windows-arm) exec just build-tk-windows-arm ;;
       *) echo "unsupported host platform for build-tk: {{ os }}-{{ arch }}" >&2; exit 1 ;;
     esac
+
+# ── Platform-specific Qt terminal build recipes (self-contained: setup + build).
+build-qt-linux-x86:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    cd "$REPO_ROOT"
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S "$REPO_ROOT/src/tickoni/terminal" -B "$REPO_ROOT/build/tickoni-terminal" && cmake --build "$REPO_ROOT/build/tickoni-terminal" -j {{ cpu_count }}
+
+build-qt-linux-arm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    cd "$REPO_ROOT"
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S "$REPO_ROOT/src/tickoni/terminal" -B "$REPO_ROOT/build/tickoni-terminal" && cmake --build "$REPO_ROOT/build/tickoni-terminal" -j {{ cpu_count }}
+
+build-qt-macos-x86:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    cd "$REPO_ROOT"
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S "$REPO_ROOT/src/tickoni/terminal" -B "$REPO_ROOT/build/tickoni-terminal" && cmake --build "$REPO_ROOT/build/tickoni-terminal" -j {{ cpu_count }}
+
+build-qt-macos-arm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    cd "$REPO_ROOT"
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S "$REPO_ROOT/src/tickoni/terminal" -B "$REPO_ROOT/build/tickoni-terminal" && cmake --build "$REPO_ROOT/build/tickoni-terminal" -j {{ cpu_count }}
+
+build-qt-windows-x86:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    cd "$REPO_ROOT"
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S "$REPO_ROOT/src/tickoni/terminal" -B "$REPO_ROOT/build/tickoni-terminal" && cmake --build "$REPO_ROOT/build/tickoni-terminal" -j {{ cpu_count }}
+
+build-qt-windows-arm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    cd "$REPO_ROOT"
+    QT6_DIR=$(find ~/Qt -name Qt6Config.cmake 2>/dev/null | head -1 | xargs dirname | xargs dirname)
+    CMAKE_PREFIX_PATH="$QT6_DIR" cmake -S "$REPO_ROOT/src/tickoni/terminal" -B "$REPO_ROOT/build/tickoni-terminal" && cmake --build "$REPO_ROOT/build/tickoni-terminal" -j {{ cpu_count }}
+
 
 # tickoni_fd machine profile: builds only the 5 Firedancer libraries
 # Tickoni reuses (tango, util, ballet, disco, waltz). Excludes
