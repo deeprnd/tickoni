@@ -188,13 +188,12 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
     const proc_msg = try std.fmt.bufPrint(&buf, "starting process-mode pipeline: run_dir={s}", .{run_dir});
     log.debug("main", "cmdStartProcess", proc_msg);
     const process_config = ProcessPipelineConfig{ .run_dir = run_dir, .verbose = verbose };
-    try sup.startPaymentPipelineProcess(init.io, topo, process_config);
+    try sup.startPaymentPipelineProcess(init.io, process_config);
     log.debug("main", "cmdStartProcess", "process-mode pipeline started, monitoring tiles");
 
     try File.writeStreamingAll(stdout, init.io, "tickoni-supervisor: process-mode pipeline started\ntiles:\n");
-    const state = sup.process_state orelse unreachable;
     for (sup.monitor()) |h| {
-        const tile_name = state.built_topo.tile_infos[h.tile_idx].tile_id.slice();
+        const tile_name = topo.tiles[h.tile_idx].id.slice();
         const line = try std.fmt.bufPrint(&buf, "  [{d}] {s}  pid={?}  state={s}\n", .{
             h.tile_idx,
             tile_name,
@@ -231,7 +230,7 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
         for (0..count) |i| {
             const p = prev_per_tile[i];
             const c = curr_per_tile[i];
-            const tile_id = state.built_topo.tile_infos[i].tile_id;
+            const tile_id = topo.tiles[i].id;
             const delta_prod = @as(i64, @intCast(c.produced)) - @as(i64, @intCast(p.produced));
             const delta_norm = @as(i64, @intCast(c.normalized)) - @as(i64, @intCast(p.normalized));
             const delta_inv = @as(i64, @intCast(c.invalid)) - @as(i64, @intCast(p.invalid));
@@ -264,7 +263,7 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
     );
     try File.writeStreamingAll(stdout, init.io, metrics_line);
 
-    try sup.stopProcess(init.io);
+    sup.stopProcess(init.io);
     try File.writeStreamingAll(stdout, init.io, "tickoni-supervisor: process-mode pipeline stopped\n");
 }
 
