@@ -62,6 +62,7 @@ pub fn shimCFlagsFor(target: std.Target) []const []const u8 {
         .macos => &.{
             "-std=c17", "-U__BMI2__", "-U__LZCNT__",
             "-DFD_HAS_HOSTED=1", "-DFD_HAS_MACOS=1",
+            "-DFD_HAS_THREADS=1", "-DFD_HAS_ATOMIC=1",
             "-DFD_HAS_OPENSSL=1", unaligned_style,
         },
         .windows => switch (target.cpu.arch) {
