@@ -1,42 +1,41 @@
 # ── Variables ──────────────────────────────────────────────────────────────
-include "just/vars.just"
+import "just/vars.just"
 
 # ── Setup ─────────────────────────────────────────────────────────────────
-include "just/setup/install-build.just"
-include "just/setup/install-fd.just"
-include "just/setup/install-coverage.just"
-include "just/setup/install-zig.just"
-include "just/setup/install-just.just"
-include "just/setup/install-env.just"
-include "just/setup/install-git.just"
-include "just/setup/dev-setup.just"
-include "just/setup/qt.just"
-include "just/setup/quality.just"
-include "just/setup/secrets.just"
-include "just/setup/security.just"
+import "just/setup/install-build.just"
+import "just/setup/install-fd.just"
+import "just/setup/install-coverage.just"
+import "just/setup/install-zig.just"
+import "just/setup/install-just.just"
+import "just/setup/install-env.just"
+import "just/setup/install-git.just"
+import "just/setup/qt.just"
+import "just/setup/quality.just"
+import "just/setup/secrets.just"
+import "just/setup/security.just"
 
 # ── Build ─────────────────────────────────────────────────────────────────
-include "just/build/all.just"
-include "just/build/build-fd.just"
-include "just/build/build-qt.just"
-include "just/build/build-tk.just"
+import "just/build/all.just"
+import "just/build/build-fd.just"
+import "just/build/build-qt.just"
+import "just/build/build-tk.just"
 
 # ── Test ───────────────────────────────────────────────────────────────────
-include "just/test/all.just"
-include "just/test/coverage.just"
-include "just/test/demo.just"
-include "just/test/e2e.just"
-include "just/test/integration.just"
-include "just/test/perf.just"
-include "just/test/system.just"
-include "just/test/unit.just"
+import "just/test/all.just"
+import "just/test/coverage.just"
+import "just/test/demo.just"
+import "just/test/e2e.just"
+import "just/test/integration.just"
+import "just/test/perf.just"
+import "just/test/system.just"
+import "just/test/unit.just"
 
 # ── Quality and Security ──────────────────────────────────────────────────
-include "just/quality.just"
-include "just/security.just"
+import "just/quality.just"
+import "just/security.just"
 
 # ── System ─────────────────────────────────────────────────────────────────
-include "just/system.mem.just"
+import "just/system.mem.just"
 
 # ── Default ────────────────────────────────────────────────────────────────
 default:

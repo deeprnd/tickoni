@@ -6,6 +6,11 @@
 # Firedancer's GNUmakefile uses `undefine`, which needs GNU Make >= 3.82.
 make := `command -v gmake || command -v make`
 
+# ── Justfile directory ────────────────────────────────────────────────────────
+# Resolved at import time so all recipes get a stable repo-root path.
+# Used by perf.just dispatchers and any recipe that cd's into the repo root.
+justfile_dir := `git rev-parse --show-toplevel`
+
 # Resolve one usable Python command for all recipes, including Windows CI.
 python := `bash contrib/setup/python.sh`
 
