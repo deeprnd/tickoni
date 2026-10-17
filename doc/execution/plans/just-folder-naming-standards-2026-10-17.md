@@ -32,18 +32,18 @@ just/
 │   ├── qt.just                            ← build-qt-* ✅
 │   └── tk.just                            ← build-tk-* ✅
 ├── setup/
-│   ├── build.just                         ← setup-build-* ⚠️ should be install-build.just
-│   ├── coverage.just                      ← setup-coverage-* ⚠️ should be install-coverage.just
-│   ├── dev-env.just                       ← setup-dev-env-* ⚠️ should be install-dev-env.just
-│   ├── env.just                           ← setup-all ⚠️ ambiguous name
-│   ├── fd.just                            ← setup-fd-* ⚠️ should be install-fd.just
-│   ├── git.just                           ← setup-git ⚠️ should be install-git.just
-│   ├── just.just                          ← setup-just ⚠️ should be install-just.just
-│   ├── qt.just                            ← setup-qt-* ⚠️ should be install-qt.just
-│   ├── quality.just                       ← setup-quality-* ⚠️ should be install-quality.just
-│   ├── secrets.just                       ← setup-gitleaks-* ⚠️ should be install-secrets.just
-│   ├── security.just                      ← setup-security-* ⚠️ should be install-security.just
-│   └── zig.just                           ← setup-zig ⚠️ should be install-zig.just
+│   ├── build.just                         ← setup-build-* ✅ bare name
+│   ├── coverage.just                      ← setup-coverage-* ✅ bare name
+│   ├── dev-env.just                       ← setup-linux-x86-gcc, setup-dev-env-* ⚠️ redundant, remove
+│   ├── env.just                           ← setup-all ⚠️ should be all.just
+│   ├── fd.just                            ← setup-fd-* ✅ bare name
+│   ├── git.just                           ← setup-git ✅ bare name
+│   ├── just.just                          ← setup-just ✅ bare name
+│   ├── qt.just                            ← setup-qt-* ✅ bare name
+│   ├── quality.just                       ← setup-quality-* ✅ bare name
+│   ├── secrets.just                       ← setup-gitleaks-* ⚠️ wrong concept
+│   ├── security.just                      ← setup-security-* ✅ bare name
+│   └── zig.just                           ← setup-zig ✅ bare name
 ├── system/
 │   └── system.just                        ← mem-*, kill-test ⚠️ naming mismatch
 └── test/
@@ -61,107 +61,94 @@ just/
 
 ## 2. Problems
 
-### 2.1 Setup/ Directory: Bare Names vs install-* Prefix
+### 2.1 Uniform Pattern: No Exceptions
 
-| File | Recipe Prefix | Issue |
-|------|--------------|-------|
-| `build.just` | `setup-build-*` | bare name, should be `install-build.just` |
-| `coverage.just` | `setup-coverage-*` | bare name, should be `install-coverage.just` |
-| `dev-env.just` | `setup-dev-env-*` | bare name, should be `install-dev-env.just` |
-| `env.just` | `setup-all` | ambiguous, should describe what it sets up |
-| `fd.just` | `setup-fd-*` | bare name, should be `install-fd.just` |
-| `git.just` | `setup-git` | bare name, should be `install-git.just` |
-| `just.just` | `setup-just` | bare name, should be `install-just.just` |
-| `qt.just` | `setup-qt-*` | bare name, should be `install-qt.just` |
-| `quality.just` | `setup-quality-*` | bare name, should be `install-quality.just` |
-| `secrets.just` | `setup-gitleaks-*` | bare name + wrong concept (secrets != gitleaks), should be `install-secrets.just` |
-| `security.just` | `setup-security-*` | bare name, should be `install-security.just` |
-| `zig.just` | `setup-zig` | bare name, should be `install-zig.just` |
+**Every domain directory has exactly one `all.just` as the aggregator, followed by bare `{identifier}.just` files for each sub-domain.**
 
-### 2.2 system/system.just: File Name vs Recipe Name Mismatch
+| Domain | all.just Content |
+|--------|-----------------|
+| `build/` | `build-all` (calls build-fd, build-tk, build-qt) |
+| `test/` | `test-all` (calls test-unit-all, test-integration-all, etc.) |
+| `quality/` | `quality-check-all` (calls quality-format-check-all, etc.) |
+| `security/` | `security-check-all` (calls security-engine-check-all, etc.) |
+| `setup/` | `setup-all` (calls setup-fd, setup-zig, setup-qt, etc.) |
 
-The file is named `system.just` but contains recipes with `mem-*` and `kill-test` prefixes. It should either:
-- Be renamed to match content: `system.just` → recipes should be `system-mem-*` and `system-kill-*`
-- OR keep `mem-*` recipes and rename file to `mem.just` (less ideal, since it also has kill-test)
+### 2.2 Setup/ `env.just` — Should Be `all.just`
 
-### 2.3 Root justfile: Import Pattern Inconsistency
+`env.just` contains `setup-all`. It should be named `all.just` to match every other domain's aggregator pattern.
 
-The root justfile imports `all.just` (aggregators) AND individual sub-files in some domains but not others. This creates:
-- Redundant imports (sub-files are already importable via their `all.just`'s directory, but justfile doesn't follow nested imports)
-- Inconsistent patterns across domains
+### 2.3 Setup/ `dev-env.just` — Redundant, Remove Entirely
 
-### 2.4 Root justfile: Aggregator Consistency
+`dev-env.just` contains platform-specific convenience aliases (`setup-linux-x86-gcc` etc.) that chain to existing setup commands, plus `setup-dev-env-linux-x86` dev stacks and `test-prep-linux-x86`. All redundant — `setup-all` in `all.just` installs everything. `setup-fd`, `setup-zig`, `setup-qt` etc. are available individually.
 
-The root `justfile` has dispatcher recipes (`tests-all`, `build-all`, `test-all`) that mix aggregation levels. Need to verify they all follow the same pattern: each domain calls only its own `*-all` aggregator.
+**Action: Delete `dev-env.just` entirely.**
+
+### 2.4 Setup/ `secrets.just` — Wrong Concept
+
+`secrets.just` contains `setup-gitleaks-*` recipes. Rename to `gitleaks.just` to match the recipe prefix.
+
+### 2.5 system/system.just: File Name vs Recipe Name Mismatch
+
+The file is named `system.just` but contains recipes with `mem-*` and `kill-test` prefixes (no `system-` prefix).
+
+**Action:** Rename all recipes to use the `system-` prefix.
+
+### 2.6 Root justfile: Import Pattern
+
+The root justfile must import each sub-file individually (justfile doesn't follow nested imports). This should be consistent across all domains.
+
+### 2.7 Root justfile: Aggregator Consistency
+
+Root dispatchers (`tests-all`) should call only each domain's `*-all` aggregator: `build-all`, `test-all`, `quality-check-all`, `security-check-all`.
 
 ## 3. Proposed Standards
 
-### Standard 1: setup/ Files — install-* Prefix
+### Standard 1: Uniform Bare Names — No Prefixes
 
-**Rule:** Every file in `just/setup/` must use the `install-*` prefix to describe what tool/component it installs.
+**Rule:** All files across all domains use bare `{identifier}.just` names. The directory provides the namespace.
 
-| Current | Proposed | Rationale |
-|---------|----------|-----------|
-| `build.just` | `install-build.just` | Installs build toolchain |
-| `coverage.just` | `install-coverage.just` | Installs coverage toolchain |
-| `dev-env.just` | `install-dev-env.just` | Installs dev environment |
-| `env.just` | `install-env.just` | Installs full dev environment |
-| `fd.just` | `install-fd.just` | Installs Firedancer toolchain |
-| `git.just` | `install-git.just` | Installs git hooks |
-| `just.just` | `install-just.just` | Installs just binary |
-| `qt.just` | `install-qt.just` | Installs Qt 6 |
-| `quality.just` | `install-quality.just` | Installs quality tools |
-| `secrets.just` | `install-secrets.just` | Installs secrets tooling |
-| `security.just` | `install-security.just` | Installs security tooling |
-| `zig.just` | `install-zig.just` | Installs Zig |
+| Domain | Pattern | Examples |
+|--------|---------|----------|
+| `setup/` | `{tool}.just` | `fd.just`, `zig.just`, `qt.just`, `git.just`, `build.just`, `coverage.just`, `gitleaks.just`, `just.just`, `quality.just`, `security.just`, `all.just` |
+| `build/` | `{product}.just` | `fd.just`, `tk.just`, `qt.just` |
+| `quality/` | `{check}.just` | `format.just`, `lint.just`, `proto.just`, `yaml.just`, `spell.just` |
+| `security/` | `{check}.just` | `codeql.just`, `gitleaks.just`, `seccomp.just`, `proof.just`, `sanitize.just`, `engine.just` |
+| `test/` | `{domain}.just` | `unit.just`, `integration.just`, `e2e.just`, `perf.just`, `demo.just`, `coverage.just`, `system.just`, `utils.just` |
+| `system/` | `{utility}.just` | `system.just` (contains all system utilities) |
 
-### Standard 2: Recipe Naming — setup-* Prefix
-
-**Rule:** All setup/ recipes use the `setup-*` prefix regardless of file name. File names describe WHAT is installed; recipe names describe the ACTION.
-
-| File | Recipe Prefix | Alignment |
-|------|--------------|-----------|
-| `install-build.just` | `setup-build-*` | File=install-build, recipe=setup-build — consistent |
-| `install-qt.just` | `setup-qt-*` | File=install-qt, recipe=setup-qt — consistent |
-| `install-secrets.just` | `setup-gitleaks-*` | File=install-secrets, recipe=setup-gitleaks — acceptable (tool name) |
-| `install-dev-env.just` | `setup-dev-env-*` | File=install-dev-env, recipe=setup-dev-env — consistent |
-
-### Standard 3: system/ File — Match Content
-
-**Rule:** File names in `just/system/` should reflect the recipe prefixes they contain.
-
-| Current | Proposed | Rationale |
-|---------|----------|-----------|
-| `system/system.just` with `mem-*` + `kill-test` recipes | Keep `system/system.just` but rename recipes to `system-mem-*` and `system-kill-*` OR rename file to `mem.just` and keep `mem-*` + add `system-kill-*` | Option A is cleaner: one file per concern, consistent `system-*` prefix |
-
-**Recommendation:** Keep `system/system.just` as the file but standardize recipes:
-- `mem-init` → `system-mem-init`
-- `mem-query` → `system-mem-query`
-- `mem-reset` → `system-mem-reset`
-- `mem-fini` → `system-mem-fini`
-- `mem-alloc` → `system-mem-alloc`
-- `mem-alloc-auto` → `system-mem-alloc-auto`
-- `mem-free` → `system-mem-free`
-- `mem-drop-caches` → `system-mem-drop-caches`
-- `kill-test` → `system-kill-test`
-
-### Standard 4: Recipe → Domain Prefix
+### Standard 2: Recipe Naming
 
 **Rule:** Recipe names follow `{domain}-{category}-{scope}` where:
-- `{domain}` = build, test, quality, security, setup, system
+- `{domain}` = setup, build, test, quality, security, system
 - `{category}` = specific sub-area (fd, tk, qt, format, lint, etc.)
 - `{scope}` = check, fix, all, linux-x86, macos-arm, etc.
 
 | Domain | Examples |
 |--------|----------|
+| setup | `setup-fd-linux-x86-gcc`, `setup-zig`, `setup-git`, `setup-coverage-macos-arm`, `setup-all` |
 | build | `build-fd-linux-x86-gcc`, `build-tk-macos-arm`, `build-qt-windows-x86` |
 | test | `test-unit-tk-linux-x86`, `test-integration-fd`, `test-e2e-all` |
 | quality | `quality-format-check-fd`, `quality-lint-check-linux-x86` |
 | security | `security-gitleaks-check-tk`, `security-seccomp-check-all` |
-| setup | `setup-fd-linux-x86-gcc`, `setup-coverage-macos-arm`, `setup-git` |
 | system | `system-mem-alloc-auto`, `system-kill-test` |
 
-### Standard 5: Platform Identifiers
+### Standard 3: system/ Recipes — Add `system-` Prefix
+
+**Rule:** All recipes in `just/system/system.just` use the `system-` prefix for consistency.
+
+| Current | Proposed |
+|---------|----------|
+| `mem-init` | `system-mem-init` |
+| `mem-query` | `system-mem-query` |
+| `mem-reset` | `system-mem-reset` |
+| `mem-fini` | `system-mem-fini` |
+| `mem-alloc` | `system-mem-alloc` |
+| `mem-alloc-auto` | `system-mem-alloc-auto` |
+| `mem-free` | `system-mem-free` |
+| `mem-drop-caches` | `system-mem-drop-caches` |
+| `kill-test` | `system-kill-test` |
+
+### Standard 4: Platform Identifiers
 
 **Rule:** Use the 2-part `os-arch` format from `contrib/platform.sh`:
 
@@ -176,9 +163,9 @@ The root `justfile` has dispatcher recipes (`tests-all`, `build-all`, `test-all`
 
 No version numbers, no `_64` suffixes, no `aarch64`. Always `os-arch`.
 
-### Standard 6: all.just as Domain Aggregator
+### Standard 5: all.just as Domain Aggregator
 
-**Rule:** Each domain directory has exactly one `all.just` that aggregates all sub-files. The root justfile imports both the `all.just` AND individual sub-files (justfile does not follow nested imports).
+**Rule:** Every domain directory has exactly one `all.just` that aggregates all sub-files. The root justfile imports both the `all.just` AND individual sub-files (justfile doesn't follow nested imports).
 
 | Domain | all.just Content |
 |--------|-----------------|
@@ -186,8 +173,9 @@ No version numbers, no `_64` suffixes, no `aarch64`. Always `os-arch`.
 | `test/` | `test-all` (calls test-unit-all, test-integration-all, etc.) |
 | `quality/` | `quality-check-all` (calls quality-format-check-all, etc.) |
 | `security/` | `security-check-all` (calls security-engine-check-all, etc.) |
+| `setup/` | `setup-all` (calls setup-fd, setup-zig, setup-qt, etc.) |
 
-### Standard 7: Root justfile Imports
+### Standard 6: Root justfile Imports
 
 **Rule:** Root justfile imports:
 1. `vars.just` first (variables)
@@ -199,19 +187,18 @@ No version numbers, no `_64` suffixes, no `aarch64`. Always `os-arch`.
 # Variables
 import "just/vars.just"
 
-# Setup
-import "just/setup/install-build.just"
-import "just/setup/install-coverage.just"
-import "just/setup/install-dev-env.just"
-import "just/setup/install-env.just"
-import "just/setup/install-fd.just"
-import "just/setup/install-git.just"
-import "just/setup/install-just.just"
-import "just/setup/install-qt.just"
-import "just/setup/install-quality.just"
-import "just/setup/install-secrets.just"
-import "just/setup/install-security.just"
-import "just/setup/install-zig.just"
+# Setup (all bare names, no prefixes, all.just is aggregator)
+import "just/setup/all.just"
+import "just/setup/build.just"
+import "just/setup/coverage.just"
+import "just/setup/fd.just"
+import "just/setup/git.just"
+import "just/setup/just.just"
+import "just/setup/gitleaks.just"
+import "just/setup/qt.just"
+import "just/setup/quality.just"
+import "just/setup/security.just"
+import "just/setup/zig.just"
 
 # Build
 import "just/build/all.just"
@@ -223,21 +210,20 @@ import "just/build/tk.just"
 import "just/test/all.just"
 import "just/test/coverage.just"
 import "just/test/demo.just"
-import "just/test/dynamic.just"
 import "just/test/e2e.just"
 import "just/test/integration.just"
 import "just/test/perf.just"
 import "just/test/system.just"
-import "just/test/test-include.just"
 import "just/test/unit.just"
+import "just/test/utils.just"
 
 # Quality
 import "just/quality/all.just"
 import "just/quality/format.just"
 import "just/quality/lint.just"
 import "just/quality/proto.just"
-import "just/quality/spell.just"
 import "just/quality/yaml.just"
+import "just/quality/spell.just"
 
 # Security
 import "just/security/all.just"
@@ -285,57 +271,56 @@ just/
 │   ├── sanitize.just                      ← security-sanitize-*
 │   └── seccomp.just                       ← security-seccomp-*
 ├── setup/
-│   ├── install-build.just                 ← setup-build-*
-│   ├── install-coverage.just              ← setup-coverage-*
-│   ├── install-dev-env.just               ← setup-dev-env-*
-│   ├── install-env.just                   ← setup-all
-│   ├── install-fd.just                    ← setup-fd-*
-│   ├── install-git.just                   ← setup-git
-│   ├── install-just.just                  ← setup-just
-│   ├── install-qt.just                    ← setup-qt-*
-│   ├── install-quality.just               ← setup-quality-*
-│   ├── install-secrets.just               ← setup-gitleaks-*
-│   ├── install-security.just              ← setup-security-*
-│   └── install-zig.just                   ← setup-zig
+│   ├── all.just                           ← setup-all (was env.just)
+│   ├── build.just                         ← setup-build-*
+│   ├── coverage.just                      ← setup-coverage-*
+│   ├── fd.just                            ← setup-fd-*
+│   ├── git.just                           ← setup-git
+│   ├── gitleaks.just                      ← setup-gitleaks-* (was secrets.just)
+│   ├── just.just                          ← setup-just
+│   ├── qt.just                            ← setup-qt-*
+│   ├── quality.just                       ← setup-quality-*
+│   ├── security.just                      ← setup-security-*
+│   └── zig.just                           ← setup-zig
 ├── system/
 │   └── system.just                        ← system-mem-*, system-kill-test
 └── test/
     ├── all.just                           ← test-all
     ├── coverage.just                      ← test-cov-*
     ├── demo.just                          ← test-demo-*
-    ├── dynamic.just                       ← dynamic-test-opts
     ├── e2e.just                           ← test-e2e-*
     ├── integration.just                   ← test-integration-*
     ├── perf.just                          ← test-perf-*
     ├── system.just                        ← test-system-*
-    ├── test-include.just                  ← test-include
-    └── unit.just                          ← test-unit-*
+    ├── unit.just                          ← test-unit-*
+    └── utils.just                         ← dynamic-test-opts, test-include (merged from dynamic.just + test-include.just)
 ```
 
 ## 5. Implementation Plan
 
-### Phase 1: Rename setup/ Files (12 files)
+### Phase 1: Rename setup/env.just → setup/all.just
 
-All recipes keep their `setup-*` prefix. Only filenames change.
+Move `env.just` to `all.just`. Recipe stays `setup-all`.
 
 | Rename From | Rename To |
 |-------------|-----------|
-| `setup/build.just` | `setup/install-build.just` |
-| `setup/coverage.just` | `setup/install-coverage.just` |
-| `setup/dev-env.just` | `setup/install-dev-env.just` |
-| `setup/env.just` | `setup/install-env.just` |
-| `setup/fd.just` | `setup/install-fd.just` |
-| `setup/git.just` | `setup/install-git.just` |
-| `setup/just.just` | `setup/install-just.just` |
-| `setup/qt.just` | `setup/install-qt.just` |
-| `setup/quality.just` | `setup/install-quality.just` |
-| `setup/secrets.just` | `setup/install-secrets.just` |
-| `setup/security.just` | `setup/install-security.just` |
-| `setup/zig.just` | `setup/install-zig.just` |
+| `setup/env.just` | `setup/all.just` |
 
-**Impact:** Git rename only. No recipe changes. No CI changes (CI calls `just setup-*`, not filenames).
+**Impact:** Update root justfile import from `env.just` to `all.just`.
 
-### Phase 2: Rename system/ Recipes (9 recipes)
+### Phase 2: Delete setup/dev-env.just
+
+Remove the file entirely. Content is redundant — `all.just` provides `setup-all` which installs everything. CI workflows calling `setup-linux-x86-gcc` or `setup-dev-env-linux-x86` should use `setup-all` or chain individual setup commands.
+
+### Phase 3: Rename setup/secrets.just → setup/gitleaks.just
+
+| Rename From | Rename To |
+|-------------|-----------|
+| `setup/secrets.just` | `setup/gitleaks.just` |
+
+**Impact:** Update root justfile import. No recipe changes.
+
+### Phase 4: Rename system/ Recipes (9 recipes)
 
 | From | To |
 |------|----|
@@ -349,33 +334,45 @@ All recipes keep their `setup-*` prefix. Only filenames change.
 | `mem-drop-caches` | `system-mem-drop-caches` |
 | `kill-test` | `system-kill-test` |
 
-**Impact:** Any external caller of `just mem-*` or `just kill-test` needs updating. Check CI workflows and any documentation.
+**Impact:** Any external caller of `just mem-*` or `just kill-test` needs updating. Check CI workflows and documentation.
 
-### Phase 3: Update Root justfile Imports
+### Phase 5: Update Root justfile Imports
 
-Update the root `justfile` to use all new `install-*` paths and ensure every sub-file is imported (not just `all.just`).
+Update all imports to match the final directory structure. No `install-` prefixes. No `dev-env.just` or `env.just` imports.
 
-### Phase 4: Verify
+### Phase 6: Verify
 
 1. `just --dump` parses without errors
 2. `just --list` shows all recipes with new names
 3. `just tests-all --dry-run` resolves correctly
-4. Check CI workflows for any `just mem-*` or `just kill-test` references
+4. Check CI workflows for `just mem-*`, `just kill-test`, `just setup-linux-x86-gcc`, `just setup-dev-env-*` references
 5. No orphaned imports or references
 
 ## 6. Naming Decision Rationale
 
-### Why `install-*` for setup/ files?
+### Why uniform `all.just` aggregator in every domain?
 
-- **Describes content:** Each file installs a specific tool. `install-zig` clearly means "this file contains Zig installation recipes."
-- **Consistent:** 7 of 13 setup files already used `install-*`. The rest should follow.
-- **Distinguishes from recipe prefix:** File names describe what IS (`install-*`), recipe names describe the action (`setup-*`).
-- **Scalable:** When adding new installers, the convention is established.
+Every domain directory follows the same pattern: `all.just` is the aggregator, all other files are bare `{identifier}.just`. This is consistent, predictable, and requires no special cases. `setup/all.just` → `setup-all`, `build/all.just` → `build-all`, etc.
+
+### Why uniform bare names (no prefixes) across all domains?
+
+- **Directory provides namespace:** `setup/fd.just` is unambiguous. Adding `install-` prefix is redundant noise.
+- **Consistent across domains:** `build/fd.just`, `quality/format.just`, `test/unit.just`, `setup/fd.just` — all follow the same pattern. No special case for any domain.
+- **Cleaner:** Fewer characters, no arbitrary prefix conventions.
+- **Scalable:** When adding new files, the convention is established — just use `{identifier}.just`.
+
+### Why remove dev-env.just?
+
+`all.just` provides `setup-all` which installs everything. Platform-specific convenience aliases (`setup-linux-x86-gcc`) and dev stacks (`setup-dev-env-linux-x86`) are unnecessary complexity. Developers can run `just setup-all` or chain individual commands (`setup-fd`, `setup-zig`, `setup-qt`) as needed.
+
+### Why `secrets.just` → `gitleaks.just`?
+
+The file installs gitleaks specifically. "secrets" is a concept, not a tool. The recipe prefix is `setup-gitleaks-*`, so the file name should match.
+
+### Why `system-` prefix for mem/kill recipes?
+
+The recipes live in `just/system/system.just`. `system-mem-*` and `system-kill-*` make it clear these are system-level utilities and won't collide with any future domain-level `mem-*` or `kill-*` recipes.
 
 ### Why keep quality/security at root?
 
-These are domain-specific check recipes, not installers. They belong at the top level for frequent reference. The subdirectory structure (`quality/format.just`, `security/engine.just`) provides good granularity without adding nesting for the root import.
-
-### Why system-* prefix for mem/kill recipes?
-
-The recipes live in `just/system/system.just`. Having `mem-*` and `kill-test` without the `system-` prefix breaks the domain prefix convention. Using `system-mem-*` and `system-kill-*` makes it clear these are system-level utilities, and they won't collide with any future domain-level `mem-*` or `kill-*` recipes.
+These are domain-specific check recipes, not installers. They belong at the top level for frequent reference. The subdirectory structure (`quality/format.just`, `security/engine.just`) provides good granularity without adding nesting.
