@@ -2,24 +2,24 @@
 import "just/vars.just"
 
 # ── Setup ─────────────────────────────────────────────────────────────────
-import "just/setup/install-build.just"
-import "just/setup/install-fd.just"
-import "just/setup/install-coverage.just"
-import "just/setup/install-zig.just"
-import "just/setup/install-just.just"
-import "just/setup/install-env.just"
-import "just/setup/install-git.just"
-import "just/setup/install-qt.just"
-import "just/setup/install-quality.just"
-import "just/setup/install-secrets.just"
-import "just/setup/install-security.just"
-import "just/setup/install-dev-env.just"
+import "just/setup/build.just"
+import "just/setup/fd.just"
+import "just/setup/coverage.just"
+import "just/setup/zig.just"
+import "just/setup/just.just"
+import "just/setup/env.just"
+import "just/setup/git.just"
+import "just/setup/qt.just"
+import "just/setup/quality.just"
+import "just/setup/secrets.just"
+import "just/setup/security.just"
+import "just/setup/dev-env.just"
 
 # ── Build ─────────────────────────────────────────────────────────────────
 import "just/build/all.just"
-import "just/build/build-fd.just"
-import "just/build/build-qt.just"
-import "just/build/build-tk.just"
+import "just/build/fd.just"
+import "just/build/qt.just"
+import "just/build/tk.just"
 
 # ── Test ───────────────────────────────────────────────────────────────────
 import "just/test/all.just"
@@ -33,8 +33,19 @@ import "just/test/test-include.just"
 import "just/test/unit.just"
 
 # ── Quality and Security ──────────────────────────────────────────────────
-import "just/quality.just"
-import "just/security.just"
+import "just/quality/all.just"
+import "just/quality/format.just"
+import "just/quality/lint.just"
+import "just/quality/proto.just"
+import "just/quality/yaml.just"
+import "just/quality/spell.just"
+import "just/security/all.just"
+import "just/security/codeql.just"
+import "just/security/gitleaks.just"
+import "just/security/seccomp.just"
+import "just/security/proof.just"
+import "just/security/sanitize.just"
+import "just/security/engine.just"
 
 # ── System ─────────────────────────────────────────────────────────────────
 import "just/system/system.just"
@@ -46,9 +57,6 @@ default:
 # ── Super-aggregator ───────────────────────────────────────────────────────
 tests-all:
     @just build-all
-    @just quality-format-check-all
-    @just quality-lint-check-tk
-    @just quality-proto-check-all
-    @just security-check-all
-    @just security-engine-check-changes
     @just test-all
+    @just quality-check-all
+    @just security-check-all
