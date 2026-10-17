@@ -7,6 +7,7 @@ test-integration-fd:
 
 # Tickoni integration lane: transport and boundary wiring against local mocks.
 test-integration-tk:
+    #!/usr/bin/env bash
     set -euo pipefail
     case "{{ os }}-{{ arch }}" in
     linux-x86) exec just test-integration-tk-linux-x86 ;;
