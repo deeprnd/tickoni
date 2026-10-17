@@ -3,6 +3,7 @@
 
 # Bare dispatcher; canonical platform/compiler recipes below are the implementation.
 test-unit-fd:
+    #!/usr/bin/env bash
     set -euo pipefail
     case "{{ os }}-{{ arch }}" in
     linux-x86) exec just test-unit-fd-linux-x86-gcc ;;
@@ -15,6 +16,7 @@ test-unit-fd:
 
 # Native Firedancer C unit-test recipes.
 test-unit-fd-linux-x86-gcc:
+    #!/usr/bin/env bash
     set -euo pipefail
     timeout=600
     {{ python }} contrib/build/orchestrator.py --platform linux-x86 build-fd {{ fd_tickoni_build }} test gcc-12
