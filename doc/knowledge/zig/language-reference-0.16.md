@@ -6093,7 +6093,7 @@ pub fn main() void {
     defer {
         print("2 ", .{});
     }
-    if (false) {
+    if (true) {
         // defers are not run if they are never executed.
         defer {
             print("3 ", .{});

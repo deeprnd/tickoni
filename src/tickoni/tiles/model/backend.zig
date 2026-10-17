@@ -1,5 +1,6 @@
 const std = @import("std");
 const c_abi = @import("c_abi");
+const util = @import("util");
 const schema = @import("model_messages");
 const fixture_paths = @import("fixture_paths");
 
@@ -266,7 +267,7 @@ fn connectWithTimeout(
         if (std.Io.net.IpAddress.connect(&address, io, .{ .mode = .stream, .protocol = .tcp })) |stream| {
             return stream;
         } else |_| {}
-        c_abi.os.sleepNanos(50 * std.time.ns_per_ms);
+        util.os_api.sleepNanos(50 * std.time.ns_per_ms);
     }
     return error.ConnectionTimeout;
 }

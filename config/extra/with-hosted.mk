@@ -1,5 +1,7 @@
 CPPFLAGS+=-D_XOPEN_SOURCE=700 -DFD_HAS_HOSTED=1
+ifeq ($(FD_HAS_LINUX),1)
 LDFLAGS+=-z noexecstack -lrt
+endif
 
 FD_HAS_HOSTED:=1
 

@@ -33,6 +33,14 @@ def test_string_method_passes_through():
     assert _resolve_install_method("pip", "linux-x86", "yamllint") == "pip"
 
 
+def test_pipx_uses_system_package_manager_on_linux():
+    cfg = json.loads((setup_dir / "tool-versions.json").read_text())
+    method = cfg["tools"]["pipx"]["install_method"]
+
+    assert _resolve_install_method(method, "linux-x86", "pipx") == "apt"
+    assert _resolve_install_method(method, "linux-arm", "pipx") == "apt"
+
+
 @pytest.mark.parametrize(
     "platform_str,expected",
     [
@@ -98,6 +106,19 @@ def test_windows_ccache_does_not_depend_on_winget():
         "windows-arm",
         "ccache",
     ) == "ccache_download"
+
+
+def test_macos_llvm_is_setup_tooling_not_build_recipe_installation():
+    cfg = json.loads((setup_dir / "tool-versions.json").read_text())
+    assert "llvm" in cfg["categories"]["toolchain"]["tools"]
+
+    justfile = setup_dir.parent.parent / "justfile"
+    content = justfile.read_text()
+    for recipe in ("build-fd-macos-x86", "build-fd-macos-arm"):
+        start = content.index(f"{recipe}:")
+        end = content.find("\n\n", start)
+        section = content[start:] if end == -1 else content[start:end]
+        assert "brew install llvm" not in section
 
 
 def test_setup_stops_before_dependent_tools_after_install_failure():

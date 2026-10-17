@@ -20,6 +20,11 @@ pub fn linkTickoniFiredancer(b: *std.Build, step: *std.Build.Step.Compile, fd_li
 fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) void {
     step.root_module.link_libc = true;
     step.root_module.addIncludePath(b.path("src"));
+    // Firedancer shims include shmem/wksp headers by basename (fd_shmem.h, fd_wksp.h).
+    // These headers live in src/util/shmem and src/util/wksp — match codec.zig's
+    // addTickoniShimLibrary which adds the same paths for the supervisor shim.
+    step.root_module.addIncludePath(b.path("src/util/shmem"));
+    step.root_module.addIncludePath(b.path("src/util/wksp"));
     const target_info = step.root_module.resolved_target.?.result;
     step.root_module.addCSourceFiles(.{
         .files = &.{
@@ -31,4 +36,7 @@ fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) void 
         },
         .flags = shims.shimCFlagsFor(target_info),
     });
+    if (target_info.os.tag == .windows) {
+        step.root_module.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
+    }
 }

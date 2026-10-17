@@ -139,15 +139,13 @@ pub fn createCheckStep(
     const check_step = b.step("check", "Check Zig + C compilation without full link dependencies");
     const c_compile_check_step = b.step("check-c-compile", "Compile-check all C shim files and print errors to stdout");
     const cache_o_dir = "build/.zig-cache/o";
-    {
-        const ensure_dir = b.addSystemCommand(&.{ "mkdir", "-p", cache_o_dir });
-        c_compile_check_step.dependOn(&ensure_dir.step);
-    }
+    const ensure_dir = b.addSystemCommand(&.{ "mkdir", "-p", cache_o_dir });
+    c_compile_check_step.dependOn(&ensure_dir.step);
     const shim_c_flags = std.mem.join(b.allocator, " ", shims.shimCFlagsFor(target.result)) catch @panic("OOM");
     inline for (shims.shim_c_files) |shim_file| {
         const c_check = b.addSystemCommand(&.{
             "sh", "-c",
-            b.fmt("zig cc -target {s} -c -I src -std=c17 -UBMI2 -ULZCNT -DFD_HAS_HOSTED=1 {s} -o {s}/{s}.o {s} 2>&1", .{
+            b.fmt("zig cc -target {s} -c -I src -I src/util/shmem -I src/util/wksp -std=c17 -UBMI2 -ULZCNT -DFD_HAS_HOSTED=1 {s} -o {s}/{s}.o {s} 2>&1", .{
                 shims.buildTriple(b, target),
                 shim_c_flags,
                 cache_o_dir,
@@ -155,6 +153,7 @@ pub fn createCheckStep(
                 b.fmt("src/tickoni/c_abi/shim/{s}", .{shim_file}),
             }),
         });
+        c_check.step.dependOn(&ensure_dir.step);
         c_compile_check_step.dependOn(&c_check.step);
     }
     {
@@ -167,6 +166,7 @@ pub fn createCheckStep(
                 "src/util/shmem/test_fd_shmem_getrandom.c",
             }),
         });
+        getrandom_check.step.dependOn(&ensure_dir.step);
         c_compile_check_step.dependOn(&getrandom_check.step);
     }
     check_step.dependOn(c_compile_check_step);

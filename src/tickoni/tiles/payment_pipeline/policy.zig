@@ -11,8 +11,8 @@ const PaymentPipelineState = runtime.PaymentPipelineState;
 
 pub fn runPolicy(state: *PaymentPipelineState) void {
     const log = logger.get();
-    log.enter("tkpoly", "runPolicy") catch {};
-    defer log.exit("tkpoly", "runPolicy") catch {};
+    log.enter("tkpoly", "runPolicy");
+    defer log.exit("tkpoly", "runPolicy");
 
     defer state.q_poly_audit.close();
 
@@ -42,7 +42,7 @@ pub fn runPolicy(state: *PaymentPipelineState) void {
         }
         state.q_poly_audit.push(msg, &state.stop) catch break;
     }
-    log.debug("tkpoly", "runPolicy", "done") catch {};
+    log.debug("tkpoly", "runPolicy", "done");
 }
 
 test "sandbox failure records crash diagnostics and stops policy" {

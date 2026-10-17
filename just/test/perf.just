@@ -1,13 +1,13 @@
 # Test: Performance recipes
+# Perf tests are Linux-only (CPU placement proofs).
+# test-perf-fd and test-perf-qt are intentional no-ops — FD perf uses
+# the Firedancer harness directly; Qt has no perf lane yet.
 
-# Tickoni performance lane: Linux-only CPU placement performance proofs.
 test-perf-tk-linux-x86:
-    #!/usr/bin/env bash
     set -euo pipefail
     (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dperf=true -Dfd-lib-dir={{ fd_tickoni_lib }} perf-test)
 
 test-perf-tk-linux-arm:
-    #!/usr/bin/env bash
     set -euo pipefail
     (cd {{ justfile_dir }} && ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dperf=true -Dfd-lib-dir={{ fd_tickoni_lib }} perf-test)
 

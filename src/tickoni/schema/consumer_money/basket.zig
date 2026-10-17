@@ -534,10 +534,21 @@ fn isInCandidates(candidates: []*const cat.InstrumentEntry, entry: *const cat.In
 }
 
 fn sectorAllowed(entry: *const cat.InstrumentEntry, sectors: thesis.ClassificationRefList) bool {
-    for (sectors.values[0..sectors.count]) |sector| {
-        if (entry.sectors.has(sector)) return true;
+    // All of the entry's sectors must be in the allowed list.
+    // e.g. if sector filter is "information_technology" only, AMZN (which also
+    // has consumer_discretionary) and BOTZ (which also has industrials) must be
+    // rejected — not passed because they happen to carry information_technology.
+    for (entry.sectors.values[0..entry.sectors.count]) |entry_sector| {
+        var found = false;
+        for (sectors.values[0..sectors.count]) |allowed| {
+            if (entry_sector.eql(allowed)) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) return false;
     }
-    return false;
+    return true;
 }
 
 fn industryAllowed(entry: *const cat.InstrumentEntry, industries: thesis.ClassificationRefList) bool {

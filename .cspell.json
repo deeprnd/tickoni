@@ -380,6 +380,7 @@
     "NOHANG",
     "NOPAT",
     "noqa",
+    "notin",
     "notionals",
     "numa",
     "NUMA",
@@ -955,7 +956,9 @@
     "urandom",
     "vswhere",
     "xfixes",
-    "xinerama"
+    "xinerama",
+    "Dcpu",
+    "miniperl"
   ],
   "ignorePaths": [
     "opt/",

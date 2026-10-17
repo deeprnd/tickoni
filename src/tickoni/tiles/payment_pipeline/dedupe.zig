@@ -9,8 +9,8 @@ const PaymentPipelineState = runtime.PaymentPipelineState;
 
 pub fn runDedupe(state: *PaymentPipelineState) void {
     const log = logger.get();
-    log.enter("tkdedu", "runDedupe") catch {};
-    defer log.exit("tkdedu", "runDedupe") catch {};
+    log.enter("tkdedu", "runDedupe");
+    defer log.exit("tkdedu", "runDedupe");
 
     defer state.q_dedu_poly.close();
 
@@ -26,7 +26,7 @@ pub fn runDedupe(state: *PaymentPipelineState) void {
         }
         state.q_dedu_poly.push(msg, &state.stop) catch break;
     }
-    log.debug("tkdedu", "runDedupe", "done") catch {};
+    log.debug("tkdedu", "runDedupe", "done");
 }
 
 test "sandbox failure records crash diagnostics and stops dedupe" {

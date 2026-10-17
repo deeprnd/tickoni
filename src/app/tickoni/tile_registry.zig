@@ -29,7 +29,7 @@ pub const ProcessFn = *const fn (
 /// snapshotProcessMetrics can read counters without knowing per-tile which
 /// index means what. See tiles/payment_pipeline/process.zig's
 /// rt.cnc_counters.appCounterWrite call sites for where each index is
-/// written. Observer tiles (tkrepl, tkmetr, tkdiag) use additional fields
+/// written. Observer tiles (tkrepl, metric, tkdiag) use additional fields
 /// for process-mode visibility.
 pub const CounterField = enum {
     produced,
@@ -46,6 +46,10 @@ pub const CounterField = enum {
     metric_backpressure_waits,
     diag_crashed_tile,
     diag_sandbox_failures,
+    // Index 2 on the metric tile's CNC app-region holds boot_ts
+    // written by tk_metric_run after CNC join. Supervisor reads it via
+    // metric_boot_timestamp to verify unprivileged_init ran.
+    metric_boot_timestamp,
 };
 
 pub const CounterSchemaEntry = struct { idx: u8, field: CounterField };
@@ -53,7 +57,7 @@ pub const CounterSchemaEntry = struct { idx: u8, field: CounterField };
 pub const TileEntry = struct {
     id: rt.tile.TileId,
     /// Null for tiles with no process-mode pipeline role yet (tkrepl,
-    /// tkmetr, tkdiag) — see tiles/payment_pipeline/process.zig's module
+    /// metric, tkdiag) — see tiles/payment_pipeline/process.zig's module
     /// doc comment for that scope boundary.
     process_fn: ?ProcessFn = null,
     counters: []const CounterSchemaEntry = &.{},
@@ -86,6 +90,18 @@ fn loadProcessConfig(io: std.Io, spec: *const rt.launch_spec.LaunchSpec) !tiles.
     if (n != @sizeOf(tiles.process.ProcessConfigFile)) return error.ProcessConfigTruncated;
     if (file_struct.magic_field != tiles.process.process_config_magic) return error.ProcessConfigBadMagic;
     if (file_struct.version_field != tiles.process.process_config_version) return error.ProcessConfigUnsupportedVersion;
+    const stuck_str = if (file_struct.cfg.stuck_tile) |h| blk: {
+        var id_buf: [32]u8 = undefined;
+        break :blk std.fmt.bufPrint(&id_buf, "{d}", .{h.tile_idx}) catch "unknown";
+    } else "null";
+    std.log.warn(
+        "tile {d}: loaded process config, stuck_tile={s}, event_count={d}",
+        .{
+            spec.tile_idx,
+            stuck_str,
+            file_struct.cfg.pipeline.event_count,
+        },
+    );
     return file_struct.cfg;
 }
 
@@ -205,7 +221,13 @@ pub const entries = [_]TileEntry{
     },
     .{
         .id = id("metric"),
-        .counters = &.{ .{ .idx = 0, .field = .metric_snapshots }, .{ .idx = 1, .field = .metric_backpressure_waits } },
+        .counters = &.{
+            .{ .idx = 0, .field = .metric_snapshots },
+            .{ .idx = 1, .field = .metric_backpressure_waits },
+            .{ .idx = 2, .field = .metric_boot_timestamp },
+        },
+        .in_cnt = 0,
+        .out_cnt = 0,
     },
     .{
         .id = id("tkdiag"),
@@ -329,7 +351,7 @@ fn descriptorsFromRegistry() [8]rt.tile.TileDescriptor {
 }
 
 /// Channels matching the real linear Phase 0 chain: tkings(0)->tknorm(1)
-/// ->tkdedu(2)->tkpoly(3)->tkaudt(4); tkrepl/tkmetr/tkdiag(5,6,7) have none.
+/// ->tkdedu(2)->tkpoly(3)->tkaudt(4); tkrepl/metric/tkdiag(5,6,7) have none.
 fn channelsFromRegistry() [4]rt.link.Channel {
     return .{
         .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 },
@@ -536,7 +558,7 @@ test "validate rejects empty link arrays for tiles that require links" { // tkin
     try std.testing.expectError(error.LinkCardinalityMismatch, validate(topo));
 }
 
-test "validate accepts tiles with zero links when registry expects zero" { // tkrepl, tkmetr, tkdiag have in_cnt == 0 and out_cnt == 0 — a
+test "validate accepts tiles with zero links when registry expects zero" { // tkrepl, metric, tkdiag have in_cnt == 0 and out_cnt == 0 — a
     // topology with 0 channels should still validate for these tiles.
     const entry = findById(try rt.tile.TileId.parse("tkrepl")).?;
     try std.testing.expectEqual(@as(u8, 0), entry.in_cnt);
@@ -580,7 +602,7 @@ test "T10.12 validate rejects topology tile not in registry" { // Replace the fi
 
 // T10.12: explicit test for registry entry with no matching topology tile.
 // A registry entry whose tile id is absent from the topology must be rejected.
-test "T10.12 validate rejects registry entry with no matching topology tile" { // Build a topology with only 7 of the 8 registered tiles (remove tkmetr).
+test "T10.12 validate rejects registry entry with no matching topology tile" { // Build a topology with only 7 of the 8 registered tiles (remove metric).
     var descriptors: [7]rt.tile.TileDescriptor = undefined;
     for (entries[0..7], 0..) |e, i| descriptors[i] = .{ .id = e.id, .name = "t" };
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &.{} };

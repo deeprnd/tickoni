@@ -125,8 +125,8 @@ pub fn heartbeatQuery(cnc: *const Cnc) i64 {
 }
 
 /// Mirrors the upstream cnc heartbeat helper.
-pub fn heartbeat(cnc: *Cnc, now: i64) void {
-    tk_cnc_heartbeat(cnc, now);
+pub fn heartbeat(cnc: *Cnc, now_ns: i64) void {
+    tk_cnc_heartbeat(cnc, now_ns);
 }
 
 /// Mirrors the upstream cnc signal-query helper.

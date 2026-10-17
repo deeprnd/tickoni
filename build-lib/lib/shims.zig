@@ -62,6 +62,7 @@ pub fn shimCFlagsFor(target: std.Target) []const []const u8 {
         .macos => &.{
             "-std=c17", "-U__BMI2__", "-U__LZCNT__",
             "-DFD_HAS_HOSTED=1", "-DFD_HAS_MACOS=1",
+            "-DFD_HAS_THREADS=1", "-DFD_HAS_ATOMIC=1",
             "-DFD_HAS_OPENSSL=1", unaligned_style,
         },
         .windows => switch (target.cpu.arch) {
@@ -98,6 +99,14 @@ pub fn addPlainTestRun(
     b: *std.Build,
     test_compile: *std.Build.Step.Compile,
 ) *std.Build.Step.Run {
+    return addPlainTestRunSeries(b, &.{test_compile});
+}
+
+/// Run multiple compiled test binaries sequentially in one runner process.
+pub fn addPlainTestRunSeries(
+    b: *std.Build,
+    test_compiles: []const *std.Build.Step.Compile,
+) *std.Build.Step.Run {
     // CWD = repo root so tile_exe_path "build/zig-out/bin/tickoni-supervisor"
     // resolves to the installed supervisor binary (wired as dependency in
     // build_test_lanes.zig).
@@ -106,7 +115,7 @@ pub fn addPlainTestRun(
         "contrib/test/run_test_series.sh",
     });
     run_step.setCwd(b.path("."));
-    run_step.addArtifactArg(test_compile);
+    for (test_compiles) |test_compile| run_step.addArtifactArg(test_compile);
     return run_step;
 }
 

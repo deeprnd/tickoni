@@ -777,9 +777,17 @@ fd_shmem_private_boot( int *    pargc,
     fd_shmem_private_cpu_idx [ numa_idx ] = (ushort)cpu_idx;
   }
 
-  /* Determine the shared memory domain for this thread group */
+  /* Determine the shared memory domain for this thread group.
+     Linux uses /mnt/.fd (hugetlbfs mount point), macOS uses /tmp/.fd
+     (POSIX shm_open requires a filesystem path for the directory). */
 
-  char const * shmem_base = fd_env_strip_cmdline_cstr( pargc, pargv, "--shmem-path", "FD_SHMEM_PATH", "/mnt/.fd" );
+  char const * shmem_base =
+#if FD_HAS_LINUX
+    "/mnt/.fd";
+#else
+    "/tmp/.fd";
+#endif
+  shmem_base = fd_env_strip_cmdline_cstr( pargc, pargv, "--shmem-path", "FD_SHMEM_PATH", shmem_base );
 
   ulong len = strlen( shmem_base );
   while( (len>1UL) && (shmem_base[len-1UL]=='/') ) len--; /* lop off any trailing slashes */

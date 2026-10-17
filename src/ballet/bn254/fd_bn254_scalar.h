@@ -25,6 +25,24 @@
    or equivalently (on little endian platforms) an array of 4 ulong. */
 typedef fd_uint256_t fd_bn254_scalar_t;
 
+/* fiat-crypto uses uint64_t limbs, which is not necessarily the same C type
+   as Firedancer's ulong even when both are 64 bits (notably on macOS arm64).
+   Copy with fd_memcpy to keep the boundary type-correct and avoid strict
+   aliasing violations. */
+FD_STATIC_ASSERT( sizeof(uint64_t)==sizeof(ulong), bn254_requires_64_bit_ulong );
+
+static inline void
+fd_bn254_uint256_to_fiat( uint64_t           dst[4],
+                          fd_uint256_t const * src ) {
+  fd_memcpy( dst, src->limbs, 4UL*sizeof(uint64_t) );
+}
+
+static inline void
+fd_bn254_uint256_from_fiat( fd_uint256_t * dst,
+                            uint64_t const src[4] ) {
+  fd_memcpy( dst->limbs, src, 4UL*sizeof(uint64_t) );
+}
+
 /* const r, used to validate a scalar field element.
    NOT Montgomery.
    0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001 */
@@ -49,14 +67,22 @@ fd_bn254_scalar_validate( fd_bn254_scalar_t const * s ) {
 static inline fd_bn254_scalar_t *
 fd_bn254_scalar_from_mont( fd_bn254_scalar_t *       r,
                            fd_bn254_scalar_t const * a ) {
-  fiat_bn254_scalar_from_montgomery( (ulong *)(uintptr_t)r->limbs, (ulong const *)(uintptr_t)a->limbs );
+  uint64_t out[4];
+  uint64_t in [4];
+  fd_bn254_uint256_to_fiat( in, a );
+  fiat_bn254_scalar_from_montgomery( out, in );
+  fd_bn254_uint256_from_fiat( r, out );
   return r;
 }
 
 static inline fd_bn254_scalar_t *
 fd_bn254_scalar_to_mont( fd_bn254_scalar_t *       r,
                          fd_bn254_scalar_t const * a ) {
-  fiat_bn254_scalar_to_montgomery( (ulong *)(uintptr_t)r->limbs, (ulong const *)(uintptr_t)a->limbs );
+  uint64_t out[4];
+  uint64_t in [4];
+  fd_bn254_uint256_to_fiat( in, a );
+  fiat_bn254_scalar_to_montgomery( out, in );
+  fd_bn254_uint256_from_fiat( r, out );
   return r;
 }
 
@@ -64,7 +90,13 @@ static inline fd_bn254_scalar_t *
 fd_bn254_scalar_add( fd_bn254_scalar_t *       r,
                      fd_bn254_scalar_t const * a,
                      fd_bn254_scalar_t const * b ) {
-  fiat_bn254_scalar_add( (ulong *)(uintptr_t)r->limbs, (ulong const *)(uintptr_t)a->limbs, (ulong const *)(uintptr_t)b->limbs );
+  uint64_t out[4];
+  uint64_t in_a[4];
+  uint64_t in_b[4];
+  fd_bn254_uint256_to_fiat( in_a, a );
+  fd_bn254_uint256_to_fiat( in_b, b );
+  fiat_bn254_scalar_add( out, in_a, in_b );
+  fd_bn254_uint256_from_fiat( r, out );
   return r;
 }
 
@@ -74,14 +106,24 @@ static inline fd_bn254_scalar_t *
 fd_bn254_scalar_mul( fd_bn254_scalar_t *       r,
                      fd_bn254_scalar_t const * a,
                      fd_bn254_scalar_t const * b ) {
-  fiat_bn254_scalar_mul( (ulong *)(uintptr_t)r->limbs, (ulong const *)(uintptr_t)a->limbs, (ulong const *)(uintptr_t)b->limbs );
+  uint64_t out[4];
+  uint64_t in_a[4];
+  uint64_t in_b[4];
+  fd_bn254_uint256_to_fiat( in_a, a );
+  fd_bn254_uint256_to_fiat( in_b, b );
+  fiat_bn254_scalar_mul( out, in_a, in_b );
+  fd_bn254_uint256_from_fiat( r, out );
   return r;
 }
 
 static inline fd_bn254_scalar_t *
 fd_bn254_scalar_sqr( fd_bn254_scalar_t *       r,
                      fd_bn254_scalar_t const * a ) {
-  fiat_bn254_scalar_square( (ulong *)(uintptr_t)r->limbs, (ulong const *)(uintptr_t)a->limbs );
+  uint64_t out[4];
+  uint64_t in [4];
+  fd_bn254_uint256_to_fiat( in, a );
+  fiat_bn254_scalar_square( out, in );
+  fd_bn254_uint256_from_fiat( r, out );
   return r;
 }
 

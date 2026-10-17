@@ -35,7 +35,7 @@ pub fn createFile(
 // ---------------------------------------------------------------------------
 
 test "openFile handles absolute paths" {
-    var tmp = std.io.getStdTempDir(.{});
+    var tmp = std.Io.getStdTempDir(.{});
     defer tmp.cleanup();
 
     // Write a marker file so we can verify openFile can find it.

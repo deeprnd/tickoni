@@ -9,11 +9,11 @@ Tickoni repository.
   <!-- badge:build:end -->
 
   <!-- badge:quality:start -->
-  <img alt="Quality" src="https://img.shields.io/badge/quality-passing-brightgreen?style=flat-square" />
+  <img alt="Quality" src="https://img.shields.io/badge/quality-failing-red?style=flat-square" />
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
-  <img alt="Security" src="https://img.shields.io/badge/security-passing-brightgreen?style=flat-square" />
+  <img alt="Security" src="https://img.shields.io/badge/security-failing-red?style=flat-square" />
   <!-- badge:security:end -->
 </p>
 
@@ -41,7 +41,8 @@ Tickoni repository.
   <!-- badge:cov-fd:end -->
 
   <!-- badge:cov-tk:start -->
-  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-89.3%25-yellowgreen?style=flat-square" />
+  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-86.9%25-yellowgreen?style=flat-square" />
+  <!-- badge:cov-tk:end -->
   <!-- badge:cov-tk:end -->
 
   <!-- badge:demo:start -->
@@ -457,9 +458,12 @@ testing a small intermediate group of tiles.
 a separate repo-facing intermediate integration layer between tile/unit tests
 and full-topology `integration-test` binaries.
 
-`just test-integration-tk` runs:
+`just test-integration-tk` runs the Zig integration lane. On macOS, it first
+runs the platform-specific Firedancer library build, so the equivalent commands
+are:
 
 ```bash
+just build-fd-macos-<arch>
 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} integration-test
 ```
 

@@ -8,18 +8,21 @@ set -euo pipefail
 # creation and child-tile joins. GitHub Actions runners cap RLIMIT_MEMLOCK
 # (often at 64 KiB); ulimit alone can't raise past the hard limit, so we
 # use sudo prlimit to bump both soft and hard limits at once.
+# Only runs in CI (GITHUB_ACTIONS=true); local dev should configure
+# memlock via sysctl or profile.d, not via this script.
 # memlock is a Linux concept only.
-echo "memlock before:"
-if [[ "$(contrib/platform.sh os)" == "linux" ]]; then
-    ulimit -Sl
-    ulimit -Hl
+# Only run on GitHub Actions runners where RLIMIT_MEMLOCK is capped;
+# skip locally to avoid prompting for sudo.
+if [[ "${GITHUB_ACTIONS:-}" == "true" ]] && \
+   [[ "$(contrib/platform.sh os)" == "linux" ]]; then
+    echo "memlock before:"
     if [[ -f /proc/$$/limits ]]; then
+        ulimit -Sl
+        ulimit -Hl
         grep "Max locked memory" /proc/$$/limits
         if command -v sudo >/dev/null 2>&1 && \
            sudo prlimit --pid $$ --memlock=unlimited:unlimited 2>/dev/null; then
             echo "memlock after:"
-            ulimit -Sl
-            ulimit -Hl
             grep "Max locked memory" /proc/$$/limits
         fi
     fi
@@ -56,16 +59,22 @@ FAIL_PATTERNS=(
 )
 
 for bin in "${binaries[@]}"; do
+    # Zig emits Windows-native paths when the build runs under Git Bash.
+    # Convert them back to MSYS paths before Bash tries to execute them.
+    if command -v cygpath >/dev/null 2>&1; then
+        bin="$(cygpath -u "$bin")"
+    fi
     name=$(basename "$(dirname "$bin")")
     echo -n "  ${name}... "
+    output_file=$(mktemp "${TMPDIR:-/tmp}/tickoni-test.XXXXXX")
     set +e
-    output=$("$bin" 2>&1)
+    "$bin" >"$output_file" 2>&1
     exit_code=$?
     set -e
     if [[ $exit_code -ne 0 ]]; then
         # Non-zero exit = test failed. Also print output for context.
         echo "FAILED (exit $exit_code)"
-        echo "$output" >&2
+        cat "$output_file" >&2
         failures=$((failures + 1))
     else
         # Exit 0 means the test passed its assertions. FAIL_PATTERNS
@@ -74,6 +83,7 @@ for bin in "${binaries[@]}"; do
         echo "OK"
         passed=$((passed + 1))
     fi
+    rm -f "$output_file"
 done
 
 if [[ $failures -gt 0 ]]; then

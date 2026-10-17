@@ -5,6 +5,7 @@
 /// Import as @import("util") in files that use the build module system.
 const std = @import("std");
 const c = std.c;
+const c_abi = @import("c_abi");
 pub const cpu = @import("cpu.zig");
 pub const process = @import("process.zig");
 pub const process_api = @import("process_api.zig");
@@ -13,26 +14,10 @@ pub const linux_ids = @import("linux_ids.zig");
 pub const sizes = @import("sizes.zig");
 pub const sandbox_defaults = @import("sandbox_defaults.zig");
 
-/// Inline struct mirroring `struct sockaddr_in` for Zig 0.17 which
-/// removed `std.posix.sockaddr_in` from the public API.
-const sockaddr_in = extern struct {
-    sin_family: u16,
-    sin_port: u16,
-    sin_addr: u32,
-    sin_zero: [8]u8 = undefined,
-};
-
-/// Host-to-network short (16-bit). Zig 0.17 removed std.posix.ntohs and
-/// std.mem.hostToNetwork.  Inline byte swap works because we know this is
-/// little-endian on x86_64 and the struct fields expect network byte order.
-fn htons(x: u16) u16 {
-    return (x >> 8) | (x << 8);
-}
-
 /// Check whether a TCP port is already bound on localhost.
 /// Returns true if `bind()` fails (port in use or TIME_WAIT), false otherwise (port free).
 ///
-/// This is used by `metricPort()` to skip ports still in TIME_WAIT
+/// This is used by `nextMetricPort()` to skip ports still in TIME_WAIT
 /// from a previous test run.  We use TCP sockets because the metric
 /// tile's HTTP server binds TCP — a UDP bind check would miss TCP
 /// TIME_WAIT ports.
@@ -40,32 +25,7 @@ fn htons(x: u16) u16 {
 /// NOTE: bind() succeeds when the port is FREE — we want the inverse:
 /// return false on success (free) and true on failure (in use).
 pub fn portIsInUse(port: u16) bool {
-    const fd_i = std.posix.system.socket(
-        std.posix.system.AF.INET,
-        std.posix.system.SOCK.STREAM,
-        0, // TCP (protocol 6)
-    );
-    if (fd_i > 2147483647) return true; // socket() failed, treat as busy
-    const fd = @as(c_int, @intCast(@as(i64, @intCast(fd_i))));
-    defer _ = std.posix.system.close(fd);
-
-    // SO_REUSEADDR allows re-binding even in TIME_WAIT, but we want
-    // to *detect* TIME_WAIT ports, so we intentionally do NOT set it.
-    // If bind() fails here, the port is truly busy.
-
-    var bind_addr: sockaddr_in = undefined;
-    @setEvalBranchQuota(10000);
-    bind_addr = sockaddr_in{
-        .sin_family = @as(u16, @intCast(std.posix.system.AF.INET)),
-        .sin_port = htons(port),
-        .sin_addr = 0, // INADDR_ANY (0.0.0.0)
-        .sin_zero = undefined,
-    };
-    const sin_size: std.posix.socklen_t = @intCast(@sizeOf(sockaddr_in));
-
-    // bind() == 0 means the port is FREE (we can bind it) → return false
-    // bind() != 0 means the port is BUSY (EADDRINUSE on TCP) → return true
-    return (std.posix.system.bind(fd, @ptrCast(&bind_addr), sin_size) != 0);
+    return c_abi.os.portIsInUse(port);
 }
 
 /// Validate that a port is NOT currently in use (free to bind).
@@ -81,31 +41,45 @@ pub fn validateNotUsedPort(port: u16) bool {
     return !portIsInUse(port);
 }
 
-/// Shared port counter for integration tests.
+/// Generate a random unprivileged port for integration tests.
 ///
-/// Auto-increments from 7999 (Firedancer default) on each call.  All
-/// integration test modules import this same util module, so the counter
-/// advances across all tests in a single binary, preventing EADDRINUSE
-/// when tests run in parallel or back-to-back with TIME_WAIT sockets.
-/// Port step of 100 ensures that even with aggressive TIME_WAIT recycling,
-/// consecutive test runs never collide — TIME_WAIT holds sockets for up to
-/// 60 s, so 100-port spacing gives ~60 tests of headroom before wrapping.
-const _metric_port_step: u16 = 100;
+/// Uses a simple counter seeded from getpid() to pick from
+/// [30000, 65535].  Each successive test call increments the counter,
+/// so successive calls never collide.  This eliminates TIME_WAIT port
+/// conflicts without OS-specific socket code.
+var _metric_port_counter: u16 = 0;
 
-var _metric_port_counter: u16 = 7999;
-pub fn metricPort() u16 {
-    while (true) {
-        const result = _metric_port_counter;
-        _metric_port_counter = _metric_port_counter +% _metric_port_step;
+pub fn nextMetricPort() u16 {
+    const low: u16 = 30000;
+    const span: u16 = 35536; // 65535 - 30000 + 1
 
-        // Skip privileged ports (< 1024) — require root to bind.
-        // Counter can wrap from u16 max; unprivileged ports are
-        // (1024..=65535), so wrapping through 0..1023 is harmless.
-        if (result < 1024) continue;
-
-        // Skip ports still in TIME_WAIT from prior test runs.
-        if (!portIsInUse(result)) return result;
+    // Seed the counter once per process using pid (unique per test run).
+    if (_metric_port_counter == 0) {
+        _metric_port_counter = @as(u16, @intCast(c_abi.sandbox.getpid() & 0xFFFF));
     }
+
+    // Map into [low, low+span)
+    const port = @as(u32, low) + (_metric_port_counter % span);
+    _metric_port_counter += 1;
+    return @intCast(port);
+}
+
+/// Generate a unique workspace name for integration tests.
+///
+/// Uses the same counter-based pattern as nextMetricPort() — a static
+/// counter seeded with getpid() ensures successive calls produce distinct
+/// names like "topo_0", "topo_1", etc.  Callers must provide a buffer
+/// (at least 16 bytes) to hold the formatted string.
+var _ws_name_counter: u32 = 0;
+
+pub fn nextWorkspaceName(buf: []u8) []const u8 {
+    if (_ws_name_counter == 0) {
+        _ws_name_counter = @as(u32, @intCast(c_abi.sandbox.getpid())) & 0xFFFF;
+    }
+
+    const n = std.fmt.bufPrint(buf, "topo_{d}", .{_ws_name_counter}) catch unreachable;
+    _ws_name_counter += 1;
+    return buf[0..n.len];
 }
 
 /// Drop-in replacement for std.testing.tmpDir() that respects
@@ -172,7 +146,12 @@ pub const TmpDir = struct {
     pub fn cleanup(self: *TmpDir) void {
         const io = std.testing.io;
         self.dir.close(io);
-        self.parent_dir.deleteTree(io, self.sub_path[0..12]) catch {};
+
+        // Guard: keep temp dirs (and their log files) when TICKONI_KEEP_LOGS=1
+        const keep = c.getenv("TICKONI_KEEP_LOGS");
+        if (keep == null or std.mem.sliceTo(keep.?, 0)[0] != '1') {
+            self.parent_dir.deleteTree(io, self.sub_path[0..12]) catch {};
+        }
         self.parent_dir.close(io);
         self.cache_dir.close(io);
         self.* = undefined;

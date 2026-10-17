@@ -17,6 +17,7 @@ const cpu_placement = @import("cpu_placement.zig");
 const link = @import("link.zig");
 const topology = @import("topology.zig");
 const util = @import("util");
+const logger = @import("logger");
 
 pub const magic: u32 = 0x544b5453; // "TKST"
 pub const version: u16 = 2;
@@ -44,6 +45,9 @@ pub const TopologySpec = struct {
     metric_port: u16 = 7999,
 
     pub fn fromTopology(topo: topology.Topology, metric_port: u16) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec {
+        const log = logger.get();
+        log.enter("topology_spec", "TopologySpec.fromTopology");
+        defer log.exit("topology_spec", "TopologySpec.fromTopology");
         if (topo.tiles.len > max_tiles) return error.TooManyTiles;
         if (topo.channels.len > max_channels) return error.TooManyChannels;
 
@@ -73,6 +77,9 @@ pub const TopologySpec = struct {
     /// TileDescriptor.name is diagnostics-only and not part of the wire
     /// format — reconstructed here as the same string as id.slice().
     pub fn toTopology(self: *const TopologySpec, tiles_buf: []tile.TileDescriptor, channels_buf: []link.Channel) topology.Topology {
+        const log = logger.get();
+        log.enter("topology_spec", "TopologySpec.toTopology");
+        defer log.exit("topology_spec", "TopologySpec.toTopology");
         std.debug.assert(tiles_buf.len >= self.tile_cnt);
         std.debug.assert(channels_buf.len >= self.channel_cnt);
         for (0..self.tile_cnt) |i| {
@@ -136,7 +143,8 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
     };
     const topo = topology.Topology{ .tiles = &tiles, .channels = &channels };
 
-    const spec = try TopologySpec.fromTopology(topo, 7999);
+    const port = util.nextMetricPort();
+    const spec = try TopologySpec.fromTopology(topo, port);
     try spec.writeToFile(std.testing.io, tmp.dir, "topology.spec");
 
     const read_back = try TopologySpec.readFromFile(std.testing.io, tmp.dir, "topology.spec");
@@ -180,8 +188,9 @@ test "TopologySpec readFromFile rejects a bad magic" {
 }
 
 test "TopologySpec fromTopology fails closed on too many tiles" {
+    const port = util.nextMetricPort();
     var tiles: [max_tiles + 1]tile.TileDescriptor = undefined;
     for (&tiles) |*t| t.* = .{ .id = tile.TileId.parse("tkfoo") catch unreachable, .name = "t", .cpu_placement = .floating };
     const topo = topology.Topology{ .tiles = &tiles, .channels = &.{} };
-    try std.testing.expectError(error.TooManyTiles, TopologySpec.fromTopology(topo, 7999));
+    try std.testing.expectError(error.TooManyTiles, TopologySpec.fromTopology(topo, port));
 }

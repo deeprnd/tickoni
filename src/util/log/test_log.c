@@ -149,6 +149,9 @@ main( int     argc,
   i = fd_log_level_stderr();  fd_log_level_stderr_set (i-1); FD_TEST( fd_log_level_stderr() ==i-1 ); fd_log_level_stderr_set (i);
   i = fd_log_level_flush();   fd_log_level_flush_set  (i-1); FD_TEST( fd_log_level_flush()  ==i-1 ); fd_log_level_flush_set  (i);
   i = fd_log_level_core();    fd_log_level_core_set   (i-1); FD_TEST( fd_log_level_core()   ==i-1 ); fd_log_level_core_set   (i);
+#if FD_HAS_WINDOWS
+  FD_TEST( fd_log_private_logfile_fd()==-1 );
+#endif
 
   FD_LOG_NOTICE(( "Setting thread name" ));
   fd_log_thread_set( "main-thread" );

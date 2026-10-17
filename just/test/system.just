@@ -1,12 +1,12 @@
-# Test: System and E2E recipes
+# ── Test: System recipes ─────────────────────────────────────────────────
+# System tests: opt-in real-LLM investment demo proof.
 
 # Tickoni system lane: opt-in real-LLM investment demo proof.
 # Full end-to-end: setup (orchestrator.py llm-server) → start server → run tests → cleanup.
 test-system-tk:
-    bash {{ justfile_dir }}/contrib/test/run_live_investment_demo.sh
+    bash contrib/test/run_live_investment_demo.sh
 
 test-system-tk-linux-x86: test-system-tk
-test-system-tk-linux-arm: test-system-tk
 test-system-tk-macos-x86: test-system-tk
 test-system-tk-macos-arm: test-system-tk
 
@@ -14,21 +14,20 @@ test-system-fd:
     @true
 
 test-system-all:
-    {{ python }} {{ justfile_dir }}/contrib/tool/readme/run-badged-command.py system bash -c "just test-system-tk && just test-system-fd"
+    {{ python }} contrib/tool/readme/run-badged-command.py system bash -c "just test-system-tk && just test-system-fd"
+
+test-system-tk-windows-x86:
+    bash contrib/test/run_live_investment_demo_win.sh
+
+test-system-tk-windows-arm: test-system-tk-windows-x86
 
 # Infrastructure: ensure llama.cpp and model (for LLM system tests)
-
-# Build llama.cpp and download model using orchestrator.py (CPU only).
 infra-ensure-llamacpp:
-    {{ python }} {{ justfile_dir }}/contrib/setup/orchestrator.py llm-server
+    {{ python }} contrib/setup/orchestrator.py llm-server
 
 infra-ensure-llamacpp-win:
-    {{ python }} {{ justfile_dir }}/contrib/setup/orchestrator.py llm-server --platform windows-x86
-
-infra-ensure-llamacpp-win-arm:
-    {{ python }} {{ justfile_dir }}/contrib/setup/orchestrator.py llm-server --platform windows-arm
+    {{ python }} contrib/setup/orchestrator.py llm-server --platform windows-x86
 
 # Download the GGUF model for system tests (requires `hf` CLI).
-# (hf-model is handled by orchestrator.py llm-server; kept for explicitness.)
 infra-ensure-model:
-    {{ python }} {{ justfile_dir }}/contrib/setup/orchestrator.py llm-server
+    {{ python }} contrib/setup/orchestrator.py llm-server

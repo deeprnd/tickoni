@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.16)
 project(tickoni-terminal LANGUAGES CXX)
 
+# Find Qt6 installation; default to ~/Qt/6.11.2/gcc_64 if not overridden
+set(_qt_default_prefix "$ENV{HOME}/Qt/6.11.2/gcc_64")
+if(NOT DEFINED CMAKE_PREFIX_PATH OR CMAKE_PREFIX_PATH STREQUAL "")
+    set(CMAKE_PREFIX_PATH "${_qt_default_prefix}")
+endif()
+unset(_qt_default_prefix)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)

@@ -141,18 +141,25 @@ def stop_server(pid_file):
         pid = int(f.read().strip())
 
     try:
-        os.kill(pid, signal.SIGTERM)
-        proc = subprocess.Popen(
-            ["wait"],  # placeholder — we just signal and move on
-        )
-        # Give the process a moment to exit.
-        time.sleep(1)
-        # Force kill if still alive.
-        try:
-            os.kill(pid, 0)
-            os.kill(pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        if os.name == "nt":
+            result = subprocess.run(
+                ["taskkill.exe", "/PID", str(pid), "/T", "/F"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                print(result.stderr.strip(), file=sys.stderr)
+                return 1
+        else:
+            os.kill(pid, signal.SIGTERM)
+            # Give the process a moment to exit.
+            time.sleep(1)
+            # Force kill if still alive.
+            try:
+                os.kill(pid, 0)
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
         print(f"stopped llama-server (PID {pid})")
     except ProcessLookupError:
         print(f"process {pid} already gone", file=sys.stderr)

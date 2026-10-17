@@ -2,8 +2,10 @@ $(call add-hdrs,fd_tile.h)
 $(call add-objs,fd_tile,fd_util)
 ifdef FD_HAS_THREADS
 $(call add-objs,fd_tile_threads,fd_util)
+ifdef FD_HAS_LINUX
 $(call make-unit-test,test_cpuset,test_cpuset,fd_util)
 $(call run-unit-test,test_cpuset)
+endif
 ifdef FD_HAS_WINDOWS
 $(call add-objs,fd_tile_threads_platform_windows,fd_util)
 $(call make-unit-test,test_tile_threads_platform_windows,test_tile_threads_platform_windows,fd_util)

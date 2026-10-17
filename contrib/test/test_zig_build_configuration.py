@@ -23,6 +23,15 @@ def test_c_compile_check_uses_complete_platform_shim_flags():
     assert helpers.count("shim_c_flags") >= 3
 
 
+def test_c_compile_outputs_depend_on_their_output_directory():
+    helpers = (REPO_ROOT / "build-lib" / "lib" / "helpers.zig").read_text(
+        encoding="utf-8"
+    )
+
+    assert "c_check.step.dependOn(&ensure_dir.step);" in helpers
+    assert "getrandom_check.step.dependOn(&ensure_dir.step);" in helpers
+
+
 def test_linux_x86_build_and_test_recipes_pin_the_same_zig_cpu():
     common = (REPO_ROOT / "just" / "common.just").read_text(encoding="utf-8")
     linux_build = (REPO_ROOT / "just" / "build" / "linux.just").read_text(

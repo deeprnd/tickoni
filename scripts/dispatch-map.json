@@ -39,6 +39,22 @@
     "windows-x86": "test-integration-tk-windows-x86",
     "windows-arm": "test-integration-tk-windows-arm"
   },
+  "test-integration-tk-infra": {
+    "linux-x86": "test-integration-tk-infra-linux-x86",
+    "linux-arm": "test-integration-tk-infra-linux-arm",
+    "macos-x86": "test-integration-tk-infra-macos-x86",
+    "macos-arm": "test-integration-tk-infra-macos-arm",
+    "windows-x86": "test-integration-tk-infra-windows-x86",
+    "windows-arm": "test-integration-tk-infra-windows-arm"
+  },
+  "test-integration-tk-domain": {
+    "linux-x86": "test-integration-tk-domain-linux-x86",
+    "linux-arm": "test-integration-tk-domain-linux-arm",
+    "macos-x86": "test-integration-tk-domain-macos-x86",
+    "macos-arm": "test-integration-tk-domain-macos-arm",
+    "windows-x86": "test-integration-tk-domain-windows-x86",
+    "windows-arm": "test-integration-tk-domain-windows-arm"
+  },
   "test-demo-tk": {
     "linux-x86": "test-demo-tk-linux-x86",
     "linux-arm": "test-demo-tk-linux-arm",

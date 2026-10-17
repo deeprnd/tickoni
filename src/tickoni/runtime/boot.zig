@@ -19,6 +19,7 @@
 /// string memory afterward, so nothing needs to outlive the call.
 const std = @import("std");
 const c_abi = @import("c_abi");
+const logger = @import("logger");
 
 pub const shmem_path_cap: usize = 256;
 
@@ -75,6 +76,27 @@ fn buildArgv(
     return 5;
 }
 
+/// Lightweight boot: version + log + shmem only. Used by the supervisor
+/// which will spawn tile processes rather than running tile threads
+/// in-process. Returns void — never errors.
+pub fn bootLite(
+    shmem_path: ?[]const u8,
+    log_path: []const u8,
+) error{ShmemPathTooLong}!void {
+    const log = logger.get();
+    log.enter("boot", "bootLite");
+    defer log.exit("boot", "bootLite");
+    var prog_name_buf: ProgNameBuf = undefined;
+    var flag_name_buf: FlagNameBuf = undefined;
+    var shmem_path_buf: [shmem_path_cap]u8 = undefined;
+    var log_path_buf: [shmem_path_cap]u8 = undefined;
+    var argv_buf: [6]?[*:0]u8 = .{ null, null, null, null, null, null };
+
+    var argc = try buildArgv(shmem_path, log_path, &prog_name_buf, &flag_name_buf, &shmem_path_buf, &log_path_buf, &argv_buf);
+    var argv: [*][*:0]u8 = @ptrCast(&argv_buf);
+    c_abi.boot.bootLite(&argc, &argv);
+}
+
 /// Boots fd_util's substrate with a synthetic argv (see buildArgv):
 ///
 ///   tickoni-tile --shmem-path <path> --log-path <log_path>
@@ -88,6 +110,9 @@ pub fn bootWithSyntheticArgv(
     shmem_path: ?[]const u8,
     log_path: []const u8,
 ) error{ShmemPathTooLong}!void {
+    const log = logger.get();
+    log.enter("boot", "bootWithSyntheticArgv");
+    defer log.exit("boot", "bootWithSyntheticArgv");
     var prog_name_buf: ProgNameBuf = undefined;
     var flag_name_buf: FlagNameBuf = undefined;
     var shmem_path_buf: [shmem_path_cap]u8 = undefined;

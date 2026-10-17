@@ -16,7 +16,7 @@
       "version": "4.14.1"
     },
     "zig": {
-      "version": "0.17.0-dev.2320+1e770dbef",
+      "version": "0.17.0",
       "options": {
         "minisign_key": "RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
       }
@@ -483,7 +483,11 @@
     "pipx": {
       "category": "essential",
       "platform": "all",
-      "install_method": "pip",
+      "install_method": {
+        "linux": "apt",
+        "macos": "brew",
+        "windows": "pip"
+      },
       "parameters": {
         "package": "pipx"
       },
