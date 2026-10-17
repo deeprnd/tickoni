@@ -3,20 +3,18 @@
 
 # Bare dispatcher; canonical platform/compiler recipes below are the implementation.
 test-unit-fd:
-    #!/usr/bin/env bash
     set -euo pipefail
     case "{{ os }}-{{ arch }}" in
-      linux-x86) exec just test-unit-fd-linux-x86-gcc ;;
-      macos-x86) exec just test-unit-fd-macos-x86 ;;
-      macos-arm) exec just test-unit-fd-macos-arm ;;
-      windows-x86) exec just test-unit-fd-windows-x86 ;;
-      windows-arm) exec just test-unit-fd-windows-arm ;;
-      *) echo "unsupported host platform for test-unit-fd: {{ os }}-{{ arch }}" >&2; exit 1 ;;
+    linux-x86) exec just test-unit-fd-linux-x86-gcc ;;
+    macos-x86) exec just test-unit-fd-macos-x86 ;;
+    macos-arm) exec just test-unit-fd-macos-arm ;;
+    windows-x86) exec just test-unit-fd-windows-x86 ;;
+    windows-arm) exec just test-unit-fd-windows-arm ;;
+    *) echo "unsupported host platform for test-unit-fd: {{ os }}-{{ arch }}" >&2; exit 1 ;;
     esac
 
 # Native Firedancer C unit-test recipes.
 test-unit-fd-linux-x86-gcc:
-    #!/usr/bin/env bash
     set -euo pipefail
     timeout=600
     {{ python }} contrib/build/orchestrator.py --platform linux-x86 build-fd {{ fd_tickoni_build }} test gcc-12

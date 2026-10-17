@@ -7,16 +7,15 @@ test-integration-fd:
 
 # Tickoni integration lane: transport and boundary wiring against local mocks.
 test-integration-tk:
-    #!/usr/bin/env bash
     set -euo pipefail
     case "{{ os }}-{{ arch }}" in
-      linux-x86) exec just test-integration-tk-linux-x86 ;;
-      linux-arm) exec just test-integration-tk-linux-arm ;;
-      macos-x86) exec just test-integration-tk-macos-x86 ;;
-      macos-arm) exec just test-integration-tk-macos-arm ;;
-      windows-x86) exec just test-integration-tk-windows-x86 ;;
-      windows-arm) exec just test-integration-tk-windows-arm ;;
-      *) echo "unsupported host platform for test-integration-tk: {{ os }}-{{ arch }}" >&2; exit 1 ;;
+    linux-x86) exec just test-integration-tk-linux-x86 ;;
+    linux-arm) exec just test-integration-tk-linux-arm ;;
+    macos-x86) exec just test-integration-tk-macos-x86 ;;
+    macos-arm) exec just test-integration-tk-macos-arm ;;
+    windows-x86) exec just test-integration-tk-windows-x86 ;;
+    windows-arm) exec just test-integration-tk-windows-arm ;;
+    *) echo "unsupported host platform for test-integration-tk: {{ os }}-{{ arch }}" >&2; exit 1 ;;
     esac
 
 test-integration-tk-linux-x86:
