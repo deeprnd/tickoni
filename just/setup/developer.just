@@ -1,19 +1,5 @@
-# ── Setup: Developer recipes ──────────────────────────────────────────────
-# Full developer stack: setup-env, setup-git, platform-specific dev setups, test-prep.
-
-# Full developer stack (unchanged)
-# Auto-detect host platform/arch and route to the correct setup recipe.
-# All setup is delegated to orchestrator.py — it detects the platform and
-# resolves dependencies from tool-versions.json.
-setup-env toolchain="":
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,zig,ssl,fd,quality,secrets,coverage,security,ops
-    just setup-git
-
-# Activate tracked git hooks (commit-msg strips anthropic AI co-authors)
-setup-git:
-    git config core.hooksPath .githooks
-    chmod +x .githooks/commit-msg
-
+# ── Setup: Platform dev stacks ──────────────────────────────────────────────
+# (setup-env lives in install-env.just; setup-git lives in install-git.just)
 # Linux — dev mode (GCC or Clang, toolchain-agnostic)
 setup-linux-x86:
     {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
