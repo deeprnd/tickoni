@@ -1,4 +1,18 @@
 # ── Build: Qt terminal (CMake-based, independent of build.zig) ────────────────
+# Bare dispatcher routes to the correct platform recipe.
+
+build-qt:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "`bash contrib/platform.sh os`-`bash contrib/platform.sh arch`" in
+    linux-x86) exec just build-qt-linux-x86 ;;
+    linux-arm) exec just build-qt-linux-arm ;;
+    macos-x86) exec just build-qt-macos-x86 ;;
+    macos-arm) exec just build-qt-macos-arm ;;
+    windows-x86) exec just build-qt-windows-x86 ;;
+    windows-arm) exec just build-qt-windows-arm ;;
+    *) echo "unsupported host platform for build-qt: `bash contrib/platform.sh os`-`bash contrib/platform.sh arch`" >&2; exit 1 ;;
+    esac
 
 build-qt-linux-x86:
     #!/usr/bin/env bash
