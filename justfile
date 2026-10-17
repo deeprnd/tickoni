@@ -9,10 +9,11 @@ import "just/setup/install-zig.just"
 import "just/setup/install-just.just"
 import "just/setup/install-env.just"
 import "just/setup/install-git.just"
-import "just/setup/qt.just"
-import "just/setup/quality.just"
-import "just/setup/secrets.just"
-import "just/setup/security.just"
+import "just/setup/install-qt.just"
+import "just/setup/install-quality.just"
+import "just/setup/install-secrets.just"
+import "just/setup/install-security.just"
+import "just/setup/install-dev-env.just"
 
 # ── Build ─────────────────────────────────────────────────────────────────
 import "just/build/all.just"
@@ -28,6 +29,7 @@ import "just/test/e2e.just"
 import "just/test/integration.just"
 import "just/test/perf.just"
 import "just/test/system.just"
+import "just/test/test-include.just"
 import "just/test/unit.just"
 
 # ── Quality and Security ──────────────────────────────────────────────────
@@ -35,7 +37,7 @@ import "just/quality.just"
 import "just/security.just"
 
 # ── System ─────────────────────────────────────────────────────────────────
-import "just/system.mem.just"
+import "just/system/system.just"
 
 # ── Default ────────────────────────────────────────────────────────────────
 default:
