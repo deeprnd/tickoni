@@ -1,46 +1,46 @@
 # ── Memory (hugepages) ─────────────────────────────────────────────────────
 
 # Initialize hugepage shared memory config with permissions and owner.
-mem-init mode="0700" user="":
+system-mem-init mode="0700" user="":
     #!/usr/bin/env bash
     set -euo pipefail
     owner="{{ user }}"
     if [ -z "$owner" ]; then owner="$USER"; fi
     sudo src/util/shmem/fd_shmem_cfg init {{ mode }} "$owner" ""
 
-mem-query:
+system-mem-query:
     sudo src/util/shmem/fd_shmem_cfg query
 
-mem-reset:
+system-mem-reset:
     sudo src/util/shmem/fd_shmem_cfg reset
 
-mem-fini:
+system-mem-fini:
     sudo src/util/shmem/fd_shmem_cfg fini
 
 # Allocate specified number of hugepages on the given NUMA node.
-mem-alloc pages="24" page_type="gigantic" numa="0":
+system-mem-alloc pages="24" page_type="gigantic" numa="0":
     sudo src/util/shmem/fd_shmem_cfg alloc {{ pages }} {{ page_type }} {{ numa }}
 
 # Auto-calculate hugepage allocation based on available memory (reserve 4 GB for system).
-mem-alloc-auto numa="0":
+system-mem-alloc-auto numa="0":
     pages="$(( ((( $(awk '/MemTotal:/ {print $2}' /proc/meminfo) * 1024 )) - (4 * 1024 * 1024 * 1024)) / (6 * 1024 * 1024 * 1024) * 6 ))"; \
     if [ "$pages" -lt 0 ]; then pages=0; fi; \
     echo "allocating $pages gigantic pages on NUMA {{ numa }}"; \
     sudo src/util/shmem/fd_shmem_cfg alloc "$pages" gigantic {{ numa }}
 
 # Release hugepages on the given NUMA node.
-mem-free page_type="gigantic" numa="0":
+system-mem-free page_type="gigantic" numa="0":
     sudo src/util/shmem/fd_shmem_cfg free {{ page_type }} {{ numa }}
-    just mem-drop-caches
+    just system-mem-drop-caches
 
-mem-drop-caches:
+system-mem-drop-caches:
     # Free page cache, dentries, and inodes so tests can mlock memory.
     # sync alone does not free memory — drop_caches is required.
-    sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || echo "mem-drop-caches: could not free caches (may be read-only or non-root)"
+    sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || echo "system-mem-drop-caches: could not free caches (may be read-only or non-root)"
 
 # ── Kill test processes ────────────────────────────────────────────────────────
 
-kill-test:
+system-kill-test:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "killing test processes (user: $USER)..."
@@ -85,7 +85,7 @@ kill-test:
         echo "done."
         ;;
       *)
-        echo "unsupported OS for kill-test: {{ os }}" >&2
+        echo "unsupported OS for system-kill-test: {{ os }}" >&2
         exit 1
         ;;
     esac
