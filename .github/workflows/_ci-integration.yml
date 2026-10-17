@@ -111,7 +111,7 @@ jobs:
           sudo prlimit --pid $$ --nofile=65536 --memlock=unlimited
           sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || true
           sudo src/util/shmem/fd_shmem_cfg init 0700 "$USER" ""
-          just mem-alloc-auto || true
+          just system-mem-alloc-auto || true
 
       - name: Run integration tests
         run: just ${{ matrix.test-recipe }}
