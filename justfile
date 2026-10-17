@@ -2,18 +2,17 @@
 import "just/vars.just"
 
 # ── Setup ─────────────────────────────────────────────────────────────────
+import "just/setup/all.just"
 import "just/setup/build.just"
-import "just/setup/fd.just"
 import "just/setup/coverage.just"
-import "just/setup/zig.just"
-import "just/setup/just.just"
-import "just/setup/env.just"
+import "just/setup/fd.just"
 import "just/setup/git.just"
+import "just/setup/gitleaks.just"
+import "just/setup/just.just"
 import "just/setup/qt.just"
 import "just/setup/quality.just"
-import "just/setup/secrets.just"
 import "just/setup/security.just"
-import "just/setup/dev-env.just"
+import "just/setup/zig.just"
 
 # ── Build ─────────────────────────────────────────────────────────────────
 import "just/build/all.just"
@@ -29,8 +28,8 @@ import "just/test/e2e.just"
 import "just/test/integration.just"
 import "just/test/perf.just"
 import "just/test/system.just"
-import "just/test/test-include.just"
 import "just/test/unit.just"
+import "just/test/utils.just"
 
 # ── Quality and Security ──────────────────────────────────────────────────
 import "just/quality/all.just"
@@ -41,11 +40,11 @@ import "just/quality/yaml.just"
 import "just/quality/spell.just"
 import "just/security/all.just"
 import "just/security/codeql.just"
+import "just/security/engine.just"
 import "just/security/gitleaks.just"
-import "just/security/seccomp.just"
 import "just/security/proof.just"
 import "just/security/sanitize.just"
-import "just/security/engine.just"
+import "just/security/seccomp.just"
 
 # ── System ─────────────────────────────────────────────────────────────────
 import "just/system/system.just"
