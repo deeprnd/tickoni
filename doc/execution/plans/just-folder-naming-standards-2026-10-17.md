@@ -308,9 +308,13 @@ Move `env.just` to `all.just`. Recipe stays `setup-all`.
 
 **Impact:** Update root justfile import from `env.just` to `all.just`.
 
+**Status:** ✅ Done
+
 ### Phase 2: Delete setup/dev-env.just
 
 Remove the file entirely. Content is redundant — `all.just` provides `setup-all` which installs everything. CI workflows calling `setup-linux-x86-gcc` or `setup-dev-env-linux-x86` should use `setup-all` or chain individual setup commands.
+
+**Status:** ✅ Done
 
 ### Phase 3: Rename setup/secrets.just → setup/gitleaks.just
 
@@ -319,6 +323,8 @@ Remove the file entirely. Content is redundant — `all.just` provides `setup-al
 | `setup/secrets.just` | `setup/gitleaks.just` |
 
 **Impact:** Update root justfile import. No recipe changes.
+
+**Status:** ✅ Done
 
 ### Phase 4: Rename system/ Recipes (9 recipes)
 
@@ -336,9 +342,13 @@ Remove the file entirely. Content is redundant — `all.just` provides `setup-al
 
 **Impact:** Any external caller of `just mem-*` or `just kill-test` needs updating. Check CI workflows and documentation.
 
+**Status:** ✅ Done
+
 ### Phase 5: Update Root justfile Imports
 
 Update all imports to match the final directory structure. No `install-` prefixes. No `dev-env.just` or `env.just` imports.
+
+**Status:** ✅ Done
 
 ### Phase 6: Verify
 
@@ -347,6 +357,23 @@ Update all imports to match the final directory structure. No `install-` prefixe
 3. `just tests-all --dry-run` resolves correctly
 4. Check CI workflows for `just mem-*`, `just kill-test`, `just setup-linux-x86-gcc`, `just setup-dev-env-*` references
 5. No orphaned imports or references
+
+**Status:** ✅ Done
+
+### Phase 7: Update CI Workflows
+
+- `_ci-integration.yml`: `just mem-alloc-auto` → `just system-mem-alloc-auto`
+- `_ci-system.yml`: `just mem-alloc-auto` → `just system-mem-alloc-auto`
+- `_ci-unit.yml`: `just mem-alloc-auto` → `just system-mem-alloc-auto`
+- `tests-dev-setup.yml`: `just setup-linux-x86-gcc` → `just setup-all`
+
+**Status:** ✅ Done
+
+### Phase 8: Merge test/dynamic.just + test/test-include.just → test/utils.just
+
+Merged two small files into `test/utils.just` following the plan's proposed structure. Deleted originals.
+
+**Status:** ✅ Done
 
 ## 6. Naming Decision Rationale
 
