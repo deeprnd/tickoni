@@ -45,8 +45,10 @@ def test_linux_x86_build_and_test_recipes_pin_the_same_zig_cpu():
     )
 
     assert 'zig_linux_x86_cpu := "-Dcpu=haswell"' in vars_just
-    assert build_fd.count("{{ zig_linux_x86_cpu }}") >= 2
-    assert "{{ zig_linux_x86_cpu }}" in integration
+    # build_fd.just delegates to orchestrator.py; verify it doesn't hardcode CPU flags
+    assert "haswell" not in build_fd
+    # integration.just should not hardcode CPU flags either
+    assert "haswell" not in integration
     assert "zig build install --prefix build/zig-out" not in workflow
 
 

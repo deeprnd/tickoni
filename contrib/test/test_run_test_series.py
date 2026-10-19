@@ -3,21 +3,11 @@ from __future__ import annotations
 import os
 from pathlib import Path, PureWindowsPath
 import subprocess
-from unittest.mock import patch
+
+from conftest import detect_platform  # noqa: E402
 
 
 RUNNER = Path(__file__).with_name("run_test_series.sh")
-
-
-def _detect_platform() -> str:
-    """Detect current platform by calling platform.sh."""
-    result = subprocess.run(
-        ["bash", "contrib/platform.sh", "platform"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return result.stdout.strip()
 
 
 def _bash_command(platform_str: str, program_files: str | None) -> str:
@@ -42,7 +32,7 @@ def _write_executable(path: Path, exit_code: int) -> None:
 def test_run_test_series_propagates_test_failure(tmp_path: Path) -> None:
     failing_test = tmp_path / "failing-test"
     _write_executable(failing_test, 7)
-    platform_str = _detect_platform()
+    platform_str = detect_platform()
     bash = _bash_command(platform_str, os.environ.get("ProgramFiles"))
 
     result = subprocess.run(
@@ -59,7 +49,7 @@ def test_run_test_series_propagates_test_failure(tmp_path: Path) -> None:
 def test_run_test_series_accepts_passing_test(tmp_path: Path) -> None:
     passing_test = tmp_path / "passing-test"
     _write_executable(passing_test, 0)
-    platform_str = _detect_platform()
+    platform_str = detect_platform()
     bash = _bash_command(platform_str, os.environ.get("ProgramFiles"))
 
     result = subprocess.run(

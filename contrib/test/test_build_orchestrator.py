@@ -83,19 +83,33 @@ def test_macos_unit_recipes_build_fd_tests_then_run_portable_tickoni_tests():
         assert "contrib/build/GNUmakefile" not in section
 
 
+def _extract_just_recipe(content: str, name: str) -> str:
+    """Extract recipe body, following aliases to their base."""
+    start = content.index(f"{name}:")
+    end = content.find("\n\n", start)
+    section = content[start:] if end == -1 else content[start:end]
+    # Follow alias: if content after "name:" doesn't start with 4+ spaces (body)
+    # or # (comment), it's an alias to another recipe
+    after_colon = section[section.index(":") + 1:]
+    stripped = after_colon.lstrip()
+    if stripped and not stripped.startswith("#") and len(after_colon) - len(stripped) < 4:
+        # Alias to another recipe
+        alias_target = stripped.split()[0] if stripped.split() else None
+        if alias_target and ":" not in alias_target:
+            return _extract_just_recipe(content, alias_target)
+    return section
+
+
 def test_macos_integration_recipes_build_fd_libraries_before_zig_tests():
     repo_root = Path(__file__).resolve().parents[2]
     content = (repo_root / "just" / "test" / "integration.just").read_text()
 
-    recipes = {
-        "test-integration-tk-macos-x86": "test-integration-tk-linux-x86",
-        "test-integration-tk-macos-arm": "test-integration-tk-linux-x86",
-    }
-    for recipe, build_recipe in recipes.items():
-        start = content.index(f"{recipe}:")
-        end = content.find("\n\n", start)
-        section = content[start:] if end == -1 else content[start:end]
-
+    recipes = (
+        "test-integration-tk-macos-x86",
+        "test-integration-tk-macos-arm",
+    )
+    for recipe in recipes:
+        section = _extract_just_recipe(content, recipe)
         assert "zig build" in section
 
 
