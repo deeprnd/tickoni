@@ -1,5 +1,8 @@
 # ── Test: Unit recipes ────────────────────────────────────────────────────
-# Platform-specific unit test implementations, bare dispatchers, and platform aliases.
+# Platform-specific FD unit-test build and run recipes, separated.
+#
+# build-test-unit-fd-{platform} — builds test executables only
+# test-unit-fd-{platform}       — runs existing test executables only
 
 # Bare dispatcher; canonical platform/compiler recipes below are the implementation.
 test-unit-fd:
@@ -14,33 +17,84 @@ test-unit-fd:
     *) echo "unsupported host platform for test-unit-fd: {{ os }}-{{ arch }}" >&2; exit 1 ;;
     esac
 
-# Native Firedancer C unit-test recipes.
+# ── FD test build recipes (build test executables only) ───────────────────
+
+build-test-unit-fd-linux-x86-gcc:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    timeout=600
+    eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
+    echo "Building unit tests with: $TEST_OPTS"
+    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
+        LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-12 LD=gcc-12 unit-test
+
+build-test-unit-fd-linux-x86-clang:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    timeout=600
+    eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
+    echo "Building unit tests with: $TEST_OPTS"
+    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
+        LDFLAGS_EXE="$LDFLAGS_EXE" CC=clang-18 LD=clang-18 unit-test
+
+build-test-unit-fd-linux-arm-gcc:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    timeout=600
+    eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
+    echo "Building unit tests with: $TEST_OPTS"
+    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
+        LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-14 LD=gcc-14 unit-test
+
+build-test-unit-fd-macos-x86:
+    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} unit-test
+
+build-test-unit-fd-macos-arm:
+    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} unit-test
+
+build-test-unit-fd-windows-x86:
+    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} unit-test
+
+build-test-unit-fd-windows-arm:
+    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} unit-test
+
+# ── FD test run recipes (run existing test executables only) ──────────────
+
 test-unit-fd-linux-x86-gcc:
     #!/usr/bin/env bash
     set -euo pipefail
     timeout=600
-    {{ python }} contrib/build/orchestrator.py --platform linux-x86 build-fd {{ fd_tickoni_build }} test gcc-12
-    # Source dynamic resource detection to compute safe --page-cnt and -j
     eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
     echo "Running unit tests with: $TEST_OPTS"
-    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
-        LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-12 LD=gcc-12 run-unit-test TEST_OPTS="$TEST_OPTS"
+    contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt $(TEST_OPTS)
+
+test-unit-fd-linux-x86-clang:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    timeout=600
+    eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
+    echo "Running unit tests with: $TEST_OPTS"
+    contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt $(TEST_OPTS)
+
+test-unit-fd-linux-arm-gcc:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    timeout=600
+    eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
+    echo "Running unit tests with: $TEST_OPTS"
+    contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt $(TEST_OPTS)
 
 test-unit-fd-macos-x86:
-    {{ python }} contrib/build/orchestrator.py --platform macos-x86 build-fd {{ fd_tickoni_build }} test clang --build-target unit-test
-    just test-unit-tk
+    contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt --page-sz normal --page-cnt 131072
 
 test-unit-fd-macos-arm:
-    {{ python }} contrib/build/orchestrator.py --platform macos-arm build-fd {{ fd_tickoni_build }} test clang --build-target unit-test
-    just test-unit-tk
+    contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt --page-sz normal --page-cnt 131072
 
 test-unit-fd-windows-x86:
-    {{ python }} contrib/build/orchestrator.py --platform windows-x86 build-fd {{ fd_tickoni_build }} test clang --arch x86_64
-    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal --page-cnt 131072"
+    contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt --page-sz normal --page-cnt 131072
 
 test-unit-fd-windows-arm:
-    {{ python }} contrib/build/orchestrator.py --platform windows-arm build-fd {{ fd_tickoni_build }} test clang --arch arm64
-    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} run-unit-test TEST_OPTS="--page-sz normal --page-cnt 131072"
+    contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt --page-sz normal --page-cnt 131072
 
 # Print computed hash and wire bytes for every audit fixture event, and emit audit JSONL.
 gen-audit-fixtures:
@@ -64,6 +118,18 @@ test-unit-tk-linux-x86:
     ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
 
 test-unit-tk-linux-arm: test-unit-tk-linux-x86
+
+test-unit-tk-macos-x86:
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test --summary all
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+
+test-unit-tk-macos-arm: test-unit-tk-macos-x86
+
+test-unit-tk-windows-x86:
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test --summary all
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+
+test-unit-tk-windows-arm: test-unit-tk-windows-x86
 
 test-unit-all:
     {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-tk && just test-unit-fd"
