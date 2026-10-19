@@ -96,6 +96,22 @@ test-unit-fd-windows-x86:
 test-unit-fd-windows-arm:
     contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt --page-sz normal --page-cnt 131072
 
+# ── FD test all recipes (build + run) ─────────────────────────────────────
+
+test-unit-fd-linux-x86-gcc-all: build-test-unit-fd-linux-x86-gcc test-unit-fd-linux-x86-gcc
+
+test-unit-fd-linux-x86-clang-all: build-test-unit-fd-linux-x86-clang test-unit-fd-linux-x86-clang
+
+test-unit-fd-linux-arm-gcc-all: build-test-unit-fd-linux-arm-gcc test-unit-fd-linux-arm-gcc
+
+test-unit-fd-macos-x86-all: build-test-unit-fd-macos-x86 test-unit-fd-macos-x86
+
+test-unit-fd-macos-arm-all: build-test-unit-fd-macos-arm test-unit-fd-macos-arm
+
+test-unit-fd-windows-x86-all: build-test-unit-fd-windows-x86 test-unit-fd-windows-x86
+
+test-unit-fd-windows-arm-all: build-test-unit-fd-windows-arm test-unit-fd-windows-arm
+
 # Print computed hash and wire bytes for every audit fixture event, and emit audit JSONL.
 gen-audit-fixtures:
     TK_GEN_FIXTURES=1 ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -Dtest=true test 2>&1
