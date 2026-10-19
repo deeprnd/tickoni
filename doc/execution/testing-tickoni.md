@@ -9,7 +9,7 @@ Tickoni repository.
   <!-- badge:build:end -->
 
   <!-- badge:quality:start -->
-  <img alt="Quality" src="https://img.shields.io/badge/quality-failing-red?style=flat-square" />
+  <img alt="Quality" src="https://img.shields.io/badge/quality-passing-brightgreen?style=flat-square" />
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
@@ -119,11 +119,11 @@ Aggregates:
 - `just test-integration-all` — integration lane
 - `just test-e2e-all` — e2e lane
 - `just test-system-all` — system lane (requires llama.cpp)
-- `just test-all` — unit + integration + system + e2e
+- `just test-all` — unit + integration + coverage + system + e2e
 - `just test-cov-tk` — Tickoni harness coverage
 - `just test-cov-fd` — Firedancer coverage (no-op locally; CI coverage is pre-existing and requires LLVM toolchain)
 - `just test-cov-all` — both coverage lanes
-- `just tests-all` — build + quality + security + tests (full handoff gate)
+- `just tests-all` — build + quality + security + tests (full handoff gate, aggregator-of-aggregators only)
 
 Current placeholder test recipes:
 
@@ -133,7 +133,6 @@ Current placeholder test recipes:
   `test-demo-tk` and `test-e2e-fd`.
 - `just test-system-fd` — no-op (`@true`). Firedancer system testing uses
   `test-e2e-fd` (Firedancer's integration-test target).
-- `just test-cov-fd` — no-op (pre-existing llvm-cov toolchain not installed locally).
 
 Placeholder commands return `@true` in the `justfile`, following the repo
 tooling rule that no-op component variants live in the `justfile` and not in
@@ -141,15 +140,12 @@ shell scripts. Do not remove or rename them without explicit instruction.
 
 ## What `tests-all` Runs
 
-`just tests-all` runs these commands in order:
+`just tests-all` runs these commands in order (aggregator-of-aggregators only):
 
-1. `just build-all`
-2. `just quality-format-check-all`
-3. `just quality-lint-check-tk`
-4. `just quality-proto-check-all`
-5. `@true # security-check-all: pre-existing IBT linker failure on host clang`
-6. `just security-engine-check-changes`
-7. `just test-all`
+1. `just quality-check-all` — format + lint + proto + yaml + spell
+2. `just build-all` — Firedancer + Tickoni + Qt
+3. `just test-all` — unit + integration + coverage + system + e2e
+4. `just security-check-all` — engine + CodeQL + gitleaks + seccomp + proof + sanitizer
 
 `just test-all` runs these commands in order:
 
@@ -562,12 +558,12 @@ Preferred validation commands in order:
 - `just quality-lint-check-fd` runs Firedancer-derived lint checks and
   `shellcheck` when that tool is installed.
 - `just quality-lint-check-all` runs both lint lanes.
-- `just quality-yaml-check-linux` runs `yamllint` with a relaxed profile
+- `just quality-yaml-check-all` runs `yamllint` with a relaxed profile
   across the entire repository (all `.yaml`/`.yml` files). The config is in
   `.yamllint`. It excludes `opt/`, `node_modules/`, `.zig-global-cache/`,
   `build/`, `target/`, and `zig-out/`. Initially scoped to `.github/`, it was
   later expanded to the full repo.
-- `just quality-spell-check-linux` runs `cspell lint --no-progress` across
+- `just quality-spell-check-all` runs `cspell lint --no-progress` across
   the repository. The domain dictionary and ignored paths are configured in
   `.cspell.json`. It checks markdown, yaml, bash, python, and json files while
   excluding compiled/source trees under `src/`, `config/`, `.github/`, and
@@ -587,7 +583,7 @@ Preferred validation commands in order:
 - `just security-sanitize-check-all` runs sanitizer-oriented checks, including
   Tickoni `ReleaseSafe` Zig tests and the Firedancer sanitizer path.
 - `just security-check-all` runs the full repository security bundle:
-  CodeQL, gitleaks, seccomp, proof, and sanitizer checks.
+  engine, CodeQL, gitleaks, seccomp, proof, and sanitizer checks.
 - `just test-unit-tk` runs Tickoni Zig harness unit tests.
 - `just test-unit-fd` runs Firedancer-derived C unit tests through the
   repository wrapper that manages huge-page setup and normal-page fallback.
@@ -602,9 +598,9 @@ Preferred validation commands in order:
 - `just test-cov-fd` runs Firedancer-derived C coverage (no-op locally; requires
   LLVM toolchain not installed on host).
 - `just test-cov-all` runs both coverage lanes.
-- `just test-all` runs the broad test bundle: unit, integration, system, e2e.
-- `just tests-all` runs the full local handoff gate: build, quality, security,
-  and tests.
+- `just test-all` runs the broad test bundle: unit, integration, coverage, system, e2e.
+- `just tests-all` runs the full local handoff gate (aggregator-of-aggregators):
+  quality, build, tests, and security.
 
 For broad changes, use:
 
