@@ -44,7 +44,7 @@ build-test-unit-fd-linux-arm-gcc:
     eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
     echo "Building unit tests with: $TEST_OPTS"
     {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
-        LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-14 LD=gcc-14 unit-test
+        EXTRAS="lz4 blst zstd" LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-14 LD=gcc-14 unit-test
 
 build-test-unit-fd-macos-x86:
     {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} unit-test
@@ -154,22 +154,22 @@ test-unit-all:
 # Platform-specific pytest installation and execution for CI matrix entries.
 
 test-setup-install-linux-x86:
-    {{ python }} -m pip install -e contrib/test/
+    {{ python }} contrib/setup/orchestrator.py test-tools --platform linux-x86
 
 test-setup-install-linux-arm:
-    {{ python }} -m pip install -e contrib/test/
+    {{ python }} contrib/setup/orchestrator.py test-tools --platform linux-arm
 
 test-setup-install-macos-x86:
-    {{ python }} -m pip install --break-system-packages -e contrib/test/
+    {{ python }} contrib/setup/orchestrator.py test-tools --platform macos-x86
 
 test-setup-install-macos-arm:
-    {{ python }} -m pip install --break-system-packages -e contrib/test/
+    {{ python }} contrib/setup/orchestrator.py test-tools --platform macos-arm
 
 test-setup-install-windows-x86:
-    {{ python }} -m pip install -e contrib/test/
+    {{ python }} contrib/setup/orchestrator.py test-tools --platform windows-x86
 
 test-setup-install-windows-arm:
-    {{ python }} -m pip install -e contrib/test/
+    {{ python }} contrib/setup/orchestrator.py test-tools --platform windows-arm
 
 test-setup-run-linux-x86:
     {{ python }} -m pytest contrib/test/ -v --tb=short
