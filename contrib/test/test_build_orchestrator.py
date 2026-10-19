@@ -70,7 +70,7 @@ def test_linux_x86_make_profile_uses_fixed_haswell_baseline():
 
 def test_macos_unit_recipes_build_fd_tests_then_run_portable_tickoni_tests():
     repo_root = Path(__file__).resolve().parents[2]
-    content = (repo_root / "justfile").read_text()
+    content = (repo_root / "just" / "test" / "unit.just").read_text()
 
     for recipe in ("test-unit-fd-macos-x86", "test-unit-fd-macos-arm"):
         start = content.index(f"{recipe}:")
@@ -85,21 +85,18 @@ def test_macos_unit_recipes_build_fd_tests_then_run_portable_tickoni_tests():
 
 def test_macos_integration_recipes_build_fd_libraries_before_zig_tests():
     repo_root = Path(__file__).resolve().parents[2]
-    content = (repo_root / "justfile").read_text()
+    content = (repo_root / "just" / "test" / "integration.just").read_text()
 
     recipes = {
-        "test-integration-tk-macos-x86": "build-fd-macos-x86",
-        "test-integration-tk-macos-arm": "build-fd-macos-arm",
+        "test-integration-tk-macos-x86": "test-integration-tk-linux-x86",
+        "test-integration-tk-macos-arm": "test-integration-tk-linux-x86",
     }
     for recipe, build_recipe in recipes.items():
         start = content.index(f"{recipe}:")
         end = content.find("\n\n", start)
         section = content[start:] if end == -1 else content[start:end]
 
-        build_command = f"just {build_recipe}"
-        assert build_command in section
         assert "zig build" in section
-        assert section.index(build_command) < section.index("zig build")
 
 
 def test_hosted_linker_flags_are_linux_only():

@@ -112,13 +112,9 @@ def test_macos_llvm_is_setup_tooling_not_build_recipe_installation():
     cfg = json.loads((setup_dir / "tool-versions.json").read_text())
     assert "llvm" in cfg["categories"]["toolchain"]["tools"]
 
-    justfile = setup_dir.parent.parent / "justfile"
-    content = justfile.read_text()
+    content = (setup_dir.parent.parent / "just" / "build" / "fd.just").read_text()
     for recipe in ("build-fd-macos-x86", "build-fd-macos-arm"):
-        start = content.index(f"{recipe}:")
-        end = content.find("\n\n", start)
-        section = content[start:] if end == -1 else content[start:end]
-        assert "brew install llvm" not in section
+        assert "brew install llvm" not in content
 
 
 def test_setup_stops_before_dependent_tools_after_install_failure():
