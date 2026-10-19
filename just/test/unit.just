@@ -154,22 +154,22 @@ test-unit-all:
 # Platform-specific pytest installation and execution for CI matrix entries.
 
 test-setup-install-linux-x86:
-    pip install -e contrib/test/
+    {{ python }} -m pip install -e contrib/test/
 
 test-setup-install-linux-arm:
-    pip install -e contrib/test/
+    {{ python }} -m pip install -e contrib/test/
 
 test-setup-install-macos-x86:
-    pip3 install --break-system-packages -e contrib/test/
+    {{ python }} -m pip install --break-system-packages -e contrib/test/
 
 test-setup-install-macos-arm:
-    pip3 install --break-system-packages -e contrib/test/
+    {{ python }} -m pip install --break-system-packages -e contrib/test/
 
 test-setup-install-windows-x86:
-    pip install -e contrib/test/
+    {{ python }} -m pip install -e contrib/test/
 
 test-setup-install-windows-arm:
-    pip install -e contrib/test/
+    {{ python }} -m pip install -e contrib/test/
 
 test-setup-run-linux-x86:
     {{ python }} -m pytest contrib/test/ -v --tb=short
