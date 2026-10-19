@@ -91,12 +91,12 @@ def test_macos_unit_recipes_build_fd_tests_then_run_portable_tickoni_tests():
                 return _extract_recipe(content, alias_target)
         return section
 
-    # Build recipes: should contain GNUmakefile + unit-test target, no run script
+    # Build recipes: should contain orchestrator + unit-test target, no run script
     for recipe in ("build-test-unit-fd-macos-x86", "build-test-unit-fd-macos-arm"):
         section = _extract_recipe(content, recipe)
 
-        assert "GNUmakefile" in section
-        assert "unit-test" in section
+        assert "contrib/build/orchestrator.py" in section
+        assert "--build-target unit-test" in section
         assert "run_unit_tests.sh" not in section
 
     # Run recipes: should contain run script, no build commands
