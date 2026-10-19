@@ -32,6 +32,12 @@ security-sanitize-check-linux-x86:
     @just security-sanitize-check-fd-linux-x86
     @just security-sanitize-check-tk-linux-x86
 
+security-sanitize-check-qt:
+    bash contrib/security/security.sh sanitize-check-qt
+
+security-sanitize-check-qt-linux-x86: security-sanitize-check-qt
+
 security-sanitize-check-all:
     @just security-sanitize-check-fd
     @just security-sanitize-check-tk
+    @just security-sanitize-check-qt

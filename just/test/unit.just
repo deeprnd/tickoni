@@ -67,3 +67,42 @@ test-unit-tk-linux-arm: test-unit-tk-linux-x86
 
 test-unit-all:
     {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-tk && just test-unit-fd"
+
+# ── Test: Pytest setup recipes (CI) ────────────────────────────────────────
+# Platform-specific pytest installation and execution for CI matrix entries.
+
+test-setup-install-linux-x86:
+    pip install -e contrib/test/
+
+test-setup-install-linux-arm:
+    pip install -e contrib/test/
+
+test-setup-install-macos-x86:
+    pip3 install -e contrib/test/
+
+test-setup-install-macos-arm:
+    pip3 install -e contrib/test/
+
+test-setup-install-windows-x86:
+    pip install -e contrib/test/
+
+test-setup-install-windows-arm:
+    pip install -e contrib/test/
+
+test-setup-run-linux-x86:
+    pytest contrib/test/ -v --tb=short
+
+test-setup-run-linux-arm:
+    pytest contrib/test/ -v --tb=short
+
+test-setup-run-macos-x86:
+    pytest contrib/test/ -v --tb=short
+
+test-setup-run-macos-arm:
+    pytest contrib/test/ -v --tb=short
+
+test-setup-run-windows-x86:
+    pytest contrib/test/ -v --tb=short
+
+test-setup-run-windows-arm:
+    pytest contrib/test/ -v --tb=short
