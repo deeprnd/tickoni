@@ -33,9 +33,7 @@
 #define GNU_DATA_TYPE(name)
 #endif
 
-#if defined(__linux__)
 .globl	fd_sha512_core_avx2
-#endif
 #if defined(__linux__)
 .type	fd_sha512_core_avx2,@function
 #endif
