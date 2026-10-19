@@ -26,4 +26,4 @@ quality-yaml-check-windows-x86: quality-yaml-check-linux-x86
 quality-yaml-check-windows-arm: quality-yaml-check-linux-x86
 
 quality-yaml-check-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py quality-yaml bash -c "just quality-yaml-check"
+    @just quality-yaml-check

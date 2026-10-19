@@ -55,7 +55,7 @@ default:
 
 # ── Super-aggregator ───────────────────────────────────────────────────────
 tests-all:
+    @just quality-check-all
     @just build-all
     @just test-all
-    @just quality-check-all
     @just security-check-all

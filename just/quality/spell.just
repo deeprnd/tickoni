@@ -26,4 +26,4 @@ quality-spell-check-windows-x86: quality-spell-check-linux-x86
 quality-spell-check-windows-arm: quality-spell-check-linux-x86
 
 quality-spell-check-all:
-    just quality-spell-check
+    @just quality-spell-check
