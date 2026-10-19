@@ -160,10 +160,10 @@ test-setup-install-linux-arm:
     pip install -e contrib/test/
 
 test-setup-install-macos-x86:
-    pip3 install -e contrib/test/
+    pip3 install --break-system-packages -e contrib/test/
 
 test-setup-install-macos-arm:
-    pip3 install -e contrib/test/
+    pip3 install --break-system-packages -e contrib/test/
 
 test-setup-install-windows-x86:
     pip install -e contrib/test/
