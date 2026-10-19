@@ -237,8 +237,7 @@ commands from the repository root unless noted otherwise.
   local OpenAI-compatible server behavior change: `just test-system-tk`
   (requires `infra-ensure-llamacpp` first)
 - **Windows-specific changes**: `just test-unit-tk-windows-x86` or
-  `just test-unit-tk-windows-arm` (builds FD libs for the target platform first,
-  then runs Zig unit tests)
+  `just test-unit-tk-windows-arm`
 - Cross-cutting local runtime validation: `just test-all`
 - Broad coverage validation: `just test-cov-all`
 - Full repository validation with build, quality, security, and tests:
@@ -354,10 +353,11 @@ ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{fd_t
 ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} run-tests
 ```
 
-On Windows, `just test-unit-tk` delegates to
-`just test-unit-tk-windows-x86` or `just test-unit-tk-windows-arm`, which first
-build the Firedancer libraries for the target platform before running the Zig
-tests.
+On Windows and macOS, `just test-unit-tk` delegates to platform-specific
+recipes (`test-unit-tk-windows-x86`, `test-unit-tk-macos-arm`, etc.) which
+use the same Zig `build.zig` graph. Firedancer library dependencies are
+expected to be built separately (`just build-fd-{platform}`) or available
+via pre-built CI artifacts.
 
 The boundary for this lane is the directory: every Tickoni-owned test root that
 is not under `src/tickoni/test/integration/` or `src/tickoni/test/system/` runs
@@ -376,32 +376,50 @@ as authoritative.
 
 ## Engine Unit Tests
 
-`just test-unit-fd` runs a wrapper around the Firedancer-derived unit-test
-Make targets.
+`just test-unit-fd` delegates to platform-qualified recipes. The FD unit-test
+lane uses a three-tier recipe pattern:
+
+| Recipe tier | Purpose |
+|-------------|---------|
+| `build-test-unit-fd-{platform}` | Builds test executables only (via `make unit-test`). Does **not** rebuild Firedancer libraries. |
+| `test-unit-fd-{platform}` | Runs existing test executables only (via `contrib/test/run_unit_tests.sh`). |
+| `test-unit-fd-{platform}-all` | Build + run wrapper (`build-test-unit-fd-{platform} test-unit-fd-{platform}`). |
+
+Platform-qualified commands:
+
+- `just test-unit-fd-linux-x86-gcc` / `gcc-all`
+- `just test-unit-fd-linux-x86-clang` / `clang-all`
+- `just test-unit-fd-linux-arm-gcc` / `gcc-all`
+- `just test-unit-fd-macos-x86` / `macos-x86-all`
+- `just test-unit-fd-macos-arm` / `macos-arm-all`
+- `just test-unit-fd-windows-x86` / `windows-x86-all`
+- `just test-unit-fd-windows-arm` / `windows-arm-all`
+
+On Linux, the build recipe computes resource-safe test options via
+`dynamic_test_opts.py` (memory-driven `TEST_OPTS` and `LDFLAGS_EXE`), raises
+memlock limits, and allocates gigantic pages when possible. It then runs
+`make unit-test` with the appropriate compiler (`gcc-12`, `clang-18`, or
+`gcc-14`) and the `tickoni_fd` machine profile. The run recipe invokes
+`contrib/test/run_unit_tests.sh` with `--page-sz normal` fallback when needed.
+
+On macOS and Windows, the build recipe runs `make unit-test` with the default
+compiler and the run recipe uses `--page-sz normal --page-cnt 131072`.
 
 All Firedancer builds use the `tickoni_fd` machine profile, which scopes the
 build to only the 5 libraries Tickoni reuses (`fd_tango`, `fd_util`,
 `fd_ballet`, `fd_disco`, `fd_waltz`). This excludes Solana validator tiles,
 RPC schemas, and unrelated Firedancer source.
 
-It performs these steps:
+CI downloads pre-built FD libraries as build artifacts before the test stage,
+so FD test recipes only compile test executables — they never rebuild the 5
+core Firedancer libraries. For local development without pre-built libraries,
+use `just test-unit-fd-{platform}-all` to build + run in one step, or
+`just build-fd-{platform}` first then `just test-unit-fd-{platform}`.
 
-1. attempts to free previous gigantic page allocations
-2. computes an automatic gigantic-page allocation target from available RAM
-3. allocates gigantic pages on NUMA node `0` when possible
-4. raises the current shell's memlock limit with `sudo prlimit`
-5. builds unit tests with `make -j"$(nproc)" unit-test`
-6. runs `make run-unit-test`
-7. falls back to `make run-unit-test TEST_OPTS="--page-sz normal"` when
-   gigantic pages are unavailable
+The bare dispatcher `just test-unit-fd` routes to the host platform's GCC recipe.
 
-On macOS and Windows, `just test-unit-fd` delegates to the platform build
-recipe (e.g. `build-fd-macos-arm`) and then runs `just test-unit-tk` instead,
-because Firedancer C unit tests require Linux. This is the same routing pattern
-as `build-fd` — the justfile auto-detects the host platform.
-
-This wrapper is the preferred repo-facing Firedancer unit-test command. Do not
-invoke raw compiler commands for Firedancer tests.
+This is the preferred repo-facing Firedancer unit-test command. Do not invoke
+raw compiler commands for Firedancer tests.
 
 ## Qt Test
 
@@ -454,18 +472,10 @@ testing a small intermediate group of tiles.
 a separate repo-facing intermediate integration layer between tile/unit tests
 and full-topology `integration-test` binaries.
 
-`just test-integration-tk` runs the Zig integration lane. On macOS, it first
-runs the platform-specific Firedancer library build, so the equivalent commands
-are:
-
-```bash
-just build-fd-macos-<arch>
-ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} integration-test
-```
-
-On Windows, `just test-integration-tk` delegates to
-`just test-integration-tk-windows-x86` or `just test-integration-tk-windows-arm`,
-which first builds the Firedancer libraries for the target platform.
+`just test-integration-tk` runs the Zig integration lane. On macOS and Windows,
+platform-specific recipes exist (`test-integration-tk-macos-x86`, etc.);
+Firedancer library dependencies are expected to be built separately
+(`just build-fd-{platform}`) or available via pre-built CI artifacts.
 
 The boundary for this lane is the directory: every test root under
 `src/tickoni/test/integration/` runs here, and nothing outside that directory
