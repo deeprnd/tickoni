@@ -20,43 +20,25 @@ test-unit-fd:
 # ── FD test build recipes (build test executables only) ───────────────────
 
 build-test-unit-fd-linux-x86-gcc:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    timeout=600
-    eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
-    echo "Building unit tests with: $TEST_OPTS"
-    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
-        LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-12 LD=gcc-12 unit-test
+    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform linux-x86 build-fd fd-tickoni-fd test gcc-12 "lz4 blst zstd" --build-target unit-test
 
 build-test-unit-fd-linux-x86-clang:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    timeout=600
-    eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
-    echo "Building unit tests with: $TEST_OPTS"
-    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
-        LDFLAGS_EXE="$LDFLAGS_EXE" CC=clang-18 LD=clang-18 unit-test
+    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform linux-x86 build-fd fd-tickoni-fd test clang-18 "lz4 blst zstd" --build-target unit-test
 
 build-test-unit-fd-linux-arm-gcc:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    timeout=600
-    eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
-    echo "Building unit tests with: $TEST_OPTS"
-    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} \
-        EXTRAS="lz4 blst zstd" LDFLAGS_EXE="$LDFLAGS_EXE" CC=gcc-14 LD=gcc-14 unit-test
+    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform linux-arm build-fd fd-tickoni-fd test gcc-14 "lz4 blst zstd" --build-target unit-test
 
 build-test-unit-fd-macos-x86:
-    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} unit-test
+    env JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ python }} contrib/build/orchestrator.py --platform macos-x86 build-fd fd-tickoni-fd test clang "lz4 blst zstd" --build-target unit-test
 
 build-test-unit-fd-macos-arm:
-    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} unit-test
+    env JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ python }} contrib/build/orchestrator.py --platform macos-arm build-fd fd-tickoni-fd test clang "lz4 blst zstd" --build-target unit-test
 
 build-test-unit-fd-windows-x86:
-    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} unit-test
+    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform windows-x86 build-fd fd-tickoni-fd test clang --arch x86_64 "lz4 blst zstd" --build-target unit-test
 
 build-test-unit-fd-windows-arm:
-    {{ make }} -f contrib/build/GNUmakefile -j"{{ cpu_count }}" MACHINE=tickoni_fd BUILDDIR={{ fd_tickoni_build }} unit-test
+    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform windows-arm build-fd fd-tickoni-fd test clang --arch arm64 "lz4 blst zstd" --build-target unit-test
 
 # ── FD test run recipes (run existing test executables only) ──────────────
 
@@ -66,7 +48,7 @@ test-unit-fd-linux-x86-gcc:
     timeout=600
     eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
     echo "Running unit tests with: $TEST_OPTS"
-    contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt $(TEST_OPTS)
+    contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt $(TEST_OPTS)
 
 test-unit-fd-linux-x86-clang:
     #!/usr/bin/env bash
@@ -74,7 +56,7 @@ test-unit-fd-linux-x86-clang:
     timeout=600
     eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
     echo "Running unit tests with: $TEST_OPTS"
-    contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt $(TEST_OPTS)
+    contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt $(TEST_OPTS)
 
 test-unit-fd-linux-arm-gcc:
     #!/usr/bin/env bash
@@ -82,19 +64,19 @@ test-unit-fd-linux-arm-gcc:
     timeout=600
     eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
     echo "Running unit tests with: $TEST_OPTS"
-    contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt $(TEST_OPTS)
+    contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt $(TEST_OPTS)
 
 test-unit-fd-macos-x86:
-    contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt --page-sz normal --page-cnt 131072
+    contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt --page-sz normal --page-cnt 131072
 
 test-unit-fd-macos-arm:
-    contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt --page-sz normal --page-cnt 131072
+    contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt --page-sz normal --page-cnt 131072
 
 test-unit-fd-windows-x86:
-    contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt --page-sz normal --page-cnt 131072
+    contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt --page-sz normal --page-cnt 131072
 
 test-unit-fd-windows-arm:
-    contrib/test/run_unit_tests.sh --tests $(OBJDIR)/unit-test/automatic.txt --page-sz normal --page-cnt 131072
+    contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt --page-sz normal --page-cnt 131072
 
 # ── FD test all recipes (build + run) ─────────────────────────────────────
 

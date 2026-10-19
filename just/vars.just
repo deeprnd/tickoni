@@ -43,6 +43,7 @@ cpu_count := `bash contrib/platform.sh cores`
 fd_tickoni_build := "fd-tickoni-fd"
 fd_tickoni_dir := "build/fd-tickoni-fd"
 fd_tickoni_lib := "build/fd-tickoni-fd/lib"
+OBJDIR := "build/fd-tickoni-fd"
 
 fd_gcc_build := "fd-gcc"
 fd_gcc_dir := "build/fd-gcc"
