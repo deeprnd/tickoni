@@ -131,6 +131,14 @@ jobs:
           sudo src/util/shmem/fd_shmem_cfg init 0700 "$USER" ""
           just system-mem-alloc-auto || true
 
+      - name: Install build toolchain (macOS)
+        if: runner.os == 'macOS'
+        run: just setup-build-${{ matrix.platform }}
+
+      - name: Install Firedancer toolchain (Windows)
+        if: runner.os == 'Windows'
+        run: just setup-fd-${{ matrix.platform }}
+
       - name: Run Firedancer unit tests
         run: just ${{ matrix.fd-test-recipe }}
 
