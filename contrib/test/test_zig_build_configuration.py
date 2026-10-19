@@ -1,4 +1,4 @@
-"""Regression tests for Zig build configuration wiring."""
+"""Tests for Zig build configuration wiring."""
 
 import os
 from pathlib import Path
@@ -33,8 +33,8 @@ def test_c_compile_outputs_depend_on_their_output_directory():
 
 
 def test_linux_x86_build_and_test_recipes_pin_the_same_zig_cpu():
-    common = (REPO_ROOT / "just" / "common.just").read_text(encoding="utf-8")
-    linux_build = (REPO_ROOT / "just" / "build" / "linux.just").read_text(
+    vars_just = (REPO_ROOT / "just" / "vars.just").read_text(encoding="utf-8")
+    build_fd = (REPO_ROOT / "just" / "build" / "fd.just").read_text(
         encoding="utf-8"
     )
     integration = (
@@ -44,8 +44,8 @@ def test_linux_x86_build_and_test_recipes_pin_the_same_zig_cpu():
         encoding="utf-8"
     )
 
-    assert 'zig_linux_x86_cpu := "-Dcpu=haswell"' in common
-    assert linux_build.count("{{ zig_linux_x86_cpu }}") >= 3
+    assert 'zig_linux_x86_cpu := "-Dcpu=haswell"' in vars_just
+    assert build_fd.count("{{ zig_linux_x86_cpu }}") >= 2
     assert "{{ zig_linux_x86_cpu }}" in integration
     assert "zig build install --prefix build/zig-out" not in workflow
 

@@ -24,14 +24,14 @@ def test_zig_does_not_reuse_different_version_on_path(monkeypatch, tmp_path, cap
     requested = "0.17.0-dev.2320+1e770dbef"
 
     monkeypatch.setattr(
-        "contrib.setup.install.strategies.zig.shutil.which",
-        lambda name: str(executable),
+        "shutil.which",
+        lambda name: str(executable) if name == "zig" else None,
     )
     monkeypatch.setattr(
-        "contrib.setup.install.strategies.zig.subprocess.run",
+        "subprocess.run",
         lambda *args, **kwargs: SimpleNamespace(
             returncode=0,
-            stdout="0.17.0-dev.1978+c961124d9\\n",
+            stdout="0.17.0-dev.1978+c961124d9\n",
         ),
     )
     monkeypatch.setattr(
@@ -57,7 +57,7 @@ def test_zig_reuses_cache_restored_target_installation(monkeypatch, tmp_path, ca
     (install_dir / "zig.exe").touch()
     github_path = tmp_path / "github-path"
 
-    monkeypatch.setattr("contrib.setup.install.strategies.zig.shutil.which", lambda name: None)
+    monkeypatch.setattr("shutil.which", lambda name: None)
     monkeypatch.setenv("GITHUB_PATH", str(github_path))
     monkeypatch.setenv("PATH", "C:\\Windows\\System32")
 
