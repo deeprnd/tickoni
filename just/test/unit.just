@@ -90,19 +90,19 @@ test-setup-install-windows-arm:
     pip install -e contrib/test/
 
 test-setup-run-linux-x86:
-    pytest contrib/test/ -v --tb=short
+    {{ python }} -m pytest contrib/test/ -v --tb=short
 
 test-setup-run-linux-arm:
-    pytest contrib/test/ -v --tb=short
+    {{ python }} -m pytest contrib/test/ -v --tb=short
 
 test-setup-run-macos-x86:
-    pytest contrib/test/ -v --tb=short
+    {{ python }} -m pytest contrib/test/ -v --tb=short
 
 test-setup-run-macos-arm:
-    pytest contrib/test/ -v --tb=short
+    {{ python }} -m pytest contrib/test/ -v --tb=short
 
 test-setup-run-windows-x86:
-    pytest contrib/test/ -v --tb=short
+    {{ python }} -m pytest contrib/test/ -v --tb=short
 
 test-setup-run-windows-arm:
-    pytest contrib/test/ -v --tb=short
+    {{ python }} -m pytest contrib/test/ -v --tb=short
