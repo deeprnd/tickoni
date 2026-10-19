@@ -37,10 +37,6 @@ jobs:
         if: inputs.check == 'sanitize-fd'
         run: just setup-build-linux-x86-gcc
 
-      - name: Setup sanitizer toolchain (sanitize-fd)
-        if: inputs.check == 'sanitize-fd'
-        run: just setup-sanitizer-linux-x86-clang
-
       - name: Setup Firedancer deps (sanitize-fd)
         if: inputs.check == 'sanitize-fd'
         run: just setup-fd-linux-x86-gcc
@@ -69,10 +65,6 @@ jobs:
           QT_USERNAME: ${{ secrets.QT_USERNAME }}
           QT_PASSWORD: ${{ secrets.QT_PASSWORD }}
         run: just setup-qt-linux-x86
-
-      - name: Setup sanitizer toolchain (sanitize-qt)
-        if: inputs.check == 'sanitize-qt'
-        run: just setup-sanitizer-linux-x86-clang
 
       - name: Run Qt sanitizer checks
         if: inputs.check == 'sanitize-qt'
