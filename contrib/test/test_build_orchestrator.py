@@ -72,15 +72,40 @@ def test_macos_unit_recipes_build_fd_tests_then_run_portable_tickoni_tests():
     repo_root = Path(__file__).resolve().parents[2]
     content = (repo_root / "just" / "test" / "unit.just").read_text()
 
-    for recipe in ("test-unit-fd-macos-x86", "test-unit-fd-macos-arm"):
-        start = content.index(f"{recipe}:")
+    def _extract_recipe(content: str, name: str) -> str:
+        """Extract recipe body by matching name: at the start of a line."""
+        import re
+        match = re.search(rf"^{name}:", content, re.MULTILINE)
+        if not match:
+            raise ValueError(f"Recipe {name!r} not found in justfile")
+        start = match.start()
         end = content.find("\n\n", start)
         section = content[start:] if end == -1 else content[start:end]
+        # Follow alias: if content after "name:" doesn't start with 4+ spaces (body)
+        # or # (comment), it's an alias to another recipe
+        after_colon = section[section.index(":") + 1:]
+        stripped = after_colon.lstrip()
+        if stripped and not stripped.startswith("#") and len(after_colon) - len(stripped) < 4:
+            alias_target = stripped.split()[0] if stripped.split() else None
+            if alias_target and ":" not in alias_target:
+                return _extract_recipe(content, alias_target)
+        return section
 
-        assert "--build-target unit-test" in section
-        assert "run-unit-test" not in section
-        assert "just test-unit-tk" in section
-        assert "contrib/build/GNUmakefile" not in section
+    # Build recipes: should contain GNUmakefile + unit-test target, no run script
+    for recipe in ("build-test-unit-fd-macos-x86", "build-test-unit-fd-macos-arm"):
+        section = _extract_recipe(content, recipe)
+
+        assert "GNUmakefile" in section
+        assert "unit-test" in section
+        assert "run_unit_tests.sh" not in section
+
+    # Run recipes: should contain run script, no build commands
+    for recipe in ("test-unit-fd-macos-x86", "test-unit-fd-macos-arm"):
+        section = _extract_recipe(content, recipe)
+
+        assert "run_unit_tests.sh" in section
+        assert "--page-sz normal" in section
+        assert "GNUmakefile" not in section
 
 
 def _extract_just_recipe(content: str, name: str) -> str:
