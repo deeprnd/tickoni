@@ -25,8 +25,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-linux-x86
             platform: linux-x86
-            fd-build-test-recipe: build-test-unit-fd-linux-x86-gcc
-            fd-test-recipe: test-unit-fd-linux-x86-gcc
+            fd-test-recipe: test-unit-fd-linux-x86-gcc-all
             test-recipe: test-unit-tk-linux-x86
             compiler: gcc-12
           # Linux x86_64 (clang)
@@ -35,8 +34,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-linux-x86-clang
             platform: linux-x86
-            fd-build-test-recipe: build-test-unit-fd-linux-x86-clang
-            fd-test-recipe: test-unit-fd-linux-x86-clang
+            fd-test-recipe: test-unit-fd-linux-x86-clang-all
             test-recipe: test-unit-tk-linux-x86
             compiler: clang-18
           # Linux ARM64
@@ -45,8 +43,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-linux-arm
             platform: linux-arm
-            fd-build-test-recipe: build-test-unit-fd-linux-arm-gcc
-            fd-test-recipe: test-unit-fd-linux-arm-gcc
+            fd-test-recipe: test-unit-fd-linux-arm-gcc-all
             test-recipe: test-unit-tk-linux-arm
             compiler: gcc-14
           # macOS 15 (x86_64)
@@ -55,8 +52,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-macos-15-x86_64
             platform: macos-x86
-            fd-build-test-recipe: build-test-unit-fd-macos-x86
-            fd-test-recipe: test-unit-fd-macos-x86
+            fd-test-recipe: test-unit-fd-macos-x86-all
             test-recipe: test-unit-tk-macos-x86
             compiler: clang
           # macOS 15 (ARM)
@@ -65,8 +61,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-macos-15-arm
             platform: macos-arm
-            fd-build-test-recipe: build-test-unit-fd-macos-arm
-            fd-test-recipe: test-unit-fd-macos-arm
+            fd-test-recipe: test-unit-fd-macos-arm-all
             test-recipe: test-unit-tk-macos-arm
             compiler: clang
           # macOS 26 (x86_64)
@@ -75,8 +70,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-macos-26-x86_64
             platform: macos-x86
-            fd-build-test-recipe: build-test-unit-fd-macos-x86
-            fd-test-recipe: test-unit-fd-macos-x86
+            fd-test-recipe: test-unit-fd-macos-x86-all
             test-recipe: test-unit-tk-macos-x86
             compiler: clang
           # macOS 26 (ARM)
@@ -85,8 +79,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-macos-26-arm
             platform: macos-arm
-            fd-build-test-recipe: build-test-unit-fd-macos-arm
-            fd-test-recipe: test-unit-fd-macos-arm
+            fd-test-recipe: test-unit-fd-macos-arm-all
             test-recipe: test-unit-tk-macos-arm
             compiler: clang
           # Windows x86_64
@@ -95,8 +88,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-windows-x86_64
             platform: windows-x86
-            fd-build-test-recipe: build-test-unit-fd-windows-x86
-            fd-test-recipe: test-unit-fd-windows-x86
+            fd-test-recipe: test-unit-fd-windows-x86-all
             test-recipe: test-unit-tk-windows-x86
             compiler: msvc
           # Windows ARM64
@@ -105,8 +97,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-windows-arm
             platform: windows-arm
-            fd-build-test-recipe: build-test-unit-fd-windows-arm
-            fd-test-recipe: test-unit-fd-windows-arm
+            fd-test-recipe: test-unit-fd-windows-arm-all
             test-recipe: test-unit-tk-windows-arm
             compiler: msvc
 
@@ -139,9 +130,6 @@ jobs:
           sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || true
           sudo src/util/shmem/fd_shmem_cfg init 0700 "$USER" ""
           just system-mem-alloc-auto || true
-
-      - name: Build Firedancer unit-test executables
-        run: just ${{ matrix.fd-build-test-recipe }}
 
       - name: Run Firedancer unit tests
         run: just ${{ matrix.fd-test-recipe }}
