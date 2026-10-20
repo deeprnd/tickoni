@@ -115,6 +115,9 @@ pub fn strategy(
             .windows  => os_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
             else      => {},
         }
+        if (target.result.os.tag == .windows) {
+            os_mod.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
+        }
         os_mod.link_libc = true;
         const os_test = b.addTest(.{ .name = "test-os-shim", .root_module = os_mod });
         test_step.dependOn(&os_test.step);
