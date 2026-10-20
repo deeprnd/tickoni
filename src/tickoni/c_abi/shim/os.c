@@ -245,6 +245,12 @@ const char * tk_getenv( const char * name ) {
   return NULL;
 }
 
+long tk_getenv_len( const char * name ) {
+  const char * val = getenv( name );
+  if( !val ) return -1;
+  return (long)strlen( val );
+}
+
 int tk_get_affinity(int pid, unsigned char *mask) {
   /* Linux/macOS: sched_getaffinity returns the CPU affinity mask.
    * On Linux this is a real syscall; on macOS it's a no-op stub.
@@ -503,6 +509,16 @@ const char * tk_getenv( const char * name ) {
     return buf;
   }
   return NULL;
+}
+
+long tk_getenv_len( const char * name ) {
+  char * val = NULL;
+  size_t sz = 0;
+  if( _dupenv_s( &val, &sz, name )==0 && val!=NULL ) {
+    free( val );
+    return (long)(sz - 1);  /* sz includes null terminator */
+  }
+  return -1;
 }
 
 int tk_get_affinity(int pid, unsigned char *mask) {

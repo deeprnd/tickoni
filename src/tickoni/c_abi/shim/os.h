@@ -60,6 +60,9 @@ void
 tk_process_release( ulong process_token,
                     ulong thread_token );
 
+long
+tk_getenv_len( const char * name );
+
 #if TK_PROCESS_TEST
 void
 tk_process_test_eintr_then_exit( uint exit_code );
