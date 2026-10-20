@@ -59,18 +59,6 @@ pub fn spinPause() void {
 // Tests — platform-specific halt behavior and constant smoke checks.
 // ---------------------------------------------------------------------------
 
-test "haltForTileProcess calls tk_halt only on Linux" {
-    if (builtin.os.tag == .linux) {
-        // On Linux we cannot easily isolate the branch, but we can verify
-        // the compile-time constant path is what we expect: the Linux build
-        // will reach tk_halt; non-Linux will not.  This test at least
-        // documents the expected platform branching.
-        try std.testing.expect(builtin.os.tag == .linux);
-    } else {
-        try std.testing.expect(builtin.os.tag != .linux);
-    }
-}
-
 test "boot.zig module compiles with expected symbols" {
     // Smoke test: verify all public symbols exist and have the expected
     // types.  The actual C linkage is exercised by process-mode
