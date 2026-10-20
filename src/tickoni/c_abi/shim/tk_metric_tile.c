@@ -148,8 +148,8 @@ tk_metric_run( fd_topo_t *      topo,
   fd_metric_ctx_t * ctx = (fd_metric_ctx_t *)scratch;
 
   /* DIAG: log that we reached tk_metric_run */
-  FD_LOG_NOTICE(( "tk_metric_run: entering, tile_id=%u tile_obj_id=%lu boot_ts=%ld",
-                  tile->id, tile->tile_obj_id, (long)ctx->boot_ts ));
+  FD_LOG_NOTICE(( "tk_metric_run: entering, tile_id=%u tile_obj_id=%lu boot_ts=%lld",
+                  tile->id, tile->tile_obj_id, (long long)ctx->boot_ts ));
 
   /* Find the CNC object for this tile and set ctx->cnc so
      STEM_CALLBACK_SHOULD_SHUTDOWN can detect HALT. */
@@ -168,8 +168,8 @@ tk_metric_run( fd_topo_t *      topo,
        started. If the supervisor reads a valid timestamp but HTTP fails,
        the problem is isolated to the HTTP subsystem. */
     ulong app_laddr = (ulong)fd_cnc_app_laddr((fd_cnc_t *)cnc_laddr);
-    FD_LOG_NOTICE(( "tk_metric_run: writing boot_ts=%ld to cnc_app_laddr=%lu obj_id=%lu",
-                    (long)ctx->boot_ts, app_laddr, cnc_obj_id ));
+    FD_LOG_NOTICE(( "tk_metric_run: writing boot_ts=%lld to cnc_app_laddr=%lu obj_id=%lu",
+                    (long long)ctx->boot_ts, app_laddr, cnc_obj_id ));
     ((ulong *)fd_cnc_app_laddr((fd_cnc_t *)cnc_laddr))[2] = (ulong)ctx->boot_ts;
     /* Verify write */
     ulong verify = ((ulong *)fd_cnc_app_laddr((fd_cnc_t *)cnc_laddr))[2];

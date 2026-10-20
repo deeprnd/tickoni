@@ -150,7 +150,7 @@ metrics_http_request( fd_http_server_request_t const * request ) {
 
 static void
 metrics_write( fd_metric_ctx_t * ctx ) {
-  FD_LOG_NOTICE(( "fd_metric_tile: metrics_write ENTER boot_ts=%ld", (long)ctx->boot_ts ));
+  FD_LOG_NOTICE(( "fd_metric_tile: metrics_write ENTER boot_ts=%lld", (long long)ctx->boot_ts ));
 
   FD_MGAUGE_SET( METRIC, BOOT_TIMESTAMP_NANOS, (ulong)ctx->boot_ts );
 
@@ -204,7 +204,7 @@ unprivileged_init( fd_topo_t const *      topo,
   fd_metric_ctx_t * ctx = FD_SCRATCH_ALLOC_APPEND( l, alignof( fd_metric_ctx_t ), sizeof( fd_metric_ctx_t ) );
 
   ctx->topo = topo;
-  ctx->boot_ts = fd_log_wallclock();
+  ctx->boot_ts = fd_log_wallclock_nanos();
   ctx->cnc = NULL;
 
   ulong scratch_top = FD_SCRATCH_ALLOC_FINI( l, scratch_align() );
