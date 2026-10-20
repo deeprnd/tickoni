@@ -84,7 +84,7 @@ void
 before_credit( fd_metric_ctx_t *   ctx,
                fd_stem_context_t * stem,
                int *               charge_busy ) {
-  FD_LOG_NOTICE(( "fd_metric_tile: before_credit ENTER ctx=%p", (void*)ctx ));
+  FD_LOG_DEBUG(( "fd_metric_tile: before_credit ENTER ctx=%p", (void*)ctx ));
   *charge_busy = fd_http_server_poll( ctx->metrics_server, 1 ); /* 1ms */
   (void)stem;
 
@@ -95,7 +95,7 @@ before_credit( fd_metric_ctx_t *   ctx,
     ulong *app = (ulong *)fd_cnc_app_laddr((fd_cnc_t *)ctx->cnc);
     app[0]++;
   }
-  FD_LOG_NOTICE(( "fd_metric_tile: before_credit EXIT charge_busy=%d app[0]=%lu", *charge_busy, ctx->cnc ? *(ulong *)fd_cnc_app_laddr((fd_cnc_t *)ctx->cnc) : 0UL ));
+  FD_LOG_DEBUG(( "fd_metric_tile: before_credit EXIT charge_busy=%d app[0]=%lu", *charge_busy, ctx->cnc ? *(ulong *)fd_cnc_app_laddr((fd_cnc_t *)ctx->cnc) : 0UL ));
 }
 
 /* ---------------------------------------------------------------------
@@ -150,7 +150,7 @@ metrics_http_request( fd_http_server_request_t const * request ) {
 
 static void
 metrics_write( fd_metric_ctx_t * ctx ) {
-  FD_LOG_NOTICE(( "fd_metric_tile: metrics_write ENTER boot_ts=%lld", (long long)ctx->boot_ts ));
+  FD_LOG_DEBUG(( "fd_metric_tile: metrics_write ENTER boot_ts=%lld", (long long)ctx->boot_ts ));
 
   FD_MGAUGE_SET( METRIC, BOOT_TIMESTAMP_NANOS, (ulong)ctx->boot_ts );
 
@@ -159,7 +159,7 @@ metrics_write( fd_metric_ctx_t * ctx ) {
   FD_MCNT_SET( METRIC, BYTES_WRITTEN, ctx->metrics_server->metrics.bytes_written );
   FD_MCNT_SET( METRIC, BYTES_READ,    ctx->metrics_server->metrics.bytes_read );
 
-  FD_LOG_NOTICE(( "fd_metric_tile: metrics_write EXIT" ));
+  FD_LOG_DEBUG(( "fd_metric_tile: metrics_write EXIT" ));
 }
 
 /* ---------------------------------------------------------------------
