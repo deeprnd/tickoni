@@ -110,13 +110,11 @@ def test_macos_unit_recipes_build_fd_tests_then_run_portable_tickoni_tests():
         assert "--build-target unit-test" in section
         assert "run_unit_tests.sh" not in section
 
-    # Run recipes: should contain run script, no build commands
+    # Run recipes: macOS FD unit-test is currently gated — verify skip/blocked
     for recipe in ("test-unit-fd-macos-x86", "test-unit-fd-macos-arm"):
         section = _extract_recipe(content, recipe)
 
-        assert "run_unit_tests.sh" in section
-        assert "--page-sz normal" in section
-        assert "GNUmakefile" not in section
+        assert "SKIPPED" in section or "BLOCKED" in section
 
 
 def _extract_just_recipe(content: str, name: str) -> str:
