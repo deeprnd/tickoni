@@ -6,6 +6,7 @@
 const std = @import("std");
 const factory = @import("../factory.zig");
 const lane = @import("../lane.zig");
+const firedancer = @import("../lib/firedancer.zig");
 const shared_mod = @import("../mod/modules.zig");
 const test_mod = @import("../mod/test_modules.zig");
 
@@ -97,6 +98,33 @@ pub fn strategy(
         run_cmd.addArtifactArg(pa_test);
     }
 
+    // test-os-shim — tests for os.c cross-platform shim functions.
+    // Links os.c with TK_PROCESS_TEST for test harness coverage.
+    {
+        const os_mod = b.createModule(.{
+            .root_source_file = b.path("src/tickoni/c_abi/os.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{},
+        });
+        os_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/c_abi/shim/os.c"} });
+        os_mod.addCMacro("TK_PROCESS_TEST", "1");
+        switch (target.result.os.tag) {
+            .linux    => os_mod.addCMacro("FD_HAS_LINUX",    "1"),
+            .macos    => os_mod.addCMacro("FD_HAS_MACOS",    "1"),
+            .windows  => os_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
+            else      => {},
+        }
+        os_mod.link_libc = true;
+        const os_test = b.addTest(.{ .name = "test-os-shim", .root_module = os_mod });
+        test_step.dependOn(&os_test.step);
+        run_cmd.addArtifactArg(os_test);
+
+        // Top-level step so `zig build test-os-shim` works standalone.
+        const os_shim_step = b.step("test-os-shim", "Run os.c cross-platform shim unit tests");
+        os_shim_step.dependOn(&os_test.step);
+    }
+
     tb.registerRunTest(.{
         .name = "test-sandbox-defaults",
         .source_file = "src/tickoni/util/sandbox_defaults.zig",
@@ -148,6 +176,20 @@ pub fn strategy(
             .source_file = t.path,
             .linkage = .{ .needs_firedancer = true },
         }, test_step, run_cmd);
+
+        // Top-level step so `zig build <name>` works standalone.
+        if (std.mem.eql(u8, t.name, "test-wksp")) {
+            const wksp_mod = b.createModule(.{
+                .root_source_file = b.path(t.path),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{.{ .name = "c_abi", .module = shared.c_abi }},
+            });
+            const wksp_test = b.addTest(.{ .name = t.name, .root_module = wksp_mod });
+            firedancer.linkTickoniFiredancer(b, wksp_test, fd_lib_dir);
+            const wksp_step = b.step("test-wksp", "Run workspace C shim unit tests");
+            wksp_step.dependOn(&wksp_test.step);
+        }
     }
 
     // ballet.zig — needs codec linkage (siphash/pb/json in shim/ballet.c).

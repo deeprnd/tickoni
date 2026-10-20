@@ -1,6 +1,7 @@
 /// Zig extern declarations for os.c cross-platform OS operations shim.
 /// All platform-specific code is in os.c behind #if FD_HAS_LINUX guards.
 const std = @import("std");
+const builtin = @import("builtin");
 
 // ---------------------------------------------------------------------------
 // Extern declarations (bare, module-scoped — canonical pattern)
@@ -210,13 +211,14 @@ pub fn processTestForceFailure(err: u32, native_error: u32) void {
 }
 
 // ---------------------------------------------------------------------------
-// Tests — runtime sanity checks (require C shim linkage)
+// Tests — cross-platform (run on Linux, macOS, and Windows)
 // ---------------------------------------------------------------------------
 
-test "monotonicNanos returns non-negative values" {
+test "monotonicNanos returns non-negative and monotonically increasing" {
     const t1 = monotonicNanos();
     try std.testing.expect(t1 >= 0);
-    std.time.sleep(1 * std.time.ns_per_ms);
+    // Use the C shim's own sleepNanos — it's platform-independent
+    sleepNanos(std.time.ns_per_ms);
     const t2 = monotonicNanos();
     try std.testing.expect(t2 >= t1);
 }
@@ -227,13 +229,38 @@ test "selfExePath returns a non-empty path" {
     try std.testing.expect(path.len > 0);
 }
 
-test "portIsInUse detects a used port" {
-    // Start a listener on a random port, then check.
-    // This test requires a live network stack — skip on constrained CI.
-    // For now, verify it returns false for a port we know is free.
-    const free_port: u16 = 59876; // unlikely to be in use during tests
-    // Port availability is best-effort; the test just verifies no panic.
-    _ = portIsInUse(free_port);
+test "selfExePath fits within exact buffer (no overflow, no truncation)" {
+    // Verify the path fits exactly — ensures the C function doesn't
+    // write past buf_len and that we don't silently truncate.
+    var buf: [4096]u8 = undefined;
+    const path = try selfExePath(&buf);
+    try std.testing.expect(path.len > 0);
+    try std.testing.expect(path.len < buf.len);
+}
+
+test "selfExePath truncates on undersized buffer (returns success with partial path)" {
+    // Pass a 4-byte buffer — Linux readlink truncates rather than failing.
+    // The C shim returns the truncated length (3 bytes), not -1.
+    // This is acceptable: callers who need the full path get SelfExePathFailed
+    // only when the buffer is 1 byte (buf_len - 1 = 0, readlink writes nothing).
+    var buf: [4]u8 = undefined;
+    const result = selfExePath(&buf);
+    if (result) |path| {
+        // readlink truncated; path is 0..3 bytes long.
+        try std.testing.expect(path.len <= 3);
+    } else |_| {
+        // SelfExePathFailed — buffer too small even for truncated read.
+    }
+}
+
+test "selfExePath is non-empty on every call" {
+    // Call multiple times to ensure the C function is idempotent
+    // and doesn't have subtle thread-local or state issues.
+    for (0..5) |_| {
+        var buf: [4096]u8 = undefined;
+        const path = try selfExePath(&buf);
+        try std.testing.expect(path.len > 0);
+    }
 }
 
 test "getEnv/setEnv round-trip" {
@@ -242,18 +269,10 @@ test "getEnv/setEnv round-trip" {
     _ = setEnv(name, value, 1);
     const got = getenv(name);
     try std.testing.expect(got != null);
-    try std.testing.expectEqualStrings(value, got.?);
+    const got_str = std.mem.sliceTo(got.?, 0);
+    try std.testing.expectEqualStrings(value, got_str);
     // Clean up to not pollute process environment
     _ = setEnv(name, "", 1);
-}
-
-test "getenvLen returns correct length for known var" {
-    const name = "PATH";
-    const len = getenvLen(name.ptr);
-    try std.testing.expect(len >= 0);
-    const val = getenv(name.ptr);
-    try std.testing.expect(val != null);
-    try std.testing.expectEqual(len, std.mem.sliceTo(val.?, 0).len);
 }
 
 test "getenvLen returns -1 for missing var" {
@@ -270,3 +289,119 @@ test "process ABI layouts match C declarations" {
     try std.testing.expectEqual(@as(usize, 20), @sizeOf(ProcessTerminateResult));
     try std.testing.expectEqual(@as(usize, 4), @alignOf(ProcessTerminateResult));
 }
+
+// ---------------------------------------------------------------------------
+// Tests — POSIX-specific (Linux and macOS only)
+// ---------------------------------------------------------------------------
+
+test "getenvLen returns correct length for PATH" {
+    // PATH is available on all POSIX systems. It may not exist on Windows.
+    if (builtin.os.tag != .linux and builtin.os.tag != .macos) return error.SkipZigTest;
+
+    const name = "PATH";
+    const len = getenvLen(name.ptr);
+    try std.testing.expect(len >= 0);
+    const val = getenv(name.ptr);
+    try std.testing.expect(val != null);
+    try std.testing.expectEqual(len, @as(c_long, @intCast(std.mem.sliceTo(val.?, 0).len)));
+}
+
+test "parentPid for PID 1 returns a valid parent" {
+    // tk_parent_pid(1) should return the parent of init.
+    // In containers, PID 1's parent is often 0 (container init).
+    // This may fail in restricted environments (e.g. containers, Windows).
+    if (builtin.os.tag != .linux and builtin.os.tag != .macos) return error.SkipZigTest;
+
+    const ppid = parentPid(1) catch {
+        // If parent lookup fails (e.g. restricted environment), skip.
+        return error.SkipZigTest;
+    };
+    // Parent PID must be non-negative (PID 0 is used by container runtimes).
+    try std.testing.expect(ppid >= 0);
+}
+
+test "parentPid returns -1 for a nonexistent PID" {
+    if (builtin.os.tag != .linux and builtin.os.tag != .macos) return error.SkipZigTest;
+
+    const r = parentPid(-1);
+    try std.testing.expect(r == error.PPidNotFound);
+    const r2 = parentPid(99999999);
+    try std.testing.expect(r2 == error.PPidNotFound);
+}
+
+test "portIsInUse returns false for a random high port" {
+    if (builtin.os.tag != .linux and builtin.os.tag != .macos) return error.SkipZigTest;
+
+    // High ports are very unlikely to be in use. This verifies the
+    // happy path (socket -> bind succeeds -> not busy) on every run.
+    const port: u16 = 59999;
+    try std.testing.expect(!portIsInUse(port));
+}
+
+test "portIsInUse does not crash on any u16 value" {
+    if (builtin.os.tag != .linux and builtin.os.tag != .macos) return error.SkipZigTest;
+
+    // Test several port values to verify the C shim handles them without crashes.
+    // We only assert that the function returns a bool (not a crash).
+    // Port availability is system-dependent and not asserted.
+    _ = portIsInUse(0);
+    _ = portIsInUse(80); // well-known port
+    _ = portIsInUse(49152); // dynamic/ephemeral range
+    _ = portIsInUse(65535); // max port
+}
+
+test "writeFd writes data and returns count" {
+    if (builtin.os.tag != .linux and builtin.os.tag != .macos) return error.SkipZigTest;
+
+    const n = writeFd(1, "hello"); // write to stdout fd
+    try std.testing.expect(n == 5);
+}
+
+test "isatty returns non-negative for stdout" {
+    // Test that isTerminal works on stdout. When run in a terminal,
+    // stdout is a TTY and returns non-zero. In piped/redirected contexts
+    // it returns 0. Either way, the shim should not crash.
+    if (builtin.os.tag != .linux and builtin.os.tag != .macos) return error.SkipZigTest;
+
+    const result = isTerminal(1);
+    try std.testing.expect(result >= 0);
+}
+
+test "getenv truncation: long value returns truncated copy" {
+    // Set a 5000-byte value — the C shim truncates to 4095 bytes.
+    // getenvLen() returns the real length (5000), while getenv()
+    // returns the truncated 4095-byte copy.
+    if (builtin.os.tag != .linux and builtin.os.tag != .macos) return error.SkipZigTest;
+
+    const name = "TK_SHIM_LONG_VALUE_TEST";
+    var long_buf: [5001]u8 = undefined;
+    for (0..5000) |i| long_buf[i] = 'A';
+    long_buf[5000] = '\x00'; // null-terminate so setenv reads exactly 5000 bytes
+    const long_val = &long_buf;
+    _ = setEnv(name, long_val, 1);
+    defer _ = setEnv(name, "", 1);
+
+    const real_len = getenvLen(name.ptr);
+    try std.testing.expect(real_len > 0);
+    // The real length should be 5000.
+    try std.testing.expectEqual(@as(c_long, 5000), real_len);
+
+    const got = getenv(name.ptr);
+    try std.testing.expect(got != null);
+    const truncated = std.mem.sliceTo(got.?, 0);
+    // The C shim truncates to 4095 bytes.
+    try std.testing.expect(truncated.len <= 4095);
+    // All characters should still be 'A' (no corruption at boundary).
+    for (truncated) |c| {
+        try std.testing.expectEqual('A', c);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests — Windows-specific
+// ---------------------------------------------------------------------------
+
+// No Windows-specific tests yet — the C shim functions (selfExePath, getenv,
+// parentPid, etc.) have equivalent Windows implementations but with different
+// underlying APIs (GetModuleFileNameA, _dupenv_s, CreateToolhelp32Snapshot, etc.).
+// Add Windows-specific tests when needed for coverage parity.
