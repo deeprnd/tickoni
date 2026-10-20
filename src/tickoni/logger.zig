@@ -58,6 +58,9 @@ pub const Logger = struct {
 
     /// Parse TK_LOG_LEVEL from environment (numeric 0-7 or named levels).
     fn parseLogLevel() Level {
+        const len = util.os_api.getenvLen("TK_LOG_LEVEL");
+        if (len == -1) return .err;
+        if (len >= 4096) return .err;
         const env = util.os_api.getEnv("TK_LOG_LEVEL") orelse return .err;
         if (std.mem.eql(u8, env, "debug") or std.mem.eql(u8, env, "0")) return .debug;
         if (std.mem.eql(u8, env, "info") or std.mem.eql(u8, env, "1")) return .info;
@@ -72,6 +75,9 @@ pub const Logger = struct {
 
     /// Parse TK_LOG_MODULES from environment.
     fn parseModules() []const u8 {
+        const len = util.os_api.getenvLen("TK_LOG_MODULES");
+        if (len == -1) return "";
+        if (len >= 4096) return "";
         const env = util.os_api.getEnv("TK_LOG_MODULES") orelse return "";
         return env;
     }
