@@ -48,6 +48,17 @@ def test_windows_make_profile_detects_absolute_clang_path():
     assert "ifeq ($(CC),clang)" not in text
 
 
+def test_windows_qt_recipes_do_not_dispatch_to_linux_recipe():
+    repo_root = Path(__file__).resolve().parents[2]
+    content = (repo_root / "just" / "build" / "qt.just").read_text()
+
+    assert "build-qt-windows-x86:\n" in content
+    assert "build-qt-windows-arm: build-qt-windows-x86" in content
+    assert "build-qt-windows-x86: build-qt-linux-x86" not in content
+    assert "build-qt-windows-arm: build-qt-linux-x86" not in content
+    assert "QT6_CMAKE_DIR=\"$(cygpath -w \"$QT6_CONFIG_DIR\"" in content
+
+
 def test_linux_x86_make_profile_uses_fixed_haswell_baseline():
     repo_root = Path(__file__).resolve().parents[2]
     profile = (repo_root / "config/machine/tickoni_fd.mk").read_text()
