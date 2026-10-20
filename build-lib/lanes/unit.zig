@@ -88,6 +88,9 @@ pub fn strategy(
             .windows  => pa_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
             else      => {},
         }
+        if (target.result.os.tag == .windows) {
+            pa_mod.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
+        }
         pa_mod.link_libc = true;
         const pa_test = b.addTest(.{ .name = "test-process-api", .root_module = pa_mod });
         test_step.dependOn(&pa_test.step);
@@ -416,6 +419,9 @@ pub fn strategy(
             .macos    => logger_mod.addCMacro("FD_HAS_MACOS",    "1"),
             .windows  => logger_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
             else      => {}, // os.c has no other platform blocks; ignore unsupported.
+        }
+        if (target.result.os.tag == .windows) {
+            logger_mod.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
         }
         logger_mod.linkSystemLibrary("c", .{});
         const logger_test = b.addTest(.{ .name = "test-logger", .root_module = logger_mod });
