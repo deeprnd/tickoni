@@ -12,20 +12,28 @@ Usage:
     python3 orchestrator.py <categories> --platform linux-x86  # Override platform
 """
 import argparse
+import importlib
 import os
 import sys
-
-try:
-    from dotenv import load_dotenv
-except ImportError:
-    load_dotenv = lambda *a, **k: None
-
 
 # Ensure the setup directory is on sys.path so that
 # `import config`, `import install`, etc. work regardless of cwd.
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 if _script_dir not in sys.path:
     sys.path.insert(0, _script_dir)
+
+_repo_root = os.path.dirname(os.path.dirname(_script_dir))
+_env_path = os.path.join(_repo_root, '.env')
+
+
+def _load_local_env() -> bool:
+    """Load the repository .env when python-dotenv is available."""
+    importlib.invalidate_caches()
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return False
+    return bool(load_dotenv(_env_path, override=False))
 
 
 # ── Imports ──────────────────────────────────────────────────────────────────
@@ -80,6 +88,8 @@ class Orchestrator:
         for tool in tools:
             result = self._install_tool(tool, platform_str, dry_run, skip_idempotency)
             results.append(result)
+            if tool['name'] == 'dotenv' and result['status'] in ('installed', 'already_installed'):
+                _load_local_env()
             # Later tools can depend on this tool (for example, OpenSSL relies on
             # the MSVC compiler). Do not mask an installer failure by continuing.
             if result['status'] in ('error', 'failed'):
@@ -128,8 +138,7 @@ class Orchestrator:
 def main():
     # Load .env file into environment if it exists (local dev credentials).
     # CI: secrets (QT_USERNAME, QT_PASSWORD) are already in the runner env.
-    _repo_root = os.path.dirname(os.path.dirname(_script_dir))
-    load_dotenv(os.path.join(_repo_root, '.env'), override=False)
+    _load_local_env()
 
     parser = argparse.ArgumentParser(description='CI tool orchestrator')
     parser.add_argument('categories', nargs='?', help='Comma-separated category list')

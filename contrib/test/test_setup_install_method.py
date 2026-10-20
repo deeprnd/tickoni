@@ -41,6 +41,25 @@ def test_pipx_uses_system_package_manager_on_linux():
     assert _resolve_install_method(method, "linux-arm", "pipx") == "apt"
 
 
+def test_qt_setup_installs_dotenv_with_pip_first():
+    cfg = json.loads((setup_dir / "tool-versions.json").read_text())
+
+    assert cfg["categories"]["dotenv"]["tools"] == ["dotenv"]
+    assert cfg["tools"]["dotenv"]["install_method"] == "pip"
+    assert cfg["tools"]["dotenv"]["parameters"]["package"] == "python-dotenv>=1.0,<2"
+
+    qt_recipe = (setup_dir.parent.parent / "just" / "setup" / "qt.just").read_text()
+    for platform_str in (
+        "linux-x86",
+        "linux-arm",
+        "macos-x86",
+        "macos-arm",
+        "windows-x86",
+        "windows-arm",
+    ):
+        assert f"orchestrator.py dotenv,qt --platform {platform_str}" in qt_recipe
+
+
 @pytest.mark.parametrize(
     "platform_str,expected",
     [
@@ -139,6 +158,30 @@ def test_setup_stops_before_dependent_tools_after_install_failure():
 
     assert attempted == ["msvc"]
     assert results == [{"tool": "msvc", "status": "failed"}]
+
+
+def test_setup_reloads_env_after_dotenv_install():
+    class Resolver:
+        def resolve(self, categories):
+            return categories
+
+        def collect(self, resolved, categories, tools):
+            return [{"name": "dotenv"}, {"name": "qt"}]
+
+    orchestrator = object.__new__(Orchestrator)
+    orchestrator.config = {"categories": {}, "tools": {}}
+    orchestrator.resolver = Resolver()
+    events = []
+
+    def install(tool, *args):
+        events.append(f"install:{tool['name']}")
+        return {"tool": tool["name"], "status": "installed"}
+
+    with patch("orchestrator._load_local_env", side_effect=lambda: events.append("reload")):
+        orchestrator._install_tool = install
+        orchestrator.setup(["dotenv", "qt"], "macos-arm", dry_run=False)
+
+    assert events == ["install:dotenv", "reload", "install:qt"]
 
 
 def test_already_installed_tool_logs_explicit_skip(capsys):

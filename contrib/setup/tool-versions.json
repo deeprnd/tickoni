@@ -330,6 +330,17 @@
         "macos",
         "windows"
       ]
+    },
+    "dotenv": {
+      "description": "Python environment-file support for setup tooling",
+      "tools": [
+        "dotenv"
+      ],
+      "platforms": [
+        "linux",
+        "macos",
+        "windows"
+      ]
     }
   },
   "dependencies": {
@@ -415,6 +426,10 @@
     "test-tools": [
       "core",
       "essential"
+    ],
+    "dotenv": [
+      "core",
+      "essential"
     ]
   },
   "tools": {
@@ -479,6 +494,15 @@
         "winget_id": "Python.Python.3.12"
       },
       "idempotent_check": "command -v python3"
+    },
+    "dotenv": {
+      "category": "dotenv",
+      "platform": "all",
+      "install_method": "pip",
+      "parameters": {
+        "package": "python-dotenv>=1.0,<2"
+      },
+      "idempotent_check": "python3 -c \"import dotenv\""
     },
     "pipx": {
       "category": "essential",
