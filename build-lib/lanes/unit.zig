@@ -81,6 +81,13 @@ pub fn strategy(
         });
         pa_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/c_abi/shim/os.c"} });
         pa_mod.addCMacro("TK_PROCESS_TEST", "1");
+        // os.c needs platform defines to select the right block.
+        switch (target.result.os.tag) {
+            .linux    => pa_mod.addCMacro("FD_HAS_LINUX",    "1"),
+            .macos    => pa_mod.addCMacro("FD_HAS_MACOS",    "1"),
+            .windows  => pa_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
+            else      => {},
+        }
         pa_mod.link_libc = true;
         const pa_test = b.addTest(.{ .name = "test-process-api", .root_module = pa_mod });
         test_step.dependOn(&pa_test.step);
@@ -399,9 +406,17 @@ pub fn strategy(
             .imports = &.{.{ .name = "util", .module = shared.util }},
         });
         logger_mod.addCSourceFiles(.{
-            .files = &.{"src/tickoni/c_abi/shim/os.c"},
-            .flags = &.{"-std=c17"},
+            .files = &.{ "src/tickoni/c_abi/shim/os.c" },
+            .flags = &.{ "-std=c17" },
         });
+        // os.c uses FD_HAS_LINUX / FD_HAS_MACOS / FD_HAS_WINDOWS to select
+        // the platform block; define it here so the C shim compiles.
+        switch (target.result.os.tag) {
+            .linux    => logger_mod.addCMacro("FD_HAS_LINUX",    "1"),
+            .macos    => logger_mod.addCMacro("FD_HAS_MACOS",    "1"),
+            .windows  => logger_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
+            else      => {}, // os.c has no other platform blocks; ignore unsupported.
+        }
         logger_mod.linkSystemLibrary("c", .{});
         const logger_test = b.addTest(.{ .name = "test-logger", .root_module = logger_mod });
         test_step.dependOn(&logger_test.step);
