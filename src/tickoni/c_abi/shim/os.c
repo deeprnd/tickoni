@@ -368,7 +368,9 @@ int tk_port_is_in_use( uint16_t port ) {
   if( InterlockedCompareExchange( &tk_winsock_initialized, 1L, 0L )==0L ) {
     WSADATA wsa;
     if( WSAStartup( MAKEWORD( 2, 2 ), &wsa )!=0 ) {
-      InterlockedExchange( &tk_winsock_initialized, 0L );
+      /* Leave flag at 1 so we never retry WSAStartup.
+       * Subsequent calls will proceed to socket()/bind() which
+       * will fail and return 1 — the correct failure signal. */
       return 1;
     }
   }
