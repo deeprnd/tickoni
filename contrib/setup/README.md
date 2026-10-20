@@ -1,11 +1,11 @@
 # Platform Setup Scripts
 
-A single Python orchestrator reads `tool-versions.json` and installs tools based on category dependencies. Developers run `just setup-env` to install everything; CI lanes call `just setup-*` recipes that delegate to the orchestrator.
+A single Python orchestrator reads `tool-versions.json` and installs tools based on category dependencies. Developers run `just setup-all` to install everything; CI lanes call `just setup-*` recipes that delegate to the orchestrator.
 
 ## Quick Start
 
 ```bash
-just setup-env                # Install all tool categories
+just setup-all                # Install all tool categories
 just setup-linux-x86-gcc      # Linux x86_64 — GCC toolchain
 just setup-linux-arm-arm      # Linux ARM64
 just setup-macos-x86          # macOS x86_64
