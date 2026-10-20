@@ -24,7 +24,8 @@ pub const ProcessPipelineConfig = struct {
     heartbeat_interval_ns: u64 = 20_000_000, // 20ms
     /// Supervisor classifies a tile as stale when its cnc heartbeat has
     /// not advanced for longer than this. 0 means derive a conservative
-    /// default from heartbeat_interval_ns.
+    /// default from heartbeat_interval_ns. The resolved value must remain
+    /// below 2^31 milliseconds so wrapping heartbeat age is unambiguous.
     heartbeat_stale_after_ns: u64 = 0,
     /// Test-only hook (v2.14.S1.T12 crash isolation): tile i self-exits(1)
     /// after this many heartbeats instead of waiting for a halt signal.
@@ -134,7 +135,7 @@ const ProcessState = struct {
     /// Parent-side cnc joins, used to send the halt signal during stop.
     cncs: [8]?*c_abi.cnc.Cnc,
     children: [8]ChildRecord,
-    heartbeat_stale_after_ns: u64,
+    heartbeat_stale_after_ms: u32,
     /// Grace period between requesting HALT and force-terminating tiles already
     /// classified stale. Lets slow but healthy children observe HALT and exit
     /// cleanly before stopProcess escalates to the platform kill path.
@@ -188,6 +189,25 @@ const ProcessState = struct {
 fn resolvedHeartbeatStaleAfterNs(config: ProcessPipelineConfig) u64 {
     if (config.heartbeat_stale_after_ns != 0) return config.heartbeat_stale_after_ns;
     return resolvedHeartbeatIntervalNs(config, 5);
+}
+
+fn resolvedHeartbeatStaleAfterMs(config: ProcessPipelineConfig) !u32 {
+    const stale_after_ns = resolvedHeartbeatStaleAfterNs(config);
+    const stale_after_ms = stale_after_ns / std.time.ns_per_ms +
+        @intFromBool(stale_after_ns % std.time.ns_per_ms != 0);
+    if (stale_after_ms > std.math.maxInt(i32)) return error.HeartbeatStaleThresholdTooLarge;
+    return @intCast(stale_after_ms);
+}
+
+fn heartbeatNowMs(now_ns: i64) ?u32 {
+    if (now_ns < 0) return null;
+    return @truncate(@as(u64, @intCast(now_ns)) / std.time.ns_per_ms);
+}
+
+fn heartbeatAgeMs(now_ms: u32, heartbeat_ms: u32) ?u32 {
+    const age_ms: i32 = @bitCast(now_ms -% heartbeat_ms);
+    if (age_ms <= 0) return null;
+    return @intCast(age_ms);
 }
 
 fn resolvedStopGraceNs(config: ProcessPipelineConfig) u64 {
@@ -255,6 +275,7 @@ pub const Supervisor = struct {
         log.enter("supervisor", "startPaymentPipelineProcess");
         defer log.exit("supervisor", "startPaymentPipelineProcess");
         std.debug.assert(self.process_state == null);
+        const heartbeat_stale_after_ms = try resolvedHeartbeatStaleAfterMs(config);
 
         // Fail closed on any tile pinned to a CPU id this process cannot
         // actually use, before spawning anything — pinning more
@@ -519,7 +540,7 @@ pub const Supervisor = struct {
             .cnc_gaddrs = std.mem.zeroes([8]usize),
             .cncs = std.mem.zeroes([8]?*c_abi.cnc.Cnc),
             .children = std.mem.zeroes([8]ChildRecord),
-            .heartbeat_stale_after_ns = resolvedHeartbeatStaleAfterNs(config),
+            .heartbeat_stale_after_ms = heartbeat_stale_after_ms,
             .stop_grace_ns = resolvedStopGraceNs(config),
             .placement_report = placement_report,
         };
@@ -787,7 +808,8 @@ pub const Supervisor = struct {
         defer log.exit("supervisor", "refreshProcessHealth");
         const state = self.process_state orelse return;
         const now_ns = self.process_operations.now();
-        std.debug.print("[sup-refresh] now_ns={d} stale_ns={d} tile_count={d}\n", .{ now_ns, state.heartbeat_stale_after_ns, state.cncs.len });
+        const now_ms = heartbeatNowMs(now_ns) orelse return;
+        std.debug.print("[sup-refresh] now_ms={d} stale_ms={d} tile_count={d}\n", .{ now_ms, state.heartbeat_stale_after_ms, state.cncs.len });
         // Reap any exited children FIRST so we detect crashes before
         // reading cnc heartbeats.  A crashed tile's cnc is corrupted and
         // reading it can SIGSEGV/SIGABRT the supervisor; by reaping first
@@ -845,15 +867,16 @@ pub const Supervisor = struct {
             const sig = c_abi.cnc.signalQuery(cnc);
             std.debug.print("[sup-refresh] tile {d}: sig={d} (expect {d}=RUN)\n", .{ i, sig, c_abi.cnc.signal_run });
             if (sig != c_abi.cnc.signal_run) continue;
-            const heartbeat_ns = c_abi.cnc.heartbeatQuery(cnc);
-            // Firedancer's heartbeat is app-defined — we pass monotonic nanoseconds.
-            // Compare nanosecond age against nanosecond threshold, same units.
-            const heartbeat_age_ns: i64 = now_ns - heartbeat_ns;
-            std.debug.print("[sup-refresh] tile {d}: hb_ns={d} age_ns={d} stale_ns={d}\n", .{ i, heartbeat_ns, heartbeat_age_ns, state.heartbeat_stale_after_ns });
-            if (i == 0) log.kvFmt("supervisor", "refreshProcessHealth", "tile {d}: sig={d} hb_ns={d} age_ns={d} stale_ns={d}", .{ i, sig, heartbeat_ns, heartbeat_age_ns, state.heartbeat_stale_after_ns });
-            if (heartbeat_age_ns > 0 and heartbeat_age_ns > state.heartbeat_stale_after_ns) {
-                std.debug.print("[sup-refresh] tile {d}: *** MARKED STALE *** age_ns={d} > stale_ns={d}\n", .{ i, heartbeat_age_ns, state.heartbeat_stale_after_ns });
-                log.kvFmt("supervisor", "refreshProcessHealth", "tile {d} marked stale: age_ns={d} > stale_ns={d}", .{ i, heartbeat_age_ns, state.heartbeat_stale_after_ns });
+            const heartbeat_ms = c_abi.cnc.heartbeatQuery(cnc);
+            // Tickoni stores wrapping u32 milliseconds in the CNC heartbeat.
+            // A signed modular delta makes wraparound unambiguous while the
+            // configured stale threshold remains below half the u32 range.
+            const heartbeat_age_ms = heartbeatAgeMs(now_ms, heartbeat_ms) orelse continue;
+            std.debug.print("[sup-refresh] tile {d}: hb_ms={d} age_ms={d} stale_ms={d}\n", .{ i, heartbeat_ms, heartbeat_age_ms, state.heartbeat_stale_after_ms });
+            if (i == 0) log.kvFmt("supervisor", "refreshProcessHealth", "tile {d}: sig={d} hb_ms={d} age_ms={d} stale_ms={d}", .{ i, sig, heartbeat_ms, heartbeat_age_ms, state.heartbeat_stale_after_ms });
+            if (heartbeat_age_ms > state.heartbeat_stale_after_ms) {
+                std.debug.print("[sup-refresh] tile {d}: *** MARKED STALE *** age_ms={d} > stale_ms={d}\n", .{ i, heartbeat_age_ms, state.heartbeat_stale_after_ms });
+                log.kvFmt("supervisor", "refreshProcessHealth", "tile {d} marked stale: age_ms={d} > stale_ms={d}", .{ i, heartbeat_age_ms, state.heartbeat_stale_after_ms });
                 h.state = .stale;
                 h.crashed_because = .stale;
             }
@@ -1179,6 +1202,30 @@ test "Supervisor monitor returns correct tile count" {
     try std.testing.expectEqual(topo.tiles.len, sup.monitor().len);
 }
 
+test "heartbeat stale threshold rounds up to milliseconds" {
+    try std.testing.expectEqual(@as(u32, 1), try resolvedHeartbeatStaleAfterMs(.{
+        .run_dir = "unused",
+        .heartbeat_stale_after_ns = 1,
+    }));
+    try std.testing.expectEqual(@as(u32, 2), try resolvedHeartbeatStaleAfterMs(.{
+        .run_dir = "unused",
+        .heartbeat_stale_after_ns = std.time.ns_per_ms + 1,
+    }));
+}
+
+test "heartbeat stale threshold rejects ambiguous modular ages" {
+    const ambiguous_ms = @as(u64, std.math.maxInt(i32)) + 1;
+    try std.testing.expectError(error.HeartbeatStaleThresholdTooLarge, resolvedHeartbeatStaleAfterMs(.{
+        .run_dir = "unused",
+        .heartbeat_stale_after_ns = ambiguous_ms * std.time.ns_per_ms,
+    }));
+}
+
+test "heartbeat age handles u32 millisecond wraparound" {
+    try std.testing.expectEqual(@as(?u32, 26), heartbeatAgeMs(10, std.math.maxInt(u32) - 15));
+    try std.testing.expectEqual(@as(?u32, null), heartbeatAgeMs(10, 11));
+}
+
 fn installLifecycleTestState(sup: *Supervisor) !*ProcessState {
     const bytes = try sup.allocator.alignedAlloc(u8, .fromByteUnits(@alignOf(ProcessState)), @sizeOf(ProcessState));
     const state: *ProcessState = @ptrCast(@alignCast(bytes));
@@ -1210,7 +1257,7 @@ fn installLifecycleTestState(sup: *Supervisor) !*ProcessState {
     state.metric_wksp = null;
     state.metric_in_wksp = null;
     state.cnc_gaddrs = std.mem.zeroes([8]usize);
-    state.heartbeat_stale_after_ns = 0;
+    state.heartbeat_stale_after_ms = 0;
     state.placement_report = .{
         .exclusive_count = 0,
         .shared_count = 0,

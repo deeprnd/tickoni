@@ -33,8 +33,8 @@ pub const CncPrivate = extern struct {
     magic: u64,
     app_sz: u64,
     type: u64,
-    heartbeat0: i64,
-    heartbeat: i64,
+    heartbeat0: c_long,
+    heartbeat: c_long,
     lock: u64,
     signal: u64,
 };
@@ -60,8 +60,8 @@ extern fn tk_cnc_strerror(err: c_int) [*:0]const u8;
 extern fn tk_cstr_to_cnc_signal(cstr: [*:0]const u8) u64;
 extern fn tk_cnc_signal_cstr(signal: u64, buf: [*]u8) [*:0]u8;
 extern fn tk_cnc_app_laddr(cnc: *Cnc) [*]u8;
-extern fn tk_cnc_heartbeat_query(cnc: *const Cnc) i64;
-extern fn tk_cnc_heartbeat(cnc: *Cnc, now: i64) void;
+extern fn tk_cnc_heartbeat_query(cnc: *const Cnc) u32;
+extern fn tk_cnc_heartbeat(cnc: *Cnc, now_ns: i64) void;
 extern fn tk_cnc_signal_query(cnc: *const Cnc) u64;
 extern fn tk_cnc_signal(cnc: *Cnc, s: u64) void;
 extern fn tk_cnc_close(cnc: *Cnc) void;
@@ -119,12 +119,14 @@ pub fn appLaddr(cnc: *Cnc) [*]u8 {
     return tk_cnc_app_laddr(cnc);
 }
 
-/// Mirrors the upstream cnc heartbeat-query helper.
-pub fn heartbeatQuery(cnc: *const Cnc) i64 {
+/// Returns Tickoni's wrapping millisecond heartbeat representation. The C
+/// shim keeps this fixed-width across LP64 Unix and LLP64 Windows targets.
+pub fn heartbeatQuery(cnc: *const Cnc) u32 {
     return tk_cnc_heartbeat_query(cnc);
 }
 
-/// Mirrors the upstream cnc heartbeat helper.
+/// Converts monotonic nanoseconds to Tickoni's wrapping millisecond heartbeat
+/// representation in the C shim before writing the platform-sized C `long`.
 pub fn heartbeat(cnc: *Cnc, now_ns: i64) void {
     tk_cnc_heartbeat(cnc, now_ns);
 }
@@ -149,13 +151,18 @@ pub fn close(cnc: *Cnc) void {
 // ---------------------------------------------------------------------------
 
 test "CncPrivate field offsets match fd_cnc_private layout" {
+    const lock_offset = std.mem.alignForward(
+        usize,
+        24 + 2 * @sizeOf(c_long),
+        @alignOf(u64),
+    );
     try std.testing.expectEqual(@as(usize, 0), @offsetOf(CncPrivate, "magic"));
     try std.testing.expectEqual(@as(usize, 8), @offsetOf(CncPrivate, "app_sz"));
     try std.testing.expectEqual(@as(usize, 16), @offsetOf(CncPrivate, "type"));
     try std.testing.expectEqual(@as(usize, 24), @offsetOf(CncPrivate, "heartbeat0"));
-    try std.testing.expectEqual(@as(usize, 32), @offsetOf(CncPrivate, "heartbeat"));
-    try std.testing.expectEqual(@as(usize, 40), @offsetOf(CncPrivate, "lock"));
-    try std.testing.expectEqual(@as(usize, 48), @offsetOf(CncPrivate, "signal"));
+    try std.testing.expectEqual(24 + @sizeOf(c_long), @offsetOf(CncPrivate, "heartbeat"));
+    try std.testing.expectEqual(lock_offset, @offsetOf(CncPrivate, "lock"));
+    try std.testing.expectEqual(lock_offset + @sizeOf(u64), @offsetOf(CncPrivate, "signal"));
 }
 
 test "cnc alignment and app-region offset constants match header" {
