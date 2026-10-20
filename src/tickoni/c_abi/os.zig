@@ -18,6 +18,7 @@ extern fn tk_isatty(fd: c_int) c_int;
 extern fn tk_fflush() void;
 extern fn tk_setenv(name: [*]const u8, value: [*]const u8, overwrite: c_int) c_int;
 extern fn tk_getenv(name: [*]const u8) [*:0]const u8;
+extern fn tk_getenv_len(name: [*]const u8) c_long;
 extern fn tk_get_affinity(pid: c_int, mask: [*]u8) c_int;
 extern fn tk_set_affinity(pid: c_int, mask: [*]const u8) c_int;
 
@@ -154,6 +155,15 @@ pub fn getenv(name: [*]const u8) ?[*:0]const u8 {
     return tk_getenv(name);
 }
 
+/// Returns the actual length of the environment variable value, or -1 if
+/// the variable does not exist. Callers should check this before calling
+/// `getenv()` to detect values that would be silently truncated by the
+/// 4096-byte thread-local buffer (enforces "reject, don't truncate
+/// silently" from security.md lines 57-59).
+pub fn getenvLen(name: [*]const u8) c_long {
+    return tk_getenv_len(name);
+}
+
 pub fn getAffinity(pid: c_int, cpu_set: []u8) !void {
     const rc = tk_get_affinity(pid, cpu_set.ptr);
     if (rc < 0) return error.GetAffinityFailed;
@@ -235,6 +245,23 @@ test "getEnv/setEnv round-trip" {
     try std.testing.expectEqualStrings(value, got.?);
     // Clean up to not pollute process environment
     _ = setEnv(name, "", 1);
+}
+
+test "getenvLen returns correct length for known var" {
+    const name = "PATH";
+    const len = getenvLen(name.ptr);
+    try std.testing.expect(len >= 0);
+    const val = getenv(name.ptr);
+    try std.testing.expect(val != null);
+    try std.testing.expectEqual(len, std.mem.sliceTo(val.?, 0).len);
+}
+
+test "getenvLen returns -1 for missing var" {
+    const name = "TK_NONEXISTENT_VAR_XYZ";
+    const len = getenvLen(name.ptr);
+    try std.testing.expect(len == -1);
+    const val = getenv(name.ptr);
+    try std.testing.expect(val == null);
 }
 
 test "process ABI layouts match C declarations" {

@@ -41,6 +41,15 @@ pub fn getEnv(name: []const u8) ?[]const u8 {
     return std.mem.sliceTo(raw, 0);
 }
 
+/// Returns the actual length of the environment variable value, or -1 if
+/// the variable does not exist. Callers should check this before calling
+/// `getEnv()` to detect values that would be silently truncated by the
+/// 4096-byte thread-local buffer (enforces "reject, don't truncate
+/// silently" from security.md lines 57-59).
+pub fn getenvLen(name: []const u8) c_long {
+    return c.getenvLen(name.ptr);
+}
+
 pub fn getAffinity(pid: c_int, cpu_set: []u8) !void {
     try c.getAffinity(pid, cpu_set);
 }
