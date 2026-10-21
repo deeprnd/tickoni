@@ -64,5 +64,29 @@ jobs:
           name: build-windows-arm
           path: .
 
+      - name: Install Zig
+        run: just setup-zig
+
+      - name: Export Linux conformance
+        run: just export-demo-conformance-linux-x86
+
+      - name: Export macOS 15 x86_64 conformance
+        run: just export-demo-conformance-macos-x86
+
+      - name: Export macOS 15 ARM conformance
+        run: just export-demo-conformance-macos-arm
+
+      - name: Export macOS 26 x86_64 conformance
+        run: just export-demo-conformance-macos-26-x86
+
+      - name: Export macOS 26 ARM conformance
+        run: just export-demo-conformance-macos-26-arm
+
+      - name: Export Windows x86_64 conformance
+        run: just export-demo-conformance-windows-x86
+
+      - name: Export Windows ARM conformance
+        run: just export-demo-conformance-windows-arm
+
       - name: Compare conformance outputs
         run: just compare-demo-conformance
