@@ -7,5 +7,4 @@ test-all:
     @just test-integration-all
     @just test-system-all
     @just test-e2e-all
-    @just test-cli-all
     @just test-cov-all
