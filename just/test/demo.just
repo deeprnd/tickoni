@@ -41,4 +41,4 @@ export-demo-conformance-windows-arm:
     {{ python }} contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/windows-arm
 
 compare-demo-conformance:
-    {{ python }} contrib/test/compare_demo_conformance.py build/demo-conformance/linux/conformance.json build/demo-conformance/macos-15-x86_64/conformance.json build/demo-conformance/macos-15-arm/conformance.json build/demo-conformance/macos-26-x86_64/conformance.json build/demo-conformance/macos-26-arm/conformance.json build/demo-conformance/windows-x86/conformance.json build/demo-conformance/windows-arm/conformance.json
+    {{ python }} contrib/test/compare_demo_conformance.py build/demo-conformance/linux-x86/conformance.json build/demo-conformance/linux-arm/conformance.json build/demo-conformance/macos-15-x86/conformance.json build/demo-conformance/macos-15-arm/conformance.json build/demo-conformance/macos-26-x86/conformance.json build/demo-conformance/macos-26-arm/conformance.json build/demo-conformance/windows-x86/conformance.json build/demo-conformance/windows-arm/conformance.json
