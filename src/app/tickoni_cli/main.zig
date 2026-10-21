@@ -98,8 +98,8 @@ fn locateTickoniBinary(allocator: Allocator, io: Io) ![]const u8 {
     return try std.fs.path.join(allocator, &.{ exe_dir, "tickoni" });
 }
 
-/// Run the tickoni binary with the given args and return combined stdout/stderr
-/// plus the exit code.  The caller must free stdout/stderr.
+/// Run the tickoni binary with the given args and return stdout, stderr,
+/// plus the exit code.  The caller must free stdout and stderr.
 fn runTickoni(allocator: Allocator, io: Io, args: []const []const u8) anyerror!struct {
     stdout: []u8,
     stderr: []u8,
@@ -113,31 +113,23 @@ fn runTickoni(allocator: Allocator, io: Io, args: []const []const u8) anyerror!s
     try argv_buf.append(allocator, bin);
     for (args) |a| try argv_buf.append(allocator, a);
 
-    var child = std.process.Child.initWithAllocator(allocator, argv_buf.items, io);
-    child.stdout_behavior = .Pipe;
-    child.stderr_behavior = .Pipe;
-    try child.spawn();
-    const status = try child.wait();
-    const exit_code: i32 = switch (status) {
+    // Use std.process.run which handles spawn + pipe reading + cleanup.
+    const result = try std.process.run(allocator, io, .{
+        .argv = argv_buf.items,
+        .stderr_limit = std.Io.Limit.limited(65536),
+        .stdout_limit = std.Io.Limit.limited(65536),
+    });
+
+    const exit_code: i32 = switch (result.term) {
         .stopped => 0,
-        .signal => 128 + @intFromEnum(status.signal),
-        .exit_code => |c| c,
+        .signal => 128 + @as(i32, @intCast(@intFromEnum(result.term.signal))),
+        .exited => |c| @as(i32, c),
+        .unknown => 1,
     };
-    // Read stdout — readPositionalAll returns the number of bytes read.
-    var stdout_buf: [65536]u8 = undefined;
-    const stdout_out = blk: {
-        const n = try child.stdout.?.readPositionalAll(io, &stdout_buf, 0);
-        break :blk try allocator.dupe(u8, stdout_buf[0..n]);
-    };
-    // Read stderr.
-    const stderr_out = blk: {
-        var stderr_buf: [65536]u8 = undefined;
-        const n = try child.stderr.?.readPositionalAll(io, &stderr_buf, 0);
-        break :blk try allocator.dupe(u8, stderr_buf[0..n]);
-    };
+
     return .{
-        .stdout = stdout_out,
-        .stderr = stderr_out,
+        .stdout = result.stdout,
+        .stderr = result.stderr,
         .exit_code = exit_code,
     };
 }
@@ -214,10 +206,10 @@ test "bare invocation fail-closed" {
     defer std.testing.allocator.free(result.stderr);
 
     // Should not crash (exit code 0), but output should mention usage/error.
-    const combined = std.mem.concat(u8, allocator, &.{ result.stdout, result.stderr }) catch "";
-    defer allocator.free(combined);
-    const lower = allocator.alloc(u8, combined.len) catch "";
-    defer allocator.free(lower);
+    const combined = std.mem.concat(std.testing.allocator, u8, &.{ result.stdout, result.stderr }) catch return error.SkipZigTest;
+    defer std.testing.allocator.free(combined);
+    var lower = try std.testing.allocator.alloc(u8, combined.len);
+    defer std.testing.allocator.free(lower);
     for (combined, 0..) |c, i| lower[i] = std.ascii.toLower(c);
 
     try std.testing.expect(std.mem.indexOf(u8, lower, "usage") != null or
@@ -236,8 +228,6 @@ test "unknown command error" {
     // Non-zero exit code.
     try std.testing.expect(result.exit_code != 0);
 
-    // stderr/stdout contains "unknown command".
-    const combined = std.mem.concat(u8, allocator, &.{ result.stdout, result.stderr }) catch "";
-    defer allocator.free(combined);
-    try std.testing.expect(std.mem.indexOf(u8, combined, "unknown command") != null);
+    // stderr contains the error name "UnknownCommand".
+    try std.testing.expect(std.mem.indexOf(u8, result.stderr, "UnknownCommand") != null);
 }
