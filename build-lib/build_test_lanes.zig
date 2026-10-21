@@ -11,6 +11,7 @@ const integration_lane = @import("lanes/integration.zig");
 const system_lane = @import("lanes/system.zig");
 const perf_lane = @import("lanes/perf.zig");
 const cov_lane = @import("lanes/cov.zig");
+const cli_lane = @import("lanes/cli.zig");
 
 const modules = @import("mod/modules.zig");
 const test_modules = @import("mod/test_modules.zig");
@@ -34,6 +35,9 @@ pub fn registerTestLanes(
     const run_tests_step = b.step("run-tests", "Run offline Tickoni unit tests");
     run_tests_step.dependOn(check_step);
     build_lane.strategy(b, shared, tm, target, optimize, fd_lib_dir, test_step, run_tests_cmd);
+
+    // CLI lane — unit tests for parser, integration tests for the binary.
+    cli_lane.strategy(b, test_step, run_tests_cmd, exe_install, target, optimize, fd_lib_dir);
 
     // Integration modules
     const int_mods = integration_lane.createIntModules(b, shared, tm, target, optimize, exe);
