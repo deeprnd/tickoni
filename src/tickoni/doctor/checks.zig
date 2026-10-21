@@ -261,11 +261,11 @@ pub const ModeChecks = struct {
     /// Check if fixture directory exists and is readable.
     pub fn checkFixtures(io: Io) Result {
         const cwd = std.Io.Dir.cwd();
-        const fixtures_path = "src/tickoni/demo/fixtures/demo.manifest.json";
+        const fixtures_path = "src/tickoni/test/fixtures/investment/demo.manifest.json";
         std.Io.Dir.access(cwd, io, fixtures_path, .{}) catch {
-            return Result.initOwnedMessage("fixtures", .warn, "no fixtures found (demo fixtures expected)");
+            return Result.initOwnedMessage("fixtures", .warn, "no fixtures found (investment fixtures expected)");
         };
-        return Result.initOwnedMessage("fixtures", .pass, "demo fixtures present");
+        return Result.initOwnedMessage("fixtures", .pass, "investment fixtures present");
     }
 
     /// Check model/mock mode status.

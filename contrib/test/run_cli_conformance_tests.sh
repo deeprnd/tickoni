@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Focused S6/S7 CLI verification: build both user-facing and supervisor binaries,
-# validate version/doctor contracts on `tickoni`, then assert the fixture-backed
-# conformance suite JSON contract on `tickoni-supervisor`.
+# Focused S6 CLI verification: build both user-facing and supervisor binaries,
+# validate version/doctor contracts on `tickoni`.
+# Note: the demo conformance suite was removed when the demo CLI was deleted;
+# this script now validates the stripped-down CLI surface.
 set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -11,15 +12,13 @@ export ZIG_GLOBAL_CACHE_DIR="${ZIG_GLOBAL_CACHE_DIR:-$repo_root/build/.zig-globa
 export ZIG_LOCAL_CACHE_DIR="${ZIG_LOCAL_CACHE_DIR:-$repo_root/build/.zig-cache}"
 
 # Zig prefix: use passed ZIG_PREFIX (absolute, from justfile), fall back to build/zig-out.
-# Single source of truth for zig-out location: defined in just/common.just.
 ZIG_PREFIX="${ZIG_PREFIX:-$repo_root/${ZIG_PREFIX_REL:-build/zig-out}}"
 
 build_cmd=(zig build -p "$ZIG_PREFIX" -Dfd-lib-dir=build/fd-tickoni-fd/lib -Dtest=true --summary all)
-manifest="src/tickoni/demo/fixtures/demo.manifest.json"
 cli_binary="$ZIG_PREFIX/bin/tickoni"
 binary="$ZIG_PREFIX/bin/tickoni-supervisor"
 
-printf 'building tickoni and tickoni-supervisor with fixture-backed demo modules\n'
+printf 'building tickoni and tickoni-supervisor with fixture-backed modules\n'
 if ! "${build_cmd[@]}"; then
   echo "build failed" >&2
   exit 1
@@ -39,106 +38,47 @@ for needle in [
     'Isolation Tier:',
     'Policy Schema:',
     'Replay Schema:',
-    'Demo Manifest:',
+    'Manifest:',
     'Compiler:',
 ]:
     assert needle in text, (needle, text)
 PY
 
-printf 'verifying tickoni doctor plain/json contracts\n'
+printf 'verifying tickoni doctor plain contract\n'
 plain_output="$($cli_binary doctor --plain 2>&1 || true)"
+python3 - <<'PY' "$plain_output"
+import sys
+text = sys.argv[1]
+assert 'tickoni doctor' in text, text
+assert 'Platform tier:' in text, text
+PY
+
+printf 'verifying tickoni doctor json contract\n'
 json_output="$($cli_binary doctor --json 2>&1 || true)"
-python3 - <<'PY' "$plain_output" "$json_output"
+python3 - <<'PY' "$json_output"
 import json, sys
-plain = sys.argv[1]
-js = sys.argv[2]
-assert 'tickoni doctor — host report' in plain, plain
-assert 'Platform tier:' in plain, plain
+js = sys.argv[1]
 payload = json.loads(js)
 assert 'platform_tier' in payload, payload
 assert 'result' in payload, payload
 assert 'checks' in payload and isinstance(payload['checks'], list), payload
 PY
 
-printf 'verifying bare demo usage fails closed\n'
-# tickoni demo without subcommand shows usage/help (exit 0) — valid fail-closed behavior.
-usage_output="$($cli_binary demo 2>&1 || true)"
+printf 'verifying bare tickoni invocation shows usage (fail-closed)\n'
+usage_output="$($cli_binary 2>&1 || true)"
 python3 - <<'PY' "$usage_output"
 import sys
 text = sys.argv[1]
-# Accept either exit-0 help text or exit-1 error — both are valid fail-closed.
-assert 'demo' in text.lower() or 'investment' in text.lower(), text
+# Should show usage/help or an error — both are fail-closed.
+assert 'command' in text.lower() or 'usage' in text.lower() or 'error' in text.lower() or 'unknown' in text.lower(), text
 PY
 
-printf 'running JSON conformance suite\n'
-json_output="$($cli_binary demo investment --json --manifest "$manifest")" || exit 1
-python3 - <<'PY' "$json_output"
-import json, sys, pathlib
-
-payload = json.loads(sys.argv[1])
-assert payload['preflight'] == 'passed', payload
-suite = payload['suite']
-assert len(suite) == 4, suite
-
-# Platform-aware: get the actual runtime tier from the manifest
-manifest_path = pathlib.Path("src/tickoni/demo/fixtures/demo.manifest.json")
-m = json.loads(manifest_path.read_text())
-assert len(m['supported_runtime_tiers']) > 0, m
-
-comparison = payload['comparison']
-assert comparison['all_match'] is True, comparison
-assert len(comparison['scenarios']) == 4, comparison
-scenarios = {item['scenario']: item for item in suite}
-assert set(scenarios) == {'allowed', 'oversized_blocked', 'restricted_instrument', 'tampered_replay'}, scenarios
-assert scenarios['allowed']['policy_outcome'] == 'allow', scenarios['allowed']
-assert scenarios['allowed']['external_effects_disabled'] is True, scenarios['allowed']
-assert scenarios['oversized_blocked']['policy_outcome'] == 'deny', scenarios['oversized_blocked']
-assert scenarios['oversized_blocked']['blocked_diagnostic']['code'] == 'policy_denied', scenarios['oversized_blocked']
-assert scenarios['restricted_instrument']['blocked_diagnostic']['code'] == 'restricted_instrument', scenarios['restricted_instrument']
-assert scenarios['tampered_replay']['blocked_diagnostic']['code'] == 'tampered_replay_artifact', scenarios['tampered_replay']
-assert scenarios['tampered_replay']['replay_result']['replay_match'] is False, scenarios['tampered_replay']
-for item in suite:
-    assert item['runtime_tier'], item
-    assert item['isolation_tier'], item
-    assert item['normalized_event_hash'], item
-    assert item['proposal_hash'] is not None, item
-PY
-
-printf 'running plain-text conformance suite\n'
-plain_output="$($cli_binary demo investment --plain --manifest "$manifest")" || exit 1
-python3 - <<'PY' "$plain_output"
-import sys
-text = sys.argv[1]
-assert 'comparison_all_match: true' in text, text
-assert 'comparison_scenario: allowed match=true mismatch_count=0' in text, text
-assert text.count('manifest_id: demo.investment.v1') == 4, text
-assert 'scenario: tampered_replay' in text, text
-assert 'blocked_code: tampered_replay_artifact' in text, text
-PY
-
-printf 'verifying fail-closed preflight diagnostics\n'
-python3 - <<'PY' "$cli_binary" "$manifest"
-import json, os, pathlib, subprocess, sys, tempfile
+printf 'verifying tickoni-supervisor builds successfully\n'
+python3 - <<'PY' "$binary"
+import sys, subprocess
 binary = sys.argv[1]
-manifest_path = pathlib.Path(sys.argv[2])
-base = json.loads(manifest_path.read_text())
-case_map = {
-    'unsupported_runtime_tier': ('blocked_code: unsupported_runtime_tier', dict(base, supported_runtime_tiers=['macos_retail'])),
-    'missing_fixture': ('blocked_code: missing_fixture', dict(base, required_fixtures=['does_not_exist'])),
-    'stale_manifest': ('blocked_code: stale_manifest', dict(base, min_tickoni_version='999.0.0')),
-    'missing_isolation_prerequisite': ('blocked_code: missing_isolation_prerequisite', dict(base, required_isolation_by_tier={'linux_full': 'retail', 'macos_retail': 'retail'})),
-    'attempted_live_execution': ('blocked_code: attempted_live_execution', dict(base, expected_no_live_effect=False)),
-}
-for name, (needle, payload) in case_map.items():
-    fd, temp_path = tempfile.mkstemp(prefix='hermes-cli-demo-', suffix='.json')
-    os.close(fd)
-    path = pathlib.Path(temp_path)
-    path.write_text(json.dumps(payload))
-    proc = subprocess.run([binary, 'demo', 'investment', '--manifest', str(path)], text=True, capture_output=True)
-    assert proc.returncode == 1, (name, proc.returncode, proc.stdout, proc.stderr)
-    assert 'Preflight failure:' in proc.stderr, (name, proc.stderr)
-    assert needle in proc.stderr, (name, proc.stderr)
-    path.unlink()
+proc = subprocess.run([binary, '--version'], capture_output=True, text=True)
+assert proc.returncode == 0, proc.stderr
 PY
 
-printf 'PASS: tickoni CLI contract and tickoni-supervisor demo contract verified\n'
+printf 'PASS: tickoni CLI contract and tickoni-supervisor verified\n'
