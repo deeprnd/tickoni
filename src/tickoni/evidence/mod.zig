@@ -206,7 +206,7 @@ test "EvidenceBundle toJson contains all required fields" {
     try std.testing.expect(std.mem.indexOf(u8, json_str, "support_matrix") != null);
     try std.testing.expect(std.mem.indexOf(u8, json_str, "\"version\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, json_str, "doctor") != null);
-    try std.testing.expect(std.mem.indexOf(u8, json_str, "demo") != null);
+    try std.testing.expect(std.mem.indexOf(u8, json_str, "fixture") != null);
     try std.testing.expect(std.mem.indexOf(u8, json_str, "audit") != null);
     try std.testing.expect(std.mem.indexOf(u8, json_str, "replay") != null);
     try std.testing.expect(std.mem.indexOf(u8, json_str, "blocked_flow") != null);

@@ -856,7 +856,7 @@ pub fn writeCliReportText(writer: anytype, report: CliReport) !void {
 
 /// System-level fixture suite: live/fixture model → allowed → oversized-blocked → restricted → replay.
 ///
-/// This function is called by `src/tickoni/test/system/test_investment_demo_live.zig`
+/// This function is called by `src/tickoni/test/system/test_investment_fixture_live.zig`
 /// as part of the system-test lane.  It reuses the helper functions exported
 /// from this module (runFixtureModel, runLiveModel, runAllowedTradeScenario,
 /// runOversizedTradeScenario, runRestrictedScenario, allocAllowedTradeInterfaceJson).

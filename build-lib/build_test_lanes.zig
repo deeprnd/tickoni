@@ -70,7 +70,7 @@ pub fn registerTestLanes(
         .fd_lib_dir = fd_lib_dir,
     }, target, optimize, system_step);
 
-    const live_model_step = b.step("integration-test-live-model", "Alias for the live V1.1 system/demo lane");
+    const live_model_step = b.step("integration-test-live-model", "Alias for the live V1.1 system/fixture lane");
     live_model_step.dependOn(system_step);
 }
 

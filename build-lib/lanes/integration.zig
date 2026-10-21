@@ -86,7 +86,7 @@ pub fn strategy(
             "src/tickoni/test/integration/test_process_pipeline.zig",
             "src/tickoni/test/integration/test_process_shutdown_reap.zig",
             "src/tickoni/test/integration/test_process_cpu_placement.zig",
-            "src/tickoni/test/integration/test_process_demo_parity.zig",
+            "src/tickoni/test/integration/test_process_fixture_parity.zig",
             "src/tickoni/test/integration/test_link_bounds.zig",
         };
 
@@ -319,7 +319,7 @@ pub fn strategy(
         const system_suite_test = b.addTest(.{
             .root_module = b.createModule(.{
                 .root_source_file = b.path(
-                    "src/tickoni/test/integration/test_investment_demo_system_suite.zig",
+                    "src/tickoni/test/integration/test_investment_fixture_system_suite.zig",
                 ),
                 .target = target,
                 .optimize = optimize,

@@ -261,7 +261,7 @@ pub const ModeChecks = struct {
     /// Check if fixture directory exists and is readable.
     pub fn checkFixtures(io: Io) Result {
         const cwd = std.Io.Dir.cwd();
-        const fixtures_path = "src/tickoni/test/fixtures/investment/demo.manifest.json";
+        const fixtures_path = "src/tickoni/test/fixtures/investment/fixture.manifest.json";
         std.Io.Dir.access(cwd, io, fixtures_path, .{}) catch {
             return Result.initOwnedMessage("fixtures", .warn, "no fixtures found (investment fixtures expected)");
         };
