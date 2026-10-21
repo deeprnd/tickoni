@@ -15,12 +15,14 @@ pub const Parser = struct {
         json: bool = false,
         plain: bool = false,
         fixture: bool = false,
+        manifest: bool = false,
     };
 
     pub const Values = struct {
         thesis: ?[]const u8 = null,
         endpoint: ?[]const u8 = null,
         model: ?[]const u8 = null,
+        manifest: ?[]const u8 = null,
     };
 };
 
@@ -75,16 +77,41 @@ pub fn parse(gpa: std.mem.Allocator, init: std.process.Init) !Parser {
             } else if (std.mem.eql(u8, key, "fixture")) {
                 result.flags.fixture = true;
             } else if (std.mem.eql(u8, key, "thesis")) {
-                if (value.len > 0) {
-                    result.values.thesis = gpa.dupe(u8, value) catch continue;
+                var val = value;
+                if (val.len == 0 and i + 1 < args.len and !std.mem.startsWith(u8, args[i + 1], "--")) {
+                    val = args[i + 1];
+                    i += 1;
+                }
+                if (val.len > 0) {
+                    result.values.thesis = gpa.dupe(u8, val) catch continue;
                 }
             } else if (std.mem.eql(u8, key, "endpoint")) {
-                if (value.len > 0) {
-                    result.values.endpoint = gpa.dupe(u8, value) catch continue;
+                var val = value;
+                if (val.len == 0 and i + 1 < args.len and !std.mem.startsWith(u8, args[i + 1], "--")) {
+                    val = args[i + 1];
+                    i += 1;
+                }
+                if (val.len > 0) {
+                    result.values.endpoint = gpa.dupe(u8, val) catch continue;
                 }
             } else if (std.mem.eql(u8, key, "model")) {
-                if (value.len > 0) {
-                    result.values.model = gpa.dupe(u8, value) catch continue;
+                var val = value;
+                if (val.len == 0 and i + 1 < args.len and !std.mem.startsWith(u8, args[i + 1], "--")) {
+                    val = args[i + 1];
+                    i += 1;
+                }
+                if (val.len > 0) {
+                    result.values.model = gpa.dupe(u8, val) catch continue;
+                }
+            } else if (std.mem.eql(u8, key, "manifest")) {
+                result.flags.manifest = true;
+                var val = value;
+                if (val.len == 0 and i + 1 < args.len and !std.mem.startsWith(u8, args[i + 1], "--")) {
+                    val = args[i + 1];
+                    i += 1;
+                }
+                if (val.len > 0) {
+                    result.values.manifest = gpa.dupe(u8, val) catch continue;
                 }
             }
             continue;
@@ -127,7 +154,7 @@ pub fn printHelp(io: std.Io, gpa: std.mem.Allocator) !void {
     try writer.writeAll("    doctor      Run health checks\n");
     try writer.writeAll("\n");
     try writer.writeAll("GLOBAL OPTIONS:\n");
-    try writer.writeAll("    -h, --help        Display this help and exit\n");
+    try writer.writeAll("    -h, --help        Display this and exit\n");
     try writer.writeAll("    -v, --version     Display version and exit\n");
     try writer.writeAll("\n");
     try std.Io.File.writeStreamingAll(std.Io.File.stdout(), io, writer.buffered());
@@ -148,7 +175,9 @@ pub fn printHelpForCommand(io: std.Io, gpa: std.mem.Allocator, command: []const 
         try writer.writeAll("    --thesis <str>    Plain-English demo thesis input\n");
         try writer.writeAll("    --endpoint <str>  OpenAI-compatible endpoint\n");
         try writer.writeAll("    --model <str>     Allowed model id\n");
-        try writer.writeAll("    --json            Emit machine-readable JSON\n");
+        try writer.writeAll("    --manifest <str>  Path to demo manifest JSON (conformance mode)\n");
+        try writer.writeAll("    --json            Emit machine-readable JSON (conformance mode)\n");
+        try writer.writeAll("    --plain           Emit human-readable text (conformance mode)\n");
         try writer.writeAll("    --fixture         Use deterministic fixture response\n");
     } else if (std.mem.eql(u8, command, "doctor")) {
         try writer.writeAll("USAGE:\n");
@@ -168,4 +197,5 @@ pub fn deinit(self: *Parser, allocator: std.mem.Allocator) void {
     if (self.values.thesis) |t| allocator.free(t);
     if (self.values.endpoint) |e| allocator.free(e);
     if (self.values.model) |m| allocator.free(m);
+    if (self.values.manifest) |m| allocator.free(m);
 }
