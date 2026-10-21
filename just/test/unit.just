@@ -88,3 +88,19 @@ test-unit-fd-linux-arm-gcc-run:
     eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
     echo "Running unit tests with: $TEST_OPTS"
     contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt $(TEST_OPTS)
+
+# ── TK CLI unit test recipes (zig build test) ────────────────────────────
+# CLI unit tests run `zig build test-cli-parser` (standalone, no FD linkage).
+
+test-unit-cli-linux-x86:
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -Dfd-lib-dir={{ fd_tickoni_lib }} test-cli-parser
+
+test-unit-cli-linux-arm: test-unit-cli-linux-x86
+
+test-unit-cli-macos-x86: test-unit-cli-linux-x86
+
+test-unit-cli-macos-arm: test-unit-cli-linux-x86
+
+test-unit-cli-windows-x86: test-unit-cli-linux-x86
+
+test-unit-cli-windows-arm: test-unit-cli-linux-x86
