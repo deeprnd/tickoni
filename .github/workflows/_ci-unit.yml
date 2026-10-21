@@ -27,6 +27,7 @@ jobs:
             platform: linux-x86
             fd-test-recipe: test-unit-fd-linux-x86-gcc
             test-recipe: test-unit-tk-linux-x86
+            cli-test-recipe: test-unit-cli-linux-x86
             compiler: gcc-12
           # Linux x86_64 (clang)
           - platform-name: Linux x86_64 (clang)
@@ -36,6 +37,7 @@ jobs:
             platform: linux-x86
             fd-test-recipe: test-unit-fd-linux-x86-clang
             test-recipe: test-unit-tk-linux-x86
+            cli-test-recipe: test-unit-cli-linux-x86
             compiler: clang-18
           # Linux ARM64
           - platform-name: Linux ARM
@@ -45,6 +47,7 @@ jobs:
             platform: linux-arm
             fd-test-recipe: test-unit-fd-linux-arm-gcc
             test-recipe: test-unit-tk-linux-arm
+            cli-test-recipe: test-unit-cli-linux-arm
             compiler: gcc-14
           # macOS 15 (x86_64)
           - platform-name: macOS 15 (x86_64)
@@ -54,6 +57,7 @@ jobs:
             platform: macos-x86
             fd-test-recipe: test-unit-fd-macos-x86
             test-recipe: test-unit-tk-macos-x86
+            cli-test-recipe: test-unit-cli-macos-x86
             compiler: clang
           # macOS 15 (ARM)
           - platform-name: macOS 15 (ARM)
@@ -63,6 +67,7 @@ jobs:
             platform: macos-arm
             fd-test-recipe: test-unit-fd-macos-arm
             test-recipe: test-unit-tk-macos-arm
+            cli-test-recipe: test-unit-cli-macos-arm
             compiler: clang
           # macOS 26 (x86_64)
           - platform-name: macOS 26 (x86_64)
@@ -72,6 +77,7 @@ jobs:
             platform: macos-x86
             fd-test-recipe: test-unit-fd-macos-x86
             test-recipe: test-unit-tk-macos-x86
+            cli-test-recipe: test-unit-cli-macos-x86
             compiler: clang
           # macOS 26 (ARM)
           - platform-name: macOS 26 (ARM)
@@ -81,6 +87,7 @@ jobs:
             platform: macos-arm
             fd-test-recipe: test-unit-fd-macos-arm
             test-recipe: test-unit-tk-macos-arm
+            cli-test-recipe: test-unit-cli-macos-arm
             compiler: clang
           # Windows x86_64
           - platform-name: Windows x86_64
@@ -90,6 +97,7 @@ jobs:
             platform: windows-x86
             fd-test-recipe: test-unit-fd-windows-x86
             test-recipe: test-unit-tk-windows-x86
+            cli-test-recipe: test-unit-cli-windows-x86
             compiler: msvc
           # Windows ARM64
           - platform-name: Windows ARM
@@ -99,6 +107,7 @@ jobs:
             platform: windows-arm
             fd-test-recipe: test-unit-fd-windows-arm
             test-recipe: test-unit-tk-windows-arm
+            cli-test-recipe: test-unit-cli-windows-arm
             compiler: msvc
 
     steps:
@@ -144,3 +153,6 @@ jobs:
 
       - name: Run Tickoni unit tests
         run: just ${{ matrix.test-recipe }}
+
+      - name: Run CLI unit tests
+        run: just ${{ matrix.cli-test-recipe }}
