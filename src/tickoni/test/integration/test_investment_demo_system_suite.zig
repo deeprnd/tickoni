@@ -1,25 +1,17 @@
-/// v2.14.S1 M12 / Demo→CLI rename (Phase 2): integration test for the full
-/// investment-demo system suite (allowed, oversized-blocked, restricted).
-///
-/// Previously this logic lived in `demo/investment/mod.zig::runSystemSuite()`
-/// and was called by the system test.  Moving it here makes the system suite
-/// a first-class integration test that imports `investment_demo` for the
-/// helper functions it needs (runAllowedTradeScenario, etc.) but owns the
-/// orchestration itself.
 const std = @import("std");
-const demo = @import("investment_demo");
+const investment_fixture = @import("investment_fixture");
 const support = @import("investment_support");
 
 pub fn runSystemSuite(
     allocator: std.mem.Allocator,
     io: std.Io,
-    live_config: demo.LiveConfig,
+    live_config: investment_fixture.LiveConfig,
 ) !void {
     const input = support.operationsThesisInput();
     var live_result = if (live_config.use_fixture)
-        try demo.runFixtureModel(allocator, input)
+        try investment_fixture.runFixtureModel(allocator, input)
     else
-        try demo.runLiveModel(allocator, io, live_config, input);
+        try investment_fixture.runLiveModel(allocator, io, live_config, input);
     std.debug.print("=== runSystemSuite: model path={s} ===\n", .{
         if (live_config.use_fixture) "fixture" else "live",
     });
@@ -29,7 +21,7 @@ pub fn runSystemSuite(
         .{ live_config.endpoint, live_result.model_id, live_result.matched_ticker, live_result.excerpt },
     );
 
-    const allowed = try demo.runAllowedTradeScenario(allocator, io, input);
+    const allowed = try investment_fixture.runAllowedTradeScenario(allocator, io, input);
     std.debug.print(
         "=== Allowed USD 2,000 ===\naccount={d} ticket={s} cost_cents={d}\n",
         .{ allowed.ticket.account_id, allowed.ticket.ticketIdSlice(), allowed.ticket.estimated_cost_cents },
@@ -41,11 +33,11 @@ pub fn runSystemSuite(
             if (allowed.replay_result.external_effects_disabled) "true" else "false",
         },
     );
-    const decision_payload_json = try demo.allocAllowedTradeInterfaceJson(allocator, &allowed);
+    const decision_payload_json = try investment_fixture.allocAllowedTradeInterfaceJson(allocator, &allowed);
     defer allocator.free(decision_payload_json);
     std.debug.print("=== Decision Payload ===\n{s}\n", .{decision_payload_json});
 
-    const blocked = try demo.runOversizedTradeScenario(
+    const blocked = try investment_fixture.runOversizedTradeScenario(
         allocator,
         io,
         support.operationsThesisInputWithTarget(support.oversized_target_notional_cents),
@@ -59,7 +51,7 @@ pub fn runSystemSuite(
         },
     );
 
-    const restricted = try demo.runRestrictedScenario(allocator, io, support.operationsRestrictedTickerInput());
+    const restricted = try investment_fixture.runRestrictedScenario(allocator, io, support.operationsRestrictedTickerInput());
     std.debug.print(
         "=== Restricted Instrument ===\nrequested={s} replay_match={s}\n",
         .{
@@ -72,12 +64,9 @@ pub fn runSystemSuite(
 test "system demo live: full investment suite via fixture" {
     const allocator = std.testing.allocator;
 
-    // Env vars (TK_LLM_MODEL_ID, TK_LLM_ENDPOINT, TK_LIVE_TEST) are only
-    // available via init.environ_map in main(). Tests use defaults — env
-    // vars are for manual CI debugging only.
-    const live_config = demo.LiveConfig{
-        .endpoint = demo.default_endpoint,
-        .model_id = demo.default_model_id,
+    const live_config = investment_fixture.LiveConfig{
+        .endpoint = investment_fixture.default_endpoint,
+        .model_id = investment_fixture.default_model_id,
         .use_fixture = true,
     };
 

@@ -11,8 +11,8 @@
 /// lane (`test_investment_demo_live.zig` / `zig build system-test`). No live
 /// model, broker, payment processor, trading API, TigerBeetle, or autonomous
 /// execution is involved.
-const demo = @import("investment_demo");
-const drift = demo.drift;
+const investment_fixture = @import("investment_fixture");
+const drift = investment_fixture.drift;
 const support = @import("investment_support");
 const std = @import("std");
 
@@ -40,7 +40,7 @@ test "portfolio cash demo: combined investment and payment decision payload is d
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
 
-    const result = try demo.runAllowedTradeScenario(allocator, std.testing.io, input);
+    const result = try investment_fixture.runAllowedTradeScenario(allocator, std.testing.io, input);
 
     // Before/after portfolio and cash state for the trade (V1.3.S4.T2).
     const impact = result.portfolio_impact;
@@ -58,7 +58,7 @@ test "portfolio cash demo: combined investment and payment decision payload is d
     // (V1.3.S4.T3).
     try std.testing.expect(impact.pending_obligations_after_cents > 0);
     try std.testing.expect(impact.any_approval_required);
-    try std.testing.expectEqual(demo.cards.ApprovalState.pending, result.decision_cards.money_proposal_card.approval_state);
+    try std.testing.expectEqual(investment_fixture.cards.ApprovalState.pending, result.decision_cards.money_proposal_card.approval_state);
 
     // Thesis and money proposal cards were saved with rationale and evidence
     // links (V1.3.S4.T4).
@@ -92,7 +92,7 @@ test "portfolio cash demo: combined investment and payment decision payload is d
 
     // One combined, UI-ready decision payload for a future CaseOps client
     // (V1.3.S4.T6, acceptance).
-    const json = try demo.allocAllowedTradeInterfaceJson(allocator, &result);
+    const json = try investment_fixture.allocAllowedTradeInterfaceJson(allocator, &result);
     defer allocator.free(json);
     std.debug.print("=== V1.3.S4 Portfolio And Cash Decision Payload ===\n{s}\n", .{json});
 

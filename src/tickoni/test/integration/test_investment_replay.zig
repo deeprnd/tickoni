@@ -1,7 +1,7 @@
 const std = @import("std");
 const adapter = @import("adapter");
 const audit = @import("audit_tile");
-const demo = @import("investment_demo");
+const investment_fixture = @import("investment_fixture");
 const investment_audit = @import("investment_audit");
 const model = @import("model");
 const replay = @import("replay");
@@ -94,7 +94,7 @@ test "investment_replay_integration: succeeds with fixture substitutions and no 
 
     const execution = agent_result.paper_result orelse return error.TestUnexpectedResult;
 
-    const allowed_result = try demo.runAllowedTradeScenario(allocator, std.testing.io, input);
+    const allowed_result = try investment_fixture.runAllowedTradeScenario(allocator, std.testing.io, input);
     const replay_result = allowed_result.replay_result;
     try std.testing.expect(replay_result.external_effects_disabled);
     try std.testing.expect(replay_result.replay_match);
@@ -159,7 +159,7 @@ test "investment_replay_integration: allowed trade audit chain hashes are real a
     defer agent_result.deinit(allocator);
     const execution = agent_result.paper_result orelse return error.TestUnexpectedResult;
 
-    const allowed_result = try demo.runAllowedTradeScenario(allocator, std.testing.io, input);
+    const allowed_result = try investment_fixture.runAllowedTradeScenario(allocator, std.testing.io, input);
     const no_divergence = allowed_result.replay_result;
     const chain = investment_audit.buildAllowedTradeChain(
         run_id,
@@ -256,7 +256,7 @@ test "investment_replay_integration: tamper detection reports first divergent ha
 
     const execution = agent_result.paper_result orelse return error.TestUnexpectedResult;
 
-    const allowed_result = try demo.runAllowedTradeScenario(allocator, std.testing.io, input);
+    const allowed_result = try investment_fixture.runAllowedTradeScenario(allocator, std.testing.io, input);
     const replay_result = try replay.verifyAllowedTradeWithCapsulePath(
         allocator,
         std.testing.io,
@@ -316,7 +316,7 @@ test "gen audit allowed trade jsonl" {
     );
     defer agent_result.deinit(allocator);
     const execution = agent_result.paper_result orelse return error.TestUnexpectedResult;
-    const allowed_result = try demo.runAllowedTradeScenario(allocator, std.testing.io, input);
+    const allowed_result = try investment_fixture.runAllowedTradeScenario(allocator, std.testing.io, input);
     const no_divergence = allowed_result.replay_result;
     const chain = investment_audit.buildAllowedTradeChain(
         run_id,

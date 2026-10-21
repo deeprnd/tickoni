@@ -1,10 +1,10 @@
-const demo = @import("investment_demo");
+const investment_fixture = @import("investment_fixture");
 const support = @import("investment_support");
 const std = @import("std");
 
 test "investment_decision_cards_integration: allowed demo exposes decision cards and drift contract" {
     if (false) return error.SkipZigTest;
-    const result = try demo.runAllowedTradeScenario(std.testing.allocator, std.testing.io, support.operationsThesisInput());
+    const result = try investment_fixture.runAllowedTradeScenario(std.testing.allocator, std.testing.io, support.operationsThesisInput());
 
     try std.testing.expectEqual(result.basket.basket_id, result.decision_cards.thesis_card.basket_id);
     try std.testing.expect(result.decision_cards.thesis_card.linked_position_count > 0);
@@ -18,7 +18,7 @@ test "investment_decision_cards_integration: allowed demo exposes decision cards
     try std.testing.expect(result.drift_contract.rebalance_suggestion.requires_user_action);
     try std.testing.expect(result.drift_contract.payment_proposal_update.requires_user_action);
 
-    const json = try demo.allocAllowedTradeInterfaceJson(std.testing.allocator, &result);
+    const json = try investment_fixture.allocAllowedTradeInterfaceJson(std.testing.allocator, &result);
     defer std.testing.allocator.free(json);
 
     const ContractWire = struct {
