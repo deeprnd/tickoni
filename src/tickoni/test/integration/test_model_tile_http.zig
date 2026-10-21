@@ -95,9 +95,9 @@ test "model tile http: hello round-trip via mock server" {
                 .model_id = mock_model_id,
                 .messages = &.{.{ .role = "user", .content = "Reply with the single word: hello" }},
                 .sampling = .{ .temperature = 0, .max_output_tokens = 256, .seed = 1 },
-                .budget_id = "budget.demo_paper",
+                .budget_id = "budget.fixture_paper",
                 .policy_version = "v1",
-                .capability_envelope_id = "capenv.trading_order.propose.demo",
+                .capability_envelope_id = "capenv.trading_order.propose.fixture",
             };
             const resp = try backend.call(allocator, req);
             defer resp.deinit(allocator);
