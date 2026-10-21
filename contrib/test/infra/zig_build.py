@@ -13,7 +13,7 @@ def run_zig_build(target, run_tests):
     """Run zig build <target> with appropriate flags.
 
     Args:
-        target: Zig build target (e.g. 'system-test', 'demo').
+        target: Zig build target (e.g. 'system-test', 'conformance').
         run_tests: If True, adds -Dtest=true and runs the target as a test.
 
     Returns exit code.

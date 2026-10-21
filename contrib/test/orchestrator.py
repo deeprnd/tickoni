@@ -7,7 +7,7 @@ Zig test/build execution behind focused strategy modules.
 Usage:
     python3 orchestrator.py llm-server-start          # start server, wait for health
     python3 orchestrator.py llm-server-stop           # kill server by PID
-    python3 orchestrator.py zig-build --target demo   # just build (no run)
+    python3 orchestrator.py zig-build --target conformance   # just build (no run)
     python3 orchestrator.py zig-test --target system  # build + run test
     python3 orchestrator.py llm-e2e                   # full e2e: setup → start → test → cleanup
 """
