@@ -3,10 +3,10 @@
 # Reference: doc/execution/plans/v2.10-s8-5.md
 #
 # Execution order:
-#   (quality, security-secrets) -> build (matrix) -> project-build (aggregate)
+#   (quality, security-secrets) -> build (matrix) -> build-artifacts-compare (aggregate)
+#     -> project-build (aggregate)
 #     -> unit tests -> (integration, system, demo, coverage in parallel)
-#     -> conformance (after demo)
-#     -> project-tests (after integration+system+demo+conformance+coverage)
+#     -> project-tests (after integration+system+demo+coverage)
 #     -> security-deep (after project-tests) -> project-security (aggregate)
 #     -> ci-required
 #
@@ -74,10 +74,20 @@ jobs:
     uses: ./.github/workflows/_ci-build.yml
     secrets: inherit
 
+  # ── BUILD ARTIFACTS COMPARISON: cross-platform binary output comparison ──
+  build-artifacts-compare:
+    name: Build Artifacts / Compare
+    needs: [plan, build]
+    if: >-
+      always() &&
+      needs.plan.outputs.core == 'true' &&
+      needs.build.result == 'success'
+    uses: ./.github/workflows/_ci-build-artifacts-compare.yml
+
   # ── PROJECT BUILD: aggregated build gate ──────────────────────────────────
   project-build:
     name: Project Build
-    needs: [plan, build]
+    needs: [plan, build, build-artifacts-compare]
     if: >-
       always() &&
       needs.plan.outputs.core == 'true' &&
@@ -141,22 +151,12 @@ jobs:
       needs.unit.result == 'success'
     uses: ./.github/workflows/_ci-coverage.yml
 
-  # ── CONFORMANCE: cross-platform binary comparison (after demo) ───────────
-  conformance:
-    name: Tests / Conformance
-    needs: [plan, demo]
-    if: >-
-      always() &&
-      needs.plan.outputs.core == 'true' &&
-      needs.demo.result == 'success'
-    uses: ./.github/workflows/_ci-conformance.yml
-
   # ── PROJECT TESTS: aggregated test gate ───────────────────────────────────
   # coverage is optional — runs in parallel but does not gate the gate
   project-tests:
     name: Project Tests
     needs:
-      [plan, project-build, unit, integration, system, demo, conformance]
+      [plan, project-build, unit, integration, system, demo]
     if: >-
       always() &&
       needs.plan.outputs.core == 'true' &&
@@ -164,8 +164,7 @@ jobs:
       needs.unit.result == 'success' &&
       needs.integration.result == 'success' &&
       needs.system.result == 'success' &&
-      needs.demo.result == 'success' &&
-      needs.conformance.result == 'success'
+      needs.demo.result == 'success'
     runs-on: ubuntu-24.04
     steps:
       - name: Project Tests aggregated
