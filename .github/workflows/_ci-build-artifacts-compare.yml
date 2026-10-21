@@ -1,0 +1,75 @@
+---
+# Reusable Build Artifacts Comparison: cross-platform binary output comparison.
+# Downloads conformance bundles from Build stage and compares them.
+# Export is performed during Build; this stage only compares.
+
+name: Build Artifacts Comparison Stage
+
+'on':
+  workflow_call:
+
+jobs:
+  build-artifacts-compare:
+    name: Build Artifacts / Compare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install just
+        uses: taiki-e/install-action@just
+
+      - name: Setup build toolchain
+        run: just setup-build-linux-x86-gcc
+
+      - name: Download Linux x86 conformance bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: conformance-linux-x86
+          path: build/demo-conformance/linux-x86
+
+      - name: Download Linux ARM conformance bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: conformance-linux-arm
+          path: build/demo-conformance/linux-arm
+
+      - name: Download macOS 15 x86 conformance bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: conformance-macos-15-x86
+          path: build/demo-conformance/macos-15-x86
+
+      - name: Download macOS 15 ARM conformance bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: conformance-macos-15-arm
+          path: build/demo-conformance/macos-15-arm
+
+      - name: Download macOS 26 x86 conformance bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: conformance-macos-26-x86
+          path: build/demo-conformance/macos-26-x86
+
+      - name: Download macOS 26 ARM conformance bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: conformance-macos-26-arm
+          path: build/demo-conformance/macos-26-arm
+
+      - name: Download Windows x86 conformance bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: conformance-windows-x86
+          path: build/demo-conformance/windows-x86
+
+      - name: Download Windows ARM conformance bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: conformance-windows-arm
+          path: build/demo-conformance/windows-arm
+
+      - name: Compare conformance outputs
+        run: just compare-demo-conformance

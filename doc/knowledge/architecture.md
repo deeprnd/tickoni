@@ -276,17 +276,27 @@ private `extern fn` declarations rather than reimplementing the logic natively
 in Zig. No Firedancer file is edited; the shim files are compiled and linked
 alongside upstream libraries via `linkTickoniFiredancer` in `build.zig`.
 
-This also explains why `src/disco/stem` (Firedancer's tile polling/
-backpressure framework) is not linked directly, even though it looks like
-exactly the abstraction process-mode links need. `fd_stem_publish` itself
-just calls the same inline `fd_mcache_publish` underneath, so linking it
-would not add real reuse — it would only add `fd_stem`'s "credit"/burst
-accounting, which is tied to `fd_topo_t`'s full validator tile-housekeeping
-model. Tile-topology.md's [Reuse Boundary](tile-topology.md#reuse-boundary)
-already rules that model out for Tickoni (no Tickoni fields on
-`fd_topo.h`, no `fd_topo_run_tile` validator lifecycle). `fd_stem` stays a
-design reference for the bounded-polling/backpressure pattern, not a linked
-dependency.
+`src/disco/stem` (Firedancer's tile polling/backpressure framework) is
+included directly by Tickoni shim files via `#include "fd_stem.c"`, not
+linked as a prebuilt library. This is the correct reuse pattern: `fd_stem`
+generates `stem_run()` once per compilation unit via `STEM_CALLBACK_*` macro
+guards, and Tickoni defines those macros in the shim that includes it
+(e.g., `tk_metric_tile.c`). The credit/burst accounting from `fd_stem` is
+useful infrastructure reuse — it gives Tickoni battle-tested bounded polling,
+multi-input fan-in, and credit-based backpressure without reimplementing it.
+What Tickoni does NOT reuse is Firedancer's `fd_topo_t`-coupled validator
+housekeeping model: no Tickoni fields on `fd_topo.h`, no `fd_topo_run_tile`
+validator lifecycle dependency. The `fd_stem` code is a Firedancer infrastructure
+primitive that Tickoni includes directly in its shim layer, not a design
+reference.
+
+The current consumer of `fd_stem` is `tk_metric_tile.c`, which uses the
+`BEFORE_CREDIT` callback for HTTP server polling and `SHOULD_SHUTDOWN` for
+halt detection. The metric tile is a zero-input, zero-output observer that
+runs `stem_run()` in its `.run` callback, with `in_cnt==0` meaning stem
+skips input/output polling and only fires `before_credit` — a clean pattern.
+Future pipeline tiles may also include `fd_stem.c` directly when their callback
+needs align with stem's lifecycle.
 
 The working rule: default to a real Firedancer primitive behind a `tk_*` shim
 even at FFI cost. Whether the upstream function is exported, `static inline`,

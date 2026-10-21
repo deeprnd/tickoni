@@ -25,7 +25,7 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile", .cpu_placement = .{ .shared = 0 } },
     .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile", .cpu_placement = .{ .shared = 0 } },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile", .cpu_placement = .{ .shared = 0 } },
-    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile", .cpu_placement = .{ .shared = 0 } },
+    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric", .cpu_placement = .{ .shared = 0 } },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile", .cpu_placement = .{ .shared = 0 } },
 };
 
@@ -37,11 +37,11 @@ fn runDurationNs(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) !u
     defer sup.deinit();
 
     const start_ns = util.process.monotonicNanos();
-    const port = util.metricPort();
-    try sup.startPaymentPipelineProcess(io, .{
+    const port = util.nextMetricPort();
+    try sup.startPaymentPipelineProcess(io, topo, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .metric_port = port,
     });
 
@@ -54,7 +54,7 @@ fn runDurationNs(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8) !u
 
     const metrics = sup.snapshotProcessMetrics();
     const elapsed_ns = std.math.cast(u64, util.process.monotonicNanos() - start_ns) orelse return error.DurationOverflow;
-    sup.stopProcess(io);
+    sup.stopProcess(io) catch @panic("unresolved child");
 
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
@@ -106,13 +106,11 @@ test "process_cpu_placement_linux: shared-core and floating are within a 2x enve
     var shared_runs: [samples]u64 = undefined;
     inline for (0..samples) |i| {
         var floating_tmp = util.tmpDir();
-        defer floating_tmp.cleanup();
         var floating_path_buf: [std.fs.max_path_bytes]u8 = undefined;
         const floating_len = try floating_tmp.dir.realPath(std.testing.io, &floating_path_buf);
         floating_runs[i] = try runDurationNs(std.testing.io, topologies.paymentPipelineProcess(), floating_path_buf[0..floating_len]);
 
         var shared_tmp = util.tmpDir();
-        defer shared_tmp.cleanup();
         var shared_path_buf: [std.fs.max_path_bytes]u8 = undefined;
         const shared_len = try shared_tmp.dir.realPath(std.testing.io, &shared_path_buf);
         shared_runs[i] = try runDurationNs(std.testing.io, shared_topo, shared_path_buf[0..shared_len]);

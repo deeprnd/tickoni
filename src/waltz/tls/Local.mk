@@ -11,6 +11,8 @@ $(call make-fuzz-test,fuzz_tls_msg_parser,fuzz_tls_msg_parser,fd_tls fd_ballet f
 endif
 
 ifdef FD_HAS_OPENSSL
+ifdef FD_HAS_QUIC
 $(call make-unit-test,test_tls_openssl,test_tls_openssl,fd_quic fd_tls fd_ballet fd_util,-lssl -lcrypto)
 $(call run-unit-test,test_tls_openssl)
+endif
 endif

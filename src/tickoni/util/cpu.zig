@@ -11,7 +11,7 @@
 /// independently-linkable layout outside fd_tile's own translation unit.
 /// Per the "drop to a more explicit lower-level path" guidance in
 /// doc/execution/contribution/tickoni.md, this wraps the POSIX
-/// sched_getaffinity/sched_setaffinity syscalls directly on Linux.
+/// sched_getaffinity/sched_setaffinity syscalls via the C shim.
 /// On macOS these are stubs (no-op) because macOS does not provide
 /// sched_*affinity — the stub lets the same topo/run pipeline compile
 /// without platform-specific code paths.
@@ -19,7 +19,7 @@
 /// Link requirements: none beyond libc (glibc exposes sched_*affinity
 /// directly). On macOS no extra linking needed.
 const std = @import("std");
-const builtin = @import("builtin");
+const os_api = @import("os_api.zig");
 
 /// Matches glibc's default cpu_set_t size (CPU_SETSIZE=1024 bits).
 pub const cpu_set_bytes: usize = 128;
@@ -54,52 +54,21 @@ pub fn count(cpu_set: *const CpuSet) usize {
 }
 
 // ---------------------------------------------------------------------------
-// Platform-specific affinity syscalls
+// Platform-specific affinity syscalls — moved to C shim (os.c).
+// See os_api.getAffinity/os_api.setAffinity for the uniform interface.
 // ---------------------------------------------------------------------------
-
-// On Linux, sched_getaffinity/sched_setaffinity are real syscalls.
-// On macOS and other non-Linux hosts, affinity is intentionally a no-op but
-// placement validation still needs a stable "available cpu" set, so expose
-// every bit as available.
-pub const CpuSetAffinity = if (builtin.os.tag == .linux) struct {
-    extern fn sched_getaffinity(pid: c_int, cpusetsize: usize, mask: *CpuSet) c_int;
-    extern fn sched_setaffinity(pid: c_int, cpusetsize: usize, mask: *const CpuSet) c_int;
-
-    pub fn getAffinity(pid: c_int, cpu_set: *CpuSet) !void {
-        zero(cpu_set);
-        if (sched_getaffinity(pid, cpu_set_bytes, cpu_set) != 0) {
-            return error.GetAffinityFailed;
-        }
-    }
-
-    pub fn setAffinity(pid: c_int, cpu_set: *const CpuSet) !void {
-        if (sched_setaffinity(pid, cpu_set_bytes, cpu_set) != 0) {
-            return error.SetAffinityFailed;
-        }
-    }
-} else struct {
-    pub fn getAffinity(pid: c_int, cpu_set: *CpuSet) !void {
-        _ = pid;
-        @memset(cpu_set, 0xFF);
-    }
-
-    pub fn setAffinity(pid: c_int, cpu_set: *const CpuSet) !void {
-        _ = pid;
-        _ = cpu_set;
-    }
-};
 
 /// Reads the current CPU affinity mask for `pid` into `cpu_set`. pid==0
 /// means the calling thread. On non-Linux this returns an all-bits-set mask
 /// so placement validation treats every logical CPU id as available.
 pub fn getAffinity(pid: c_int, cpu_set: *CpuSet) !void {
-    try CpuSetAffinity.getAffinity(pid, cpu_set);
+    try os_api.getAffinity(pid, cpu_set);
 }
 
 /// Pins `pid` (0 == calling thread) to the CPUs set in `cpu_set`.
 /// On non-Linux this is a no-op that returns successfully.
 pub fn setAffinity(pid: c_int, cpu_set: *const CpuSet) !void {
-    try CpuSetAffinity.setAffinity(pid, cpu_set);
+    try os_api.setAffinity(pid, cpu_set);
 }
 
 // ---------------------------------------------------------------------------

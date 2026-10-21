@@ -44,7 +44,7 @@ jobs:
           - platform-name: macOS 15 (x86_64)
             runner: macos-15-intel
             timeout_minutes: 30
-            artifact-name: build-macos-15-x86_64
+            artifact-name: build-macos-15-x86
             platform: macos-x86
             test-recipe: test-integration-tk-macos-x86
             compiler: clang
@@ -60,7 +60,7 @@ jobs:
           - platform-name: macOS 26 (x86_64)
             runner: macos-26-intel
             timeout_minutes: 30
-            artifact-name: build-macos-26-x86_64
+            artifact-name: build-macos-26-x86
             platform: macos-x86
             test-recipe: test-integration-tk-macos-x86
             compiler: clang
@@ -76,7 +76,7 @@ jobs:
           - platform-name: Windows x86_64
             runner: windows-2025-vs2026
             timeout_minutes: 30
-            artifact-name: build-windows-x86_64
+            artifact-name: build-windows-x86
             platform: windows-x86
             test-recipe: test-integration-tk-windows-x86
             compiler: msvc
@@ -104,6 +104,14 @@ jobs:
         with:
           name: ${{ matrix.artifact-name }}
           path: .
+
+      - name: Configure hugepages and memory limits (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo prlimit --pid $$ --nofile=65536 --memlock=unlimited
+          sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || true
+          sudo src/util/shmem/fd_shmem_cfg init 0700 "$USER" ""
+          just system-mem-alloc-auto || true
 
       - name: Run integration tests
         run: just ${{ matrix.test-recipe }}

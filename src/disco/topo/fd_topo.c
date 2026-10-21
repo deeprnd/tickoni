@@ -150,16 +150,25 @@ fd_topo_wksp_new( fd_topo_t const *          topo,
     fd_topo_obj_t const * obj = &topo->objs[ i ];
     if( FD_LIKELY( obj->wksp_id!=wksp->id ) ) continue;
 
+    long ts = -fd_log_wallclock();
+    FD_LOG_NOTICE(( "fd_topo_wksp_new: processing obj[%lu] '%s' wksp[%s] callbacks=%lu", i, obj->name, wksp->name, (ulong)callbacks[0] ));
     for( ulong j=0UL; callbacks[ j ]; j++ ) {
       if( FD_LIKELY( strcmp( callbacks[ j ]->name, obj->name ) ) ) continue;
+      FD_LOG_NOTICE(( "fd_topo_wksp_new: matched callback '%s' for obj[%lu]", callbacks[j]->name, i ));
 
-      long ts = -fd_log_wallclock();
-      if( FD_LIKELY( callbacks[ j ]->new ) ) callbacks[ j ]->new( topo, obj );
+      if( FD_LIKELY( callbacks[ j ]->new ) ) {
+        FD_LOG_NOTICE(( "fd_topo_wksp_new: calling %s->new for obj[%lu]", callbacks[j]->name, i ));
+        callbacks[ j ]->new( topo, obj );
+        FD_LOG_NOTICE(( "fd_topo_wksp_new: %s->new returned OK for obj[%lu]", callbacks[j]->name, i ));
+      }
       long elapsed = fd_log_wallclock() + ts;
       if( FD_UNLIKELY( elapsed>(1000L*1000L*100L ) ) ) FD_LOG_WARNING(( "fd_topo_wksp_new(%s) took %ld ms", obj->name, elapsed/(1000L*1000L) ));
       else if( FD_UNLIKELY( elapsed>(1000L*1000L*5L ) ) ) FD_LOG_INFO(( "fd_topo_wksp_new(%s) took %ld ms", obj->name, elapsed/(1000L*1000L) ));
       break;
     }
+    long elapsed = fd_log_wallclock() + ts;
+    if( FD_UNLIKELY( elapsed>(1000L*1000L*100L ) ) ) FD_LOG_WARNING(( "fd_topo_wksp_new(obj[%lu] '%s') took %ld ms", i, obj->name, elapsed/(1000L*1000L) ));
+    else if( FD_UNLIKELY( elapsed>(1000L*1000L*5L ) ) ) FD_LOG_INFO(( "fd_topo_wksp_new(obj[%lu] '%s') took %ld ms", i, obj->name, elapsed/(1000L*1000L) ));
   }
 }
 

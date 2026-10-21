@@ -31,7 +31,7 @@ const payment_tiles = [_]TileDescriptor{
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
     .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
+    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric" },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
 };
 const payment_channels = [_]Channel{
@@ -54,7 +54,7 @@ const investment_tiles = [_]TileDescriptor{
     .{ .id = TileId.parse("tktool") catch unreachable, .name = "tool_broker_tile" },
     .{ .id = TileId.parse("tkadpt") catch unreachable, .name = "adapter_tile" },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric_tile" },
+    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric" },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
 };
 
@@ -79,7 +79,7 @@ const investment_channels = [_]Channel{
 /// Phase 0 in-process pipeline used by the Tickoni product supervisor.
 ///
 ///   tkings -> tknorm -> tkdedu -> tkpoly -> tkaudt
-///   tkrepl, tkmetr, and tkdiag observe the deterministic run.
+///   tkrepl, metric, and tkdiag observe the deterministic run.
 ///
 /// No Solana validator tiles are registered in this topology.
 /// Status: runnable, via `tickoni-supervisor start` (Supervisor.startPaymentPipeline).

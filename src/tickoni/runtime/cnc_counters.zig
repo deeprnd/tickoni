@@ -13,6 +13,9 @@ pub const app_counter_cap: usize = 8;
 pub fn appCounterRead(cnc: *c_abi.cnc.Cnc, idx: usize) u64 {
     std.debug.assert(idx < app_counter_cap);
     const base = c_abi.cnc.appLaddr(cnc);
+    const cnc_u: usize = @as(usize, @intFromPtr(cnc));
+    const base_u: usize = @as(usize, @intFromPtr(base));
+    std.debug.print("[cnc-read] cnc_ptr={x} base={x} idx={d}\n", .{ cnc_u, base_u, idx });
     const ptr: *const volatile u64 = @ptrCast(@alignCast(base + idx * 8));
     return ptr.*;
 }
@@ -21,6 +24,9 @@ pub fn appCounterRead(cnc: *c_abi.cnc.Cnc, idx: usize) u64 {
 pub fn appCounterWrite(cnc: *c_abi.cnc.Cnc, idx: usize, value: u64) void {
     std.debug.assert(idx < app_counter_cap);
     const base = c_abi.cnc.appLaddr(cnc);
+    const cnc_u: usize = @as(usize, @intFromPtr(cnc));
+    const base_u: usize = @as(usize, @intFromPtr(base));
+    std.debug.print("[cnc-write] cnc_ptr={x} base={x} idx={d} val={d}\n", .{ cnc_u, base_u, idx, value });
     const ptr: *volatile u64 = @ptrCast(@alignCast(base + idx * 8));
     ptr.* = value;
 }

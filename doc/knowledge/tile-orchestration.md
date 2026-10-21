@@ -189,6 +189,15 @@ Tickoni Phase 0 tiles (`tkings`, `tknorm`, `tkdedu`, `tkpoly`, `tkaudt`,
 counts, have no network/file I/O in the hot path, and use `fd_topo_run_tile`
 or equivalent harness loops that interleave heartbeat with work.
 
+**Timing note — metric tile bootstrap:** The metric tile has a longer bootstrap
+window than pipeline tiles because its CNC app-region is only populated after
+the tile joins its workspace, enters `stem_run → before_credit → listen()`,
+runs `unprivileged_init()`, and starts the HTTP server. Pipeline tile CNC
+counters are valid as soon as processing starts; metric tile CNC counters
+(boot timestamp, snapshot count) need the bootstrap window. See
+[workspace-management.md](workspace-management.md#tile-boot-timing-pipeline-tiles-vs-metric-tile)
+for the practical implications in tests and diagnostics.
+
 Future tiles (`tkcase`, `tkrepl`, `tkmodl`, `tktool`, `tkadpt`, `tkapi`) must
 adhere to the same discipline:
 

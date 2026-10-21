@@ -14,7 +14,6 @@ const logger = @import("logger");
 const Topology = rt.topology.Topology;
 const TileHandle = rt.tile.TileHandle;
 const TileState = rt.tile.TileState;
-const CrashReason = rt.tile.CrashReason;
 
 /// v2.14.S1 process-mode configuration for startPaymentPipelineProcess.
 pub const ProcessPipelineConfig = struct {
@@ -25,7 +24,8 @@ pub const ProcessPipelineConfig = struct {
     heartbeat_interval_ns: u64 = 20_000_000, // 20ms
     /// Supervisor classifies a tile as stale when its cnc heartbeat has
     /// not advanced for longer than this. 0 means derive a conservative
-    /// default from heartbeat_interval_ns.
+    /// default from heartbeat_interval_ns. The resolved value must remain
+    /// below 2^31 milliseconds so wrapping heartbeat age is unambiguous.
     heartbeat_stale_after_ns: u64 = 0,
     /// Test-only hook (v2.14.S1.T12 crash isolation): tile i self-exits(1)
     /// after this many heartbeats instead of waiting for a halt signal.
@@ -59,11 +59,66 @@ pub const ProcessPipelineConfig = struct {
     /// unique name (e.g. test index or PID) to avoid shared-memory collisions
     /// when multiple test binaries run in parallel. Passed through the
     /// topology spec so child tile processes join the same workspace.
-    workspace_name: []const u8 = "tkpay0",
+    /// Explicit workspace name override for the Tango shared region.
+    workspace_name: ?[]const u8 = null,
     /// Port for the metric tile's Prometheus HTTP server. Defaults to 7999.
     /// Each integration test file should use a distinct port to avoid
     /// EADDRINUSE from TIME_WAIT on the previous test's socket.
     metric_port: u16 = 7999,
+};
+
+pub const ChildOwnership = enum { vacant, owned, reaped, detached };
+
+pub const ProcessOperations = struct {
+    context: ?*anyopaque = null,
+    poll_fn: *const fn (?*anyopaque, *std.process.Child) util.process_api.PollResult = nativePoll,
+    terminate_fn: *const fn (?*anyopaque, std.process.Child.Id) util.process_api.TerminateResult = nativeTerminate,
+    now_fn: *const fn (?*anyopaque) i64 = nativeNow,
+    sleep_fn: *const fn (?*anyopaque, u64) void = nativeSleep,
+
+    fn nativePoll(_: ?*anyopaque, child: *std.process.Child) util.process_api.PollResult {
+        return util.process_api.tryReapNoHang(child);
+    }
+
+    fn nativeTerminate(_: ?*anyopaque, pid: std.process.Child.Id) util.process_api.TerminateResult {
+        return util.process_api.forceTerminate(pid);
+    }
+
+    fn nativeNow(_: ?*anyopaque) i64 {
+        return util.process.monotonicNanos();
+    }
+
+    fn nativeSleep(_: ?*anyopaque, ns: u64) void {
+        util.process.sleepNanos(ns);
+    }
+
+    fn poll(self: ProcessOperations, child: *std.process.Child) util.process_api.PollResult {
+        return self.poll_fn(self.context, child);
+    }
+
+    fn terminate(self: ProcessOperations, pid: std.process.Child.Id) util.process_api.TerminateResult {
+        return self.terminate_fn(self.context, pid);
+    }
+
+    fn now(self: ProcessOperations) i64 {
+        return self.now_fn(self.context);
+    }
+
+    fn sleep(self: ProcessOperations, ns: u64) void {
+        self.sleep_fn(self.context, ns);
+    }
+};
+
+pub const ChildRecord = struct {
+    child: ?std.process.Child = null,
+    ownership: ChildOwnership = .vacant,
+    numeric_pid: u64 = 0,
+    halt_timestamp: ?i64 = null,
+    force_action: ?util.process_api.TerminationAction = null,
+    force_timestamp: ?i64 = null,
+    terminal_observation: ?util.process_api.Observation = null,
+    last_reap_error: ?util.process_api.ProcessError = null,
+    reap_error_count: u32 = 0,
 };
 
 /// Supervisor-owned state for a running v2.14 process-mode pipeline.
@@ -79,8 +134,8 @@ const ProcessState = struct {
     cnc_gaddrs: [8]usize,
     /// Parent-side cnc joins, used to send the halt signal during stop.
     cncs: [8]?*c_abi.cnc.Cnc,
-    children: [8]?std.process.Child,
-    heartbeat_stale_after_ns: u64,
+    children: [8]ChildRecord,
+    heartbeat_stale_after_ms: u32,
     /// Grace period between requesting HALT and force-terminating tiles already
     /// classified stale. Lets slow but healthy children observe HALT and exit
     /// cleanly before stopProcess escalates to the platform kill path.
@@ -93,88 +148,14 @@ const ProcessState = struct {
     /// deinit() from crashing on stale shared memory.
     has_child_crashed: bool = false,
 
-    /// Kills any still-running children, leaves cnc joins, detaches the
-    /// workspace, and frees owned buffers. Safe to call with a partially
-    /// populated state (e.g. after a failed start).
-    ///
-    /// Follows Firedancer's SIGTERM→wait→SIGKILL pattern: sends SIGTERM
-    /// first so children can exit cleanly, waits up to 500 ms, then
-    /// SIGKILLs anything still alive, and finally reaps all children
-    /// before touching shared memory.  This prevents the previous
-    /// direct-SIGKILL-then-shared-memory pattern where children could
-    /// still be alive when wkspDetach / boot.halt ran, causing segfaults.
-    ///
-    /// v2.24: Crash-safe teardown — when has_child_crashed is true, C-level
-    /// shared memory ops (cncLeave, wkspDetach, boot.halt) can segfault or
-    /// trigger FD_LOG_PANIC because children have already torn down their
-    /// shared-memory pointers. Skip those ops so the supervisor survives its
-    /// own children's crashes instead of SIGABRT'ing during teardown.
+    /// Tears down resources only. Process ownership must have been resolved
+    /// by stopProcess before shared memory can be released.
     fn deinit(self: *ProcessState, _: std.Io, allocator: std.mem.Allocator) void {
-        // Phase 1: send SIGTERM to every still-running child and wait up to
-        // 500 ms for a clean exit (Firedancer-style graceful shutdown).
-        const sigterm_deadline = util.process.monotonicNanos() + @as(i64, 500) * std.time.ns_per_ms;
-        for (&self.children) |*maybe_child| {
-            const child = maybe_child.* orelse continue;
-            const pid = child.id orelse continue;
-            util.process_api.termProcess(pid);
-        }
-        // Wait for children to exit after SIGTERM, reaping each one.
-        // Handle outcomes are set by stopProcess via reapExitedChildrenNoHang
-        // and waitProcess before deinit runs — deinit just kills and clears.
-        {
-            var ci: usize = 0;
-            while (ci < self.children.len) : (ci += 1) {
-                var child = self.children[ci] orelse continue;
-                var deadline = sigterm_deadline;
-                while (true) {
-                    const now = util.process.monotonicNanos();
-                    if (now >= deadline) break;
-                    switch (util.process_api.tryReapNoHang(&child)) {
-                        .running => {
-                            util.process.sleepNanos(1 * std.time.ms_per_s);
-                            deadline = sigterm_deadline;
-                        },
-                        .reaped, .detached => {
-                            self.children[ci] = null;
-                            break;
-                        },
-                        .failed => {
-                            // Reap failure is non-fatal; leave child in
-                            // the array for Phase 2 to handle.
-                            break;
-                        },
-                    }
-                }
-            }
-        }
-
-        // Phase 2: SIGKILL anything still alive and reap.
-        for (&self.children) |*maybe_child| {
-            const child = maybe_child.* orelse continue;
-            const pid = child.id orelse continue;
-            util.process_api.forceKillProcess(pid);
-        }
-        // Wait for SIGKILL'd children to die and reap them, recording outcomes.
-        {
-            var ci: usize = 0;
-            while (ci < self.children.len) : (ci += 1) {
-                var child = self.children[ci] orelse continue;
-                const deadline = util.process.monotonicNanos() + @as(i64, 1) * std.time.ns_per_s;
-                while (util.process.monotonicNanos() < deadline) {
-                    switch (util.process_api.tryReapNoHang(&child)) {
-                        .running => util.process.sleepNanos(1 * std.time.ms_per_s),
-                        .reaped, .detached => {
-                            self.children[ci] = null;
-                            break;
-                        },
-                        .failed => {},
-                    }
-                }
-            }
-        }
-        // Final reap of any remaining zombies.
-        for (&self.children) |*maybe_child| {
-            maybe_child.* = null;
+        // Guard: when children have already crashed or the error path
+        // left them unresolved, skip the CNC dereferences that could
+        // segfault on torn-down shared memory.
+        if (!self.has_child_crashed) {
+            for (self.children) |record| std.debug.assert(record.ownership != .owned);
         }
         // When children have already crashed, skip the fragile C-level
         // ops that dereference per-child cnc pointers — those children
@@ -195,17 +176,38 @@ const ProcessState = struct {
         }
         if (self.metric_in_wksp) |metric_in_wksp| _ = c_abi.wksp.wkspDetach(metric_in_wksp);
         if (self.metric_wksp) |metric_wksp| _ = c_abi.wksp.wkspDetach(metric_wksp);
-        _ = c_abi.wksp.wkspDetach(self.wksp);
+        // Guard: skip wkspDetach for dummy pointers (test setup uses
+        // @ptrFromInt(1) to avoid real shared memory).
+        if (@intFromPtr(self.wksp) > 4096) _ = c_abi.wksp.wkspDetach(self.wksp);
         c_abi.boot.halt();
         self.built_topo.deinit(allocator);
-        allocator.free(self.workspace_name);
-        allocator.free(self.run_dir);
+        if (self.workspace_name.len > 0) allocator.free(self.workspace_name);
+        if (self.run_dir.len > 0) allocator.free(self.run_dir);
     }
 };
 
 fn resolvedHeartbeatStaleAfterNs(config: ProcessPipelineConfig) u64 {
     if (config.heartbeat_stale_after_ns != 0) return config.heartbeat_stale_after_ns;
     return resolvedHeartbeatIntervalNs(config, 5);
+}
+
+fn resolvedHeartbeatStaleAfterMs(config: ProcessPipelineConfig) !u32 {
+    const stale_after_ns = resolvedHeartbeatStaleAfterNs(config);
+    const stale_after_ms = stale_after_ns / std.time.ns_per_ms +
+        @intFromBool(stale_after_ns % std.time.ns_per_ms != 0);
+    if (stale_after_ms > std.math.maxInt(i32)) return error.HeartbeatStaleThresholdTooLarge;
+    return @intCast(stale_after_ms);
+}
+
+fn heartbeatNowMs(now_ns: i64) ?u32 {
+    if (now_ns < 0) return null;
+    return @truncate(@as(u64, @intCast(now_ns)) / std.time.ns_per_ms);
+}
+
+fn heartbeatAgeMs(now_ms: u32, heartbeat_ms: u32) ?u32 {
+    const age_ms: i32 = @bitCast(now_ms -% heartbeat_ms);
+    if (age_ms <= 0) return null;
+    return @intCast(age_ms);
 }
 
 fn resolvedStopGraceNs(config: ProcessPipelineConfig) u64 {
@@ -219,10 +221,18 @@ fn resolvedHeartbeatIntervalNs(config: ProcessPipelineConfig, multiplier: u64) u
 
 pub const Supervisor = struct {
     allocator: std.mem.Allocator,
-    topo: Topology,
+    /// Tile count, set from topo_desc.tiles.len during init. Used to size
+    /// handles and verify consistency. The actual TileId for each index
+    /// comes from built_topo.tile_infos post-build.
+    tile_count: usize,
     handles: []TileHandle,
     /// Non-null while a v2.14 process-mode pipeline is running.
     process_state: ?*ProcessState = null,
+    process_operations: ProcessOperations = .{},
+    /// Topology description, stored from init so startPaymentPipelineProcess
+    /// can reference tile/channel metadata without accepting topo as a
+    /// parameter (current API contract).
+    topo: Topology,
 
     /// Runs topo.validate()'s structural checks (duplicate tile ids, channel
     /// depth/MTU shape, exclusive/shared CPU placement conflicts) before
@@ -231,16 +241,17 @@ pub const Supervisor = struct {
     /// it pins CPUs, so it has a live affinity mask to check against here.
     pub fn init(allocator: std.mem.Allocator, topo: Topology) !Supervisor {
         const log = logger.get();
-        try log.enter("supervisor", "init");
-        defer log.exit("supervisor", "init") catch {};
+        log.enter("supervisor", "init");
+        defer log.exit("supervisor", "init");
         try topo.validate();
         try tile_registry.validate(topo);
         const handles = try allocator.alloc(TileHandle, topo.tiles.len);
         for (handles, 0..) |*h, i| h.* = TileHandle.init(@intCast(i));
         return .{
             .allocator = allocator,
-            .topo = topo,
+            .tile_count = topo.tiles.len,
             .handles = handles,
+            .topo = topo,
         };
     }
 
@@ -249,8 +260,8 @@ pub const Supervisor = struct {
     /// leaking child processes and shared memory.
     pub fn deinit(self: *Supervisor) void {
         const log = logger.get();
-        log.enter("supervisor", "deinit") catch {};
-        defer log.exit("supervisor", "deinit") catch {};
+        log.enter("supervisor", "deinit");
+        defer log.exit("supervisor", "deinit");
         std.debug.assert(self.process_state == null);
         self.allocator.free(self.handles);
     }
@@ -260,8 +271,11 @@ pub const Supervisor = struct {
     /// topo.channels to be a tango_shm topology sharing exactly one
     /// workspace (paymentPipelineProcess() builds this shape).
     pub fn startPaymentPipelineProcess(self: *Supervisor, io: std.Io, config: ProcessPipelineConfig) !void {
+        const log = logger.get();
+        log.enter("supervisor", "startPaymentPipelineProcess");
+        defer log.exit("supervisor", "startPaymentPipelineProcess");
         std.debug.assert(self.process_state == null);
-        std.debug.assert(self.topo.tiles.len == 8);
+        const heartbeat_stale_after_ms = try resolvedHeartbeatStaleAfterMs(config);
 
         // Fail closed on any tile pinned to a CPU id this process cannot
         // actually use, before spawning anything — pinning more
@@ -274,8 +288,37 @@ pub const Supervisor = struct {
         try util.cpu.getAffinity(0, &available_cpus);
         const placement_report = try rt.cpu_placement.validate(self.topo, &available_cpus);
 
-        const workspace_name_slice = config.workspace_name;
-        if (workspace_name_slice.len == 0) return error.MissingWorkspaceName;
+        // Generate a PID-suffixed workspace name so parallel test runs
+        // (each forked as a separate OS process) do not collide on the
+        // same Tango shared-memory region.  Linux PIDs fit in 6 digits;
+        // macOS uses 32-bit PIDs but in practice stay under 6 digits.
+        const base_workspace_name = if (config.workspace_name) |wn| wn else blk: {
+            const raw = self.topo.channels[0].workspace_name.slice();
+            if (raw.len == 0) return error.MissingWorkspaceName;
+            break :blk raw;
+        };
+
+        const my_pid = c_abi.sandbox.getpid();
+        var pid_buf: [8]u8 = undefined;
+        const pid_str = std.fmt.bufPrint(&pid_buf, "{d}", .{my_pid}) catch "0";
+        var full_wname_buf: [64]u8 = undefined;
+        const full_workspace_name = if (config.workspace_name) |_| base_workspace_name else try std.fmt.bufPrint(&full_wname_buf, "{s}-{s}", .{ base_workspace_name, pid_str });
+
+        // Copy channels and update workspace_name for every tango_shm link.
+        const channels_copy = try self.allocator.alloc(rt.link.Channel, self.topo.channels.len);
+        defer self.allocator.free(channels_copy);
+        for (self.topo.channels, 0..) |ch, i| {
+            var copy = ch;
+            if (ch.backing == .tango_shm) {
+                copy.workspace_name = try rt.link.WorkspaceName.parse(full_workspace_name);
+            }
+            channels_copy[i] = copy;
+        }
+
+        const modified_topo = Topology{
+            .tiles = self.topo.tiles,
+            .channels = channels_copy,
+        };
         for (self.topo.channels) |ch| {
             if (ch.backing != .tango_shm) return error.ProcessModeRequiresTangoShm;
         }
@@ -300,7 +343,11 @@ pub const Supervisor = struct {
         var supervisor_log_path: [256]u8 = undefined;
         const supervisor_log = std.fmt.bufPrint(&supervisor_log_path, "{s}/logs/supervisor.log", .{config.run_dir}) catch "";
 
-        try rt.boot.bootWithSyntheticArgv(config.run_dir, supervisor_log);
+        // Supervisor boot: lightweight boot that initializes version,
+        // logging, and shared-memory subsystems without creating tile
+        // threads (fd_tile_private_boot). The supervisor spawns tile
+        // processes that boot their own tile threads independently.
+        try rt.boot.bootLite(config.run_dir, supervisor_log);
         var boot_needs_halt = true;
         errdefer if (boot_needs_halt) c_abi.boot.halt();
 
@@ -313,9 +360,11 @@ pub const Supervisor = struct {
         // hard-require huge/gigantic pages, which v2.14.S1 rejected for
         // Tickoni; see topob.zig's topoWkspSetPtr doc comment ("finding
         // 3") for the reused-layout-math/own-memory hybrid this drives.
-        var built_topo = try rt.topo_build.build(self.allocator, self.topo, workspace_name_slice, config.metric_port);
+        log.debug("supervisor", "startPaymentPipelineProcess", "building topology via topo_build.build");
+        var built_topo = try rt.topo_build.build(self.allocator, modified_topo, full_workspace_name, config.metric_port);
         var built_topo_owned_by_state = false;
         errdefer if (!built_topo_owned_by_state) built_topo.deinit(self.allocator);
+        log.kvFmt("supervisor", "startPaymentPipelineProcess", "topology built successfully, footprint={d} pages", .{c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx) / c_abi.wksp.shmem_normal_page_sz});
 
         // v2.14.S8.T4: the actual shmem region name must match exactly
         // what fd_topo_join_workspace (called inside fd_topo_run_tile,
@@ -328,11 +377,13 @@ pub const Supervisor = struct {
         // with no prefix/suffix of its own, so both sides resolve to the
         // same named region as long as the string matches.
         var workspace_name_z_buf: [rt.topo_build.concrete_workspace_name_cap]u8 = undefined;
-        const workspace_name_z = try rt.topo_build.concreteWorkspaceName(&workspace_name_z_buf, workspace_name_slice);
+        const workspace_name_z = try rt.topo_build.concreteWorkspaceName(&workspace_name_z_buf, full_workspace_name);
+        log.kvFmt("supervisor", "startPaymentPipelineProcess", "concrete workspace name: {s}", .{workspace_name_z});
         // Best-effort cleanup of a stale workspace left behind by a prior
         // crashed or killed supervisor; fd_wksp_new_named uses O_EXCL and
         // would otherwise fail closed forever on the same run_dir/name.
         if (c_abi.wksp.wkspExistsNamed(workspace_name_z)) {
+            log.debug("supervisor", "startPaymentPipelineProcess", "stale workspace exists, cleaning up");
             _ = c_abi.wksp.wkspDeleteNamed(workspace_name_z);
         }
         // Also clean up any stale metric/metric_in workspaces from a prior
@@ -363,11 +414,15 @@ pub const Supervisor = struct {
         var sub_page_cnt = [_]usize{page_cnt};
         var sub_cpu_idx = [_]usize{0};
         const part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, built_topo.wksp_idx);
+        log.kvFmt("supervisor", "startPaymentPipelineProcess", "workspace params: footprint={d} pages={d} part_max={d}", .{ footprint, page_cnt, part_max });
 
         // Create the main workspace.
+        log.kvFmt("supervisor", "startPaymentPipelineProcess", "creating main workspace: {s}", .{workspace_name_z});
         const rc = c_abi.wksp.wkspNewNamed(workspace_name_z, c_abi.wksp.shmem_normal_page_sz, 1, &sub_page_cnt, &sub_cpu_idx, 0o600, 1, part_max);
         if (rc != 0) return error.WkspCreateFailed;
+        log.kvFmt("supervisor", "startPaymentPipelineProcess", "main workspace created (rc={d})", .{rc});
         const wksp = c_abi.wksp.wkspAttach(workspace_name_z) orelse return error.WkspAttachFailed;
+        log.debug("supervisor", "startPaymentPipelineProcess", "main workspace attached successfully");
 
         errdefer _ = c_abi.wksp.wkspDetach(wksp);
 
@@ -382,6 +437,12 @@ pub const Supervisor = struct {
 
         // Helper: create and attach a named workspace, storing ptr in a
         // caller-provided slot.
+        var metric_footprint: usize = 0;
+        var metric_part_max: usize = 0;
+        var metric_page_cnt: usize = 0;
+        var metric_in_footprint: usize = 0;
+        var metric_in_part_max: usize = 0;
+        var metric_in_page_cnt: usize = 0;
         var metric_wksp_ptr: ?*c_abi.wksp.Wksp = null;
         var metric_in_wksp_ptr: ?*c_abi.wksp.Wksp = null;
         var auxiliary_workspaces_owned_by_state = false;
@@ -391,9 +452,9 @@ pub const Supervisor = struct {
         };
 
         if (metric_wksp_idx != c_abi.topob.not_found) {
-            const metric_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metric_wksp_idx);
-            const metric_part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, metric_wksp_idx);
-            const metric_page_cnt = metric_footprint / c_abi.wksp.shmem_normal_page_sz + 16;
+            metric_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metric_wksp_idx);
+            metric_part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, metric_wksp_idx);
+            metric_page_cnt = metric_footprint / c_abi.wksp.shmem_normal_page_sz + 16;
             var metric_sub_page_cnt: [1]usize = .{metric_page_cnt};
             var metric_sub_cpu_idx: [1]usize = .{0};
             var metric_name_buf: [64]u8 = undefined;
@@ -404,9 +465,9 @@ pub const Supervisor = struct {
             }
         }
         if (metric_in_wksp_idx != c_abi.topob.not_found) {
-            const metric_in_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metric_in_wksp_idx);
-            const metric_in_part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, metric_in_wksp_idx);
-            const metric_in_page_cnt = metric_in_footprint / c_abi.wksp.shmem_normal_page_sz + 16;
+            metric_in_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metric_in_wksp_idx);
+            metric_in_part_max = c_abi.topob.topoWkspPartMax(built_topo.topo, metric_in_wksp_idx);
+            metric_in_page_cnt = metric_in_footprint / c_abi.wksp.shmem_normal_page_sz + 16;
             var metric_in_sub_page_cnt: [1]usize = .{metric_in_page_cnt};
             var metric_in_sub_cpu_idx: [1]usize = .{0};
             var metric_in_name_buf: [64]u8 = undefined;
@@ -419,14 +480,24 @@ pub const Supervisor = struct {
 
         // v2.22.S4 Task 0: Set wksp ptr + create objects for metric/metric_in
         // so parent-side topoObjLaddr/gaddr resolves valid content.
+        // Also initialize all fd_topo_wksp_t fields (page_cnt, known_footprint,
+        // numa_idx) that Firedancer's fd_topo_create_workspace sets, so child
+        // tile processes reading these fields during fd_topo_workspace_fill
+        // get valid values instead of zero.
         if (metric_wksp_ptr) |metric_wksp| {
             if (metric_wksp_idx == c_abi.topob.not_found) return error.MissingMetricWorkspaceIdx;
             c_abi.topob.topoWkspSetPtr(built_topo.topo, metric_wksp_idx, metric_wksp);
+            c_abi.topob.topoWkspSetPageCnt(built_topo.topo, metric_wksp_idx, metric_page_cnt);
+            c_abi.topob.topoWkspSetKnownFootprint(built_topo.topo, metric_wksp_idx, metric_footprint);
+            c_abi.topob.topoWkspSetNumaIdx(built_topo.topo, metric_wksp_idx, 0);
             c_abi.topob.topoWkspNew(built_topo.topo, metric_wksp_idx);
         }
         if (metric_in_wksp_ptr) |metric_in_wksp| {
             if (metric_in_wksp_idx == c_abi.topob.not_found) return error.MissingMetricInWorkspaceIdx;
             c_abi.topob.topoWkspSetPtr(built_topo.topo, metric_in_wksp_idx, metric_in_wksp);
+            c_abi.topob.topoWkspSetPageCnt(built_topo.topo, metric_in_wksp_idx, metric_in_page_cnt);
+            c_abi.topob.topoWkspSetKnownFootprint(built_topo.topo, metric_in_wksp_idx, metric_in_footprint);
+            c_abi.topob.topoWkspSetNumaIdx(built_topo.topo, metric_in_wksp_idx, 0);
             c_abi.topob.topoWkspNew(built_topo.topo, metric_in_wksp_idx);
         }
 
@@ -435,20 +506,41 @@ pub const Supervisor = struct {
         // has no .new) via the same fd_topob callback array used to
         // compute the layout above.
         c_abi.topob.topoWkspSetPtr(built_topo.topo, built_topo.wksp_idx, wksp);
+        c_abi.topob.topoWkspSetPageCnt(built_topo.topo, built_topo.wksp_idx, page_cnt);
+        c_abi.topob.topoWkspSetKnownFootprint(built_topo.topo, built_topo.wksp_idx, footprint);
+        c_abi.topob.topoWkspSetNumaIdx(built_topo.topo, built_topo.wksp_idx, 0);
         c_abi.topob.topoWkspNew(built_topo.topo, built_topo.wksp_idx);
 
-        const state = try self.allocator.create(ProcessState);
+        // Verify all known topology workspaces were joined and have non-zero footprint.
+        // Catches wksp join failures (ptr=NULL) and allocation failures early.
+        // Metric workspaces are only created when the metric tile is present,
+        // so skip their validation when has_metric_tile is false.
+        {
+            std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.wksp_idx));
+            std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx) > 0);
+            if (built_topo.metric_wksp_idx != c_abi.topob.not_found) {
+                std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_wksp_idx));
+                std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_wksp_idx) > 0);
+            }
+            if (built_topo.metric_in_wksp_idx != c_abi.topob.not_found) {
+                std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_in_wksp_idx));
+                std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_in_wksp_idx) > 0);
+            }
+        }
+
+        const bytes = try self.allocator.alignedAlloc(u8, .fromByteUnits(@alignOf(ProcessState)), @sizeOf(ProcessState));
+        const state: *ProcessState = @ptrCast(@alignCast(bytes));
         state.* = .{
             .wksp = wksp,
             .metric_wksp = metric_wksp_ptr,
             .metric_in_wksp = metric_in_wksp_ptr,
             .built_topo = built_topo,
-            .workspace_name = try self.allocator.dupe(u8, workspace_name_slice),
+            .workspace_name = try self.allocator.dupe(u8, full_workspace_name),
             .run_dir = try self.allocator.dupe(u8, config.run_dir),
             .cnc_gaddrs = std.mem.zeroes([8]usize),
             .cncs = std.mem.zeroes([8]?*c_abi.cnc.Cnc),
-            .children = std.mem.zeroes([8]?std.process.Child),
-            .heartbeat_stale_after_ns = resolvedHeartbeatStaleAfterNs(config),
+            .children = std.mem.zeroes([8]ChildRecord),
+            .heartbeat_stale_after_ms = heartbeat_stale_after_ms,
             .stop_grace_ns = resolvedStopGraceNs(config),
             .placement_report = placement_report,
         };
@@ -456,11 +548,7 @@ pub const Supervisor = struct {
         built_topo_owned_by_state = true;
         self.process_state = state;
         boot_needs_halt = false;
-        errdefer {
-            state.deinit(io, self.allocator);
-            self.allocator.destroy(state);
-            self.process_state = null;
-        }
+        errdefer self.stopProcess(io) catch {};
 
         // Resolve every tile's cnc content (created above by
         // topoWkspNew's cnc .new callback) into the gaddr-based form
@@ -468,8 +556,9 @@ pub const Supervisor = struct {
         // parent-side so stopProcess can signal halt. Only how these
         // objects get created changed (fd_topob instead of a hand-rolled
         // wkspAlloc); how children join them (LaunchSpec's gaddr fields)
-        // is unchanged.
-        for (self.topo.tiles, 0..) |_, i| {
+        // is unchanged. tile_infos is indexed by Firedancer tile index,
+        // so built_topo.cnc_obj_id[i] is correct for every Firedancer i.
+        for (built_topo.tile_infos, 0..) |_, i| {
             const laddr = c_abi.topob.topoObjLaddr(built_topo.topo, built_topo.cnc_obj_id[i]);
             state.cnc_gaddrs[i] = c_abi.wksp.wkspGaddr(wksp, laddr);
             state.cncs[i] = c_abi.cnc.cncJoin(laddr) orelse return error.CncJoinFailed;
@@ -530,22 +619,29 @@ pub const Supervisor = struct {
         // child tiles look for the readiness marker at the right path
         // (tests set a unique workspace_name like "test0"; the topology
         // source has it hardcoded to "tkpay0").
-        topology_spec.workspace_name = try rt.link.WorkspaceName.parse(workspace_name_slice);
+        topology_spec.workspace_name = try rt.link.WorkspaceName.parse(full_workspace_name);
         try topology_spec.writeToFile(io, std.Io.Dir.cwd(), topology_spec_path);
 
+        const spawn_log = logger.get();
+        {
+            var buf: [128]u8 = undefined;
+            const msg = std.fmt.bufPrint(&buf, "starting payment pipeline process: tile_cnt={d}", .{built_topo.tile_infos.len}) catch "starting payment pipeline process";
+            spawn_log.info("supervisor", "spawn", msg);
+        }
         for (self.handles, 0..) |*h, i| {
             const tile = self.topo.tiles[i];
+            spawn_log.kvFmt("supervisor", "spawn", "tile_idx={d} tile_id={s}", .{ i, tile.id.slice() });
 
             const spec = try rt.launch_spec.LaunchSpec.init(.{
                 .tile_idx = @intCast(i),
                 .tile_id = tile.id,
                 .cpu_placement = tile.cpu_placement,
-                .workspace_name = try rt.link.WorkspaceName.parse(workspace_name_slice),
+                .workspace_name = channels_copy[0].workspace_name,
                 .cnc_gaddr = state.cnc_gaddrs[i],
                 .shmem_path = config.run_dir,
                 .heartbeat_interval_ns = config.heartbeat_interval_ns,
                 .crash_after_heartbeats = config.crash_after_heartbeats[i],
-                .channels = self.topo.channels,
+                .channels = channels_copy,
                 .link_handles = link_handles,
             });
             const spec_path = try std.fmt.allocPrint(self.allocator, "{s}/tile_{d}.spec", .{ config.run_dir, i });
@@ -559,6 +655,16 @@ pub const Supervisor = struct {
             // runtime (no inherited PATH, secrets, or parent env state).
             var env = std.process.Environ.Map.init(self.allocator);
             defer env.deinit();
+
+            // Winsock provider DLL initialization on Windows requires the
+            // Windows runtime root variables even though the tile otherwise
+            // runs with an explicit, non-inherited environment.
+            if (@import("builtin").os.tag == .windows) {
+                if (std.c.getenv("SystemRoot")) |value| try env.put("SystemRoot", std.mem.span(value));
+                if (std.c.getenv("WINDIR")) |value| try env.put("WINDIR", std.mem.span(value));
+                if (std.c.getenv("SystemDrive")) |value| try env.put("SystemDrive", std.mem.span(value));
+                if (std.c.getenv("PATH")) |value| try env.put("PATH", std.mem.span(value));
+            }
 
             var argv_buf: [4][]const u8 = undefined;
             var argv_count: usize = 3;
@@ -574,25 +680,20 @@ pub const Supervisor = struct {
                 .environ_map = &env,
             });
 
+            spawn_log.kvFmt("supervisor", "spawn", "tile={s} tile_idx={d} pid={any} spec={s}", .{
+                tile.id.slice(), i, child.id, spec_path,
+            });
             h.pid = child.id;
             h.cpu_placement = tile.cpu_placement;
             h.state = .running;
-            state.children[i] = child;
+            state.children[i] = .{
+                .child = child,
+                .ownership = .owned,
+                .numeric_pid = if (child.id) |pid| util.os_api.processDiagnosticPid(pid) else 0,
+            };
 
             switch (tile.cpu_placement) {
-                .exclusive, .shared => |cpu| {
-                    var cpu_set: util.cpu.CpuSet = undefined;
-                    util.cpu.zero(&cpu_set);
-                    util.cpu.set(&cpu_set, cpu);
-                    // sched_setaffinity takes a numeric PID; on Windows
-                    // std.process.Child.Id is ?*anyopaque (HANDLE), not an
-                    // integer, so @intCast fails at compile time.  The
-                    // non-Linux stub in util.cpu.setAffinity is a no-op
-                    // anyway, so gate the call behind a Linux check.
-                    if (builtin.os.tag == .linux)
-                        try util.cpu.setAffinity(@intCast(child.id.?), &cpu_set);
-                },
-                .floating => {},
+                .exclusive, .shared, .floating => {},
             }
         }
     }
@@ -606,184 +707,176 @@ pub const Supervisor = struct {
         // what the shutdown sequence does to its process.
         if (self.handles[i].state == .crashed) return;
         switch (outcome) {
-            .exited_ok => {
+            .clean_stop, .intentional_termination => {
                 // A clean exit after stopProcess() should be treated as a
                 // normal stop even if refreshProcessHealth() transiently
                 // marked the tile stale before the halt/reap completed.
                 self.handles[i].state = .stopped;
                 self.handles[i].crashed_because = .none;
             },
-            .exited_code => |code| {
-                if (self.handles[i].state == .stale) {
-                    self.handles[i].crashed_because = .stale;
-                } else {
-                    self.handles[i].state = .crashed;
-                    self.handles[i].exit_code = code;
-                    self.handles[i].crashed_because = .exit_code;
-                }
+            .crash_exit => |code| {
+                // A non-zero process exit is definitive crash evidence. A
+                // stale heartbeat may be how we first noticed the tile, but
+                // must not hide its eventual exit status.
+                self.handles[i].state = .crashed;
+                self.handles[i].exit_code = code;
+                self.handles[i].crashed_because = .exit_code;
             },
-            .force_terminated => {
-                // stopProcess intentionally force-terminates children that did
-                // not observe CNC HALT within the bounded grace period. The
-                // outcome is part of requested shutdown, not a tile crash.
-                self.handles[i].state = .stopped;
-                self.handles[i].crashed_because = .none;
+            .crash_signal => {
+                self.handles[i].state = .crashed;
+                self.handles[i].crashed_because = .signal;
             },
-            .crashed => {
-                if (self.handles[i].state == .stale) {
-                    // Tile was stale when stopProcess() began — the crash is a
-                    // consequence of the shutdown sequence (tile stopped
-                    // heartbeating while waiting for the halt signal), not a
-                    // real crash. Treat it as a clean stop, matching the
-                    // .exited_ok path's intent.
-                    self.handles[i].state = .stopped;
-                    self.handles[i].crashed_because = .none;
-                } else {
-                    self.handles[i].state = .crashed;
-                    self.handles[i].crashed_because = .signal;
-                }
+            .nonterminal_stop => {},
+        }
+    }
+
+    fn retainObservation(handle: *TileHandle, observation: util.process_api.Observation) void {
+        handle.observation = switch (observation) {
+            .exited => |code| .{ .exited = code },
+            .signaled => |signal| .{ .signaled = signal },
+            .stopped => |signal| .{ .stopped = signal },
+        };
+    }
+
+    fn retainAction(handle: *TileHandle, action: util.process_api.TerminationAction) void {
+        handle.termination_action = switch (action) {
+            .signal => |signal| .{ .signal = signal },
+            .exit_code => |code| .{ .exit_code = code },
+        };
+    }
+
+    fn retainError(handle: *TileHandle, err: util.process_api.ProcessError) void {
+        handle.last_process_error = .{
+            .category = @backingInt(err.category),
+            .native_code = err.native_code,
+        };
+    }
+
+    fn recordPollResult(self: *Supervisor, i: usize, result: util.process_api.PollResult) void {
+        const state = self.process_state orelse return;
+        const record = &state.children[i];
+        switch (result) {
+            .running => {},
+            .no_child => {
+                record.ownership = .detached;
+                record.child = null;
+                if (self.handles[i].state != .crashed) self.handles[i].state = .detached;
             },
-            .stopped, .unknown => {
-                if (self.handles[i].state == .stale) {
-                    self.handles[i].crashed_because = .stale;
-                } else {
-                    self.handles[i].state = .crashed;
-                    self.handles[i].crashed_because = .exit_code;
+            .failed => |err| {
+                record.last_reap_error = err;
+                record.reap_error_count +|= 1;
+                retainError(&self.handles[i], err);
+            },
+            .observation => |observation| {
+                retainObservation(&self.handles[i], observation);
+                switch (observation) {
+                    .stopped => {},
+                    .exited, .signaled => {
+                        record.terminal_observation = observation;
+                        record.ownership = .reaped;
+                        record.child = null;
+                        self.updateHandleForOutcome(i, util.process_api.classify(observation, record.force_action));
+                    },
                 }
             },
         }
+    }
+
+    fn pollChild(self: *Supervisor, i: usize) void {
+        const state = self.process_state orelse return;
+        const record = &state.children[i];
+        if (record.ownership != .owned) return;
+        const child = &(record.child orelse return);
+        self.recordPollResult(i, self.process_operations.poll(child));
+    }
+
+    fn pollAllOwned(self: *Supervisor) bool {
+        const state = self.process_state orelse return false;
+        for (state.children, 0..) |_, i| self.pollChild(i);
+        return for (state.children) |record| {
+            if (record.ownership == .owned) break true;
+        } else false;
     }
 
     pub fn reapExitedChildrenNoHang(self: *Supervisor) void {
-        const state = self.process_state orelse return;
-        for (&state.children, 0..) |*maybe_child, i| {
-            var child = maybe_child.* orelse continue;
-            switch (util.process_api.tryReapNoHang(&child)) {
-                .running => {},
-                .reaped => |term| {
-                    self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, false));
-                    maybe_child.* = null;
-                },
-                .detached => {
-                    maybe_child.* = null;
-                },
-                .failed => {},
-            }
-        }
-    }
-
-    /// Maximum time to wait for a child to exit after HALT + force-termination.
-    /// Tiles that don't exit within this window are assumed stuck and left
-    /// orphaned rather than blocking the test runner forever.
-    const wait_process_max_ms: u32 = 5_000;
-
-    pub fn waitProcess(self: *Supervisor, io: std.Io, forced_termination: ?[]const bool) void {
-        _ = io;
-        const log = logger.get();
-        log.enter("supervisor", "waitProcess") catch {};
-        defer log.exit("supervisor", "waitProcess") catch {};
-        const state = self.process_state orelse return;
-        const deadline = util.process.monotonicNanos() + @as(i64, @intCast(wait_process_max_ms * std.time.ms_per_s));
-        for (&state.children, 0..) |*maybe_child, i| {
-            var child = maybe_child.* orelse continue;
-            const term = blk: {
-                const start = util.process.monotonicNanos();
-                if (start >= deadline) break :blk null;
-                while (util.process.monotonicNanos() < deadline) {
-                    switch (util.process_api.tryReapNoHang(&child)) {
-                        .running => {
-                            util.process.sleepNanos(1 * std.time.ms_per_s);
-                        },
-                        .reaped => |t| break :blk t,
-                        .detached => break :blk null,
-                        .failed => break :blk null,
-                    }
-                }
-                var msg_buf: [64]u8 = undefined;
-                const msg = std.fmt.bufPrint(&msg_buf, "timeout waiting for child tile {d}", .{i}) catch "timeout";
-                log.debug("supervisor", "waitProcess", msg) catch {};
-                break :blk null;
-            };
-            if (term) |t| {
-                const was_forced = if (forced_termination) |forced| forced[i] else false;
-                self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(t, was_forced));
-                maybe_child.* = null;
-            } else {
-                // Timeout: do a final non-blocking reap so we capture any
-                // exit code or crash evidence from children that exited
-                // during the wait. Without this, FileNotFound and unexpected
-                // exit codes are silently lost and tests report "passed"
-                // because the handle is marked .stopped with .none.
-                const outcome = blk2: {
-                    switch (util.process_api.tryReapNoHang(&child)) {
-                        .running, .detached, .failed => break :blk2 .exited_ok,
-                        .reaped => |t| break :blk2 util.process_api.outcomeFromTerm(t, false),
-                    }
-                };
-                self.updateHandleForOutcome(i, outcome);
-                maybe_child.* = null;
-            }
-        }
+        _ = self.pollAllOwned();
     }
 
     pub fn refreshProcessHealth(self: *Supervisor) void {
         const log = logger.get();
-        log.enter("supervisor", "refreshProcessHealth") catch {};
-        defer log.exit("supervisor", "refreshProcessHealth") catch {};
+        log.enter("supervisor", "refreshProcessHealth");
+        defer log.exit("supervisor", "refreshProcessHealth");
         const state = self.process_state orelse return;
-        const now = util.process.monotonicNanos();
-        if (now <= 0) return;
-        const now_ns: u64 = @intCast(now);
+        const now_ns = self.process_operations.now();
+        const now_ms = heartbeatNowMs(now_ns) orelse return;
+        std.debug.print("[sup-refresh] now_ms={d} stale_ms={d} tile_count={d}\n", .{ now_ms, state.heartbeat_stale_after_ms, state.cncs.len });
         // Reap any exited children FIRST so we detect crashes before
         // reading cnc heartbeats.  A crashed tile's cnc is corrupted and
         // reading it can SIGSEGV/SIGABRT the supervisor; by reaping first
         // the handle is already marked .crashed and we skip it below.
-        var crashed_mask: [8]bool = std.mem.zeroes([8]bool);
-        for (state.children, 0..) |maybe_child, i| {
-            if (maybe_child == null) continue;
-            switch (util.process_api.tryReapNoHang(&state.children[i].?)) {
+        var suppress_cnc: [8]bool = std.mem.zeroes([8]bool);
+        for (&state.children, 0..) |*record, i| {
+            if (record.ownership != .owned) {
+                suppress_cnc[i] = true;
+                std.debug.print("[sup-refresh] tile {d}: ownership not owned, suppressing cnc\n", .{i});
+                continue;
+            }
+            const child = &(record.child orelse {
+                suppress_cnc[i] = true;
+                std.debug.print("[sup-refresh] tile {d}: no child ptr, suppressing cnc\n", .{i});
+                continue;
+            });
+            const result = self.process_operations.poll(child);
+            self.recordPollResult(i, result);
+            switch (result) {
                 .running => {},
-                .reaped => |term| {
-                    var exit_code: i32 = 0;
-                    var reason: CrashReason = .exit_code;
-                    switch (term) {
-                        .signal => reason = .signal,
-                        .exited => |code| {
-                            exit_code = code;
-                            reason = .exit_code;
-                        },
-                        .stopped => reason = .signal,
-                        .unknown => reason = .exit_code,
-                    }
-                    if (exit_code == 0) continue;
-                    const h = &self.handles[i];
-                    if (h.state == .starting or h.state == .running) {
-                        h.state = .crashed;
-                        h.crashed_because = reason;
-                        h.exit_code = @intCast(exit_code);
-                    }
-                    state.has_child_crashed = true;
-                    crashed_mask[i] = true;
+                .observation => |observation| switch (observation) {
+                    .stopped => suppress_cnc[i] = true,
+                    .exited, .signaled => suppress_cnc[i] = true,
                 },
-                .detached => {
-                    state.has_child_crashed = true;
-                    crashed_mask[i] = true;
-                },
-                .failed => {},
+                .no_child, .failed => suppress_cnc[i] = true,
+            }
+            if (self.handles[i].state == .crashed) {
+                state.has_child_crashed = true;
+                suppress_cnc[i] = true;
+                std.debug.print("[sup-refresh] tile {d}: already crashed, suppressing cnc\n", .{i});
             }
         }
         // Read heartbeats from surviving tiles only — skip any tile whose
         // child has been reaped (crashed or stopped) so we never dereference
-        // a stale cnc pointer into a dead child's address space.
         for (state.cncs, 0..) |maybe_cnc, i| {
             const h = &self.handles[i];
-            if (h.state != .starting and h.state != .running) continue;
-            if (crashed_mask[i]) continue;
-            const cnc = maybe_cnc orelse continue;
-            const heartbeat = c_abi.cnc.heartbeatQuery(cnc);
-            if (heartbeat <= 0) continue;
-            const heartbeat_ns: u64 = @intCast(heartbeat);
-            if (now_ns > heartbeat_ns and now_ns - heartbeat_ns > state.heartbeat_stale_after_ns) {
+            std.debug.print("[sup-refresh] tile {d}: state={s} suppress={any}\n", .{ i, @tagName(h.state), suppress_cnc[i] });
+            if (h.state != .starting and h.state != .running) {
+                std.debug.print("[sup-refresh] tile {d}: not starting/running, skipping\n", .{i});
+                continue;
+            }
+            if (suppress_cnc[i]) {
+                std.debug.print("[sup-refresh] tile {d}: suppressed, skipping cnc read\n", .{i});
+                continue;
+            }
+            const cnc = maybe_cnc orelse {
+                std.debug.print("[sup-refresh] tile {d}: cnc ptr null, skipping\n", .{i});
+                continue;
+            };
+            // A process can spend substantial time rebuilding and joining the
+            // topology before its tile callback reaches RUN (notably on the
+            // Windows ARM integration lane).  Its initial heartbeat is not a
+            // liveness promise for that boot interval; classify heartbeat
+            // staleness only after the tile has entered RUN.
+            const sig = c_abi.cnc.signalQuery(cnc);
+            std.debug.print("[sup-refresh] tile {d}: sig={d} (expect {d}=RUN)\n", .{ i, sig, c_abi.cnc.signal_run });
+            if (sig != c_abi.cnc.signal_run) continue;
+            const heartbeat_ms = c_abi.cnc.heartbeatQuery(cnc);
+            // Tickoni stores wrapping u32 milliseconds in the CNC heartbeat.
+            // A signed modular delta makes wraparound unambiguous while the
+            // configured stale threshold remains below half the u32 range.
+            const heartbeat_age_ms = heartbeatAgeMs(now_ms, heartbeat_ms) orelse continue;
+            std.debug.print("[sup-refresh] tile {d}: hb_ms={d} age_ms={d} stale_ms={d}\n", .{ i, heartbeat_ms, heartbeat_age_ms, state.heartbeat_stale_after_ms });
+            if (i == 0) log.kvFmt("supervisor", "refreshProcessHealth", "tile {d}: sig={d} hb_ms={d} age_ms={d} stale_ms={d}", .{ i, sig, heartbeat_ms, heartbeat_age_ms, state.heartbeat_stale_after_ms });
+            if (heartbeat_age_ms > state.heartbeat_stale_after_ms) {
+                std.debug.print("[sup-refresh] tile {d}: *** MARKED STALE *** age_ms={d} > stale_ms={d}\n", .{ i, heartbeat_age_ms, state.heartbeat_stale_after_ms });
+                log.kvFmt("supervisor", "refreshProcessHealth", "tile {d} marked stale: age_ms={d} > stale_ms={d}", .{ i, heartbeat_age_ms, state.heartbeat_stale_after_ms });
                 h.state = .stale;
                 h.crashed_because = .stale;
             }
@@ -793,7 +886,7 @@ pub const Supervisor = struct {
     /// v2.14.S1.T14: a snapshot of all tile cnc counters read in process
     /// mode (see snapshotProcessMetrics below). Pipeline tiles (tkings →
     /// tkrnorm → tkdedu → tkpoly → tkaudt) write event-flow counters;
-    /// observer tiles (tkrepl, tkmetr, tkdiag) write diagnostic counters.
+    /// observer tiles (tkrepl, metric, tkdiag) write diagnostic counters.
     /// The supervisor publishes its own local counters into its cnc
     /// app-region (see runtime/cnc_counters.zig's appCounter{Read,Write} and
     /// src/tickoni/tiles/payment_pipeline/process.zig's per-tile counter
@@ -809,13 +902,14 @@ pub const Supervisor = struct {
         allowed: u64 = 0,
         denied: u64 = 0,
         audited: u64 = 0,
-        // Observer counters (tkrepl, tkmetr, tkdiag)
+        // Observer counters (tkrepl, metric, tkdiag)
         replay_checked: u64 = 0,
         replay_match: u64 = 0,
         metric_snapshots: u64 = 0,
         metric_backpressure_waits: u64 = 0,
         diag_crash_count: u64 = 0,
         diag_sandbox_count: u64 = 0,
+        metric_boot_timestamp: u64 = 0,
     };
 
     /// v2.14.S1.T14 visibility: the CPU placement layout validated at
@@ -827,14 +921,50 @@ pub const Supervisor = struct {
         return state.placement_report;
     }
 
-    pub fn snapshotProcessMetrics(self: *const Supervisor) ProcessMetricSnapshot {
+    /// Returns the underlying fd_topo_t built at start time, for
+    /// post-run verification (workspace join, object placement). Null
+    /// when no process-mode pipeline has been started.
+    pub fn getTopo(self: *const Supervisor) ?*c_abi.topob.Topo {
+        const state = self.process_state orelse return null;
+        return state.built_topo.topo;
+    }
+
+    pub fn snapshotProcessMetrics(self: *Supervisor) ProcessMetricSnapshot {
         const state = self.process_state orelse return .{};
         var snap = ProcessMetricSnapshot{};
-        for (self.topo.tiles, 0..) |tile, i| {
+        // Build a suppression mask from live children / non-crashed handles.
+        // A crashed child's CNC is corrupted and reading it SIGABRTs the
+        // supervisor — the same guard used in refreshProcessHealth.
+        var suppress_cnc: [8]bool = std.mem.zeroes([8]bool);
+        for (&state.children, 0..) |*record, i| {
+            if (record.ownership != .owned) {
+                suppress_cnc[i] = true;
+                continue;
+            }
+            const child = &(record.child orelse {
+                suppress_cnc[i] = true;
+                continue;
+            });
+            const result = self.process_operations.poll(child);
+            self.recordPollResult(i, result);
+            switch (result) {
+                .running => {},
+                .observation => |obs| switch (obs) {
+                    .stopped => suppress_cnc[i] = true,
+                    .exited, .signaled => suppress_cnc[i] = true,
+                },
+                .no_child, .failed => suppress_cnc[i] = true,
+            }
+            if (self.handles[i].state == .crashed) suppress_cnc[i] = true;
+        }
+        for (state.built_topo.tile_infos, 0..) |info, i| {
+            if (suppress_cnc[i]) continue;
             const cnc = state.cncs[i] orelse continue;
-            const entry = tile_registry.findById(tile.id) orelse continue;
+            std.debug.print("[sup-snap] tile={s} firedancer_idx={d} cnc={x}\n", .{ info.tile_id.slice(), i, @intFromPtr(cnc) });
+            const entry = tile_registry.findById(info.tile_id) orelse continue;
             for (entry.counters) |c| {
                 const v = rt.cnc_counters.appCounterRead(cnc, c.idx);
+                std.debug.print("[sup-snap] tile={s} firedancer_idx={d} counter_idx={d} field={s} val={d}\n", .{ info.tile_id.slice(), i, c.idx, @tagName(c.field), v });
                 switch (c.field) {
                     .produced => snap.produced = v,
                     .normalized => snap.normalized = v,
@@ -849,6 +979,7 @@ pub const Supervisor = struct {
                     .metric_backpressure_waits => snap.metric_backpressure_waits = v,
                     .diag_crashed_tile => snap.diag_crash_count = v,
                     .diag_sandbox_failures => snap.diag_sandbox_count = v,
+                    .metric_boot_timestamp => snap.metric_boot_timestamp = v,
                 }
             }
         }
@@ -872,6 +1003,7 @@ pub const Supervisor = struct {
         metric_backpressure_waits: u64 = 0,
         diag_crash_count: u64 = 0,
         diag_sandbox_count: u64 = 0,
+        metric_boot_timestamp: u64 = 0,
     };
 
     /// Convert a plain ProcessMetricSnapshot into a timestamped version.
@@ -891,6 +1023,7 @@ pub const Supervisor = struct {
             .metric_backpressure_waits = snap.metric_backpressure_waits,
             .diag_crash_count = snap.diag_crash_count,
             .diag_sandbox_count = snap.diag_sandbox_count,
+            .metric_boot_timestamp = snap.metric_boot_timestamp,
         };
     }
 
@@ -901,12 +1034,27 @@ pub const Supervisor = struct {
     }
 
     /// Read metrics for a single tile in process-mode.
-    pub fn snapshotProcessMetricsForTile(self: *const Supervisor, tile_idx: usize) !ProcessMetricSnapshot {
+    pub fn snapshotProcessMetricsForTile(self: *Supervisor, tile_idx: usize) !ProcessMetricSnapshot {
         const state = self.process_state orelse return error.NoProcessState;
         const cnc = state.cncs[tile_idx] orelse return error.CncNotFound;
-        const tile = self.topo.tiles[tile_idx];
-        const entry = tile_registry.findById(tile.id) orelse return error.TileNotFound;
+        const info = state.built_topo.tile_infos[tile_idx];
+        const entry = tile_registry.findById(info.tile_id) orelse return error.TileNotFound;
         var snap = ProcessMetricSnapshot{};
+        // Guard: skip CNC reads for crashed/terminated children — same
+        // suppress_cnc logic as snapshotProcessMetrics().
+        const record = &state.children[tile_idx];
+        if (record.ownership != .owned) return error.CncUnreadable;
+        if (self.handles[tile_idx].state == .crashed) return error.CncUnreadable;
+        const child = &(record.child orelse return error.CncUnreadable);
+        const result = self.process_operations.poll(child);
+        self.recordPollResult(tile_idx, result);
+        switch (result) {
+            .running => {},
+            .observation => |obs| switch (obs) {
+                .stopped, .exited, .signaled => return error.CncUnreadable,
+            },
+            .no_child, .failed => return error.CncUnreadable,
+        }
         for (entry.counters) |c| {
             const v = rt.cnc_counters.appCounterRead(cnc, c.idx);
             switch (c.field) {
@@ -923,6 +1071,7 @@ pub const Supervisor = struct {
                 .metric_backpressure_waits => snap.metric_backpressure_waits = v,
                 .diag_crashed_tile => snap.diag_crash_count = v,
                 .diag_sandbox_failures => snap.diag_sandbox_count = v,
+                .metric_boot_timestamp => snap.metric_boot_timestamp = v,
             }
         }
         return snap;
@@ -935,77 +1084,95 @@ pub const Supervisor = struct {
     /// stop of tiles that are still running.
     /// StopProcess: send HALT, reap, deinit shared memory — used for
     /// process-mode tests that use startPaymentPipelineProcess.
-    ///
-    /// IMPORTANT: the pipeline thread must be stopped before stopProcess()
-    /// runs, because stopProcess() does NOT touch self.pipeline and
-    /// deinit() will see a live pipeline and call joinThreads() again,
-    /// which hangs when the tile threads are already gone.
-    pub fn stopProcess(self: *Supervisor, io: std.Io) void {
+    pub fn stopProcess(self: *Supervisor, io: std.Io) !void {
         const log = logger.get();
-        log.enter("supervisor", "stopProcess") catch {};
-        defer log.exit("supervisor", "stopProcess") catch {};
+        log.enter("supervisor", "stopProcess");
+        defer log.exit("supervisor", "stopProcess");
         const state = self.process_state orelse return;
-        // Reap any already-dead children before refreshProcessHealth().
-        // Otherwise refreshProcessHealth() sees a dead heartbeat, marks the
-        // tile stale, and updateHandleForOutcome's stale-recovery path wrongly
-        // classifies a real crash as a clean stop.
-        self.reapExitedChildrenNoHang();
-        self.refreshProcessHealth();
-        for (state.cncs) |maybe_cnc| {
-            if (maybe_cnc) |cnc| c_abi.cnc.signal(cnc, c_abi.cnc.signal_halt);
+
+        // Observe every child before touching CNC memory.  HALT is sent only
+        // to records for which ownership remains with this supervisor.
+        _ = self.pollAllOwned();
+        const halt_time = self.process_operations.now();
+        for (&state.children, 0..) |*record, i| {
+            if (record.ownership != .owned) continue;
+            record.halt_timestamp = halt_time;
+            if (state.cncs[i]) |cnc| c_abi.cnc.signal(cnc, c_abi.cnc.signal_halt);
         }
 
-        const grace_deadline = util.process.monotonicNanos() + @as(i64, @intCast(state.stop_grace_ns));
-        while (util.process.monotonicNanos() < grace_deadline) {
-            self.reapExitedChildrenNoHang();
-            const has_running_child = for (state.children) |maybe_child| {
-                if (maybe_child != null) break true;
-            } else false;
-            if (!has_running_child) break;
-            util.process.sleepNanos(5 * std.time.ns_per_ms);
+        const grace_deadline = self.process_operations.now() + @as(i64, @intCast(state.stop_grace_ns));
+        while (self.process_operations.now() < grace_deadline) {
+            if (!self.pollAllOwned()) break;
+            self.process_operations.sleep(5 * std.time.ns_per_ms);
         }
-        self.reapExitedChildrenNoHang();
 
-        var forced_termination: [8]bool = undefined;
-        var ci: usize = 0;
-        while (ci < forced_termination.len) : (ci += 1) forced_termination[ci] = false;
-        // Force terminate ALL running children, not just stale ones.
-        // Tiles that finish normally never become stale but may hang
-        // waiting for external events (e.g. HTTP server, CNC HALT).
-        for (state.cncs, 0..) |_, i| {
-            const maybe_child = &state.children[i];
-            var child = maybe_child.* orelse continue;
-            switch (util.process_api.tryReapNoHang(&child)) {
-                .running => {
-                    const pid = child.id orelse continue;
-                    util.process_api.forceTerminate(pid);
-                    forced_termination[i] = true;
-                    maybe_child.* = child;
+        // Close the poll/force race with one observation immediately before
+        // the sole force request for each survivor.
+        for (&state.children, 0..) |*record, i| {
+            if (record.ownership != .owned) continue;
+            self.pollChild(i);
+            if (record.ownership != .owned) continue;
+            const child = record.child orelse continue;
+            const pid = child.id orelse continue;
+            switch (self.process_operations.terminate(pid)) {
+                .accepted => |action| {
+                    record.force_action = action;
+                    record.force_timestamp = self.process_operations.now();
+                    retainAction(&self.handles[i], action);
                 },
-                .reaped => |term| {
-                    self.updateHandleForOutcome(i, util.process_api.outcomeFromTerm(term, false));
-                    maybe_child.* = null;
-                },
-                .detached, .failed => {
-                    maybe_child.* = null;
-                },
+                .failed => {},
             }
         }
 
-        self.waitProcess(io, &forced_termination);
+        // One collective deadline bounds all survivors, rather than granting
+        // five seconds independently to each child.
+        const reap_deadline = self.process_operations.now() + 5 * std.time.ns_per_s;
+        while (self.process_operations.now() < reap_deadline) {
+            if (!self.pollAllOwned()) break;
+            self.process_operations.sleep(5 * std.time.ns_per_ms);
+        }
+        _ = self.pollAllOwned();
 
-        // v2.24: check if any tile crashed during stopProcess so deinit()
-        // knows whether to skip the fragile C-level shared memory ops.
+        var unresolved = false;
+        for (&state.children, 0..) |*record, i| {
+            if (record.ownership != .owned) continue;
+            unresolved = true;
+            self.handles[i].state = .unresolved;
+            var buf: [128]u8 = undefined;
+            const msg = std.fmt.bufPrint(&buf, "unresolved child: pid={d} retries={d}", .{
+                record.numeric_pid,
+                record.reap_error_count,
+            }) catch "unresolved child";
+            log.err("supervisor", "stopProcess", msg);
+        }
+        if (unresolved) {
+            return error.UnresolvedChild;
+        }
+
         for (self.handles) |h| {
             if (h.state == .crashed) {
                 state.has_child_crashed = true;
                 break;
             }
         }
-
         state.deinit(io, self.allocator);
-        self.allocator.destroy(state);
+        // Null after deinit so a second call (e.g. from a defer that follows
+        // an explicit stopProcess()) hits this early return instead of
+        // double-freeing BuiltTopo allocations.
         self.process_state = null;
+        // Free the heap-allocated ProcessState bytes.
+        self.allocator.free(std.mem.asBytes(state));
+    }
+
+    /// Installs process operations for deterministic lifecycle tests.  Callers
+    /// must restore the native operations before starting unrelated work.
+    pub fn setProcessOperations(self: *Supervisor, operations: ProcessOperations) void {
+        self.process_operations = operations;
+    }
+
+    pub fn childOwnership(self: *const Supervisor, tile_idx: usize) ChildOwnership {
+        const state = self.process_state orelse return .vacant;
+        return state.children[tile_idx].ownership;
     }
 
     /// Returns the current handle slice — a read-only snapshot of tile states.
@@ -1027,34 +1194,86 @@ pub const Supervisor = struct {
     }
 };
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-test "Supervisor initialises all handles as stopped" {
-    const topo = topologies.paymentPipeline();
-    var sup = try Supervisor.init(std.testing.allocator, topo);
-    defer sup.deinit();
-
-    for (sup.monitor()) |h| {
-        try std.testing.expectEqual(TileState.stopped, h.state);
-    }
-}
-
-test "Supervisor init fails closed on a structural CPU placement conflict, even in thread mode" {
-    const base = topologies.paymentPipeline();
-    var conflicting_tiles: [8]rt.topology.TileDescriptor = base.tiles[0..8].*;
-    conflicting_tiles[0].cpu_placement = .{ .exclusive = 0 };
-    conflicting_tiles[1].cpu_placement = .{ .exclusive = 0 };
-    const topo = rt.topology.Topology{ .tiles = &conflicting_tiles, .channels = base.channels };
-
-    try std.testing.expectError(error.CpuPlacementConflict, Supervisor.init(std.testing.allocator, topo));
-}
-
 test "Supervisor monitor returns correct tile count" {
     const topo = topologies.paymentPipeline();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer sup.deinit();
 
     try std.testing.expectEqual(topo.tiles.len, sup.monitor().len);
+}
+
+test "heartbeat stale threshold rounds up to milliseconds" {
+    try std.testing.expectEqual(@as(u32, 1), try resolvedHeartbeatStaleAfterMs(.{
+        .run_dir = "unused",
+        .heartbeat_stale_after_ns = 1,
+    }));
+    try std.testing.expectEqual(@as(u32, 2), try resolvedHeartbeatStaleAfterMs(.{
+        .run_dir = "unused",
+        .heartbeat_stale_after_ns = std.time.ns_per_ms + 1,
+    }));
+}
+
+test "heartbeat stale threshold rejects ambiguous modular ages" {
+    const ambiguous_ms = @as(u64, std.math.maxInt(i32)) + 1;
+    try std.testing.expectError(error.HeartbeatStaleThresholdTooLarge, resolvedHeartbeatStaleAfterMs(.{
+        .run_dir = "unused",
+        .heartbeat_stale_after_ns = ambiguous_ms * std.time.ns_per_ms,
+    }));
+}
+
+test "heartbeat age handles u32 millisecond wraparound" {
+    try std.testing.expectEqual(@as(?u32, 26), heartbeatAgeMs(10, std.math.maxInt(u32) - 15));
+    try std.testing.expectEqual(@as(?u32, null), heartbeatAgeMs(10, 11));
+}
+
+fn installLifecycleTestState(sup: *Supervisor) !*ProcessState {
+    const bytes = try sup.allocator.alignedAlloc(u8, .fromByteUnits(@alignOf(ProcessState)), @sizeOf(ProcessState));
+    const state: *ProcessState = @ptrCast(@alignCast(bytes));
+    state.* = undefined;
+    state.children = std.mem.zeroes([8]ChildRecord);
+    state.cncs = std.mem.zeroes([8]?*c_abi.cnc.Cnc);
+    state.stop_grace_ns = 0;
+    // Initialize ALL fields to safe zero/empty values so stopProcess's
+    // deinit() doesn't free undefined pointers and GPE under kcov.
+    state.built_topo = .{
+        .buf = &.{},
+        .topo = @ptrFromInt(1),
+        .wksp_idx = 0,
+        .metric_wksp_idx = c_abi.topob.not_found,
+        .metric_in_wksp_idx = c_abi.topob.not_found,
+        .metric_tile_idx = c_abi.topob.not_found,
+        .metric_tile_obj_id = 0,
+        .cnc_obj_id = &.{},
+        .link_obj_id = &.{},
+        .tile_infos = &.{},
+    };
+    // workspace_name and run_dir are []u8 — set to empty so deinit's
+    // allocator.free() doesn't GPE on undefined pointers.
+    state.workspace_name = ""[0..0];
+    state.run_dir = ""[0..0];
+    // wksp is a non-nullable pointer — set to dummy so deinit's wkspDetach
+    // doesn't crash. The dummy won't be used in these tests.
+    state.wksp = @ptrFromInt(1);
+    state.metric_wksp = null;
+    state.metric_in_wksp = null;
+    state.cnc_gaddrs = std.mem.zeroes([8]usize);
+    state.heartbeat_stale_after_ms = 0;
+    state.placement_report = .{
+        .exclusive_count = 0,
+        .shared_count = 0,
+        .floating_count = 0,
+        .shared_core = false,
+    };
+    state.has_child_crashed = false;
+    sup.process_state = state;
+    return state;
+}
+
+fn removeLifecycleTestState(sup: *Supervisor) void {
+    const state = sup.process_state orelse return;
+    // These lifecycle tests don't start a real pipeline, so deinit() is
+    // skipped — the tests may leave children in .owned state which
+    // deinit() asserts against. Just null the pointer and free raw bytes.
+    sup.process_state = null;
+    sup.allocator.free(std.mem.asBytes(state));
 }

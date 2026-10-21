@@ -58,17 +58,22 @@ const fd_http_server_params_t METRICS_PARAMS = {
 
 FD_FN_CONST inline ulong
 scratch_align( void ) {
-  return 128UL;
+  FD_LOG_NOTICE(( "fd_metric_tile: scratch_align ENTER" ));
+  ulong result = 128UL;
+  FD_LOG_NOTICE(( "fd_metric_tile: scratch_align EXIT %lu", result ));
+  return result;
 }
 
 FD_FN_PURE inline ulong
 scratch_footprint( fd_topo_tile_t const * tile ) {
   (void)tile;
-
+  FD_LOG_NOTICE(( "fd_metric_tile: scratch_footprint ENTER" ));
   ulong l = FD_LAYOUT_INIT;
   l = FD_LAYOUT_APPEND( l, alignof( fd_metric_ctx_t ), sizeof( fd_metric_ctx_t ) );
   l = FD_LAYOUT_APPEND( l, fd_http_server_align(), fd_http_server_footprint( METRICS_PARAMS ) );
-  return FD_LAYOUT_FINI( l, scratch_align() );
+  ulong result = FD_LAYOUT_FINI( l, scratch_align() );
+  FD_LOG_NOTICE(( "fd_metric_tile: scratch_footprint EXIT %lu", result ));
+  return result;
 }
 
 /* ---------------------------------------------------------------------
@@ -79,8 +84,18 @@ void
 before_credit( fd_metric_ctx_t *   ctx,
                fd_stem_context_t * stem,
                int *               charge_busy ) {
-  (void)stem;
+  FD_LOG_DEBUG(( "fd_metric_tile: before_credit ENTER ctx=%p", (void*)ctx ));
   *charge_busy = fd_http_server_poll( ctx->metrics_server, 1 ); /* 1ms */
+  (void)stem;
+
+  /* Increment metric_snapshots counter (CNC app-region index 0) each
+     stem_run iteration so the supervisor can observe the tile is alive
+     and polling, without needing to talk to the HTTP server. */
+  if( FD_LIKELY( ctx->cnc != NULL ) ) {
+    ulong *app = (ulong *)fd_cnc_app_laddr((fd_cnc_t *)ctx->cnc);
+    app[0]++;
+  }
+  FD_LOG_DEBUG(( "fd_metric_tile: before_credit EXIT charge_busy=%d app[0]=%lu", *charge_busy, ctx->cnc ? *(ulong *)fd_cnc_app_laddr((fd_cnc_t *)ctx->cnc) : 0UL ));
 }
 
 /* ---------------------------------------------------------------------
@@ -89,9 +104,11 @@ before_credit( fd_metric_ctx_t *   ctx,
 
 fd_http_server_response_t
 metrics_http_request( fd_http_server_request_t const * request ) {
+  FD_LOG_NOTICE(( "fd_metric_tile: metrics_http_request ENTER path=%s", request->path ));
   fd_metric_ctx_t * ctx = (fd_metric_ctx_t *)request->ctx;
 
   if( FD_UNLIKELY( request->method!=FD_HTTP_SERVER_METHOD_GET ) ) {
+    FD_LOG_NOTICE(( "fd_metric_tile: metrics_http_request EXIT status=400" ));
     return (fd_http_server_response_t){
       .status = 400,
     };
@@ -112,12 +129,15 @@ metrics_http_request( fd_http_server_request_t const * request ) {
     };
     if( FD_UNLIKELY( fd_http_server_stage_body( ctx->metrics_server, &response ) ) ) {
       FD_LOG_WARNING(( "fd_http_server_stage_body failed, metrics response too long" ));
+      FD_LOG_NOTICE(( "fd_metric_tile: metrics_http_request EXIT status=500" ));
       return (fd_http_server_response_t){
         .status = 500,
       };
     }
+    FD_LOG_NOTICE(( "fd_metric_tile: metrics_http_request EXIT status=200" ));
     return response;
   } else {
+    FD_LOG_NOTICE(( "fd_metric_tile: metrics_http_request EXIT status=404" ));
     return (fd_http_server_response_t){
       .status = 404,
     };
@@ -130,12 +150,16 @@ metrics_http_request( fd_http_server_request_t const * request ) {
 
 static void
 metrics_write( fd_metric_ctx_t * ctx ) {
+  FD_LOG_DEBUG(( "fd_metric_tile: metrics_write ENTER boot_ts=%lld", (long long)ctx->boot_ts ));
+
   FD_MGAUGE_SET( METRIC, BOOT_TIMESTAMP_NANOS, (ulong)ctx->boot_ts );
 
   FD_MGAUGE_SET( METRIC, CONN_ACTIVE, ctx->metrics_server->metrics.connection_cnt );
 
   FD_MCNT_SET( METRIC, BYTES_WRITTEN, ctx->metrics_server->metrics.bytes_written );
   FD_MCNT_SET( METRIC, BYTES_READ,    ctx->metrics_server->metrics.bytes_read );
+
+  FD_LOG_DEBUG(( "fd_metric_tile: metrics_write EXIT" ));
 }
 
 /* ---------------------------------------------------------------------
@@ -145,6 +169,7 @@ metrics_write( fd_metric_ctx_t * ctx ) {
 void
 privileged_init( fd_topo_t const *      topo,
                  fd_topo_tile_t const * tile ) {
+  FD_LOG_NOTICE(( "fd_metric_tile: privileged_init ENTER tile_id=%lu", tile->id ));
   void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
 
   FD_SCRATCH_ALLOC_INIT( l, scratch );
@@ -152,23 +177,34 @@ privileged_init( fd_topo_t const *      topo,
 
   fd_http_server_t * _metrics = FD_SCRATCH_ALLOC_APPEND( l, fd_http_server_align(), fd_http_server_footprint( METRICS_PARAMS ) );
 
+  FD_LOG_NOTICE(( "metric_tile: priv_init prometheus_listen_addr=%u port=%u",
+                  tile->metric.prometheus_listen_addr, tile->metric.prometheus_listen_port ));
   fd_http_server_callbacks_t metrics_callbacks = {
     .request = metrics_http_request,
   };
   ctx->metrics_server = fd_http_server_join( fd_http_server_new( _metrics, METRICS_PARAMS, metrics_callbacks, ctx ) );
-  fd_http_server_listen( ctx->metrics_server, tile->metric.prometheus_listen_addr, tile->metric.prometheus_listen_port );
+  if( FD_UNLIKELY( !ctx->metrics_server ) )
+    FD_LOG_ERR(( "metric_tile: fd_http_server_new returned NULL" ));
+  if( FD_UNLIKELY( !fd_http_server_listen( ctx->metrics_server,
+                                          tile->metric.prometheus_listen_addr,
+                                          tile->metric.prometheus_listen_port ) ) )
+    FD_LOG_ERR(( "metric_tile: prometheus listen failed on " FD_IP4_ADDR_FMT ":%u",
+                 FD_IP4_ADDR_FMT_ARGS( tile->metric.prometheus_listen_addr ),
+                 tile->metric.prometheus_listen_port ));
+  FD_LOG_NOTICE(( "fd_metric_tile: privileged_init EXIT tile_id=%lu", tile->id ));
 }
 
 void
 unprivileged_init( fd_topo_t const *      topo,
                    fd_topo_tile_t const * tile ) {
+  FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init ENTER tile_id=%lu", tile->id ));
   void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
 
   FD_SCRATCH_ALLOC_INIT( l, scratch );
   fd_metric_ctx_t * ctx = FD_SCRATCH_ALLOC_APPEND( l, alignof( fd_metric_ctx_t ), sizeof( fd_metric_ctx_t ) );
 
   ctx->topo = topo;
-  ctx->boot_ts = fd_log_wallclock();
+  ctx->boot_ts = fd_log_wallclock_nanos();
   ctx->cnc = NULL;
 
   ulong scratch_top = FD_SCRATCH_ALLOC_FINI( l, scratch_align() );
@@ -176,6 +212,7 @@ unprivileged_init( fd_topo_t const *      topo,
     FD_LOG_ERR(( "scratch overflow %lu %lu %lu", scratch_top - (ulong)scratch - scratch_footprint( tile ), scratch_top, (ulong)scratch + scratch_footprint( tile ) ));
 
   FD_LOG_NOTICE(( "prometheus metrics endpoint listening at http://" FD_IP4_ADDR_FMT ":%u/metrics", FD_IP4_ADDR_FMT_ARGS( tile->metric.prometheus_listen_addr ), tile->metric.prometheus_listen_port ));
+  FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init EXIT tile_id=%lu", tile->id ));
 }
 
 /* ---------------------------------------------------------------------
@@ -207,17 +244,17 @@ populate_allowed_fds( fd_topo_t const *      topo,
                       fd_topo_tile_t const * tile,
                       ulong                  out_fds_cnt,
                       int *                  out_fds ) {
-  void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
-  FD_SCRATCH_ALLOC_INIT( l, scratch );
-  fd_metric_ctx_t * ctx = FD_SCRATCH_ALLOC_APPEND( l, alignof( fd_metric_ctx_t ), sizeof( fd_metric_ctx_t ) );
-
-  if( FD_UNLIKELY( out_fds_cnt<3UL ) ) FD_LOG_ERR(( "out_fds_cnt %lu", out_fds_cnt ));
+  /* Note: ctx->metrics_server is not yet initialized here — populate_allowed_fds
+     runs in the parent process before the child's privileged_init() creates the
+     HTTP server.  We only return stderr and the logfile; seccomp handles the
+     socket syscall allowance. */
+  (void)topo; (void)tile;
+  if( FD_UNLIKELY( out_fds_cnt<2UL ) ) FD_LOG_ERR(( "out_fds_cnt %lu", out_fds_cnt ));
 
   ulong out_cnt = 0;
   out_fds[ out_cnt++ ] = 2; /* stderr */
   if( FD_LIKELY( -1!=fd_log_private_logfile_fd() ) )
     out_fds[ out_cnt++ ] = fd_log_private_logfile_fd(); /* logfile */
-  out_fds[ out_cnt++ ] = fd_http_server_fd( ctx->metrics_server ); /* metrics listen socket */
   return out_cnt;
 }
 
@@ -226,7 +263,7 @@ populate_allowed_fds( fd_topo_t const *      topo,
 
    KEY DIFFERENCE FROM UPSTREAM: STEM_CALLBACK_SHOULD_SHUTDOWN checks
    ctx->cnc for HALT instead of always returning 0.  This is the fix
-   for v2.23-m task 2 — tkmetr now properly shuts down when the
+   for v2.23-m task 2 — metric now properly shuts down when the
    supervisor sends HALT via CNC.
 
    For Firedancer's native metric tile, ctx->cnc is NULL so the check

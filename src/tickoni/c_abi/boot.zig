@@ -1,17 +1,33 @@
 /// Narrow Zig bindings over src/util/fd_util.h's fd_boot/fd_halt lifecycle.
 ///
-/// Every process that touches fd_shmem/fd_wksp/fd_tango substrate (the v2.14
-/// process-mode supervisor and every spawned tile) must call fd_boot exactly
-/// once before using it and fd_halt once at shutdown; fd_boot is what reads
-/// --shmem-path/FD_SHMEM_PATH and brings the shared-memory subsystem online
-/// (src/util/shmem/fd_shmem_admin.c). Synthetic-argv boot policy lives in
-/// src/tickoni/runtime/boot.zig, which calls boot() below. Tile-process
-/// teardown uses haltForTileProcess() so non-Linux quirks stay hidden behind
-/// this ABI boundary instead of leaking into runtime orchestration code.
+/// Two boot paths exist:
+/// - `bootLite()` — version + log + shmem only. Used by the supervisor
+///   which spawns tile child processes instead of running tile threads.
+/// - `boot()` — full boot including tile thread creation. Used by child
+///   tile processes that run stem_run() and need their own tile thread.
+///
+/// Every process that touches fd_shmem/fd_wksp/fd_tango substrate calls
+/// its appropriate boot exactly once before using shared memory and
+/// calls fd_halt once at shutdown; fd_boot is what reads --shmem-path
+/// / FD_SHMEM_PATH and brings the shared-memory subsystem online
+/// (src/util/shmem/fd_shmem_admin.c). Synthetic-argv boot policy lives
+/// in src/tickoni/runtime/boot.zig, which calls boot() / bootLite()
+/// below. Tile-process teardown uses haltForTileProcess() so non-Linux
+/// quirks stay hidden behind this ABI boundary instead of leaking into
+/// runtime orchestration code.
 const std = @import("std");
 const builtin = @import("builtin");
+extern fn tk_boot_lite(pargc: *c_int, pargv: *[*][*:0]u8) void;
 extern fn tk_boot(pargc: *c_int, pargv: *[*][*:0]u8) void;
 extern fn tk_halt() void;
+
+/// Lightweight boot: version + log + shmem only. Used by the supervisor
+/// and other bootstrap paths that spawn child tile processes instead of
+/// running tile threads in-process. Skips fd_tile_private_boot() which
+/// would create pthreads the supervisor never uses.
+pub fn bootLite(pargc: *c_int, pargv: *[*][*:0]u8) void {
+    tk_boot_lite(pargc, pargv);
+}
 
 pub fn boot(pargc: *c_int, pargv: *[*][*:0]u8) void {
     tk_boot(pargc, pargv);
@@ -42,18 +58,6 @@ pub fn spinPause() void {
 // ---------------------------------------------------------------------------
 // Tests — platform-specific halt behavior and constant smoke checks.
 // ---------------------------------------------------------------------------
-
-test "haltForTileProcess calls tk_halt only on Linux" {
-    if (builtin.os.tag == .linux) {
-        // On Linux we cannot easily isolate the branch, but we can verify
-        // the compile-time constant path is what we expect: the Linux build
-        // will reach tk_halt; non-Linux will not.  This test at least
-        // documents the expected platform branching.
-        try std.testing.expect(builtin.os.tag == .linux);
-    } else {
-        try std.testing.expect(builtin.os.tag != .linux);
-    }
-}
 
 test "boot.zig module compiles with expected symbols" {
     // Smoke test: verify all public symbols exist and have the expected

@@ -25,7 +25,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-linux-x86
             platform: linux-x86
-            fd-test-recipe: test-unit-fd-linux-x86-gcc
+            fd-test-recipe: test-unit-fd-linux-x86-gcc-all
             test-recipe: test-unit-tk-linux-x86
             compiler: gcc-12
           # Linux x86_64 (clang)
@@ -34,7 +34,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-linux-x86-clang
             platform: linux-x86
-            fd-test-recipe: test-unit-fd-linux-x86-clang
+            fd-test-recipe: test-unit-fd-linux-x86-clang-all
             test-recipe: test-unit-tk-linux-x86
             compiler: clang-18
           # Linux ARM64
@@ -43,16 +43,16 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-linux-arm
             platform: linux-arm
-            fd-test-recipe: test-unit-fd-linux-arm-gcc
+            fd-test-recipe: test-unit-fd-linux-arm-gcc-all
             test-recipe: test-unit-tk-linux-arm
             compiler: gcc-14
           # macOS 15 (x86_64)
           - platform-name: macOS 15 (x86_64)
             runner: macos-15-intel
             timeout_minutes: 30
-            artifact-name: build-macos-15-x86_64
+            artifact-name: build-macos-15-x86
             platform: macos-x86
-            fd-test-recipe: test-unit-fd-macos-x86
+            fd-test-recipe: test-unit-fd-macos-x86-all
             test-recipe: test-unit-tk-macos-x86
             compiler: clang
           # macOS 15 (ARM)
@@ -61,16 +61,16 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-macos-15-arm
             platform: macos-arm
-            fd-test-recipe: test-unit-fd-macos-arm
+            fd-test-recipe: test-unit-fd-macos-arm-all
             test-recipe: test-unit-tk-macos-arm
             compiler: clang
           # macOS 26 (x86_64)
           - platform-name: macOS 26 (x86_64)
             runner: macos-26-intel
             timeout_minutes: 30
-            artifact-name: build-macos-26-x86_64
+            artifact-name: build-macos-26-x86
             platform: macos-x86
-            fd-test-recipe: test-unit-fd-macos-x86
+            fd-test-recipe: test-unit-fd-macos-x86-all
             test-recipe: test-unit-tk-macos-x86
             compiler: clang
           # macOS 26 (ARM)
@@ -79,16 +79,16 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-macos-26-arm
             platform: macos-arm
-            fd-test-recipe: test-unit-fd-macos-arm
+            fd-test-recipe: test-unit-fd-macos-arm-all
             test-recipe: test-unit-tk-macos-arm
             compiler: clang
           # Windows x86_64
           - platform-name: Windows x86_64
             runner: windows-2025-vs2026
             timeout_minutes: 30
-            artifact-name: build-windows-x86_64
+            artifact-name: build-windows-x86
             platform: windows-x86
-            fd-test-recipe: test-unit-fd-windows-x86
+            fd-test-recipe: test-unit-fd-windows-x86-all
             test-recipe: test-unit-tk-windows-x86
             compiler: msvc
           # Windows ARM64
@@ -97,7 +97,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-windows-arm
             platform: windows-arm
-            fd-test-recipe: test-unit-fd-windows-arm
+            fd-test-recipe: test-unit-fd-windows-arm-all
             test-recipe: test-unit-tk-windows-arm
             compiler: msvc
 
@@ -118,10 +118,10 @@ jobs:
           path: .
 
       - name: Install test tools (pytest)
-        run: just test-setup-install
+        run: just test-setup-install-${{ matrix.platform }}
 
       - name: Run Python unit tests (pytest)
-        run: just test-setup-run
+        run: just test-setup-run-${{ matrix.platform }}
 
       - name: Configure hugepages and memory limits (Linux only)
         if: runner.os == 'Linux'
@@ -129,7 +129,15 @@ jobs:
           sudo prlimit --pid $$ --nofile=65536 --memlock=unlimited
           sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || true
           sudo src/util/shmem/fd_shmem_cfg init 0700 "$USER" ""
-          just mem-alloc-auto || true
+          just system-mem-alloc-auto || true
+
+      - name: Install build toolchain (macOS)
+        if: runner.os == 'macOS'
+        run: just setup-build-${{ matrix.platform }}
+
+      - name: Install Firedancer toolchain (Windows)
+        if: runner.os == 'Windows'
+        run: just setup-fd-${{ matrix.platform }}
 
       - name: Run Firedancer unit tests
         run: just ${{ matrix.fd-test-recipe }}

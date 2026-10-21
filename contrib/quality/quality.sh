@@ -72,8 +72,34 @@ run_style_grep() {
   if grep -n '#pragma once' "$@"; then fail=1; fi
 
   # Use fd_util_base.h integer types; stdint.h types are forbidden (CONTRIBUTING.md §4.1)
-  if grep -nwE 'u?int(8|16|32|64)_t|size_t|ptrdiff_t' "$@"; then fail=1; fi
-  if grep -n '#include <stdint.h>' "$@"; then fail=1; fi
+  # Exclude ballet/ (fiat-crypto ABI boundary), disco/bundle/proto/ (protobuf), and
+  # waltz/h2/ (nghttp2) which require stdint types for external compatibility.
+  # Also allow inttypes.h + PRIu64 + uint64_t — Firedancer's ulong is unsigned long long
+  # on Windows (FD_HAS_WINDOWS) so %llu is required there, and PRIu64 provides the
+  # correct cross-platform format without duplicating platform-specific printf flags.
+  local stdint_files=()
+  local inttypes_files=()
+  for f in "$@"; do
+    case "$f" in
+      src/ballet/*|src/disco/bundle/proto/*|src/waltz/h2/*) ;;
+      *)
+        case "$f" in
+          *inttypes.h|*inttypes\.h|*.c|*.h)
+            if grep -q '#include <inttypes.h>' "$f" 2>/dev/null; then
+              inttypes_files+=("$f")
+            else
+              stdint_files+=("$f")
+            fi
+            ;;
+          *) stdint_files+=("$f") ;;
+        esac
+        ;;
+    esac
+  done
+  if [ ${#stdint_files[@]} -gt 0 ]; then
+    if grep -nwE 'u?int(8|16|32|64)_t|size_t|ptrdiff_t' "${stdint_files[@]}"; then fail=1; fi
+    if grep -n '#include <stdint.h>' "${stdint_files[@]}"; then fail=1; fi
+  fi
 
   # Use int instead of bool; stdbool.h is forbidden (CONTRIBUTING.md §4.2)
   # Exclude macro invocations like CFG_POP( bool, ...) where bool is a token

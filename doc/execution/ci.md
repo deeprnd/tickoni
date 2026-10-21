@@ -38,9 +38,9 @@ This document describes the GitHub Actions CI workflows for Tickoni.
 
 ## Overview
 
-All eleven Tickoni CI workflows (`ci.yml` plus ten sub-workflow YAML files) trigger on pull requests targeting `main` and are also dispatchable manually via `workflow_dispatch`. Every workflow uses GitHub-hosted runners only — no self-hosted infrastructure is required.
+All fourteen Tickoni CI workflows (`ci.yml` plus twelve sub-workflow YAML files) trigger on pull requests targeting `main` and are also dispatchable manually via `workflow_dispatch`. Every workflow uses GitHub-hosted runners only — no self-hosted infrastructure is required.
 
-This CI surface is intentionally **not** a coexist-with-upstream layout. Tickoni replaces the broad upstream Firedancer workflow set with a consolidated S8 pipeline: a single `ci.yml` orchestrator that delegates to ten sub-workflow files (`_ci-build.yml`, `_ci-unit.yml`, `_ci-integration.yml`, `_ci-system.yml`, `_ci-demo.yml`, `_ci-quality.yml`, `_ci-security-secrets.yml`, `_ci-security-deep.yml`, `_ci-conformance.yml`, `tests-dev-setup.yml`). The consolidation eliminates per-workflow setup duplication and enforces a cascading gate model. macOS support was added alongside this intentional shrink/re-shape of the upstream CI surface.
+This CI surface is intentionally **not** a coexist-with-upstream layout. Tickoni replaces the broad upstream Firedancer workflow set with a consolidated S8 pipeline: a single `ci.yml` orchestrator that delegates to twelve sub-workflow files (`_ci-build.yml`, `_ci-unit.yml`, `_ci-integration.yml`, `_ci-system.yml`, `_ci-demo.yml`, `_ci-quality.yml`, `_ci-security-secrets.yml`, `_ci-security-deep.yml`, `_ci-conformance.yml`, `_ci-coverage.yml`, `tests-dev-setup.yml`, `tests-coverage.yml`). The consolidation eliminates per-workflow setup duplication and enforces a cascading gate model. macOS support was added alongside this intentional shrink/re-shape of the upstream CI surface.
 
 The retained workflows run only their checked-in triggers; retired benchmark and
 book workflows are not part of the CI surface.
@@ -68,9 +68,11 @@ flowchart TD
     U --> I["integration (_ci-integration.yml)"]
     U --> Sys["system (_ci-system.yml)"]
     U --> D["demo (_ci-demo.yml)"]
+    U --> Cov["coverage (_ci-coverage.yml)"]
     I --> C["conformance (_ci-conformance.yml)"]
     Sys --> C
     D --> C
+    Cov --> C
     C --> SD["security-deep (4 parallel)"]
     SD --> SD1["_ci-security-deep.yml check=sanitize"]
     SD --> SD2["_ci-security-deep.yml check=seccomp"]
@@ -90,6 +92,7 @@ flowchart TD
     I --> R
     Sys --> R
     D --> R
+    Cov --> R
     C --> R
     SD --> R
 ```
@@ -98,9 +101,9 @@ flowchart TD
 
 ## Workflow Summary
 
-|| Workflow                  | Runner(s)                           | Jobs                                                         | Timeout |
+| Workflow                  | Runner(s)                           | Jobs                                                         | Timeout |
 | ------------------------- | ----------------------------------- | ------------------------------------------------------------ | ------- |
-| `ci.yml`                  | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025-vs2026`, `windows-11-vs2026-arm`, `ubuntu-latest` | Orchestrator + 12 jobs (build, quality, Qt quality, unit, integration, system, demo, conformance, security-secrets, security-deep, docs-only, ci-required) | 20–60 m |
+| `ci.yml`                  | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025-vs2026`, `windows-11-vs2026-arm`, `ubuntu-latest` | Orchestrator + 14 jobs (build, quality, Qt quality, unit, integration, system, demo, conformance, coverage, security-secrets, security-deep, docs-only, ci-required, dev-setup) | 20–60 m |
 | `_ci-build.yml`           | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025-vs2026`, `windows-11-vs2026-arm` | Engine Build (GCC, Clang, ARM, Windows x86, Windows ARM) + Harness Build | 20–45 m |
 | `_ci-unit.yml`            | `ubuntu-24.04`                      | Harness Unit Tests                                           | 20 m    |
 | `_ci-integration.yml`     | `ubuntu-24.04`                      | Harness Integration Tests                                    | 20 m    |
@@ -110,6 +113,7 @@ flowchart TD
 | `_ci-security-secrets.yml`| `ubuntu-24.04`                      | Gitleaks                                                     | 20–30 m |
 | `_ci-security-deep.yml`   | `ubuntu-24.04`                      | Sanitizers, SecComp                                          | 20–45 m |
 | `_ci-conformance.yml`     | `ubuntu-24.04`                      | Cross-platform conformance comparison                        | 20 m    |
+| `_ci-coverage.yml`        | `ubuntu-24.04`                      | Coverage collection (kcov, coverage report)                   | 20–45 m |
 | `tests-dev-setup.yml`     | `ubuntu-24.04`                      | Full dev lifecycle validation (setup → build → test)         | 45–60 m |
 
 All `detect-changes` jobs run on `ubuntu-slim`.
@@ -310,11 +314,57 @@ The Sanitizers job installs Clang 18, builds shared libs, then runs `just securi
 
 **File:** `_ci-unit.yml` (called by `ci.yml`)
 
-Covers the Tickoni Zig harness unit tests. Path filter is scoped to Tickoni sources only so these jobs do not re-run on pure Firedancer C changes.
+Covers the Tickoni Zig harness unit tests and Firedancer-derived C unit tests.
+Path filter is scoped to Tickoni sources so these jobs do not re-run on pure
+Firedancer C changes.
 
-|| Job                       | Command                    | Output artifact                               |
-| ------------------------- | -------------------------- | --------------------------------------------- |
-| Harness Unit Tests        | `just test-unit-tk-linux-x86`        | —                                             |
+The workflow downloads pre-built build artifacts from the Build stage (so it
+never rebuilds Firedancer libraries), then runs `just` recipes that only
+compile test executables and execute them.
+
+### Three-tier recipe pattern
+
+FD unit-test recipes follow a three-tier pattern:
+
+| Tier | Recipe | Purpose |
+|------|--------|---------|
+| Build | `build-test-unit-fd-{platform}` | Compiles test executables only via `make unit-test`. |
+| Run | `test-unit-fd-{platform}` | Runs existing test executables only. |
+| All | `test-unit-fd-{platform}-all` | Build + run wrapper (`build-test-unit-fd-{platform} test-unit-fd-{platform}`). |
+
+CI matrix entries use the `-all` variant via the `fd-test-recipe` field, which
+executes both build and run in a single step.
+
+### CI matrix
+
+The workflow runs a matrix of platform/compiler combinations:
+
+| Job | Runner | FD recipe | TK recipe |
+| --- | --- | --- | --- |
+| Linux x86_64 (GCC) | `ubuntu-24.04` | `test-unit-fd-linux-x86-gcc-all` | `test-unit-tk-linux-x86` |
+| Linux x86_64 (Clang) | `ubuntu-24.04` | `test-unit-fd-linux-x86-clang-all` | `test-unit-tk-linux-x86` |
+| Linux ARM | `ubuntu-24.04-arm` | `test-unit-fd-linux-arm-gcc-all` | `test-unit-tk-linux-arm` |
+| macOS 15 (x86_64) | `macos-15-intel` | `test-unit-fd-macos-x86-all` | `test-unit-tk-macos-x86` |
+| macOS 15 (ARM) | `macos-15` | `test-unit-fd-macos-arm-all` | `test-unit-tk-macos-arm` |
+| macOS 26 (x86_64) | `macos-26-intel` | `test-unit-fd-macos-x86-all` | `test-unit-tk-macos-x86` |
+| macOS 26 (ARM) | `macos-26` | `test-unit-fd-macos-arm-all` | `test-unit-tk-macos-arm` |
+| Windows x86_64 | `windows-2025-vs2026` | `test-unit-fd-windows-x86-all` | `test-unit-tk-windows-x86` |
+| Windows ARM | `windows-11-vs2026-arm` | `test-unit-fd-windows-arm-all` | `test-unit-tk-windows-arm` |
+
+### Workflow steps
+
+1. Checkout source and install `just` and Zig.
+2. Download build artifacts from the Build stage.
+3. Install pytest via `just test-setup-install-{platform}`.
+4. Run Python unit tests via `just test-setup-run-{platform}`.
+5. Configure hugepages and memory limits (Linux only).
+6. Run Firedancer unit tests via `just ${{ matrix.fd-test-recipe }}` (builds test executables, then runs them).
+7. Run Tickoni unit tests via `just ${{ matrix.test-recipe }}`.
+
+| Job | Command | Output artifact |
+| --- | --- | --- |
+| Harness Unit Tests | `just test-unit-tk-linux-x86` | — |
+| Engine Unit Tests | `just test-unit-fd-linux-x86-gcc-all` (per matrix entry) | — |
 
 ---
 
@@ -399,3 +449,10 @@ The following upstream Firedancer workflows were removed from Tickoni intentiona
 | `codeql.yml` | Requires CodeQL runner group |
 | `cbmc.yml` | Requires self-hosted X64 + CBMC toolchain |
 | `test_firedancer_localnet.yml`, `test_firedancer_testnet.yml` | FD validator infra (512G runners, AGAVE, GCS) |
+
+The following retained workflow files were added as Tickoni-specific additions:
+
+| Retained file | Purpose |
+|-------------|--------|
+| `badge-update.yml` | Update CI badges on main merge |
+| `tests-coverage.yml` | Full coverage lifecycle (dev-setup + coverage) |

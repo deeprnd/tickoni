@@ -3,10 +3,10 @@
 /// Replaces ~960 lines of repetitive individual test registrations with a
 /// spec array + TestBuilder. Handles special cases (tier.zig C source,
 /// codec-linked tests, schema tests) via per-spec linkage/imports flags.
-
 const std = @import("std");
 const factory = @import("../factory.zig");
 const lane = @import("../lane.zig");
+const firedancer = @import("../lib/firedancer.zig");
 const shared_mod = @import("../mod/modules.zig");
 const test_mod = @import("../mod/test_modules.zig");
 
@@ -54,6 +54,79 @@ pub fn strategy(
         .name = "test-process",
         .source_file = "src/tickoni/util/process.zig",
     }, test_step, run_cmd);
+
+    tb.registerRunTest(.{
+        .name = "test-supervisor-lifecycle",
+        .source_file = "src/app/tickoni/supervisor.zig",
+        .imports = &.{
+            .{ .name = "runtime", .module = shared.runtime },
+            .{ .name = "tiles", .module = shared.tiles },
+            .{ .name = "c_abi", .module = shared.c_abi },
+            .{ .name = "util", .module = shared.util },
+            .{ .name = "topologies", .module = shared.topologies },
+            .{ .name = "logger", .module = shared.logger },
+        },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
+    }, test_step, run_cmd);
+
+    // test-process-api — needs c_abi module, util module, and os.c shim (libc).
+    {
+        const pa_mod = b.createModule(.{
+            .root_source_file = b.path("src/tickoni/util/test_process_api.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "c_abi", .module = shared.c_abi },
+                .{ .name = "util", .module = shared.util },
+            },
+        });
+        pa_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/c_abi/shim/os.c"} });
+        pa_mod.addCMacro("TK_PROCESS_TEST", "1");
+        // os.c needs platform defines to select the right block.
+        switch (target.result.os.tag) {
+            .linux    => pa_mod.addCMacro("FD_HAS_LINUX",    "1"),
+            .macos    => pa_mod.addCMacro("FD_HAS_MACOS",    "1"),
+            .windows  => pa_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
+            else      => {},
+        }
+        if (target.result.os.tag == .windows) {
+            pa_mod.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
+        }
+        pa_mod.link_libc = true;
+        const pa_test = b.addTest(.{ .name = "test-process-api", .root_module = pa_mod });
+        test_step.dependOn(&pa_test.step);
+        run_cmd.addArtifactArg(pa_test);
+    }
+
+    // test-os-shim — tests for os.c cross-platform shim functions.
+    // Links os.c with TK_PROCESS_TEST for test harness coverage.
+    {
+        const os_mod = b.createModule(.{
+            .root_source_file = b.path("src/tickoni/c_abi/os.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{},
+        });
+        os_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/c_abi/shim/os.c"} });
+        os_mod.addCMacro("TK_PROCESS_TEST", "1");
+        switch (target.result.os.tag) {
+            .linux    => os_mod.addCMacro("FD_HAS_LINUX",    "1"),
+            .macos    => os_mod.addCMacro("FD_HAS_MACOS",    "1"),
+            .windows  => os_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
+            else      => {},
+        }
+        if (target.result.os.tag == .windows) {
+            os_mod.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
+        }
+        os_mod.link_libc = true;
+        const os_test = b.addTest(.{ .name = "test-os-shim", .root_module = os_mod });
+        test_step.dependOn(&os_test.step);
+        run_cmd.addArtifactArg(os_test);
+
+        // Top-level step so `zig build test-os-shim` works standalone.
+        const os_shim_step = b.step("test-os-shim", "Run os.c cross-platform shim unit tests");
+        os_shim_step.dependOn(&os_test.step);
+    }
 
     tb.registerRunTest(.{
         .name = "test-sandbox-defaults",
@@ -106,6 +179,20 @@ pub fn strategy(
             .source_file = t.path,
             .linkage = .{ .needs_firedancer = true },
         }, test_step, run_cmd);
+
+        // Top-level step so `zig build <name>` works standalone.
+        if (std.mem.eql(u8, t.name, "test-wksp")) {
+            const wksp_mod = b.createModule(.{
+                .root_source_file = b.path(t.path),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{.{ .name = "c_abi", .module = shared.c_abi }},
+            });
+            const wksp_test = b.addTest(.{ .name = t.name, .root_module = wksp_mod });
+            firedancer.linkTickoniFiredancer(b, wksp_test, fd_lib_dir);
+            const wksp_step = b.step("test-wksp", "Run workspace C shim unit tests");
+            wksp_step.dependOn(&wksp_test.step);
+        }
     }
 
     // ballet.zig — needs codec linkage (siphash/pb/json in shim/ballet.c).
@@ -367,9 +454,20 @@ pub fn strategy(
             .imports = &.{.{ .name = "util", .module = shared.util }},
         });
         logger_mod.addCSourceFiles(.{
-            .files = &.{"src/tickoni/c_abi/shim/os.c"},
-            .flags = &.{"-std=c17"},
+            .files = &.{ "src/tickoni/c_abi/shim/os.c" },
+            .flags = &.{ "-std=c17" },
         });
+        // os.c uses FD_HAS_LINUX / FD_HAS_MACOS / FD_HAS_WINDOWS to select
+        // the platform block; define it here so the C shim compiles.
+        switch (target.result.os.tag) {
+            .linux    => logger_mod.addCMacro("FD_HAS_LINUX",    "1"),
+            .macos    => logger_mod.addCMacro("FD_HAS_MACOS",    "1"),
+            .windows  => logger_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
+            else      => {}, // os.c has no other platform blocks; ignore unsupported.
+        }
+        if (target.result.os.tag == .windows) {
+            logger_mod.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
+        }
         logger_mod.linkSystemLibrary("c", .{});
         const logger_test = b.addTest(.{ .name = "test-logger", .root_module = logger_mod });
         test_step.dependOn(&logger_test.step);

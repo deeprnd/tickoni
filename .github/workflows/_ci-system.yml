@@ -24,7 +24,7 @@ jobs:
             platform: linux-x86
             test-recipe: test-system-tk-linux-x86
             compiler: gcc-12
-            llamacpp: infra-ensure-llamacpp
+            llamacpp: infra-ensure-llamacpp-linux-x86
           # Linux x86_64 (clang)
           - platform-name: Linux x86_64 (clang)
             runner: ubuntu-24.04
@@ -33,7 +33,7 @@ jobs:
             platform: linux-x86
             test-recipe: test-system-tk-linux-x86
             compiler: clang-18
-            llamacpp: infra-ensure-llamacpp
+            llamacpp: infra-ensure-llamacpp-linux-x86
           # Linux ARM64
           - platform-name: Linux ARM
             runner: ubuntu-24.04-arm
@@ -42,16 +42,16 @@ jobs:
             platform: linux-arm
             test-recipe: test-system-tk-linux-arm
             compiler: gcc-14
-            llamacpp: infra-ensure-llamacpp
+            llamacpp: infra-ensure-llamacpp-linux-arm
           # macOS 15 (x86_64)
           - platform-name: macOS 15 (x86_64)
             runner: macos-15-intel
             timeout_minutes: 60
-            artifact-name: build-macos-15-x86_64
+            artifact-name: build-macos-15-x86
             platform: macos-x86
             test-recipe: test-system-tk-macos-x86
             compiler: clang
-            llamacpp: infra-ensure-llamacpp
+            llamacpp: infra-ensure-llamacpp-macos-x86
           # macOS 15 (ARM)
           - platform-name: macOS 15 (ARM)
             runner: macos-15
@@ -60,16 +60,16 @@ jobs:
             platform: macos-arm
             test-recipe: test-system-tk-macos-arm
             compiler: clang
-            llamacpp: infra-ensure-llamacpp
+            llamacpp: infra-ensure-llamacpp-macos-arm
           # macOS 26 (x86_64)
           - platform-name: macOS 26 (x86_64)
             runner: macos-26-intel
             timeout_minutes: 60
-            artifact-name: build-macos-26-x86_64
+            artifact-name: build-macos-26-x86
             platform: macos-x86
             test-recipe: test-system-tk-macos-x86
             compiler: clang
-            llamacpp: infra-ensure-llamacpp
+            llamacpp: infra-ensure-llamacpp-macos-x86
           # macOS 26 (ARM)
           - platform-name: macOS 26 (ARM)
             runner: macos-26
@@ -78,16 +78,16 @@ jobs:
             platform: macos-arm
             test-recipe: test-system-tk-macos-arm
             compiler: clang
-            llamacpp: infra-ensure-llamacpp
+            llamacpp: infra-ensure-llamacpp-macos-arm
           # Windows x86_64
           - platform-name: Windows x86_64
             runner: windows-2025-vs2026
             timeout_minutes: 60
-            artifact-name: build-windows-x86_64
+            artifact-name: build-windows-x86
             platform: windows-x86
             test-recipe: test-system-tk-windows-x86
             compiler: msvc
-            llamacpp: infra-ensure-llamacpp-win
+            llamacpp: infra-ensure-llamacpp-win-x86
           # Windows ARM64
           - platform-name: Windows ARM
             runner: windows-11-vs2026-arm
@@ -116,6 +116,14 @@ jobs:
 
       - name: Ensure llama.cpp is available
         run: just ${{ matrix.llamacpp }}
+
+      - name: Configure hugepages and memory limits (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo prlimit --pid $$ --nofile=65536 --memlock=unlimited
+          sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' || true
+          sudo src/util/shmem/fd_shmem_cfg init 0700 "$USER" ""
+          just system-mem-alloc-auto || true
 
       - name: Run system tests
         run: just ${{ matrix.test-recipe }}

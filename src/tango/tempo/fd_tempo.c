@@ -306,8 +306,8 @@ ulong
 fd_tempo_async_min( long  lazy,
                     ulong event_cnt,
                     float tick_per_ns ) {
-  if( FD_UNLIKELY( !((1L<=lazy) & (lazy<(1L<<31))) ) ) {
-    FD_LOG_WARNING(( "lazy should be in [1,2^31)" ));
+  if( FD_UNLIKELY( !((1L<=lazy) & (lazy<=(long)((1UL<<31)-1UL))) ) ) {
+    FD_LOG_WARNING(( "lazy should be in [1, 2^31) (max 2^31-1)" ));
     return 0UL;
   }
 
@@ -316,7 +316,7 @@ fd_tempo_async_min( long  lazy,
     return 0UL;
   }
 
-  float tick_per_ns_max = FLT_MAX / (float)(1L<<31); /* exact, compile time, ~1.5e29 */
+  float tick_per_ns_max = FLT_MAX / (float)(1UL<<31); /* exact, compile time, ~1.5e29 */
   if( FD_UNLIKELY( !((0.f<tick_per_ns) & (tick_per_ns<=tick_per_ns_max)) ) ) { /* robust against nan */
     FD_LOG_WARNING(( "tick_per_ns should in (0,~1.5e29)" ));
     return 0UL;

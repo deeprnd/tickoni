@@ -13,7 +13,7 @@
    topo_run.c/topob.c's own standalone adapter unit tests, which is why
    this stays out of topo_run.c itself.
 
-   For the metric tile (tkmetr), we dispatch to TK_METRIC_RUN instead
+   For the metric tile, we dispatch to TK_METRIC_RUN instead
    of TK_TILE_RUN. TK_METRIC_RUN is defined in tk_metric_tile.c and
    uses Firedancer's fd_stem-based run loop with fd_http_server.
 */
@@ -46,8 +46,8 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
 /* TK_METRIC_RUN from tk_metric_tile.c. The metric tile uses
    Firedancer's fd_stem-based run loop with fd_http_server for /metrics.
    Shared header prevents two independent extern declarations.
-   Linux-only: tk_metric_tile.c depends on symbols from fd_metric_tile.c. */
-#if FD_HAS_LINUX
+   Linux or macOS: tk_metric_tile.c depends on symbols from fd_metric_tile.c. */
+#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
 #include "../topo_run/tk_metric_tile.h"
 #endif
 
@@ -56,8 +56,14 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
    tile_name_sz). */
 static int
 tile_is_metric( fd_topo_tile_t * tile ) {
-  if( !tile ) return 0;
-  return strcmp( tile->name, "metric" ) == 0;
+  FD_LOG_NOTICE(( "tile_run: tile_is_metric ENTER tile=%p", (void*)tile ));
+  if( !tile ) {
+    FD_LOG_NOTICE(( "tile_run: tile_is_metric EXIT tile=NULL returning 0" ));
+    return 0;
+  }
+  int result = strcmp( tile->name, "metric" ) == 0;
+  FD_LOG_NOTICE(( "tile_run: tile_is_metric EXIT tile->name=%s returning %d", tile->name, result ));
+  return result;
 }
 
 static int const TK_PROCESS_MODE_SANDBOX_NONE = 0;
@@ -98,7 +104,7 @@ static fd_topo_run_tile_t TK_TILE_RUN = {
    tk_topo_run_tile(), which mirrors the same launch order where upstream's
    Linux-only implementation is unavailable.
 
-   For the metric tile (tkmetr), dispatches to TK_METRIC_RUN instead of
+   For the metric tile, dispatches to TK_METRIC_RUN instead of
    TK_TILE_RUN. TK_METRIC_RUN uses Firedancer's fd_stem-based run loop
    with fd_http_server for /metrics, so it cannot use TK_TILE_RUN's
    Zig callbacks. */
@@ -113,15 +119,18 @@ tk_topo_run_tile_simple_uses_upstream( void ) {
 
 void
 tk_topo_run_tile_simple( void * topo, void * tile ) {
+  FD_LOG_NOTICE(( "tile_run: tk_topo_run_tile_simple ENTER topo=%p tile=%p", topo, tile ));
   fd_topo_tile_t * tile_c = (fd_topo_tile_t *)tile;
   fd_topo_run_tile_t * run_tile;
 
   /* Dispatch to TK_METRIC_RUN for metric tile — it uses fd_stem +
      fd_http_server instead of Zig callbacks. */
-#if FD_HAS_LINUX
+#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
   if( tile_is_metric( tile_c ) ) {
+    FD_LOG_NOTICE(( "tile_run: dispatching TK_METRIC_RUN for metric tile" ));
     run_tile = &TK_METRIC_RUN;
   } else {
+    FD_LOG_NOTICE(( "tile_run: dispatching TK_TILE_RUN for non-metric tile" ));
     run_tile = &TK_TILE_RUN;
   }
 #else
@@ -129,12 +138,14 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
   run_tile = &TK_TILE_RUN;
 #endif
 
+  FD_LOG_NOTICE(( "tile_run: calling fd_topo_run_tile, run_tile=%p run_tile->name=%s", (void*)run_tile, run_tile ? run_tile->name : "NULL" ));
 #if FD_HAS_LINUX
   fd_topo_run_tile( (fd_topo_t *)topo, (fd_topo_tile_t *)tile,
                     TK_PROCESS_MODE_SANDBOX_NONE, TK_KEEP_CONTROLLING_TERMINAL,
                     FD_TOPO_CORE_DUMP_LEVEL_REGULAR,
                     (uint)getuid(), (uint)getgid(), /* allow_fd */ -1,
                     run_tile );
+  FD_LOG_NOTICE(( "tile_run: fd_topo_run_tile returned (should not return for metric tile)" ));
 #elif FD_HAS_MACOS
   tk_topo_run_tile( topo, tile,
                     TK_PROCESS_MODE_SANDBOX_NONE, TK_KEEP_CONTROLLING_TERMINAL,
@@ -148,4 +159,5 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
                     0U, 0U, /* allow_fd */ -1,
                     run_tile );
 #endif
+  FD_LOG_NOTICE(( "tile_run: tk_topo_run_tile_simple EXIT" ));
 }

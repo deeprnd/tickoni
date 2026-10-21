@@ -357,7 +357,7 @@ def _write_manifests(config: dict, builddir: str, lib_dir: str, obj_dir: str) ->
         f"{obj_base}/tango/cnc/fd_cnc.o",
         f"{obj_base}/util/wksp/fd_wksp_helper.o",
         f"{obj_base}/util/wksp/fd_wksp_user.o",
-        f"{obj_base}/util/shmem/fd_shmem_windows_stub.o",
+        f"{obj_base}/util/shmem/fd_shmem_windows.o",
         f"{obj_base}/disco/topo/fd_topob.o",
         f"{obj_base}/disco/topo/fd_topo.o",
         log_obj,

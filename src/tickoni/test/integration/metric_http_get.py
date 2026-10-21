@@ -24,6 +24,12 @@ def main():
 
     url = f"http://{host}:{port}{path}"
 
+    import os
+    stderr_log = os.environ.get("METRIC_HTTP_DEBUG", "1")
+    if stderr_log != "0":
+        sys.stderr.write(f"[metric-http] DEBUG: host={host!r} port={port} path={path!r} timeout_s={timeout_s} url={url}\n")
+        sys.stderr.flush()
+
     try:
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=timeout_s) as resp:

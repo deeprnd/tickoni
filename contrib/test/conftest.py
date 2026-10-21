@@ -1,24 +1,19 @@
-"""Monkey-patch pytest bestrelpath to avoid a crash on Windows CI.
+"""Shared utilities and pytest hooks for the Tickoni test suite.
 
-In pytest 8.3.x the terminal reporter calls ``bestrelpath(invocation_params.dir,
-fullpath)`` to build the location line.  When both resolve to the same
-absolute path (which happens when ``pytest contrib/test/`` is invoked from the
-repo root on Windows), ``Path.relative_to`` raises::
-
-    ValueError: 'D:\\\\a\\\\tickoni\\\\tickoni' is not in the subpath of ...
-
-This patch intercepts that ``ValueError`` and returns the directory itself,
-which is the correct identity fallback.
-
-Why patch in multiple modules?  ``pytest.config.__init__`` does
-``from _pytest.pathlib import bestrelpath``, so patching only the module
-attribute doesn't update that local binding — we must patch every module
-that imported it.
+Platform detection: all tests should import ``detect_platform`` from this
+module rather than calling ``platform.sh`` directly — it centralises the
+subprocess call and makes mocking trivial.
 """
+from __future__ import annotations
 
+import os
+import platform as _platform_module
+import subprocess
 import sys
 from pathlib import Path
 
+
+# ── Monkey-patch pytest bestrelpath (Windows CI) ──────────────────────
 
 def _patched_bestrelpath(directory: Path, base: Path) -> str:
     try:
@@ -27,13 +22,48 @@ def _patched_bestrelpath(directory: Path, base: Path) -> str:
         return str(directory)
 
 
-# Patch the source module.
 _pytest_pathlib = sys.modules.get("_pytest.pathlib")
 if _pytest_pathlib is not None:
     _pytest_pathlib.bestrelpath = _patched_bestrelpath
 
-# Patch modules that did ``from _pytest.pathlib import bestrelpath``.
 for _mod_name in ("_pytest.config", "_pytest.terminal"):
     _mod = sys.modules.get(_mod_name)
     if _mod is not None:
         _mod.bestrelpath = _patched_bestrelpath
+
+
+# ── Platform detection ────────────────────────────────────────────────
+
+def _detect_platform_windows() -> str:
+    """Detect Windows platform using Python's platform module."""
+    system = "windows"
+    machine = _platform_module.machine().lower()
+    if "arm" in machine or "aarch64" in machine:
+        arch = "arm"
+    elif "x86_64" in machine or "amd64" in machine or "x64" in machine:
+        arch = "x86"
+    else:
+        arch = "x86"  # fallback
+    return f"{system}-{arch}"
+
+
+def _detect_platform_posix() -> str:
+    """Detect Linux/macOS platform by calling platform.sh."""
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    result = subprocess.run(
+        ["bash", str(repo_root / "contrib" / "platform.sh"), "platform"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
+def detect_platform() -> str:
+    """Detect current platform.
+
+    Returns a string like 'linux-x86', 'macos-arm', 'windows-x86', etc.
+    """
+    if sys.platform == "win32":
+        return _detect_platform_windows()
+    return _detect_platform_posix()

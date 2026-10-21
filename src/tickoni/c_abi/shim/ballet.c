@@ -164,3 +164,57 @@ tk_json_print_preallocated( tk_json_t * item,
                             int         format ) {
   return cJSON_PrintPreallocated( (cJSON *)item, out, out_sz, format );
 }
+
+/* ---------------------------------------------------------------------
+   Automated topology validation — catches name mismatches at build
+   time instead of hours later when join/crash happens.
+
+   These are std.debug/assert-safe in Zig: all callers wrap with
+   std.debug.assert(...) so they have zero cost in release builds.
+
+   Included via firedancer.h so they're available to all test targets
+   (ballet.c is compiled by every test, unlike topob.c which needs
+   Tango/Waltz archives). */
+
+#include "../../../disco/topo/fd_topo.h"
+
+/* Verify a tile was registered and can be found by name.
+   Returns 1 if found, 0 if not. Catches tile name typos. */
+int
+tk_topo_validate_tile_exists( fd_topo_t const * topo, char const * tile_name ) {
+  return fd_topo_find_tile( (fd_topo_t const *)topo, tile_name, 0 ) != ULONG_MAX;
+}
+
+/* Verify a link was registered and can be found by name.
+   Returns 1 if found, 0 if not. Catches link name typos. */
+int
+tk_topo_validate_link_exists( fd_topo_t const * topo, char const * link_name ) {
+  return fd_topo_find_link( (fd_topo_t const *)topo, link_name, 0 ) != ULONG_MAX;
+}
+
+/* Verify an object of type obj_type exists in workspace wksp_name.
+   Returns the object id if found, ULONG_MAX if not.
+   Catches workspace name mismatches (the most common 3-hour bug). */
+ulong
+tk_topo_validate_obj_in_wksp( fd_topo_t const * topo, char const * obj_type, char const * wksp_name ) {
+  fd_topo_t const * t = (fd_topo_t const *)topo;
+  ulong wksp_id = ULONG_MAX;
+  /* Find workspace id by name. */
+  for( ulong w=0UL; w<t->wksp_cnt; w++ )
+    if( strcmp( t->workspaces[ w ].name, wksp_name )==0 ) { wksp_id = t->workspaces[ w ].id; break; }
+  if( wksp_id==ULONG_MAX ) return ULONG_MAX;
+  /* Find first object of matching type in that workspace. */
+  for( ulong o=0UL; o<t->obj_cnt; o++ )
+    if( t->objs[ o ].wksp_id==wksp_id && strcmp( t->objs[ o ].name, obj_type)==0 )
+      return t->objs[ o ].id;
+  return ULONG_MAX;
+}
+
+/* Verify workspace was joined — wksp pointer is non-NULL.
+   Runs after topoJoinWorkspaces. Catches join failures. */
+int
+tk_topo_validate_workspace_joined( fd_topo_t const * topo, ulong wksp_idx ) {
+  fd_topo_t const * t = (fd_topo_t const *)topo;
+  if( wksp_idx >= t->wksp_cnt ) return 0;
+  return t->workspaces[ wksp_idx ].wksp != NULL;
+}

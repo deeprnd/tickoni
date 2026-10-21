@@ -22,7 +22,7 @@ Quick start
 Before building, install platform-specific tooling:
 
 ```bash
-just setup-env
+just setup-all
 ```
 
 This installs Zig, the system compiler, make, gitleaks, shellcheck, pre-commit, buf, Firedancer deps, and everything else a lane needs. See [contrib/setup/](../../contrib/setup/README.md) for lane details.
@@ -30,7 +30,7 @@ This installs Zig, the system compiler, make, gitleaks, shellcheck, pre-commit, 
 Setup
 ~~~~~
 
-Platform-specific tooling is installed by `just setup-env`, which
+Platform-specific tooling is installed by `just setup-all`, which
 auto-detects your platform and runs the appropriate script. Each lane has its
 own script so developer and CI installs are provably identical:
 

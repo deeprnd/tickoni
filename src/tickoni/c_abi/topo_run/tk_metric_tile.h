@@ -1,5 +1,5 @@
 /* Shared extern declaration for TK_METRIC_RUN — the Firedancer-based
-   metric-tile fd_topo_run_tile_t used by tkmetr.
+   metric-tile fd_topo_run_tile_t used by the metric tile.
 
    Both tile_run.c (process-mode dispatcher) and topob.c (topology
    builder) need to reference this symbol.  Consolidating into a
@@ -8,6 +8,19 @@
 */
 #ifndef __TK_METRIC_TILE_H__
 #define __TK_METRIC_TILE_H__
+
+/* TK_HAS_METRIC_TILE — enabled on platforms where the metric tile
+   can compile and link.  Linux and macOS use the POSIX poll-based
+   transport (already wired).  Windows transport (tk_http_socket_windows.c)
+   is not yet wired into the build, so Windows remains 0 until Gate 8.
+   See doc/execution/plans/metric-tile-windows-gaps.md. */
+#if FD_HAS_HOSTED && FD_HAS_LINUX
+#define TK_HAS_METRIC_TILE 1
+#elif FD_HAS_HOSTED && FD_HAS_MACOS
+#define TK_HAS_METRIC_TILE 1
+#else
+#define TK_HAS_METRIC_TILE 0
+#endif
 
 #include "../../../disco/topo/fd_topo.h"
 

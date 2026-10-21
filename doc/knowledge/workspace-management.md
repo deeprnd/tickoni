@@ -395,6 +395,48 @@ unless the tile has a custom scratch footprint (currently only metric). The "cnc
 callback is Tickoni-owned — Firedancer has no built-in cnc concept; it's added
 as a real offset-accounted object via the topology builder.
 
+## Tile Boot Timing: Pipeline Tiles vs. Metric Tile
+
+Pipeline tiles (tkings, tknorm, tkdedu, tkpoly, tkaudt, tkrepl) and the metric
+tile have **different boot timing** because of how their CNC app-region becomes
+valid:
+
+- **Pipeline tiles** — their CNC memory region is mapped during workspace join,
+  and their `unprivileged_init()` runs immediately after. The supervisor's
+  `snapshotProcessMetrics()` can read counter values (produced, normalized,
+  audited, etc.) from their CNC as soon as the pipeline starts processing events.
+- **Metric tile** — its CNC app-region only becomes populated after the tile
+  joins its workspace, enters `stem_run → before_credit → listen()`, and then
+  runs `unprivileged_init()`, which writes `boot_ts` to CNC index 2 and begins
+  polling snapshots. The metric tile's HTTP server must also bind and begin
+  listening before its bootstrap timestamp is meaningful. This bootstrap path has
+  extra wall-clock overhead compared to pipeline tiles.
+
+**Practical consequence:** When a test or diagnostic reads the metric tile's CNC
+values directly (boot timestamp, snapshot count, backpressure waits), it must wait
+for the metric tile to reach a valid boot state (`boot_ts >= 1e18` and
+`metric_snapshots > 0`) before asserting. Pipeline tile CNC counters are valid
+as soon as the pipeline starts processing; metric tile CNC counters need the
+bootstrap window. The readiness poll loop in
+`test_metric_tile_integration.zig` (`boot_timestamp via CNC` test) demonstrates
+the pattern:
+
+```zig
+const max_ready_poll: u32 = 400;
+var ready_poll: u32 = 0;
+while (ready_poll < max_ready_poll) : (ready_poll += 1) {
+    const snap2 = sup.snapshotProcessMetrics();
+    if (snap2.metric_boot_timestamp >= 1_000_000_000_000_000_000 and
+        snap2.metric_snapshots > 0) break;
+    util.process.sleepNanos(5 * std.time.ns_per_ms);
+}
+```
+
+Other integration tests call `snapshotProcessMetrics()` but only check `audited`
+(from pipeline tiles), so the metric tile's uninitialized CNC state (all zeroes)
+is silently harmless. Tests that assert on metric tile counters must use the
+ready poll.
+
 ## Metric Tile Workspace Details
 
 The metric tile (`metric`) is the only tile that explicitly needs two workspaces

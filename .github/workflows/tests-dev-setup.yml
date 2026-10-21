@@ -35,7 +35,7 @@ jobs:
       - uses: taiki-e/install-action@just
 
       - name: Dev setup
-        run: just setup-linux-x86-gcc
+        run: just setup-all
 
       - name: Configure hugepages and memory limits
         run: |
@@ -60,7 +60,7 @@ jobs:
       - uses: taiki-e/install-action@just
 
       - name: Dev setup
-        run: just setup-linux-arm-gcc
+        run: just setup-build-linux-arm-gcc
 
       - name: Configure hugepages and memory limits
         run: |
@@ -85,7 +85,7 @@ jobs:
       - uses: taiki-e/install-action@just
 
       - name: Dev setup
-        run: just setup-macos-x86
+        run: just setup-build-macos-x86
 
       - name: Run validation test suite
         run: just build-all test-unit-tk test-unit-fd test-integration-all \
@@ -103,7 +103,7 @@ jobs:
       - uses: taiki-e/install-action@just
 
       - name: Dev setup
-        run: just setup-macos-arm
+        run: just setup-build-macos-arm
 
       - name: Run validation test suite
         run: just build-all test-unit-tk test-unit-fd test-integration-all \
@@ -121,7 +121,7 @@ jobs:
       - uses: taiki-e/install-action@just
 
       - name: Dev setup
-        run: just setup-macos-x86
+        run: just setup-build-macos-x86
 
       - name: Run validation test suite
         run: just build-all test-unit-tk test-unit-fd test-integration-all \
@@ -139,7 +139,7 @@ jobs:
       - uses: taiki-e/install-action@just
 
       - name: Dev setup
-        run: just setup-macos-arm
+        run: just setup-build-macos-arm
 
       - name: Run validation test suite
         run: just build-all test-unit-tk test-unit-fd test-integration-all \
@@ -157,7 +157,7 @@ jobs:
       - uses: taiki-e/install-action@just
 
       - name: Dev setup
-        run: just setup-windows-x86
+        run: just setup-build-windows-x86
 
       - name: Run validation test suite
         run: just build-all test-unit-tk test-unit-fd test-integration-all \
@@ -175,7 +175,7 @@ jobs:
       - uses: taiki-e/install-action@just
 
       - name: Dev setup
-        run: just setup-windows-arm
+        run: just setup-build-windows-arm
 
       - name: Run validation test suite
         run: just build-all test-unit-tk test-unit-fd test-integration-all \

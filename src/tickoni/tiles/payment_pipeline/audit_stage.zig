@@ -13,8 +13,8 @@ const PaymentPipelineState = runtime.PaymentPipelineState;
 
 pub fn runAudit(state: *PaymentPipelineState) void {
     const log = logger.get();
-    log.enter("tkaudt", "runAudit") catch {};
-    defer log.exit("tkaudt", "runAudit") catch {};
+    log.enter("tkaudt", "runAudit");
+    defer log.exit("tkaudt", "runAudit");
 
     var offset: u64 = 0;
     while (state.q_poly_audit.pop(&state.stop)) |msg| {
@@ -28,14 +28,14 @@ pub fn runAudit(state: *PaymentPipelineState) void {
         }) catch {
             state.crashed_tile.store(4, .release);
             state.requestStop();
-            log.err("tkaudt", "runAudit", "audit log append failed") catch {};
+            log.err("tkaudt", "runAudit", "audit log append failed");
             break;
         };
         _ = state.audited.fetchAdd(1, .release);
         log.kvFmt("tkaudt", "runAudit", "offset={d} event_hash={x} decided_by={d}", .{ msg.raw.source_offset, msg.event_hash, msg.decided_by[0] });
     }
     state.audit_done.store(true, .release);
-    log.debug("tkaudt", "runAudit", "done") catch {};
+    log.debug("tkaudt", "runAudit", "done");
 }
 
 test "sandbox failure records crash diagnostics and stops audit" {

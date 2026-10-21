@@ -7,6 +7,7 @@ const std = @import("std");
 const shims = @import("lib/shims.zig");
 const codec = @import("lib/codec.zig");
 const firedancer = @import("lib/firedancer.zig");
+const topo_run = @import("lib/topo_run.zig");
 
 /// Create the run-tests command that executes all test binaries
 /// sequentially via a bash script (avoids Zig's --listen=- parallel
@@ -97,6 +98,7 @@ pub const TestBuilder = struct {
 
         if (spec.linkage.needs_codec) codec.linkTickoniCodec(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_firedancer) firedancer.linkTickoniFiredancer(self.b, t, self.fd_lib_dir);
+        if (spec.linkage.needs_topo_run) topo_run.linkTickoniTopoRun(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_libc) t.root_module.link_libc = true;
 
         cov_step.dependOn(&self.b.addInstallArtifact(t, .{
@@ -121,6 +123,7 @@ pub const TestBuilder = struct {
 
         if (spec.linkage.needs_codec) codec.linkTickoniCodec(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_firedancer) firedancer.linkTickoniFiredancer(self.b, t, self.fd_lib_dir);
+        if (spec.linkage.needs_topo_run) topo_run.linkTickoniTopoRun(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_libc) t.root_module.link_libc = true;
 
         test_step.dependOn(&t.step);

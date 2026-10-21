@@ -28,7 +28,7 @@ jobs:
             artifact-name: build-linux-x86
             platform: linux-x86
             compiler: gcc-12
-            conformance-dir: linux
+            conformance-dir: linux-x86
             setup-recipe: setup-build-linux-x86-gcc
             setup-fd: setup-fd-linux-x86-gcc
             build-recipe: build-fd-tk-libs
@@ -46,14 +46,14 @@ jobs:
             build-recipe: build-fd-tk-libs
             build-tk-recipe: build-tk-linux-x86
             build-qt-recipe: build-qt-linux-x86
-          # Linux ARM64 — no conformance export
+          # Linux ARM64
           - platform-name: Linux ARM64
             runner: ubuntu-24.04-arm
             timeout_minutes: 30
             artifact-name: build-linux-arm
             platform: linux-arm
             compiler: gcc-14
-            conformance-dir: linux
+            conformance-dir: linux-arm
             setup-recipe: setup-build-linux-arm-gcc
             setup-fd: setup-fd-linux-arm-gcc
             build-recipe: build-fd-tk-libs
@@ -63,10 +63,10 @@ jobs:
           - platform-name: macOS 15 (x86_64)
             runner: macos-15-intel
             timeout_minutes: 30
-            artifact-name: build-macos-15-x86_64
+            artifact-name: build-macos-15-x86
             platform: macos-x86
             compiler: clang
-            conformance-dir: macos-15-x86_64
+            conformance-dir: macos-15-x86
             setup-recipe: setup-build-macos-x86
             setup-fd: setup-fd-macos-x86
             build-recipe: build-fd-macos-x86
@@ -88,10 +88,10 @@ jobs:
           - platform-name: macOS 26 (x86_64)
             runner: macos-26-intel
             timeout_minutes: 30
-            artifact-name: build-macos-26-x86_64
+            artifact-name: build-macos-26-x86
             platform: macos-x86
             compiler: clang
-            conformance-dir: macos-26-x86_64
+            conformance-dir: macos-26-x86
             setup-recipe: setup-build-macos-x86
             setup-fd: setup-fd-macos-x86
             build-recipe: build-fd-macos-x86
@@ -109,14 +109,14 @@ jobs:
             build-recipe: build-fd-macos-arm
             build-tk-recipe: build-tk-macos-arm
             build-qt-recipe: build-qt-macos-arm
-          # Windows x86_64 — conformance uses x86 alias (matches justfile)
+          # Windows x86_64
           - platform-name: Windows x86_64
             runner: windows-2025-vs2026
             timeout_minutes: 45
-            artifact-name: build-windows-x86_64
+            artifact-name: build-windows-x86
             platform: windows-x86
             compiler: msvc
-            conformance-dir: windows-x86_64
+            conformance-dir: windows-x86
             setup-recipe: setup-build-windows-x86
             setup-fd: setup-fd-windows-x86
             build-recipe: build-fd-windows-x86
@@ -146,7 +146,7 @@ jobs:
         uses: taiki-e/install-action@just
 
       - name: Cache MSVC Build Tools
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         if: runner.os == 'Windows'
         with:
           path: |
@@ -156,7 +156,7 @@ jobs:
             msvc-${{ runner.os }}-${{ matrix.platform }}-
 
       - name: Cache Zig SDK
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.local/zig-*
@@ -167,7 +167,7 @@ jobs:
             zig-${{ runner.os }}-${{ matrix.platform }}-
 
       - name: Cache Firedancer deps (snappy, rockdb, OpenSSL)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             build/fd-deps
@@ -189,7 +189,15 @@ jobs:
       - name: Build Tickoni supervisor
         run: just ${{ matrix.build-tk-recipe }}
 
+      - name: Setup Qt
+        if: matrix.build-qt-recipe != ''
+        env:
+          QT_USERNAME: ${{ secrets.QT_USERNAME }}
+          QT_PASSWORD: ${{ secrets.QT_PASSWORD }}
+        run: just setup-qt-${{ matrix.platform }}
+
       - name: Build Qt terminal
+        if: matrix.build-qt-recipe != ''
         env:
           QT_USERNAME: ${{ secrets.QT_USERNAME }}
           QT_PASSWORD: ${{ secrets.QT_PASSWORD }}
@@ -202,6 +210,13 @@ jobs:
       - name: Export demo conformance bundle (Windows)
         if: matrix.conformance-dir != '' && runner.os == 'Windows'
         run: py -3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/${{ matrix.conformance-dir }}
+
+      - name: Upload conformance bundle
+        if: matrix.conformance-dir != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: conformance-${{ matrix.conformance-dir }}
+          path: build/demo-conformance/${{ matrix.conformance-dir }}/conformance.json
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7

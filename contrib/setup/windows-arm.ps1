@@ -1,0 +1,275 @@
+# windows-arm.ps1 — Setup Windows ARM64
+# Usage:
+#   .\windows-arm.ps1              # default: install all deps + LLM tooling
+#   .\windows-arm.ps1 -NoLLM       # skip LLM tooling (llama.cpp build)
+#   .\windows-arm.ps1 -Security -NoLLM  # install gitleaks, skip LLM
+# Package manager: winget ONLY. If winget is missing, auto-install it.
+# Note: Zig uses native aarch64-windows prebuilt binary
+# Note: OpenSSL uses native MSVC target (msvc-arm64), no MinGW-w64/MSYS2 needed.
+
+param([switch]$Security, [switch]$NoLLM)
+
+$ErrorActionPreference = 'Stop'
+
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = (Get-Item (Join-Path $scriptDir "..\..")).FullName
+
+. (Join-Path $scriptDir "helpers\common.ps1")
+
+log-info "Windows ARM64 setup starting..."
+
+function Install-WinGet {
+    # Primary: MSIX installer (works on Win11 ARM64 without PackageManagement)
+    $msixUrl = "https://aka.ms/getwinget"
+    $msixPath = Join-Path $env:TEMP "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+    log-info "Downloading winget MSIX installer..."
+    try {
+        Invoke-WebRequest -Uri $msixUrl -OutFile $msixPath -UseBasicParsing -ErrorAction Stop
+        Add-AppxPackage -Path $msixPath
+        Remove-Item $msixPath -ErrorAction SilentlyContinue
+        $wingetDir = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
+        if ($env:PATH -notlike "*$wingetDir*") {
+            $env:PATH = "$wingetDir;$env:PATH"
+        }
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            log-info "winget installed via MSIX"
+            return
+        }
+    } catch {
+        log-info "MSIX install failed, falling back..."
+    }
+
+    # Fallback: try the built-in Install-WinGetPackage cmdlet (Win10 1709+)
+    try {
+        if (Get-Command Install-WinGetPackage -ErrorAction SilentlyContinue) {
+            Install-WinGetPackage -Destination Latest -ErrorAction Stop
+            $wingetDir = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
+            if ($env:PATH -notlike "*$wingetDir*") {
+                $env:PATH = "$wingetDir;$env:PATH"
+            }
+            if (Get-Command winget -ErrorAction SilentlyContinue) {
+                log-info "winget installed via Install-WinGetPackage"
+                return
+            }
+        }
+    } catch {
+        log-info "Install-WinGetPackage failed, trying NuGet/PSGallery fallback..."
+    }
+
+    # Last resort: PSGallery + PackageManagement (may fail on minimal images)
+    try {
+        $ProgressPreference = 'SilentlyContinue'
+        if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+            Install-PackageProvider -Name NuGet -Force | Out-Null
+        }
+        Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery -ErrorAction Stop
+        Repair-WinGetPackageManager -AllUsers -ErrorAction SilentlyContinue
+        $wingetDir = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
+        if ($env:PATH -notlike "*$wingetDir*") {
+            $env:PATH = "$wingetDir;$env:PATH"
+        }
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            log-info "winget installed via PSGallery"
+            return
+        }
+    } catch {
+        log-info "PSGallery fallback failed, trying direct MSIX URL..."
+    }
+
+    # Absolute last resort: direct MSIX bundle download
+    try {
+        $ProgressPreference = 'SilentlyContinue'
+        $msixUrl2 = "https://github.com/microsoft/winget-cli/releases/download/v1.9.3202/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+        $msixPath2 = Join-Path $env:TEMP "winget.msixbundle"
+        Invoke-WebRequest -Uri $msixUrl2 -OutFile $msixPath2 -UseBasicParsing
+        Add-AppxPackage -Path $msixPath2
+        Remove-Item $msixPath2 -ErrorAction SilentlyContinue
+        $wingetDir = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
+        if ($env:PATH -notlike "*$wingetDir*") {
+            $env:PATH = "$wingetDir;$env:PATH"
+        }
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            log-info "winget installed via direct MSIX"
+            return
+        }
+    } catch {
+        log-info "All winget install methods failed"
+    }
+    log-error "Failed to install winget"
+    exit 1
+}
+
+# ── 0. Winget (only package manager — auto-install if missing) ────────────────
+if (Get-Command winget -ErrorAction SilentlyContinue) {
+    log-info "winget already installed"
+} else {
+    log-info "winget not found — installing..."
+    Install-WinGet
+}
+
+# Install winget package by name from tool-versions.json
+function Install-Package {
+    param([string]$Name)
+    $wingetId = read-package "winget" $Name
+    log-info "Installing ${Name} (${wingetId})..."
+    winget install --id $wingetId --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
+}
+
+# ── 1. Core packages ─────────────────────────────────────────────────────────
+log-info "Installing core packages..."
+Install-Package "cmake"
+Install-Package "ninja"
+Install-Package "zstd"
+Install-Package "python"
+Install-Package "shellcheck"
+Install-Package "pre-commit"
+Install-Package "buf"
+
+# ── 1b. Security tools (opt-in via -Security flag) ──────────────────────────
+if ($Security) {
+    ensure-gitleaks
+} else {
+    log-info "Skipping security tools (pass -Security to install)"
+}
+
+# ── 2. just ──────────────────────────────────────────────────────────────────
+if (-not (Get-Command just -ErrorAction SilentlyContinue)) {
+    log-info "Installing just..."
+    ensure-just
+}
+
+# ── 3. LLVM (Clang compiler) ─────────────────────────────────────────────────
+# detect-windows-arch.sh checks PROCESSOR_ARCHITEW6432 (WOW64) before
+# PROCESSOR_ARCHITECTURE. On native ARM64, WOW64 env = AMD64 → returns
+# x86_64. Hardcode platform-key for this lane instead.
+$platform_key = "windows-arm"
+$clang_version = read-compiler-version "clang" $platform_key
+log-info "Installing LLVM/Clang ${clang_version}..."
+# ARM64 LLVM: winget unversioned ID is the only option (ARM64 support).
+# Falls back to direct download if winget fails.
+if (Get-Command clang -ErrorAction SilentlyContinue) {
+    log-info "Clang already available"
+} else {
+    # Try unversioned winget ID (ARM64 support)
+    $llvmInstalled = $false
+    try {
+        $wingetId = read-package "winget" "llvm"
+        winget install --id $wingetId --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
+        $llvmPath = (Get-Command clang -ErrorAction SilentlyContinue).Source | Split-Path
+        if ($llvmPath) {
+            $env:PATH = "$llvmPath;$env:PATH"
+            $llvmInstalled = $true
+            log-info "LLVM installed via winget"
+        }
+    } catch {
+        log-info "LLVM winget install failed, trying direct download..."
+    }
+
+    # Fallback: direct download to C:\Program Files\LLVM
+    if (-not $llvmInstalled) {
+        log-info "Downloading LLVM ${clang_version} ARM64..."
+        $llvmUrl = "https://github.com/llvm/llvm-project/releases/download/llvmorg-${clang_version}.0.0/LLVM-${clang_version}.0.0-windows-arm64.exe"
+        $llvmInstaller = Join-Path $env:TEMP "llvm-installer.exe"
+        try {
+            Invoke-WebRequest -Uri $llvmUrl -OutFile $llvmInstaller -UseBasicParsing
+            Start-Process -FilePath $llvmInstaller -ArgumentList "/S", "/D=C:\Program Files\LLVM" -Wait
+            Remove-Item $llvmInstaller -ErrorAction SilentlyContinue
+            $llvmPath = "C:\Program Files\LLVM\bin"
+            if (Test-Path (Join-Path $llvmPath "clang.exe")) {
+                $env:PATH = "$llvmPath;$env:PATH"
+                log-info "LLVM installed via direct download: $llvmPath"
+            }
+        } catch {
+            log-error "Failed to install LLVM via direct download"
+            log-error "Build may fail without a C compiler"
+        }
+    }
+}
+
+$llvmPath = (Get-Command clang -ErrorAction SilentlyContinue).Source | Split-Path
+if (-not $llvmPath) {
+    $llvmPath = (Get-ChildItem "C:\Program Files\LLVM\bin" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+}
+if ($llvmPath) {
+    $env:PATH = "$llvmPath;$env:PATH"
+    log-info "LLVM added to PATH: $llvmPath"
+}
+
+# ── 4. Zig (native aarch64-windows) ─────────────────────────────────────────
+log-info "Installing Zig (aarch64-windows native)..."
+ensure-zig "aarch64-windows"
+log-info "Zig installed (aarch64-windows native)"
+
+# ── 5. MSVC build tools ──────────────────────────────────────────────────────
+# winget installs the VS Installer shell by default but NOT the C++ workload.
+# Must pass --package-arguments to install the VCTools workload with ARM64 support.
+log-info "Installing Visual Studio Build Tools (VCTools workload + ARM64)..."
+$wingetId = read-package "winget" "vs-build-tools"
+winget install --id $wingetId --exact --accept-package-agreements --accept-source-agreements --disable-interactivity `
+    --silent --wait `
+    --package-arguments '"--add Microsoft.VisualStudio.Workload.VCTools;Microsoft.VisualStudio.Component.VC.Tools.ARM64 --optional"'
+
+# Verify cl.exe and nmake are available
+$vcvarsFound = $false
+$vcBase = @()
+Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio" -Directory -ErrorAction SilentlyContinue | ForEach-Object { $vcBase += $_.Name }
+Get-ChildItem -Path "C:\Program Files (x86)\Microsoft Visual Studio" -Directory -ErrorAction SilentlyContinue | ForEach-Object { $vcBase += $_.Name }
+foreach ($vsVer in $vcBase) {
+    $bat = "C:\Program Files\Microsoft Visual Studio\$vsVer\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
+    if ($vsVer -notlike "Microsoft Visual Studio*") {
+        $bat = "C:\Program Files (x86)\Microsoft Visual Studio\$vsVer\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
+    }
+    if (Test-Path $bat) {
+        log-info "Found VS $vsVer BuildTools"
+    }
+}
+
+if (Get-Command cl.exe -ErrorAction SilentlyContinue) {
+    log-info "MSVC cl.exe found: $(cl.exe 2>&1 | Select-Object -First 1)"
+} else {
+    log-warn "cl.exe not in PATH — OpenSSL build will fall back to Git Bash/MSYS2"
+}
+
+# ── 6. OpenSSL 3.6.2 — build from source via Git Bash (native MSVC target)
+# Git for Windows includes: bash, perl (Strawberry), make.
+# VS Build Tools provides: cl.exe, nmake.
+# OpenSSL 3.x supports msvc-arm64/msvc-x86_64 targets natively — no MinGW-w64.
+# No MSYS2, no gcc, no cross-compiler needed.
+if (-not (Test-Path (Join-Path $repoRoot "opt\lib\libssl.a"))) {
+    $gitBash = "${env:ProgramFiles}\Git\usr\bin\bash.exe"
+    if (-not (Test-Path $gitBash)) {
+        $gitBash = "${env:ProgramFiles(x86)}\Git\usr\bin\bash.exe"
+    }
+    if (Test-Path $gitBash) {
+        log-info "Building OpenSSL 3.6.2 via Git Bash (MSVC target)..."
+        $openssl_script = Join-Path $repoRoot 'contrib/setup/install-openssl.sh'
+        $opt_path = Join-Path $repoRoot 'opt'
+        $openssl_posix = & cygpath -u $openssl_script
+        $opt_posix = & cygpath -u $opt_path
+        & $gitBash -lc "FD_WINDOWS_ARCH=arm64 bash $openssl_posix --prefix $opt_posix" 2>&1
+    } else {
+        log-error "Git Bash not found — OpenSSL 3.6.2 cannot be built"
+        log-error "Install Git for Windows and rerun setup"
+        exit 1
+    }
+} else {
+    log-info "OpenSSL 3.6.2 already installed in ./opt/"
+}
+
+# ── 7. LLM tooling (optional) ────────────────────────────────────────────────
+if (-not $NoLLM) {
+    log-info "Installing LLM tooling (llama.cpp build deps: MinGW-w64)..."
+    Install-Package "winlibs"
+    log-info "LLM tooling installed"
+} else {
+    log-info "Skipping LLM tooling (-NoLLM)"
+}
+
+# ── 8. Summary ───────────────────────────────────────────────────────────────
+log-info "Windows ARM64 setup complete"
+log-info "Tools:"
+foreach ($tool in @("clang", "zig", "just", "cl")) {
+    $ver = (Get-Command $tool -ErrorAction SilentlyContinue).Version
+    if ($ver) { log-info "  ${tool}: $ver" }
+}
+log-info "NOTE: Zig uses native aarch64-windows binary"

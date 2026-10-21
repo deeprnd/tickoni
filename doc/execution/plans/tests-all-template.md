@@ -1,8 +1,8 @@
-# Test `just setup-env` and `just tests-all` from all sides
+# Test `just setup-all` and `just tests-all` from all sides
 
 ## Goal
 
-Build a comprehensive test plan for `just setup-env` and `just tests-all` that covers
+Build a comprehensive test plan for `just setup-all` and `just tests-all` that covers
 all constituent parts, all execution paths, and all failure modes. Everything runs locally.
 No CI. No remote calls except the tools those commands themselves make.
 
@@ -12,7 +12,7 @@ DONT RUN ANYTHING IN PARALLEL!!!!
 
 ## What these commands do
 
-### `just setup-env`
+### `just setup-all`
 
 ```
 SKIP_IDEMPOTENCY=... python3 ../contrib/setup/orchestrator.py dev
@@ -96,7 +96,7 @@ test-unit-setup → pip install pip pytest + pytest contrib/test/*.py
 
 ## Test Plan
 
-### Phase 1: Setup-env — Clean run verification
+### Phase 1: setup-all — Clean run verification
 
 **Status: NOT TESTED**
 
@@ -120,12 +120,12 @@ test-unit-setup → pip install pip pytest + pytest contrib/test/*.py
 
 ```bash
 # Create fresh env
-python3 -m venv /tmp/test-setup-env-venv
-source /tmp/test-setup-env-venv/bin/activate
+python3 -m venv /tmp/test-setup-all-venv
+source /tmp/test-setup-all-venv/bin/activate
 
-# Run setup-env
+# Run setup-all
 cd tickoni
-just setup-env
+just setup-all
 ```
 
 Verify:
@@ -137,7 +137,7 @@ Verify:
 **1.2. Idempotent re-run (tools already installed)**
 
 ```bash
-just setup-env
+just setup-all
 ```
 
 Verify:
@@ -205,7 +205,7 @@ Verify:
 
 ---
 
-### Phase 2: Setup-env — Build-time verification
+### Phase 2: setup-all — Build-time verification
 
 **Status: NOT TESTED**
 
@@ -875,14 +875,14 @@ Verify:
 
 ---
 
-**8.1. Clean-room full run (setup-env → tests-all)**
+**8.1. Clean-room full run (setup-all → tests-all)**
 
 ```bash
 # Start from a state where everything is clean
 rm -rf ./opt build
 rm -rf ~/.local/bin/zig  # if previously installed
 
-just setup-env
+just setup-all
 just tests-all
 ```
 
@@ -925,7 +925,7 @@ Verify:
 **8.4. Workspace pollution check**
 
 ```bash
-# After full setup-env + tests-all, check what was created
+# After full setup-all + tests-all, check what was created
 find . -name '*.tmp' -o -name '*.bak' -o -name '.*.swp' 2>/dev/null
 ls -la ./opt/
 ls -la .zig-global-cache/
@@ -960,7 +960,7 @@ Verify:
 
 ## Key Changes from Previous Version
 
-1. **setup-env** now calls `orchestrator.py dev` (single category) instead of enumerating 11 explicit categories. The orchestrator resolves all dependencies from `dev` automatically.
+1. **setup-all** now calls `orchestrator.py dev` (single category) instead of enumerating 11 explicit categories. The orchestrator resolves all dependencies from `dev` automatically.
 
 2. **tests-all** now uses three aggregate recipes:
    - `just build-all` — builds fd + tk
