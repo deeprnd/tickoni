@@ -16,17 +16,17 @@ export-build-artifact-conformance-linux-arm:
         zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} \
         integration-test-domain
 
-export-build-artifact-conformance-macos-x86:
-    mkdir -p build/build-artifact-conformance/macos-x86
+export-build-artifact-conformance-macos-15-x86:
+    mkdir -p build/build-artifact-conformance/macos-15-x86
     ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} \
-        TK_CONFORMANCE_JSON=build/build-artifact-conformance/macos-x86 \
+        TK_CONFORMANCE_JSON=build/build-artifact-conformance/macos-15-x86 \
         zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} \
         integration-test-domain
 
-export-build-artifact-conformance-macos-arm:
-    mkdir -p build/build-artifact-conformance/macos-arm
+export-build-artifact-conformance-macos-15-arm:
+    mkdir -p build/build-artifact-conformance/macos-15-arm
     ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} \
-        TK_CONFORMANCE_JSON=build/build-artifact-conformance/macos-arm \
+        TK_CONFORMANCE_JSON=build/build-artifact-conformance/macos-15-arm \
         zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} \
         integration-test-domain
 
