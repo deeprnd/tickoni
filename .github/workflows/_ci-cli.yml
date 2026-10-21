@@ -1,15 +1,15 @@
-# Reusable Demo workflow: fixture-backed demo tests per platform.
+# Reusable CLI workflow: fixture-backed CLI tests per platform.
 # Downloads build artifact from Build stage (avoids redundant FD rebuilds).
 # Reference: doc/execution/plans/v2.10-s8-5.md, doc/execution/plans/v2.10-s13.md
 ---
-name: Demo Stage
+name: CLI Stage
 
 'on':
   workflow_call:
 
 jobs:
-  demo-tests:
-    name: Demo / ${{ matrix.platform-name }}
+  cli-tests:
+    name: CLI / ${{ matrix.platform-name }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: ${{ matrix.timeout_minutes }}
     strategy:
@@ -22,7 +22,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-linux-x86
             platform: linux-x86
-            test-recipe: test-demo-tk-linux-x86
+            test-recipe: test-cli-tk-linux-x86
             compiler: gcc-12
           # macOS 15 (x86_64)
           - platform-name: macOS 15 (x86_64)
@@ -30,7 +30,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-macos-15-x86
             platform: macos-x86
-            test-recipe: test-demo-tk-macos-x86
+            test-recipe: test-cli-tk-macos-x86
             compiler: clang
           # macOS 15 (ARM)
           - platform-name: macOS 15 (ARM)
@@ -38,7 +38,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-macos-15-arm
             platform: macos-arm
-            test-recipe: test-demo-tk-macos-arm
+            test-recipe: test-cli-tk-macos-arm
             compiler: clang
           # macOS 26 (x86_64)
           - platform-name: macOS 26 (x86_64)
@@ -46,7 +46,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-macos-26-x86
             platform: macos-x86
-            test-recipe: test-demo-tk-macos-x86
+            test-recipe: test-cli-tk-macos-x86
             compiler: clang
           # macOS 26 (ARM)
           - platform-name: macOS 26 (ARM)
@@ -54,7 +54,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-macos-26-arm
             platform: macos-arm
-            test-recipe: test-demo-tk-macos-arm
+            test-recipe: test-cli-tk-macos-arm
             compiler: clang
           # Windows x86_64
           - platform-name: Windows x86_64
@@ -62,7 +62,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-windows-x86
             platform: windows-x86
-            test-recipe: test-demo-tk-windows-x86
+            test-recipe: test-cli-tk-windows-x86
             compiler: msvc
           # Windows ARM64
           - platform-name: Windows ARM
@@ -70,7 +70,7 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-windows-arm
             platform: windows-arm
-            test-recipe: test-demo-tk-windows-arm
+            test-recipe: test-cli-tk-windows-arm
             compiler: msvc
 
     steps:
@@ -89,5 +89,5 @@ jobs:
           name: ${{ matrix.artifact-name }}
           path: .
 
-      - name: Run demo tests
+      - name: Run CLI tests
         run: just ${{ matrix.test-recipe }}

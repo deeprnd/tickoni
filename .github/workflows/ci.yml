@@ -138,7 +138,7 @@ jobs:
       needs.plan.outputs.core == 'true' &&
       needs.project-build.result == 'success' &&
       needs.unit.result == 'success'
-    uses: ./.github/workflows/_ci-demo.yml
+    uses: ./.github/workflows/_ci-cli.yml
 
   # ── COVERAGE: Tickoni harness coverage (parallel with integration/system/demo) ──
   coverage:
