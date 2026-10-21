@@ -42,3 +42,10 @@ jobs:
             build/coverage/tk/kcov/merged \
             build/coverage/tk/coverage-summary.json \
             --config contrib/test/coverage-tk.json
+
+      - name: Upload coverage summary
+        uses: actions/upload-artifact@v8
+        with:
+          name: coverage-summary
+          path: build/coverage/tk/coverage-summary.json
+          retention-days: 1
