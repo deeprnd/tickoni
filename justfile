@@ -12,6 +12,7 @@ import "just/setup/just.just"
 import "just/setup/qt.just"
 import "just/setup/quality.just"
 import "just/setup/security.just"
+import "just/setup/test.just"
 import "just/setup/zig.just"
 
 # ── Build ─────────────────────────────────────────────────────────────────
