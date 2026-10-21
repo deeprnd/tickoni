@@ -22,11 +22,11 @@ Rename to `cli` to accurately describe: CLI contract verification + deterministi
 - `.github/workflows/_ci-demo.yml` → `.github/workflows/_ci-cli.yml`
 - All `test-demo-tk` references in documentation, story templates, plans
 
-### Don't rename (out of scope for this change)
+### Remove entirely (in scope — these are test-only, not production)
 
-- `src/tickoni/demo/` directory — source modules and fixtures. Renaming this is a separate, larger change that touches CLI argument parsing and dispatch logic.
-- The `tickoni-supervisor demo investment` CLI subcommand — flagged as disliked but requires separate scoping (argument parsing, help text, dispatch in `main.zig`/`cli.zig`).
-- Historical audit reports — these are records of what was verified at a point in time.
+- `src/tickoni/demo/` directory — all 5 conformance modules are test utilities imported ONLY by the demo CLI command. Absorb into unit tests (preflight, runner, conformance, comparator, substitution) and integration tests (investment helpers). Remove `src/tickoni/demo/` directory entirely.
+- The `tickoni-supervisor demo investment` CLI subcommand — remove dispatch from `main.zig`. This is part of the same cleanup: the CLI command exists solely to exercise test utilities.
+- Historical audit reports — these are records of what was verified at a point in time. Do not touch.
 
 ## Files to touch
 
