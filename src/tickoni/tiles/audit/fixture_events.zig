@@ -55,7 +55,7 @@ pub fn makeFixtures() [12]schema.AuditEvent { // Runtime metadata populated from
     const runtime = "linux_full";
     const isolation = "full";
     const digest = "abc123";
-    const manifest_id = "demo.investment.v1";
+    const manifest_id = "fixture.investment.v1";
     const headers = [_]schema.Header{
         fixtureHeader(1, 10, "tkings", 1001, "policy_ingress_v1", 1, 111, 500, 0, runtime, isolation, digest, manifest_id, version),
         fixtureHeader(2, 11, "tknorm", 1002, "policy_norm_v1", 2, 222, 501, 0, runtime, isolation, digest, manifest_id, version),
@@ -99,7 +99,7 @@ pub fn makeFixtures() [12]schema.AuditEvent { // Runtime metadata populated from
             .token_estimate = 512,
             .retry_count = 2,
             .actor_role = parseFixedAsciiBytes(16, "ops_reviewer") catch unreachable,
-            .workflow = parseFixedAsciiBytes(16, "replay_demo") catch unreachable,
+            .workflow = parseFixedAsciiBytes(16, "replay_fixture") catch unreachable,
             .policy_decision_id = 77,
             .replay_substitution_id = 88,
         } }),
