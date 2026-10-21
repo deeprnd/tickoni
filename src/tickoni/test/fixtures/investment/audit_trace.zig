@@ -58,7 +58,7 @@ fn parseFixedAsciiBytes(comptime N: usize, value: []const u8) [N]u8 {
 
 // Quote/affordability/ticket/paper-result hashing reuses replay's canonical
 // helpers (src/tickoni/tiles/replay/mod.zig) instead of reimplementing the
-// same field-by-field Wyhash mixing here, so demo audit traces and replay
+// same field-by-field Wyhash mixing here, so fixture audit traces and replay
 // checks can never silently diverge on what a proposal/result hash covers.
 const hashBytes = replay.hashBytes;
 const hashQuoteSnapshot = replay.hashQuoteSnapshot;
