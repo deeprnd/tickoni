@@ -65,7 +65,7 @@ pub fn registerTestLanes(
 
     const system_step = b.step("system-test", "Run all src/tickoni/test/system proofs");
     system_lane.strategy(b, .{
-        .investment_demo_mod = int_mods.investment_demo_mod,
+        .investment_fixture_mod = int_mods.investment_fixture_mod,
         .investment_support_int_mod = int_mods.investment_support_int_mod,
         .fd_lib_dir = fd_lib_dir,
     }, target, optimize, system_step);

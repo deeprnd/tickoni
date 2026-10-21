@@ -172,8 +172,8 @@ pub fn strategy(
                     .{ .name = "adapter", .module = int_mods.adapter_int_mod },
                     .{ .name = "audit_tile", .module = int_mods.shared_audit_tile },
                     .{ .name = "basket", .module = int_mods.shared_basket },
-                    .{ .name = "investment_demo", .module = int_mods.investment_demo_mod },
                     .{ .name = "investment_audit", .module = int_mods.investment_audit_int_mod },
+                    .{ .name = "investment_fixture", .module = int_mods.investment_fixture_mod },
                     .{ .name = "investment_support", .module = int_mods.investment_support_int_mod },
                     .{ .name = "model", .module = int_mods.model_int_mod },
                     .{ .name = "portfolio", .module = int_mods.shared_portfolio },
@@ -201,7 +201,7 @@ pub fn strategy(
                 .target = target,
                 .optimize = optimize,
                 .imports = &.{
-                    .{ .name = "investment_demo", .module = int_mods.investment_demo_mod },
+                    .{ .name = "investment_fixture", .module = int_mods.investment_fixture_mod },
                     .{ .name = "investment_support", .module = int_mods.investment_support_int_mod },
                 },
             }),
@@ -314,8 +314,8 @@ pub fn strategy(
         test_runs[test_run_count] = shims.addPlainTestRun(b, restricted_instrument_test);
         test_run_count += 1;
 
-        // 7. Investment demo system suite (allowed, oversized-blocked, restricted).
-        // Absorbed from demo/investment/mod.zig::runSystemSuite().
+        // 7. Investment fixture system suite (allowed, oversized-blocked, restricted).
+        // Absorbed from test/fixtures/investment/mod.zig::runSystemSuite().
         const system_suite_test = b.addTest(.{
             .root_module = b.createModule(.{
                 .root_source_file = b.path(
@@ -324,7 +324,7 @@ pub fn strategy(
                 .target = target,
                 .optimize = optimize,
                 .imports = &.{
-                    .{ .name = "investment_demo", .module = int_mods.investment_demo_mod },
+                    .{ .name = "investment_fixture", .module = int_mods.investment_fixture_mod },
                     .{ .name = "investment_support", .module = int_mods.investment_support_int_mod },
                 },
             }),

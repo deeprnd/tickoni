@@ -24,8 +24,8 @@ pub const IntegrationModules = struct {
     replay_int_mod: *std.Build.Module,
     investment_audit_int_mod: *std.Build.Module,
     investment_support_int_mod: *std.Build.Module,
-    investment_demo_test_mod: *std.Build.Module,
-    investment_demo_mod: *std.Build.Module,
+    investment_fixture_test_mod: *std.Build.Module,
+    investment_fixture_mod: *std.Build.Module,
     supervisor_named_mod: *std.Build.Module,
     mock_http_support_mod: *std.Build.Module,
     mock_broker_market_server_mod: *std.Build.Module,
@@ -183,7 +183,7 @@ pub const ModuleFactory = struct {
         });
 
         const investment_audit_int_mod = self.b.createModule(.{
-            .root_source_file = self.b.path("src/tickoni/test/demo/investment/audit_trace.zig"),
+            .root_source_file = self.b.path("src/tickoni/test/fixtures/investment/audit_trace.zig"),
             .target = self.target,
             .optimize = self.optimize,
             .imports = &.{
@@ -199,7 +199,7 @@ pub const ModuleFactory = struct {
         });
 
         const investment_support_int_mod = self.b.createModule(.{
-            .root_source_file = self.b.path("src/tickoni/test/demo/investment/support.zig"),
+            .root_source_file = self.b.path("src/tickoni/test/fixtures/investment/support.zig"),
             .target = self.target,
             .optimize = self.optimize,
             .imports = &.{
@@ -209,8 +209,8 @@ pub const ModuleFactory = struct {
             },
         });
 
-        const investment_demo_test_mod = self.b.createModule(.{
-            .root_source_file = self.b.path("src/tickoni/test/demo/investment/mod.zig"),
+        const investment_fixture_test_mod = self.b.createModule(.{
+            .root_source_file = self.b.path("src/tickoni/test/fixtures/investment/mod.zig"),
             .target = self.target,
             .optimize = self.optimize,
             .imports = &.{
@@ -230,8 +230,8 @@ pub const ModuleFactory = struct {
             },
         });
 
-        const investment_demo_mod = self.b.createModule(.{
-            .root_source_file = self.b.path("src/tickoni/test/demo/investment/mod.zig"),
+        const investment_fixture_mod = self.b.createModule(.{
+            .root_source_file = self.b.path("src/tickoni/test/fixtures/investment/mod.zig"),
             .target = self.target,
             .optimize = self.optimize,
             .imports = &.{
@@ -302,8 +302,8 @@ pub const ModuleFactory = struct {
             .replay_int_mod = replay_int_mod,
             .investment_audit_int_mod = investment_audit_int_mod,
             .investment_support_int_mod = investment_support_int_mod,
-            .investment_demo_test_mod = investment_demo_test_mod,
-            .investment_demo_mod = investment_demo_mod,
+            .investment_fixture_test_mod = investment_fixture_test_mod,
+            .investment_fixture_mod = investment_fixture_mod,
             .supervisor_named_mod = supervisor_named_mod,
             .mock_http_support_mod = mock_http_support_mod,
             .mock_broker_market_server_mod = mock_broker_market_server_mod,

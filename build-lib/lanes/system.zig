@@ -10,7 +10,7 @@ const shims = @import("../lib/shims.zig");
 
 /// System modules passed in from build.zig.
 pub const SystemModules = struct {
-    investment_demo_mod: *std.Build.Module,
+    investment_fixture_mod: *std.Build.Module,
     investment_support_int_mod: *std.Build.Module,
     fd_lib_dir: []const u8,
 };
@@ -30,7 +30,7 @@ pub fn strategy(
             .target = target,
             .optimize = optimize,
             .imports = &.{
-                .{ .name = "investment_demo", .module = sys_mods.investment_demo_mod },
+                .{ .name = "investment_fixture", .module = sys_mods.investment_fixture_mod },
             },
         }),
     });
@@ -38,7 +38,7 @@ pub fn strategy(
     const run_system_test = shims.addPlainTestRun(b, system_test);
     system_step.dependOn(&run_system_test.step);
 
-    // V1.3.S4: combined portfolio/cash demo. Fixture-backed and deterministic
+    // V1.3.S4: combined portfolio/cash fixture-backed proof. Fixture-backed and deterministic
     // (no live model, broker, or execution), but lives under
     // src/tickoni/test/system so it runs as part of the system-test lane
     // alongside the live tkmodl proof.
@@ -48,7 +48,7 @@ pub fn strategy(
             .target = target,
             .optimize = optimize,
             .imports = &.{
-                .{ .name = "investment_demo", .module = sys_mods.investment_demo_mod },
+                .{ .name = "investment_fixture", .module = sys_mods.investment_fixture_mod },
                 .{ .name = "investment_support", .module = sys_mods.investment_support_int_mod },
             },
         }),

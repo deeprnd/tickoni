@@ -45,12 +45,6 @@ pub fn createSupervisorExe(
             .{ .name = "topologies", .module = shared.topologies },
             .{ .name = "doctor_checks", .module = shared.doctor_checks },
             .{ .name = "doctor_output", .module = shared.doctor_output },
-            .{ .name = "demo_preflight", .module = shared.demo_preflight },
-            .{ .name = "demo_cli", .module = shared.demo_cli },
-            .{ .name = "demo_conformance", .module = shared.demo_conformance },
-            .{ .name = "demo_comparator", .module = shared.demo_comparator },
-            .{ .name = "demo_runner", .module = shared.demo_runner },
-            .{ .name = "demo_substitution", .module = shared.demo_substitution },
             .{ .name = "logger", .module = shared.logger },
         },
     });
@@ -89,12 +83,12 @@ pub fn createSupervisorExe(
 }
 
 /// Create the CLI executable.
-/// `investment_demo` must be the integration demo module
-/// (src/tickoni/test/demo/investment/mod.zig) created by the
+/// `investment_fixture` must be the integration fixture module
+/// (src/tickoni/test/fixtures/investment/mod.zig) created by the
 /// integration lane, not the supervisor exe's root module.
 pub fn createCliExe(
     b: *std.Build,
-    investment_demo: *std.Build.Module,
+    investment_fixture: *std.Build.Module,
     shared: Shared,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
@@ -105,18 +99,9 @@ pub fn createCliExe(
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "investment_demo", .module = investment_demo },
+            .{ .name = "investment_fixture", .module = investment_fixture },
             .{ .name = "tier", .module = shared.tier },
             .{ .name = "doctor_output", .module = shared.doctor_output },
-            .{ .name = "demo_manifest", .module = shared.demo_manifest },
-            .{ .name = "demo_semver", .module = shared.demo_semver },
-            .{ .name = "demo_diagnostic", .module = shared.demo_diagnostic },
-            .{ .name = "demo_preflight", .module = shared.demo_preflight },
-            .{ .name = "demo_cli", .module = shared.demo_cli },
-            .{ .name = "demo_runner", .module = shared.demo_runner },
-            .{ .name = "demo_conformance", .module = shared.demo_conformance },
-            .{ .name = "demo_comparator", .module = shared.demo_comparator },
-            .{ .name = "demo_substitution", .module = shared.demo_substitution },
             .{ .name = "version", .module = shared.version },
         },
     });

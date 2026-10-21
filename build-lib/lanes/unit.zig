@@ -283,67 +283,6 @@ pub fn strategy(
         .imports = &.{.{ .name = "doctor_checks", .module = shared.doctor_checks }},
     }, test_step, run_cmd);
 
-    // demo/manifest.zig — needs logger.
-    tb.registerRunTest(.{
-        .name = "test-demo-manifest",
-        .source_file = "src/tickoni/demo/manifest.zig",
-        .imports = &.{.{ .name = "logger", .module = shared.logger }},
-    }, test_step, run_cmd);
-
-    // demo/preflight.zig — needs demo_manifest, demo_semver, demo_diagnostic, tier.
-    tb.registerRunTest(.{
-        .name = "test-demo-preflight",
-        .source_file = "src/tickoni/demo/preflight.zig",
-        .imports = &.{
-            .{ .name = "demo_manifest", .module = shared.demo_manifest },
-            .{ .name = "demo_semver", .module = shared.demo_semver },
-            .{ .name = "diagnostic", .module = shared.demo_diagnostic },
-            .{ .name = "tier", .module = shared.tier },
-        },
-    }, test_step, run_cmd);
-
-    // demo/diagnostic.zig — standalone.
-    tb.registerRunTest(.{
-        .name = "test-demo-diagnostic",
-        .source_file = "src/tickoni/demo/diagnostic.zig",
-    }, test_step, run_cmd);
-
-    // demo/conformance.zig — needs diagnostic.
-    tb.registerRunTest(.{
-        .name = "test-demo-conformance",
-        .source_file = "src/tickoni/demo/conformance.zig",
-        .imports = &.{.{ .name = "diagnostic", .module = shared.demo_diagnostic }},
-    }, test_step, run_cmd);
-
-    // demo/comparator.zig — needs conformance.
-    tb.registerRunTest(.{
-        .name = "test-demo-comparator",
-        .source_file = "src/tickoni/demo/comparator.zig",
-        .imports = &.{.{ .name = "conformance", .module = shared.demo_conformance }},
-    }, test_step, run_cmd);
-
-    // demo/runner.zig — needs conformance, diagnostic, util (libc).
-    tb.registerRunTest(.{
-        .name = "test-demo-runner",
-        .source_file = "src/tickoni/demo/runner.zig",
-        .imports = &.{
-            .{ .name = "conformance", .module = shared.demo_conformance },
-            .{ .name = "diagnostic", .module = shared.demo_diagnostic },
-            .{ .name = "util", .module = tm.util },
-        },
-        .linkage = .{ .needs_libc = true },
-    }, test_step, run_cmd);
-
-    // test/demo/investment/substitution.zig — needs diagnostic, runner.
-    tb.registerRunTest(.{
-        .name = "test-demo-substitution",
-        .source_file = "src/tickoni/test/demo/investment/substitution.zig",
-        .imports = &.{
-            .{ .name = "diagnostic", .module = shared.demo_diagnostic },
-            .{ .name = "runner", .module = shared.demo_runner },
-        },
-    }, test_step, run_cmd);
-
     // === Schema tests (all need codec linkage) ===
 
     // codec/thesis.zig — thesis, basket.
@@ -474,11 +413,11 @@ pub fn strategy(
         run_cmd.addArtifactArg(logger_test);
     }
 
-    // === Investment demo test (needs codec linkage) ===
+    // === Investment fixture test (needs codec linkage) ===
 
     tb.registerRunTest(.{
-        .name = "test-investment-demo",
-        .source_file = "src/tickoni/test/demo/investment/mod.zig",
+        .name = "test-investment-fixture",
+        .source_file = "src/tickoni/test/fixtures/investment/mod.zig",
         .imports = &.{
             .{ .name = "adapter", .module = int_mods.adapter_int_mod },
             .{ .name = "basket", .module = shared.basket },

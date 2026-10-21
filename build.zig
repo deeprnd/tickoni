@@ -55,8 +55,8 @@ pub fn build(b: *std.Build) void {
     helpers.createVerifyFixtureStep(b, check_step);
 
     if (build_tests) {
-        // CLI executable — needs the investment demo module with its
-        // full import graph. Create the tile modules that the demo
+        // CLI executable — needs the investment fixture module with its
+        // full import graph. Create the tile modules that the fixture
         // depends on here (same modules that factory.zig creates for
         // integration tests).
         const adapter_messages_mod = b.createModule(.{
@@ -150,7 +150,7 @@ pub fn build(b: *std.Build) void {
             },
         });
         const investment_support_mod = b.createModule(.{
-            .root_source_file = b.path("src/tickoni/test/demo/investment/support.zig"),
+            .root_source_file = b.path("src/tickoni/test/fixtures/investment/support.zig"),
             .target = target,
             .optimize = optimize,
             .imports = &.{
@@ -159,8 +159,8 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "trade_ticket", .module = tm.trade_ticket },
             },
         });
-        const investment_demo_mod = b.createModule(.{
-            .root_source_file = b.path("src/tickoni/test/demo/investment/mod.zig"),
+        const investment_fixture_mod = b.createModule(.{
+            .root_source_file = b.path("src/tickoni/test/fixtures/investment/mod.zig"),
             .target = target,
             .optimize = optimize,
             .imports = &.{
@@ -179,9 +179,9 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "trade_ticket", .module = tm.trade_ticket },
             },
         });
-        const cli_exe = helpers.createCliExe(b, investment_demo_mod, shared, target, optimize, fd_lib_dir);
+        const cli_exe = helpers.createCliExe(b, investment_fixture_mod, shared, target, optimize, fd_lib_dir);
         b.installArtifact(cli_exe);
-        const run_cli_step = b.step("run-cli", "Run tickoni demo CLI");
+        const run_cli_step = b.step("run-cli", "Run tickoni CLI");
         run_cli_step.dependOn(&b.addRunArtifact(cli_exe).step);
 
         // Unit + integration + system lanes
