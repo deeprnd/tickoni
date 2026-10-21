@@ -14,7 +14,6 @@ pub const Parser = struct {
     pub const Flags = struct {
         json: bool = false,
         plain: bool = false,
-        fixture: bool = false,
         manifest: bool = false,
     };
 
@@ -74,8 +73,6 @@ pub fn parse(gpa: std.mem.Allocator, init: std.process.Init) !Parser {
                 result.flags.json = true;
             } else if (std.mem.eql(u8, key, "plain")) {
                 result.flags.plain = true;
-            } else if (std.mem.eql(u8, key, "fixture")) {
-                result.flags.fixture = true;
             } else if (std.mem.eql(u8, key, "thesis")) {
                 var val = value;
                 if (val.len == 0 and i + 1 < args.len and !std.mem.startsWith(u8, args[i + 1], "--")) {
@@ -104,16 +101,15 @@ pub fn parse(gpa: std.mem.Allocator, init: std.process.Init) !Parser {
                     result.values.model = gpa.dupe(u8, val) catch continue;
                 }
             } else if (std.mem.eql(u8, key, "manifest")) {
-                result.flags.manifest = true;
-                var val = value;
-                if (val.len == 0 and i + 1 < args.len and !std.mem.startsWith(u8, args[i + 1], "--")) {
-                    val = args[i + 1];
-                    i += 1;
-                }
-                if (val.len > 0) {
-                    result.values.manifest = gpa.dupe(u8, val) catch continue;
-                }
-            }
+         var val = value;
+         if (val.len == 0 and i + 1 < args.len and !std.mem.startsWith(u8, args[i + 1], "--")) {
+             val = args[i + 1];
+             i += 1;
+         }
+         if (val.len > 0) {
+             result.values.manifest = gpa.dupe(u8, val) catch continue;
+         }
+     }
             continue;
         }
 
@@ -149,7 +145,6 @@ pub fn printHelp(io: std.Io, gpa: std.mem.Allocator) !void {
     try writer.writeAll("    tickoni <command> [options]\n");
     try writer.writeAll("\n");
     try writer.writeAll("COMMANDS:\n");
-    try writer.writeAll("    demo        Run demo pipeline\n");
     try writer.writeAll("    version     Show version info\n");
     try writer.writeAll("    doctor      Run health checks\n");
     try writer.writeAll("\n");
@@ -167,19 +162,7 @@ pub fn printHelpForCommand(io: std.Io, gpa: std.mem.Allocator, command: []const 
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
 
-    if (std.mem.eql(u8, command, "demo")) {
-        try writer.writeAll("USAGE:\n");
-        try writer.writeAll("    tickoni demo investment [options]\n");
-        try writer.writeAll("\n");
-        try writer.writeAll("OPTIONS:\n");
-        try writer.writeAll("    --thesis <str>    Plain-English demo thesis input\n");
-        try writer.writeAll("    --endpoint <str>  OpenAI-compatible endpoint\n");
-        try writer.writeAll("    --model <str>     Allowed model id\n");
-        try writer.writeAll("    --manifest <str>  Path to demo manifest JSON (conformance mode)\n");
-        try writer.writeAll("    --json            Emit machine-readable JSON (conformance mode)\n");
-        try writer.writeAll("    --plain           Emit human-readable text (conformance mode)\n");
-        try writer.writeAll("    --fixture         Use deterministic fixture response\n");
-    } else if (std.mem.eql(u8, command, "doctor")) {
+    if (std.mem.eql(u8, command, "doctor")) {
         try writer.writeAll("USAGE:\n");
         try writer.writeAll("    tickoni doctor [options]\n");
         try writer.writeAll("\n");
