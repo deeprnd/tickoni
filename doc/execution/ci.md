@@ -40,7 +40,7 @@ This document describes the GitHub Actions CI workflows for Tickoni.
 
 All fourteen Tickoni CI workflows (`ci.yml` plus twelve sub-workflow YAML files) trigger on pull requests targeting `main` and are also dispatchable manually via `workflow_dispatch`. Every workflow uses GitHub-hosted runners only — no self-hosted infrastructure is required.
 
-This CI surface is intentionally **not** a coexist-with-upstream layout. Tickoni replaces the broad upstream Firedancer workflow set with a consolidated S8 pipeline: a single `ci.yml` orchestrator that delegates to twelve sub-workflow files (`_ci-build.yml`, `_ci-unit.yml`, `_ci-integration.yml`, `_ci-system.yml`, `_ci-demo.yml`, `_ci-quality.yml`, `_ci-security-secrets.yml`, `_ci-security-deep.yml`, `_ci-conformance.yml`, `_ci-coverage.yml`, `tests-dev-setup.yml`, `tests-coverage.yml`). The consolidation eliminates per-workflow setup duplication and enforces a cascading gate model. macOS support was added alongside this intentional shrink/re-shape of the upstream CI surface.
+This CI surface is intentionally **not** a coexist-with-upstream layout. Tickoni replaces the broad upstream Firedancer workflow set with a consolidated S8 pipeline: a single `ci.yml` orchestrator that delegates to twelve sub-workflow files (`_ci-build.yml`, `_ci-unit.yml`, `_ci-integration.yml`, `_ci-system.yml`, `_ci-cli.yml`, `_ci-quality.yml`, `_ci-security-secrets.yml`, `_ci-security-deep.yml`, `_ci-conformance.yml`, `_ci-coverage.yml`, `tests-dev-setup.yml`, `tests-coverage.yml`). The consolidation eliminates per-workflow setup duplication and enforces a cascading gate model. macOS support was added alongside this intentional shrink/re-shape of the upstream CI surface.
 
 The retained workflows run only their checked-in triggers; retired benchmark and
 book workflows are not part of the CI surface.
@@ -67,7 +67,7 @@ flowchart TD
     Bld --> U["unit (_ci-unit.yml)"]
     U --> I["integration (_ci-integration.yml)"]
     U --> Sys["system (_ci-system.yml)"]
-    U --> D["demo (_ci-demo.yml)"]
+    U --> D["cli (_ci-cli.yml)"]
     U --> Cov["coverage (_ci-coverage.yml)"]
     I --> C["conformance (_ci-conformance.yml)"]
     Sys --> C
@@ -108,7 +108,7 @@ flowchart TD
 | `_ci-unit.yml`            | `ubuntu-24.04`                      | Harness Unit Tests                                           | 20 m    |
 | `_ci-integration.yml`     | `ubuntu-24.04`                      | Harness Integration Tests                                    | 20 m    |
 | `_ci-system.yml`          | `ubuntu-latest`                     | LLM System Tests                                             | 60–90 m |
-| `_ci-demo.yml`            | `ubuntu-24.04`, `windows-2025-vs2026`, `windows-11-vs2026-arm` | Deterministic Demo Conformance                               | 20 m    |
+| `_ci-cli.yml`             | `ubuntu-24.04`, `windows-2025-vs2026`, `windows-11-vs2026-arm` | Deterministic CLI Conformance                                | 20 m    |
 | `_ci-quality.yml`         | `ubuntu-24.04`                      | Format Check, Lint Check, Proto Check, YAML Check, Spell Check | 20–30 m |
 | `_ci-security-secrets.yml`| `ubuntu-24.04`                      | Gitleaks                                                     | 20–30 m |
 | `_ci-security-deep.yml`   | `ubuntu-24.04`                      | Sanitizers, SecComp                                          | 20–45 m |
@@ -404,7 +404,7 @@ The llama.cpp path and model path can be overridden with `TK_LLAMA_CPP_DIR`,
 
 ## Tests / Demo
 
-**File:** `_ci-demo.yml` (called by `ci.yml`)
+**File:** `_ci-cli.yml` (called by `ci.yml`)
 
 Deterministic offline investment conformance suite — fixture-backed, no llama.cpp required. Runs on Linux, macOS, and Windows to produce cross-platform conformance artifacts.
 
