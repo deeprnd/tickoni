@@ -313,6 +313,25 @@ pub fn strategy(
         codec.linkTickoniCodec(b, restricted_instrument_test, fd_lib_dir);
         test_runs[test_run_count] = shims.addPlainTestRun(b, restricted_instrument_test);
         test_run_count += 1;
+
+        // 7. Investment demo system suite (allowed, oversized-blocked, restricted).
+        // Absorbed from demo/investment/mod.zig::runSystemSuite().
+        const system_suite_test = b.addTest(.{
+            .root_module = b.createModule(.{
+                .root_source_file = b.path(
+                    "src/tickoni/test/integration/test_investment_demo_system_suite.zig",
+                ),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{
+                    .{ .name = "investment_demo", .module = int_mods.investment_demo_mod },
+                    .{ .name = "investment_support", .module = int_mods.investment_support_int_mod },
+                },
+            }),
+        });
+        codec.linkTickoniCodec(b, system_suite_test, fd_lib_dir);
+        test_runs[test_run_count] = shims.addPlainTestRun(b, system_suite_test);
+        test_run_count += 1;
     }
 
     // Chain sequential execution only for the populated entries.

@@ -334,10 +334,10 @@ pub fn strategy(
         .linkage = .{ .needs_libc = true },
     }, test_step, run_cmd);
 
-    // demo/substitution.zig — needs diagnostic, runner.
+    // test/demo/investment/substitution.zig — needs diagnostic, runner.
     tb.registerRunTest(.{
         .name = "test-demo-substitution",
-        .source_file = "src/tickoni/demo/substitution.zig",
+        .source_file = "src/tickoni/test/demo/investment/substitution.zig",
         .imports = &.{
             .{ .name = "diagnostic", .module = shared.demo_diagnostic },
             .{ .name = "runner", .module = shared.demo_runner },

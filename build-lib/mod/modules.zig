@@ -245,7 +245,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         },
     });
     const demo_substitution_mod = b.addModule("demo_substitution", .{
-        .root_source_file = b.path("src/tickoni/demo/substitution.zig"),
+        .root_source_file = b.path("src/tickoni/test/demo/investment/substitution.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
