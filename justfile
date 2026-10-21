@@ -16,6 +16,7 @@ import "just/setup/zig.just"
 
 # ── Build ─────────────────────────────────────────────────────────────────
 import "just/build/all.just"
+import "just/build/artifacts.just"
 import "just/build/fd.just"
 import "just/build/qt.just"
 import "just/build/tk.just"

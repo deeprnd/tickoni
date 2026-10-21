@@ -205,7 +205,7 @@ jobs:
 
       - name: Export build artifact conformance bundle
         if: matrix.conformance-dir != ''
-        run: just export-build-artifact-conformance-${{ matrix.conformance-dir }}
+        run: just build:export-build-artifact-conformance-${{ matrix.conformance-dir }}
 
       - name: Upload conformance bundle
         if: matrix.conformance-dir != ''
