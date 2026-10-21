@@ -23,7 +23,7 @@ import "just/build/tk.just"
 # ── Test ───────────────────────────────────────────────────────────────────
 import "just/test/all.just"
 import "just/test/coverage.just"
-import "just/test/demo.just"
+import "just/test/cli.just"
 import "just/test/e2e.just"
 import "just/test/integration.just"
 import "just/test/perf.just"
