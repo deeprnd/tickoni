@@ -459,9 +459,9 @@ test "FixtureBackend returns deterministic response" {
     const req = ProviderRequest{
         .model_id = "fixture.ai_infra",
         .messages = &.{},
-        .budget_id = "budget.demo_paper",
+        .budget_id = "budget.fixture_paper",
         .policy_version = "v1",
-        .capability_envelope_id = "capenv.trading_order.propose.demo",
+        .capability_envelope_id = "capenv.trading_order.propose.fixture",
     };
 
     const resp = try fixture.call(allocator, req);
@@ -486,9 +486,9 @@ test "FixtureBackend.initFromDir loads fixture_model_response_gemma4.json" {
     const req = ProviderRequest{
         .model_id = "fixture.ai_infra",
         .messages = &.{},
-        .budget_id = "budget.demo_paper",
+        .budget_id = "budget.fixture_paper",
         .policy_version = "v1",
-        .capability_envelope_id = "capenv.trading_order.propose.demo",
+        .capability_envelope_id = "capenv.trading_order.propose.fixture",
     };
     const resp = try fixture.call(allocator, req);
     defer resp.deinit(allocator);
