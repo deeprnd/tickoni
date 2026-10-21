@@ -136,8 +136,35 @@ test-unit-tk-windows-x86:
 
 test-unit-tk-windows-arm: test-unit-tk-windows-x86
 
+# CLI test lane: Zig unit + integration tests for tickoni CLI.
+test-unit-cli:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ os }}-{{ arch }}" in
+    linux-x86) exec just test-unit-cli-linux-x86 ;;
+    linux-arm) exec just test-unit-cli-linux-arm ;;
+    macos-x86) exec just test-unit-cli-macos-x86 ;;
+    macos-arm) exec just test-unit-cli-macos-arm ;;
+    windows-x86) exec just test-unit-cli-windows-x86 ;;
+    windows-arm) exec just test-unit-cli-windows-arm ;;
+    *) echo "unsupported host platform for test-unit-cli: {{ os }}-{{ arch }}" >&2; exit 1 ;;
+    esac
+
+test-unit-cli-linux-x86:
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-cli-parser test-cli-main
+
+test-unit-cli-linux-arm: test-unit-cli-linux-x86
+
+test-unit-cli-macos-x86: test-unit-cli-linux-x86
+
+test-unit-cli-macos-arm: test-unit-cli-linux-x86
+
+test-unit-cli-windows-x86: test-unit-cli-linux-x86
+
+test-unit-cli-windows-arm: test-unit-cli-linux-x86
+
 test-unit-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-tk && just test-unit-fd"
+    {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-cli && just test-unit-tk && just test-unit-fd"
 
 # ── Test: Pytest setup recipes (CI) ────────────────────────────────────────
 # Platform-specific pytest installation and execution for CI matrix entries.
