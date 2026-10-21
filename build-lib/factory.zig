@@ -40,6 +40,9 @@ pub const IntegrationModules = struct {
     shared_c_abi: *std.Build.Module,
     shared_util: *std.Build.Module,
     shared_topologies: *std.Build.Module,
+    shared_tier: *std.Build.Module,
+    shared_doctor_output: *std.Build.Module,
+    shared_version: *std.Build.Module,
     tile_reg_mod: *std.Build.Module,
 };
 
@@ -291,6 +294,12 @@ pub const ModuleFactory = struct {
             },
         });
 
+        const tier_mod = self.b.createModule(.{
+            .root_source_file = self.b.path("src/tickoni/util/tier.zig"),
+            .target = self.target,
+            .optimize = self.optimize,
+        });
+
         return IntegrationModules{
             .tkpoly_int_mod = tkpoly_int_mod,
             .model_int_mod = model_int_mod,
@@ -318,6 +327,9 @@ pub const ModuleFactory = struct {
             .shared_c_abi = self.shared.c_abi,
             .shared_util = self.shared.util,
             .shared_topologies = self.shared.topologies,
+            .shared_tier = tier_mod,
+            .shared_doctor_output = self.shared.doctor_output,
+            .shared_version = self.shared.version,
             .tile_reg_mod = self.shared.tile_registry,
         };
     }
