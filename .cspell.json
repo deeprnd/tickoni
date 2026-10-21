@@ -1061,7 +1061,8 @@
     "content/",
     "NOTICE",
     "zig-pkg/",
-    "doc/knowledge/zig/"
+    "doc/knowledge/zig/",
+    "doc/execution/plans/"
   ],
   "languages": [
     "markdown",
