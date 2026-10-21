@@ -25,9 +25,9 @@ const system_prompt =
 const live_actor_role = "trading_ops_reviewer";
 const live_workflow = "trading_control";
 const live_capability = "trading_order.propose";
-const live_capability_envelope_id = "capenv.trading_order.propose.demo";
+const live_capability_envelope_id = "capenv.trading_order.propose.fixture";
 const live_policy_version = "v1";
-const live_budget_id = "budget.demo_paper.live";
+const live_budget_id = "budget.fixture_paper.live";
 const decision_cards_now_ns: u64 = 1_765_792_800_000_000_000;
 const supplier_payout_proposal_id: u64 = 1_240_001;
 const supplier_payout_amount_cents: i64 = 124_000;
@@ -35,7 +35,7 @@ const supplier_payout_beneficiary = "supplier_acme_us";
 const supplier_payout_source_event = "payment_failed";
 const supplier_payout_currency = "USD";
 const supplier_payout_expires_at_ns: u64 = 1_765_879_200_000_000_000;
-const demo_cash_buffer_threshold_cents: i64 = 500_000;
+const fixture_cash_buffer_threshold_cents: i64 = 500_000;
 const drift_check_now_ns: u64 = supplier_payout_expires_at_ns + 1;
 const drift_retry_window_expiry_ns: u64 = decision_cards_now_ns - 1;
 const drift_evidence_expiry_ns: u64 = decision_cards_now_ns - 86_400_000_000_000;
@@ -53,7 +53,7 @@ const drift_rebalance_policy = drift.ThesisDriftPolicy{
     .min_buying_power_to_rebalance_cents = 200_000,
 };
 const drift_payment_policy = drift.PaymentDriftPolicy{
-    .cash_buffer_threshold_cents = demo_cash_buffer_threshold_cents,
+    .cash_buffer_threshold_cents = fixture_cash_buffer_threshold_cents,
     .daily_limit_cents_at_proposal = 200_000,
     .monthly_limit_cents_at_proposal = 1_000_000,
 };
@@ -854,7 +854,7 @@ pub fn writeCliReportText(writer: anytype, report: CliReport) !void {
     );
 }
 
-/// System-level demo suite: live/fixture model → allowed → oversized-blocked → restricted → replay.
+/// System-level fixture suite: live/fixture model → allowed → oversized-blocked → restricted → replay.
 ///
 /// This function is called by `src/tickoni/test/system/test_investment_demo_live.zig`
 /// as part of the system-test lane.  It reuses the helper functions exported
@@ -1015,7 +1015,7 @@ fn buildAllowedTradeContracts(
         account_before,
         basket,
         &pending_obligations,
-        demo_cash_buffer_threshold_cents,
+        fixture_cash_buffer_threshold_cents,
         decision_cards_now_ns,
     );
     var realized_impact = impact.computeRealizedTradeImpact(
@@ -1023,7 +1023,7 @@ fn buildAllowedTradeContracts(
         basket,
         execution.total_filled_cents,
         &pending_obligations,
-        demo_cash_buffer_threshold_cents,
+        fixture_cash_buffer_threshold_cents,
         decision_cards_now_ns,
     );
     const policy_max_single_name_bp: u32 = @as(u32, input.max_single_name_pct) * 100;
