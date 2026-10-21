@@ -147,8 +147,8 @@ pub const TmpDir = struct {
         const io = std.testing.io;
         self.dir.close(io);
 
-        // Guard: keep temp dirs (and their log files) when TICKONI_KEEP_LOGS=1
-        const keep = c.getenv("TICKONI_KEEP_LOGS");
+        // Guard: keep temp dirs (and their log files) when TK_KEEP_LOGS=1
+        const keep = c.getenv("TK_KEEP_LOGS");
         if (keep == null or std.mem.sliceTo(keep.?, 0)[0] != '1') {
             self.parent_dir.deleteTree(io, self.sub_path[0..12]) catch {};
         }

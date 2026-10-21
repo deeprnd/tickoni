@@ -150,8 +150,8 @@ def main():
 
     args = parser.parse_args()
 
-    # Support SKIP_IDEMPOTENCY env var (used by justfile recipes)
-    skip_idempotency = args.skip_idempotency or env_flag('SKIP_IDEMPOTENCY')
+    # Support TK_SKIP_IDEMPOTENCY env var (used by justfile recipes)
+    skip_idempotency = args.skip_idempotency or env_flag('TK_SKIP_IDEMPOTENCY')
 
     if args.deps:
         config = load_config()

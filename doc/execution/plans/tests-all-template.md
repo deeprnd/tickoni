@@ -15,7 +15,7 @@ DONT RUN ANYTHING IN PARALLEL!!!!
 ### `just setup-all`
 
 ```
-SKIP_IDEMPOTENCY=... python3 ../contrib/setup/orchestrator.py dev
+TK_SKIP_IDEMPOTENCY=... python3 ../contrib/setup/orchestrator.py dev
 just setup-git
 ```
 

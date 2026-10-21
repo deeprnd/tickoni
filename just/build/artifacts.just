@@ -1,62 +1,60 @@
 # ── Build: Artifact export recipes ─────────────────────────────────────────
-!default
-
-output_dir = build/build-artifact-conformance/linux-x86
 
 # Build tests, run the domain integration suite (which writes conformance.json
-# when TICKONI_CONFORMANCE_JSON is set), then verify the output.
+# when TK_CONFORMANCE_JSON is set), then verify the output.
 export-build-artifact-conformance-linux-x86:
-    mkdir -p {{ output_dir }}
+    mkdir -p build/build-artifact-conformance/linux-x86
     ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} \
-        TICKONI_CONFORMANCE_JSON={{ output_dir }} \
+        TK_CONFORMANCE_JSON=build/build-artifact-conformance/linux-x86 \
         zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} \
         integration-test-domain
 
-output_dir = build/build-artifact-conformance/macos-x86
+export-build-artifact-conformance-linux-arm:
+    mkdir -p build/build-artifact-conformance/linux-arm
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} \
+        TK_CONFORMANCE_JSON=build/build-artifact-conformance/linux-arm \
+        zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} \
+        integration-test-domain
+
 export-build-artifact-conformance-macos-x86:
-    mkdir -p {{ output_dir }}
+    mkdir -p build/build-artifact-conformance/macos-x86
     ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} \
-        TICKONI_CONFORMANCE_JSON={{ output_dir }} \
+        TK_CONFORMANCE_JSON=build/build-artifact-conformance/macos-x86 \
         zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} \
         integration-test-domain
 
-output_dir = build/build-artifact-conformance/macos-arm
 export-build-artifact-conformance-macos-arm:
-    mkdir -p {{ output_dir }}
+    mkdir -p build/build-artifact-conformance/macos-arm
     ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} \
-        TICKONI_CONFORMANCE_JSON={{ output_dir }} \
+        TK_CONFORMANCE_JSON=build/build-artifact-conformance/macos-arm \
         zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} \
         integration-test-domain
 
-output_dir = build/build-artifact-conformance/macos-26-x86
 export-build-artifact-conformance-macos-26-x86:
-    mkdir -p {{ output_dir }}
+    mkdir -p build/build-artifact-conformance/macos-26-x86
     ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} \
-        TICKONI_CONFORMANCE_JSON={{ output_dir }} \
+        TK_CONFORMANCE_JSON=build/build-artifact-conformance/macos-26-x86 \
         zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} \
         integration-test-domain
 
-output_dir = build/build-artifact-conformance/macos-26-arm
 export-build-artifact-conformance-macos-26-arm:
-    mkdir -p {{ output_dir }}
+    mkdir -p build/build-artifact-conformance/macos-26-arm
     ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} \
-        TICKONI_CONFORMANCE_JSON={{ output_dir }} \
+        TK_CONFORMANCE_JSON=build/build-artifact-conformance/macos-26-arm \
         zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} \
         integration-test-domain
 
-output_dir = build/build-artifact-conformance/windows-x86
 export-build-artifact-conformance-windows-x86:
-    mkdir -p {{ output_dir }}
+    mkdir -p build/build-artifact-conformance/windows-x86
     bash -lc "ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} \
-        TICKONI_CONFORMANCE_JSON={{ output_dir }} \
+        TK_CONFORMANCE_JSON=build/build-artifact-conformance/windows-x86 \
         zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} \
         integration-test-domain --summary all"
 
-output_dir = build/build-artifact-conformance/windows-arm
 export-build-artifact-conformance-windows-arm:
-    mkdir -p {{ output_dir }}
+    mkdir -p build/build-artifact-conformance/windows-arm
     bash -lc "ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} \
-        TICKONI_CONFORMANCE_JSON={{ output_dir }} \
+        TK_CONFORMANCE_JSON=build/build-artifact-conformance/windows-arm \
         zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} \
         integration-test-domain --summary all"
 

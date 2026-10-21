@@ -323,12 +323,30 @@ pub fn strategy(
                 ),
                 .target = target,
                 .optimize = optimize,
+                .link_libc = true,
                 .imports = &.{
                     .{ .name = "investment_fixture", .module = int_mods.investment_fixture_mod },
                     .{ .name = "investment_support", .module = int_mods.investment_support_int_mod },
+                    .{ .name = "util", .module = int_mods.shared_util },
                 },
             }),
         });
+        system_suite_test.root_module.addCSourceFiles(.{
+            .files = &.{ "src/tickoni/c_abi/shim/os.c" },
+            .flags = shims.shimCFlagsFor(target.result),
+        });
+        // os.c uses FD_HAS_LINUX / FD_HAS_MACOS / FD_HAS_WINDOWS to select
+        // the platform block; add the platform define via addCMacro so it
+        // stays in sync with shimCFlagsFor if the function changes.
+        switch (target.result.os.tag) {
+            .linux    => system_suite_test.root_module.addCMacro("FD_HAS_LINUX",    "1"),
+            .macos    => system_suite_test.root_module.addCMacro("FD_HAS_MACOS",    "1"),
+            .windows  => system_suite_test.root_module.addCMacro("FD_HAS_WINDOWS",  "1"),
+            else      => {},
+        }
+        if (target.result.os.tag == .windows) {
+            system_suite_test.root_module.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
+        }
         codec.linkTickoniCodec(b, system_suite_test, fd_lib_dir);
         test_runs[test_run_count] = shims.addPlainTestRun(b, system_suite_test);
         test_run_count += 1;

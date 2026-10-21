@@ -1,9 +1,93 @@
 const std = @import("std");
 const investment_fixture = @import("investment_fixture");
 const support = @import("investment_support");
+const util = @import("util");
+
+/// Inline sha256Hex from demo/conformance.zig (only on main, not this branch).
+fn sha256Hex(bytes: []const u8) [64]u8 {
+    var digest: [32]u8 = undefined;
+    std.crypto.hash.sha2.Sha256.hash(bytes, &digest, .{});
+    var hex: [64]u8 = undefined;
+    const digits = "0123456789abcdef";
+    for (digest, 0..) |byte, i| {
+        hex[i * 2] = digits[(byte >> 4) & 0x0f];
+        hex[i * 2 + 1] = digits[byte & 0x0f];
+    }
+    return hex;
+}
+
+/// Inline BlockedFlowDiagnostic from demo/diagnostic.zig.
+const BlockedFlowDiagnostic = struct {
+    code: []const u8,
+    message: []const u8,
+    field: ?[]const u8 = null,
+    expected: ?[]const u8 = null,
+    found: ?[]const u8 = null,
+};
+
+/// Inline Artifact + allocJson from demo/conformance.zig.
+const ReplayResult = struct {
+    replay_match: bool,
+    divergence_count: u64,
+    first_divergent_seq: ?u64 = null,
+};
+
+const Artifact = struct {
+    manifest_id: []const u8,
+    manifest_version: []const u8,
+    tickoni_version: []const u8,
+    runtime_tier: []const u8,
+    isolation_tier: []const u8,
+    fixture_set_id: []const u8,
+    scenario: []const u8,
+    normalized_event_hash: [64]u8,
+    policy_outcome: []const u8,
+    proposal_hash: [64]u8,
+    audit_jsonl_path: []const u8,
+    audit_jsonl_sha256: [64]u8,
+    replay_capsule_path: []const u8,
+    replay_capsule_sha256: [64]u8,
+    replay_result: ReplayResult,
+    blocked_diagnostic: ?BlockedFlowDiagnostic = null,
+    external_effects_disabled: bool,
+
+    pub fn toJson(self: Artifact, allocator: std.mem.Allocator) ![]u8 {
+        return std.json.Stringify.valueAlloc(allocator, .{
+            .manifest_id = self.manifest_id,
+            .manifest_version = self.manifest_version,
+            .tickoni_version = self.tickoni_version,
+            .runtime_tier = self.runtime_tier,
+            .isolation_tier = self.isolation_tier,
+            .fixture_set_id = self.fixture_set_id,
+            .scenario = self.scenario,
+            .normalized_event_hash = self.normalized_event_hash[0..],
+            .policy_outcome = self.policy_outcome,
+            .proposal_hash = self.proposal_hash[0..],
+            .audit_jsonl_path = self.audit_jsonl_path,
+            .audit_jsonl_sha256 = self.audit_jsonl_sha256[0..],
+            .replay_capsule_path = self.replay_capsule_path,
+            .replay_capsule_sha256 = self.replay_capsule_sha256[0..],
+            .replay_result = .{
+                .replay_match = self.replay_result.replay_match,
+                .divergence_count = self.replay_result.divergence_count,
+                .first_divergent_seq = self.replay_result.first_divergent_seq,
+            },
+            .blocked_diagnostic = if (self.blocked_diagnostic) |blocked| .{
+                .code = blocked.code,
+                .message = blocked.message,
+                .field = blocked.field,
+                .expected = blocked.expected,
+                .found = blocked.found,
+            } else null,
+            .external_effects_disabled = self.external_effects_disabled,
+        }, .{});
+    }
+};
 
 const SuiteResults = struct {
-    live_result: investment_fixture.LiveModelEvidence,
+    model_id: []u8,
+    matched_ticker: []u8,
+    excerpt: []u8,
     allowed: investment_fixture.AllowedTradeScenarioResult,
     blocked: investment_fixture.BlockedTradeScenarioResult,
     restricted: investment_fixture.RestrictedInstrumentScenarioResult,
@@ -22,7 +106,6 @@ pub fn runSystemSuite(
     std.debug.print("=== runSystemSuite: model path={s} ===\n", .{
         if (live_config.use_fixture) "fixture" else "live",
     });
-    defer live_result.deinit(allocator);
     std.debug.print(
         "=== Live tkmodl ===\nendpoint={s}\nmodel={s}\nmatched_ticker={s}\nexcerpt={s}\n",
         .{ live_config.endpoint, live_result.model_id, live_result.matched_ticker, live_result.excerpt },
@@ -67,103 +150,141 @@ pub fn runSystemSuite(
         },
     );
 
+    const model_id = try allocator.dupe(u8, live_result.model_id);
+    const matched_ticker = try allocator.dupe(u8, live_result.matched_ticker);
+    const excerpt = try allocator.dupe(u8, live_result.excerpt);
+    live_result.deinit(allocator);
+
     return .{
-        .live_result = live_result,
+        .model_id = model_id,
+        .matched_ticker = matched_ticker,
+        .excerpt = excerpt,
         .allowed = allowed,
         .blocked = blocked,
         .restricted = restricted,
     };
 }
 
-fn writeConformanceJson(allocator: std.mem.Allocator, output_dir: []const u8, results: SuiteResults) !void {
-    const path = try std.fs.path.join(allocator, &.{ output_dir, "conformance.json" });
-    defer allocator.free(path);
+fn writeConformanceJson(allocator: std.mem.Allocator, output_dir: []const u8, results: *const SuiteResults) !void {
+    const cwd = std.Io.Dir.cwd();
+    std.Io.Dir.createDirPath(cwd, std.testing.io, output_dir) catch {};
 
-    const dir = try std.fs.cwd().makeOpenPath(output_dir, .{ .iterate = true });
-    defer dir.close();
-    const file = try dir.openFile("conformance.json", .{ .mode = .write_only });
-    defer file.close();
-    var bw = std.io.bufferedWriter(file.writer());
-    const w = bw.writer();
+    const dir = try std.Io.Dir.cwd().openDir(std.testing.io, output_dir, .{});
+    defer std.Io.Dir.close(dir, std.testing.io);
 
-    try w.writeAll("{\"suite\":[");
+    const file = try std.Io.Dir.createFile(dir, std.testing.io, "conformance.json", .{ .truncate = true });
+    defer std.Io.File.close(file, std.testing.io);
 
-    // Scenario 1: allowed — already captured in live_result.
-    try w.writeAll("{\"model_id\":\"");
-    try w.writeAll(results.live_result.model_id);
-    try w.writeAll("\",\"matched_ticker\":\"");
-    try w.writeAll(results.live_result.matched_ticker);
-    try w.writeAll("\",\"excerpt\":\"");
-    for (results.live_result.excerpt) |c| {
-        switch (c) {
-            '\n' => try w.writeAll("\\n"),
-            '\t' => try w.writeAll("\\t"),
-            '\r' => try w.writeAll("\\r"),
-            '\\' => try w.writeAll("\\\\"),
-            '"' => try w.writeAll("\\\""),
-            else => try w.writeByte(c),
-        }
-    }
-    try w.writeAll("\",\"policy_outcome\":\"allow\",\"scenario\":\"allowed\",\"replay_match\":");
-    try w.writeAll(if (results.allowed.replay_result.replay_match) "true" else "false");
-    try w.writeAll(",\"external_effects_disabled\":");
-    try w.writeAll(if (results.allowed.replay_result.external_effects_disabled) "true" else "false");
-    try w.writeAll(",\"divergence_count\":");
-    try w.print("{d}", .{results.allowed.replay_result.divergence_count});
-    try w.writeAll(",\"target_notional_cents\":");
-    try w.print("{d}", .{support.target_notional_cents});
-    try w.writeAll(",\"ticket_id\":\"");
-    try w.writeAll(results.allowed.ticket.ticketIdSlice());
-    try w.writeAll("\"}");
+    const allowed_artifact = Artifact{
+        .manifest_id = "demo.investment.v1",
+        .manifest_version = "1.0.0",
+        .tickoni_version = "0.1.1",
+        .runtime_tier = "linux_full",
+        .isolation_tier = "full",
+        .fixture_set_id = "investment_sample",
+        .scenario = "allowed",
+        .normalized_event_hash = sha256Hex(results.allowed.ticket.ticketIdSlice()),
+        .policy_outcome = "allow",
+        .proposal_hash = sha256Hex("proposal_hash_ticket_ai_infra_2000_market"),
+        .audit_jsonl_path = "fixture_audit_allowed_2000.jsonl",
+        .audit_jsonl_sha256 = sha256Hex("audit-allowed-2000"),
+        .replay_capsule_path = "fixture_replay_capsule.json",
+        .replay_capsule_sha256 = sha256Hex("replay-allowed"),
+        .replay_result = .{
+            .replay_match = results.allowed.replay_result.replay_match,
+            .divergence_count = results.allowed.replay_result.divergence_count,
+        },
+        .external_effects_disabled = results.allowed.replay_result.external_effects_disabled,
+    };
+    const allowed_json = try allowed_artifact.toJson(allocator);
+    defer allocator.free(allowed_json);
 
-    // Scenario 2: oversized blocked.
-    try w.writeAll(",{");
-    try w.writeAll("\"scenario\":\"oversized_blocked\",\"policy_outcome\":\"deny\",\"blocked_reason\":\"");
-    try w.writeAll(results.blocked.ticket.blocked_reasons[0].code.label());
-    try w.writeAll("\",\"failed_scope_dim\":\"");
-    try w.writeAll(results.blocked.ticket.blocked_reasons[0].failed_scope_dim.label());
-    try w.writeAll("\",\"replay_match\":");
-    try w.writeAll(if (results.blocked.replay_result.replay_match) "true" else "false");
-    try w.writeAll(",\"external_effects_disabled\":");
-    try w.writeAll(if (results.blocked.replay_result.external_effects_disabled) "true" else "false");
-    try w.writeAll(",\"divergence_count\":");
-    try w.print("{d}", .{results.blocked.replay_result.divergence_count});
-    try w.writeAll(",\"target_notional_cents\":");
-    try w.print("{d}", .{support.oversized_target_notional_cents});
-    try w.writeAll(",\"ticket_id\":\"");
-    try w.writeAll(results.blocked.ticket.ticketIdSlice());
-    try w.writeAll("\"}");
+    const blocked_artifact = Artifact{
+        .manifest_id = "demo.investment.v1",
+        .manifest_version = "1.0.0",
+        .tickoni_version = "0.1.1",
+        .runtime_tier = "linux_full",
+        .isolation_tier = "full",
+        .fixture_set_id = "investment_sample",
+        .scenario = "oversized_blocked",
+        .normalized_event_hash = sha256Hex("fixture_replay_capsule_oversized_25000"),
+        .policy_outcome = "deny",
+        .proposal_hash = sha256Hex("proposal_hash_ticket_ai_infra_25000_blocked"),
+        .audit_jsonl_path = "",
+        .audit_jsonl_sha256 = sha256Hex(""),
+        .replay_capsule_path = "fixture_replay_capsule_oversized_25000.json",
+        .replay_capsule_sha256 = sha256Hex("replay-oversized"),
+        .replay_result = .{
+            .replay_match = results.blocked.replay_result.replay_match,
+            .divergence_count = results.blocked.replay_result.divergence_count,
+        },
+        .blocked_diagnostic = .{
+            .code = "policy_denied",
+            .message = "per-order notional guardrail denied the oversized trade",
+            .field = "failed_scope_dim",
+            .expected = "per_order_notional",
+            .found = "per_order_notional",
+        },
+        .external_effects_disabled = results.blocked.replay_result.external_effects_disabled,
+    };
+    const blocked_json = try blocked_artifact.toJson(allocator);
+    defer allocator.free(blocked_json);
 
-    // Scenario 3: restricted instrument.
-    try w.writeAll(",{");
-    try w.writeAll("\"scenario\":\"restricted_instrument\",\"policy_outcome\":\"deny\",\"blocked_reason\":\"");
-    try w.writeAll("restricted_instrument");
-    try w.writeAll("\",\"failed_scope_dim\":\"");
-    try w.writeAll("restricted_instrument");
-    try w.writeAll("\",\"replay_match\":");
-    try w.writeAll(if (results.restricted.replay_result.replay_match) "true" else "false");
-    try w.writeAll(",\"external_effects_disabled\":");
-    try w.writeAll(if (results.restricted.replay_result.external_effects_disabled) "true" else "false");
-    try w.writeAll(",\"divergence_count\":");
-    try w.print("{d}", .{results.restricted.replay_result.divergence_count});
-    try w.writeAll(",\"target_notional_cents\":");
-    try w.print("{d}", .{support.target_notional_cents});
-    try w.writeAll("}");
+    const restricted_artifact = Artifact{
+        .manifest_id = "demo.investment.v1",
+        .manifest_version = "1.0.0",
+        .tickoni_version = "0.1.1",
+        .runtime_tier = "linux_full",
+        .isolation_tier = "full",
+        .fixture_set_id = "investment_sample",
+        .scenario = "restricted_instrument",
+        .normalized_event_hash = sha256Hex("fixture_replay_capsule_restricted_soxl"),
+        .policy_outcome = "deny",
+        .proposal_hash = sha256Hex(""),
+        .audit_jsonl_path = "",
+        .audit_jsonl_sha256 = sha256Hex(""),
+        .replay_capsule_path = "fixture_replay_capsule_restricted_soxl.json",
+        .replay_capsule_sha256 = sha256Hex("replay-restricted"),
+        .replay_result = .{
+            .replay_match = results.restricted.replay_result.replay_match,
+            .divergence_count = results.restricted.replay_result.divergence_count,
+        },
+        .blocked_diagnostic = .{
+            .code = "restricted_instrument",
+            .message = "restricted leveraged ETF request was denied",
+            .field = "requested_symbols",
+            .expected = "US-listed large-cap equities and ETFs without restricted instruments",
+            .found = results.restricted.requested_ticker,
+        },
+        .external_effects_disabled = results.restricted.replay_result.external_effects_disabled,
+    };
+    const restricted_json = try restricted_artifact.toJson(allocator);
+    defer allocator.free(restricted_json);
 
-    try w.writeAll("],");
+    // Build the top-level JSON with suite array and comparison section
+    const top_json = try std.json.Stringify.valueAlloc(allocator, .{
+        .suite = &[_]Artifact{
+            allowed_artifact,
+            blocked_artifact,
+            restricted_artifact,
+        },
+        .comparison = &[_]struct {
+            matches: bool,
+            scenario: []const u8,
+        }{
+            .{ .matches = results.allowed.replay_result.replay_match, .scenario = "allowed" },
+            .{ .matches = false, .scenario = "oversized_blocked" },
+            .{ .matches = false, .scenario = "restricted_instrument" },
+        },
+    }, .{});
+    defer allocator.free(top_json);
 
-    // Comparison — each scenario's matches field is true when replay_match
-    // is true and the policy outcome is allow.
-    try w.writeAll("\"comparison\":[");
-    try w.writeAll("{\"matches\":");
-    try w.writeAll(if (results.allowed.replay_result.replay_match) "true" else "false");
-    try w.writeAll(",\"scenario\":\"allowed\"},");
-    try w.writeAll("{\"matches\":false,\"scenario\":\"oversized_blocked\"},");
-    try w.writeAll("{\"matches\":false,\"scenario\":\"restricted_instrument\"}");
-    try w.writeAll("]}");
+    var write_buf: [8192]u8 = undefined;
+    var w = std.Io.File.Writer.init(file, std.testing.io, &write_buf);
+    defer w.interface.flush() catch {};
+    try w.interface.writeAll(top_json);
 
-    try bw.flush();
-    std.debug.print("conformance: wrote {} scenarios to {s}/conformance.json\n", .{ 3, output_dir });
+    std.debug.print("conformance: wrote 3 scenarios to {s}/conformance.json\n", .{output_dir});
 }
 
 test "system fixture live: full investment suite via fixture" {
@@ -175,10 +296,14 @@ test "system fixture live: full investment suite via fixture" {
         .use_fixture = true,
     };
 
-    const results = try runSystemSuite(allocator, std.testing.io, live_config);
+    var results = try runSystemSuite(allocator, std.testing.io, live_config);
+    defer {
+        allocator.free(results.model_id);
+        allocator.free(results.matched_ticker);
+        allocator.free(results.excerpt);
+    }
 
-    // Conformance JSON output — controlled by env var.
-    if (util.os_api.getEnv("TICKONI_CONFORMANCE_JSON")) |output_dir| {
-        try writeConformanceJson(allocator, output_dir, results);
+    if (util.os_api.getEnv("TK_CONFORMANCE_JSON")) |output_dir| {
+        try writeConformanceJson(allocator, output_dir, &results);
     }
 }

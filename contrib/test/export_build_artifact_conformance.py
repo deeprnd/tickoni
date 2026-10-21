@@ -3,7 +3,7 @@
 
 The conformance JSON is produced by the Zig integration test
 (test_investment_fixture_system_suite.zig) when the env var
-TICKONI_CONFORMANCE_JSON is set. This script simply validates that the
+TK_CONFORMANCE_JSON is set. This script simply validates that the
 expected files exist in the output directory and that the JSON is parseable.
 """
 
