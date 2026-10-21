@@ -203,20 +203,16 @@ jobs:
           QT_PASSWORD: ${{ secrets.QT_PASSWORD }}
         run: just ${{ matrix.build-qt-recipe }}
 
-      - name: Export demo conformance bundle (Unix)
-        if: matrix.conformance-dir != '' && runner.os != 'Windows'
-        run: python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/${{ matrix.conformance-dir }}
-
-      - name: Export demo conformance bundle (Windows)
-        if: matrix.conformance-dir != '' && runner.os == 'Windows'
-        run: py -3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/${{ matrix.conformance-dir }}
+      - name: Export build artifact conformance bundle
+        if: matrix.conformance-dir != ''
+        run: just export-build-artifact-conformance-${{ matrix.conformance-dir }}
 
       - name: Upload conformance bundle
         if: matrix.conformance-dir != ''
         uses: actions/upload-artifact@v7
         with:
           name: conformance-${{ matrix.conformance-dir }}
-          path: build/demo-conformance/${{ matrix.conformance-dir }}/conformance.json
+          path: build/build-artifact-conformance/${{ matrix.conformance-dir }}/conformance.json
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
