@@ -322,17 +322,16 @@ The workflow downloads pre-built build artifacts from the Build stage (so it
 never rebuilds Firedancer libraries), then runs `just` recipes that only
 compile test executables and execute them.
 
-### Three-tier recipe pattern
+### Two-tier recipe pattern
 
-FD unit-test recipes follow a three-tier pattern:
+FD unit-test recipes follow a two-tier pattern:
 
 | Tier | Recipe | Purpose |
 |------|--------|---------|
 | Build | `build-test-unit-fd-{platform}` | Compiles test executables only via `make unit-test`. |
-| Run | `test-unit-fd-{platform}` | Runs existing test executables only. |
-| All | `test-unit-fd-{platform}-all` | Build + run wrapper (`build-test-unit-fd-{platform} test-unit-fd-{platform}`). |
+| Run | `test-unit-fd-{platform}` | Builds test executables, then runs them. |
 
-CI matrix entries use the `-all` variant via the `fd-test-recipe` field, which
+CI matrix entries use the base recipe via the `fd-test-recipe` field, which
 executes both build and run in a single step.
 
 ### CI matrix
@@ -341,15 +340,15 @@ The workflow runs a matrix of platform/compiler combinations:
 
 | Job | Runner | FD recipe | TK recipe |
 | --- | --- | --- | --- |
-| Linux x86_64 (GCC) | `ubuntu-24.04` | `test-unit-fd-linux-x86-gcc-all` | `test-unit-tk-linux-x86` |
-| Linux x86_64 (Clang) | `ubuntu-24.04` | `test-unit-fd-linux-x86-clang-all` | `test-unit-tk-linux-x86` |
-| Linux ARM | `ubuntu-24.04-arm` | `test-unit-fd-linux-arm-gcc-all` | `test-unit-tk-linux-arm` |
-| macOS 15 (x86_64) | `macos-15-intel` | `test-unit-fd-macos-x86-all` | `test-unit-tk-macos-x86` |
-| macOS 15 (ARM) | `macos-15` | `test-unit-fd-macos-arm-all` | `test-unit-tk-macos-arm` |
-| macOS 26 (x86_64) | `macos-26-intel` | `test-unit-fd-macos-x86-all` | `test-unit-tk-macos-x86` |
-| macOS 26 (ARM) | `macos-26` | `test-unit-fd-macos-arm-all` | `test-unit-tk-macos-arm` |
-| Windows x86_64 | `windows-2025-vs2026` | `test-unit-fd-windows-x86-all` | `test-unit-tk-windows-x86` |
-| Windows ARM | `windows-11-vs2026-arm` | `test-unit-fd-windows-arm-all` | `test-unit-tk-windows-arm` |
+| Linux x86_64 (GCC) | `ubuntu-24.04` | `test-unit-fd-linux-x86-gcc` | `test-unit-tk-linux-x86` |
+| Linux x86_64 (Clang) | `ubuntu-24.04` | `test-unit-fd-linux-x86-clang` | `test-unit-tk-linux-x86` |
+| Linux ARM | `ubuntu-24.04-arm` | `test-unit-fd-linux-arm-gcc` | `test-unit-tk-linux-arm` |
+| macOS 15 (x86_64) | `macos-15-intel` | `test-unit-fd-macos-x86` | `test-unit-tk-macos-x86` |
+| macOS 15 (ARM) | `macos-15` | `test-unit-fd-macos-arm` | `test-unit-tk-macos-arm` |
+| macOS 26 (x86_64) | `macos-26-intel` | `test-unit-fd-macos-x86` | `test-unit-tk-macos-x86` |
+| macOS 26 (ARM) | `macos-26` | `test-unit-fd-macos-arm` | `test-unit-tk-macos-arm` |
+| Windows x86_64 | `windows-2025-vs2026` | `test-unit-fd-windows-x86` | `test-unit-tk-windows-x86` |
+| Windows ARM | `windows-11-vs2026-arm` | `test-unit-fd-windows-arm` | `test-unit-tk-windows-arm` |
 
 ### Workflow steps
 
@@ -364,7 +363,7 @@ The workflow runs a matrix of platform/compiler combinations:
 | Job | Command | Output artifact |
 | --- | --- | --- |
 | Harness Unit Tests | `just test-unit-tk-linux-x86` | — |
-| Engine Unit Tests | `just test-unit-fd-linux-x86-gcc-all` (per matrix entry) | — |
+| Engine Unit Tests | `just test-unit-fd-linux-x86-gcc` (per matrix entry) | — |
 
 ---
 

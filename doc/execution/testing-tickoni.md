@@ -377,23 +377,22 @@ as authoritative.
 ## Engine Unit Tests
 
 `just test-unit-fd` delegates to platform-qualified recipes. The FD unit-test
-lane uses a three-tier recipe pattern:
+lane uses a two-tier recipe pattern:
 
 | Recipe tier | Purpose |
 |-------------|---------|
 | `build-test-unit-fd-{platform}` | Builds test executables only (via `make unit-test`). Does **not** rebuild Firedancer libraries. |
-| `test-unit-fd-{platform}` | Runs existing test executables only (via `contrib/test/run_unit_tests.sh`). |
-| `test-unit-fd-{platform}-all` | Build + run wrapper (`build-test-unit-fd-{platform} test-unit-fd-{platform}`). |
+| `test-unit-fd-{platform}` | Builds test executables, then runs them (via `contrib/test/run_unit_tests.sh`). |
 
 Platform-qualified commands:
 
-- `just test-unit-fd-linux-x86-gcc` / `gcc-all`
-- `just test-unit-fd-linux-x86-clang` / `clang-all`
-- `just test-unit-fd-linux-arm-gcc` / `gcc-all`
-- `just test-unit-fd-macos-x86` / `macos-x86-all`
-- `just test-unit-fd-macos-arm` / `macos-arm-all`
-- `just test-unit-fd-windows-x86` / `windows-x86-all`
-- `just test-unit-fd-windows-arm` / `windows-arm-all`
+- `just test-unit-fd-linux-x86-gcc`
+- `just test-unit-fd-linux-x86-clang`
+- `just test-unit-fd-linux-arm-gcc`
+- `just test-unit-fd-macos-x86`
+- `just test-unit-fd-macos-arm`
+- `just test-unit-fd-windows-x86`
+- `just test-unit-fd-windows-arm`
 
 On Linux, the build recipe computes resource-safe test options via
 `dynamic_test_opts.py` (memory-driven `TEST_OPTS` and `LDFLAGS_EXE`), raises
@@ -410,10 +409,8 @@ build to only the 5 libraries Tickoni reuses (`fd_tango`, `fd_util`,
 `fd_ballet`, `fd_disco`, `fd_waltz`). This excludes Solana validator tiles,
 RPC schemas, and unrelated Firedancer source.
 
-CI downloads pre-built FD libraries as build artifacts before the test stage,
-so FD test recipes only compile test executables — they never rebuild the 5
-core Firedancer libraries. For local development without pre-built libraries,
-use `just test-unit-fd-{platform}-all` to build + run in one step, or
+For local development without pre-built libraries,
+use `just test-unit-fd-{platform}` to build + run in one step, or
 `just build-fd-{platform}` first then `just test-unit-fd-{platform}`.
 
 The bare dispatcher `just test-unit-fd` routes to the host platform's GCC recipe.
