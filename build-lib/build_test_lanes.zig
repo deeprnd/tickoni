@@ -37,7 +37,7 @@ pub fn registerTestLanes(
     build_lane.strategy(b, shared, tm, target, optimize, fd_lib_dir, test_step, run_tests_cmd);
 
     // CLI lane — unit tests for parser, integration tests for the binary.
-    cli_lane.strategy(b, test_step, run_tests_cmd, exe_install, target, optimize, fd_lib_dir);
+    cli_lane.strategy(b, test_step, run_tests_cmd, target, optimize, fd_lib_dir);
 
     // Integration modules
     const int_mods = integration_lane.createIntModules(b, shared, tm, target, optimize, exe);

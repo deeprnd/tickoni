@@ -83,12 +83,8 @@ pub fn createSupervisorExe(
 }
 
 /// Create the CLI executable.
-/// `investment_fixture` must be the integration fixture module
-/// (src/tickoni/test/fixtures/investment/mod.zig) created by the
-/// integration lane, not the supervisor exe's root module.
 pub fn createCliExe(
     b: *std.Build,
-    investment_fixture: *std.Build.Module,
     shared: Shared,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
@@ -99,7 +95,6 @@ pub fn createCliExe(
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "investment_fixture", .module = investment_fixture },
             .{ .name = "tier", .module = shared.tier },
             .{ .name = "doctor_output", .module = shared.doctor_output },
             .{ .name = "version", .module = shared.version },
@@ -115,7 +110,7 @@ pub fn createCliExe(
     if (target.result.os.tag == .windows) {
         cli_exe.root_module.linkLibrary(codec.addTickoniCodecShimLibrary(b, target, optimize, "tickoni-codec-shims"));
         codec.addWindowsFdManifestFixups(b, cli_exe, b.fmt("{s}/fd_windows_zig_codec_link.txt", .{fd_lib_dir}));
-        codec.addTickoniSystemLibraries(b, cli_exe, fd_lib_dir, &.{ "fd_ballet", "fd_util" });
+        codec.addTickoniSystemLibraries(b, cli_exe, fd_lib_dir, &.{"fd_ballet", "fd_util"});
         cli_exe.root_module.linkSystemLibrary("crypt32", .{ .use_pkg_config = .no });
     } else {
         codec.linkTickoniCodec(b, cli_exe, fd_lib_dir);

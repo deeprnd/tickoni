@@ -2,8 +2,8 @@
 /// `test-cli-main` (integration) for the CLI binary.
 ///
 /// The CLI test modules are standalone (no firedancer/codec linkage).
-/// Integration tests spawn the compiled `tickoni` binary, so the lane
-/// depends on `exe_install` to ensure the binary exists.
+/// Integration tests spawn the compiled `tickoni` binary, which is
+/// already installed by `build-tk` (part of `build-all`).
 
 const std = @import("std");
 const lane = @import("../lane.zig");
@@ -13,7 +13,6 @@ pub fn strategy(
     b: *std.Build,
     test_step: *std.Build.Step,
     run_cmd: *std.Build.Step.Run,
-    exe_install: *std.Build.Step.InstallArtifact,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     fd_lib_dir: []const u8,
@@ -41,7 +40,7 @@ pub fn strategy(
     }
 
     // test-cli-main — integration tests that spawn the compiled tickoni binary.
-    // Depends on exe_install so the binary is available at test time.
+    // The binary is expected in PATH (installed by build-tk, part of build-all).
     {
         const cli_main_mod = b.createModule(.{
             .root_source_file = b.path("src/app/tickoni_cli/main.zig"),
@@ -55,8 +54,6 @@ pub fn strategy(
         });
 
         test_step.dependOn(&cli_main_test.step);
-        run_cmd.addArtifactArg(cli_main_test);
-        run_cmd.step.dependOn(&exe_install.step);
 
         // Top-level step so `zig build test-cli-main` works standalone.
         const cli_main_step = b.step(
@@ -64,6 +61,5 @@ pub fn strategy(
             "Run CLI integration tests (main.zig)",
         );
         cli_main_step.dependOn(test_step);
-        cli_main_step.dependOn(&exe_install.step);
     }
 }
