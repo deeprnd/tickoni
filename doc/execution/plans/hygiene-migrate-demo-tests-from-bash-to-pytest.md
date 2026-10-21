@@ -20,9 +20,9 @@ Replace the bash script with a single Python test file:
 tests/test_demo_cli.py          (or contrib/test/test_demo_cli.py)
 ```
 
-The justfile recipe `test-demo-tk` switches from calling the shell script to:
+The justfile recipe `test-cli-tk` switches from calling the shell script to:
 ```
-test-demo-tk:
+test-cli-tk:
     {{ python }} -m pytest tests/test_demo_cli.py -v
 ```
 
@@ -103,15 +103,15 @@ Key design decisions:
 
 ### Step 2: Wire into justfile
 
-Change `just/test/demo.just`:
+Change `just/test/cli.just`:
 
 ```diff
- test-demo-tk:
+ test-cli-tk:
 -	ZIG_PREFIX={{ ZIG_PREFIX }} ZIG_PREFIX_REL={{ ZIG_PREFIX_REL }} bash {{ justfile_dir }}/contrib/test/run_cli_demo_tests.sh
 +	ZIG_PREFIX={{ ZIG_PREFIX }} {{ python }} -m pytest tests/test_demo_cli.py -v
 ```
 
-Remove the per-platform aliases (they were all aliases to `test-demo-tk` anyway).
+Remove the per-platform aliases (they were all aliases to `test-cli-tk` anyway).
 
 ### Step 3: Delete the bash script
 
@@ -120,7 +120,7 @@ Remove `contrib/test/run_cli_demo_tests.sh`.
 ### Step 4: Update references in docs
 
 Files that mention `run_cli_demo_tests.sh`:
-- `just/test/demo.just` (covered by Step 2)
+- `just/test/cli.just` (covered by Step 2)
 - `doc/strategy/roadmap/backlog/proposals/build-tooling-consolidation.md` — mention in table
 - `doc/execution/audits/stories/V2.10.S11-security-audit.md` — audit finding references
 - `doc/execution/audits/stories/V2.10.S6-security-audit.md` — SEC-05 finding
@@ -146,7 +146,7 @@ All tests should pass on the platform where this runs.
 | File | Action |
 |---|---|
 | `tests/test_demo_cli.py` (or `contrib/test/test_demo_cli.py`) | **create** |
-| `just/test/demo.just` | edit: update `test-demo-tk` recipe |
+| `just/test/cli.just` | edit: update `test-cli-tk` recipe |
 | `contrib/test/run_cli_demo_tests.sh` | **delete** |
 | `doc/strategy/roadmap/backlog/proposals/build-tooling-consolidation.md` | edit: note migration |
 | `doc/execution/audits/stories/V2.10.S11-security-audit.md` | edit: note migration |

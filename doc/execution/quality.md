@@ -47,7 +47,7 @@ A story is demoable when an operator or reviewer can observe the claimed
 behavior end to end without reading source.
 
 - [ ] A demo command, script, or fixture-backed scenario exists and exercises
-      the story's product-visible behavior (`just test-demo-tk`, a story-specific
+      the story's product-visible behavior (`just test-cli-tk`, a story-specific
       `just` target, or a documented fixture invocation).
 - [ ] The demo output answers the applicable subset of the
       [Increment Gate Checklist](../strategy/roadmap/epics/README.md#increment-gate-checklist):

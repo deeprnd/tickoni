@@ -99,7 +99,7 @@ are local host dispatchers only.
 Tickoni-owned Zig:
 
 - `just test-unit-tk` — Tickoni harness unit tests (Zig `zig build test`)
-- `just test-demo-tk` — **Deterministic demo conformance suite** (fixture-backed, no llama.cpp)
+- `just test-cli-tk` — **Deterministic demo conformance suite** (fixture-backed, no llama.cpp)
 - `just test-integration-tk` — Tickoni integration tests (Zig `zig build integration-test`)
 - `just test-system-tk` — System tests with live llama.cpp server
 
@@ -130,7 +130,7 @@ Current placeholder test recipes:
 - `just test-integration-fd` — no-op (`@true`). Firedancer does not have a
   separate repo-facing intermediate integration layer.
 - `just test-e2e-tk` — no-op (`@true`). Tickoni e2e is currently folded into
-  `test-demo-tk` and `test-e2e-fd`.
+  `test-cli-tk` and `test-e2e-fd`.
 - `just test-system-fd` — no-op (`@true`). Firedancer system testing uses
   `test-e2e-fd` (Firedancer's integration-test target).
 
@@ -159,7 +159,7 @@ shell scripts. Do not remove or rename them without explicit instruction.
 `contrib/tool/readme/run-badged-command.py` so the README status badges reflect the
 same aggregate commands developers use locally.
 
-## Demo Conformance Suite (test-demo-tk)
+## Demo Conformance Suite (test-cli-tk)
 
 The demo conformance suite is a **deterministic, fixture-backed test layer**
 that does not require llama.cpp, live tiles, or any external tooling. It is the
@@ -191,8 +191,8 @@ x86/ARM) and is part of every `tests-all` run.
 ### Conformance bundle format
 
 The output is written to
-`build/demo-conformance/<platform>/conformance.json` and
-`build/demo-conformance/<platform>/comparison.json` (via
+`build/cli-conformance/<platform>/conformance.json` and
+`build/cli-conformance/<platform>/comparison.json` (via
 `contrib/test/export_demo_conformance_bundle.py`).
 
 Fields that vary by platform and are ignored during cross-platform comparison:
@@ -226,7 +226,7 @@ commands from the repository root unless noted otherwise.
   change: `just test-unit-fd`
 - Firedancer coverage-sensitive change: `just test-cov-fd`
 - **Demo manifest, demo module, CLI version/doctor contract, conformance output
-  format, or cross-platform conformance comparison change**: `just test-demo-tk`
+  format, or cross-platform conformance comparison change**: `just test-cli-tk`
   (also run `contrib/test/compare_demo_conformance.py` manually to verify
   cross-platform coherence)
 - Cross-boundary Tickoni/Firedancer unit-impacting change: `just test-unit-all`
@@ -540,16 +540,16 @@ lane.
 ## Demo Conformance Verification
 
 The demo conformance suite produces artifacts under
-`build/demo-conformance/<platform>/`. On CI, these are uploaded as artifacts.
+`build/cli-conformance/<platform>/`. On CI, these are uploaded as artifacts.
 The local canonical copy lives at
-`build/demo-conformance/local-sample/conformance.json`.
+`build/cli-conformance/local-sample/conformance.json`.
 
 To re-run and capture local artifacts:
 
 ```bash
-just test-demo-tk                          # build + run full demo conformance
-python3 contrib/test/export_demo_conformance_bundle.py . build/demo-conformance/local-sample
-python3 contrib/test/compare_demo_conformance.py build/demo-conformance/linux/conformance.json build/demo-conformance/local-sample/conformance.json
+just test-cli-tk                          # build + run full demo conformance
+python3 contrib/test/export_demo_conformance_bundle.py . build/cli-conformance/local-sample
+python3 contrib/test/compare_demo_conformance.py build/cli-conformance/linux/conformance.json build/cli-conformance/local-sample/conformance.json
 ```
 
 ## Quality And Security Gates
