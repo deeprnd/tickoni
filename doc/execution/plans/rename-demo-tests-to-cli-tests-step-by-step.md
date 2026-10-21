@@ -94,11 +94,11 @@ Created: 2026-10-21
 
 ### Phase 8: Final build/test verification
 
-26. **Run `zig build test`** — confirm all tests pass
+26. **Run `just build-all && just test-unit-all && just test-integration-all && just test-system-all`** — confirm all non-cli tests pass
 
 27. **Run `just --list`** — confirm `test-cli-tk` visible
 
-28. **Run `just test-cli-tk`** (or equivalent) — confirm it executes successfully
+29. **Run `just test-cli-tk`** (or equivalent) — confirm it executes successfully
 
 ## Files NOT to touch
 
