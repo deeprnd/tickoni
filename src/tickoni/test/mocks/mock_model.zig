@@ -117,18 +117,18 @@ test "MockBackend traces the model request scope fields" {
     const req = ProviderRequest{
         .model_id = "fixture.ai_infra",
         .messages = &.{},
-        .budget_id = "budget.demo_paper",
+        .budget_id = "budget.fixture_paper",
         .policy_version = "v1",
-        .capability_envelope_id = "capenv.trading_order.propose.demo",
+        .capability_envelope_id = "capenv.trading_order.propose.fixture",
     };
     const resp = try mock.call(allocator, req);
     defer resp.deinit(allocator);
 
     try std.testing.expectEqual(@as(usize, 1), trace.call_count);
     try std.testing.expectEqualStrings("fixture.ai_infra", trace.last_model_id);
-    try std.testing.expectEqualStrings("budget.demo_paper", trace.last_budget_id);
+    try std.testing.expectEqualStrings("budget.fixture_paper", trace.last_budget_id);
     try std.testing.expectEqualStrings("v1", trace.last_policy_version);
-    try std.testing.expectEqualStrings("capenv.trading_order.propose.demo", trace.last_capability_envelope_id);
+    try std.testing.expectEqualStrings("capenv.trading_order.propose.fixture", trace.last_capability_envelope_id);
 }
 
 test "MockBackend response token_usage defaults to zero" {

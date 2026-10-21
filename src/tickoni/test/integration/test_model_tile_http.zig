@@ -50,9 +50,9 @@ fn makeAiInfraRequest(model_id: []const u8) model.ProviderRequest {
             .max_output_tokens = 2048,
             .seed = 42,
         },
-        .budget_id = "budget.demo_paper",
+        .budget_id = "budget.fixture_paper",
         .policy_version = "v1",
-        .capability_envelope_id = "capenv.trading_order.propose.demo",
+        .capability_envelope_id = "capenv.trading_order.propose.fixture",
     };
 }
 
