@@ -20,8 +20,8 @@ pub const version_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-versi
 /// Reference to the doctor sample output.
 pub const doctor_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-doctor-output.md";
 
-/// Reference to the demo output.
-pub const demo_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-demo-output.md";
+/// Reference to the fixture output.
+pub const fixture_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-fixture-output.md";
 
 /// Reference to the audit JSONL sample.
 pub const audit_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-audit-sample.md";
@@ -66,7 +66,7 @@ pub const EvidenceBundle = struct {
     support_matrix_ref: []const u8 = "doc/knowledge/platform-tiers.md",
     version_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-version-output.md",
     doctor_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-doctor-output.md",
-    demo_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-demo-output.md",
+    fixture_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-fixture-output.md",
     audit_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-audit-sample.md",
     replay_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-replay-capsule.md",
     blocked_flow_ref: []const u8 = "doc/execution/audits/stories/V2.22.S7-blocked-flow.md",
@@ -95,8 +95,8 @@ pub const EvidenceBundle = struct {
         try buf.appendSlice(gpa, self.version_ref);
         try buf.appendSlice(gpa, "\",\"doctor\":\"");
         try buf.appendSlice(gpa, self.doctor_ref);
-        try buf.appendSlice(gpa, "\",\"demo\":\"");
-        try buf.appendSlice(gpa, self.demo_ref);
+        try buf.appendSlice(gpa, "\",\"fixture\":\"");
+        try buf.appendSlice(gpa, self.fixture_ref);
         try buf.appendSlice(gpa, "\",\"audit\":\"");
         try buf.appendSlice(gpa, self.audit_ref);
         try buf.appendSlice(gpa, "\",\"replay\":\"");
@@ -175,7 +175,7 @@ test "EvidenceBundle init returns default refs" {
     try std.testing.expectEqualStrings("doc/knowledge/platform-tiers.md", bundle.support_matrix_ref);
     try std.testing.expectEqualStrings("doc/execution/audits/stories/V2.22.S7-version-output.md", bundle.version_ref);
     try std.testing.expectEqualStrings("doc/execution/audits/stories/V2.22.S7-doctor-output.md", bundle.doctor_ref);
-    try std.testing.expectEqualStrings("doc/execution/audits/stories/V2.22.S7-demo-output.md", bundle.demo_ref);
+    try std.testing.expectEqualStrings("doc/execution/audits/stories/V2.22.S7-fixture-output.md", bundle.fixture_ref);
     try std.testing.expectEqualStrings("doc/execution/audits/stories/V2.22.S7-audit-sample.md", bundle.audit_ref);
     try std.testing.expectEqualStrings("doc/execution/audits/stories/V2.22.S7-replay-capsule.md", bundle.replay_ref);
     try std.testing.expectEqualStrings("doc/execution/audits/stories/V2.22.S7-blocked-flow.md", bundle.blocked_flow_ref);
