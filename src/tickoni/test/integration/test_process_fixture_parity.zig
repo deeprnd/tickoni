@@ -1,8 +1,8 @@
-/// v2.14.S1 M6 / Release Gate demo/replay parity (T14): CPU placement is a
+/// v2.14.S1 M6 / Release Gate fixture/replay parity (T14): CPU placement is a
 /// scheduling policy, not a correctness dimension — floating, explicit
 /// shared-core, and explicit exclusive-core runs of the same deterministic
 /// input must all reach identical final pipeline metrics through the real
-/// supervisor. "Demo and replay results match under both exclusive-core and
+/// supervisor. "Fixture and replay results match under both exclusive-core and
 /// shared-core configs" (Release Gate) requires the exclusive-core leg
 /// specifically; floating is the third leg proving the baseline itself.
 const std = @import("std");
@@ -77,7 +77,7 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8, 
     return metrics;
 }
 
-test "process_demo_parity: floating, shared-core, and exclusive-core CPU placement all reach identical pipeline metrics" {
+test "process_fixture_parity: floating, shared-core, and exclusive-core CPU placement all reach identical pipeline metrics" {
     if (false) return error.SkipZigTest;
     var tmp_floating = util.tmpDir();
     var floating_path_buf: [std.fs.max_path_bytes]u8 = undefined;

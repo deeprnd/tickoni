@@ -61,7 +61,7 @@ pub fn runSystemSuite(
     );
 }
 
-test "system demo live: full investment suite via fixture" {
+test "system fixture live: full investment suite via fixture" {
     const allocator = std.testing.allocator;
 
     const live_config = investment_fixture.LiveConfig{

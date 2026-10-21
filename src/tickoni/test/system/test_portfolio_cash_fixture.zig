@@ -1,14 +1,14 @@
-/// V1.3.S4: Portfolio and cash demo.
+/// V1.3.S4: Portfolio and cash fixture.
 ///
 /// Offline, deterministic proof of the combined investment (V1.1) and payment
 /// (V1.2) decision payload: before/after cash and portfolio impact, saved
 /// thesis and money proposal cards, deterministic drift/rebalance signals,
 /// and the no-execution state for the pending payout and rebalance
 /// suggestion. This exercises the same fixture-backed paths as
-/// `investment_demo_test` and `test_investment_decision_cards.zig`; it is a
+/// `investment_fixture_test` and `test_investment_decision_cards.zig`; it is a
 /// separate root so the combined portfolio/cash contract has one dedicated,
 /// clearly named proof, and so it never depends on the live-model system
-/// lane (`test_investment_demo_live.zig` / `zig build system-test`). No live
+/// lane (`test_investment_fixture_live.zig` / `zig build system-test`). No live
 /// model, broker, payment processor, trading API, TigerBeetle, or autonomous
 /// execution is involved.
 const investment_fixture = @import("investment_fixture");
@@ -36,7 +36,7 @@ fn hasPaymentDriftCondition(
     return false;
 }
 
-test "portfolio cash demo: combined investment and payment decision payload is deterministic and replayable" {
+test "portfolio cash fixture: combined investment and payment decision payload is deterministic and replayable" {
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
 

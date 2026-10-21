@@ -1,7 +1,7 @@
 const investment_fixture = @import("investment_fixture");
 const std = @import("std");
 
-test "system demo live: real tkmodl, allowed, blocked, restricted, replay proof" {
+test "system fixture live: real tkmodl, allowed, blocked, restricted, replay proof" {
     const allocator = std.testing.allocator;
 
     const live_config = investment_fixture.LiveConfig{
