@@ -26,7 +26,7 @@ fn fixtureHeader(
     runtime_tier: []const u8,
     isolation_tier: []const u8,
     release_digest: []const u8,
-    demo_manifest_id: []const u8,
+    manifest_id: []const u8,
     tickoni_version: []const u8,
 ) schema.Header {
     var hdr = std.mem.zeroes(schema.Header);
@@ -46,7 +46,7 @@ fn fixtureHeader(
     hdr.platform_tier = parseFixedAsciiBytes(64, runtime_tier) catch unreachable;
     hdr.isolation_tier = parseFixedAsciiBytes(64, isolation_tier) catch unreachable;
     hdr.release_digest = parseFixedAsciiBytes(64, release_digest) catch unreachable;
-    hdr.demo_manifest_id = parseFixedAsciiBytes(64, demo_manifest_id) catch unreachable;
+    hdr.manifest_id = parseFixedAsciiBytes(64, manifest_id) catch unreachable;
     return hdr;
 }
 

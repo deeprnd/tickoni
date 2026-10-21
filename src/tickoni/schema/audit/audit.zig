@@ -169,7 +169,7 @@ pub const Header = struct {
     platform_tier: [64]u8, // e.g. "linux_full", "macos_retail"
     isolation_tier: [64]u8, // e.g. "retail", "full"
     release_digest: [64]u8, // git SHA or build digest
-    demo_manifest_id: [64]u8, // which manifest was loaded (empty if none)
+    manifest_id: [64]u8, // which manifest was loaded (empty if none)
 };
 
 pub const AuditEvent = struct {

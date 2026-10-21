@@ -66,8 +66,8 @@ pub const VersionInfo = struct {
     isolation_tier: []const u8 = "degraded",
     policy_schema_version: u16 = 0,
     replay_schema_version: u16 = 0,
-    demo_manifest_version: u16 = 0,
-    demo_manifest_version_str: ?[]const u8 = null,
+    manifest_version: u16 = 0,
+    manifest_version_str: ?[]const u8 = null,
     compiler: []const u8 = "unknown",
 
     pub fn init(gpa: std.mem.Allocator) !VersionInfo {
@@ -85,22 +85,22 @@ pub const VersionInfo = struct {
             .isolation_tier = isolationTierStr(),
             .policy_schema_version = audit_mod.audit_schema_version,
             .replay_schema_version = audit_mod.audit_schema_version,
-            .demo_manifest_version = 0,
-            .demo_manifest_version_str = null,
+            .manifest_version = 0,
+            .manifest_version_str = null,
             .compiler = tier_mod.detectCompilerVersion(),
         };
     }
 
-    pub fn setDemoManifestVersion(self: *VersionInfo, gpa: std.mem.Allocator, version: ?[]const u8) !void {
-        if (self.demo_manifest_version_str) |s| gpa.free(s);
-        self.demo_manifest_version_str = null;
-        self.demo_manifest_version = 0;
+    pub fn setManifestVersion(self: *VersionInfo, gpa: std.mem.Allocator, version: ?[]const u8) !void {
+        if (self.manifest_version_str) |s| gpa.free(s);
+        self.manifest_version_str = null;
+        self.manifest_version = 0;
         if (version) |v| {
-            self.demo_manifest_version_str = try gpa.dupe(u8, v);
+            self.manifest_version_str = try gpa.dupe(u8, v);
             // Parse major version component
             var it = std.mem.splitScalar(u8, v, '.');
             const first = it.next() orelse return;
-            self.demo_manifest_version = std.fmt.parseInt(u16, first, 10) catch 0;
+            self.manifest_version = std.fmt.parseInt(u16, first, 10) catch 0;
         }
     }
 
@@ -109,10 +109,10 @@ pub const VersionInfo = struct {
             gpa.free(self.semver);
         }
         self.semver = "";
-        if (self.demo_manifest_version_str) |s| {
+        if (self.manifest_version_str) |s| {
             gpa.free(s);
         }
-        self.demo_manifest_version_str = null;
+        self.manifest_version_str = null;
     }
 };
 
@@ -148,10 +148,10 @@ pub fn formatVersionInfo(info: VersionInfo, writer: anytype) !void {
     try writer.print("Isolation Tier: {s}\n", .{info.isolation_tier});
     try writer.print("Policy Schema: {d}\n", .{info.policy_schema_version});
     try writer.print("Replay Schema: {d}\n", .{info.replay_schema_version});
-    if (info.demo_manifest_version_str) |str| {
-        try writer.print("Demo Manifest: {s}\n", .{str});
+    if (info.manifest_version_str) |str| {
+        try writer.print("Manifest: {s}\n", .{str});
     } else {
-        try writer.print("Demo Manifest: none\n", .{});
+        try writer.print("Manifest: none\n", .{});
     }
     try writer.print("Compiler: {s}\n", .{info.compiler});
 }
@@ -180,7 +180,7 @@ test "VersionInfo fields are non-empty" {
         .isolation_tier = "full",
         .policy_schema_version = 2,
         .replay_schema_version = 2,
-        .demo_manifest_version = 1,
+        .manifest_version = 1,
         .compiler = "clang 15.0",
     };
     try std.testing.expect(info.semver.len > 0);
@@ -246,8 +246,8 @@ test "formatVersionInfo contains all required fields" {
         .isolation_tier = "full",
         .policy_schema_version = 2,
         .replay_schema_version = 2,
-        .demo_manifest_version = 1,
-        .demo_manifest_version_str = "1.0.0",
+        .manifest_version = 1,
+        .manifest_version_str = "1.0.0",
         .compiler = "clang 15.0",
     };
     var buf: [1024]u8 = undefined;
@@ -263,7 +263,7 @@ test "formatVersionInfo contains all required fields" {
     try std.testing.expect(std.mem.indexOf(u8, output, "Isolation Tier: full") != null);
     try std.testing.expect(std.mem.indexOf(u8, output, "Policy Schema: 2") != null);
     try std.testing.expect(std.mem.indexOf(u8, output, "Replay Schema: 2") != null);
-    try std.testing.expect(std.mem.indexOf(u8, output, "Demo Manifest: 1.0.0") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "Manifest: 1.0.0") != null);
     try std.testing.expect(std.mem.indexOf(u8, output, "Compiler: clang 15.0") != null);
 }
 
@@ -297,7 +297,7 @@ test "formatVersionInfo validates all Tier enum values" {
     }
 }
 
-test "formatVersionInfo shows 'none' when demo manifest version is unset" {
+test "formatVersionInfo shows 'none' when manifest version is unset" {
     const info = VersionInfo{
         .semver = "1.0.0",
         .build_id = "test",
@@ -308,8 +308,8 @@ test "formatVersionInfo shows 'none' when demo manifest version is unset" {
         .isolation_tier = "full",
         .policy_schema_version = 1,
         .replay_schema_version = 1,
-        .demo_manifest_version = 0,
-        .demo_manifest_version_str = null,
+        .manifest_version = 0,
+        .manifest_version_str = null,
         .compiler = "clang 15.0",
     };
     var buf: [1024]u8 = undefined;
@@ -317,17 +317,17 @@ test "formatVersionInfo shows 'none' when demo manifest version is unset" {
     try formatVersionInfo(info, &w);
     const output = w.buffered();
 
-    try std.testing.expect(std.mem.indexOf(u8, output, "Demo Manifest: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "Manifest: none") != null);
 }
 
-test "setDemoManifestVersion parses and stores version" {
+test "setManifestVersion parses and stores version" {
     var info = VersionInfo.init(std.testing.allocator) catch unreachable;
-    info.setDemoManifestVersion(std.testing.allocator, "3.2.1") catch unreachable;
-    try std.testing.expectEqual(@as(u16, 3), info.demo_manifest_version);
-    try std.testing.expectEqualStrings("3.2.1", info.demo_manifest_version_str.?);
-    info.setDemoManifestVersion(std.testing.allocator, null) catch unreachable;
-    try std.testing.expectEqual(@as(u16, 0), info.demo_manifest_version);
-    try std.testing.expect(info.demo_manifest_version_str == null);
+    info.setManifestVersion(std.testing.allocator, "3.2.1") catch unreachable;
+    try std.testing.expectEqual(@as(u16, 3), info.manifest_version);
+    try std.testing.expectEqualStrings("3.2.1", info.manifest_version_str.?);
+    info.setManifestVersion(std.testing.allocator, null) catch unreachable;
+    try std.testing.expectEqual(@as(u16, 0), info.manifest_version);
+    try std.testing.expect(info.manifest_version_str == null);
     info.deinit(std.testing.allocator);
 }
 
@@ -342,7 +342,7 @@ test "formatVersionInfo ends with newline" {
         .isolation_tier = "full",
         .policy_schema_version = 1,
         .replay_schema_version = 1,
-        .demo_manifest_version = 1,
+        .manifest_version = 1,
         .compiler = "clang 15.0",
     };
     var buf: [1024]u8 = undefined;
