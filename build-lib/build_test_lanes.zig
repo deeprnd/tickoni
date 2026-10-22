@@ -19,7 +19,6 @@ const test_modules = @import("mod/test_modules.zig");
 /// Register unit and integration lanes (behind -Dtest).
 pub fn registerTestLanes(
     b: *std.Build,
-    check_step: *std.Build.Step,
     shared: modules.Shared,
     tm: test_modules.TestModules,
     target: std.Build.ResolvedTarget,
@@ -28,16 +27,12 @@ pub fn registerTestLanes(
     exe: *std.Build.Step.Compile,
     exe_install: *std.Build.Step.InstallArtifact,
 ) void {
-    const run_tests_cmd = lane.createRunTestsCmd(b);
-
-    // Unit tests
+    // Unit tests — no longer uses run_cmd (migrated to addRunArtifact)
     const test_step = b.step("test", "Compile offline Tickoni unit test binaries");
-    const run_tests_step = b.step("run-tests", "Run offline Tickoni unit tests");
-    run_tests_step.dependOn(check_step);
-    build_lane.strategy(b, shared, tm, target, optimize, fd_lib_dir, test_step, run_tests_cmd);
+    build_lane.strategy(b, shared, tm, target, optimize, fd_lib_dir, test_step);
 
-    // CLI lane — unit tests for parser, integration tests for the binary.
-    cli_lane.strategy(b, test_step, run_tests_cmd, target, optimize, fd_lib_dir);
+    // CLI lane — doctor tests + CLI unit/integration tests.
+    cli_lane.strategy(b, test_step, target, optimize, fd_lib_dir, shared);
 
     // Integration modules
     const int_mods = integration_lane.createIntModules(b, shared, tm, target, optimize, exe);

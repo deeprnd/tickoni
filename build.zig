@@ -63,7 +63,7 @@ pub fn build(b: *std.Build) void {
 
     // Unit + integration + system lanes
     if (build_tests) {
-        test_lanes.registerTestLanes(b, check_step, shared, tm, target, optimize, fd_lib_dir, exe, exe_install);
+        test_lanes.registerTestLanes(b, shared, tm, target, optimize, fd_lib_dir, exe, exe_install);
     }
 
     // Performance lane — always wired (not gated by -Dtest), so perf tests

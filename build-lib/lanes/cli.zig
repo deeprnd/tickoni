@@ -1,21 +1,27 @@
-/// CLI test lane strategy — registers `test-cli-parser` (unit) and
-/// `test-cli-main` (integration) for the CLI binary.
+/// CLI test lane strategy — registers `test-cli-parser` (unit),
+/// `test-doctor-checks`, `test-doctor-output`, and `test-cli-main`
+/// (integration) for the CLI binary.
 ///
 /// The CLI test modules are standalone (no firedancer/codec linkage).
 /// Integration tests spawn the compiled `tickoni` binary, which is
 /// already installed by `build-tk` (part of `build-all`).
+///
+/// Doctor tests are here because they need to run against the actual
+/// host environment (fixture files, OS checks), not the sandboxed
+/// unit-test context.
 
 const std = @import("std");
+const shims = @import("../lib/shims.zig");
 const lane = @import("../lane.zig");
 
 /// Register CLI test binaries. Called from build_test_lanes.zig.
 pub fn strategy(
     b: *std.Build,
     test_step: *std.Build.Step,
-    run_cmd: *std.Build.Step.Run,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     fd_lib_dir: []const u8,
+    shared: anytype,
 ) void {
     const tb = lane.TestBuilder{
         .b = b,
@@ -24,20 +30,31 @@ pub fn strategy(
         .fd_lib_dir = fd_lib_dir,
     };
 
+    // Collect all compile steps for sequential run.
+    var run_sequence: [4]*std.Build.Step.Compile = undefined;
+    var run_count: usize = 0;
+
+    // === Doctor tests (host environment checks) ===
+
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-doctor-checks",
+        .source_file = "src/tickoni/doctor/checks.zig",
+    });
+    run_count += 1;
+
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-doctor-output",
+        .source_file = "src/tickoni/doctor/output.zig",
+        .imports = &.{.{ .name = "doctor_checks", .module = shared.doctor_checks }},
+    });
+    run_count += 1;
+
     // test-cli-parser — unit tests for cli.zig (standalone, no linkage).
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-cli-parser",
         .source_file = "src/app/tickoni_cli/cli.zig",
-    }, test_step, run_cmd);
-
-    // Top-level step so `zig build test-cli-parser` works standalone.
-    {
-        const cli_parser_step = b.step(
-            "test-cli-parser",
-            "Run CLI parser unit tests (cli.zig)",
-        );
-        cli_parser_step.dependOn(test_step);
-    }
+    });
+    run_count += 1;
 
     // test-cli-main — integration tests that spawn the compiled tickoni binary.
     // The binary is expected in PATH (installed by build-tk, part of build-all).
@@ -54,12 +71,15 @@ pub fn strategy(
         });
 
         test_step.dependOn(&cli_main_test.step);
-
-        // Top-level step so `zig build test-cli-main` works standalone.
-        const cli_main_step = b.step(
-            "test-cli-main",
-            "Run CLI integration tests (main.zig)",
-        );
-        cli_main_step.dependOn(test_step);
+        run_sequence[run_count] = cli_main_test;
+        run_count += 1;
     }
+
+    // Sequential execution via shims to avoid Zig 0.17 protocol-mode.
+    const cli_run = shims.addPlainTestRunSeries(b, run_sequence[0..run_count]);
+    test_step.dependOn(&cli_run.step);
+
+    // Top-level step so `zig build test-unit-cli` compiles and runs CLI tests.
+    const cli_test_step = b.step("test-unit-cli", "Compile and run CLI + doctor tests sequentially");
+    cli_test_step.dependOn(&cli_run.step);
 }

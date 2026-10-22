@@ -1,9 +1,11 @@
 /// Unit test lane strategy — spec-driven.
 ///
-/// Replaces ~960 lines of repetitive individual test registrations with a
-/// spec array + TestBuilder. Handles special cases (tier.zig C source,
-/// codec-linked tests, schema tests) via per-spec linkage/imports flags.
+/// Collects compile steps in a `run_sequence` array, then chains them all
+/// sequentially via `shims.addPlainTestRunSeries`. This avoids Zig 0.17's
+/// protocol-mode `--listen=-` which blocks on stdin.
+
 const std = @import("std");
+const shims = @import("../lib/shims.zig");
 const factory = @import("../factory.zig");
 const lane = @import("../lane.zig");
 const firedancer = @import("../lib/firedancer.zig");
@@ -11,7 +13,6 @@ const shared_mod = @import("../mod/modules.zig");
 const test_mod = @import("../mod/test_modules.zig");
 
 /// Register all unit test binaries. Called from build.zig.
-/// `test_step` and `run_cmd` are created by build.zig and passed in.
 pub fn strategy(
     b: *std.Build,
     shared: shared_mod.Shared,
@@ -20,11 +21,12 @@ pub fn strategy(
     optimize: std.builtin.OptimizeMode,
     fd_lib_dir: []const u8,
     test_step: *std.Build.Step,
-    run_cmd: *std.Build.Step.Run,
 ) void {
-    // Create shared module graph (same as integration lane).
-    // Unit lane doesn't use .exe from the result, so pass null.
     const int_mods = factory.ModuleFactory.init(b, shared, tm, target, optimize).createIntModules(null);
+
+    // Collect all compile steps for sequential run.
+    var run_sequence: [38]*std.Build.Step.Compile = undefined;
+    var run_count: usize = 0;
 
     const tb = lane.TestBuilder{
         .b = b,
@@ -35,27 +37,31 @@ pub fn strategy(
 
     // === Tile-based unit tests ===
 
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-topology",
         .source_file = "src/tickoni/runtime/topology.zig",
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-tile",
         .source_file = "src/tickoni/runtime/tile.zig",
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-cpu",
         .source_file = "src/tickoni/util/cpu.zig",
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-process",
         .source_file = "src/tickoni/util/process.zig",
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-supervisor-lifecycle",
         .source_file = "src/app/tickoni/supervisor.zig",
         .imports = &.{
@@ -67,7 +73,8 @@ pub fn strategy(
             .{ .name = "logger", .module = shared.logger },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // test-process-api — needs c_abi module, util module, and os.c shim (libc).
     {
@@ -82,7 +89,6 @@ pub fn strategy(
         });
         pa_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/c_abi/shim/os.c"} });
         pa_mod.addCMacro("TK_PROCESS_TEST", "1");
-        // os.c needs platform defines to select the right block.
         switch (target.result.os.tag) {
             .linux    => pa_mod.addCMacro("FD_HAS_LINUX",    "1"),
             .macos    => pa_mod.addCMacro("FD_HAS_MACOS",    "1"),
@@ -95,11 +101,11 @@ pub fn strategy(
         pa_mod.link_libc = true;
         const pa_test = b.addTest(.{ .name = "test-process-api", .root_module = pa_mod });
         test_step.dependOn(&pa_test.step);
-        run_cmd.addArtifactArg(pa_test);
+        run_sequence[run_count] = pa_test;
+        run_count += 1;
     }
 
     // test-os-shim — tests for os.c cross-platform shim functions.
-    // Links os.c with TK_PROCESS_TEST for test harness coverage.
     {
         const os_mod = b.createModule(.{
             .root_source_file = b.path("src/tickoni/c_abi/os.zig"),
@@ -121,44 +127,52 @@ pub fn strategy(
         os_mod.link_libc = true;
         const os_test = b.addTest(.{ .name = "test-os-shim", .root_module = os_mod });
         test_step.dependOn(&os_test.step);
-        run_cmd.addArtifactArg(os_test);
+        run_sequence[run_count] = os_test;
+        run_count += 1;
 
         // Top-level step so `zig build test-os-shim` works standalone.
         const os_shim_step = b.step("test-os-shim", "Run os.c cross-platform shim unit tests");
         os_shim_step.dependOn(&os_test.step);
     }
 
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-sandbox-defaults",
         .source_file = "src/tickoni/util/sandbox_defaults.zig",
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-linux-ids",
         .source_file = "src/tickoni/util/linux_ids.zig",
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-sizes",
         .source_file = "src/tickoni/util/sizes.zig",
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-cabi-boot",
         .source_file = "src/tickoni/c_abi/boot.zig",
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // tier.zig — needs C source (compiler_version.c) and libc.
-    const tier_mod = b.createModule(.{
-        .root_source_file = b.path("src/tickoni/util/tier.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    tier_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/util/compiler_version.c"} });
-    tier_mod.link_libc = true;
-    const tier_test = b.addTest(.{ .name = "test-tier", .root_module = tier_mod });
-    test_step.dependOn(&tier_test.step);
-    run_cmd.addArtifactArg(tier_test);
+    {
+        const tier_mod = b.createModule(.{
+            .root_source_file = b.path("src/tickoni/util/tier.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        tier_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/util/compiler_version.c"} });
+        tier_mod.link_libc = true;
+        const tier_test = b.addTest(.{ .name = "test-tier", .root_module = tier_mod });
+        test_step.dependOn(&tier_test.step);
+        run_sequence[run_count] = tier_test;
+        run_count += 1;
+    }
 
     // === C ABI tests (need firedancer linkage) ===
 
@@ -174,11 +188,12 @@ pub fn strategy(
     };
 
     inline for (cabi_tests) |t| {
-        tb.registerRunTest(.{
+        run_sequence[run_count] = tb.registerRunTest(.{
             .name = t.name,
             .source_file = t.path,
             .linkage = .{ .needs_firedancer = true },
-        }, test_step, run_cmd);
+        });
+        run_count += 1;
 
         // Top-level step so `zig build <name>` works standalone.
         if (std.mem.eql(u8, t.name, "test-wksp")) {
@@ -196,23 +211,25 @@ pub fn strategy(
     }
 
     // ballet.zig — needs codec linkage (siphash/pb/json in shim/ballet.c).
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-cabi-ballet",
         .source_file = "src/tickoni/c_abi/ballet.zig",
         .linkage = .{ .needs_codec = true },
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // sandbox.zig — needs util import.
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-sandbox",
         .source_file = "src/tickoni/runtime/sandbox.zig",
         .imports = &.{.{ .name = "util", .module = shared.util }},
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // === Tile tests with special linkage ===
 
     // audit/mod.zig — needs audit_codec, audit_schema, fixture_audit_gen.
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-audit",
         .source_file = "src/tickoni/tiles/audit/mod.zig",
         .imports = &.{
@@ -221,10 +238,11 @@ pub fn strategy(
             .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true },
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // payment_pipeline/mod.zig — needs audit_tile, runtime, c_abi, logger, util.
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-payment-pipeline",
         .source_file = "src/tickoni/tiles/payment_pipeline/mod.zig",
         .imports = &.{
@@ -235,19 +253,22 @@ pub fn strategy(
             .{ .name = "util", .module = shared.util },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true },
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // case/mod.zig — standalone.
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-case",
         .source_file = "src/tickoni/tiles/case/mod.zig",
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // disp/mod.zig — standalone.
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-disp",
         .source_file = "src/tickoni/tiles/disp/mod.zig",
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // === V2.21.S3 modules ===
 
@@ -267,26 +288,14 @@ pub fn strategy(
         v_mod.link_libc = true;
         const v_test = b.addTest(.{ .name = "test-version", .root_module = v_mod });
         test_step.dependOn(&v_test.step);
-        run_cmd.addArtifactArg(v_test);
+        run_sequence[run_count] = v_test;
+        run_count += 1;
     }
-
-    // doctor/checks.zig — standalone.
-    tb.registerRunTest(.{
-        .name = "test-doctor-checks",
-        .source_file = "src/tickoni/doctor/checks.zig",
-    }, test_step, run_cmd);
-
-    // doctor/output.zig — needs doctor_checks.
-    tb.registerRunTest(.{
-        .name = "test-doctor-output",
-        .source_file = "src/tickoni/doctor/output.zig",
-        .imports = &.{.{ .name = "doctor_checks", .module = shared.doctor_checks }},
-    }, test_step, run_cmd);
 
     // === Schema tests (all need codec linkage) ===
 
     // codec/thesis.zig — thesis, basket.
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-codec-thesis",
         .source_file = "src/tickoni/codec/thesis.zig",
         .imports = &.{
@@ -294,10 +303,11 @@ pub fn strategy(
             .{ .name = "basket", .module = shared.basket },
         },
         .linkage = .{ .needs_codec = true },
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // schema/thesis.zig — classification, c_abi, fixture_paths.
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-thesis",
         .source_file = "src/tickoni/schema/consumer_money/thesis.zig",
         .imports = &.{
@@ -306,10 +316,11 @@ pub fn strategy(
             .{ .name = "fixture_paths", .module = shared.fixture_paths },
         },
         .linkage = .{ .needs_codec = true },
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // schema/catalog.zig — thesis, classification, catalog_schema.
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-catalog",
         .source_file = "src/tickoni/schema/consumer_money/catalog.zig",
         .imports = &.{
@@ -318,26 +329,29 @@ pub fn strategy(
             .{ .name = "catalog_schema", .module = shared.catalog_schema },
         },
         .linkage = .{ .needs_codec = true },
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // schema/catalog_schema.zig — thesis.
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-catalog-schema",
         .source_file = "src/tickoni/schema/consumer_money/catalog_schema.zig",
         .imports = &.{.{ .name = "thesis", .module = shared.thesis }},
         .linkage = .{ .needs_codec = true },
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // schema/portfolio.zig — basket.
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-portfolio",
         .source_file = "src/tickoni/schema/portfolio/portfolio.zig",
         .imports = &.{.{ .name = "basket", .module = shared.basket }},
         .linkage = .{ .needs_codec = true },
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // test/fixtures/portfolio/fixture_portfolio.zig — portfolio, basket.
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-fixture-portfolio",
         .source_file = "src/tickoni/test/fixtures/portfolio/fixture_portfolio.zig",
         .imports = &.{
@@ -345,10 +359,11 @@ pub fn strategy(
             .{ .name = "basket", .module = shared.basket },
         },
         .linkage = .{ .needs_codec = true },
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // schema/trade_ticket.zig — basket, portfolio, fixture_portfolio, thesis.
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-trade-ticket",
         .source_file = "src/tickoni/schema/consumer_money/trade_ticket.zig",
         .imports = &.{
@@ -358,10 +373,11 @@ pub fn strategy(
             .{ .name = "thesis", .module = shared.thesis },
         },
         .linkage = .{ .needs_codec = true },
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // schema/impact.zig — basket, portfolio.
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-impact",
         .source_file = "src/tickoni/schema/consumer_money/impact.zig",
         .imports = &.{
@@ -369,10 +385,11 @@ pub fn strategy(
             .{ .name = "portfolio", .module = shared.portfolio },
         },
         .linkage = .{ .needs_codec = true },
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // schema/basket.zig — thesis, catalog, c_abi, fixture_paths.
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-basket",
         .source_file = "src/tickoni/schema/consumer_money/basket.zig",
         .imports = &.{
@@ -382,7 +399,8 @@ pub fn strategy(
             .{ .name = "fixture_paths", .module = shared.fixture_paths },
         },
         .linkage = .{ .needs_codec = true },
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
 
     // === Logger test (needs os.c shim) ===
     {
@@ -396,13 +414,11 @@ pub fn strategy(
             .files = &.{ "src/tickoni/c_abi/shim/os.c" },
             .flags = &.{ "-std=c17" },
         });
-        // os.c uses FD_HAS_LINUX / FD_HAS_MACOS / FD_HAS_WINDOWS to select
-        // the platform block; define it here so the C shim compiles.
         switch (target.result.os.tag) {
             .linux    => logger_mod.addCMacro("FD_HAS_LINUX",    "1"),
             .macos    => logger_mod.addCMacro("FD_HAS_MACOS",    "1"),
             .windows  => logger_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
-            else      => {}, // os.c has no other platform blocks; ignore unsupported.
+            else      => {},
         }
         if (target.result.os.tag == .windows) {
             logger_mod.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
@@ -410,12 +426,13 @@ pub fn strategy(
         logger_mod.linkSystemLibrary("c", .{});
         const logger_test = b.addTest(.{ .name = "test-logger", .root_module = logger_mod });
         test_step.dependOn(&logger_test.step);
-        run_cmd.addArtifactArg(logger_test);
+        run_sequence[run_count] = logger_test;
+        run_count += 1;
     }
 
     // === Investment fixture test (needs codec linkage) ===
 
-    tb.registerRunTest(.{
+    run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-investment-fixture",
         .source_file = "src/tickoni/test/fixtures/investment/mod.zig",
         .imports = &.{
@@ -434,5 +451,12 @@ pub fn strategy(
             .{ .name = "trade_ticket", .module = tm.trade_ticket },
         },
         .linkage = .{ .needs_codec = true },
-    }, test_step, run_cmd);
+    });
+    run_count += 1;
+
+    // Top-level step: compile and run all TK unit tests sequentially.
+    // Uses shims.addPlainTestRunSeries which avoids Zig 0.17 protocol-mode.
+    const test_unit_tk_run = shims.addPlainTestRunSeries(b, run_sequence[0..run_count]);
+    const test_unit_tk_step = b.step("test-unit-tk", "Compile and run all TK unit tests sequentially");
+    test_unit_tk_step.dependOn(&test_unit_tk_run.step);
 }
