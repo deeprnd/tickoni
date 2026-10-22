@@ -48,18 +48,18 @@ test-unit-fd-linux-x86-clang: build-test-unit-fd-linux-x86-clang test-unit-fd-li
 
 test-unit-fd-linux-arm-gcc: build-test-unit-fd-linux-arm-gcc test-unit-fd-linux-arm-gcc-run
 
-test-unit-fd-macos-x86: build-test-unit-fd-macos-x86
+test-unit-fd-macos-x86:
     @echo "SKIPPED: test-unit-fd-macos-x86 — lz4 needs more porting"
 
-test-unit-fd-macos-arm: build-test-unit-fd-macos-arm
+test-unit-fd-macos-arm:
     @echo "BLOCKED: test-unit-fd-macos-arm — macOS ARM64 support is incomplete (Linux-only runtime tests and no vendored blst assembly)"
     @true
 
-test-unit-fd-windows-x86: build-test-unit-fd-windows-x86
+test-unit-fd-windows-x86:
     @echo "BLOCKED: test-unit-fd-windows-x86 — Windows fmemopen support is required"
     @true
 
-test-unit-fd-windows-arm: build-test-unit-fd-windows-arm
+test-unit-fd-windows-arm:
     @echo "BLOCKED: test-unit-fd-windows-arm — Windows fmemopen support is required"
     @true
 
@@ -89,11 +89,66 @@ test-unit-fd-linux-arm-gcc-run:
     echo "Running unit tests with: $TEST_OPTS"
     contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt $(TEST_OPTS)
 
+# ── Unit test dispatchers ────────────────────────────────────────────────
+# test-unit-tk runs TK Zig unit tests on the host platform.
+
+test-unit-tk:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ os }}-{{ arch }}" in
+    linux-x86) exec just test-unit-tk-linux-x86 ;;
+    linux-arm) exec just test-unit-tk-linux-arm ;;
+    macos-x86) exec just test-unit-tk-macos-x86 ;;
+    macos-arm) exec just test-unit-tk-macos-arm ;;
+    windows-x86) exec just test-unit-tk-windows-x86 ;;
+    windows-arm) exec just test-unit-tk-windows-arm ;;
+    *) echo "unsupported host platform for test-unit-tk: {{ os }}-{{ arch }}" >&2; exit 1 ;;
+    esac
+
+test-unit-tk-linux-x86:
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test --summary all
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+
+test-unit-tk-linux-arm: test-unit-tk-linux-x86
+
+test-unit-tk-macos-x86:
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test --summary all
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+
+test-unit-tk-macos-arm: test-unit-tk-macos-x86
+
+test-unit-tk-windows-x86:
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test --summary all
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} run-tests
+
+test-unit-tk-windows-arm: test-unit-tk-windows-x86
+
+# ── TK CLI unit test dispatcher ──────────────────────────────────────────
+
+test-unit-cli:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ os }}-{{ arch }}" in
+    linux-x86) exec just test-unit-cli-linux-x86 ;;
+    linux-arm) exec just test-unit-cli-linux-arm ;;
+    macos-x86) exec just test-unit-cli-macos-x86 ;;
+    macos-arm) exec just test-unit-cli-macos-arm ;;
+    windows-x86) exec just test-unit-cli-windows-x86 ;;
+    windows-arm) exec just test-unit-cli-windows-arm ;;
+    *) echo "unsupported host platform for test-unit-cli: {{ os }}-{{ arch }}" >&2; exit 1 ;;
+    esac
+
+# ── Unit test aggregate ──────────────────────────────────────────────────
+# test-unit-all runs pytest + FD unit + CLI unit across all platforms.
+
+test-unit-all:
+    {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-tk && just test-unit-fd && just test-unit-cli"
+
 # ── TK CLI unit test recipes (zig build test) ────────────────────────────
 # CLI unit tests run `zig build test-cli-parser` (standalone, no FD linkage).
 
 test-unit-cli-linux-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -Dfd-lib-dir={{ fd_tickoni_lib }} test-cli-parser
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-cli-parser
 
 test-unit-cli-linux-arm: test-unit-cli-linux-x86
 
