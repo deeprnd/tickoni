@@ -62,7 +62,7 @@ elif [ "$JOB" = "coverage-tk" ]; then
     ZIG_LOCAL_CACHE_DIR="$COV_CACHE" ZIG_GLOBAL_CACHE_DIR="$COV_GLOBAL_CACHE" zig build \
         --cache-dir "$COV_CACHE" \
         -p "$COV_PREFIX" \
-        -Dtest=true cov -Doptimize=ReleaseSafe -Dfd-lib-dir=build/fd-tickoni-fd/lib
+        -Dtest=true test-cov-tk -Doptimize=ReleaseSafe -Dfd-lib-dir=build/fd-tickoni-fd/lib
 
     mkdir -p "$COV_RAW"
 

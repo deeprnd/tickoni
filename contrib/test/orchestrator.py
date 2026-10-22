@@ -60,7 +60,7 @@ class Orchestrator:
             return rc
 
         print("\n=== Phase 2: Run zig-test ===")
-        rc = self.zig_test("system-test")
+        rc = self.zig_test("test-system")
         if rc != 0:
             print("zig-test failed, proceeding to cleanup", file=sys.stderr)
 
@@ -89,8 +89,8 @@ def main():
     zig_test_p = sub.add_parser("zig-test", help="Build and run Zig test target")
     zig_test_p.add_argument("--target", required=True, help="Zig build target")
 
-    # system-test
-    sub.add_parser("system-test", help="Full system-test lifecycle: start → zig-test → stop")
+    # system-test — deprecated; kept for CLI compatibility, routes to test-system.
+    sub.add_parser("system-test", help="Full system-test lifecycle: start → zig-test → stop (deprecated, use test-system)")
 
     # dynamic-test-opts
     sub.add_parser("dynamic-test-opts", help="Compute TEST_OPTS and LDFLAGS_EXE from system resources")
