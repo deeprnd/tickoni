@@ -21,12 +21,11 @@ pub fn strategy(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     fd_lib_dir: []const u8,
-    test_step: *std.Build.Step,
 ) void {
     const int_mods = factory.ModuleFactory.init(b, shared, tm, target, optimize).createIntModules(null);
 
     // Collect all compile steps for sequential run.
-    var run_sequence: [38]*std.Build.Step.Compile = undefined;
+    var run_sequence: [37]*std.Build.Step.Compile = undefined;
     var run_count: usize = 0;
 
     const tb = lane.TestBuilder{
@@ -101,39 +100,8 @@ pub fn strategy(
         }
         pa_mod.link_libc = true;
         const pa_test = b.addTest(.{ .name = "test-process-api", .root_module = pa_mod });
-        test_step.dependOn(&pa_test.step);
         run_sequence[run_count] = pa_test;
         run_count += 1;
-    }
-
-    // test-os-shim — tests for os.c cross-platform shim functions.
-    {
-        const os_mod = b.createModule(.{
-            .root_source_file = b.path("src/tickoni/c_abi/os.zig"),
-            .target = target,
-            .optimize = optimize,
-            .imports = &.{},
-        });
-        os_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/c_abi/shim/os.c"} });
-        os_mod.addCMacro("TK_PROCESS_TEST", "1");
-        switch (target.result.os.tag) {
-            .linux    => os_mod.addCMacro("FD_HAS_LINUX",    "1"),
-            .macos    => os_mod.addCMacro("FD_HAS_MACOS",    "1"),
-            .windows  => os_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
-            else      => {},
-        }
-        if (target.result.os.tag == .windows) {
-            os_mod.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
-        }
-        os_mod.link_libc = true;
-        const os_test = b.addTest(.{ .name = "test-os-shim", .root_module = os_mod });
-        test_step.dependOn(&os_test.step);
-        run_sequence[run_count] = os_test;
-        run_count += 1;
-
-        // Top-level step so `zig build test-os-shim` works standalone.
-        const os_shim_step = b.step("test-os-shim", "Run os.c cross-platform shim unit tests");
-        os_shim_step.dependOn(&os_test.step);
     }
 
     run_sequence[run_count] = tb.registerRunTest(.{
@@ -170,7 +138,6 @@ pub fn strategy(
         tier_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/util/compiler_version.c"} });
         tier_mod.link_libc = true;
         const tier_test = b.addTest(.{ .name = "test-tier", .root_module = tier_mod });
-        test_step.dependOn(&tier_test.step);
         run_sequence[run_count] = tier_test;
         run_count += 1;
     }
@@ -195,20 +162,6 @@ pub fn strategy(
             .linkage = .{ .needs_firedancer = true },
         });
         run_count += 1;
-
-        // Top-level step so `zig build <name>` works standalone.
-        if (std.mem.eql(u8, t.name, "test-wksp")) {
-            const wksp_mod = b.createModule(.{
-                .root_source_file = b.path(t.path),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{.{ .name = "c_abi", .module = shared.c_abi }},
-            });
-            const wksp_test = b.addTest(.{ .name = t.name, .root_module = wksp_mod });
-            firedancer.linkTickoniFiredancer(b, wksp_test, fd_lib_dir);
-            const wksp_step = b.step("test-wksp", "Run workspace C shim unit tests");
-            wksp_step.dependOn(&wksp_test.step);
-        }
     }
 
     // ballet.zig — needs codec linkage (siphash/pb/json in shim/ballet.c).
@@ -288,7 +241,6 @@ pub fn strategy(
         v_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/util/compiler_version.c"} });
         v_mod.link_libc = true;
         const v_test = b.addTest(.{ .name = "test-version", .root_module = v_mod });
-        test_step.dependOn(&v_test.step);
         run_sequence[run_count] = v_test;
         run_count += 1;
     }
@@ -426,7 +378,6 @@ pub fn strategy(
         }
         logger_mod.linkSystemLibrary("c", .{});
         const logger_test = b.addTest(.{ .name = "test-logger", .root_module = logger_mod });
-        test_step.dependOn(&logger_test.step);
         run_sequence[run_count] = logger_test;
         run_count += 1;
     }

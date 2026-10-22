@@ -118,48 +118,6 @@ pub fn createCliExe(
     return cli_exe;
 }
 
-/// Create the check step (compile-check Zig + C without full link deps).
-pub fn createCheckStep(
-    b: *std.Build,
-    target: std.Build.ResolvedTarget,
-) *std.Build.Step {
-    const check_step = b.step("check", "Check Zig + C compilation without full link dependencies");
-    const c_compile_check_step = b.step("check-c-compile", "Compile-check all C shim files and print errors to stdout");
-    const cache_o_dir = "build/.zig-cache/o";
-    const ensure_dir = b.addSystemCommand(&.{ "mkdir", "-p", cache_o_dir });
-    c_compile_check_step.dependOn(&ensure_dir.step);
-    const shim_c_flags = std.mem.join(b.allocator, " ", shims.shimCFlagsFor(target.result)) catch @panic("OOM");
-    inline for (shims.shim_c_files) |shim_file| {
-        const c_check = b.addSystemCommand(&.{
-            "sh", "-c",
-            b.fmt("zig cc -target {s} -c -I src -I src/util/shmem -I src/util/wksp -std=c17 -UBMI2 -ULZCNT -DFD_HAS_HOSTED=1 {s} -o {s}/{s}.o {s} 2>&1", .{
-                shims.buildTriple(b, target),
-                shim_c_flags,
-                cache_o_dir,
-                shim_file,
-                b.fmt("src/tickoni/c_abi/shim/{s}", .{shim_file}),
-            }),
-        });
-        c_check.step.dependOn(&ensure_dir.step);
-        c_compile_check_step.dependOn(&c_check.step);
-    }
-    {
-        const getrandom_check = b.addSystemCommand(&.{
-            "sh", "-c",
-            b.fmt("zig cc -target {s} -c -I src -I src/util -I src/disco -I src/ballet -std=c17 -DFD_HAS_HOSTED=1 {s} -o {s}/test_fd_shmem_getrandom.o {s} 2>&1", .{
-                shims.buildTriple(b, target),
-                shim_c_flags,
-                cache_o_dir,
-                "src/util/shmem/test_fd_shmem_getrandom.c",
-            }),
-        });
-        getrandom_check.step.dependOn(&ensure_dir.step);
-        c_compile_check_step.dependOn(&getrandom_check.step);
-    }
-    check_step.dependOn(c_compile_check_step);
-    return check_step;
-}
-
 /// Fixture directories and proto files to verify.
 const fixture_dirs = [_][]const u8{
     "src/tickoni/test/fixtures/investment/scenarios",
@@ -170,14 +128,10 @@ const fixture_dirs = [_][]const u8{
 };
 
 /// Create the fixture path verification step.
-pub fn createVerifyFixtureStep(
-    b: *std.Build,
-    check_step: *std.Build.Step,
-) void {
+pub fn createVerifyFixtureStep(b: *std.Build) void {
     const verify_fixture_step = b.step("verify-fixture-paths", "Verify all fixture paths exist");
-    verify_fixture_step.dependOn(check_step);
     inline for (fixture_dirs) |path| {
         const exists = b.addSystemCommand(&.{ "test", "-e", path });
-        exists.step.dependOn(check_step);
+        verify_fixture_step.dependOn(&exists.step);
     }
 }

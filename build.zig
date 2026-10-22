@@ -57,13 +57,12 @@ pub fn build(b: *std.Build) void {
     const run_cli_step = b.step("run-cli", "Run tickoni CLI");
     run_cli_step.dependOn(&b.addRunArtifact(cli_exe).step);
 
-    // Check + fixture verification
-    const check_step = helpers.createCheckStep(b, target);
-    helpers.createVerifyFixtureStep(b, check_step);
+    // Fixture verification
+    helpers.createVerifyFixtureStep(b);
 
     // Unit + integration + system lanes
     if (build_tests) {
-        test_lanes.registerTestLanes(b, shared, tm, target, optimize, fd_lib_dir, exe, exe_install);
+        test_lanes.registerTestLanes(b, shared, tm, target, optimize, fd_lib_dir, exe, exe_install, cli_exe_install);
     }
 
     // Performance lane — always wired (not gated by -Dtest), so perf tests
@@ -78,6 +77,6 @@ pub fn build(b: *std.Build) void {
     }
 
     // Coverage lane (always available)
-    const cov_step = b.step("cov", "Install Zig test binaries to zig-out/cov/ for kcov coverage");
+    const cov_step = b.step("test-cov-tk", "Install Zig test binaries to zig-out/cov/ for kcov coverage");
     test_lanes.registerCovLane(b, cov_step, shared, tm, target, optimize, fd_lib_dir);
 }

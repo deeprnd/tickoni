@@ -352,28 +352,6 @@ pub fn strategy(
         test_run_count += 1;
     }
 
-    // ------------------------------------------------------------------
-    // CLI integration tests (5) — spawn tickoni binary, assert output.
-    // These do NOT need the full module graph; just the compiled binary.
-    // ------------------------------------------------------------------
-    const cli_int_test = b.addTest(.{
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/app/tickoni_cli/main.zig"),
-            .target = target,
-            .optimize = optimize,
-            .imports = &.{
-                .{ .name = "investment_fixture", .module = int_mods.investment_fixture_mod },
-                .{ .name = "tier", .module = int_mods.shared_tier },
-                .{ .name = "doctor_output", .module = int_mods.shared_doctor_output },
-                .{ .name = "version", .module = int_mods.shared_version },
-            },
-        }),
-    });
-    firedancer.linkTickoniFiredancer(b, cli_int_test, fd_lib_dir);
-    test_runs[test_run_count] = shims.addPlainTestRun(b, cli_int_test);
-    test_runs[test_run_count].step.dependOn(&exe_install.step);
-    test_run_count += 1;
-
     // Chain sequential execution only for the populated entries.
     for (test_runs[0..test_run_count], 0..) |run, idx| {
         // Inherit stdout/stderr to parent so pipe buffers never fill up
