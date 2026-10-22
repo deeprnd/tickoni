@@ -353,7 +353,7 @@ test "portIsInUse does not crash on any u16 value" {
 test "writeFd writes data and returns count" {
     if (builtin.os.tag != .linux and builtin.os.tag != .macos) return error.SkipZigTest;
 
-    const n = writeFd(1, "hello"); // write to stdout fd
+    const n = writeFd(2, "hello"); // write to stderr fd (avoid stdout pipe backpressure)
     try std.testing.expect(n == 5);
 }
 
