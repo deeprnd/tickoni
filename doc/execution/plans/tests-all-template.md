@@ -291,7 +291,7 @@ Verify:
 **3.1. Firedancer library build (dispatcher)**
 
 ```bash
-python3 ../../scripts/dispatch build-fd
+just build-fd  # inline bash case dispatcher → build-fd-linux-x86-gcc on linux-x86
 ```
 
 Or explicitly for the current platform:
@@ -971,7 +971,7 @@ Verify:
 
 3. **test-unit-all** now runs `test-unit-setup` (Python contrib tests) before platform tests.
 
-4. **Dispatcher pattern**: `build-tk`, `build-fd`, `test-unit-tk`, `test-unit-fd`, `test-integration-tk` all route through `python3 ../../scripts/dispatch` to platform-specific recipes based on `{{ os }}-{{ arch }}`.
+4. **Dispatcher pattern**: `build-tk`, `build-fd`, `test-unit-tk`, `test-unit-fd`, `test-integration-tk` all use inline bash `case` dispatchers in justfile (based on `{{ os }}-{{ arch }}`). The `scripts/dispatch` Python dispatcher and `dispatch-map.json` were removed in V2.25.S2.
 
 5. **Security expanded** from a single `@true` stub to 6 sub-checks (engine, codeql, gitleaks, seccomp, proof, sanitize) with per-platform stubs for Linux/macOS/Windows.
 

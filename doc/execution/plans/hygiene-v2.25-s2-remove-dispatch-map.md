@@ -2,7 +2,7 @@
 story: V2.25.S2
 title: Remove scripts/dispatch + dispatch-map.json, use justfile case dispatchers
 date: 2026-09-25
-status: planned
+status: done
 ---
 
 # Plan: Remove scripts/dispatch + dispatch-map.json
@@ -11,65 +11,19 @@ status: planned
 
 The same pattern already exists directly in `justfile` — `test-unit-tk` and `test-unit-fd` use a bash `case` with `{{ os }}` and `{{ arch }}` from `contrib/platform.sh`, routing in one hop. `setup-quality` does the same. The Python dispatcher adds unnecessary complexity: a JSON file, a Python dependency, subprocess overhead, and a layer that can go stale independently of the actual recipes.
 
-This plan removes the Python dispatcher and JSON map, replacing the 3 callers with inline bash case dispatchers following the established pattern in justfile.
+This plan removes the Python dispatcher and JSON map, replacing the callers with inline bash case dispatchers following the established pattern in justfile.
+
+**Note:** Task 0 was completed before this plan was written — `build-tk` (in `just/build/tk.just`), `build-fd` (in `just/build/fd.just`), and `test-integration-tk` (in `just/test/integration.just`) already have inline case dispatchers. Tasks 1–5 remain.
 
 ---
 
 ## Task 0: Add bare dispatchers to justfile for build-tk, build-fd, test-integration-tk
 
-**Steps:**
+**Status:** ✅ **DONE** — All three dispatchers migrated to inline `case` statements in justfile before this plan was created.
 
-1. Replace `just/build/all.just` line 4-5 (`build-tk:` calling `scripts/dispatch build-tk`) with:
-```
-build-tk:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case "{{ os }}-{{ arch }}" in
-      linux-x86) exec just build-tk-linux-x86 ;;
-      linux-arm) exec just build-tk-linux-arm ;;
-      macos-x86) exec just build-tk-macos-x86 ;;
-      macos-arm) exec just build-tk-macos-arm ;;
-      windows-x86) exec just build-tk-windows-x86 ;;
-      windows-arm) exec just build-tk-windows-arm ;;
-      *) echo "unsupported host platform for build-tk: {{ os }}-{{ arch }}" >&2; exit 1 ;;
-    esac
-```
-
-2. Replace `just/build/all.just` line 21-22 (`build-fd:` calling `scripts/dispatch build-fd`) with:
-```
-build-fd:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case "{{ os }}-{{ arch }}" in
-      linux-x86) exec just build-fd-linux-x86-gcc ;;
-      linux-arm) exec just build-fd-linux-arm-gcc ;;
-      macos-x86) exec just build-fd-macos-x86 ;;
-      macos-arm) exec just build-fd-macos-arm ;;
-      windows-x86) exec just build-fd-windows-x86 ;;
-      windows-arm) exec just build-fd-windows-arm ;;
-      *) echo "unsupported host platform for build-fd: {{ os }}-{{ arch }}" >&2; exit 1 ;;
-    esac
-```
-
-3. Replace `just/test/integration.just` line 27-28 (`test-integration-tk:` calling `scripts/dispatch test-integration-tk`) with:
-```
-test-integration-tk:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case "{{ os }}-{{ arch }}" in
-      linux-x86) exec just test-integration-tk-linux-x86 ;;
-      linux-arm) exec just test-integration-tk-linux-arm ;;
-      macos-x86) exec just test-integration-tk-macos-x86 ;;
-      macos-arm) exec just test-integration-tk-macos-arm ;;
-      windows-x86) exec just test-integration-tk-windows-x86 ;;
-      windows-arm) exec just test-integration-tk-windows-arm ;;
-      *) echo "unsupported host platform for test-integration-tk: {{ os }}-{{ arch }}" >&2; exit 1 ;;
-    esac
-```
-
-**Verification:** `just build-tk`, `just build-fd`, `just test-integration-tk` all work on the current platform (linux-x86) and route to the correct platform-specific recipe. `just --list` shows all dispatcher names.
-
-**Status:**
+- `build-tk:` in `just/build/tk.just` lines 5-16
+- `build-fd:` in `just/build/fd.just` lines 5-16
+- `test-integration-tk:` in `just/test/integration.just` lines 9-20
 
 ---
 
@@ -77,7 +31,7 @@ test-integration-tk:
 
 Remove both files. They are no longer referenced by any justfile after Task 0.
 
-**Status:**
+**Status:** ✅ **DONE** — Deleted both files. Verified no remaining callers in code (justfiles, shell scripts, CI YAMLs).
 
 ---
 
@@ -85,7 +39,7 @@ Remove both files. They are no longer referenced by any justfile after Task 0.
 
 This test file (120 lines) validates dispatch-map.json. With the JSON gone, the tests are dead code.
 
-**Status:**
+**Status:** ✅ **DONE** — Deleted file.
 
 ---
 
@@ -95,7 +49,7 @@ Replace the dispatcher pattern references:
 - Line 294: Remove `python3 ../../scripts/dispatch build-fd` example
 - Line 974: Update the dispatcher pattern note — replace `python3 ../../scripts/dispatch` with inline bash case dispatchers in justfile (same pattern as `test-unit-tk` and `test-unit-fd`)
 
-**Status:**
+**Status:** ✅ **DONE** — Updated line 294 (`python3 ../../scripts/dispatch build-fd` → inline `just build-fd`), updated line 974 (dispatcher pattern note now reflects inline bash case dispatchers, notes dispatch-map removal).
 
 ---
 
@@ -103,7 +57,7 @@ Replace the dispatcher pattern references:
 
 Remove Finding M-2 (the "textbook factory pattern" praise for dispatch-map). Update references to `dispatch-map.json` in sections 2.4, 3.2, and 5.4.
 
-**Status:**
+**Status:** ✅ **DONE** — Marked Finding M-2 as REMOVED by V2.25.S2 with resolution note. Updated all 12 dispatch-related references in the audit doc with (*REMOVED by V2.25.S2*) markers.
 
 ---
 
@@ -115,15 +69,15 @@ Remove Finding M-2 (the "textbook factory pattern" praise for dispatch-map). Upd
 
 **Verification:** Only the audit doc (Task 4) and plan doc (this file) reference dispatch-map.json. All runtime code paths go through justfile case dispatchers.
 
-**Status:**
+**Status:** ✅ **DONE** — Verified zero callers in code (justfiles, shell scripts, CI YAMLs, Python, JSON). References remain only in markdown docs (this plan and the audit doc — Task 4).
 
 ---
 
 ## Risk assessment
 
-- **Low risk.** The bare dispatchers in justfile follow the exact same pattern as `test-unit-tk` (line 108-119 in justfile) and `test-unit-fd` (line 89-103). The platform routing logic is identical — just bash `case` vs Python+JSON.
+- **Low risk.** The bare dispatchers in justfile follow the exact same pattern as `test-unit-tk` and `test-unit-fd`. The platform routing logic is identical — just bash `case` vs Python+JSON.
 - **test-unit-tk** and **test-unit-fd** already have this pattern. It's battle-tested.
 - **No CI changes needed.** CI calls exact platform recipes (e.g. `just build-fd-linux-x86-gcc`) directly, not the bare dispatcher names.
 - **The Python script adds zero value.** It does `platform.sh → JSON lookup → just <recipe>`. The `case` in justfile does `{{ os }}-{{ arch }} → just <recipe>` in one process.
 
-**Status:**
+**Status:** ✅ **DONE** — All tasks complete. Files deleted, docs updated, verification passed.
