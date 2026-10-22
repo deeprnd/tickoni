@@ -10,10 +10,12 @@ Current state (broken):
 - CLI tests (`test-cli-parser`, `test-cli-main`) compile but never run (no just recipe invokes `run-tests` for them)
 
 Desired state:
-- `zig build test-all` compiles AND runs all TK unit tests sequentially
-- `zig build test-cli-all` compiles AND runs all CLI tests sequentially
-- `just test-unit-tk-linux-x86` invokes `test-all` (single command)
-- `just test-unit-cli-linux-x86` invokes `test-cli-all` (single command, actually runs)
+- `zig build test-unit-tk` compiles AND runs all TK unit tests sequentially
+- `zig build test-unit-cli` compiles AND runs all CLI tests sequentially
+- `just test-unit-tk-linux-x86` invokes `test-unit-tk` (single command)
+- `just test-unit-cli-linux-x86` invokes `test-unit-cli` (single command, actually runs)
+
+Note: existing just recipes `test-unit-tk` and `test-unit-cli` are the dispatchers that call platform-specific variants. The zig build step names (`test-unit-tk`, `test-unit-cli`) align with these existing just recipe names, not with a generic `test-all` (which would imply unit+integration+system+e2e).
 
 ---
 
@@ -191,15 +193,16 @@ if (run_count > 0) run_sequence[run_count].step.dependOn(run_sequence[run_count 
 run_count += 1;
 ```
 
-### 2d. Add top-level `test-all` step
+### 2d. Add top-level `test-unit-tk` step
 
 Add at the end of `strategy()` (after all tests registered):
 
 ```zig
-// Top-level step: compile and run all unit tests sequentially
-const test_all_step = b.step("test-all", "Compile and run all TK unit tests sequentially");
+// Top-level step: compile and run all TK unit tests sequentially.
+// Zig step name `test-unit-tk` aligns with existing just recipe `test-unit-tk`.
+const test_unit_tk_step = b.step("test-unit-tk", "Compile and run all TK unit tests sequentially");
 if (run_count > 0) {
-    test_all_step.dependOn(run_sequence[run_count - 1].step);
+    test_unit_tk_step.dependOn(run_sequence[run_count - 1].step);
 }
 ```
 
@@ -284,14 +287,16 @@ if (run_count > 0) run_sequence_local[run_count].step.dependOn(run_sequence_loca
 run_count += 1;
 ```
 
-### 3d. Add top-level `test-cli-all` step
+### 3d. Add top-level `test-unit-cli` step
 
 Add at end of `strategy()`:
 
 ```zig
-const cli_test_all_step = b.step("test-cli-all", "Compile and run all CLI tests sequentially");
+// Top-level step: compile and run all CLI unit tests sequentially.
+// Zig step name `test-unit-cli` aligns with existing just recipe `test-unit-cli`.
+const test_unit_cli_step = b.step("test-unit-cli", "Compile and run all CLI unit tests sequentially");
 if (run_count > 0) {
-    cli_test_all_step.dependOn(run_sequence_local[run_count - 1].step);
+    test_unit_cli_step.dependOn(run_sequence_local[run_count - 1].step);
 }
 ```
 
@@ -386,7 +391,7 @@ To single command:
 
 ```just
 test-unit-tk-linux-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-all
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-unit-tk
 ```
 
 ### 5b. Update `test-unit-cli-linux-x86` (line 150-151)
@@ -402,7 +407,7 @@ To compile+run:
 
 ```just
 test-unit-cli-linux-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-cli-all
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-unit-cli
 ```
 
 ### 5c. Remove `run-tests` from any other recipe references
@@ -438,7 +443,7 @@ git rm contrib/test/run_test_series.sh
 ### 7a. Build test
 
 ```bash
-zig build -Dtest=true test-all
+zig build -Dtest=true test-unit-tk
 ```
 
 **Expected:** All ~30 TK unit tests compile and run sequentially. No bash script invoked.
@@ -446,7 +451,7 @@ zig build -Dtest=true test-all
 ### 7b. Build CLI test
 
 ```bash
-zig build -Dtest=true test-cli-all
+zig build -Dtest=true test-unit-cli
 ```
 
 **Expected:** Both `test-cli-parser` and `test-cli-main` compile and run.
@@ -474,7 +479,7 @@ zig build -Dtest=true test
 
 1. **Exit code propagation**: `addRunArtifact` with `enableTestRunnerMode()` returns non-zero on test failure. Verified against Zig 0.17 `Build.zig:798`. If any test crashes (SIGABRT), `addRunArtifact` captures the non-zero exit code and fails the step.
 
-2. **Standalone step behavior**: `zig build test` (compile-only) still works because `test_step.dependOn(&t.step)` is preserved for each test binary. The `test-all` step is the new compile+run entry point.
+2. **Standalone step behavior**: `zig build test` (compile-only) still works because `test_step.dependOn(&t.step)` is preserved for each test binary. The `test-unit-tk` step is the new compile+run entry point.
 
 3. **Capacity**: Unit lane has ~30 tests. `run_sequence` array of `[32]*std.Build.Step.Run` provides headroom. If tests are added beyond 32, switch to dynamic allocation via `b.allocator.alloc(...)`.
 
@@ -490,20 +495,20 @@ zig build -Dtest=true test
 | `build-lib/lanes/unit.zig` | Remove `run_cmd` param, add run sequence, replace registrations |
 | `build-lib/lanes/cli.zig` | Remove `run_cmd` param, add run sequence, fix standalone steps |
 | `build-lib/build_test_lanes.zig` | Remove `run-tests` step, update strategy calls |
-| `just/test/unit.just` | Replace two-command `test-unit-tk` with single `test-all`, fix `test-unit-cli` |
+| `just/test/unit.just` | Replace two-command `test-unit-tk` with single `test-unit-tk`, fix `test-unit-cli` |
 | `contrib/test/run_test_series.sh` | **DELETED** |
 
 ---
 
 ## Verification checklist
 
-- [ ] `zig build -Dtest=true test` compiles without errors
-- [ ] `zig build -Dtest=true test-all` compiles AND runs all tests (no bash)
-- [ ] `zig build -Dtest=true test-cli-all` compiles AND runs CLI tests
-- [ ] `zig build test-cli-parser` actually runs tests (was broken before)
-- [ ] `zig build test-cli-main` actually runs tests (was broken before)
-- [ ] `just test-unit-tk-linux-x86` runs in single command
-- [ ] `just test-unit-cli-linux-x86` runs in single command (was broken before)
+- [x] `zig build -Dtest=true test` compiles without errors
+- [x] `zig build -Dtest=true test-unit-tk` compiles AND runs all tests (no bash)
+- [x] `zig build -Dtest=true test-unit-cli` compiles AND runs CLI tests
+- [x] `zig build test-cli-parser` actually runs tests (was broken before)
+- [x] `zig build test-cli-main` actually runs tests (was broken before)
+- [x] `just test-unit-tk-linux-x86` runs in single command
+- [x] `just test-unit-cli-linux-x86` runs in single command (was broken before)
 - [ ] No references to `run_test_series.sh` in codebase
 - [ ] No references to `createRunTestsCmd` in codebase
 - [ ] All ~30 unit tests execute sequentially
