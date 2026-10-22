@@ -184,7 +184,7 @@ cmd_lint_shellcheck_fd() {
 cmd_lint_check_tk() {
   local cache_dir
   cache_dir="$(git rev-parse --show-toplevel)/build/.zig-cache"
-  run_step "zig build check" env ZIG_LOCAL_CACHE_DIR="$cache_dir" zig build check
+  run_step "zig build check" env ZIG_LOCAL_CACHE_DIR="$cache_dir" zig build lint-check-tk
 }
 
 # ── Qt Quality Checks ─────────────────────────────────────────────────────────

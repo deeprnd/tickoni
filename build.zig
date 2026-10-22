@@ -57,8 +57,9 @@ pub fn build(b: *std.Build) void {
     const run_cli_step = b.step("run-cli", "Run tickoni CLI");
     run_cli_step.dependOn(&b.addRunArtifact(cli_exe).step);
 
-    // Fixture verification
-    helpers.createVerifyFixtureStep(b);
+    // Lint check + fixture verification
+    const lint_check_step = helpers.createCheckStep(b, target);
+    helpers.createVerifyFixtureStep(b, lint_check_step);
 
     // Unit + integration + system lanes
     if (build_tests) {
