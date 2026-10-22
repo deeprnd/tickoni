@@ -376,6 +376,9 @@ pub fn strategy(
 
     // Chain sequential execution only for the populated entries.
     for (test_runs[0..test_run_count], 0..) |run, idx| {
+        // Inherit stdout/stderr to parent so pipe buffers never fill up
+        // across the 15-test integration chain.
+        run.stdio = .inherit;
         if (idx > 0) run.step.dependOn(&test_runs[idx - 1].step);
         integration_step.dependOn(&run.step);
     }

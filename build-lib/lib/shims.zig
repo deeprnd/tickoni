@@ -100,6 +100,9 @@ pub fn addPlainTestRun(
 /// Run multiple compiled test binaries sequentially via addRunArtifact.
 /// Chains each artifact so they run one after another, avoiding Zig
 /// 0.17's --listen=- protocol-mode which blocks on stdin with 48+ tests.
+/// Output is inherited (not captured) to avoid pipe buffer overflow when
+/// 48+ test binaries chain their stdout/stderr — the buffer fills and
+/// blocks the writer before the reader can drain it.
 pub fn addPlainTestRunSeries(
     b: *std.Build,
     test_compiles: []const *std.Build.Step.Compile,
@@ -110,6 +113,9 @@ pub fn addPlainTestRunSeries(
     var i: usize = 0;
     while (i < test_compiles.len) : (i += 1) {
         runs[i] = b.addRunArtifact(test_compiles[i]);
+        // Inherit stdout/stderr to parent so pipe buffers never fill up
+        // across the 48-test chain.
+        runs[i].stdio = .inherit;
         if (i > 0) {
             runs[i].step.dependOn(&runs[i - 1].step);
         }
