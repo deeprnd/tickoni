@@ -23,7 +23,7 @@ Tickoni repository.
   <!-- badge:unit:end -->
 
   <!-- badge:integration:start -->
-  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-passing-brightgreen?style=flat-square" />
+  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-failing-red?style=flat-square" />
   <!-- badge:integration:end -->
 
   <!-- badge:system:start -->
@@ -499,15 +499,9 @@ grows.
 
 ## Explicit System Lane
 
-`just test-system-tk` runs `contrib/test/run_live_investment_demo.sh`, which
-executes the full end-to-end flow: setup (via `contrib/setup/orchestrator.py
-llm-server`), start llama.cpp server, run `zig build system-test`, and clean up
-(server shutdown).
-
-`contrib/test/run_system_model_tests.sh` is the test runner that executes
-`zig build system-test` against a pre-started server. It is called internally by
-`run_live_investment_demo.sh`; developers should not call it directly unless
-debugging the test phase separately.
+`just test-system-tk` runs `python contrib/test/orchestrator.py system-test`,
+which executes the full end-to-end flow: start llama.cpp server, run
+`zig build system-test`, and clean up (server shutdown).
 
 Test infrastructure is managed by
 `contrib/test/orchestrator.py`:
@@ -515,7 +509,7 @@ Test infrastructure is managed by
 ```bash
 python3 contrib/test/orchestrator.py llm-server-start   # start server, wait for health
 python3 contrib/test/orchestrator.py llm-server-stop    # kill server by PID
-python3 contrib/test/orchestrator.py zig-test --target system-test  # build + run
+python3 contrib/test/orchestrator.py system-test        # full lifecycle: start → zig-test → stop
 ```
 
 To override default paths:

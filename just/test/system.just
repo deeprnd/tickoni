@@ -2,16 +2,16 @@
 # System tests: live-LLM investment tests via llama.cpp server.
 
 test-system-tk:
-    bash contrib/test/run_system_test.sh
+    {{ python }} contrib/test/orchestrator.py system-test
 
 test-system-tk-linux-x86:
-    bash contrib/test/run_system_test.sh
+    {{ python }} contrib/test/orchestrator.py system-test
 
 test-system-tk-linux-arm: test-system-tk-linux-x86
 test-system-tk-macos-x86: test-system-tk-linux-x86
 test-system-tk-macos-arm: test-system-tk-linux-x86
 test-system-tk-windows-x86:
-    bash contrib/test/run_system_test.sh windows-x86
+    {{ python }} contrib/test/orchestrator.py system-test
 test-system-tk-windows-arm: test-system-tk-windows-x86
 
 test-system-all:
