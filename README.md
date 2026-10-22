@@ -14,7 +14,7 @@
   <!-- badge:unit:end -->
 
   <!-- badge:integration:start -->
-  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-passing-brightgreen?style=flat-square" />
+  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-failing-red?style=flat-square" />
   <!-- badge:integration:end -->
 
   <!-- badge:security:start -->
