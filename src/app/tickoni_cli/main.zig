@@ -88,12 +88,20 @@ fn locateTickoniBinary(allocator: Allocator, io: Io) ![]const u8 {
         current = next.?;
     }
     var candidate_buf: [2048]u8 = undefined;
+    // Try build-specific prefix first (CI uses build/zig-out/bin/).
     const repo_path = try std.fmt.bufPrint(&candidate_buf, "{s}/build/zig-out/bin/tickoni", .{current});
     const exists: bool = blk: {
         std.Io.Dir.access(std.Io.Dir.cwd(), io, repo_path, .{}) catch break :blk false;
         break :blk true;
     };
     if (exists) return try allocator.dupe(u8, repo_path);
+    // Fallback: standard Zig prefix (zig-out/bin/) at repo root.
+    const std_path = try std.fmt.bufPrint(&candidate_buf, "{s}/zig-out/bin/tickoni", .{current});
+    const exists2: bool = blk: {
+        std.Io.Dir.access(std.Io.Dir.cwd(), io, std_path, .{}) catch break :blk false;
+        break :blk true;
+    };
+    if (exists2) return try allocator.dupe(u8, std_path);
     // Fallback: binary is alongside the test binary itself
     return try std.fs.path.join(allocator, &.{ exe_dir, "tickoni" });
 }
