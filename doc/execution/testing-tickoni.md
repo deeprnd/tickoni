@@ -98,7 +98,7 @@ are local host dispatchers only.
 
 Tickoni-owned Zig:
 
-- `just test-unit-tk` — Tickoni harness unit tests (Zig `zig build test`)
+- `just test-unit-tk` — Tickoni harness unit tests (unified `zig build test-unit-tk` compiles + runs)
 - `just test-cli-tk` — **Deterministic demo conformance suite** (fixture-backed, no llama.cpp)
 - `just test-integration-tk` — Tickoni integration tests (Zig `zig build integration-test`)
 - `just test-system-tk` — System tests with live llama.cpp server
@@ -349,9 +349,18 @@ Practical rule of thumb:
 `just test-unit-tk` runs:
 
 ```bash
-ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} test --summary all
-ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} run-tests
+ZIG_GLOBAL_CACHE_DIR=.zig-global-cache zig build -Dtest=true -Dfd-lib-dir={{fd_tickoni_lib}} test-unit-tk
 ```
+
+This is a single command: Zig's `addRunArtifact` compiles all test binaries
+and runs them sequentially in one `zig build` invocation. The old two-step
+pattern (`zig build test` then `run-tests`) was replaced with the unified
+compile+run model that Zig natively supports — matching what Rust (`cargo
+test`), Go (`go test`), Python (`pytest`), and most modern ecosystems do.
+
+The `test` step (compile-only) is still available for CI use cases that need
+to build test binaries without running them. `test-unit-tk` is the
+compile+run entry point that developers use locally.
 
 On Windows and macOS, `just test-unit-tk` delegates to platform-specific
 recipes (`test-unit-tk-windows-x86`, `test-unit-tk-macos-arm`, etc.) which

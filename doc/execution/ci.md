@@ -318,11 +318,19 @@ Covers the Tickoni Zig harness unit tests and Firedancer-derived C unit tests.
 Path filter is scoped to Tickoni sources so these jobs do not re-run on pure
 Firedancer C changes.
 
-The workflow downloads pre-built build artifacts from the Build stage (so it
-never rebuilds Firedancer libraries), then runs `just` recipes that only
-compile test executables and execute them.
+### Tickoni unit tests: unified compile+run
 
-### Two-tier recipe pattern
+The TK unit-test lane now uses Zig's native `addRunArtifact` — a single
+`just test-unit-tk-linux-x86` call compiles all test binaries and runs them
+sequentially. This replaces the old two-step pattern (`zig build test` then
+`zig build run-tests` via a bash runner). It matches the pattern used by
+Rust (`cargo test`), Go (`go test`), and most modern ecosystems: one
+command, one mental model.
+
+The compile-only `zig build test` step is preserved for CI cases that need
+to build test binaries without executing them.
+
+### Firedancer unit tests: two-tier pattern (unchanged)
 
 FD unit-test recipes follow a two-tier pattern:
 
@@ -357,8 +365,8 @@ The workflow runs a matrix of platform/compiler combinations:
 3. Install pytest via `just test-setup-install-{platform}`.
 4. Run Python unit tests via `just test-setup-run-{platform}`.
 5. Configure hugepages and memory limits (Linux only).
-6. Run Firedancer unit tests via `just ${{ matrix.fd-test-recipe }}` (builds test executables, then runs them).
-7. Run Tickoni unit tests via `just ${{ matrix.test-recipe }}`.
+6. Run Firedancer unit tests via `just ${{ matrix.fd-test-recipe }}` (builds test executables, then runs them via two-tier pattern).
+7. Run Tickoni unit tests via `just ${{ matrix.test-recipe }}` (single `zig build test-unit-tk` invocation compiles + runs all tests).
 
 | Job | Command | Output artifact |
 | --- | --- | --- |
