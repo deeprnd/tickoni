@@ -509,7 +509,7 @@ zig build -Dtest=true test
 - [x] `zig build test-cli-main` actually runs tests (was broken before)
 - [x] `just test-unit-tk-linux-x86` runs in single command
 - [x] `just test-unit-cli-linux-x86` runs in single command (was broken before)
-- [ ] No references to `run_test_series.sh` in codebase
-- [ ] No references to `createRunTestsCmd` in codebase
-- [ ] All ~30 unit tests execute sequentially
-- [ ] Exit code is non-zero if any test fails
+- [x] No references to `run_test_series.sh` in codebase (deleted)
+- [x] No references to `createRunTestsCmd` in codebase
+- [x] All ~30+ unit tests execute sequentially
+- [x] Exit code is non-zero if any test fails
