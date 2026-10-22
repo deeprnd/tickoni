@@ -40,9 +40,20 @@ def _load_local_env() -> bool:
 
 from config import load_config, env_flag
 from resolver import DependencyResolver
-from platform import matches_platform, detect_platform, get_platform_from_string
+from platform import matches_platform, get_platform_from_string
 from install import get as get_strategy
 from install.checks import build_check
+
+
+def resolve_platform(args_platform):
+    """Determine platform: use --platform arg, or detect from env."""
+    if args_platform:
+        return args_platform
+    tk_os = os.environ.get("TK_OS", "")
+    tk_arch = os.environ.get("TK_ARCH", "")
+    if tk_os and tk_arch:
+        return f"{tk_os}-{tk_arch}"
+    return "linux-x86"  # safe default
 
 
 def _resolve_install_method(method, platform_str: str, tool_name: str) -> str:
@@ -178,8 +189,12 @@ def main():
     resolved = orch.resolver.resolve(requested)
     print(f"Resolved categories: {', '.join(resolved)}")
 
-    plat = detect_platform(args.platform)
+    plat = resolve_platform(args.platform)
     print(f"Platform: {plat}")
+
+    # Expose TK_OS/TK_ARCH to strategies (set by justfile or resolved above).
+    os.environ['TK_OS'] = plat.split('-')[0]
+    os.environ['TK_ARCH'] = plat.split('-')[1]
 
     results = orch.setup(requested, plat, dry_run=args.dry_run, skip_idempotency=skip_idempotency)
 

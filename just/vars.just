@@ -16,19 +16,15 @@ python := `bash contrib/setup/python.sh`
 
 # ── Platform Detection ────────────────────────────────────────────────────────
 # All recipes use {{ os }} and {{ arch }} from here — never call uname directly.
+# Exported so all subprocess calls within recipes inherit the values.
 
 # Detect OS/arch via platform.sh (single source of truth).
 # Returns lowercase: linux/mac/windows and x86/arm.
-os := `bash contrib/platform.sh os`
+export os := `bash contrib/platform.sh os`
 
 # Detect arch from platform.sh (falls back to "unknown")
-arch := `bash contrib/platform.sh arch`
+export arch := `bash contrib/platform.sh arch`
 
-# Aliases for backward compatibility with any internal shell code still
-# referencing the old variable names (e.g. contrib/build/fd-build-lib.sh callers).
-tk_os := `bash contrib/platform.sh os`
-tk_arch := `bash contrib/platform.sh arch`
-tk_platform := `bash contrib/platform.sh platform`
 cpu_count := `bash contrib/platform.sh cores`
 
 # ── Firedancer build directories ──────────────────────────────────────────────

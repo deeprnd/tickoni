@@ -74,14 +74,7 @@ def platform_from_args(args) -> str:
     tk_arch = os.environ.get("TK_ARCH", "")
     if tk_os and tk_arch:
         return f"{tk_os}-{tk_arch}"
-    # Auto-detect via platform.sh
-    try:
-        out = subprocess.run(
-            ["bash", os.path.join(SCRIPT_DIR, "..", "platform.sh"), "platform"],
-            capture_output=True, text=True, check=True)
-        return out.stdout.strip().lower()
-    except Exception:
-        return "linux-x86"
+    return "linux-x86"
 
 
 def cmd_build_fd(args, config: dict) -> None:

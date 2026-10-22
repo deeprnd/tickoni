@@ -4,13 +4,12 @@
 # Usage (standalone):
 #   contrib/platform.sh os         → linux | macos | windows
 #   contrib/platform.sh arch       → x86 | arm
-#   contrib/platform.sh platform   → linux-x86 | macos-arm | …
 #   contrib/platform.sh cores      → logical CPU count
-#   contrib/platform.sh            → linux-x86 (all 3)
+#   contrib/platform.sh            → linux-x86 (both)
 #
 # Usage (sourceable):
 #   source contrib/platform.sh
-#   # Sets TK_OS, TK_ARCH, TK_PLATFORM and prints them.
+#   # Sets TK_OS and TK_ARCH, and prints them.
 #
 # Normalised arch values: x86, arm (NOT x86_64 / aarch64).
 set -euo pipefail
@@ -112,10 +111,6 @@ tk_arch() {
   echo "unknown"
 }
 
-tk_platform() {
-  echo "$(tk_os)-$(tk_arch)"
-}
-
 tk_cores() {
   local cores
   case "$(tk_os)" in
@@ -152,19 +147,16 @@ tk_cores() {
 # ── Standalone invocation ────────────────────────────────────────────────────
 # If the script is run directly (not sourced), read arg and print result.
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]] 2>/dev/null || [[ -z "${1:-}" ]]; then
-  # Sourced or no arg — set globals and print all three
+  # Sourced or no arg — set globals and print both
   TK_OS="$(tk_os)"
   TK_ARCH="$(tk_arch)"
-  TK_PLATFORM="$(tk_platform)"
   echo "TK_OS=${TK_OS}"
   echo "TK_ARCH=${TK_ARCH}"
-  echo "TK_PLATFORM=${TK_PLATFORM}"
 else
-  # Run as: contrib/platform.sh [os|arch|platform]
+  # Run as: contrib/platform.sh [os|arch|cores]
   case "${1}" in
     os)         tk_os ;;
     arch)       tk_arch ;;
-    platform)   tk_platform ;;
     cores)      tk_cores ;;
     *)
       echo "usage: $0 [os|arch|platform]" >&2
