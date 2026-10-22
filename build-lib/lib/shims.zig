@@ -89,34 +89,32 @@ pub fn shimCFlagsFor(target: std.Target) []const []const u8 {
     };
 }
 
-/// Wrap a test compile step with a sequential run using
-/// `contrib/test/run_test_series.sh`.  This avoids Zig's --listen=-
-/// parallel coordination which panics with EndOfStream when 48+ test
-/// binaries communicate over the same pipe, and correctly propagates
-/// non-zero exit codes when test binaries crash (the coordinator in
-/// --listen=- mode exits 0 even when children SIGABRT).
+/// Run a single compiled test binary via addRunArtifact.
 pub fn addPlainTestRun(
     b: *std.Build,
     test_compile: *std.Build.Step.Compile,
 ) *std.Build.Step.Run {
-    return addPlainTestRunSeries(b, &.{test_compile});
+    return b.addRunArtifact(test_compile);
 }
 
-/// Run multiple compiled test binaries sequentially in one runner process.
+/// Run multiple compiled test binaries sequentially via addRunArtifact.
+/// Chains each artifact so they run one after another, avoiding Zig
+/// 0.17's --listen=- protocol-mode which blocks on stdin with 48+ tests.
 pub fn addPlainTestRunSeries(
     b: *std.Build,
     test_compiles: []const *std.Build.Step.Compile,
 ) *std.Build.Step.Run {
-    // CWD = repo root so tile_exe_path "build/zig-out/bin/tickoni-supervisor"
-    // resolves to the installed supervisor binary (wired as dependency in
-    // build_test_lanes.zig).
-    const run_step = b.addSystemCommand(&.{
-        "bash",
-        "contrib/test/run_test_series.sh",
-    });
-    run_step.setCwd(b.path("."));
-    for (test_compiles) |test_compile| run_step.addArtifactArg(test_compile);
-    return run_step;
+    if (test_compiles.len == 0) unreachable;
+
+    var runs: [64]*std.Build.Step.Run = undefined;
+    var i: usize = 0;
+    while (i < test_compiles.len) : (i += 1) {
+        runs[i] = b.addRunArtifact(test_compiles[i]);
+        if (i > 0) {
+            runs[i].step.dependOn(&runs[i - 1].step);
+        }
+    }
+    return runs[test_compiles.len - 1];
 }
 
 /// Install a test binary under `zig-out/cov/` for kcov coverage.
