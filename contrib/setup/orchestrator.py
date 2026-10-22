@@ -53,7 +53,11 @@ def resolve_platform(args_platform):
     tk_arch = os.environ.get("TK_ARCH", "")
     if tk_os and tk_arch:
         return f"{tk_os}-{tk_arch}"
-    return "linux-x86"  # safe default
+    print(
+        "ERROR: no platform detected — pass --platform or set TK_OS + TK_ARCH",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 def _resolve_install_method(method, platform_str: str, tool_name: str) -> str:
