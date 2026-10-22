@@ -1,8 +1,9 @@
 /// Unit test lane strategy — spec-driven.
 ///
 /// Collects compile steps in a `run_sequence` array, then chains them all
-/// sequentially via `shims.addPlainTestRunSeries`. This avoids Zig 0.17's
-/// protocol-mode `--listen=-` which blocks on stdin.
+/// sequentially via `shims.addPlainTestRunSeries` (native Zig
+/// `b.addRunArtifact`), avoiding Zig 0.17's protocol-mode `--listen=-`
+/// which blocks on stdin.
 
 const std = @import("std");
 const shims = @import("../lib/shims.zig");

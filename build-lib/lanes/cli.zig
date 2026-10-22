@@ -75,11 +75,10 @@ pub fn strategy(
         run_count += 1;
     }
 
-    // Sequential execution via shims to avoid Zig 0.17 protocol-mode.
-    const cli_run = shims.addPlainTestRunSeries(b, run_sequence[0..run_count]);
-    test_step.dependOn(&cli_run.step);
-
     // Top-level step so `zig build test-unit-cli` compiles and runs CLI tests.
     const cli_test_step = b.step("test-unit-cli", "Compile and run CLI + doctor tests sequentially");
-    cli_test_step.dependOn(&cli_run.step);
+    if (run_count > 0) {
+        const cli_run = shims.addPlainTestRunSeries(b, run_sequence[0..run_count]);
+        cli_test_step.dependOn(&cli_run.step);
+    }
 }
