@@ -2,4 +2,4 @@
 # Used by CI test workflows that download build artifacts.
 
 setup-just:
-    {{ python }} contrib/setup/orchestrator.py just
+    {{ python }} contrib/setup/orchestrator.py just --platform {{ os }}-{{ arch }}

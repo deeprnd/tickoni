@@ -14,10 +14,10 @@ setup-coverage:
     esac
 
 setup-coverage-linux-x86-clang:
-    {{ python }} contrib/setup/orchestrator.py coverage,toolchain
+    {{ python }} contrib/setup/orchestrator.py coverage,toolchain --platform {{ os }}-{{ arch }}
 
 setup-coverage-macos-x86:
-    {{ python }} contrib/setup/orchestrator.py core,build,toolchain,coverage
+    {{ python }} contrib/setup/orchestrator.py core,build,toolchain,coverage --platform {{ os }}-{{ arch }}
 
 setup-coverage-macos-arm:
-    {{ python }} contrib/setup/orchestrator.py core,build,toolchain,coverage
+    {{ python }} contrib/setup/orchestrator.py core,build,toolchain,coverage --platform {{ os }}-{{ arch }}

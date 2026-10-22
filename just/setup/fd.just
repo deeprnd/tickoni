@@ -18,27 +18,27 @@ setup-fd:
 
 # Linux — GCC
 setup-fd-linux-x86-gcc:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
-    {{ python }} contrib/setup/orchestrator.py zig,ssl
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform {{ os }}-{{ arch }}
+    {{ python }} contrib/setup/orchestrator.py zig,ssl --platform {{ os }}-{{ arch }}
 
 # Linux — Clang
 setup-fd-linux-x86-clang:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
-    {{ python }} contrib/setup/orchestrator.py zig,ssl
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform {{ os }}-{{ arch }}
+    {{ python }} contrib/setup/orchestrator.py zig,ssl --platform {{ os }}-{{ arch }}
 
 # Linux — ARM GCC
 setup-fd-linux-arm-gcc:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
-    {{ python }} contrib/setup/orchestrator.py zig,ssl
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform {{ os }}-{{ arch }}
+    {{ python }} contrib/setup/orchestrator.py zig,ssl --platform {{ os }}-{{ arch }}
 
 # macOS
 setup-fd-macos-x86:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
-    {{ python }} contrib/setup/orchestrator.py zig,ssl
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform {{ os }}-{{ arch }}
+    {{ python }} contrib/setup/orchestrator.py zig,ssl --platform {{ os }}-{{ arch }}
 
 setup-fd-macos-arm:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
-    {{ python }} contrib/setup/orchestrator.py zig,ssl
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform {{ os }}-{{ arch }}
+    {{ python }} contrib/setup/orchestrator.py zig,ssl --platform {{ os }}-{{ arch }}
 
 # Windows x86_64 — FD toolchain (zig + ssl)
 setup-fd-windows-x86:
@@ -50,19 +50,19 @@ setup-fd-windows-arm:
 
 # ── Firedancer deps ──────────────────────────────────────────────────────────
 setup-fd-deps-linux-x86-gcc:
-    {{ python }} contrib/setup/orchestrator.py fd
+    {{ python }} contrib/setup/orchestrator.py fd --platform {{ os }}-{{ arch }}
 
 setup-fd-deps-linux-x86-clang:
-    {{ python }} contrib/setup/orchestrator.py fd
+    {{ python }} contrib/setup/orchestrator.py fd --platform {{ os }}-{{ arch }}
 
 setup-fd-deps-linux-arm-gcc:
-    {{ python }} contrib/setup/orchestrator.py fd
+    {{ python }} contrib/setup/orchestrator.py fd --platform {{ os }}-{{ arch }}
 
 setup-fd-deps-macos-x86:
-    {{ python }} contrib/setup/orchestrator.py fd
+    {{ python }} contrib/setup/orchestrator.py fd --platform {{ os }}-{{ arch }}
 
 setup-fd-deps-macos-arm:
-    {{ python }} contrib/setup/orchestrator.py fd
+    {{ python }} contrib/setup/orchestrator.py fd --platform {{ os }}-{{ arch }}
 
 setup-fd-deps-windows-x86:
     {{ python }} contrib/setup/orchestrator.py fd --platform windows-x86

@@ -5,5 +5,5 @@
 # live in their own install-*.just files.
 
 setup-all:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,zig,ssl,fd,quality,secrets,coverage,security,ops
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build,zig,ssl,fd,quality,secrets,coverage,security,ops --platform {{ os }}-{{ arch }}
     just setup-git

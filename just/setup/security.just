@@ -13,10 +13,10 @@ setup-security:
 
 # Security/formal-verification (CBMC suite)
 setup-security-linux-x86:
-    {{ python }} contrib/setup/orchestrator.py core,security
+    {{ python }} contrib/setup/orchestrator.py core,security --platform {{ os }}-{{ arch }}
 
 setup-security-macos-x86:
-    {{ python }} contrib/setup/orchestrator.py core,security
+    {{ python }} contrib/setup/orchestrator.py core,security --platform {{ os }}-{{ arch }}
 
 setup-security-windows-x86:
     {{ python }} contrib/setup/orchestrator.py core,security --platform windows-x86

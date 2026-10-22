@@ -18,13 +18,13 @@ setup-gitleaks:
 
 # Secrets-only: gitleaks
 setup-gitleaks-linux-x86:
-    {{ python }} contrib/setup/orchestrator.py core,essential,secrets
+    {{ python }} contrib/setup/orchestrator.py core,essential,secrets --platform {{ os }}-{{ arch }}
 
 setup-gitleaks-macos-x86:
-    {{ python }} contrib/setup/orchestrator.py core,essential,secrets
+    {{ python }} contrib/setup/orchestrator.py core,essential,secrets --platform {{ os }}-{{ arch }}
 
 setup-gitleaks-macos-arm:
-    {{ python }} contrib/setup/orchestrator.py core,essential,secrets
+    {{ python }} contrib/setup/orchestrator.py core,essential,secrets --platform {{ os }}-{{ arch }}
 
 setup-gitleaks-windows-x86:
     {{ python }} contrib/setup/orchestrator.py core,essential,secrets --platform windows-x86

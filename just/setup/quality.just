@@ -18,21 +18,21 @@ setup-quality:
 
 # Quality: build + quality tools
 setup-quality-linux-x86:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
-    {{ python }} contrib/setup/orchestrator.py quality
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform {{ os }}-{{ arch }}
+    {{ python }} contrib/setup/orchestrator.py quality --platform {{ os }}-{{ arch }}
 
 setup-quality-macos-x86:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
-    {{ python }} contrib/setup/orchestrator.py quality
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform {{ os }}-{{ arch }}
+    {{ python }} contrib/setup/orchestrator.py quality --platform {{ os }}-{{ arch }}
 
 setup-quality-macos-arm:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
-    {{ python }} contrib/setup/orchestrator.py quality
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform {{ os }}-{{ arch }}
+    {{ python }} contrib/setup/orchestrator.py quality --platform {{ os }}-{{ arch }}
 
 setup-quality-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
-    {{ python }} contrib/setup/orchestrator.py quality --platform windows-x86
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform {{ os }}-{{ arch }}
+    {{ python }} contrib/setup/orchestrator.py quality --platform {{ os }}-{{ arch }}
 
 setup-quality-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
-    {{ python }} contrib/setup/orchestrator.py quality --platform windows-arm
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform {{ os }}-{{ arch }}
+    {{ python }} contrib/setup/orchestrator.py quality --platform {{ os }}-{{ arch }}

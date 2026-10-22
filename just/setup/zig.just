@@ -17,19 +17,19 @@ setup-zig:
     esac
 
 setup-zig-linux-x86:
-    {{ python }} contrib/setup/orchestrator.py zig
+    {{ python }} contrib/setup/orchestrator.py zig --platform {{ os }}-{{ arch }}
 
 setup-zig-linux-arm:
-    {{ python }} contrib/setup/orchestrator.py zig
+    {{ python }} contrib/setup/orchestrator.py zig --platform {{ os }}-{{ arch }}
 
 setup-zig-macos-x86:
-    {{ python }} contrib/setup/orchestrator.py zig
+    {{ python }} contrib/setup/orchestrator.py zig --platform {{ os }}-{{ arch }}
 
 setup-zig-macos-arm:
-    {{ python }} contrib/setup/orchestrator.py zig
+    {{ python }} contrib/setup/orchestrator.py zig --platform {{ os }}-{{ arch }}
 
 setup-zig-windows-x86:
-    {{ python }} contrib/setup/orchestrator.py zig
+    {{ python }} contrib/setup/orchestrator.py zig --platform {{ os }}-{{ arch }}
 
 setup-zig-windows-arm:
-    {{ python }} contrib/setup/orchestrator.py zig
+    {{ python }} contrib/setup/orchestrator.py zig --platform {{ os }}-{{ arch }}
