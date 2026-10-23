@@ -261,7 +261,7 @@ fn connectWithTimeout(
     host: []const u8,
     port: u16,
 ) anyerror!std.Io.net.Stream {
-    var address = std.Io.net.IpAddress.parse(host, port) catch unreachable;
+    var address = try std.Io.net.IpAddress.parse(host, port);
     var attempt: u8 = 0;
     while (attempt < 100) : (attempt += 1) {
         if (std.Io.net.IpAddress.connect(&address, io, .{ .mode = .stream, .protocol = .tcp })) |stream| {
@@ -459,9 +459,9 @@ test "FixtureBackend returns deterministic response" {
     const req = ProviderRequest{
         .model_id = "fixture.ai_infra",
         .messages = &.{},
-        .budget_id = "budget.demo_paper",
+        .budget_id = "budget.fixture_paper",
         .policy_version = "v1",
-        .capability_envelope_id = "capenv.trading_order.propose.demo",
+        .capability_envelope_id = "capenv.trading_order.propose.fixture",
     };
 
     const resp = try fixture.call(allocator, req);
@@ -486,9 +486,9 @@ test "FixtureBackend.initFromDir loads fixture_model_response_gemma4.json" {
     const req = ProviderRequest{
         .model_id = "fixture.ai_infra",
         .messages = &.{},
-        .budget_id = "budget.demo_paper",
+        .budget_id = "budget.fixture_paper",
         .policy_version = "v1",
-        .capability_envelope_id = "capenv.trading_order.propose.demo",
+        .capability_envelope_id = "capenv.trading_order.propose.fixture",
     };
     const resp = try fixture.call(allocator, req);
     defer resp.deinit(allocator);
@@ -507,9 +507,9 @@ test "FixtureBackend response JSON matches expected tickers and excludes restric
     const req = ProviderRequest{
         .model_id = "fixture.ai_infra",
         .messages = &.{},
-        .budget_id = "budget.demo_paper",
+        .budget_id = "budget.fixture_paper",
         .policy_version = "v1",
-        .capability_envelope_id = "capenv.trading_order.propose.demo",
+        .capability_envelope_id = "capenv.trading_order.propose.fixture",
     };
     const resp = try fixture.call(allocator, req);
     defer resp.deinit(allocator);

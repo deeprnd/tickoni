@@ -17,15 +17,6 @@ pub const Shared = struct {
     fixture_paths: *std.Build.Module,
     doctor_checks: *std.Build.Module,
     doctor_output: *std.Build.Module,
-    demo_manifest: *std.Build.Module,
-    demo_semver: *std.Build.Module,
-    demo_diagnostic: *std.Build.Module,
-    demo_preflight: *std.Build.Module,
-    demo_cli: *std.Build.Module,
-    demo_conformance: *std.Build.Module,
-    demo_comparator: *std.Build.Module,
-    demo_runner: *std.Build.Module,
-    demo_substitution: *std.Build.Module,
     classification: *std.Build.Module,
     capability: *std.Build.Module,
     thesis: *std.Build.Module,
@@ -189,70 +180,6 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
             .{ .name = "tier", .module = tier_mod },
         },
     });
-    const demo_manifest_mod = b.addModule("demo_manifest", .{
-        .root_source_file = b.path("src/tickoni/demo/manifest.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    const demo_semver_mod = b.addModule("demo_semver", .{
-        .root_source_file = b.path("src/tickoni/demo/semver.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    const demo_diagnostic_mod = b.addModule("demo_diagnostic", .{
-        .root_source_file = b.path("src/tickoni/demo/diagnostic.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    const demo_preflight_mod = b.addModule("demo_preflight", .{
-        .root_source_file = b.path("src/tickoni/demo/preflight.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "demo_manifest", .module = demo_manifest_mod },
-            .{ .name = "demo_semver", .module = demo_semver_mod },
-            .{ .name = "diagnostic", .module = demo_diagnostic_mod },
-        },
-    });
-    const demo_cli_mod = b.addModule("demo_cli", .{
-        .root_source_file = b.path("src/tickoni/demo/cli.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    const demo_conformance_mod = b.addModule("demo_conformance", .{
-        .root_source_file = b.path("src/tickoni/demo/conformance.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "diagnostic", .module = demo_diagnostic_mod },
-        },
-    });
-    const demo_comparator_mod = b.addModule("demo_comparator", .{
-        .root_source_file = b.path("src/tickoni/demo/comparator.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "conformance", .module = demo_conformance_mod },
-        },
-    });
-    const demo_runner_mod = b.addModule("demo_runner", .{
-        .root_source_file = b.path("src/tickoni/demo/runner.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "conformance", .module = demo_conformance_mod },
-            .{ .name = "diagnostic", .module = demo_diagnostic_mod },
-        },
-    });
-    const demo_substitution_mod = b.addModule("demo_substitution", .{
-        .root_source_file = b.path("src/tickoni/demo/substitution.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "diagnostic", .module = demo_diagnostic_mod },
-            .{ .name = "runner", .module = demo_runner_mod },
-        },
-    });
 
     const classification_mod = b.addModule("classification", .{
         .root_source_file = b.path("src/tickoni/schema/classification/classification.zig"),
@@ -354,15 +281,6 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .fixture_paths = fixture_paths_mod,
         .doctor_checks = doctor_checks_mod,
         .doctor_output = doctor_output_mod,
-        .demo_manifest = demo_manifest_mod,
-        .demo_semver = demo_semver_mod,
-        .demo_diagnostic = demo_diagnostic_mod,
-        .demo_preflight = demo_preflight_mod,
-        .demo_cli = demo_cli_mod,
-        .demo_conformance = demo_conformance_mod,
-        .demo_comparator = demo_comparator_mod,
-        .demo_runner = demo_runner_mod,
-        .demo_substitution = demo_substitution_mod,
         .classification = classification_mod,
         .capability = capability_mod,
         .thesis = thesis_mod,

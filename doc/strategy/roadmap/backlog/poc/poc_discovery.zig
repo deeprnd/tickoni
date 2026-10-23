@@ -79,7 +79,7 @@ pub fn main() anyerror!void {
     const excludes = [_][]const u8{
         "src/tickoni/test/integration/",
         "src/tickoni/test/system/",
-        "src/tickoni/test/demo/",
+        "src/tickoni/test/fixture/",
         "src/tickoni/test/fixtures/investment/scenarios/.zig-global-cache",
     };
 

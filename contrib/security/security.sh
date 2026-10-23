@@ -129,7 +129,7 @@ cmd_sanitize_check_tk() {
   local _cache_dir
   _cache_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/build/.zig-cache"
   run_step "zig releasesafe" \
-    env ZIG_LOCAL_CACHE_DIR="$_cache_dir" zig build -Dtest=true test -Dfd-lib-dir=build/fd-tickoni-fd/lib -Doptimize=ReleaseSafe
+    env ZIG_LOCAL_CACHE_DIR="$_cache_dir" zig build -Dtest=true compile-tk -Dfd-lib-dir=build/fd-tickoni-fd/lib -Doptimize=ReleaseSafe
 }
 
 # ── Qt Security Checks ────────────────────────────────────────────────────────

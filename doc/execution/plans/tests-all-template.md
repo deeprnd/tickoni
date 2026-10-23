@@ -15,7 +15,7 @@ DONT RUN ANYTHING IN PARALLEL!!!!
 ### `just setup-all`
 
 ```
-SKIP_IDEMPOTENCY=... python3 ../contrib/setup/orchestrator.py dev
+TK_SKIP_IDEMPOTENCY=... python3 ../contrib/setup/orchestrator.py dev
 just setup-git
 ```
 
@@ -291,7 +291,7 @@ Verify:
 **3.1. Firedancer library build (dispatcher)**
 
 ```bash
-python3 ../../scripts/dispatch build-fd
+just build-fd  # inline bash case dispatcher → build-fd-linux-x86-gcc on linux-x86
 ```
 
 Or explicitly for the current platform:
@@ -704,7 +704,7 @@ Verify:
 **6.8. Demo conformance suite**
 
 ```bash
-just test-demo-tk
+just test-cli-tk
 ```
 
 Verify:
@@ -712,7 +712,7 @@ Verify:
 - `tickoni doctor --plain` and `--json` contracts pass
 - `tickoni-supervisor demo` without manifest fails closed
 - `tickoni-supervisor demo investment` with fixture manifest passes
-- Conformance output written to `build/demo-conformance/<platform>/conformance.json`
+- Conformance output written to `build/cli-conformance/<platform>/conformance.json`
 
 **6.9. E2E tests — Firedancer**
 
@@ -732,7 +732,7 @@ just test-e2e-tk
 
 Verify:
 - Returns `@true` (documented placeholder)
-- E2E is folded into test-demo-tk and test-e2e-fd
+- E2E is folded into test-cli-tk and test-e2e-fd
 
 **6.11. Coverage — Tickoni**
 
@@ -939,17 +939,17 @@ Verify:
 **8.5. Demo conformance export**
 
 ```bash
-just export-demo-conformance-linux
+just export-cli-conformance-linux
 ```
 
 Verify:
 - Builds Tickoni with `fd-lib-dir`
-- Exports conformance bundle to `build/demo-conformance/linux/conformance.json`
+- Exports conformance bundle to `build/cli-conformance/linux/conformance.json`
 
 **8.6. Demo conformance compare**
 
 ```bash
-just compare-demo-conformance
+just compare-cli-conformance
 ```
 
 Verify:
@@ -971,7 +971,7 @@ Verify:
 
 3. **test-unit-all** now runs `test-unit-setup` (Python contrib tests) before platform tests.
 
-4. **Dispatcher pattern**: `build-tk`, `build-fd`, `test-unit-tk`, `test-unit-fd`, `test-integration-tk` all route through `python3 ../../scripts/dispatch` to platform-specific recipes based on `{{ os }}-{{ arch }}`.
+4. **Dispatcher pattern**: `build-tk`, `build-fd`, `test-unit-tk`, `test-unit-fd`, `test-integration-tk` all use inline bash `case` dispatchers in justfile (based on `{{ os }}-{{ arch }}`). The `scripts/dispatch` Python dispatcher and `dispatch-map.json` were removed in V2.25.S2.
 
 5. **Security expanded** from a single `@true` stub to 6 sub-checks (engine, codeql, gitleaks, seccomp, proof, sanitize) with per-platform stubs for Linux/macOS/Windows.
 

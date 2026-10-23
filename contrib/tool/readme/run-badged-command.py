@@ -24,7 +24,7 @@ update_badge_unknown = _mod.update_badge_unknown
 README_PATH = _mod.README_PATH
 
 README_BADGES = frozenset({"build", "unit", "integration", "security", "system", "cov-tk"})
-TESTING_BADGES = frozenset({"demo", "quality", "e2e"})
+TESTING_BADGES = frozenset({"quality", "e2e"})
 
 # Path for badges that live in testing-tickoni.md instead of README.md
 _TESTING_DOC_PATH = REPO_ROOT / "doc/execution/testing-tickoni.md"

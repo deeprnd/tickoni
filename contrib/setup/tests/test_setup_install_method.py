@@ -1,0 +1,203 @@
+"""Tests for orchestrator install-method resolution.
+
+``install_method`` is normally a strategy name. A tool reachable on several
+platforms through different system package managers instead maps OS -> strategy
+(``{"linux": "apt", "macos": "brew", "windows": "winget"}``); picking one for the
+target platform is orchestrator logic, not a strategy.
+"""
+
+import importlib.util
+import json
+import sys
+from pathlib import Path
+from unittest.mock import Mock, patch
+
+import pytest
+
+setup_dir = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(setup_dir))
+# orchestrator imports ``platform``; shadow the stdlib module with setup/platform.py
+platform_spec = importlib.util.spec_from_file_location("platform", setup_dir / "platform.py")
+platform_module = importlib.util.module_from_spec(platform_spec)
+sys.modules["platform"] = platform_module
+platform_spec.loader.exec_module(platform_module)
+
+from platform import matches_platform  # noqa: E402
+from install import get as get_strategy  # noqa: E402
+from orchestrator import Orchestrator, _resolve_install_method  # noqa: E402
+
+_OS_MAP = {"linux": "apt", "macos": "brew", "windows": "winget"}
+
+
+def test_string_method_passes_through():
+    assert _resolve_install_method("pip", "linux-x86", "yamllint") == "pip"
+
+
+def test_pipx_uses_system_package_manager_on_linux():
+    cfg = json.loads((setup_dir / "tool-versions.json").read_text())
+    method = cfg["tools"]["pipx"]["install_method"]
+
+    assert _resolve_install_method(method, "linux-x86", "pipx") == "apt"
+    assert _resolve_install_method(method, "linux-arm", "pipx") == "apt"
+
+
+def test_qt_setup_installs_dotenv_with_pip_first():
+    cfg = json.loads((setup_dir / "tool-versions.json").read_text())
+
+    assert cfg["categories"]["dotenv"]["tools"] == ["dotenv"]
+    assert cfg["tools"]["dotenv"]["install_method"] == "pip"
+    assert cfg["tools"]["dotenv"]["parameters"]["package"] == "python-dotenv>=1.0,<2"
+
+    qt_recipe = (setup_dir.parent.parent / "just" / "setup" / "qt.just").read_text()
+    for platform_str in (
+        "linux-x86",
+        "linux-arm",
+        "macos-x86",
+        "macos-arm",
+        "windows-x86",
+        "windows-arm",
+    ):
+        assert f"orchestrator.py dotenv,qt --platform {platform_str}" in qt_recipe
+
+
+@pytest.mark.parametrize(
+    "platform_str,expected",
+    [
+        ("linux-x86", "apt"),
+        ("linux-arm", "apt"),
+        ("macos-arm", "brew"),
+        ("macos-x86", "brew"),
+        ("windows-arm", "winget"),
+        ("windows-x86", "winget"),
+    ],
+)
+def test_os_map_selects_strategy_for_platform(platform_str, expected):
+    assert _resolve_install_method(dict(_OS_MAP), platform_str, "curl") == expected
+
+
+def test_os_map_missing_entry_raises():
+    with pytest.raises(KeyError):
+        _resolve_install_method({"linux": "apt"}, "windows-arm", "curl")
+
+
+def test_config_install_methods_resolve_to_registered_strategies():
+    """Every tool's install_method must resolve to a registered strategy on
+    each platform it declares support for."""
+    cfg = json.loads((setup_dir / "tool-versions.json").read_text())
+    platforms = [
+        "linux-x86", "linux-arm",
+        "macos-x86", "macos-arm",
+        "windows-x86", "windows-arm",
+    ]
+    for name, tool in cfg["tools"].items():
+        method = tool["install_method"]
+        for platform_str in platforms:
+            if not matches_platform(tool, platform_str):
+                continue
+            resolved = _resolve_install_method(method, platform_str, name)
+            get_strategy(resolved)  # raises KeyError if not registered
+
+
+def test_no_system_package_pseudo_method_in_config():
+    cfg = json.loads((setup_dir / "tool-versions.json").read_text())
+    methods = set()
+    for tool in cfg["tools"].values():
+        method = tool["install_method"]
+        methods.update(method.values() if isinstance(method, dict) else [method])
+    assert "system_package" not in methods
+
+
+def test_windows_minisign_does_not_depend_on_winget():
+    cfg = json.loads((setup_dir / "tool-versions.json").read_text())
+
+    assert _resolve_install_method(
+        cfg["tools"]["minisign"]["install_method"],
+        "windows-arm",
+        "minisign",
+    ) == "minisign_download"
+
+
+def test_windows_ccache_does_not_depend_on_winget():
+    cfg = json.loads((setup_dir / "tool-versions.json").read_text())
+
+    assert _resolve_install_method(
+        cfg["tools"]["ccache"]["install_method"],
+        "windows-arm",
+        "ccache",
+    ) == "ccache_download"
+
+
+def test_macos_llvm_is_setup_tooling_not_build_recipe_installation():
+    cfg = json.loads((setup_dir / "tool-versions.json").read_text())
+    assert "llvm" in cfg["categories"]["toolchain"]["tools"]
+
+    content = (setup_dir.parent.parent / "just" / "build" / "fd.just").read_text()
+    for recipe in ("build-fd-macos-x86", "build-fd-macos-arm"):
+        assert "brew install llvm" not in content
+
+
+def test_setup_stops_before_dependent_tools_after_install_failure():
+    class Resolver:
+        def resolve(self, categories):
+            return categories
+
+        def collect(self, resolved, categories, tools):
+            return [{"name": "msvc"}, {"name": "openssl"}]
+
+    orchestrator = object.__new__(Orchestrator)
+    orchestrator.config = {"categories": {}, "tools": {}}
+    orchestrator.resolver = Resolver()
+    attempted = []
+
+    def install(tool, *args):
+        attempted.append(tool["name"])
+        return {"tool": tool["name"], "status": "failed"}
+
+    orchestrator._install_tool = install
+    results = orchestrator.setup(["build"], "windows-arm", dry_run=False)
+
+    assert attempted == ["msvc"]
+    assert results == [{"tool": "msvc", "status": "failed"}]
+
+
+def test_setup_reloads_env_after_dotenv_install():
+    class Resolver:
+        def resolve(self, categories):
+            return categories
+
+        def collect(self, resolved, categories, tools):
+            return [{"name": "dotenv"}, {"name": "qt"}]
+
+    orchestrator = object.__new__(Orchestrator)
+    orchestrator.config = {"categories": {}, "tools": {}}
+    orchestrator.resolver = Resolver()
+    events = []
+
+    def install(tool, *args):
+        events.append(f"install:{tool['name']}")
+        return {"tool": tool["name"], "status": "installed"}
+
+    with patch("orchestrator._load_local_env", side_effect=lambda: events.append("reload")):
+        orchestrator._install_tool = install
+        orchestrator.setup(["dotenv", "qt"], "macos-arm", dry_run=False)
+
+    assert events == ["install:dotenv", "reload", "install:qt"]
+
+
+def test_already_installed_tool_logs_explicit_skip(capsys):
+    orchestrator = Orchestrator({"dependencies": {}})
+    tool = {
+        "name": "ccache",
+        "install_method": "winget",
+        "idempotent_check": "command -v ccache",
+    }
+    check = Mock()
+    check.is_satisfied.return_value = True
+
+    with patch("orchestrator.build_check", return_value=check), \
+         patch("orchestrator.get_strategy") as get_strategy:
+        result = orchestrator._install_tool(tool, "windows-arm", dry_run=False)
+
+    assert result == {"tool": "ccache", "status": "already_installed"}
+    assert "[SKIP] ccache (already installed)" in capsys.readouterr().out
+    get_strategy.assert_not_called()

@@ -688,7 +688,8 @@ pub const fixtures = struct {
         .themes = cls.themeIdList(.{"ai_infrastructure"}),
         .sector_filters = blk: {
             var refs = ClassificationRefList{};
-            refs.append(it_sector_ref) catch unreachable;
+            const ref = cls.classificationRef("gics_sector", 2025, "information_technology");
+            refs.append(ref) catch unreachable;
             break :blk refs;
         },
         .industry_filters = ClassificationRefList{},

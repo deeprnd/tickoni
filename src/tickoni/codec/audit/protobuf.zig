@@ -22,7 +22,7 @@ const field_version: u32 = 90;
 const field_platform_tier: u32 = 91;
 const field_isolation_tier: u32 = 92;
 const field_release_digest: u32 = 93;
-const field_demo_manifest_id: u32 = 94;
+const field_manifest_id: u32 = 94;
 
 pub fn formatProtobuf(
     out: [*]u8,
@@ -56,7 +56,7 @@ pub fn formatProtobuf(
     const platform_tier_len = trimmedLen(&h.platform_tier);
     const isolation_tier_len = trimmedLen(&h.isolation_tier);
     const release_digest_len = trimmedLen(&h.release_digest);
-    const demo_manifest_id_len = trimmedLen(&h.demo_manifest_id);
+    const manifest_id_len = trimmedLen(&h.manifest_id);
     if (version_len != 0) {
         if (!c_abi.ballet.pbPushBytes(&enc, field_version, h.version[0..version_len])) return wire.status_no_space;
     }
@@ -69,8 +69,8 @@ pub fn formatProtobuf(
     if (release_digest_len != 0) {
         if (!c_abi.ballet.pbPushBytes(&enc, field_release_digest, h.release_digest[0..release_digest_len])) return wire.status_no_space;
     }
-    if (demo_manifest_id_len != 0) {
-        if (!c_abi.ballet.pbPushBytes(&enc, field_demo_manifest_id, h.demo_manifest_id[0..demo_manifest_id_len])) return wire.status_no_space;
+    if (manifest_id_len != 0) {
+        if (!c_abi.ballet.pbPushBytes(&enc, field_manifest_id, h.manifest_id[0..manifest_id_len])) return wire.status_no_space;
     }
 
     if (!c_abi.ballet.pbSubmsgOpen(&enc, field_payload_base + event.record_type)) return wire.status_no_space;
@@ -276,9 +276,9 @@ pub fn parseProtobuf(
                 if (tlv.wire_type != c_abi.ballet.pb_wire_type_len) return wire.status_invalid_protobuf;
                 copyLenBytes(&event.header.release_digest, &inbuf, tlv.len()) catch |err| return statusFromErr(err);
             },
-            field_demo_manifest_id => {
+            field_manifest_id => {
                 if (tlv.wire_type != c_abi.ballet.pb_wire_type_len) return wire.status_invalid_protobuf;
-                copyLenBytes(&event.header.demo_manifest_id, &inbuf, tlv.len()) catch |err| return statusFromErr(err);
+                copyLenBytes(&event.header.manifest_id, &inbuf, tlv.len()) catch |err| return statusFromErr(err);
             },
             12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25 => {
                 if (tlv.wire_type != c_abi.ballet.pb_wire_type_len) return wire.status_invalid_protobuf;

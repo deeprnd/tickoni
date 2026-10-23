@@ -17,7 +17,7 @@ fn containsLibrary(libs: []const []const u8, name: []const u8) bool {
 /// preserve link order and avoid pkg-config.BAT probing.
 pub fn addTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8, libs: []const []const u8) void {
     // Zig 0.17's b.path() rejects absolute paths. Use cwdRelativePath()
-    // when the path is absolute (from zig_build.py) so it resolves correctly.
+    // when the path is absolute so it resolves correctly.
     const fd_lib = buildPath(b, fd_lib_dir);
     step.root_module.addLibraryPath(fd_lib);
     const os_tag = step.root_module.resolved_target.?.result.os.tag;

@@ -27,49 +27,49 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: conformance-linux-x86
-          path: build/demo-conformance/linux-x86
+          path: build/build-artifact-conformance/linux-x86
 
       - name: Download Linux ARM conformance bundle
         uses: actions/download-artifact@v8
         with:
           name: conformance-linux-arm
-          path: build/demo-conformance/linux-arm
+          path: build/build-artifact-conformance/linux-arm
 
       - name: Download macOS 15 x86 conformance bundle
         uses: actions/download-artifact@v8
         with:
           name: conformance-macos-15-x86
-          path: build/demo-conformance/macos-15-x86
+          path: build/build-artifact-conformance/macos-15-x86
 
       - name: Download macOS 15 ARM conformance bundle
         uses: actions/download-artifact@v8
         with:
           name: conformance-macos-15-arm
-          path: build/demo-conformance/macos-15-arm
+          path: build/build-artifact-conformance/macos-15-arm
 
       - name: Download macOS 26 x86 conformance bundle
         uses: actions/download-artifact@v8
         with:
           name: conformance-macos-26-x86
-          path: build/demo-conformance/macos-26-x86
+          path: build/build-artifact-conformance/macos-26-x86
 
       - name: Download macOS 26 ARM conformance bundle
         uses: actions/download-artifact@v8
         with:
           name: conformance-macos-26-arm
-          path: build/demo-conformance/macos-26-arm
+          path: build/build-artifact-conformance/macos-26-arm
 
       - name: Download Windows x86 conformance bundle
         uses: actions/download-artifact@v8
         with:
           name: conformance-windows-x86
-          path: build/demo-conformance/windows-x86
+          path: build/build-artifact-conformance/windows-x86
 
       - name: Download Windows ARM conformance bundle
         uses: actions/download-artifact@v8
         with:
           name: conformance-windows-arm
-          path: build/demo-conformance/windows-arm
+          path: build/build-artifact-conformance/windows-arm
 
       - name: Compare conformance outputs
-        run: just compare-demo-conformance
+        run: just compare-build-artifact-conformance

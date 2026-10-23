@@ -1,7 +1,4 @@
 """Platform string helpers and matching."""
-import os
-import subprocess
-from shell import bash_command
 
 
 def matches_platform(tool, platform_key):
@@ -16,25 +13,6 @@ def matches_platform(tool, platform_key):
     if p in platform_key:
         return True
     return False
-
-
-def detect_platform(args_platform):
-    """Determine platform: use --platform arg, or detect via platform.sh."""
-    if args_platform:
-        return args_platform
-    try:
-        # platform.sh lives at <repo_root>/contrib/platform.sh
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        repo_root = os.path.dirname(os.path.dirname(script_dir))
-        plat = subprocess.check_output(
-            [bash_command(), 'contrib/platform.sh', 'platform'],
-            stderr=subprocess.DEVNULL,
-            cwd=repo_root,
-        ).decode().strip()
-        return plat
-    except Exception:
-        print("ERROR: could not detect platform. Use --platform linux-x86 etc.", file=__import__('sys').stderr)
-        __import__('sys').exit(1)
 
 
 def get_platform_from_string(platform_str):

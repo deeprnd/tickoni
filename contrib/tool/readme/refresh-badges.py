@@ -30,7 +30,6 @@ BADGE_SPECS = {
     "e2e":         ("E2E Tests",         "e2e tests",         "boolean",  None),
     "cov-fd":      ("Engine Coverage",   "engine coverage",      "coverage", REPO_ROOT / "build/coverage/fd/coverage-summary.json"),
     "cov-tk":      ("Tests Coverage",    "tests coverage",       "coverage", REPO_ROOT / "build/coverage/tk/coverage-summary.json"),
-    "demo":        ("Demo Tests",        "demo tests",         "boolean",  None),
 }
 
 

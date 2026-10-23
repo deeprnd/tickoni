@@ -7,18 +7,17 @@ Zig test/build execution behind focused strategy modules.
 Usage:
     python3 orchestrator.py llm-server-start          # start server, wait for health
     python3 orchestrator.py llm-server-stop           # kill server by PID
-    python3 orchestrator.py zig-build --target demo   # just build (no run)
-    python3 orchestrator.py zig-test --target system  # build + run test
-    python3 orchestrator.py llm-e2e                   # full e2e: setup → start → test → cleanup
+    python3 orchestrator.py system-test               # full lifecycle: start → zig-test → stop
 """
 import argparse
 import os
+import subprocess
 import sys
 
 
-_script_dir = os.path.dirname(os.path.abspath(__file__))
-if _script_dir not in sys.path:
-    sys.path.insert(0, _script_dir)
+_contrib_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _contrib_dir not in sys.path:
+    sys.path.insert(0, _contrib_dir)
 
 
 class Orchestrator:
@@ -48,15 +47,61 @@ class Orchestrator:
         pid_file = pid_file_path()
         stop_server(pid_file)
 
-    def zig_build(self, target):
-        """Run `zig build <target>` (build only, no run)."""
-        from infra.zig_build import run_zig_build
-        return run_zig_build(target=target, run_tests=False)
-
     def zig_test(self, target):
         """Run `zig build <target>` with tests enabled."""
-        from infra.zig_build import run_zig_build
-        return run_zig_build(target=target, run_tests=True)
+        repo_root = os.path.normpath(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."),
+        )
+
+        fd_lib_dir_abs = os.path.join(repo_root, "build/fd-tickoni-fd/lib")
+        if not os.path.isdir(fd_lib_dir_abs):
+            print(
+                f"ERROR: fd-lib-dir {fd_lib_dir_abs} not found",
+                file=sys.stderr,
+            )
+            print(
+                "Run 'just build-fd' before system tests.",
+                file=sys.stderr,
+            )
+            return 1
+
+        env = os.environ.copy()
+        env.setdefault(
+            "ZIG_LOCAL_CACHE_DIR",
+            os.path.join(repo_root, "build", ".zig-cache"),
+        )
+        env.setdefault(
+            "ZIG_GLOBAL_CACHE_DIR",
+            os.path.join(repo_root, "build", ".zig-global-cache"),
+        )
+
+        cmd = [
+            "zig", "build",
+            "-Dtest=true",
+            f"-Dfd-lib-dir={fd_lib_dir_abs}",
+            target,
+            "--summary", "all",
+        ]
+        print(f"running: {' '.join(cmd)}")
+        return subprocess.run(cmd, env=env).returncode
+
+    def system_test(self):
+        """Run the full system-test lifecycle: start server, run tests, stop server."""
+        print("=== Phase 1: Start llama.cpp server ===")
+        rc = self.llm_server_start()
+        if rc != 0:
+            print("Server failed to start, aborting", file=sys.stderr)
+            return rc
+
+        print("\n=== Phase 2: Run zig-test ===")
+        rc = self.zig_test("test-system")
+        if rc != 0:
+            print("zig-test failed, proceeding to cleanup", file=sys.stderr)
+
+        print("\n=== Phase 3: Stop llama.cpp server ===")
+        self.llm_server_stop()
+
+        return rc
 
     def dynamic_test_opts(self):
         """Run dynamic resource detection and output TEST_OPTS + LDFLAGS_EXE."""
@@ -74,13 +119,12 @@ def main():
     # llm-server-stop
     sub.add_parser("llm-server-stop", help="Stop llama.cpp server by PID file")
 
-    # zig-build
-    zig_build_p = sub.add_parser("zig-build", help="Build Zig target (no run)")
-    zig_build_p.add_argument("--target", required=True, help="Zig build target")
-
     # zig-test
     zig_test_p = sub.add_parser("zig-test", help="Build and run Zig test target")
     zig_test_p.add_argument("--target", required=True, help="Zig build target")
+
+    # system-test — deprecated; kept for CLI compatibility, routes to test-system.
+    sub.add_parser("system-test", help="Full system-test lifecycle: start → zig-test → stop (deprecated, use test-system)")
 
     # dynamic-test-opts
     sub.add_parser("dynamic-test-opts", help="Compute TEST_OPTS and LDFLAGS_EXE from system resources")
@@ -92,10 +136,10 @@ def main():
         orch.llm_server_start()
     elif args.command == "llm-server-stop":
         orch.llm_server_stop()
-    elif args.command == "zig-build":
-        sys.exit(orch.zig_build(args.target))
     elif args.command == "zig-test":
         sys.exit(orch.zig_test(args.target))
+    elif args.command == "system-test":
+        sys.exit(orch.system_test())
     elif args.command == "dynamic-test-opts":
         orch.dynamic_test_opts()
 

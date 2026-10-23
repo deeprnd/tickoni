@@ -86,7 +86,7 @@ pub fn buildPolicyDecisionEvent(
         .platform_tier = std.mem.zeroes([64]u8),
         .isolation_tier = std.mem.zeroes([64]u8),
         .release_digest = std.mem.zeroes([64]u8),
-        .demo_manifest_id = std.mem.zeroes([64]u8),
+        .manifest_id = std.mem.zeroes([64]u8),
     }, .{
         .policy_decision = .{
             .outcome = outcome,
@@ -102,10 +102,10 @@ pub fn buildPolicyDecisionEvent(
 }
 
 /// Fill event metadata with the runtime's version/tier/digest info.
-pub fn fillEventMetadata(event: *audit.AuditEvent, version: []const u8, platform_tier: []const u8, isolation_tier: []const u8, release_digest: []const u8, demo_manifest_id: []const u8) void {
+pub fn fillEventMetadata(event: *audit.AuditEvent, version: []const u8, platform_tier: []const u8, isolation_tier: []const u8, release_digest: []const u8, manifest_id: []const u8) void {
     @memcpy(event.header.version[0..version.len], version);
     @memcpy(event.header.platform_tier[0..platform_tier.len], platform_tier);
     @memcpy(event.header.isolation_tier[0..isolation_tier.len], isolation_tier);
     @memcpy(event.header.release_digest[0..release_digest.len], release_digest);
-    @memcpy(event.header.demo_manifest_id[0..demo_manifest_id.len], demo_manifest_id);
+    @memcpy(event.header.manifest_id[0..manifest_id.len], manifest_id);
 }

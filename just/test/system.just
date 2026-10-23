@@ -1,40 +1,22 @@
 # ── Test: System recipes ─────────────────────────────────────────────────
-# System tests: opt-in real-LLM investment demo proof.
+# System tests: live-LLM investment tests via llama.cpp server.
 
-# Tickoni system lane: dispatcher → platform-specific recipes.
 test-system-tk:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case "{{ os }}-{{ arch }}" in
-    linux-x86) exec just test-system-tk-linux-x86 ;;
-    linux-arm) exec just test-system-tk-linux-x86 ;;
-    macos-x86) exec just test-system-tk-linux-x86 ;;
-    macos-arm) exec just test-system-tk-linux-x86 ;;
-    windows-x86) exec just test-system-tk-windows-x86 ;;
-    windows-arm) exec just test-system-tk-windows-arm ;;
-    *) echo "unsupported host platform for test-system-tk: {{ os }}-{{ arch }}" >&2; exit 1 ;;
-    esac
+    {{ python }} contrib/test/orchestrator.py system-test
 
 test-system-tk-linux-x86:
-    bash contrib/test/run_live_investment_demo.sh
+    {{ python }} contrib/test/orchestrator.py system-test
 
 test-system-tk-linux-arm: test-system-tk-linux-x86
 test-system-tk-macos-x86: test-system-tk-linux-x86
 test-system-tk-macos-arm: test-system-tk-linux-x86
-
 test-system-tk-windows-x86:
-    bash contrib/test/run_live_investment_demo_win.sh windows-x86
-
-test-system-tk-windows-arm:
-    bash contrib/test/run_live_investment_demo_win.sh windows-arm
-
-test-system-fd:
-    @true
+    {{ python }} contrib/test/orchestrator.py system-test
+test-system-tk-windows-arm: test-system-tk-windows-x86
 
 test-system-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py system bash -c "just test-system-tk && just test-system-fd"
+    {{ python }} contrib/tool/readme/run-badged-command.py system bash -c "just test-system-tk"
 
-# Infrastructure: ensure llama.cpp and model (for LLM system tests)
 infra-ensure-llamacpp:
     {{ python }} contrib/setup/orchestrator.py llm-server
 
@@ -55,7 +37,3 @@ infra-ensure-llamacpp-win-x86:
 
 infra-ensure-llamacpp-win-arm:
     {{ python }} contrib/setup/orchestrator.py llm-server --platform windows-arm
-
-# Download the GGUF model for system tests (requires `hf` CLI).
-infra-ensure-model:
-    {{ python }} contrib/setup/orchestrator.py llm-server

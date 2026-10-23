@@ -1,0 +1,22 @@
+{
+    "fixture_set_id": "investment_sample",
+    "scenarios": [
+        "allowed",
+        "oversized_blocked",
+        "restricted_instrument",
+        "tampered_replay"
+    ],
+    "fixtures": [
+        "fixture_audit_allowed_2000.jsonl",
+        "fixture_replay_capsule.json",
+        "fixture_replay_capsule_oversized_25000.json",
+        "fixture_replay_capsule_restricted_soxl.json",
+        "fixture_replay_capsule_tampered_paper_fill.json",
+        "fixture_model_response_gemma4.json",
+        "fixture_ticket_restricted_instrument_blocked.json",
+        "fixture_account_ops.json",
+        "fixture_paper_execution_allowed_2000.json",
+        "fixture_quotes.json"
+    ],
+    "created": "2026-10-21T00:00:00Z"
+}

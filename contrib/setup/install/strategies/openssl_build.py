@@ -76,8 +76,8 @@ class OpenSSLBuildStrategy(InstallStrategy):
             install_dir = _expand_home(str(repo_root / raw_dir.lstrip('./')))
         install_path = Path(install_dir)
 
-        # Idempotency check (respect SKIP_IDEMPOTENCY env var)
-        skip = env_flag('SKIP_IDEMPOTENCY')
+        # Idempotency check (respect TK_SKIP_IDEMPOTENCY env var)
+        skip = env_flag('TK_SKIP_IDEMPOTENCY')
         if not skip and install_path.joinpath('lib', 'libssl.a').exists():
             print(f"OpenSSL already installed: {install_dir}")
             return
@@ -128,7 +128,6 @@ class OpenSSLBuildStrategy(InstallStrategy):
 
         print(f"[BUILD] Running {script}...")
         env = os.environ.copy()
-        env['TK_PLATFORM'] = platform_str
         if platform_str == 'windows-arm':
             env['FD_WINDOWS_ARCH'] = 'arm'
         elif platform_str == 'windows-x86':

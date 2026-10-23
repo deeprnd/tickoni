@@ -111,12 +111,18 @@ tk_fctl_rx_cr_return( ulong * rx_seq_laddr,
   fd_fctl_rx_cr_return( rx_seq_laddr, rx_seq );
 }
 
-static FD_TL fd_rng_t   tk_tempo_rng_mem[1];
+/* Some Apple TLS layouts do not honor an over-aligned object declaration.
+   Keep the storage byte-aligned in TLS and align the fd_rng object inside it
+   at runtime before passing it to fd_rng_new. */
+static FD_TL uchar       tk_tempo_rng_mem[ FD_RNG_FOOTPRINT + FD_RNG_ALIGN - 1UL ];
 static FD_TL fd_rng_t * tk_tempo_rng = NULL;
 
 static fd_rng_t *
 tk_tempo_rng_tls( void ) {
-  if( FD_UNLIKELY( !tk_tempo_rng ) ) tk_tempo_rng = fd_rng_join( fd_rng_new( tk_tempo_rng_mem, (uint)tk_sandbox_getpid(), 0UL ) );
+  if( FD_UNLIKELY( !tk_tempo_rng ) ) {
+    void * mem = (void *)fd_ulong_align_up( (ulong)tk_tempo_rng_mem, FD_RNG_ALIGN );
+    tk_tempo_rng = fd_rng_join( fd_rng_new( mem, (uint)tk_sandbox_getpid(), 0UL ) );
+  }
   return tk_tempo_rng;
 }
 

@@ -23,6 +23,7 @@ jobs:
             artifact-name: build-linux-x86
             platform: linux-x86
             test-recipe: test-integration-tk-linux-x86
+            cli-test-recipe: test-integration-cli-linux-x86
             compiler: gcc-12
           # Linux x86_64 (clang)
           - platform-name: Linux x86_64 (clang)
@@ -31,6 +32,7 @@ jobs:
             artifact-name: build-linux-x86-clang
             platform: linux-x86
             test-recipe: test-integration-tk-linux-x86
+            cli-test-recipe: test-integration-cli-linux-x86
             compiler: clang-18
           # Linux ARM64
           - platform-name: Linux ARM
@@ -39,6 +41,7 @@ jobs:
             artifact-name: build-linux-arm
             platform: linux-arm
             test-recipe: test-integration-tk-linux-arm
+            cli-test-recipe: test-integration-cli-linux-arm
             compiler: gcc-14
           # macOS 15 (x86_64)
           - platform-name: macOS 15 (x86_64)
@@ -47,6 +50,7 @@ jobs:
             artifact-name: build-macos-15-x86
             platform: macos-x86
             test-recipe: test-integration-tk-macos-x86
+            cli-test-recipe: test-integration-cli-macos-x86
             compiler: clang
           # macOS 15 (ARM)
           - platform-name: macOS 15 (ARM)
@@ -55,6 +59,7 @@ jobs:
             artifact-name: build-macos-15-arm
             platform: macos-arm
             test-recipe: test-integration-tk-macos-arm
+            cli-test-recipe: test-integration-cli-macos-arm
             compiler: clang
           # macOS 26 (x86_64)
           - platform-name: macOS 26 (x86_64)
@@ -63,6 +68,7 @@ jobs:
             artifact-name: build-macos-26-x86
             platform: macos-x86
             test-recipe: test-integration-tk-macos-x86
+            cli-test-recipe: test-integration-cli-macos-x86
             compiler: clang
           # macOS 26 (ARM)
           - platform-name: macOS 26 (ARM)
@@ -71,6 +77,7 @@ jobs:
             artifact-name: build-macos-26-arm
             platform: macos-arm
             test-recipe: test-integration-tk-macos-arm
+            cli-test-recipe: test-integration-cli-macos-arm
             compiler: clang
           # Windows x86_64
           - platform-name: Windows x86_64
@@ -79,6 +86,7 @@ jobs:
             artifact-name: build-windows-x86
             platform: windows-x86
             test-recipe: test-integration-tk-windows-x86
+            cli-test-recipe: test-integration-cli-windows-x86
             compiler: msvc
           # Windows ARM64
           - platform-name: Windows ARM
@@ -87,6 +95,7 @@ jobs:
             artifact-name: build-windows-arm
             platform: windows-arm
             test-recipe: test-integration-tk-windows-arm
+            cli-test-recipe: test-integration-cli-windows-arm
             compiler: msvc
 
     steps:
@@ -115,3 +124,6 @@ jobs:
 
       - name: Run integration tests
         run: just ${{ matrix.test-recipe }}
+
+      - name: Run CLI integration tests
+        run: just ${{ matrix.cli-test-recipe }}

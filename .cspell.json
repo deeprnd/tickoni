@@ -113,6 +113,7 @@
     "alignof",
     "analysability",
     "Analysability",
+    "analysable",
     "anyerror",
     "anyopaque",
     "anytype",
@@ -964,6 +965,8 @@
     "analysable",
     "audt",
     "autouse",
+    "behaviour",
+    "behaviors",
     "bbwe",
     "cabi",
     "chargebacks",
@@ -1061,7 +1064,9 @@
     "content/",
     "NOTICE",
     "zig-pkg/",
-    "doc/knowledge/zig/"
+    "doc/knowledge/zig/",
+    "doc/execution/plans/",
+    "doc/execution/audits/"
   ],
   "languages": [
     "markdown",

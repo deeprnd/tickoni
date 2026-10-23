@@ -24,8 +24,8 @@ pub const IntegrationModules = struct {
     replay_int_mod: *std.Build.Module,
     investment_audit_int_mod: *std.Build.Module,
     investment_support_int_mod: *std.Build.Module,
-    investment_demo_test_mod: *std.Build.Module,
-    investment_demo_mod: *std.Build.Module,
+    investment_fixture_test_mod: *std.Build.Module,
+    investment_fixture_mod: *std.Build.Module,
     supervisor_named_mod: *std.Build.Module,
     mock_http_support_mod: *std.Build.Module,
     mock_broker_market_server_mod: *std.Build.Module,
@@ -40,6 +40,9 @@ pub const IntegrationModules = struct {
     shared_c_abi: *std.Build.Module,
     shared_util: *std.Build.Module,
     shared_topologies: *std.Build.Module,
+    shared_tier: *std.Build.Module,
+    shared_doctor_output: *std.Build.Module,
+    shared_version: *std.Build.Module,
     tile_reg_mod: *std.Build.Module,
 };
 
@@ -183,7 +186,7 @@ pub const ModuleFactory = struct {
         });
 
         const investment_audit_int_mod = self.b.createModule(.{
-            .root_source_file = self.b.path("src/tickoni/test/demo/investment/audit_trace.zig"),
+            .root_source_file = self.b.path("src/tickoni/test/fixtures/investment/audit_trace.zig"),
             .target = self.target,
             .optimize = self.optimize,
             .imports = &.{
@@ -199,7 +202,7 @@ pub const ModuleFactory = struct {
         });
 
         const investment_support_int_mod = self.b.createModule(.{
-            .root_source_file = self.b.path("src/tickoni/test/demo/investment/support.zig"),
+            .root_source_file = self.b.path("src/tickoni/test/fixtures/investment/support.zig"),
             .target = self.target,
             .optimize = self.optimize,
             .imports = &.{
@@ -209,8 +212,8 @@ pub const ModuleFactory = struct {
             },
         });
 
-        const investment_demo_test_mod = self.b.createModule(.{
-            .root_source_file = self.b.path("src/tickoni/test/demo/investment/mod.zig"),
+        const investment_fixture_test_mod = self.b.createModule(.{
+            .root_source_file = self.b.path("src/tickoni/test/fixtures/investment/mod.zig"),
             .target = self.target,
             .optimize = self.optimize,
             .imports = &.{
@@ -230,8 +233,8 @@ pub const ModuleFactory = struct {
             },
         });
 
-        const investment_demo_mod = self.b.createModule(.{
-            .root_source_file = self.b.path("src/tickoni/test/demo/investment/mod.zig"),
+        const investment_fixture_mod = self.b.createModule(.{
+            .root_source_file = self.b.path("src/tickoni/test/fixtures/investment/mod.zig"),
             .target = self.target,
             .optimize = self.optimize,
             .imports = &.{
@@ -291,6 +294,12 @@ pub const ModuleFactory = struct {
             },
         });
 
+        const tier_mod = self.b.createModule(.{
+            .root_source_file = self.b.path("src/tickoni/util/tier.zig"),
+            .target = self.target,
+            .optimize = self.optimize,
+        });
+
         return IntegrationModules{
             .tkpoly_int_mod = tkpoly_int_mod,
             .model_int_mod = model_int_mod,
@@ -302,8 +311,8 @@ pub const ModuleFactory = struct {
             .replay_int_mod = replay_int_mod,
             .investment_audit_int_mod = investment_audit_int_mod,
             .investment_support_int_mod = investment_support_int_mod,
-            .investment_demo_test_mod = investment_demo_test_mod,
-            .investment_demo_mod = investment_demo_mod,
+            .investment_fixture_test_mod = investment_fixture_test_mod,
+            .investment_fixture_mod = investment_fixture_mod,
             .supervisor_named_mod = supervisor_named_mod,
             .mock_http_support_mod = mock_http_support_mod,
             .mock_broker_market_server_mod = mock_broker_market_server_mod,
@@ -318,6 +327,9 @@ pub const ModuleFactory = struct {
             .shared_c_abi = self.shared.c_abi,
             .shared_util = self.shared.util,
             .shared_topologies = self.shared.topologies,
+            .shared_tier = tier_mod,
+            .shared_doctor_output = self.shared.doctor_output,
+            .shared_version = self.shared.version,
             .tile_reg_mod = self.shared.tile_registry,
         };
     }

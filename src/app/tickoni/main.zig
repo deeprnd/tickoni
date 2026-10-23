@@ -10,12 +10,7 @@ const ProcessPipelineConfig = supervisor_mod.ProcessPipelineConfig;
 const tile_main = @import("tile_main.zig");
 const topologies = @import("topologies");
 const doctor_output = @import("doctor_output");
-const demo_preflight = @import("demo_preflight");
-const demo_cli = @import("demo_cli");
-const demo_conformance = @import("demo_conformance");
-const demo_comparator = @import("demo_comparator");
-const demo_runner = @import("demo_runner");
-const demo_substitution = @import("demo_substitution");
+
 const version = @import("version");
 
 const usage =
@@ -26,21 +21,9 @@ const usage =
     \\                  Tango shared memory (v2.14.S1); requires <run-dir>
     \\  status          Print topology tile names
     \\  doctor          Run environment checks
-    \\  demo investment --manifest <path> [--json|--plain]
-    \\                  Run the deterministic investment demo (preflight-gated)
     \\  --version       Print version information
     \\
 ;
-
-const ComparisonSummary = struct {
-    scenario: []const u8,
-    matches: bool,
-    mismatch_count: usize,
-};
-
-fn boolText(value: bool) []const u8 {
-    return if (value) "true" else "false";
-}
 
 pub fn main(init: std.process.Init) !void {
     var it = try std.process.Args.iterateAllocator(init.minimal.args, init.gpa);
@@ -126,16 +109,6 @@ pub fn main(init: std.process.Init) !void {
             if (std.mem.eql(u8, a, "--json")) format = .json;
         }
         try cmdDoctor(init, format);
-    } else if (std.mem.eql(u8, cmd, "demo")) {
-        log.debug("main", "main", "demo command received");
-        const demo_cmd = demo_cli.parseDemoArgs(args[1..arg_count]) catch |err| {
-            var buf: [256]u8 = undefined;
-            const msg = try std.fmt.bufPrint(&buf, "demo usage error: {}\n", .{err});
-            try File.writeStreamingAll(File.stderr(), init.io, msg);
-            try File.writeStreamingAll(File.stderr(), init.io, usage);
-            std.process.exit(1);
-        };
-        try cmdDemo(init, demo_cmd);
     } else {
         var log_buf: [128]u8 = undefined;
         const msg = try std.fmt.bufPrint(&log_buf, "unknown command: {s}\n", .{cmd});
@@ -290,142 +263,5 @@ fn cmdStatus(io: std.Io, topo: rt.topology.Topology) !void {
             i, t.id.slice(), t.name,
         });
         try File.writeStreamingAll(stdout, io, line);
-    }
-}
-
-/// Demo command — fail-closed preflight check before running any demo.
-///
-/// If preflight fails, prints diagnostic error and exits 1.
-/// No proposal/audit artifacts are created.
-fn cmdDemo(init: std.process.Init, demo_cmd: demo_cli.Command) !void {
-    // Load manifest
-    const cwd = std.Io.Dir.cwd();
-    const m = demo_preflight.loadManifest(init.gpa, init.io, cwd, demo_cmd.manifest_path) catch |err| {
-        var buf: [256]u8 = undefined;
-        const msg = try std.fmt.bufPrint(&buf, "error: could not load manifest '{s}': {}\n", .{ demo_cmd.manifest_path, err });
-        try File.writeStreamingAll(File.stderr(), init.io, msg);
-        std.process.exit(1);
-    };
-    defer demo_preflight.deinitManifest(m, init.gpa);
-
-    // Gather installed system info
-    var version_info = version.VersionInfo.init(init.gpa) catch |err| {
-        var buf: [256]u8 = undefined;
-        const msg = try std.fmt.bufPrint(&buf, "error: version info init failed: {}\n", .{err});
-        try File.writeStreamingAll(File.stderr(), init.io, msg);
-        std.process.exit(1);
-    };
-    defer version_info.deinit(init.gpa);
-
-    // T6: wire manifest version into VersionInfo
-    version_info.setDemoManifestVersion(init.gpa, m.demo_manifest_version) catch |err| {
-        var buf: [256]u8 = undefined;
-        const msg = try std.fmt.bufPrint(&buf, "error: failed to set demo manifest version: {}\n", .{err});
-        try File.writeStreamingAll(File.stderr(), init.io, msg);
-        std.process.exit(1);
-    };
-
-    // Run preflight — fail-closed
-    const preflight_result = demo_preflight.evaluate(
-        init.gpa,
-        init.io,
-        m,
-        cwd,
-        version_info.semver,
-        version_info.runtime_tier,
-        version_info.isolation_tier,
-        "src/tickoni/demo/fixtures",
-    ) catch |err| {
-        var buf: [256]u8 = undefined;
-        const msg = try std.fmt.bufPrint(&buf, "error: preflight failed: {}\n", .{err});
-        try File.writeStreamingAll(File.stderr(), init.io, msg);
-        std.process.exit(1);
-    };
-    defer demo_preflight.deinit(preflight_result, init.gpa);
-    if (!preflight_result.passed) {
-        var stderr_buffer: [4096]u8 = undefined;
-        var stderr_writer = std.Io.File.stderr().writer(init.io, &stderr_buffer);
-        try demo_preflight.formatFailure(preflight_result, &stderr_writer.interface);
-        try stderr_writer.flush();
-        std.process.exit(1);
-    }
-
-    const scenarios = [_]demo_substitution.Scenario{
-        .allowed,
-        .oversized_blocked,
-        .restricted_instrument,
-        .tampered_replay,
-    };
-    var artifacts: [scenarios.len]demo_conformance.Artifact = undefined;
-    var baseline_artifacts: [scenarios.len]demo_conformance.Artifact = undefined;
-    var comparisons: [scenarios.len]ComparisonSummary = undefined;
-    const baseline_runtime_tier = "linux_full";
-    const baseline_isolation_tier = m.requiredIsolationTierFor(baseline_runtime_tier) orelse "full";
-    var comparison_all_match = true;
-    for (scenarios, 0..) |scenario, idx| {
-        const backend = demo_substitution.backendForScenario(scenario);
-        artifacts[idx] = try demo_runner.runWithBackend(init.gpa, cwd, init.io, .{
-            .manifest_id = "demo.investment.v1",
-            .manifest_version = m.demo_manifest_version orelse "1",
-            .tickoni_version = version_info.semver,
-            .runtime_tier = version_info.runtime_tier,
-            .isolation_tier = version_info.isolation_tier,
-        }, backend);
-        baseline_artifacts[idx] = try demo_runner.runWithBackend(init.gpa, cwd, init.io, .{
-            .manifest_id = "demo.investment.v1",
-            .manifest_version = m.demo_manifest_version orelse "1",
-            .tickoni_version = version_info.semver,
-            .runtime_tier = baseline_runtime_tier,
-            .isolation_tier = baseline_isolation_tier,
-        }, backend);
-        const report = demo_comparator.compare(baseline_artifacts[idx], artifacts[idx]);
-        comparisons[idx] = .{
-            .scenario = artifacts[idx].scenario,
-            .matches = report.matches,
-            .mismatch_count = report.mismatch_count,
-        };
-        comparison_all_match = comparison_all_match and report.matches;
-    }
-
-    switch (demo_cmd.format) {
-        .plain => {
-            var header_buffer: [1024]u8 = undefined;
-            const header = try std.fmt.bufPrint(
-                &header_buffer,
-                "comparison_baseline_runtime_tier: {s}\ncomparison_target_runtime_tier: {s}\ncomparison_target_isolation_tier: {s}\ncomparison_all_match: {s}\n",
-                .{ baseline_runtime_tier, version_info.runtime_tier, version_info.isolation_tier, boolText(comparison_all_match) },
-            );
-            try File.writeStreamingAll(File.stdout(), init.io, header);
-            for (comparisons) |comparison| {
-                var comparison_buffer: [256]u8 = undefined;
-                const line = try std.fmt.bufPrint(
-                    &comparison_buffer,
-                    "comparison_scenario: {s} match={s} mismatch_count={d}\n",
-                    .{ comparison.scenario, boolText(comparison.matches), comparison.mismatch_count },
-                );
-                try File.writeStreamingAll(File.stdout(), init.io, line);
-            }
-            for (artifacts) |artifact| {
-                try File.writeStreamingAll(File.stdout(), init.io, "---\n");
-                var stdout_buffer: [4096]u8 = undefined;
-                var stdout_writer = std.Io.File.stdout().writer(init.io, &stdout_buffer);
-                try demo_conformance.writePlain(&stdout_writer.interface, artifact);
-                try stdout_writer.flush();
-            }
-        },
-        .json => {
-            var parts: [artifacts.len][]u8 = undefined;
-            defer for (parts) |part| init.gpa.free(part);
-            for (artifacts, 0..) |artifact, idx| {
-                parts[idx] = try demo_conformance.allocJson(init.gpa, artifact);
-            }
-            const payload = try std.fmt.allocPrint(
-                init.gpa,
-                "{{\"suite\":[{s},{s},{s},{s}],\"preflight\":\"passed\",\"comparison\":{{\"baseline_runtime_tier\":\"{s}\",\"target_runtime_tier\":\"{s}\",\"target_isolation_tier\":\"{s}\",\"all_match\":{s},\"scenarios\":[{{\"scenario\":\"{s}\",\"matches\":{s},\"mismatch_count\":{d}}},{{\"scenario\":\"{s}\",\"matches\":{s},\"mismatch_count\":{d}}},{{\"scenario\":\"{s}\",\"matches\":{s},\"mismatch_count\":{d}}},{{\"scenario\":\"{s}\",\"matches\":{s},\"mismatch_count\":{d}}}]}}}}\n",
-                .{ parts[0], parts[1], parts[2], parts[3], baseline_runtime_tier, version_info.runtime_tier, version_info.isolation_tier, boolText(comparison_all_match), comparisons[0].scenario, boolText(comparisons[0].matches), comparisons[0].mismatch_count, comparisons[1].scenario, boolText(comparisons[1].matches), comparisons[1].mismatch_count, comparisons[2].scenario, boolText(comparisons[2].matches), comparisons[2].mismatch_count, comparisons[3].scenario, boolText(comparisons[3].matches), comparisons[3].mismatch_count },
-            );
-            defer init.gpa.free(payload);
-            try File.writeStreamingAll(File.stdout(), init.io, payload);
-        },
     }
 }

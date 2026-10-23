@@ -47,7 +47,8 @@ A story is demoable when an operator or reviewer can observe the claimed
 behavior end to end without reading source.
 
 - [ ] A demo command, script, or fixture-backed scenario exists and exercises
-      the story's product-visible behavior (`just test-demo-tk`, a story-specific
+      the story's product-visible behavior (`just test-unit-cli` and
+      `just test-integration-cli` for CLI-level changes, a story-specific
       `just` target, or a documented fixture invocation).
 - [ ] The demo output answers the applicable subset of the
       [Increment Gate Checklist](../strategy/roadmap/epics/README.md#increment-gate-checklist):
@@ -110,8 +111,8 @@ check them off rather than re-derive them.
 - [ ] Malformed envelope/config/manifest handling: capability envelopes,
       provider configs, and adapter manifests reject invalid shapes at
       startup or request time instead of defaulting or truncating silently.
-- [ ] `just quality-check-all` (format + lint, both lanes) passes for changed
-      paths.
+- [ ] `just quality-check-all` (format, lint, proto, yaml, and spell) passes
+      for changed paths.
 - [ ] `just security-check-all` passes for changed paths, or a skipped
       component is named explicitly (e.g. a currently no-op CodeQL/seccomp
       variant documented in `security.md`).

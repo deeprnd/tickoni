@@ -267,7 +267,7 @@ blocks no remaining implementation task.
 VX.Y.SN.T2 — Domain-Driven Design and scaffolding. Write out the types, structs,
 tagged unions, enums, and comptime tables the story requires, following
 `doc/execution/contribution/tickoni.md`. Define the input and output shapes for
-every function the story will implement — these must be finalised objects/structs
+every function the story will implement — these must be finalized objects/structs
 that cross trust boundaries. Implement scaffold functions with `NotImplemented`
 errors and `log.warn` calls only. No production logic yet. This task establishes
 the compile-time surface the story will build on.
@@ -277,7 +277,7 @@ full unit and integration tests (following
 `doc/execution/testing-tickoni.md`) against the scaffolding from T2. Then lightly
 implement the scaffolding methods with correct hardcoded return values and a
 `// TODO: implement` comment, plus a `log.warn` line. At this point every input
-and output shape is finalised as concrete structs, so any dependency issues,
+and output shape is finalized as concrete structs, so any dependency issues,
 previously unknown risks, import/c_abi layout mismatches, `@sizeOf`/`@alignOf`/
 `@offsetOf` verification failures, or missing C ABI wrapper concerns will surface
 as failing tests or compile errors. Flag every issue, make a decision, and
@@ -365,7 +365,7 @@ justfile, not upstream Firedancer Makefiles.
 - [ ] `just test-unit-tk` passes when Tickoni runtime code changes.
 - [ ] `just test-integration-tk` passes when cross-tile, API, replay, adapter,
       or fixture behavior changes.
-- [ ] `just test-demo-tk` or the story-specific demo command prints the required
+- [ ] `just test-cli-tk` or the story-specific demo command prints the required
       scenario when this story changes a demoable product flow.
 - [ ] Documentation and roadmap status are updated when user-visible scope,
       non-goals, or evidence gates change.

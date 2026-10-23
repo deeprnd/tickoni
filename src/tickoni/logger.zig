@@ -292,7 +292,9 @@ test "Logger.write debug respects level" {
 }
 
 test "Logger.parseLogLevel from string names" {
-    // Default when env is not set
+    // Unset TK_LOG_LEVEL so parseLogLevel() returns the true default (.err).
+    // The just recipe sets TK_LOG_LEVEL=0, so we need to clear it.
+    util.os_api.setEnv("TK_LOG_LEVEL", "");
     const default_level = Logger.parseLogLevel();
     try std.testing.expect(default_level == .err);
 }

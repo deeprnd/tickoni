@@ -96,9 +96,9 @@ fn baseLiveReq() TkModlRequest {
         .actor_role = "trading_ops_reviewer",
         .workflow = "trading_control",
         .capability = "trading_order.propose",
-        .capability_envelope_id = "capenv.demo",
+        .capability_envelope_id = "capenv.fixture",
         .policy_version = "v1",
-        .budget_id = "budget.demo",
+        .budget_id = "budget.fixture",
         .max_output_tokens = 512,
         .max_context_tokens = 2048,
         .retry_limit = 1,
@@ -266,8 +266,8 @@ test "buildProviderRequest: allow_live decision returns mapped ProviderRequest" 
     const pr = try buildProviderRequest(.allow_live, req);
     try std.testing.expectEqualStrings("test-model", pr.model_id);
     try std.testing.expectEqualStrings("v1", pr.policy_version);
-    try std.testing.expectEqualStrings("budget.demo", pr.budget_id);
-    try std.testing.expectEqualStrings("capenv.demo", pr.capability_envelope_id);
+    try std.testing.expectEqualStrings("budget.fixture", pr.budget_id);
+    try std.testing.expectEqualStrings("capenv.fixture", pr.capability_envelope_id);
     try std.testing.expectEqual(@as(usize, 0), pr.messages.len);
     try std.testing.expectEqual(@as(u32, 512), pr.sampling.max_output_tokens);
 }

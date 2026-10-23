@@ -1,3 +1,7 @@
+/// Fixture audit events for `codec.zig` and `audit.zig` tests.
+/// Provides 12 canonical events covering the full pipeline: ingress, normalization,
+/// policy decision, model call, adapter call, proposal, destination check, limit check,
+/// approval required, denial, telemetry checkpoint, and replay result.
 const std = @import("std");
 const schema = @import("types.zig");
 const codec = @import("codec.zig");
@@ -26,7 +30,7 @@ fn fixtureHeader(
     runtime_tier: []const u8,
     isolation_tier: []const u8,
     release_digest: []const u8,
-    demo_manifest_id: []const u8,
+    manifest_id: []const u8,
     tickoni_version: []const u8,
 ) schema.Header {
     var hdr = std.mem.zeroes(schema.Header);
@@ -46,7 +50,7 @@ fn fixtureHeader(
     hdr.platform_tier = parseFixedAsciiBytes(64, runtime_tier) catch unreachable;
     hdr.isolation_tier = parseFixedAsciiBytes(64, isolation_tier) catch unreachable;
     hdr.release_digest = parseFixedAsciiBytes(64, release_digest) catch unreachable;
-    hdr.demo_manifest_id = parseFixedAsciiBytes(64, demo_manifest_id) catch unreachable;
+    hdr.manifest_id = parseFixedAsciiBytes(64, manifest_id) catch unreachable;
     return hdr;
 }
 
@@ -55,7 +59,7 @@ pub fn makeFixtures() [12]schema.AuditEvent { // Runtime metadata populated from
     const runtime = "linux_full";
     const isolation = "full";
     const digest = "abc123";
-    const manifest_id = "demo.investment.v1";
+    const manifest_id = "fixture.investment.v1";
     const headers = [_]schema.Header{
         fixtureHeader(1, 10, "tkings", 1001, "policy_ingress_v1", 1, 111, 500, 0, runtime, isolation, digest, manifest_id, version),
         fixtureHeader(2, 11, "tknorm", 1002, "policy_norm_v1", 2, 222, 501, 0, runtime, isolation, digest, manifest_id, version),
@@ -99,7 +103,7 @@ pub fn makeFixtures() [12]schema.AuditEvent { // Runtime metadata populated from
             .token_estimate = 512,
             .retry_count = 2,
             .actor_role = parseFixedAsciiBytes(16, "ops_reviewer") catch unreachable,
-            .workflow = parseFixedAsciiBytes(16, "replay_demo") catch unreachable,
+            .workflow = parseFixedAsciiBytes(16, "replay_fixture") catch unreachable,
             .policy_decision_id = 77,
             .replay_substitution_id = 88,
         } }),
@@ -154,7 +158,7 @@ pub fn makeFixtures() [12]schema.AuditEvent { // Runtime metadata populated from
 }
 
 test "computeRecordHash excludes timestamp_ns" {
-    const hdr = fixtureHeader(0, 0, "tkpoly", 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "demo.v1", "0.1.0");
+    const hdr = fixtureHeader(0, 0, "tkpoly", 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0");
     const payload = schema.AuditEvent.Payload{ .policy_decision = .{
         .outcome = .allow,
         .rule_id = 1,
@@ -173,7 +177,7 @@ test "computeRecordHash excludes timestamp_ns" {
 }
 
 test "hash chain mutation changes downstream records" {
-    const first = codec.buildEvent(fixtureHeader(0, 0, "tkpoly", 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "demo.v1", "0.1.0"), .{ .policy_decision = .{
+    const first = codec.buildEvent(fixtureHeader(0, 0, "tkpoly", 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0"), .{ .policy_decision = .{
         .outcome = .allow,
         .rule_id = 1,
         .failed_scope_dim = parseFixedAsciiBytes(32, "scope") catch unreachable,
@@ -183,7 +187,7 @@ test "hash chain mutation changes downstream records" {
         .taxonomy_version = 0,
         .classification_code = std.mem.zeroes([32]u8),
     } });
-    var second_header = fixtureHeader(1, 1, "tkpoly", 0, "policy", 0, 0, first.header.record_hash, 0, "linux_full", "full", "abc", "demo.v1", "0.1.0");
+    var second_header = fixtureHeader(1, 1, "tkpoly", 0, "policy", 0, 0, first.header.record_hash, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0");
     const second = codec.buildEvent(second_header, .{ .policy_decision = .{
         .outcome = .allow,
         .rule_id = 1,
@@ -195,7 +199,7 @@ test "hash chain mutation changes downstream records" {
         .classification_code = std.mem.zeroes([32]u8),
     } });
 
-    const mutated_first = codec.buildEvent(fixtureHeader(0, 9, "tkpoly", 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "demo.v1", "0.1.0"), .{ .policy_decision = .{
+    const mutated_first = codec.buildEvent(fixtureHeader(0, 9, "tkpoly", 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0"), .{ .policy_decision = .{
         .outcome = .allow,
         .rule_id = 1,
         .failed_scope_dim = parseFixedAsciiBytes(32, "scope") catch unreachable,
@@ -217,7 +221,7 @@ test "binary and wire format pinned" {
 }
 
 test "policy_decision and denial classification evidence survives binary round-trip" {
-    const h = fixtureHeader(0, 0, "tkpoly", 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "demo.v1", "0.1.0");
+    const h = fixtureHeader(0, 0, "tkpoly", 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0");
 
     const policy_event = codec.buildEvent(h, .{ .policy_decision = .{
         .outcome = .deny,
@@ -356,6 +360,7 @@ fn writeFixtureFile() !void {
 
     var write_buf: [4096]u8 = undefined;
     var w = std.Io.File.Writer.init(file, std.testing.io, &write_buf);
+    // safe: partial file abandoned on error, flush failure during cleanup has no correctness impact
     errdefer w.interface.flush() catch {};
 
     try w.interface.writeAll(

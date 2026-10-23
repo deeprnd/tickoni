@@ -15,9 +15,9 @@ const investment_model_id = "fixture.ai_infra";
 const investment_actor_role = capability.investment_actor_role;
 const investment_workflow = capability.investment_workflow;
 const investment_capability = capability.investment_capability;
-const investment_capability_envelope_id = "capenv.trading_order.propose.demo";
+const investment_capability_envelope_id = "capenv.trading_order.propose.fixture";
 const investment_policy_version = "v1";
-const investment_budget_id = "budget.demo_paper";
+const investment_budget_id = "budget.fixture_paper";
 
 /// Result of a normal investment agent run (allowed or oversized-denied).
 /// Caller owns model_response; call deinit(allocator) when done.

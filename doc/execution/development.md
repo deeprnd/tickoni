@@ -128,16 +128,24 @@ Print the Phase 0 Tickoni topology:
 zig build run -- status
 ```
 
-Run the Phase 0 payment pipeline spike:
+Run the Phase 0 payment pipeline as isolated OS processes:
 
 ```bash
-zig build run -- start
+zig build run -- start-process <run-dir>
 ```
 
-The supervisor currently supports only:
+Run environment checks:
 
-- `start`
-- `status`
+```bash
+zig build run -- doctor
+```
+
+The supervisor currently supports:
+
+- `status` — print topology tile names
+- `start-process <run-dir>` — run the Phase 0 pipeline as isolated OS processes over Tango shared memory
+- `doctor` — run environment checks
+- `--version` — print version information
 
 ## DevOps And Runtime Notes
 
@@ -146,8 +154,8 @@ Active Tickoni runtime:
 - The active Tickoni workspace is `src/app/tickoni/` and `src/tickoni/`.
 - `tickoni-supervisor` is the active Zig supervisor runtime for current
   Tickoni-owned work.
-- Current local runtime entrypoints are `zig build run -- status` and
-  `zig build run -- start`.
+- Current local runtime entrypoints are `zig build run -- status`, `zig build run -- start-process`, and `zig build run -- doctor`.
+- `zig build run-cli` runs the separate Tickoni CLI tool (`src/app/tickoni_cli/`).
 - There is no active Tickoni Docker Compose runtime in this repository. The
   checked-in container files under `contrib/containers/` are development or
   packaging support, not the source of truth for local orchestration.
@@ -171,7 +179,8 @@ Repository command policy:
   `tickoni-supervisor`.
 - For Tickoni runtime commands, prefer explicit Zig CLI handling in
   `src/app/tickoni/` with clear `--help` or usage output and fail-closed input
-  validation.
+  validation. Separate CLI utilities live in `src/app/tickoni_cli/` and are
+  built via `zig build run-cli` or `just build-cli`.
 - Keep CLI command names explicit about intent and aligned with existing
   `justfile` recipes, especially the `build-*`, `test-*`, `quality-*`, and
   `security-*` naming families.
@@ -327,7 +336,8 @@ Tickoni-owned areas:
 - `src/tickoni/tiles/`: Phase 0 payment pipeline tile logic
 - `src/tickoni/c_abi/`: narrow C ABI declarations for selected runtime primitives
 - `src/tickoni/codec/`: Tickoni-owned codec bindings and C codec implementations
-- `src/tickoni/test/demo/`: deterministic CLI/test demo orchestration
+- `src/app/tickoni_cli/`: separate Tickoni CLI utility
+- `src/tickoni/test/fixtures/`: test fixtures and fixture data
 - `doc/knowledge`: Tickoni architecture
 - `doc/execution`: Build, security, testing, and observability
 - `doc/strategy`: Product and roadmap docs

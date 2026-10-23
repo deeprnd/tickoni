@@ -96,8 +96,8 @@ pub fn paymentPipeline() Topology {
 /// command or Supervisor start path dispatches these 14 tiles today;
 /// Supervisor.startPaymentPipeline()/startPaymentPipelineProcess() assert
 /// exactly 8 tiles and only have thread/process run functions for the
-/// Phase 0 payment-pipeline roles. Exercised directly by demo/integration
-/// tests (src/tickoni/test/demo/investment/**), not through the supervisor.
+/// Phase 0 payment-pipeline roles. Exercised directly by fixture/integration
+/// tests (src/tickoni/test/fixtures/investment/**), not through the supervisor.
 pub const investment_workflow_status: TopologyStatus = .planned;
 pub fn investmentWorkflow() Topology {
     return .{

@@ -1,7 +1,7 @@
 /// V1.3.S2 Thesis and Money Proposal Cards
 ///
 /// This module defines bounded card schemas, fail-closed builders, a small
-/// deterministic store used by the current demo/runtime path, and a JSON
+/// deterministic store used by the current fixture/runtime path, and a JSON
 /// export contract that a UI can render directly.
 const std = @import("std");
 const basket_mod = @import("basket");
@@ -175,7 +175,7 @@ pub const MoneyProposalCard = struct {
     currency: [currency_len]u8,
     amount_cents: i64,
     approval_state: ApprovalState,
-    /// Nanosecond epoch expiry; nonzero in the current demo flow.
+    /// Nanosecond epoch expiry; nonzero in the current fixture flow.
     expires_at_ns: u64,
     /// Content-addressed hash of the evidence packet that justified this
     /// proposal. Links the card back to auditable rationale (T5).
@@ -208,7 +208,7 @@ pub const DecisionCardsContract = struct {
     money_proposal_card: MoneyProposalCard,
 };
 
-/// Minimal deterministic saved-card store for the current demo/runtime path.
+/// Minimal deterministic saved-card store for the current fixture/runtime path.
 pub const DecisionCardsStore = struct {
     thesis_card: ?ThesisCard = null,
     money_proposal_card: ?MoneyProposalCard = null,

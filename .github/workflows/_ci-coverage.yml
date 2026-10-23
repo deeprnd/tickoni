@@ -36,9 +36,9 @@ jobs:
       - name: Run coverage test
         run: just test-cov-tk
 
-      - name: Generate coverage summary JSON
-        run: |
-          python3 contrib/tool/readme/coverage_report.py coverage-tk \
-            build/coverage/tk/kcov/merged \
-            build/coverage/tk/coverage-summary.json \
-            --config contrib/test/coverage-tk.json
+      - name: Upload coverage summary
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-summary
+          path: build/coverage/tk/coverage-summary.json
+          retention-days: 1

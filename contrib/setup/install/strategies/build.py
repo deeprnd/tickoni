@@ -24,7 +24,7 @@ class BuildFromSourceStrategy(InstallStrategy):
         if source_type == 'firedancer_deps':
             self._build_firedancer_deps()
         elif script:
-            self._build_script(script, platform_str)
+            self._build_script(script)
 
     def _build_firedancer_deps(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -75,7 +75,7 @@ class BuildFromSourceStrategy(InstallStrategy):
         else:
             print("[DEPS] Successfully built and installed snappy + rockdb")
 
-    def _build_script(self, script, platform_str):
+    def _build_script(self, script):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         # __file__ is contrib/setup/install/strategies/build.py;
         # helpers/ lives at contrib/setup/helpers/<script> (2 levels up from strategies/)
@@ -83,9 +83,7 @@ class BuildFromSourceStrategy(InstallStrategy):
         script_path = os.path.normpath(script_path)
         if os.path.isfile(script_path):
             print(f"[BUILD] Running {script}...")
-            env = os.environ.copy()
-            env['TK_PLATFORM'] = platform_str
-            result = subprocess.run([bash_command(), script_path], env=env, capture_output=True, text=True)
+            result = subprocess.run([bash_command(), script_path], env=os.environ.copy(), capture_output=True, text=True)
             if result.returncode != 0:
                 print(f"WARNING: {script} failed (exit {result.returncode})")
         else:

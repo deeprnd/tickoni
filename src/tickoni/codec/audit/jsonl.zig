@@ -20,7 +20,7 @@ pub fn formatJsonLine(event: schema.AuditEvent, writer: anytype) !void {
     try writer.print("\"platform_tier\":\"{s}\",", .{std.mem.sliceTo(&h.platform_tier, 0)});
     try writer.print("\"isolation_tier\":\"{s}\",", .{std.mem.sliceTo(&h.isolation_tier, 0)});
     try writer.print("\"release_digest\":\"{s}\",", .{std.mem.sliceTo(&h.release_digest, 0)});
-    try writer.print("\"demo_manifest_id\":\"{s}\",", .{std.mem.sliceTo(&h.demo_manifest_id, 0)});
+    try writer.print("\"manifest_id\":\"{s}\",", .{std.mem.sliceTo(&h.manifest_id, 0)});
     try writer.print("\"record_type\":\"{s}\",", .{@tagName(std.meta.activeTag(event.payload))});
     try writer.writeAll("\"payload\":");
     try writePayloadJson(event.payload, writer);
@@ -171,7 +171,7 @@ test "jsonl formatJsonLine produces valid JSON with hash-chain fields" {
             .platform_tier = "linux_full",
             .isolation_tier = "retail",
             .release_digest = "abc123",
-            .demo_manifest_id = "",
+            .manifest_id = "",
         },
         .payload = .{
             .source_event = .{
@@ -229,7 +229,7 @@ test "jsonl formatJsonLine produces consistent hash for same event" {
             .platform_tier = "linux_full",
             .isolation_tier = "retail",
             .release_digest = "abc123",
-            .demo_manifest_id = "",
+            .manifest_id = "",
         },
         .payload = .{
             .source_event = .{

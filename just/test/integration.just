@@ -20,7 +20,30 @@ test-integration-tk:
     esac
 
 test-integration-tk-linux-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-integration-tk
+
+# CLI integration tests (spawn the tickoni binary).
+test-integration-cli:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ os }}-{{ arch }}" in
+    linux-x86) exec just test-integration-cli-linux-x86 ;;
+    linux-arm) exec just test-integration-cli-linux-arm ;;
+    macos-x86) exec just test-integration-cli-macos-x86 ;;
+    macos-arm) exec just test-integration-cli-macos-arm ;;
+    windows-x86) exec just test-integration-cli-windows-x86 ;;
+    windows-arm) exec just test-integration-cli-windows-arm ;;
+    *) echo "unsupported host platform for test-integration-cli: {{ os }}-{{ arch }}" >&2; exit 1 ;;
+    esac
+
+test-integration-cli-linux-x86:
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-integration-cli
+
+test-integration-cli-linux-arm: test-integration-cli-linux-x86
+test-integration-cli-macos-x86: test-integration-cli-linux-x86
+test-integration-cli-macos-arm: test-integration-cli-linux-x86
+test-integration-cli-windows-x86: test-integration-cli-linux-x86
+test-integration-cli-windows-arm: test-integration-cli-linux-x86
 
 test-integration-tk-linux-arm: test-integration-tk-linux-x86
 
@@ -30,10 +53,10 @@ test-integration-tk-macos-arm: test-integration-tk-linux-x86
 
 # Windows-specific integration tests.
 test-integration-tk-windows-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-integration-tk
 
 test-integration-tk-windows-arm:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} integration-test
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-integration-tk
 
 test-integration-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py integration bash -c "just test-integration-fd && just test-integration-tk"
+    {{ python }} contrib/tool/readme/run-badged-command.py integration bash -c "just test-integration-fd && just test-integration-tk && just test-integration-cli"

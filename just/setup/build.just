@@ -17,19 +17,19 @@ setup-build:
     esac
 
 setup-build-linux-x86-gcc:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform {{ os }}-{{ arch }}
 
 setup-build-linux-x86-clang:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform {{ os }}-{{ arch }}
 
 setup-build-macos-x86:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform macos-x86
 
 setup-build-macos-arm:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform macos-arm
 
 setup-build-linux-arm-gcc:
-    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build
+    {{ python }} contrib/setup/orchestrator.py core,essential,toolchain,build --platform linux-arm
 
 # Windows build-only setup: no llama.cpp; system-test setup owns the LLM.
 setup-build-windows-x86:

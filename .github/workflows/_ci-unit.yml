@@ -25,8 +25,12 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-linux-x86
             platform: linux-x86
-            fd-test-recipe: test-unit-fd-linux-x86-gcc-all
+            fd-test-recipe: test-unit-fd-linux-x86-gcc
             test-recipe: test-unit-tk-linux-x86
+            cli-test-recipe: test-unit-cli-linux-x86
+            infra-build-recipe: test-unit-infra-build
+            infra-setup-recipe: test-unit-infra-setup
+            infra-tooling-recipe: test-unit-infra-tooling
             compiler: gcc-12
           # Linux x86_64 (clang)
           - platform-name: Linux x86_64 (clang)
@@ -34,8 +38,12 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-linux-x86-clang
             platform: linux-x86
-            fd-test-recipe: test-unit-fd-linux-x86-clang-all
+            fd-test-recipe: test-unit-fd-linux-x86-clang
             test-recipe: test-unit-tk-linux-x86
+            cli-test-recipe: test-unit-cli-linux-x86
+            infra-build-recipe: test-unit-infra-build
+            infra-setup-recipe: test-unit-infra-setup
+            infra-tooling-recipe: test-unit-infra-tooling
             compiler: clang-18
           # Linux ARM64
           - platform-name: Linux ARM
@@ -43,8 +51,12 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-linux-arm
             platform: linux-arm
-            fd-test-recipe: test-unit-fd-linux-arm-gcc-all
+            fd-test-recipe: test-unit-fd-linux-arm-gcc
             test-recipe: test-unit-tk-linux-arm
+            cli-test-recipe: test-unit-cli-linux-arm
+            infra-build-recipe: test-unit-infra-build
+            infra-setup-recipe: test-unit-infra-setup
+            infra-tooling-recipe: test-unit-infra-tooling
             compiler: gcc-14
           # macOS 15 (x86_64)
           - platform-name: macOS 15 (x86_64)
@@ -52,8 +64,12 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-macos-15-x86
             platform: macos-x86
-            fd-test-recipe: test-unit-fd-macos-x86-all
+            fd-test-recipe: test-unit-fd-macos-x86
             test-recipe: test-unit-tk-macos-x86
+            cli-test-recipe: test-unit-cli-macos-x86
+            infra-build-recipe: test-unit-infra-build
+            infra-setup-recipe: test-unit-infra-setup
+            infra-tooling-recipe: test-unit-infra-tooling
             compiler: clang
           # macOS 15 (ARM)
           - platform-name: macOS 15 (ARM)
@@ -61,8 +77,12 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-macos-15-arm
             platform: macos-arm
-            fd-test-recipe: test-unit-fd-macos-arm-all
+            fd-test-recipe: test-unit-fd-macos-arm
             test-recipe: test-unit-tk-macos-arm
+            cli-test-recipe: test-unit-cli-macos-arm
+            infra-build-recipe: test-unit-infra-build
+            infra-setup-recipe: test-unit-infra-setup
+            infra-tooling-recipe: test-unit-infra-tooling
             compiler: clang
           # macOS 26 (x86_64)
           - platform-name: macOS 26 (x86_64)
@@ -70,8 +90,12 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-macos-26-x86
             platform: macos-x86
-            fd-test-recipe: test-unit-fd-macos-x86-all
+            fd-test-recipe: test-unit-fd-macos-x86
             test-recipe: test-unit-tk-macos-x86
+            cli-test-recipe: test-unit-cli-macos-x86
+            infra-build-recipe: test-unit-infra-build
+            infra-setup-recipe: test-unit-infra-setup
+            infra-tooling-recipe: test-unit-infra-tooling
             compiler: clang
           # macOS 26 (ARM)
           - platform-name: macOS 26 (ARM)
@@ -79,8 +103,12 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-macos-26-arm
             platform: macos-arm
-            fd-test-recipe: test-unit-fd-macos-arm-all
+            fd-test-recipe: test-unit-fd-macos-arm
             test-recipe: test-unit-tk-macos-arm
+            cli-test-recipe: test-unit-cli-macos-arm
+            infra-build-recipe: test-unit-infra-build
+            infra-setup-recipe: test-unit-infra-setup
+            infra-tooling-recipe: test-unit-infra-tooling
             compiler: clang
           # Windows x86_64
           - platform-name: Windows x86_64
@@ -88,8 +116,12 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-windows-x86
             platform: windows-x86
-            fd-test-recipe: test-unit-fd-windows-x86-all
+            fd-test-recipe: test-unit-fd-windows-x86
             test-recipe: test-unit-tk-windows-x86
+            cli-test-recipe: test-unit-cli-windows-x86
+            infra-build-recipe: test-unit-infra-build
+            infra-setup-recipe: test-unit-infra-setup
+            infra-tooling-recipe: test-unit-infra-tooling
             compiler: msvc
           # Windows ARM64
           - platform-name: Windows ARM
@@ -97,8 +129,12 @@ jobs:
             timeout_minutes: 30
             artifact-name: build-windows-arm
             platform: windows-arm
-            fd-test-recipe: test-unit-fd-windows-arm-all
+            fd-test-recipe: test-unit-fd-windows-arm
             test-recipe: test-unit-tk-windows-arm
+            cli-test-recipe: test-unit-cli-windows-arm
+            infra-build-recipe: test-unit-infra-build
+            infra-setup-recipe: test-unit-infra-setup
+            infra-tooling-recipe: test-unit-infra-tooling
             compiler: msvc
 
     steps:
@@ -118,10 +154,10 @@ jobs:
           path: .
 
       - name: Install test tools (pytest)
-        run: just test-setup-install-${{ matrix.platform }}
+        run: just setup-test-${{ matrix.platform }}
 
       - name: Run Python unit tests (pytest)
-        run: just test-setup-run-${{ matrix.platform }}
+        run: just test-unit-infra-all
 
       - name: Configure hugepages and memory limits (Linux only)
         if: runner.os == 'Linux'
@@ -144,3 +180,15 @@ jobs:
 
       - name: Run Tickoni unit tests
         run: just ${{ matrix.test-recipe }}
+
+      - name: Run CLI unit tests
+        run: just ${{ matrix.cli-test-recipe }}
+
+      - name: Run Python infrastructure unit tests (build)
+        run: just ${{ matrix.infra-build-recipe }}
+
+      - name: Run Python infrastructure unit tests (setup)
+        run: just ${{ matrix.infra-setup-recipe }}
+
+      - name: Run Python infrastructure unit tests (tooling)
+        run: just ${{ matrix.infra-tooling-recipe }}

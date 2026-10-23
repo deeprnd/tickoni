@@ -261,14 +261,14 @@ fn mkOpenOrder(comptime ticker_s: []const u8, side: Side, notional_cents: i64) O
 }
 
 // ---------------------------------------------------------------------------
-// Demo fixtures (T2)
+// Fixture fixtures (T2)
 // ---------------------------------------------------------------------------
 
-/// Deterministic demo fixtures for the five canonical account scenarios.
+/// Deterministic fixture fixtures for the five canonical account scenarios.
 pub const fixtures = struct {
     /// cash_rich: USD 50,000 cash/buying power, no holdings, no open orders.
     /// USD 25,000/day and USD 100,000/month notional limits.  The canonical
-    /// demo account for the USD 2,000 AI infrastructure paper trade.
+    /// fixture account for the USD 2,000 AI infrastructure paper trade.
     pub const cash_rich: BrokerageAccount = .{
         .account_id = 2001,
         .currency = .usd,

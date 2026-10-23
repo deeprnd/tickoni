@@ -6,7 +6,7 @@
     }
   },
   "platforms": {
-    "linux-x86":   { "gcc": "gcc-12", "clang": "clang-18" },
+    "linux-x86":   { "gcc": "gcc-13", "clang": "clang-18" },
     "linux-arm":   { "gcc": "gcc-14", "clang": "clang-18" },
     "macos-x86":   { "gcc": "gcc-12", "clang": "clang" },
     "macos-arm":   { "gcc": "gcc-12", "clang": "clang" },

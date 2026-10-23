@@ -1,43 +1,15 @@
 /// Common lane helpers and data-driven test registration types.
 ///
-/// createRunTestsCmd: build-time test runner command.
-/// TestSpec, TestLinkage, TestAction, TestBuilder: data-driven test registration.
+/// TestSpec, TestLinkage, TestAction, TestBuilder: spec-driven registration.
+/// TestBuilder.registerRunTest returns a compile step for later sequential
+/// execution via shims.addPlainTestRunSeries; registerCov installs coverage
+/// artifacts; registerSystemTest wires system-test lanes.
 
 const std = @import("std");
 const shims = @import("lib/shims.zig");
 const codec = @import("lib/codec.zig");
 const firedancer = @import("lib/firedancer.zig");
 const topo_run = @import("lib/topo_run.zig");
-
-/// Create the run-tests command that executes all test binaries
-/// sequentially via a bash script (avoids Zig's --listen=- parallel
-/// coordination which panics with EndOfStream when 48+ test binaries
-/// communicate over the same pipe).
-pub fn createRunTestsCmd(b: *std.Build) *std.Build.Step.Run {
-    const run_tests_cmd = std.Build.Step.Run.create(b, "run-tests");
-    const build_root_str = b.root.toString(b.allocator) catch |err| {
-        std.debug.print("error: Failed to get build root path: {any}\n", .{err});
-        return run_tests_cmd;
-    };
-    defer b.allocator.free(build_root_str);
-    var script_buf: [4096]u8 = undefined;
-    const full_script_path = std.fmt.bufPrint(
-        &script_buf,
-        "{s}/contrib/test/run_test_series.sh",
-        .{build_root_str},
-    ) catch |err| switch (err) {
-        error.NoSpaceLeft => {
-            std.debug.print("error: Script path buffer overflow (4096 bytes insufficient)\n", .{});
-            return run_tests_cmd;
-        },
-    };
-    run_tests_cmd.addArgs(&[_][]const u8{
-        "bash",
-        full_script_path,
-    });
-    run_tests_cmd.setCwd(b.path("."));
-    return run_tests_cmd;
-}
 
 /// Build-time linkage flags for a test.
 pub const TestLinkage = packed struct(u8) {
@@ -106,13 +78,14 @@ pub const TestBuilder = struct {
         }).step);
     }
 
-    /// Register a test for the run-tests lane.
+    /// Register a test compile step for later sequential execution.
+    /// The caller collects all returned compile steps and passes them to
+    /// `shims.addPlainTestRunSeries` to avoid Zig 0.17's protocol-mode
+    /// `--listen=-` which blocks on stdin.
     pub fn registerRunTest(
         self: *const TestBuilder,
         spec: TestSpec,
-        test_step: *std.Build.Step,
-        run_cmd: *std.Build.Step.Run,
-    ) void {
+    ) *std.Build.Step.Compile {
         const t_mod = self.b.createModule(.{
             .root_source_file = self.b.path(spec.source_file),
             .target = self.target,
@@ -126,8 +99,7 @@ pub const TestBuilder = struct {
         if (spec.linkage.needs_topo_run) topo_run.linkTickoniTopoRun(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_libc) t.root_module.link_libc = true;
 
-        test_step.dependOn(&t.step);
-        run_cmd.addArtifactArg(t);
+        return t;
     }
 
     /// Register a test for the system-test lane.

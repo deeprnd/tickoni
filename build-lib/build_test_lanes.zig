@@ -11,6 +11,7 @@ const integration_lane = @import("lanes/integration.zig");
 const system_lane = @import("lanes/system.zig");
 const perf_lane = @import("lanes/perf.zig");
 const cov_lane = @import("lanes/cov.zig");
+const cli_lane = @import("lanes/cli.zig");
 
 const modules = @import("mod/modules.zig");
 const test_modules = @import("mod/test_modules.zig");
@@ -18,7 +19,6 @@ const test_modules = @import("mod/test_modules.zig");
 /// Register unit and integration lanes (behind -Dtest).
 pub fn registerTestLanes(
     b: *std.Build,
-    check_step: *std.Build.Step,
     shared: modules.Shared,
     tm: test_modules.TestModules,
     target: std.Build.ResolvedTarget,
@@ -26,21 +26,20 @@ pub fn registerTestLanes(
     fd_lib_dir: []const u8,
     exe: *std.Build.Step.Compile,
     exe_install: *std.Build.Step.InstallArtifact,
+    cli_exe_install: *std.Build.Step.InstallArtifact,
 ) void {
-    const run_tests_cmd = lane.createRunTestsCmd(b);
+    // Unit tests (no top-level "test" step — run test-unit-tk instead)
+    build_lane.strategy(b, shared, tm, target, optimize, fd_lib_dir);
 
-    // Unit tests
-    const test_step = b.step("test", "Compile offline Tickoni unit test binaries");
-    const run_tests_step = b.step("run-tests", "Run offline Tickoni unit tests");
-    run_tests_step.dependOn(check_step);
-    build_lane.strategy(b, shared, tm, target, optimize, fd_lib_dir, test_step, run_tests_cmd);
+    // CLI lane — unit tests + integration tests.
+    cli_lane.strategy(b, target, optimize, fd_lib_dir, shared, cli_exe_install);
 
     // Integration modules
     const int_mods = integration_lane.createIntModules(b, shared, tm, target, optimize, exe);
 
     // Infra lane — supervisor, tile lifecycle, Tango links, mock servers.
     const integration_infr_step = b.step(
-        "integration-test-infra",
+        "test-integration-tk-infra",
         "Run Tickoni infrastructure integration tests",
     );
     // Supervisor binary must exist at prefix before process-mode tests
@@ -50,28 +49,26 @@ pub fn registerTestLanes(
 
     // Domain lane — investment policy, allowed/blocked trades, replay.
     const integration_domain_step = b.step(
-        "integration-test-domain",
+        "test-integration-tk-domain",
         "Run Tickoni domain integration tests",
     );
     integration_lane.strategy(b, int_mods, .domain, target, optimize, fd_lib_dir, integration_domain_step, exe_install);
 
     // Combined lane — runs both infra and domain.
     const integration_step = b.step(
-        "integration-test",
+        "test-integration-tk",
         "Run all Tickoni integration tests (infra + domain)",
     );
     integration_step.dependOn(integration_infr_step);
     integration_step.dependOn(integration_domain_step);
 
-    const system_step = b.step("system-test", "Run all src/tickoni/test/system proofs");
+    const system_step = b.step("test-system", "Run all src/tickoni/test/system proofs");
     system_lane.strategy(b, .{
-        .investment_demo_mod = int_mods.investment_demo_mod,
+        .investment_fixture_mod = int_mods.investment_fixture_mod,
         .investment_support_int_mod = int_mods.investment_support_int_mod,
         .fd_lib_dir = fd_lib_dir,
     }, target, optimize, system_step);
 
-    const live_model_step = b.step("integration-test-live-model", "Alias for the live V1.1 system/demo lane");
-    live_model_step.dependOn(system_step);
 }
 
 /// Register the coverage lane (always available).

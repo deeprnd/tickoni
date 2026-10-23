@@ -25,7 +25,7 @@ pub const Header = extern struct {
     platform_tier: [64]u8,
     isolation_tier: [64]u8,
     release_digest: [64]u8,
-    demo_manifest_id: [64]u8,
+    manifest_id: [64]u8,
 };
 
 pub const SourceEventPayload = extern struct {
@@ -169,7 +169,7 @@ pub fn toWireEvent(event: schema.AuditEvent) Event {
             .platform_tier = event.header.platform_tier,
             .isolation_tier = event.header.isolation_tier,
             .release_digest = event.header.release_digest,
-            .demo_manifest_id = event.header.demo_manifest_id,
+            .manifest_id = event.header.manifest_id,
         },
         .record_type = @backingInt(std.meta.activeTag(event.payload)),
         .payload = toWirePayload(event.payload),
@@ -200,7 +200,7 @@ pub fn fromWireEvent(
             .platform_tier = event.header.platform_tier,
             .isolation_tier = event.header.isolation_tier,
             .release_digest = event.header.release_digest,
-            .demo_manifest_id = event.header.demo_manifest_id,
+            .manifest_id = event.header.manifest_id,
         },
         .payload = payload,
     };

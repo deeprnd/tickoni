@@ -5,6 +5,6 @@
 test-all:
     @just test-unit-all
     @just test-integration-all
-    @just test-cov-all
     @just test-system-all
     @just test-e2e-all
+    @just test-cov-all

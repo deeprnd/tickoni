@@ -21,7 +21,7 @@ test-cov-tk:
     esac
 
 test-cov-tk-linux-x86:
-    bash contrib/test/coverage.sh coverage-tk
+    bash contrib/coverage/coverage.sh coverage-tk
 
 test-cov-tk-linux-arm: test-cov-tk-linux-x86
 test-cov-tk-macos-x86: test-cov-tk-linux-x86

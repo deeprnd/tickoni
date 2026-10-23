@@ -73,6 +73,8 @@ pub fn nextMetricPort() u16 {
 var _ws_name_counter: u32 = 0;
 
 pub fn nextWorkspaceName(buf: []u8) []const u8 {
+    // Max output "topo_4294967295" = 15 chars; caller must provide ≥16 bytes.
+    std.debug.assert(buf.len >= 16);
     if (_ws_name_counter == 0) {
         _ws_name_counter = @as(u32, @intCast(c_abi.sandbox.getpid())) & 0xFFFF;
     }
@@ -147,9 +149,11 @@ pub const TmpDir = struct {
         const io = std.testing.io;
         self.dir.close(io);
 
-        // Guard: keep temp dirs (and their log files) when TICKONI_KEEP_LOGS=1
-        const keep = c.getenv("TICKONI_KEEP_LOGS");
+        // Guard: keep temp dirs (and their log files) when TK_KEEP_LOGS=1
+        const keep = c.getenv("TK_KEEP_LOGS");
         if (keep == null or std.mem.sliceTo(keep.?, 0)[0] != '1') {
+            // safe: cleanup only; primary operation completed, caller's path
+            // already handles any failure via its own error path.
             self.parent_dir.deleteTree(io, self.sub_path[0..12]) catch {};
         }
         self.parent_dir.close(io);

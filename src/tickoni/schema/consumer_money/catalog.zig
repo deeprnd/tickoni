@@ -64,34 +64,37 @@ fn nameBuf(comptime s: []const u8) [max_name_len]u8 {
     return buf;
 }
 
-fn sectorRef(code: []const u8) ClassificationRef {
-    return thesis.ClassificationRef.init("gics_sector", sector_taxonomy_version, code) catch unreachable;
+fn sectorRef(code: []const u8) cls.ClassificationRefError!cls.ClassificationRef {
+    return thesis.ClassificationRef.init("gics_sector", sector_taxonomy_version, code);
 }
 
-fn industryRef(code: []const u8) ClassificationRef {
-    return thesis.ClassificationRef.init("gics_industry", industry_taxonomy_version, code) catch unreachable;
+fn industryRef(code: []const u8) cls.ClassificationRefError!cls.ClassificationRef {
+    return thesis.ClassificationRef.init("gics_industry", industry_taxonomy_version, code);
 }
 
-fn sectors(codes: []const []const u8) ClassificationRefList {
-    var refs = ClassificationRefList{};
+fn sectors(codes: []const []const u8) cls.ClassificationRefError!cls.ClassificationRefList {
+    var refs = cls.ClassificationRefList{};
     for (codes) |code| {
-        refs.append(sectorRef(code)) catch unreachable;
+        const ref = try sectorRef(code);
+        try refs.append(ref);
     }
     return refs;
 }
 
-fn industries(codes: []const []const u8) ClassificationRefList {
-    var refs = ClassificationRefList{};
+fn industries(codes: []const []const u8) cls.ClassificationRefError!cls.ClassificationRefList {
+    var refs = cls.ClassificationRefList{};
     for (codes) |code| {
-        refs.append(industryRef(code)) catch unreachable;
+        const ref = try industryRef(code);
+        try refs.append(ref);
     }
     return refs;
 }
 
-fn themes(ids: []const []const u8) ThemeIdList {
-    var list = ThemeIdList{};
+fn themes(ids: []const []const u8) cls.ThemeIdListError!cls.ThemeIdList {
+    var list = cls.ThemeIdList{};
     for (ids) |id| {
-        list.append(thesis.CanonicalId.init(id) catch unreachable) catch unreachable;
+        const cid = try thesis.CanonicalId.init(id);
+        try list.append(cid);
     }
     return list;
 }
@@ -132,37 +135,40 @@ fn mkEntry(
 
 pub const catalog = [_]InstrumentEntry{
     // --- Semiconductors / AI infrastructure stocks ---
-    mkEntry("NVDA", "NVIDIA Corporation", .equity, .stock, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}), industries(&[_][]const u8{"semiconductors"}), themes(&[_][]const u8{ "ai_infrastructure", "semiconductors" }), .high, 0, false, .none),
-    mkEntry("AMD", "Advanced Micro Devices Inc.", .equity, .stock, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}), industries(&[_][]const u8{"semiconductors"}), themes(&[_][]const u8{ "ai_infrastructure", "semiconductors" }), .high, 0, false, .none),
-    mkEntry("AVGO", "Broadcom Inc.", .equity, .stock, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}), industries(&[_][]const u8{"semiconductors"}), themes(&[_][]const u8{ "ai_infrastructure", "semiconductors" }), .moderate, 0, false, .none),
-    mkEntry("MSFT", "Microsoft Corporation", .equity, .stock, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}), industries(&[_][]const u8{"systems_software"}), themes(&[_][]const u8{ "ai_infrastructure", "cloud" }), .moderate, 0, false, .none),
+    // Note: sectors()/industries()/themes() return errors but these are
+    // comptime-initialized with hardcoded canonical IDs, so catch unreachable
+    // is safe (compile-time error if violated).
+    mkEntry("NVDA", "NVIDIA Corporation", .equity, .stock, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}) catch unreachable, industries(&[_][]const u8{"semiconductors"}) catch unreachable, themes(&[_][]const u8{ "ai_infrastructure", "semiconductors" }) catch unreachable, .high, 0, false, .none),
+    mkEntry("AMD", "Advanced Micro Devices Inc.", .equity, .stock, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}) catch unreachable, industries(&[_][]const u8{"semiconductors"}) catch unreachable, themes(&[_][]const u8{ "ai_infrastructure", "semiconductors" }) catch unreachable, .high, 0, false, .none),
+    mkEntry("AVGO", "Broadcom Inc.", .equity, .stock, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}) catch unreachable, industries(&[_][]const u8{"semiconductors"}) catch unreachable, themes(&[_][]const u8{ "ai_infrastructure", "semiconductors" }) catch unreachable, .moderate, 0, false, .none),
+    mkEntry("MSFT", "Microsoft Corporation", .equity, .stock, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}) catch unreachable, industries(&[_][]const u8{"systems_software"}) catch unreachable, themes(&[_][]const u8{ "ai_infrastructure", "cloud" }) catch unreachable, .moderate, 0, false, .none),
     // --- AI infrastructure ETFs ---
-    mkEntry("BOTZ", "Global X Robotics & AI ETF", .equity, .etf, .us, .nasdaq, sectors(&[_][]const u8{ "information_technology", "industrials" }), industries(&[_][]const u8{"robotics_and_ai"}), themes(&[_][]const u8{"ai_infrastructure"}), .moderate, 68, false, .none),
-    mkEntry("SOXX", "iShares Semiconductor ETF", .equity, .etf, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}), industries(&[_][]const u8{"semiconductors"}), themes(&[_][]const u8{ "ai_infrastructure", "semiconductors" }), .high, 35, false, .none),
+    mkEntry("BOTZ", "Global X Robotics & AI ETF", .equity, .etf, .us, .nasdaq, sectors(&[_][]const u8{ "information_technology", "industrials" }) catch unreachable, industries(&[_][]const u8{"robotics_and_ai"}) catch unreachable, themes(&[_][]const u8{"ai_infrastructure"}) catch unreachable, .moderate, 68, false, .none),
+    mkEntry("SOXX", "iShares Semiconductor ETF", .equity, .etf, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}) catch unreachable, industries(&[_][]const u8{"semiconductors"}) catch unreachable, themes(&[_][]const u8{ "ai_infrastructure", "semiconductors" }) catch unreachable, .high, 35, false, .none),
     // --- Cloud ---
-    mkEntry("AMZN", "Amazon.com Inc.", .equity, .stock, .us, .nasdaq, sectors(&[_][]const u8{ "consumer_discretionary", "information_technology" }), industries(&[_][]const u8{ "internet_retail", "cloud_platforms" }), themes(&[_][]const u8{ "ai_infrastructure", "cloud" }), .moderate, 0, false, .none),
-    mkEntry("WCLD", "WisdomTree Cloud Computing ETF", .equity, .etf, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}), industries(&[_][]const u8{"cloud_software"}), themes(&[_][]const u8{"cloud"}), .moderate, 45, false, .none),
+    mkEntry("AMZN", "Amazon.com Inc.", .equity, .stock, .us, .nasdaq, sectors(&[_][]const u8{ "consumer_discretionary", "information_technology" }) catch unreachable, industries(&[_][]const u8{ "internet_retail", "cloud_platforms" }) catch unreachable, themes(&[_][]const u8{ "ai_infrastructure", "cloud" }) catch unreachable, .moderate, 0, false, .none),
+    mkEntry("WCLD", "WisdomTree Cloud Computing ETF", .equity, .etf, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}) catch unreachable, industries(&[_][]const u8{"cloud_software"}) catch unreachable, themes(&[_][]const u8{"cloud"}) catch unreachable, .moderate, 45, false, .none),
     // --- Cyber security ---
-    mkEntry("PANW", "Palo Alto Networks Inc.", .equity, .stock, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}), industries(&[_][]const u8{"cybersecurity"}), themes(&[_][]const u8{"cyber_security"}), .high, 0, false, .none),
-    mkEntry("CRWD", "CrowdStrike Holdings Inc.", .equity, .stock, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}), industries(&[_][]const u8{"cybersecurity"}), themes(&[_][]const u8{"cyber_security"}), .high, 0, false, .none),
-    mkEntry("HACK", "ETFMG Prime Cyber Security ETF", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{"information_technology"}), industries(&[_][]const u8{"cybersecurity"}), themes(&[_][]const u8{"cyber_security"}), .moderate, 60, false, .none),
-    mkEntry("CIBR", "First Trust NASDAQ Cybersecurity ETF", .equity, .etf, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}), industries(&[_][]const u8{"cybersecurity"}), themes(&[_][]const u8{"cyber_security"}), .moderate, 60, false, .none),
+    mkEntry("PANW", "Palo Alto Networks Inc.", .equity, .stock, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}) catch unreachable, industries(&[_][]const u8{"cybersecurity"}) catch unreachable, themes(&[_][]const u8{"cyber_security"}) catch unreachable, .high, 0, false, .none),
+    mkEntry("CRWD", "CrowdStrike Holdings Inc.", .equity, .stock, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}) catch unreachable, industries(&[_][]const u8{"cybersecurity"}) catch unreachable, themes(&[_][]const u8{"cyber_security"}) catch unreachable, .high, 0, false, .none),
+    mkEntry("HACK", "ETFMG Prime Cyber Security ETF", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{"information_technology"}) catch unreachable, industries(&[_][]const u8{"cybersecurity"}) catch unreachable, themes(&[_][]const u8{"cyber_security"}) catch unreachable, .moderate, 60, false, .none),
+    mkEntry("CIBR", "First Trust NASDAQ Cybersecurity ETF", .equity, .etf, .us, .nasdaq, sectors(&[_][]const u8{"information_technology"}) catch unreachable, industries(&[_][]const u8{"cybersecurity"}) catch unreachable, themes(&[_][]const u8{"cyber_security"}) catch unreachable, .moderate, 60, false, .none),
     // --- Broad market ---
-    mkEntry("SPY", "SPDR S&P 500 ETF Trust", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{ "information_technology", "financials", "health_care" }), industries(&[_][]const u8{}), themes(&[_][]const u8{"broad_market"}), .low, 9, false, .none),
-    mkEntry("IVV", "iShares Core S&P 500 ETF", .equity, .etf, .us, .nasdaq, sectors(&[_][]const u8{ "information_technology", "financials", "health_care" }), industries(&[_][]const u8{}), themes(&[_][]const u8{"broad_market"}), .low, 3, false, .none),
-    mkEntry("VOO", "Vanguard S&P 500 ETF", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{ "information_technology", "financials", "health_care" }), industries(&[_][]const u8{}), themes(&[_][]const u8{"broad_market"}), .low, 3, false, .none),
-    mkEntry("VTI", "Vanguard Total Stock Market ETF", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{ "information_technology", "financials", "health_care" }), industries(&[_][]const u8{}), themes(&[_][]const u8{"broad_market"}), .low, 3, false, .none),
+    mkEntry("SPY", "SPDR S&P 500 ETF Trust", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{ "information_technology", "financials", "health_care" }) catch unreachable, industries(&[_][]const u8{}) catch unreachable, themes(&[_][]const u8{"broad_market"}) catch unreachable, .low, 9, false, .none),
+    mkEntry("IVV", "iShares Core S&P 500 ETF", .equity, .etf, .us, .nasdaq, sectors(&[_][]const u8{ "information_technology", "financials", "health_care" }) catch unreachable, industries(&[_][]const u8{}) catch unreachable, themes(&[_][]const u8{"broad_market"}) catch unreachable, .low, 3, false, .none),
+    mkEntry("VOO", "Vanguard S&P 500 ETF", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{ "information_technology", "financials", "health_care" }) catch unreachable, industries(&[_][]const u8{}) catch unreachable, themes(&[_][]const u8{"broad_market"}) catch unreachable, .low, 3, false, .none),
+    mkEntry("VTI", "Vanguard Total Stock Market ETF", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{ "information_technology", "financials", "health_care" }) catch unreachable, industries(&[_][]const u8{}) catch unreachable, themes(&[_][]const u8{"broad_market"}) catch unreachable, .low, 3, false, .none),
     // --- Dividends ---
-    mkEntry("VYM", "Vanguard High Dividend Yield ETF", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{ "financials", "health_care", "consumer_staples" }), industries(&[_][]const u8{}), themes(&[_][]const u8{"dividends"}), .low, 6, false, .none),
-    mkEntry("DVY", "iShares Select Dividend ETF", .equity, .etf, .us, .nasdaq, sectors(&[_][]const u8{ "financials", "utilities", "consumer_staples" }), industries(&[_][]const u8{}), themes(&[_][]const u8{"dividends"}), .low, 38, false, .none),
+    mkEntry("VYM", "Vanguard High Dividend Yield ETF", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{ "financials", "health_care", "consumer_staples" }) catch unreachable, industries(&[_][]const u8{}) catch unreachable, themes(&[_][]const u8{"dividends"}) catch unreachable, .low, 6, false, .none),
+    mkEntry("DVY", "iShares Select Dividend ETF", .equity, .etf, .us, .nasdaq, sectors(&[_][]const u8{ "financials", "utilities", "consumer_staples" }) catch unreachable, industries(&[_][]const u8{}) catch unreachable, themes(&[_][]const u8{"dividends"}) catch unreachable, .low, 38, false, .none),
     // --- Cash-like ---
-    mkEntry("SHV", "iShares Short Treasury Bond ETF", .cash, .etf, .us, .nasdaq, sectors(&[_][]const u8{}), industries(&[_][]const u8{"sovereign_debt"}), themes(&[_][]const u8{"cash_like"}), .low, 15, false, .none),
-    mkEntry("SGOV", "iShares 0-3 Month Treasury Bond ETF", .cash, .etf, .us, .nyse, sectors(&[_][]const u8{}), industries(&[_][]const u8{"sovereign_debt"}), themes(&[_][]const u8{"cash_like"}), .low, 9, false, .none),
-    mkEntry("BIL", "SPDR Bloomberg 1-3 Month T-Bill ETF", .cash, .etf, .us, .nyse, sectors(&[_][]const u8{}), industries(&[_][]const u8{"sovereign_debt"}), themes(&[_][]const u8{"cash_like"}), .low, 14, false, .none),
+    mkEntry("SHV", "iShares Short Treasury Bond ETF", .cash, .etf, .us, .nasdaq, sectors(&[_][]const u8{}) catch unreachable, industries(&[_][]const u8{"sovereign_debt"}) catch unreachable, themes(&[_][]const u8{"cash_like"}) catch unreachable, .low, 15, false, .none),
+    mkEntry("SGOV", "iShares 0-3 Month Treasury Bond ETF", .cash, .etf, .us, .nyse, sectors(&[_][]const u8{}) catch unreachable, industries(&[_][]const u8{"sovereign_debt"}) catch unreachable, themes(&[_][]const u8{"cash_like"}) catch unreachable, .low, 9, false, .none),
+    mkEntry("BIL", "SPDR Bloomberg 1-3 Month T-Bill ETF", .cash, .etf, .us, .nyse, sectors(&[_][]const u8{}) catch unreachable, industries(&[_][]const u8{"sovereign_debt"}) catch unreachable, themes(&[_][]const u8{"cash_like"}) catch unreachable, .low, 14, false, .none),
     // --- Restricted leveraged/inverse ETFs ---
-    mkEntry("SOXL", "Direxion Daily Semiconductor Bull 3X ETF", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{"information_technology"}), industries(&[_][]const u8{"semiconductors"}), themes(&[_][]const u8{ "ai_infrastructure", "semiconductors" }), .high, 77, true, .leveraged_etf),
-    mkEntry("SOXS", "Direxion Daily Semiconductor Bear 3X ETF", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{"information_technology"}), industries(&[_][]const u8{"semiconductors"}), themes(&[_][]const u8{"semiconductors"}), .high, 92, true, .inverse_etf),
-    mkEntry("BULZ", "MicroSectors FANG 3X Bull Leveraged ETN", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{"information_technology"}), industries(&[_][]const u8{"robotics_and_ai"}), themes(&[_][]const u8{"ai_infrastructure"}), .high, 95, true, .leveraged_etf),
+    mkEntry("SOXL", "Direxion Daily Semiconductor Bull 3X ETF", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{"information_technology"}) catch unreachable, industries(&[_][]const u8{"semiconductors"}) catch unreachable, themes(&[_][]const u8{ "ai_infrastructure", "semiconductors" }) catch unreachable, .high, 77, true, .leveraged_etf),
+    mkEntry("SOXS", "Direxion Daily Semiconductor Bear 3X ETF", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{"information_technology"}) catch unreachable, industries(&[_][]const u8{"semiconductors"}) catch unreachable, themes(&[_][]const u8{"semiconductors"}) catch unreachable, .high, 92, true, .inverse_etf),
+    mkEntry("BULZ", "MicroSectors FANG 3X Bull Leveraged ETN", .equity, .etf, .us, .nyse, sectors(&[_][]const u8{"information_technology"}) catch unreachable, industries(&[_][]const u8{"robotics_and_ai"}) catch unreachable, themes(&[_][]const u8{"ai_infrastructure"}) catch unreachable, .high, 95, true, .leveraged_etf),
 };
 
 pub fn validateCatalog() CatalogValidationError!void {
@@ -347,7 +353,8 @@ test "catalog: all entries are NYSE or NASDAQ" {
 
 test "filterByTheme: ai_infrastructure scenario yields >= 4 eligible and >= 2 restricted" {
     var out: [catalog.len]*const InstrumentEntry = undefined;
-    const n = filterByTheme(thesis.CanonicalId.init("ai_infrastructure") catch unreachable, &out);
+    const theme_id = try thesis.CanonicalId.init("ai_infrastructure");
+    const n = filterByTheme(theme_id, &out);
     var eligible: usize = 0;
     var restricted: usize = 0;
     for (out[0..n]) |entry| {
@@ -359,13 +366,13 @@ test "filterByTheme: ai_infrastructure scenario yields >= 4 eligible and >= 2 re
 
 test "filterByTheme: every returned entry has the requested theme id" {
     const theme_ids = [_]CanonicalId{
-        thesis.CanonicalId.init("ai_infrastructure") catch unreachable,
-        thesis.CanonicalId.init("semiconductors") catch unreachable,
-        thesis.CanonicalId.init("cloud") catch unreachable,
-        thesis.CanonicalId.init("cyber_security") catch unreachable,
-        thesis.CanonicalId.init("broad_market") catch unreachable,
-        thesis.CanonicalId.init("dividends") catch unreachable,
-        thesis.CanonicalId.init("cash_like") catch unreachable,
+        try thesis.CanonicalId.init("ai_infrastructure"),
+        try thesis.CanonicalId.init("semiconductors"),
+        try thesis.CanonicalId.init("cloud"),
+        try thesis.CanonicalId.init("cyber_security"),
+        try thesis.CanonicalId.init("broad_market"),
+        try thesis.CanonicalId.init("dividends"),
+        try thesis.CanonicalId.init("cash_like"),
     };
     var out: [catalog.len]*const InstrumentEntry = undefined;
     for (theme_ids) |theme_id| {
@@ -378,33 +385,38 @@ test "filterByTheme: every returned entry has the requested theme id" {
 
 test "filterBySector: information technology returns tagged entries" {
     var out: [catalog.len]*const InstrumentEntry = undefined;
-    const n = filterBySector(sectorRef("information_technology"), &out);
+    const ref = try sectorRef("information_technology");
+    const n = filterBySector(ref, &out);
     try std.testing.expect(n > 0);
     for (out[0..n]) |entry| {
-        try std.testing.expect(entry.sectors.has(sectorRef("information_technology")));
+        try std.testing.expect(entry.sectors.has(ref));
     }
 }
 
 test "filterByIndustry: semiconductors returns tagged entries" {
     var out: [catalog.len]*const InstrumentEntry = undefined;
-    const n = filterByIndustry(industryRef("semiconductors"), &out);
+    const ref = try industryRef("semiconductors");
+    const n = filterByIndustry(ref, &out);
     try std.testing.expect(n > 0);
     for (out[0..n]) |entry| {
-        try std.testing.expect(entry.industries.has(industryRef("semiconductors")));
+        try std.testing.expect(entry.industries.has(ref));
     }
 }
 
 test "catalog: sector and industry refs preserve canonical taxonomy metadata" {
     const amzn = lookupByTicker("AMZN").?;
-    try std.testing.expect(amzn.sectors.has(sectorRef("consumer_discretionary")));
-    try std.testing.expect(amzn.sectors.has(sectorRef("information_technology")));
+    const cd_ref = try sectorRef("consumer_discretionary");
+    const it_ref = try sectorRef("information_technology");
+    try std.testing.expect(amzn.sectors.has(cd_ref));
+    try std.testing.expect(amzn.sectors.has(it_ref));
     for (amzn.sectors.values[0..amzn.sectors.count]) |sector| {
         try std.testing.expectEqualStrings("gics_sector", sector.taxonomy_id.slice());
         try std.testing.expectEqual(sector_taxonomy_version, sector.taxonomy_version);
     }
 
     const botz = lookupByTicker("BOTZ").?;
-    try std.testing.expect(botz.industries.has(industryRef("robotics_and_ai")));
+    const ra_ref = try industryRef("robotics_and_ai");
+    try std.testing.expect(botz.industries.has(ra_ref));
     for (botz.industries.values[0..botz.industries.count]) |industry| {
         try std.testing.expectEqualStrings("gics_industry", industry.taxonomy_id.slice());
         try std.testing.expectEqual(industry_taxonomy_version, industry.taxonomy_version);
@@ -462,9 +474,9 @@ test "lookupByTicker: NVDA returns correct entry" {
     try std.testing.expectEqual(InstrumentType.stock, entry.?.instrument_type);
     try std.testing.expectEqual(Market.us, entry.?.market);
     try std.testing.expectEqual(Venue.nasdaq, entry.?.venue);
-    try std.testing.expect(entry.?.themes.has(thesis.CanonicalId.init("ai_infrastructure") catch unreachable));
-    try std.testing.expect(entry.?.themes.has(thesis.CanonicalId.init("semiconductors") catch unreachable));
-    try std.testing.expect(entry.?.industries.has(industryRef("semiconductors")));
+    try std.testing.expect(entry.?.themes.has(try thesis.CanonicalId.init("ai_infrastructure")));
+    try std.testing.expect(entry.?.themes.has(try thesis.CanonicalId.init("semiconductors")));
+    try std.testing.expect(entry.?.industries.has(try industryRef("semiconductors")));
     try std.testing.expect(!entry.?.restricted);
     try std.testing.expectEqual(@as(u16, 0), entry.?.expense_ratio_bps);
 }
@@ -516,6 +528,6 @@ test "catalog: ticker slices match expected values for known entries" {
 
     const sgov = lookupByTicker("SGOV").?;
     try std.testing.expectEqual(AssetClass.cash, sgov.asset_class);
-    try std.testing.expect(sgov.themes.has(thesis.CanonicalId.init("cash_like") catch unreachable));
+    try std.testing.expect(sgov.themes.has(try thesis.CanonicalId.init("cash_like")));
     try std.testing.expect(!sgov.restricted);
 }

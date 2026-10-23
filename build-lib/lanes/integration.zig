@@ -86,7 +86,7 @@ pub fn strategy(
             "src/tickoni/test/integration/test_process_pipeline.zig",
             "src/tickoni/test/integration/test_process_shutdown_reap.zig",
             "src/tickoni/test/integration/test_process_cpu_placement.zig",
-            "src/tickoni/test/integration/test_process_demo_parity.zig",
+            "src/tickoni/test/integration/test_process_fixture_parity.zig",
             "src/tickoni/test/integration/test_link_bounds.zig",
         };
 
@@ -172,8 +172,8 @@ pub fn strategy(
                     .{ .name = "adapter", .module = int_mods.adapter_int_mod },
                     .{ .name = "audit_tile", .module = int_mods.shared_audit_tile },
                     .{ .name = "basket", .module = int_mods.shared_basket },
-                    .{ .name = "investment_demo", .module = int_mods.investment_demo_mod },
                     .{ .name = "investment_audit", .module = int_mods.investment_audit_int_mod },
+                    .{ .name = "investment_fixture", .module = int_mods.investment_fixture_mod },
                     .{ .name = "investment_support", .module = int_mods.investment_support_int_mod },
                     .{ .name = "model", .module = int_mods.model_int_mod },
                     .{ .name = "portfolio", .module = int_mods.shared_portfolio },
@@ -201,7 +201,7 @@ pub fn strategy(
                 .target = target,
                 .optimize = optimize,
                 .imports = &.{
-                    .{ .name = "investment_demo", .module = int_mods.investment_demo_mod },
+                    .{ .name = "investment_fixture", .module = int_mods.investment_fixture_mod },
                     .{ .name = "investment_support", .module = int_mods.investment_support_int_mod },
                 },
             }),
@@ -313,10 +313,50 @@ pub fn strategy(
         codec.linkTickoniCodec(b, restricted_instrument_test, fd_lib_dir);
         test_runs[test_run_count] = shims.addPlainTestRun(b, restricted_instrument_test);
         test_run_count += 1;
+
+        // 7. Investment fixture system suite (allowed, oversized-blocked, restricted).
+        // Absorbed from test/fixtures/investment/mod.zig::runSystemSuite().
+        const system_suite_test = b.addTest(.{
+            .root_module = b.createModule(.{
+                .root_source_file = b.path(
+                    "src/tickoni/test/integration/test_investment_fixture_system_suite.zig",
+                ),
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+                .imports = &.{
+                    .{ .name = "investment_fixture", .module = int_mods.investment_fixture_mod },
+                    .{ .name = "investment_support", .module = int_mods.investment_support_int_mod },
+                    .{ .name = "util", .module = int_mods.shared_util },
+                },
+            }),
+        });
+        system_suite_test.root_module.addCSourceFiles(.{
+            .files = &.{ "src/tickoni/c_abi/shim/os.c" },
+            .flags = shims.shimCFlagsFor(target.result),
+        });
+        // os.c uses FD_HAS_LINUX / FD_HAS_MACOS / FD_HAS_WINDOWS to select
+        // the platform block; add the platform define via addCMacro so it
+        // stays in sync with shimCFlagsFor if the function changes.
+        switch (target.result.os.tag) {
+            .linux    => system_suite_test.root_module.addCMacro("FD_HAS_LINUX",    "1"),
+            .macos    => system_suite_test.root_module.addCMacro("FD_HAS_MACOS",    "1"),
+            .windows  => system_suite_test.root_module.addCMacro("FD_HAS_WINDOWS",  "1"),
+            else      => {},
+        }
+        if (target.result.os.tag == .windows) {
+            system_suite_test.root_module.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
+        }
+        codec.linkTickoniCodec(b, system_suite_test, fd_lib_dir);
+        test_runs[test_run_count] = shims.addPlainTestRun(b, system_suite_test);
+        test_run_count += 1;
     }
 
     // Chain sequential execution only for the populated entries.
     for (test_runs[0..test_run_count], 0..) |run, idx| {
+        // Inherit stdout/stderr to parent so pipe buffers never fill up
+        // across the 15-test integration chain.
+        run.stdio = .inherit;
         if (idx > 0) run.step.dependOn(&test_runs[idx - 1].step);
         integration_step.dependOn(&run.step);
     }
