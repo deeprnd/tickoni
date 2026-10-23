@@ -111,7 +111,7 @@ tk_fctl_rx_cr_return( ulong * rx_seq_laddr,
   fd_fctl_rx_cr_return( rx_seq_laddr, rx_seq );
 }
 
-static FD_TL fd_rng_t   tk_tempo_rng_mem[1];
+static FD_TL fd_rng_t   tk_tempo_rng_mem[1] __attribute__((aligned(FD_RNG_ALIGN)));
 static FD_TL fd_rng_t * tk_tempo_rng = NULL;
 
 static fd_rng_t *
