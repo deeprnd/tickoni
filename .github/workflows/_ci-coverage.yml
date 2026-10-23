@@ -44,7 +44,7 @@ jobs:
             --config contrib/test/coverage-tk.json
 
       - name: Upload coverage summary
-        uses: actions/upload-artifact@v8
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-summary
           path: build/coverage/tk/coverage-summary.json
