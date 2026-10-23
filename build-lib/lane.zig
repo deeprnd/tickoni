@@ -1,6 +1,9 @@
 /// Common lane helpers and data-driven test registration types.
 ///
-/// TestSpec, TestLinkage, TestAction, TestBuilder: data-driven test registration.
+/// TestSpec, TestLinkage, TestAction, TestBuilder: spec-driven registration.
+/// TestBuilder.registerRunTest returns a compile step for later sequential
+/// execution via shims.addPlainTestRunSeries; registerCov installs coverage
+/// artifacts; registerSystemTest wires system-test lanes.
 
 const std = @import("std");
 const shims = @import("lib/shims.zig");
