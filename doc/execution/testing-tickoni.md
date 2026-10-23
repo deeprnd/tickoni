@@ -9,7 +9,7 @@ Tickoni repository.
   <!-- badge:build:end -->
 
   <!-- badge:quality:start -->
-  <img alt="Quality" src="https://img.shields.io/badge/quality-failing-red?style=flat-square" />
+  <img alt="Quality" src="https://img.shields.io/badge/quality-unknown-lightgrey?style=flat-square" />
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
@@ -162,7 +162,7 @@ same aggregate commands developers use locally.
 ## CLI Unit and Integration Tests
 
 The CLI test layer replaces the former "demo conformance suite". It tests the
-`tickoni` binary directly (via `test-unit-cli`) and its integration behaviour
+`tickoni` binary directly (via `test-unit-cli`) and its integration behavior
 (via `test-integration-cli`) without requiring llama.cpp, live tiles, or any
 external tooling.
 
