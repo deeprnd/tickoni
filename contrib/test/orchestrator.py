@@ -11,6 +11,7 @@ Usage:
 """
 import argparse
 import os
+import subprocess
 import sys
 
 
@@ -48,8 +49,41 @@ class Orchestrator:
 
     def zig_test(self, target):
         """Run `zig build <target>` with tests enabled."""
-        from infra.zig_build import run_zig_build
-        return run_zig_build(target=target, run_tests=True)
+        repo_root = os.path.normpath(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."),
+        )
+
+        fd_lib_dir_abs = os.path.join(repo_root, "build/fd-tickoni-fd/lib")
+        if not os.path.isdir(fd_lib_dir_abs):
+            print(
+                f"ERROR: fd-lib-dir {fd_lib_dir_abs} not found",
+                file=sys.stderr,
+            )
+            print(
+                "Run 'just build-fd' before system tests.",
+                file=sys.stderr,
+            )
+            return 1
+
+        env = os.environ.copy()
+        env.setdefault(
+            "ZIG_LOCAL_CACHE_DIR",
+            os.path.join(repo_root, "build", ".zig-cache"),
+        )
+        env.setdefault(
+            "ZIG_GLOBAL_CACHE_DIR",
+            os.path.join(repo_root, "build", ".zig-global-cache"),
+        )
+
+        cmd = [
+            "zig", "build",
+            "-Dtest=true",
+            f"-Dfd-lib-dir={fd_lib_dir_abs}",
+            target,
+            "--summary", "all",
+        ]
+        print(f"running: {' '.join(cmd)}")
+        return subprocess.run(cmd, env=env).returncode
 
     def system_test(self):
         """Run the full system-test lifecycle: start server, run tests, stop server."""
