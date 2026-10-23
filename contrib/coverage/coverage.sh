@@ -47,7 +47,7 @@ elif [ "$JOB" = "coverage-tk" ]; then
     COV_BINS="${COV_PREFIX}/cov"
     COV_RAW="build/coverage/tk/kcov"
     SUMMARY="build/coverage/tk/coverage-summary.json"
-    CONFIG="contrib/test/coverage-tk.json"
+    CONFIG="contrib/coverage/coverage-tk.json"
     COV_CACHE="build/coverage/tk/zig-cache"
     COV_GLOBAL_CACHE="build/coverage/tk/zig-global-cache"
 
