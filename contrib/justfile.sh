@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Resolve values that justfile backtick variables need with cross-platform
-# normalisation (forward slashes, GNU make detection, etc.).
+# normalization (forward slashes, GNU make detection, etc.).
 #
 # Usage (standalone):
 #   contrib/justfile.sh           → full repo path (forward slashes)

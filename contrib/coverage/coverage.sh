@@ -53,7 +53,7 @@ elif [ "$JOB" = "coverage-tk" ]; then
 
     # ReleaseSafe triggers DWARFv4 output (via LLVM backend), which kcov handles
     # correctly across multiple CUs. Debug mode emits DWARFv5 with per-CU
-    # rnglists_base; kcov v44 only honours the first CU's base, silently dropping
+    # rnglists_base; kcov v44 only honors the first CU's base, silently dropping
     # all subsequent user-code CUs from the coverage report.
     # Coverage builds must not reuse the repository Zig caches. An interrupted
     # build can leave cache metadata referring to object files that no longer
