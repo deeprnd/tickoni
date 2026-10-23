@@ -73,6 +73,8 @@ pub fn nextMetricPort() u16 {
 var _ws_name_counter: u32 = 0;
 
 pub fn nextWorkspaceName(buf: []u8) []const u8 {
+    // Max output "topo_4294967295" = 15 chars; caller must provide ≥16 bytes.
+    std.debug.assert(buf.len >= 16);
     if (_ws_name_counter == 0) {
         _ws_name_counter = @as(u32, @intCast(c_abi.sandbox.getpid())) & 0xFFFF;
     }
