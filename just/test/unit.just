@@ -69,7 +69,7 @@ test-unit-fd-linux-x86-gcc-run:
     #!/usr/bin/env bash
     set -euo pipefail
     timeout=600
-    eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
+    eval "$({{ python }} contrib/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
     echo "Running unit tests with: $TEST_OPTS"
     contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt $(TEST_OPTS)
 
@@ -77,7 +77,7 @@ test-unit-fd-linux-x86-clang-run:
     #!/usr/bin/env bash
     set -euo pipefail
     timeout=600
-    eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
+    eval "$({{ python }} contrib/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
     echo "Running unit tests with: $TEST_OPTS"
     contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt $(TEST_OPTS)
 
@@ -85,7 +85,7 @@ test-unit-fd-linux-arm-gcc-run:
     #!/usr/bin/env bash
     set -euo pipefail
     timeout=600
-    eval "$({{ python }} contrib/test/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
+    eval "$({{ python }} contrib/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
     echo "Running unit tests with: $TEST_OPTS"
     contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt $(TEST_OPTS)
 
