@@ -1,3 +1,7 @@
+/// Fixture audit events for `codec.zig` and `audit.zig` tests.
+/// Provides 12 canonical events covering the full pipeline: ingress, normalization,
+/// policy decision, model call, adapter call, proposal, destination check, limit check,
+/// approval required, denial, telemetry checkpoint, and replay result.
 const std = @import("std");
 const schema = @import("types.zig");
 const codec = @import("codec.zig");
@@ -356,6 +360,7 @@ fn writeFixtureFile() !void {
 
     var write_buf: [4096]u8 = undefined;
     var w = std.Io.File.Writer.init(file, std.testing.io, &write_buf);
+    // safe: partial file abandoned on error, flush failure during cleanup has no correctness impact
     errdefer w.interface.flush() catch {};
 
     try w.interface.writeAll(

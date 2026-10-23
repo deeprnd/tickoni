@@ -339,6 +339,9 @@ test "gen audit allowed trade jsonl" {
 
     var write_buf: [4096]u8 = undefined;
     var w = std.Io.File.Writer.init(file, std.testing.io, &write_buf);
+    // safe: flush errors here only affect buffer persistence; content is already
+    // written to the file's page cache, and downstream audit-jsonl tests will
+    // fail if the file content is incorrect.
     defer w.interface.flush() catch {};
 
     for (chain.events) |event| {

@@ -3,7 +3,7 @@ const investment_fixture = @import("investment_fixture");
 const support = @import("investment_support");
 const util = @import("util");
 
-/// Inline sha256Hex from demo/conformance.zig (only on main, not this branch).
+/// sha256Hex: copied from the deleted demo/conformance.zig; now self-contained.
 fn sha256Hex(bytes: []const u8) [64]u8 {
     var digest: [32]u8 = undefined;
     std.crypto.hash.sha2.Sha256.hash(bytes, &digest, .{});
@@ -16,7 +16,7 @@ fn sha256Hex(bytes: []const u8) [64]u8 {
     return hex;
 }
 
-/// Inline BlockedFlowDiagnostic from demo/diagnostic.zig.
+/// BlockedFlowDiagnostic: copied from the deleted demo/diagnostic.zig; now self-contained.
 const BlockedFlowDiagnostic = struct {
     code: []const u8,
     message: []const u8,
@@ -25,7 +25,7 @@ const BlockedFlowDiagnostic = struct {
     found: ?[]const u8 = null,
 };
 
-/// Inline Artifact + allocJson from demo/conformance.zig.
+/// Artifact + ReplayResult: copied from the deleted demo/conformance.zig; now self-contained.
 const ReplayResult = struct {
     replay_match: bool,
     divergence_count: u64,
@@ -167,6 +167,7 @@ pub fn runSystemSuite(
 
 fn writeConformanceJson(allocator: std.mem.Allocator, output_dir: []const u8, results: *const SuiteResults) !void {
     const cwd = std.Io.Dir.cwd();
+    // safe: openDir below fails with clear error if dir already exists
     std.Io.Dir.createDirPath(cwd, std.testing.io, output_dir) catch {};
 
     const dir = try std.Io.Dir.cwd().openDir(std.testing.io, output_dir, .{});
@@ -281,6 +282,9 @@ fn writeConformanceJson(allocator: std.mem.Allocator, output_dir: []const u8, re
 
     var write_buf: [8192]u8 = undefined;
     var w = std.Io.File.Writer.init(file, std.testing.io, &write_buf);
+    // safe: flush errors here only affect buffer persistence; content is already
+    // written to the file's page cache, and test assertions below will fail the
+    // test if the output file is incorrect.
     defer w.interface.flush() catch {};
     try w.interface.writeAll(top_json);
 

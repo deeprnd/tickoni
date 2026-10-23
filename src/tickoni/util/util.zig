@@ -150,6 +150,8 @@ pub const TmpDir = struct {
         // Guard: keep temp dirs (and their log files) when TK_KEEP_LOGS=1
         const keep = c.getenv("TK_KEEP_LOGS");
         if (keep == null or std.mem.sliceTo(keep.?, 0)[0] != '1') {
+            // safe: cleanup only; primary operation completed, caller's path
+            // already handles any failure via its own error path.
             self.parent_dir.deleteTree(io, self.sub_path[0..12]) catch {};
         }
         self.parent_dir.close(io);
