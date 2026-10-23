@@ -6,8 +6,8 @@
 /// Run harness unit tests (separate from 'make run-unit-test'):
 ///   zig build test
 ///
-/// Install Zig test binaries for kcov coverage (used by just test-cov-tk):
-///   zig build cov
+/// Install Zig test binaries for kcov coverage and sanitizer checks (used by just compile-tk):
+///   zig build compile-tk
 ///
 /// The existing GNUmakefile (C/Firedancer build) is unchanged.
 
@@ -78,6 +78,6 @@ pub fn build(b: *std.Build) void {
     }
 
     // Coverage lane (always available)
-    const cov_step = b.step("test-cov-tk", "Install Zig test binaries to zig-out/cov/ for kcov coverage");
+    const cov_step = b.step("compile-tk", "Install Zig test binaries for kcov coverage and sanitizer checks");
     test_lanes.registerCovLane(b, cov_step, shared, tm, target, optimize, fd_lib_dir);
 }
