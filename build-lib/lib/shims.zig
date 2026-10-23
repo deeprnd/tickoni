@@ -89,17 +89,18 @@ pub fn shimCFlagsFor(target: std.Target) []const []const u8 {
     };
 }
 
-/// Run a single compiled test binary via addRunArtifact.
+/// Run a single compiled test binary directly, without Zig's test server
+/// protocol mode.
 pub fn addPlainTestRun(
     b: *std.Build,
     test_compile: *std.Build.Step.Compile,
 ) *std.Build.Step.Run {
-    return b.addRunArtifact(test_compile);
+    return b.addRunFile(test_compile.getEmittedBin());
 }
 
-/// Run multiple compiled test binaries sequentially via addRunArtifact.
-/// Chains each artifact so they run one after another, avoiding Zig
-/// 0.17's --listen=- protocol-mode which blocks on stdin with 48+ tests.
+/// Run multiple compiled test binaries sequentially without Zig's
+/// 0.17 --listen=- protocol mode. `addRunArtifact` enables that mode for
+/// test artifacts, while `addRunFile` executes the emitted binaries directly.
 /// Output is inherited (not captured) to avoid pipe buffer overflow when
 /// 48+ test binaries chain their stdout/stderr — the buffer fills and
 /// blocks the writer before the reader can drain it.
@@ -112,7 +113,7 @@ pub fn addPlainTestRunSeries(
     var runs: [64]*std.Build.Step.Run = undefined;
     var i: usize = 0;
     while (i < test_compiles.len) : (i += 1) {
-        runs[i] = b.addRunArtifact(test_compiles[i]);
+        runs[i] = b.addRunFile(test_compiles[i].getEmittedBin());
         // Inherit stdout/stderr to parent so pipe buffers never fill up
         // across the 48-test chain.
         runs[i].stdio = .inherit;
