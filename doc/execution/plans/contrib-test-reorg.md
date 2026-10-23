@@ -32,7 +32,7 @@ From `contrib/test/`:
 
 ### Orchestration
 
-- `contrib/test/orchestrator.py` — CLI facade for llama.cpp server + Zig test lifecycle
+- `contrib/test/orchestrator.py` — CLI facade for llama.cpp server + Zig test lifecycle (system-test infrastructure)
 
 ### Shell scripts
 
@@ -53,24 +53,25 @@ From `contrib/test/`:
 
 ### Config
 
-- `contrib/test/pyproject.toml`, `contrib/test/conftest.py`
+- `contrib/test/pyproject.toml` — pytest config for build tests; moved to `contrib/build/pyproject.toml`
+- `contrib/test/conftest.py` — shared test fixtures
 
 ## Target Structure
 
 ```
 contrib/
 ├── build/
-│   ├── orchestrator.py                  ← from contrib/test/orchestrator.py
+│   ├── pyproject.toml                   ← pytest config (from contrib/test/pyproject.toml)
+│   ├── conftest.py                      ← shared build-test fixtures (from contrib/test/conftest.py)
 │   ├── tests/                           ← NEW
 │   │   ├── test_build_orchestrator.py
 │   │   ├── test_zig_build_configuration.py
 │   │   ├── test_build_resolve_make.py
 │   │   ├── test_dispatch_map.py
 │   │   ├── test_run_test_series.py
-│   │   ├── conftest.py                  ← shared build-test fixtures
-│   │   └── pyproject.toml               ← from contrib/test/pyproject.toml
-│   └── strategies/
+│   │   └── strategies/
 ├── setup/
+│   ├── pyproject.toml                   ← pre-existing, setup tests inherit pytest from here
 │   ├── tests/                           ← NEW
 │   │   ├── test_setup_zig.py
 │   │   ├── test_setup_shell.py
@@ -88,6 +89,7 @@ contrib/
 │   ├── dynamic_test_opts.py             ← from contrib/test/infra/
 │   └── llama_server.py                  ← from contrib/test/infra/
 ├── test/                                ← KEEP (thin)
+│   ├── orchestrator.py                  ← system-test orchestrator (stays)
 │   ├── run_unit_tests.sh                ← FD unit-test launcher
 │   ├── run_live_investment_demo.sh      ← Linux system test
 │   ├── run_live_investment_demo_win.sh  ← Windows system test
@@ -133,13 +135,7 @@ touch contrib/infra/__init__.py
 rm -rf contrib/test/infra/
 ```
 
-### Step 3 — Move orchestration
-
-```bash
-mv contrib/test/orchestrator.py contrib/build/
-```
-
-### Step 4 — Move pytest files to sibling `tests/` directories
+### Step 3 — Move pytest files to sibling `tests/` directories
 
 **Build tests** → `contrib/build/tests/`:
 ```bash
@@ -148,8 +144,9 @@ mv contrib/test/test_zig_build_configuration.py contrib/build/tests/
 mv contrib/test/test_build_resolve_make.py contrib/build/tests/
 mv contrib/test/test_dispatch_map.py contrib/build/tests/
 mv contrib/test/test_run_test_series.py contrib/build/tests/
-mv contrib/test/conftest.py contrib/build/tests/
-mv contrib/test/pyproject.toml contrib/build/tests/
+# pyproject.toml and conftest.py stay at contrib/build/ root (pytest discovers them from tests/)
+mv contrib/test/pyproject.toml contrib/build/
+mv contrib/test/conftest.py contrib/build/
 ```
 
 **Setup tests** → `contrib/setup/tests/`:
@@ -178,7 +175,7 @@ mv contrib/test/test_windows_system_script_paths.py contrib/tool/tests/
 mv contrib/test/test_windows_uuid_link.py contrib/tool/tests/
 ```
 
-### Step 5 — Move coverage files
+### Step 4 — Move coverage files
 
 ```bash
 mv contrib/test/coverage-fd.json contrib/coverage/
@@ -186,16 +183,17 @@ mv contrib/test/coverage-tk.json contrib/coverage/
 mv contrib/test/coverage.sh contrib/coverage/
 ```
 
-### Step 6 — Move artifact conformance scripts
+### Step 5 — Move artifact conformance scripts
 
 ```bash
 mv contrib/test/compare_build_artifact_conformance.py contrib/tool/readme/
 mv contrib/test/export_build_artifact_conformance.py contrib/tool/readme/
 ```
 
-### Step 7 — Clean up `contrib/test/`
+### Step 6 — Clean up `contrib/test/`
 
 After all moves, `contrib/test/` should only contain:
+- `orchestrator.py` (system-test orchestrator — stays)
 - `run_unit_tests.sh` (FD unit-test launcher — stays)
 - `run_live_investment_demo.sh` (system test — stays)
 - `run_live_investment_demo_win.sh` (system test — stays)
@@ -208,13 +206,13 @@ rm -rf contrib/test/__pycache__/
 rm -rf contrib/test/.pytest_cache/
 ```
 
-### Step 8 — Rename CI recipe
+### Step 7 — Rename CI recipe
 
 In `just/setup/test.just`, rename `test-unit-pytest` to `test-build-pytest`.
 
-### Step 9 — Update all path references (see table below)
+### Step 8 — Update all path references (see table below)
 
-### Step 10 — Verify
+### Step 9 — Verify
 
 1. Run `just test-build-pytest` — all test files pass
 2. Run `just test-unit-tk` and `just test-unit-fd-linux-x86-gcc` — still work
@@ -252,9 +250,10 @@ In `just/setup/test.just`, rename `test-unit-pytest` to `test-build-pytest`.
 | 74, 82, 90 | `contrib/test/run_unit_tests.sh` | **unchanged** (launcher stays in contrib/test/) |
 
 **`just/test/system.just`**
+
 | Line | Old | New |
 |------|-----|-----|
-| 5, 8, 14 | `contrib/test/orchestrator.py` | `contrib/build/orchestrator.py` |
+| 5, 8, 14 | `contrib/test/orchestrator.py` | **unchanged** (stays in contrib/test/) |
 
 **`just/build/artifacts.just`**
 | Line | Old | New |
@@ -276,13 +275,13 @@ In `just/setup/test.just`, rename `test-unit-pytest` to `test-build-pytest`.
 | ~line 91 | `contrib/test/compare_demo_conformance.py` → `contrib/tool/readme/compare_demo_conformance.py` |
 | ~line 196 | `contrib/test/export_demo_conformance_bundle.py` → `contrib/tool/readme/export_demo_conformance_bundle.py` |
 | ~line 394 | `contrib/test/run_unit_tests.sh` → **unchanged** (launcher) |
-| ~line 502 | `contrib/test/orchestrator.py` → `contrib/build/orchestrator.py` |
-| ~line 507-512 | `contrib/test/orchestrator.py` → `contrib/build/orchestrator.py` |
+| ~line 502 | `contrib/test/orchestrator.py` | **unchanged** (stays in contrib/test/) |
+| ~line 507-512 | `contrib/test/orchestrator.py` | **unchanged** (stays in contrib/test/) |
 
 **`doc/execution/ci.md`**
 | Line | Old | New |
 |------|-----|-----|
-| ~404 | `contrib/test/orchestrator.py` | `contrib/build/orchestrator.py` |
+| ~404 | `contrib/test/orchestrator.py` | **unchanged** (stays in contrib/test/) |
 
 **`doc/execution/plans/tests-all-template.md`**
 | Line | Old | New |
@@ -309,9 +308,10 @@ In `just/setup/test.just`, rename `test-unit-pytest` to `test-build-pytest`.
 
 ## What NOT to move
 
+- `contrib/test/orchestrator.py` — system-test CLI orchestrator, called from `just/test/system.just`
 - `contrib/test/run_unit_tests.sh` — FD unit-test launcher, called from `just/test/unit.just`, `config/everything.mk`, and CI
 - `contrib/test/run_live_investment_demo.sh` and variants — system test runners
 - `contrib/test/run_system_model_tests.sh` — model test runner
 - `contrib/test/run_cli_demo_tests.sh` — CLI demo tests
 
-These are all shell-based test runners, not pytest files. They belong in `contrib/test/` because they're test infrastructure scripts, not application tests.
+These are all test infrastructure in `contrib/test/`: the orchestrator is a Python CLI entrypoint, the rest are shell scripts. They stay because they're test runners, not application tests.

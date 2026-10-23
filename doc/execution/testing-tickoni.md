@@ -27,7 +27,7 @@ Tickoni repository.
   <!-- badge:integration:end -->
 
   <!-- badge:system:start -->
-  <img alt="System Tests" src="https://img.shields.io/badge/system%20tests-passing-brightgreen?style=flat-square" />
+  <img alt="System Tests" src="https://img.shields.io/badge/system%20tests-failing-red?style=flat-square" />
   <!-- badge:system:end -->
 
   <!-- badge:e2e:start -->
@@ -88,7 +88,7 @@ The repository currently has:
 - Firedancer-derived C unit tests through the upstream unit-test Make target
 - Firedancer-derived e2e/integration-test build and run target
 - Cross-platform conformance comparison via
-  `contrib/test/compare_demo_conformance.py` (ignores platform-specific fields)
+  `contrib/tool/readme/compare_build_artifact_conformance.py` (ignores platform-specific fields)
 - Aggregate gates that compose build, quality, security, and test checks
 
 ## Test Commands
@@ -193,7 +193,7 @@ x86/ARM) and is part of every `tests-all` run.
 The output is written to
 `build/cli-conformance/<platform>/conformance.json` and
 `build/cli-conformance/<platform>/comparison.json` (via
-`contrib/test/export_demo_conformance_bundle.py`).
+`contrib/tool/readme/export_build_artifact_conformance.py`).
 
 Fields that vary by platform and are ignored during cross-platform comparison:
 - `runtime_tier`, `isolation_tier` (top-level per-artifact)
@@ -206,7 +206,7 @@ Fields compared across platforms:
 
 ### Cross-platform comparison
 
-`contrib/test/compare_demo_conformance.py` accepts 2+ conformance JSON files and
+`contrib/tool/readme/compare_build_artifact_conformance.py` accepts 2+ conformance JSON files and
 does pairwise comparison. Platform-specific fields are normalized out so bundles
 from different OS/arch pairs can be compared cleanly. This is how CI validates
 that Windows x86, Windows ARM, macOS x86/ARM, and Linux produce matching
@@ -227,7 +227,7 @@ commands from the repository root unless noted otherwise.
 - Firedancer coverage-sensitive change: `just test-cov-fd`
 - **Demo manifest, demo module, CLI version/doctor contract, conformance output
   format, or cross-platform conformance comparison change**: `just test-cli-tk`
-  (also run `contrib/test/compare_demo_conformance.py` manually to verify
+  (also run `contrib/tool/readme/compare_build_artifact_conformance.py` manually to verify
   cross-platform coherence)
 - Cross-boundary Tickoni/Firedancer unit-impacting change: `just test-unit-all`
 - Qt terminal C++ or QML change: `just test-qt`
@@ -548,8 +548,8 @@ To re-run and capture local artifacts:
 
 ```bash
 just test-cli-tk                          # build + run full demo conformance
-python3 contrib/test/export_demo_conformance_bundle.py . build/cli-conformance/local-sample
-python3 contrib/test/compare_demo_conformance.py build/cli-conformance/linux/conformance.json build/cli-conformance/local-sample/conformance.json
+python3 contrib/tool/readme/export_build_artifact_conformance.py . build/cli-conformance/local-sample
+python3 contrib/tool/readme/compare_build_artifact_conformance.py build/cli-conformance/linux/conformance.json build/cli-conformance/local-sample/conformance.json
 ```
 
 ## Quality And Security Gates
