@@ -253,6 +253,7 @@ agent-harness implementation work.
 
 Security check entrypoints:
 
+- `just security-engine-check-all`
 - `just security-gitleaks-check-fd`
 - `just security-gitleaks-check-tk`
 - `just security-gitleaks-check-all`
@@ -267,16 +268,18 @@ Security check entrypoints:
 - `just security-proof-check-all`
 - `just security-sanitize-check-fd`
 - `just security-sanitize-check-tk`
+- `just security-sanitize-check-qt`
 - `just security-sanitize-check-all`
 - `just security-check-all`
 
 `security-check-all` currently runs the all-variants in this order:
 
-1. `security-codeql-check-all`
-2. `security-gitleaks-check-all`
-3. `security-seccomp-check-all`
-4. `security-proof-check-all`
-5. `security-sanitize-check-all`
+1. `security-engine-check-all`
+2. `security-codeql-check-all`
+3. `security-gitleaks-check-all`
+4. `security-seccomp-check-all`
+5. `security-proof-check-all`
+6. `security-sanitize-check-all`
 
 The aggregate command is badge-wrapped through
 `contrib/tool/readme/run-badged-command.py` so README security status is updated by
@@ -298,23 +301,38 @@ CodeQL:
 - the real implementation remains in `contrib/security/security.sh codeql-check-fd`
   for when that path is re-enabled
 
+Engine:
+
+- `security-engine-check-all` runs `security-engine-check-tk` which executes
+  `engine_check_changes.py` and `linter.py` against
+  `contrib/quality/engine/checks`
+- Tickoni engine check runs on linux-x86; other platforms fall through to the
+  linux-x86 recipe
+
 Seccomp:
 
-- `security-seccomp-check-fd` is currently a no-op in the `justfile`
-- the real script command is `contrib/security/security.sh seccomp-check-fd`
-- Tickoni-owned Zig code has no active seccomp policy checker yet
+- `security-seccomp-check-fd` runs
+  `bash contrib/security/security.sh seccomp-check-fd`
+- `security-seccomp-check-tk` is currently a no-op (`@true`) because there is
+  no Tickoni-owned Zig seccomp policy checker yet
 
 Proof:
 
-- `security-proof-check-fd` runs `./contrib/build/make-j proof`
-- `security-proof-check-tk` is currently a no-op because there is no Zig proof
-  harness yet
+- `security-proof-check-fd` runs `bash contrib/security/security.sh proof-check-fd`
+- `security-proof-check-tk` is currently a no-op (`@true`) because there is no
+  Zig proof harness yet
 
 Sanitizers:
 
-- `security-sanitize-check-fd` builds and checks the Firedancer-derived
-  `tickoni` target with Clang ASan + UBSan in `build/clang-asan-ubsan`
-- `security-sanitize-check-tk` runs `zig build test -Doptimize=ReleaseSafe`
+- `security-sanitize-check-fd` builds the Firedancer C libraries that Tickoni's
+  Zig code depends on, then builds and tests the Firedancer-derived code with
+  Clang ASan + UBSan (invoked via `contrib/build/orchestrator.py`)
+- `security-sanitize-check-tk` builds the Firedancer C libraries, then runs
+  `zig build -Dtest=true compile-tk -Doptimize=ReleaseSafe` to exercise Zig
+  built-in safety checks (bounds, overflow, alignment) on Tickoni-owned Zig code
+- `security-sanitize-check-qt` builds the Qt terminal with Clang ASan + UBSan
+  via CMake
+- `security-sanitize-check-all` runs all three
 
 ## Local Expectations
 

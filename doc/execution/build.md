@@ -1,5 +1,4 @@
-Build
-=====
+# Build
 
 This page describes the Tickoni-owned build entry points, with emphasis on the
 Zig build for Tickoni-owned components.
@@ -16,8 +15,7 @@ wrapper:
 - qualified `just build-tk-*` and `just test-unit-tk-*` recipes for Tickoni's
   Zig supervisor and harness unit tests; Zig is an implementation detail
 
-Quick start
------------
+## Quick start
 
 Before building, install platform-specific tooling:
 
@@ -27,8 +25,7 @@ just setup-all
 
 This installs Zig, the system compiler, make, gitleaks, shellcheck, pre-commit, buf, Firedancer deps, and everything else a lane needs. See [contrib/setup/](../../contrib/setup/README.md) for lane details.
 
-Setup
-~~~~~
+## Setup
 
 Platform-specific tooling is installed by `just setup-all`, which
 auto-detects your platform and runs the appropriate script. Each lane has its
@@ -95,8 +92,7 @@ just build-all
 For the Firedancer-side Make targets and their build model, see
 [Build System](../build-system.md).
 
-Build process
--------------
+## Build process
 
 The Zig side is much smaller than the Firedancer Make build described in
 [Build System](../build-system.md).
@@ -104,69 +100,88 @@ The Zig side is much smaller than the Firedancer Make build described in
 The figure below describes the current Tickoni Zig build graph.
 
 ```
-┌───────────────────────┐
-│ src/tickoni/runtime/* │
-└───────────┬───────────┘
-            │ addModule("runtime")
-            │
-┌─────────────────────┐ │
-│ src/tickoni/tiles/* │ │
-└───────────┬─────────┘ │
-            │ addModule("tiles")
-            │
-            └───────────────┬─────────────────────────────┐
-                            │                             │
-                            │ imports                     │ imports
-                            │                             │
-                  ┌─────────▼──────────┐        ┌────────▼─────────┐
-                  │ src/app/tickoni/   │        │ src/app/tickoni/ │
-                  │ main.zig           │        │ supervisor.zig   │
-                  └─────────┬──────────┘        └────────┬─────────┘
-                            │ addExecutable               │ addTest
-                            │                             │
-                    ┌───────▼────────┐          ┌────────▼─────────┐
-                    │ tickoni-       │          │ supervisor test  │
-                    │ supervisor     │          │ binary           │
-                    └───────┬────────┘          └──────────────────┘
-                            │
-                            │ install / run
-                            │
-                    ┌───────▼────────┐
-                    │ zig-out/bin/   │
-                    │ tickoni-       │
-                    │ supervisor     │
-                    └────────────────┘
+┌─────────────────────────────┐
+│ src/tickoni/runtime/mod.zig │
+└───────────────┬─────────────┘
+                │ addModule("runtime")
+                │
+┌──────────────────────────────────────┐
+│ src/tickoni/tiles/payment_pipeline/  │
+│ mod.zig                              │
+└───────────────┬──────────────────────┘
+                │ addModule("tiles")
+                │
+                └───────────────┬───────────────────────────────────┐
+                                │                                   │
+                                │ imports                           │ imports
+                                │                                   │
+                  ┌─────────────▼─────────────┐     ┌───────────────▼────────────┐
+                  │ src/app/tickoni/          │     │ src/app/tickoni_cli/       │
+                  │ main.zig                  │     │ main.zig                   │
+                  │ (supervisor executable)   │     │ (CLI executable)           │
+                  └─────────────┬─────────────┘     └───────────────┬────────────┘
+                                │ addExecutable                     │ addExecutable
+                                │                                   │
+                  ┌─────────────▼─────────────┐     ┌───────────────▼────────────┐
+                  │ zig-out/bin/tickoni-      │     │ zig-out/bin/tickoni        │
+                  │ supervisor                │     │                            │
+                  └─────────────┬─────────────┘     └───────────────┬────────────┘
+                                │                                   │
+                                │ install / run                     │ install / run
+                                │                                   │
+                                │ zig build run -- start/process    │ zig build run-cli -- help
+                                │                                   │
+                  ┌─────────────▼─────────────┐     ┌───────────────▼────────────┐
+                  │ zig build test            │     │ zig build test             │
+                  │ (unit + integration +     │     │ (CLI unit + integration)   │
+                  │  system lanes)            │     │                            │
+                  └───────────────────────────┘     └────────────────────────────┘
 
 Standalone Zig test roots:
   - src/tickoni/runtime/topology.zig
   - src/tickoni/runtime/tile.zig
   - src/tickoni/c_abi/queue.zig
   - src/tickoni/c_abi/sandbox.zig
-  - src/tickoni/tiles/payment_pipeline.zig
+  - src/tickoni/tiles/payment_pipeline/mod.zig
 ```
 
-Structure
----------
+## Structure
 
 The current build graph in [build.zig](../../build.zig) has three main parts:
 
 1. Shared modules:
-   - `runtime` from `src/tickoni/runtime/runtime.zig`
-   - `tiles` from `src/tickoni/tiles/payment_pipeline.zig`
-2. Supervisor executable:
-   - `src/app/tickoni/main.zig`
-   - output binary: `tickoni-supervisor`
+   - `runtime` from `src/tickoni/runtime/mod.zig`
+   - `tiles` from `src/tickoni/tiles/payment_pipeline/mod.zig`
+   - plus `c_abi`, `util`, `logger`, `topologies`, `audit_*`, `tier`, `version`,
+     `classification`, `capability`, `thesis`, `catalog_*`, `basket`, `portfolio`,
+     `tile_registry` (see [modules.zig](../../build-lib/mod/modules.zig) for the
+     full list)
+2. Executables:
+   - **Supervisor**: `src/app/tickoni/main.zig` → output binary:
+     `zig-out/bin/tickoni-supervisor`
+   - **CLI**: `src/app/tickoni_cli/main.zig` → output binary:
+     `zig-out/bin/tickoni`
 3. Zig tests:
    - standalone test roots under `src/tickoni/...`
-   - one extra test binary for `src/app/tickoni/supervisor.zig`
+   - unit, integration, and system lanes wired via
+     [build_test_lanes.zig](../../build-lib/build_test_lanes.zig)
+   - CLI unit + integration via [lanes/cli.zig](../../build-lib/lanes/cli.zig)
+   - coverage lane (always available) via [lanes/cov.zig](../../build-lib/lanes/cov.zig)
 
-The executable currently exposes:
+Supervisor executable commands:
 
-- `zig build run -- start`
-- `zig build run -- status`
+- `zig build run -- start` — start process-mode pipeline
+- `zig build run -- start-process <run-dir>` — start pipeline in a run directory
+- `zig build run -- status` — print topology tile names
+- `zig build run -- doctor` — run doctor health checks
 
-Scope
------
+CLI executable commands:
+
+- `tickoni --help` — show usage
+- `tickoni version` — show version info
+- `tickoni doctor` — run health checks (via `src/app/tickoni_cli/main.zig`)
+
+## Scope
 
 This Zig build is intentionally separate from the Firedancer-side build.
 It does not replace:
@@ -176,9 +191,8 @@ It does not replace:
 - `just test-e2e-fd`
 
 Those repo-facing commands are covered by the Firedancer-side build described in
-[Build System](../build-system.md). The reason the Firedancer Make
-The `integration-test` target is surfaced as `just test-e2e-fd`, which is
-documented in
+[Build System](../build-system.md). The `integration-test` target is surfaced
+as `just test-e2e-fd`, which is documented in
 [Testing](../testing.md).
 
 Instead, it builds the Tickoni-owned supervisor layer around the
@@ -187,8 +201,7 @@ explicit: `just build-tk` drives the Zig supervisor build, `just build-fd`
 and `just build-fd-dev` drive the Firedancer-side builds, and
 `just build-all` composes the default combined build.
 
-Output locations
-----------------
+## Output locations
 
 By default, Zig installs artifacts under `zig-out/`.
 
@@ -198,8 +211,7 @@ The current executable path is:
 zig-out/bin/tickoni-supervisor
 ```
 
-When to use which build
------------------------
+## When to use which build
 
 Use the Zig build when you are working on:
 
@@ -221,8 +233,7 @@ the Firedancer build to only the 5 libraries Tickoni reuses.
 
 That workflow is documented in [Build Engine](../build-system.md).
 
-Related docs
-------------
+## Related docs
 
 - [Development](./development.md)
 - [Testing](./testing-tickoni.md)
@@ -244,7 +255,7 @@ The README displays four dynamic badges that reflect the current CI status:
 
 ### Badge update mechanism
 
-Badges are updated automatically by `badge-update.yml`, which triggers via `workflow_run` after `ci.yml` completes on main. The update script (`contrib/tool/readme/badge_updater.py`) walks parent commits on main to find the last SHA where all aggregated jobs report `success`, then constructs shields.io URLs and rewrites README.md between marker comments (`<!-- badge:X:start -->` / `<!-- badge:X:end -->`).
+Badges are updated automatically by `badge-update.yml`, which triggers via `workflow_run` after `ci.yml` completes on main. The update script (`contrib/tool/readme/badge_updater.py`) walks parent commits on main to find the last SHA where all aggregated jobs report `success`, then constructs shields.io URLs and rewrites README.md between marker comments (`<!-- badge:<scope>:start -->` / `<!-- badge:<scope>:end -->`).
 
 No `push` triggers exist in badge-update.yml — the workflow only fires on `workflow_run` from ci.yml, eliminating infinite commit loop risk.
 

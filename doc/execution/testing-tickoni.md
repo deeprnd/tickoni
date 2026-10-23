@@ -9,7 +9,7 @@ Tickoni repository.
   <!-- badge:build:end -->
 
   <!-- badge:quality:start -->
-  <img alt="Quality" src="https://img.shields.io/badge/quality-unknown-lightgrey?style=flat-square" />
+  <img alt="Quality" src="https://img.shields.io/badge/quality-passing-brightgreen?style=flat-square" />
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
@@ -41,7 +41,7 @@ Tickoni repository.
   <!-- badge:cov-fd:end -->
 
   <!-- badge:cov-tk:start -->
-  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-86.8%25-yellowgreen?style=flat-square" />
+  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-failing-red?style=flat-square" />
   <!-- badge:cov-tk:end -->
 </p>
 
@@ -138,6 +138,161 @@ Placeholder commands return `@true` in the `justfile`, following the repo
 tooling rule that no-op component variants live in the `justfile` and not in
 shell scripts. Do not remove or rename them without explicit instruction.
 
+## Current Test Command Matrix
+
+This table documents every test recipe in the `justfile` with its scope,
+platform coverage, and current active/placeholder status. It is the single
+reference for which commands exist and which are stubbed.
+
+### Unit Tests
+
+| Recipe | Scope | Platforms | Status |
+|--------|-------|-----------|--------|
+| `test-unit-tk` | Tickoni harness (supervisor, topology, queue, sandbox, payment pipeline, audit, case, disp, schema, model, adapter, evidence) | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
+| `test-unit-tk-linux-arm` | Tickoni harness — Linux ARM | Linux ARM | Active |
+| `test-unit-tk-linux-x86` | Tickoni harness — Linux x86 | Linux x86 | Active |
+| `test-unit-tk-macos-arm` | Tickoni harness — macOS ARM | macOS ARM | Active |
+| `test-unit-tk-macos-x86` | Tickoni harness — macOS x86 | macOS x86 | Active |
+| `test-unit-tk-windows-arm` | Tickoni harness — Windows ARM | Windows ARM | Active |
+| `test-unit-tk-windows-x86` | Tickoni harness — Windows x86 | Windows x86 | Active |
+| `test-unit-cli` | CLI version/doctor contracts | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
+| `test-unit-cli-linux-arm` | CLI — Linux ARM | Linux ARM | Active |
+| `test-unit-cli-linux-x86` | CLI — Linux x86 | Linux x86 | Active |
+| `test-unit-cli-macos-arm` | CLI — macOS ARM | macOS ARM | Active |
+| `test-unit-cli-macos-x86` | CLI — macOS x86 | macOS x86 | Active |
+| `test-unit-cli-windows-arm` | CLI — Windows ARM | Windows ARM | Active |
+| `test-unit-cli-windows-x86` | CLI — Windows x86 | Windows x86 | Active |
+| `test-unit-fd` | Firedancer C unit tests (Make-backed, huge-page aware) | Linux x86 (GCC) | Active |
+| `test-unit-fd-linux-arm-gcc` | Firedancer C — Linux ARM GCC | Linux ARM | Active |
+| `test-unit-fd-linux-arm-gcc-run` | Firedancer C — build+run Linux ARM | Linux ARM | Active |
+| `test-unit-fd-linux-x86-clang` | Firedancer C — Linux x86 Clang | Linux x86 | Active |
+| `test-unit-fd-linux-x86-clang-run` | Firedancer C — build+run Linux x86 Clang | Linux x86 | Active |
+| `test-unit-fd-linux-x86-gcc` | Firedancer C — Linux x86 GCC | Linux x86 | Active |
+| `test-unit-fd-linux-x86-gcc-run` | Firedancer C — build+run Linux x86 GCC | Linux x86 | Active |
+| `test-unit-fd-macos-arm` | Firedancer C — macOS ARM | macOS ARM | Active |
+| `test-unit-fd-macos-x86` | Firedancer C — macOS x86 | macOS x86 | Active |
+| `test-unit-fd-windows-arm` | Firedancer C — Windows ARM | Windows ARM | Active |
+| `test-unit-fd-windows-x86` | Firedancer C — Windows x86 | Windows x86 | Active |
+| `test-unit-infra-all` | Python infra tests (build, setup, tooling) | All | Active |
+| `test-unit-infra-build` | `contrib/build/tests/` — build orchestrator, make resolver, zig config | All | Active |
+| `test-unit-infra-setup` | `contrib/setup/tests/` — asset resolution, ccache, checks, install, minisign, msvc, openssl, shell, zig | All | Active |
+| `test-unit-infra-tooling` | `contrib/tool/tests/` — dynamic opts, justfile refs, llama server, qt installer, badge updater | All | Active |
+
+### Integration Tests
+
+| Recipe | Scope | Platforms | Status |
+|--------|-------|-----------|--------|
+| `test-integration-tk` | Tickoni integration (schema pipeline, tile-boundary scenarios, replay, audit) | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
+| `test-integration-tk-linux-arm` | Tickoni integration — Linux ARM | Linux ARM | Active |
+| `test-integration-tk-linux-x86` | Tickoni integration — Linux x86 | Linux x86 | Active |
+| `test-integration-tk-macos-arm` | Tickoni integration — macOS ARM | macOS ARM | Active |
+| `test-integration-tk-macos-x86` | Tickoni integration — macOS x86 | macOS x86 | Active |
+| `test-integration-tk-windows-arm` | Tickoni integration — Windows ARM | Windows ARM | Active |
+| `test-integration-tk-windows-x86` | Tickoni integration — Windows x86 | Windows x86 | Active |
+| `test-integration-cli` | CLI integration (spawn tickoni binary) | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
+| `test-integration-cli-linux-arm` | CLI integration — Linux ARM | Linux ARM | Active |
+| `test-integration-cli-linux-x86` | CLI integration — Linux x86 | Linux x86 | Active |
+| `test-integration-cli-macos-arm` | CLI integration — macOS ARM | macOS ARM | Active |
+| `test-integration-cli-macos-x86` | CLI integration — macOS x86 | macOS x86 | Active |
+| `test-integration-cli-windows-arm` | CLI integration — Windows ARM | Windows ARM | Active |
+| `test-integration-cli-windows-x86` | CLI integration — Windows x86 | Windows x86 | Active |
+| `test-integration-fd` | Firedancer integration | All | **Placeholder** (`@true`) |
+
+### E2E Tests
+
+| Recipe | Scope | Platforms | Status |
+|--------|-------|-----------|--------|
+| `test-e2e-tk` | Tickoni e2e (waiting for 3rd-party system integrations) | All | **Placeholder** (`@true`) |
+| `test-e2e-fd` | Firedancer e2e/integration-test | All | **Placeholder** (`@true`) |
+
+### System Tests
+
+| Recipe | Scope | Platforms | Status |
+|--------|-------|-----------|--------|
+| `test-system-tk` | System tests with live llama.cpp server | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
+| `test-system-tk-linux-arm` | System — Linux ARM | Linux ARM | Active |
+| `test-system-tk-linux-x86` | System — Linux x86 | Linux x86 | Active |
+| `test-system-tk-macos-arm` | System — macOS ARM | macOS ARM | Active |
+| `test-system-tk-macos-x86` | System — macOS x86 | macOS x86 | Active |
+| `test-system-tk-windows-arm` | System — Windows ARM | Windows ARM | Active |
+| `test-system-tk-windows-x86` | System — Windows x86 | Windows x86 | Active |
+| `test-system-fd` | Firedancer system | All | **Placeholder** (`@true`) |
+
+### Performance Tests
+
+| Recipe | Scope | Platforms | Status |
+|--------|-------|-----------|--------|
+| `test-perf-tk` | Tickoni performance tests | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
+| `test-perf-tk-linux-arm` | Perf — Linux ARM | Linux ARM | Active |
+| `test-perf-tk-linux-x86` | Perf — Linux x86 | Linux x86 | Active |
+| `test-perf-tk-macos-arm` | Perf — macOS ARM | macOS ARM | Active |
+| `test-perf-tk-macos-x86` | Perf — macOS x86 | macOS x86 | Active |
+| `test-perf-tk-windows-arm` | Perf — Windows ARM | Windows ARM | Active |
+| `test-perf-tk-windows-x86` | Perf — Windows x86 | Windows x86 | Active |
+| `test-perf-fd` | Firedancer performance | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
+| `test-perf-qt` | Qt performance | All | Active |
+| `test-perf-all` | All performance lanes | All | Active |
+
+### Coverage Tests
+
+| Recipe | Scope | Platforms | Status |
+|--------|-------|-----------|--------|
+| `test-cov-tk` | Tickoni harness coverage | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
+| `test-cov-tk-linux-arm` | Coverage — Linux ARM | Linux ARM | Active |
+| `test-cov-tk-linux-x86` | Coverage — Linux x86 | Linux x86 | Active |
+| `test-cov-tk-macos-arm` | Coverage — macOS ARM | macOS ARM | Active |
+| `test-cov-tk-macos-x86` | Coverage — macOS x86 | macOS x86 | Active |
+| `test-cov-tk-windows-arm` | Coverage — Windows ARM | Windows ARM | Active |
+| `test-cov-tk-windows-x86` | Coverage — Windows x86 | Windows x86 | Active |
+| `test-cov-fd` | Firedancer coverage | Linux x86-clang | **No-op** (LLVM required; CI coverage is pre-existing) |
+| `test-cov-fd-linux-x86-clang` | Coverage — Linux x86 Clang | Linux x86 | **No-op** |
+
+### Aggregates
+
+| Recipe | Scope | Platforms | Status |
+|--------|-------|-----------|--------|
+| `test-unit-all` | All unit lanes (TK + CLI + infra + FD) | Linux x86 (GCC) | Active |
+| `test-integration-all` | All integration lanes (integration-tk + CLI) | Linux x86 (GCC) | Active |
+| `test-e2e-all` | All e2e lanes | All | **All placeholders** |
+| `test-system-all` | All system lanes | Linux x86 (GCC) | Active |
+| `test-perf-all` | All performance lanes | Linux x86 (GCC) | Active |
+| `test-cov-all` | All coverage lanes | Linux x86 (GCC) | Active |
+| `test-all` | Unit + integration + coverage + system + e2e | Linux x86 (GCC) | Active |
+
+### CI-Specific Build Recipes (used by `_ci-build.yml`)
+
+| Recipe | Purpose | Platforms |
+|--------|---------|-----------|
+| `build-test-unit-fd-linux-arm-gcc` | Build FD test executables only (no lib rebuild) | Linux ARM |
+| `build-test-unit-fd-linux-x86-clang` | Build FD test executables only (no lib rebuild) | Linux x86 |
+| `build-test-unit-fd-linux-x86-gcc` | Build FD test executables only (no lib rebuild) | Linux x86 |
+| `build-test-unit-fd-macos-arm` | Build FD test executables only (no lib rebuild) | macOS ARM |
+| `build-test-unit-fd-macos-x86` | Build FD test executables only (no lib rebuild) | macOS x86 |
+| `build-test-unit-fd-windows-arm` | Build FD test executables only (no lib rebuild) | Windows ARM |
+| `build-test-unit-fd-windows-x86` | Build FD test executables only (no lib rebuild) | Windows x86 |
+
+### Placeholder Summary
+
+These recipes intentionally return `@true` in the `justfile` to preserve
+command shape stability. They are **not** dead code — they signal that a
+test layer exists but is not yet implemented:
+
+- `test-integration-fd` — Firedancer does not have a separate repo-facing
+  intermediate integration layer; CI exercises `integration-test` directly.
+- `test-e2e-tk` — Tickoni e2e is waiting for 3rd-party system integrations
+  to be available locally.
+- `test-e2e-fd` — Firedancer internals are e2e-tested through CI build stage,
+  not via a local recipe.
+- `test-system-fd` — Firedancer system testing uses `test-e2e-fd` (also a
+  no-op locally).
+- `test-cov-fd` / `test-cov-fd-linux-x86-clang` — Requires LLVM toolchain
+  not installed on this host; CI coverage is pre-existing.
+
+Do not remove these placeholders without explicit instruction. When a
+change may affect behavior currently covered only by a Firedancer runtime
+path, or before broad handoff on risky work, note whether any placeholder
+lane is relevant.
+
 ## What `tests-all` Runs
 
 `just tests-all` runs these commands in order (aggregator-of-aggregators only):
@@ -151,9 +306,9 @@ shell scripts. Do not remove or rename them without explicit instruction.
 
 1. `just test-unit-all`
 2. `just test-integration-all`
-3. `just test-cov-all`
-4. `just test-system-all`
-5. `just test-e2e-all`
+3. `just test-system-all`
+4. `just test-e2e-all`
+5. `just test-cov-all`
 
 `just test-unit-all` is badge-wrapped through
 `contrib/tool/readme/run-badged-command.py` so the README status badges reflect the

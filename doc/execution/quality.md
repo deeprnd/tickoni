@@ -111,8 +111,8 @@ check them off rather than re-derive them.
 - [ ] Malformed envelope/config/manifest handling: capability envelopes,
       provider configs, and adapter manifests reject invalid shapes at
       startup or request time instead of defaulting or truncating silently.
-- [ ] `just quality-check-all` (format + lint, both lanes) passes for changed
-      paths.
+- [ ] `just quality-check-all` (format, lint, proto, yaml, and spell) passes
+      for changed paths.
 - [ ] `just security-check-all` passes for changed paths, or a skipped
       component is named explicitly (e.g. a currently no-op CodeQL/seccomp
       variant documented in `security.md`).

@@ -38,7 +38,7 @@ This document describes the GitHub Actions CI workflows for Tickoni.
 
 ## Overview
 
-All fifteen Tickoni CI workflows (`ci.yml` plus thirteen sub-workflow YAML files) trigger on pull requests targeting `main` and are also dispatchable manually via `workflow_dispatch`. Every workflow uses GitHub-hosted runners only — no self-hosted infrastructure is required.
+All fourteen Tickoni CI workflows (`ci.yml` plus ten sub-workflow YAML files) trigger on pull requests targeting `main` and are also dispatchable manually via `workflow_dispatch`. Every workflow uses GitHub-hosted runners only — no self-hosted infrastructure is required.
 
 This CI surface is intentionally **not** a coexist-with-upstream layout. Tickoni replaces the broad upstream Firedancer workflow set with a consolidated S8 pipeline: a single `ci.yml` orchestrator that delegates to ten sub-workflow files (`_ci-build.yml`, `_ci-unit.yml`, `_ci-integration.yml`, `_ci-system.yml`, `_ci-cli.yml`, `_ci-quality.yml`, `_ci-security-secrets.yml`, `_ci-security-deep.yml`, `_ci-coverage.yml`, `_ci-build-artifacts-compare.yml`), plus two standalone workflows (`tests-dev-setup.yml`, `tests-coverage.yml`) and one badge-update workflow (`badge-update.yml`). The consolidation eliminates per-workflow setup duplication and enforces a cascading gate model. macOS support was added alongside this intentional shrink/re-shape of the upstream CI surface.
 
@@ -61,37 +61,32 @@ flowchart TD
     Q --> Bld["build (_ci-build.yml)"]
     S --> Bld
     Bld --> BAC["build-artifacts-compare (_ci-build-artifacts-compare.yml)"]
-    Bld --> U["unit (_ci-unit.yml)"]
+    Bld --> PB["project-build (aggregated)"]
+    BAC --> PB
+    PB --> U["unit (_ci-unit.yml)"]
     U --> I["integration (_ci-integration.yml)"]
     U --> Sys["system (_ci-system.yml)"]
     U --> FC["fixture-cli (_ci-cli.yml)"]
     U --> Cov["coverage (_ci-coverage.yml)"]
-    Cov --> FT["project-tests (aggregated)"]
-    I --> FT
+    I --> FT["project-tests (aggregated)"]
     Sys --> FT
     FC --> FT
-    FT --> SD["security-deep (4+1 parallel)"]
+    FT --> SD["security-deep (5 parallel)"]
     SD --> SD1["_ci-security-deep.yml check=sanitize"]
     SD --> SD2["_ci-security-deep.yml check=seccomp"]
     SD --> SD3["_ci-security-deep.yml check=proof"]
     SD --> SD4["_ci-security-deep.yml check=engine"]
     SD --> SD5["_ci-security-deep.yml check=sanitize-qt"]
-    SD1 --> R["ci-required (aggregator)"]
-    SD2 --> R
-    SD3 --> R
-    SD4 --> R
-    SD5 --> R
+    SD1 --> PS["project-security (aggregated)"]
+    SD2 --> PS
+    SD3 --> PS
+    SD4 --> PS
+    SD5 --> PS
+    PS --> R["ci-required (aggregator)"]
     Q --> R
     S --> R
-    Bld --> R
-    BAC --> R
-    U --> R
-    I --> R
-    Sys --> R
-    FC --> R
-    Cov --> R
+    PB --> R
     FT --> R
-    SD --> R
 ```
 
 ---
@@ -171,26 +166,32 @@ CI usage is centralized in the `just setup-*` recipes (e.g. `just setup-linux-x8
 
 ## Centralized Firedancer Lib Machinery
 
-All Firedancer build recipes, CI workflows, quality checks, and security checks draw their source-dir and library definitions from a single shared script:
+All Firedancer build recipes, CI workflows, quality checks, and security checks draw their source-dir and library definitions from two coordinated files:
 
 ```
-contrib/build/fd-tk-libs.sh
+contrib/build/build-config.json   # lib names, source sets, excludes, platform compilers
+contrib/build/orchestrator.py     # build logic (replaces fd-build-lib.sh + fd-build-windows.sh)
 ```
 
-It defines:
+`build-config.json` defines:
 
-| Symbol | Description |
-|--------|-------------|
-| `FD_TK_LIB_SRCS` | Source dirs for the 5 harness libs (`src/tango src/util src/ballet src/disco src/waltz src/third_party/cjson src/third_party/s2n-bignum`) |
-| `FD_TK_LIB_TEST_SRCS` | Same plus picohttpparser, blst, lz4, zstd, nanopb (for unit-test) |
-| `FD_TK_LIB_COV_SRCS` | Core dirs + cjson only (for coverage) |
-| `FD_TK_LIB_EXCLUDES` | `grep -vE` pattern for non-linked subdirs (`disco/quic|disco/gui|ballet/zksdk|ballet/zstd|waltz/quic`) |
-| `FD_TK_LIBS` | Base lib list (`libfd_tango.a` … `libfd_waltz.a`) |
-| `FD_TK_LIBS_EXTRA` | Extra libs for tests/coverage (`libfd_blst.a`, `libfd_zstd.a`, `libfd_lz4.a`) |
-| `fd_compute_mks()` | Produce `LOCAL_MKS` from a source-dir list |
-| `fd_build_fd()` | Unified builder accepting `BUILDDIR`, `CC`, `EXTRAS`, `TARGETS`, `SRCS`, `BUILD_TARGET` keyword args |
+| Key | Description |
+|-----|-------------|
+| `source_sets.libs` | Core source dirs (`src/tango`, `src/util`, `src/ballet`, `src/disco`, `src/waltz`, `src/third_party/cjson`, `src/third_party/s2n-bignum`, `src/third_party/picohttpparser`, `src/third_party/zstd`) |
+| `source_sets.test` | Core plus test-only deps (`picohttpparser`, `blst`, `lz4`, `zstd`, `nanopb`) |
+| `source_sets.cov` | Full set for coverage collection |
+| `libs.core` | Base lib list (`libfd_tango.a` … `libfd_waltz.a`, `libfd_zstd.a`) |
+| `libs.test` | Extra libs for tests (`libfd_blst.a`, `libfd_zstd.a`, `libfd_lz4.a`) |
+| `excludes` | `grep -vE` pattern for non-linked subdirs (`disco/quic/|disco/gui/|ballet/zksdk/|ballet/zstd/|waltz/quic/`) |
+| `platforms` | Per-platform compiler mappings (gcc/clang versions per OS + arch) |
 
-**To add a new lib dependency**, edit `contrib/build/fd-tk-libs.sh` (add the source dir to the appropriate `FD_TK_LIB_*_SRCS` array and its `.a` name to `FD_TK_LIBS` or `FD_TK_LIBS_EXTRA`). All justfile recipes, CI workflows, `contrib/quality/quality.sh`, and `contrib/security/security.sh` pick up the change automatically.
+The Python orchestrator (`contrib/build/orchestrator.py`) reads `build-config.json` and provides:
+
+- `build-fd` — unified Firedancer lib builder accepting `BUILDDIR`, `CC`, `TARGETS`, `SRCS` args
+- `build-tk` — Tickoni Zig supervisor builder
+- `build` — default entry point for both
+
+**To add a new lib dependency**, edit `contrib/build/build-config.json` (add the source dir to `source_sets.libs` or `source_sets.test` and its `.a` name to `libs.core` or `libs.test`). All justfile recipes, CI workflows, and `contrib/build/orchestrator.py` pick up the change automatically.
 
 ---
 
