@@ -110,9 +110,7 @@ test-unit-tk-linux-x86:
 
 test-unit-tk-linux-arm: test-unit-tk-linux-x86
 
-test-unit-tk-macos-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test --summary all
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-unit-tk
+test-unit-tk-macos-x86: test-unit-tk-linux-x86
 
 test-unit-tk-macos-arm: test-unit-tk-macos-x86
 
