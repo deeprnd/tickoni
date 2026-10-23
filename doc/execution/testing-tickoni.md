@@ -27,7 +27,7 @@ Tickoni repository.
   <!-- badge:integration:end -->
 
   <!-- badge:system:start -->
-  <img alt="System Tests" src="https://img.shields.io/badge/system%20tests-failing-red?style=flat-square" />
+  <img alt="System Tests" src="https://img.shields.io/badge/system%20tests-passing-brightgreen?style=flat-square" />
   <!-- badge:system:end -->
 
   <!-- badge:e2e:start -->
