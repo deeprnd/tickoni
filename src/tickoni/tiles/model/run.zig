@@ -42,8 +42,22 @@ pub fn runTkModlRequest(
 
     switch (decision) {
         .allow_live => {
-            // buildProviderRequest cannot return NotAllowLive here — decision is .allow_live.
-            const provider_req = validator.buildProviderRequest(decision, req) catch unreachable;
+            // buildProviderRequest returns error.NotAllowLive only when decision is not .allow_live.
+            // This branch guarantees decision == .allow_live, so the error path is unreachable,
+            // but we propagate it explicitly so a future validator change doesn't silently crash.
+            const provider_req = validator.buildProviderRequest(decision, req) catch |err| {
+                std.log.warn("model: buildProviderRequest failed (decision={s}, err={any})", .{ @tagName(decision), err });
+                return .{
+                    .outcome = .deny_model_not_allowed,
+                    .request_hash = 0,
+                    .response_hash = 0,
+                    .replay_substitution_id = 0,
+                    .retry_count = 0,
+                    .latency_ms = 0,
+                    .token_usage = .{ .prompt_tokens = 0, .completion_tokens = 0, .total_tokens = 0 },
+                    .response = null,
+                };
+            };
             const request_hash = backend_mod.hashProviderRequest(provider_req);
 
             var attempt: u8 = 0;

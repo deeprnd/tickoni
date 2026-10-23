@@ -261,7 +261,7 @@ fn connectWithTimeout(
     host: []const u8,
     port: u16,
 ) anyerror!std.Io.net.Stream {
-    var address = std.Io.net.IpAddress.parse(host, port) catch unreachable;
+    var address = try std.Io.net.IpAddress.parse(host, port);
     var attempt: u8 = 0;
     while (attempt < 100) : (attempt += 1) {
         if (std.Io.net.IpAddress.connect(&address, io, .{ .mode = .stream, .protocol = .tcp })) |stream| {
