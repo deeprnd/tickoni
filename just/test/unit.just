@@ -138,7 +138,7 @@ test-unit-cli:
 # test-unit-all runs pytest + FD unit + CLI unit across all platforms.
 
 test-unit-all:
-    {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-tk && just test-unit-fd && just test-unit-cli"
+    {{ python }} contrib/tool/readme/run-badged-command.py unit bash -c "just test-unit-tk && just test-unit-fd && just test-unit-cli && just test-unit-infra-all"
 
 # ── TK CLI unit test recipes (zig build test) ────────────────────────────
 # CLI lane runs `test-unit-cli` which compiles and runs doctor + CLI tests sequentially.
@@ -155,3 +155,18 @@ test-unit-cli-macos-arm: test-unit-cli-linux-x86
 test-unit-cli-windows-x86: test-unit-cli-linux-x86
 
 test-unit-cli-windows-arm: test-unit-cli-linux-x86
+
+# ── Python infrastructure unit tests ──────────────────────────────────────
+# All tests in contrib/ validate build/setup/tooling infrastructure, not app code.
+
+test-unit-infra-build:
+	{{ python }} -m pytest --basetemp={{ justfile_dir }}/build/pytest -o cache_dir={{ justfile_dir }}/build/pytest-cache \
+	    {{ justfile_dir }}/contrib/build/tests/
+
+test-unit-infra-setup:
+	{{ python }} -m pytest --basetemp={{ justfile_dir }}/build/pytest -o cache_dir={{ justfile_dir }}/build/pytest-cache \
+	    {{ justfile_dir }}/contrib/setup/tests/
+
+test-unit-infra-tooling:
+	{{ python }} -m pytest --basetemp={{ justfile_dir }}/build/pytest -o cache_dir={{ justfile_dir }}/build/pytest-cache \
+	    {{ justfile_dir }}/contrib/tool/tests/

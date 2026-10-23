@@ -34,14 +34,13 @@ setup-test-windows-x86:
 setup-test-windows-arm:
     {{ python }} contrib/setup/orchestrator.py test-tools --platform windows-arm
 
-# ── Test: Run Python build tests (pytest) ─────────────────────────────────
-# Runs pytest for contrib/build/tests/, contrib/setup/tests/, and contrib/tool/tests/.
+# ── Test: Run Python infrastructure unit tests (pytest) ───────────────────
+# Aggregate of test-unit-infra-build, test-unit-infra-setup, test-unit-infra-tooling.
 
-test-build-pytest:
-    {{ python }} -m pytest --basetemp={{ justfile_dir }}/build/pytest -o cache_dir={{ justfile_dir }}/build/pytest-cache \
-        {{ justfile_dir }}/contrib/build/tests/ \
-        {{ justfile_dir }}/contrib/setup/tests/ \
-        {{ justfile_dir }}/contrib/tool/tests/
+test-unit-infra-all:
+    just test-unit-infra-build
+    just test-unit-infra-setup
+    just test-unit-infra-tooling
 
 # ── Setup: Audit fixture generation ──────────────────────────────────────
 # Regenerates fixture files under src/tickoni/test/fixtures/ by running
