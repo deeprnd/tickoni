@@ -20,16 +20,16 @@ This document describes the GitHub Actions CI workflows for Tickoni.
 
 - [Overview](#overview)
 - [Workflow Summary](#workflow-summary)
-- [Change Detection](#change-detection)
+- [Change Classification](#change-classification)
 - [Build](#build)
 - [Quality](#quality)
 - [Qt Quality](#qt-quality)
 - [Security](#security)
+- [Qt Security](#qt-security)
 - [Tests / Unit](#tests--unit)
 - [Tests / Integration](#tests--integration)
 - [Tests / System](#tests--system)
-- [Tests / Demo](#tests--demo)
-- [Tests / Conformance](#tests--conformance)
+- [Tests / Fixture CLI](#tests--fixture-cli)
 - [Optional Workflows](#optional-workflows)
 - [Zig Toolchain Policy](#zig-toolchain-policy)
 - [Centralized Firedancer Lib Machinery](#centralized-firedancer-lib-machinery)
@@ -38,9 +38,9 @@ This document describes the GitHub Actions CI workflows for Tickoni.
 
 ## Overview
 
-All fourteen Tickoni CI workflows (`ci.yml` plus twelve sub-workflow YAML files) trigger on pull requests targeting `main` and are also dispatchable manually via `workflow_dispatch`. Every workflow uses GitHub-hosted runners only — no self-hosted infrastructure is required.
+All fifteen Tickoni CI workflows (`ci.yml` plus thirteen sub-workflow YAML files) trigger on pull requests targeting `main` and are also dispatchable manually via `workflow_dispatch`. Every workflow uses GitHub-hosted runners only — no self-hosted infrastructure is required.
 
-This CI surface is intentionally **not** a coexist-with-upstream layout. Tickoni replaces the broad upstream Firedancer workflow set with a consolidated S8 pipeline: a single `ci.yml` orchestrator that delegates to twelve sub-workflow files (`_ci-build.yml`, `_ci-unit.yml`, `_ci-integration.yml`, `_ci-system.yml`, `_ci-cli.yml`, `_ci-quality.yml`, `_ci-security-secrets.yml`, `_ci-security-deep.yml`, `_ci-conformance.yml`, `_ci-coverage.yml`, `tests-dev-setup.yml`, `tests-coverage.yml`). The consolidation eliminates per-workflow setup duplication and enforces a cascading gate model. macOS support was added alongside this intentional shrink/re-shape of the upstream CI surface.
+This CI surface is intentionally **not** a coexist-with-upstream layout. Tickoni replaces the broad upstream Firedancer workflow set with a consolidated S8 pipeline: a single `ci.yml` orchestrator that delegates to ten sub-workflow files (`_ci-build.yml`, `_ci-unit.yml`, `_ci-integration.yml`, `_ci-system.yml`, `_ci-cli.yml`, `_ci-quality.yml`, `_ci-security-secrets.yml`, `_ci-security-deep.yml`, `_ci-coverage.yml`, `_ci-build-artifacts-compare.yml`), plus two standalone workflows (`tests-dev-setup.yml`, `tests-coverage.yml`) and one badge-update workflow (`badge-update.yml`). The consolidation eliminates per-workflow setup duplication and enforces a cascading gate model. macOS support was added alongside this intentional shrink/re-shape of the upstream CI surface.
 
 The retained workflows run only their checked-in triggers; retired benchmark and
 book workflows are not part of the CI surface.
@@ -56,44 +56,41 @@ flowchart TD
     A["ci.yml (orchestrator)"] --> B["plan — change classifier"]
     A --> Q["quality (_ci-quality.yml)"]
     A --> S["security-secrets (_ci-security-secrets.yml)"]
-    A --> QTQ["qt-quality (_ci-quality.yml)"]
     B --> Q
     B --> S
-    B --> QTQ
     Q --> Bld["build (_ci-build.yml)"]
     S --> Bld
-    QTQ --> QtSec["security-deep-qt (_ci-security-deep.yml)"]
-    QtSec --> QtSec1["_ci-security-deep.yml check=sanitize-qt"]
+    Bld --> BAC["build-artifacts-compare (_ci-build-artifacts-compare.yml)"]
     Bld --> U["unit (_ci-unit.yml)"]
     U --> I["integration (_ci-integration.yml)"]
     U --> Sys["system (_ci-system.yml)"]
-    U --> D["cli (_ci-cli.yml)"]
+    U --> FC["fixture-cli (_ci-cli.yml)"]
     U --> Cov["coverage (_ci-coverage.yml)"]
-    I --> C["conformance (_ci-conformance.yml)"]
-    Sys --> C
-    D --> C
-    Cov --> C
-    C --> SD["security-deep (4 parallel)"]
+    Cov --> FT["project-tests (aggregated)"]
+    I --> FT
+    Sys --> FT
+    FC --> FT
+    FT --> SD["security-deep (4+1 parallel)"]
     SD --> SD1["_ci-security-deep.yml check=sanitize"]
     SD --> SD2["_ci-security-deep.yml check=seccomp"]
     SD --> SD3["_ci-security-deep.yml check=proof"]
     SD --> SD4["_ci-security-deep.yml check=engine"]
+    SD --> SD5["_ci-security-deep.yml check=sanitize-qt"]
     SD1 --> R["ci-required (aggregator)"]
     SD2 --> R
     SD3 --> R
     SD4 --> R
-    QtSec1 --> R
+    SD5 --> R
     Q --> R
     S --> R
-    QTQ --> R
-    QtSec --> R
     Bld --> R
+    BAC --> R
     U --> R
     I --> R
     Sys --> R
-    D --> R
+    FC --> R
     Cov --> R
-    C --> R
+    FT --> R
     SD --> R
 ```
 
@@ -103,32 +100,34 @@ flowchart TD
 
 | Workflow                  | Runner(s)                           | Jobs                                                         | Timeout |
 | ------------------------- | ----------------------------------- | ------------------------------------------------------------ | ------- |
-| `ci.yml`                  | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025-vs2026`, `windows-11-vs2026-arm`, `ubuntu-latest` | Orchestrator + 14 jobs (build, quality, Qt quality, unit, integration, system, demo, conformance, coverage, security-secrets, security-deep, docs-only, ci-required, dev-setup) | 20–60 m |
+| `ci.yml`                  | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025-vs2026`, `windows-11-vs2026-arm`, `ubuntu-latest` | Orchestrator + ~20 jobs (plan, quality, security-secrets, build, build-artifacts-compare, unit, integration, system, fixture-cli, coverage, project-tests, security-deep×5, project-security, ci-required) | 20–60 m |
 | `_ci-build.yml`           | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025-vs2026`, `windows-11-vs2026-arm` | Engine Build (GCC, Clang, ARM, Windows x86, Windows ARM) + Harness Build | 20–45 m |
 | `_ci-unit.yml`            | `ubuntu-24.04`                      | Harness Unit Tests                                           | 20 m    |
 | `_ci-integration.yml`     | `ubuntu-24.04`                      | Harness Integration Tests                                    | 20 m    |
 | `_ci-system.yml`          | `ubuntu-latest`                     | LLM System Tests                                             | 60–90 m |
-| `_ci-cli.yml`             | `ubuntu-24.04`, `windows-2025-vs2026`, `windows-11-vs2026-arm` | Deterministic CLI Conformance                                | 20 m    |
+| `_ci-cli.yml`             | `ubuntu-24.04`, `windows-2025-vs2026`, `windows-11-vs2026-arm` | Deterministic Fixture CLI Conformance                          | 20 m    |
 | `_ci-quality.yml`         | `ubuntu-24.04`                      | Format Check, Lint Check, Proto Check, YAML Check, Spell Check | 20–30 m |
 | `_ci-security-secrets.yml`| `ubuntu-24.04`                      | Gitleaks                                                     | 20–30 m |
-| `_ci-security-deep.yml`   | `ubuntu-24.04`                      | Sanitizers, SecComp                                          | 20–45 m |
-| `_ci-conformance.yml`     | `ubuntu-24.04`                      | Cross-platform conformance comparison                        | 20 m    |
+| `_ci-security-deep.yml`   | `ubuntu-24.04`                      | Sanitizers, SecComp, Proof, Engine, sanitize-qt                | 20–45 m |
 | `_ci-coverage.yml`        | `ubuntu-24.04`                      | Coverage collection (kcov, coverage report)                   | 20–45 m |
+| `_ci-build-artifacts-compare.yml` | `ubuntu-24.04`           | Cross-platform build artifact comparison                     | 20 m    |
 | `tests-dev-setup.yml`     | `ubuntu-24.04`                      | Full dev lifecycle validation (setup → build → test)         | 45–60 m |
-
-All `detect-changes` jobs run on `ubuntu-slim`.
+| `tests-coverage.yml`      | `ubuntu-24.04`                      | Standalone coverage lifecycle (weekly + manual)               | 20–45 m |
 
 ---
 
-## Change Detection
+## Change Classification
 
-Each workflow begins with a `detect-changes` job that compares the PR diff against a path regex. Subsequent jobs run only if at least one matching path changed. Manual `workflow_dispatch` runs always proceed regardless of path matches.
+The orchestrator `ci.yml` uses a `plan` job that classifies PR changes via the
+`plan-ci` composite action (`.github/actions/plan-ci`). The plan step emits
+boolean outputs (`core`, `docs`, `book`, `benchmark`) that gate downstream job
+invocations. When `core` is `false` (docs-only PR), only the `plan` job runs
+and the `ci-required` gate validates that all other jobs were skipped as
+expected. Manual `workflow_dispatch` runs bypass change classification and
+proceed unconditionally.
 
-|| Workflow          | Paths that trigger jobs                                                                                  |
-| ----------------- | -------------------------------------------------------------------------------------------------------- |
-| `ci.yml`          | `src/`, `config/`, `build.zig`, `build.zig.zon`, `justfile`, `.github/actions/`, workflow file, `src/tickoni/terminal/` |
-
-The orchestrator `ci.yml` is the single change detection entry point. It delegates to sub-workflows via `workflow_call`, and each sub-workflow runs its own `detect-changes` job when applicable. Path filtering is applied at the orchestrator level to avoid unnecessary sub-workflow invocations.
+Path filtering is applied at the orchestrator level — sub-workflows are only
+invoked via `workflow_call` when the `plan` job determines relevant files changed.
 
 ---
 
@@ -180,7 +179,7 @@ contrib/build/fd-tk-libs.sh
 
 It defines:
 
-|| Symbol | Description |
+| Symbol | Description |
 |--------|-------------|
 | `FD_TK_LIB_SRCS` | Source dirs for the 5 harness libs (`src/tango src/util src/ballet src/disco src/waltz src/third_party/cjson src/third_party/s2n-bignum`) |
 | `FD_TK_LIB_TEST_SRCS` | Same plus picohttpparser, blst, lz4, zstd, nanopb (for unit-test) |
@@ -205,7 +204,7 @@ The S8 consolidated pipeline delegates engine and harness builds to a single wor
 
 Compiles the Firedancer engine (scoped to the 5 harness libraries). Five parallel build jobs run on Linux x86, Linux ARM, macOS x86, macOS ARM, and Windows x86/ARM:
 
-||| Job                      | Runner             | Compiler        | Command              |
+| Job                      | Runner             | Compiler        | Command              |
 | ------------------------ | ------------------ | --------------- | -------------------- |
 | Engine Build / GCC       | `ubuntu-24.04`     | GCC 12          | `just build-fd-linux-x86-gcc`  |
 | Engine Build / Clang     | `ubuntu-24.04`     | Clang 18        | `just build-fd-linux-x86-clang`|
@@ -241,7 +240,7 @@ Static quality checks run as a matrix so they report independently and do not fa
 | YAML Check    | `just quality-yaml-check-linux` | YAML lint across repo (`yamllint`, relaxed profile) |
 | Spell Check   | `just quality-spell-check-linux` | Cross-file spell check (`cspell`, domain dictionary in `.cspell.json`) |
 
-Each job runs on `ubuntu-24.04` and is wrapped in a matrix so that one failure does not block the others. The `detect-changes` step creates a local `main` branch so diff-based quality scripts have a comparison ref.
+Each job runs on `ubuntu-24.04` and is wrapped in a matrix so that one failure does not block the others. The `plan` job output gates quality runs — when `core` is `false`, quality jobs are skipped.
 
 The Proto Check matrix entry installs `buf` via the GitHub Actions cache, then runs `just quality-proto-check-all` which:
 1. Regenerates protobuf from JSON schemas via `gen_events.py --skip-check`
@@ -260,7 +259,7 @@ Qt quality checks run as a matrix job alongside the Firedancer/Zig quality check
 | --- | --- | --- |
 | Qt Quality Check | `just quality-format-check-qt && just quality-lint-check-qt` | `clang-format` check, Qt C++ lint (style, include guards) |
 
-The Qt quality job runs on `ubuntu-24.04` and is currently **off by default** (`skip: true`) because Qt6 is not available on GitHub-hosted runners. To enable it, remove the `skip: true` flag from the Qt Quality Check matrix entry in `_ci-quality.yml` and add `qtbase6-dev qml6-module-qtquick` to the `setup-quality-linux-x86` recipe.
+The Qt quality job runs on `ubuntu-24.04` and is currently **off by default** (`skip: true`). The Qt terminal CMakeLists.txt requires Qt 6 (`find_package(Qt6 REQUIRED COMPONENTS Quick)`). To enable the Qt quality job, remove the `skip: true` flag from the Qt Quality Check matrix entry in `_ci-quality.yml` and ensure Qt6 packages are installed in the `setup-quality-linux-x86` recipe.
 
 **justfile commands:**
 - `quality-format-check-qt` — runs `clang-format --dry-run --Werror` on all `.cpp` and `.qml` files under `src/tickoni/terminal/`
@@ -283,7 +282,7 @@ Qt security runs as a separate deep security sub-check alongside the four Fireda
 | proof-check-qt | — | N/A | N/A — no CBMC for Qt |
 | codeql-check-qt | — | N/A | N/A — no CodeQL for Qt |
 
-The `sanitize-qt` check runs in `_ci-security-deep.yml` with `check: sanitize-qt`. It installs Qt6 (`qtbase5-dev`, `qtbase5-dev-tools`, `qtmultimedia5-dev`) via apt, then runs `just setup-qt-linux-x86` followed by `just security-sanitize-check-qt`, which builds the CMake project with Clang sanitizer flags and runs the resulting binary against fixture data.
+The `sanitize-qt` check runs in `_ci-security-deep.yml` with `check: sanitize-qt`. It installs Qt6 via apt, then runs `just setup-qt-linux-x86` followed by `just security-sanitize-check-qt`, which builds the CMake project with Clang sanitizer flags and runs the resulting binary against fixture data.
 
 The Qt deep security check is included in the `ci-required` aggregation gate in `ci.yml` alongside the other four deep checks.
 
@@ -295,13 +294,13 @@ Security checks are split across two sub-workflows for independent timeout and i
 
 **File:** `_ci-security-secrets.yml` (called by `ci.yml`)
 
-|| Job        | Compiler | Command                           | What it checks                          |
+| Job        | Compiler | Command                           | What it checks                          |
 | ---------- | -------- | --------------------------------- | --------------------------------------- |
 | Gitleaks   | GCC      | `just security-gitleaks-check-all`| Secret scanning via gitleaks            |
 
 **File:** `_ci-security-deep.yml` (called by `ci.yml`)
 
-|| Job        | Compiler | Command                           | What it checks                          |
+| Job        | Compiler | Command                           | What it checks                          |
 | ---------- | -------- | --------------------------------- | --------------------------------------- |
 | Sanitizers | Clang 18 | `just security-sanitize-check-all`| ASan/UBSan on Firedancer and Tickoni C/Zig code |
 | SecComp    | GCC      | `just security-seccomp-check-fd`  | Seccomp policy generation + drift check |
@@ -381,7 +380,7 @@ The workflow runs a matrix of platform/compiler combinations:
 
 Covers the Tickoni integration test lane.
 
-|| Job                       | Command                    | Output artifact                               |
+| Job                       | Command                    | Output artifact                               |
 | ------------------------- | -------------------------- | --------------------------------------------- |
 | Harness Integration Tests | `just test-integration-tk-linux-x86` | —                                             |
 
@@ -393,7 +392,7 @@ Covers the Tickoni integration test lane.
 
 Contains long-running system tests that require additional infrastructure or model assets.
 
-|| Job              | Runner          | Command              | Timeout | Status                     |
+| Job              | Runner          | Command              | Timeout | Status                     |
 | ---------------- | --------------- | -------------------- | ------- | -------------------------- |
 | LLM System Tests | `ubuntu-latest` | see steps below      | 90 m    | Active                     |
 
@@ -401,27 +400,18 @@ Contains long-running system tests that require additional infrastructure or mod
 
 1. Install `cmake`, `libopenblas-dev`, `libopenblas64-dev` via apt.
 2. `just infra-ensure-llamacpp` — resolves `llama.cpp` from `TK_LLAMA_CPP_DIR` when set, otherwise defaults to `~/work/models/llama.cpp`. Downloads the pre-built binary archive from `https://github.com/ggml-org/llama.cpp/releases` for the current platform, verifies SHA256 checksum, extracts to the install directory, and verifies the server binary is present. OpenBLAS must be installed on the system as a separate dependency.
-3. `just test-system-tk` — runs the full end-to-end flow: start server, run `zig build system-test`, stop server (`run_live_investment_demo.sh` calls `contrib/setup/orchestrator.py llm-server` for setup, and `contrib/test/orchestrator.py` for server lifecycle).
+3. `just test-system-tk` — runs the full end-to-end flow: start server, run `zig build system-test`, stop server (`just infra-ensure-llamacpp` calls `contrib/setup/orchestrator.py llm-server` for setup, and `contrib/test/orchestrator.py` for server lifecycle).
 
 The llama.cpp path and model path can be overridden with `TK_LLAMA_CPP_DIR`,
-`TK_HF_MODEL_DIR`, and `TK_HF_MODEL_FILE` environment variables
-(see `contrib/test/run_live_investment_demo.sh`).
+`TK_HF_MODEL_DIR`, and `TK_HF_MODEL_FILE` environment variables.
 
 ---
 
-## Tests / Demo
+## Tests / Fixture CLI
 
 **File:** `_ci-cli.yml` (called by `ci.yml`)
 
-Deterministic offline investment conformance suite — fixture-backed, no llama.cpp required. Runs on Linux, macOS, and Windows to produce cross-platform conformance artifacts.
-
----
-
-## Tests / Conformance
-
-**File:** `_ci-conformance.yml` (called by `ci.yml`)
-
-Cross-platform conformance comparison. Accepts 2+ conformance JSON files and does pairwise comparison. Platform-specific fields are normalized out so bundles from different OS/arch pairs can be compared cleanly.
+Deterministic fixture-backed CLI conformance suite — fixture-backed, no llama.cpp required. Runs on Linux, macOS, and Windows to produce cross-platform conformance artifacts.
 
 ---
 
@@ -463,3 +453,4 @@ The following retained workflow files were added as Tickoni-specific additions:
 |-------------|--------|
 | `badge-update.yml` | Update CI badges on main merge |
 | `tests-coverage.yml` | Full coverage lifecycle (dev-setup + coverage) |
+| `_ci-build-artifacts-compare.yml` | Cross-platform build artifact comparison |

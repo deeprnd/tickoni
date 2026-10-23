@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from contrib.build.orchestrator import clear_object_dir, make_assignment, make_path
 
@@ -42,14 +42,14 @@ def test_clear_object_dir_removes_nested_stale_objects(tmp_path):
 
 
 def test_windows_make_profile_detects_absolute_clang_path():
-    profile = Path(__file__).resolve().parents[2] / "config/machine/tickoni_fd.mk"
+    profile = Path(__file__).resolve().parents[3] / "config/machine/tickoni_fd.mk"
     text = profile.read_text()
     assert "ifneq (,$(findstring clang,$(CC)))" in text
     assert "ifeq ($(CC),clang)" not in text
 
 
 def test_windows_qt_recipes_do_not_dispatch_to_linux_recipe():
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[3]
     content = (repo_root / "just" / "build" / "qt.just").read_text()
 
     assert "build-qt-windows-x86:\n" in content
@@ -60,7 +60,7 @@ def test_windows_qt_recipes_do_not_dispatch_to_linux_recipe():
 
 
 def test_linux_x86_make_profile_uses_fixed_haswell_baseline():
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[3]
     profile = (repo_root / "config/machine/tickoni_fd.mk").read_text()
 
     assert "ifeq ($(UNAME_M),x86_64)" in profile
@@ -80,7 +80,7 @@ def test_linux_x86_make_profile_uses_fixed_haswell_baseline():
 
 
 def test_macos_unit_recipes_build_fd_tests_then_run_portable_tickoni_tests():
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[3]
     content = (repo_root / "just" / "test" / "unit.just").read_text()
 
     def _extract_recipe(content: str, name: str) -> str:
@@ -135,7 +135,7 @@ def _extract_just_recipe(content: str, name: str) -> str:
 
 
 def test_macos_integration_recipes_build_fd_libraries_before_zig_tests():
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[3]
     content = (repo_root / "just" / "test" / "integration.just").read_text()
 
     recipes = (
@@ -148,7 +148,7 @@ def test_macos_integration_recipes_build_fd_libraries_before_zig_tests():
 
 
 def test_hosted_linker_flags_are_linux_only():
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[3]
     hosted = (repo_root / "config/extra/with-hosted.mk").read_text()
 
     linux_guard = hosted.index("ifeq ($(FD_HAS_LINUX),1)")
@@ -159,7 +159,7 @@ def test_hosted_linker_flags_are_linux_only():
 
 
 def test_linux_only_firedancer_tests_are_platform_guarded():
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[3]
 
     cpuset_local_mk = (repo_root / "src/util/tile/Local.mk").read_text()
     cpuset_guard = cpuset_local_mk.index("ifdef FD_HAS_LINUX")

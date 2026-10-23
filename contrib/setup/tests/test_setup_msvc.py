@@ -6,7 +6,7 @@ import importlib.util
 from pathlib import Path
 
 
-setup_dir = Path(__file__).resolve().parents[1] / "setup"
+setup_dir = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(setup_dir))
 platform_spec = importlib.util.spec_from_file_location("platform", setup_dir / "platform.py")
 platform_module = importlib.util.module_from_spec(platform_spec)

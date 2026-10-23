@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-setup_dir = Path(__file__).resolve().parents[1] / "setup"
+setup_dir = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(setup_dir))
 # The setup package imports ``platform`` by its short name; bind its local
 # module before importing an install strategy.

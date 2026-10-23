@@ -14,7 +14,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-setup_dir = Path(__file__).resolve().parents[1] / "setup"
+setup_dir = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(setup_dir))
 # orchestrator imports ``platform``; shadow the stdlib module with setup/platform.py
 platform_spec = importlib.util.spec_from_file_location("platform", setup_dir / "platform.py")

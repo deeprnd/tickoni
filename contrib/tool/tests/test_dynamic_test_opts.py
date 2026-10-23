@@ -19,7 +19,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Ensure infra/ is importable
-sys.path.insert(0, str(Path(__file__).resolve().parent / "infra"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "infra"))
 
 from dynamic_test_opts import run_dynamic_test_opts, _detect_memory_bytes, _detect_cores
 
