@@ -15,6 +15,11 @@ const Topology = rt.topology.Topology;
 const TileHandle = rt.tile.TileHandle;
 const TileState = rt.tile.TileState;
 
+/// Maximum tile count for fixed-size arrays in ProcessState.
+/// Current topology has 8 tiles (payment) / 14 tiles (investment).
+/// Set to 16 for headroom; bump if a topology exceeds this.
+pub const max_tiles: usize = 16;
+
 /// v2.14.S1 process-mode configuration for startPaymentPipelineProcess.
 pub const ProcessPipelineConfig = struct {
     /// Directory used for per-tile launch-spec files and as FD_SHMEM_PATH
@@ -29,8 +34,8 @@ pub const ProcessPipelineConfig = struct {
     heartbeat_stale_after_ns: u64 = 0,
     /// Test-only hook (v2.14.S1.T12 crash isolation): tile i self-exits(1)
     /// after this many heartbeats instead of waiting for a halt signal.
-    /// 0 means run normally. Indexed by tile_idx.
-    crash_after_heartbeats: [8]u32 = std.mem.zeroes([8]u32),
+    /// 0 means run normally. Indexed by Firedancer tile index.
+    crash_after_heartbeats: [max_tiles]u32 = std.mem.zeroes([max_tiles]u32),
     /// Test-only hook (v2.14.S8.T6 stale-heartbeat proof): the selected
     /// tile blocks forever after stuck_after_messages loop iterations.
     stuck_tile_idx: ?u32 = null,
@@ -131,10 +136,10 @@ const ProcessState = struct {
     built_topo: rt.topo_build.BuiltTopo,
     workspace_name: []u8,
     run_dir: []u8,
-    cnc_gaddrs: [8]usize,
+    cnc_gaddrs: [max_tiles]usize,
     /// Parent-side cnc joins, used to send the halt signal during stop.
-    cncs: [8]?*c_abi.cnc.Cnc,
-    children: [8]ChildRecord,
+    cncs: [max_tiles]?*c_abi.cnc.Cnc,
+    children: [max_tiles]ChildRecord,
     heartbeat_stale_after_ms: u32,
     /// Grace period between requesting HALT and force-terminating tiles already
     /// classified stale. Lets slow but healthy children observe HALT and exit
@@ -245,6 +250,7 @@ pub const Supervisor = struct {
         defer log.exit("supervisor", "init");
         try topo.validate();
         try tile_registry.validate(topo);
+        std.debug.assert(topo.tiles.len <= max_tiles);
         const handles = try allocator.alloc(TileHandle, topo.tiles.len);
         for (handles, 0..) |*h, i| h.* = TileHandle.init(@intCast(i));
         return .{
@@ -537,9 +543,9 @@ pub const Supervisor = struct {
             .built_topo = built_topo,
             .workspace_name = try self.allocator.dupe(u8, full_workspace_name),
             .run_dir = try self.allocator.dupe(u8, config.run_dir),
-            .cnc_gaddrs = std.mem.zeroes([8]usize),
-            .cncs = std.mem.zeroes([8]?*c_abi.cnc.Cnc),
-            .children = std.mem.zeroes([8]ChildRecord),
+            .cnc_gaddrs = std.mem.zeroes([max_tiles]usize),
+            .cncs = std.mem.zeroes([max_tiles]?*c_abi.cnc.Cnc),
+            .children = std.mem.zeroes([max_tiles]ChildRecord),
             .heartbeat_stale_after_ms = heartbeat_stale_after_ms,
             .stop_grace_ns = resolvedStopGraceNs(config),
             .placement_report = placement_report,
@@ -581,7 +587,7 @@ pub const Supervisor = struct {
         // topoWkspNew's mcache/dcache/fseq .new callbacks) into the same
         // gaddr-based LinkHandles shape rt.link.create used to build by
         // hand.
-        var link_handles_buf: [8]rt.link.LinkHandles = undefined;
+        var link_handles_buf: [max_tiles]rt.link.LinkHandles = undefined;
         std.debug.assert(self.topo.channels.len <= link_handles_buf.len);
         const link_handles = link_handles_buf[0..self.topo.channels.len];
         for (self.topo.channels, 0..) |ch, i| {
@@ -614,7 +620,7 @@ pub const Supervisor = struct {
                 .inject_malformed = config.inject_malformed,
             },
             .stuck_tile = if (config.stuck_tile_idx) |idx| .{
-                .tile_idx = idx,
+                .fd_tile_idx = idx,
                 .after_messages = config.stuck_after_messages,
             } else null,
         }, io, std.Io.Dir.cwd(), payment_config_path);
@@ -646,7 +652,7 @@ pub const Supervisor = struct {
             spawn_log.kvFmt("supervisor", "spawn", "tile_idx={d} tile_id={s}", .{ i, tile.id.slice() });
 
             const spec = try rt.launch_spec.LaunchSpec.init(.{
-                .tile_idx = @intCast(i),
+                .fd_tile_idx = @intCast(i),
                 .tile_id = tile.id,
                 .cpu_placement = tile.cpu_placement,
                 .workspace_name = channels_copy[0].workspace_name,
@@ -827,7 +833,7 @@ pub const Supervisor = struct {
         // reading cnc heartbeats.  A crashed tile's cnc is corrupted and
         // reading it can SIGSEGV/SIGABRT the supervisor; by reaping first
         // the handle is already marked .crashed and we skip it below.
-        var suppress_cnc: [8]bool = std.mem.zeroes([8]bool);
+        var suppress_cnc: [max_tiles]bool = std.mem.zeroes([max_tiles]bool);
         for (&state.children, 0..) |*record, i| {
             if (record.ownership != .owned) {
                 suppress_cnc[i] = true;
@@ -948,7 +954,7 @@ pub const Supervisor = struct {
         // Build a suppression mask from live children / non-crashed handles.
         // A crashed child's CNC is corrupted and reading it SIGABRTs the
         // supervisor — the same guard used in refreshProcessHealth.
-        var suppress_cnc: [8]bool = std.mem.zeroes([8]bool);
+        var suppress_cnc: [max_tiles]bool = std.mem.zeroes([max_tiles]bool);
         for (&state.children, 0..) |*record, i| {
             if (record.ownership != .owned) {
                 suppress_cnc[i] = true;
@@ -1264,8 +1270,8 @@ fn installLifecycleTestState(sup: *Supervisor) !*ProcessState {
     const bytes = try sup.allocator.alignedAlloc(u8, .fromByteUnits(@alignOf(ProcessState)), @sizeOf(ProcessState));
     const state: *ProcessState = @ptrCast(@alignCast(bytes));
     state.* = undefined;
-    state.children = std.mem.zeroes([8]ChildRecord);
-    state.cncs = std.mem.zeroes([8]?*c_abi.cnc.Cnc);
+    state.children = std.mem.zeroes([max_tiles]ChildRecord);
+    state.cncs = std.mem.zeroes([max_tiles]?*c_abi.cnc.Cnc);
     state.stop_grace_ns = 0;
     // Initialize ALL fields to safe zero/empty values so stopProcess's
     // deinit() doesn't free undefined pointers and GPE under kcov.
@@ -1290,7 +1296,7 @@ fn installLifecycleTestState(sup: *Supervisor) !*ProcessState {
     state.wksp = @ptrFromInt(1);
     state.metric_wksp = null;
     state.metric_in_wksp = null;
-    state.cnc_gaddrs = std.mem.zeroes([8]usize);
+    state.cnc_gaddrs = std.mem.zeroes([max_tiles]usize);
     state.heartbeat_stale_after_ms = 0;
     state.placement_report = .{
         .exclusive_count = 0,

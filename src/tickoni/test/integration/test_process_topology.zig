@@ -11,6 +11,7 @@ const topologies = @import("topologies");
 const util = @import("util");
 
 const Supervisor = supervisor_mod.Supervisor;
+const max_tiles = supervisor_mod.max_tiles;
 
 test "process_topology_integration: every tile is a distinct OS process parented by the supervisor" {
     if (false) return error.SkipZigTest;
@@ -38,7 +39,7 @@ test "process_topology_integration: every tile is a distinct OS process parented
 
     const supervisor_pid = c_abi.sandbox.getpid();
 
-    var seen_pids: [8]std.process.Child.Id = undefined;
+    var seen_pids: [max_tiles]std.process.Child.Id = undefined;
     for (sup.monitor(), 0..) |h, i| {
         const child_id = h.pid orelse return error.MissingPid;
         for (seen_pids[0..i]) |other| try std.testing.expect(other != child_id);
@@ -145,7 +146,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
     defer sup.deinit();
 
     const tkrepl_idx = 5;
-    var crash_after_heartbeats = std.mem.zeroes([8]u32);
+    var crash_after_heartbeats = std.mem.zeroes([max_tiles]u32);
     crash_after_heartbeats[tkrepl_idx] = 1;
     try std.testing.expectEqualStrings("tkrepl", topo.tiles[tkrepl_idx].id.slice());
 

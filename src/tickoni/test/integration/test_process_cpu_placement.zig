@@ -12,6 +12,7 @@ const util = @import("util");
 const topologies = @import("topologies");
 
 const Supervisor = supervisor_mod.Supervisor;
+const max_tiles = supervisor_mod.max_tiles;
 const TileId = rt.topology.TileId;
 
 /// Same 8 tiles as topologies.paymentPipelineProcess(), except tkings and
@@ -231,7 +232,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     const floating_metrics = floating_sup.snapshotProcessMetrics();
     try std.testing.expectEqual(event_count, floating_metrics.audited);
     const floating_report_opt = floating_sup.processPlacementReport();
-    var floating_seen_pids: [8]std.process.Child.Id = undefined;
+    var floating_seen_pids: [max_tiles]std.process.Child.Id = undefined;
     for (floating_sup.monitor(), 0..) |h, i| {
         const pid = h.pid orelse return error.MissingPid;
         for (floating_seen_pids[0..i]) |other| try std.testing.expect(other != pid);
@@ -274,7 +275,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     const shared_metrics = shared_sup.snapshotProcessMetrics();
     try std.testing.expectEqual(event_count, shared_metrics.audited);
     const shared_report_opt = shared_sup.processPlacementReport();
-    var shared_seen_pids: [8]std.process.Child.Id = undefined;
+    var shared_seen_pids: [max_tiles]std.process.Child.Id = undefined;
     for (shared_sup.monitor(), 0..) |h, i| {
         const pid = h.pid orelse return error.MissingPid;
         for (shared_seen_pids[0..i]) |other| try std.testing.expect(other != pid);

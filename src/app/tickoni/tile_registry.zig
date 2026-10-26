@@ -14,6 +14,11 @@ const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const tiles = @import("tiles");
 
+/// Number of tiles in the Phase 0 registry. Kept as a constant here so the
+/// functions that allocate [max_tiles] arrays compile without pulling in
+/// supervisor.zig (which would create a circular import).
+pub const max_tiles: usize = 8;
+
 /// Process-mode run callback: joins this tile's links from the launch spec
 /// and runs its pipeline stage. Not every tile has a process-mode role yet
 /// (see TileEntry.process_fn).
@@ -92,12 +97,12 @@ fn loadProcessConfig(io: std.Io, spec: *const rt.launch_spec.LaunchSpec) !tiles.
     if (file_struct.version_field != tiles.process.process_config_version) return error.ProcessConfigUnsupportedVersion;
     const stuck_str = if (file_struct.cfg.stuck_tile) |h| blk: {
         var id_buf: [32]u8 = undefined;
-        break :blk std.fmt.bufPrint(&id_buf, "{d}", .{h.tile_idx}) catch "unknown";
+        break :blk std.fmt.bufPrint(&id_buf, "{d}", .{h.fd_tile_idx}) catch "unknown";
     } else "null";
     std.log.warn(
         "tile {d}: loaded process config, stuck_tile={s}, event_count={d}",
         .{
-            spec.tile_idx,
+            spec.fd_tile_idx,
             stuck_str,
             file_struct.cfg.pipeline.event_count,
         },
@@ -121,7 +126,7 @@ fn tkingsProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
     var output = try rt.link.Producer.join(wksp, spec.outLinks()[0]);
     defer output.leave();
     const cfg = try loadProcessConfig(io, spec);
-    tiles.process.runIngestProcess(cfg, spec.tile_idx, &output, cnc);
+    tiles.process.runIngestProcess(cfg, spec.fd_tile_idx, &output, cnc);
 }
 
 fn tkrnormProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
@@ -132,7 +137,7 @@ fn tkrnormProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spe
     var output = try rt.link.Producer.join(wksp, spec.outLinks()[0]);
     defer output.leave();
     const cfg = try loadProcessConfig(io, spec);
-    tiles.process.runNormalizeProcess(cfg, spec.tile_idx, &input, &output, cnc);
+    tiles.process.runNormalizeProcess(cfg, spec.fd_tile_idx, &input, &output, cnc);
 }
 
 fn tkdeduProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
@@ -147,7 +152,7 @@ fn tkdeduProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
     defer allocator.free(seen_keys);
     const seen_hashes = try allocator.alloc(u64, cap);
     defer allocator.free(seen_hashes);
-    tiles.process.runDedupeProcess(cfg, spec.tile_idx, &input, &output, cnc, seen_keys, seen_hashes);
+    tiles.process.runDedupeProcess(cfg, spec.fd_tile_idx, &input, &output, cnc, seen_keys, seen_hashes);
 }
 
 fn tkpolyProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
@@ -158,7 +163,7 @@ fn tkpolyProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
     var output = try rt.link.Producer.join(wksp, spec.outLinks()[0]);
     defer output.leave();
     const cfg = try loadProcessConfig(io, spec);
-    tiles.process.runPolicyProcess(cfg, spec.tile_idx, &input, &output, cnc);
+    tiles.process.runPolicyProcess(cfg, spec.fd_tile_idx, &input, &output, cnc);
 }
 
 fn tkaudtProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
@@ -169,7 +174,7 @@ fn tkaudtProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
     const cap: usize = @intCast(cfg.pipeline.event_count);
     var audit_log = try tiles.audit_sink.AuditLog.init(allocator, cap);
     defer audit_log.deinit(allocator);
-    tiles.process.runAuditProcess(cfg, spec.tile_idx, &input, cnc, &audit_log);
+    tiles.process.runAuditProcess(cfg, spec.fd_tile_idx, &input, cnc, &audit_log);
 }
 
 // ---------------------------------------------------------------------------
@@ -177,7 +182,7 @@ fn tkaudtProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
 // ---------------------------------------------------------------------------
 
 /// Phase 0 tiles, in the order topologies.paymentPipeline() and
-/// ProcessPipelineConfig's [8]... arrays assume. Order matters only insofar
+/// ProcessPipelineConfig's [max_tiles]... arrays assume. Order matters only insofar
 /// as callers that spawn by topology index still get the right tile — the
 /// spawn/dispatch call sites below look up by id, not by this array's
 /// position, so a reordering here is harmless.
@@ -271,13 +276,13 @@ pub fn validate(topo: rt.topology.Topology) !void {
         if (!found) return error.RegisteredTileMissingFromTopology;
     }
 
-    for (topo.tiles, 0..) |t, i| {
+    for (topo.tiles) |t| {
         const entry = findById(t.id) orelse unreachable; // proven present above
         var in_cnt: u8 = 0;
         var out_cnt: u8 = 0;
         for (topo.channels) |ch| {
-            if (ch.dst_idx == i) in_cnt += 1;
-            if (ch.src_idx == i) out_cnt += 1;
+            if (ch.dst_id.eql(t.id)) in_cnt += 1;
+            if (ch.src_id.eql(t.id)) out_cnt += 1;
         }
         if (in_cnt != entry.in_cnt or out_cnt != entry.out_cnt) return error.LinkCardinalityMismatch;
     }
@@ -344,8 +349,8 @@ test "expected link cardinality matches the linear Phase 0 chain" {
     try std.testing.expectEqual(@as(u8, 0), tkrepl.out_cnt);
 }
 
-fn descriptorsFromRegistry() [8]rt.tile.TileDescriptor {
-    var descriptors: [8]rt.tile.TileDescriptor = undefined;
+fn descriptorsFromRegistry() [max_tiles]rt.tile.TileDescriptor {
+    var descriptors: [max_tiles]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| descriptors[i] = .{ .id = e.id, .name = "t" };
     return descriptors;
 }
@@ -354,10 +359,10 @@ fn descriptorsFromRegistry() [8]rt.tile.TileDescriptor {
 /// ->tkdedu(2)->tkpoly(3)->tkaudt(4); tkrepl/metric/tkdiag(5,6,7) have none.
 fn channelsFromRegistry() [4]rt.link.Channel {
     return .{
-        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 2, .dst_idx = 3, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 3, .dst_idx = 4, .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tkings"), .dst_id = id("tknorm"), .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tknorm"), .dst_id = id("tkdedu"), .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tkdedu"), .dst_id = id("tkpoly"), .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tkpoly"), .dst_id = id("tkaudt"), .depth = 64, .mtu = 128 },
     };
 }
 
@@ -397,9 +402,9 @@ test "validate rejects a topology whose channel cardinality doesn't match the re
     // Drop the tkdedu->tkpoly channel: tkpoly's registry entry expects
     // in_cnt == 1 but the topology now gives it 0.
     const channels = [_]rt.link.Channel{
-        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 3, .dst_idx = 4, .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tkings"), .dst_id = id("tknorm"), .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tknorm"), .dst_id = id("tkdedu"), .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tkpoly"), .dst_id = id("tkaudt"), .depth = 64, .mtu = 128 },
     };
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channels };
     try std.testing.expectError(error.LinkCardinalityMismatch, validate(topo));
@@ -407,59 +412,59 @@ test "validate rejects a topology whose channel cardinality doesn't match the re
 
 test "validate rejects unexpected fan-in against a registry entry expecting a single input" {
     var descriptors = descriptorsFromRegistry();
-    // Give tkaudt (index 4, in_cnt == 1) a second inbound channel.
+    // Give tkaudt a second inbound channel.
     const channels = [_]rt.link.Channel{
-        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 2, .dst_idx = 3, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 3, .dst_idx = 4, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 1, .dst_idx = 4, .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tkings"), .dst_id = id("tknorm"), .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tknorm"), .dst_id = id("tkdedu"), .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tkdedu"), .dst_id = id("tkpoly"), .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tkpoly"), .dst_id = id("tkaudt"), .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tknorm"), .dst_id = id("tkaudt"), .depth = 64, .mtu = 128 },
     };
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channels };
     try std.testing.expectError(error.LinkCardinalityMismatch, validate(topo));
 }
 
-/// v2.14.S8.T10.4: counts inbound channels for a given tile index in a
+/// v2.14.S8.T10.4: counts inbound channels for a given tile id in a
 /// channel array. Used by validate() to compute per-tile in_cnt.
-fn countInbound(channels: []const rt.link.Channel, tile_idx: usize) u8 {
+fn countInbound(channels: []const rt.link.Channel, tile_id: rt.tile.TileId) u8 {
     var n: u8 = 0;
     for (channels) |ch| {
-        if (ch.dst_idx == tile_idx) n += 1;
+        if (ch.dst_id.eql(tile_id)) n += 1;
     }
     return n;
 }
 
-/// v2.14.S8.T10.4: counts outbound channels for a given tile index in a
+/// v2.14.S8.T10.4: counts outbound channels for a given tile id in a
 /// channel array. Used by validate() to compute per-tile out_cnt.
-fn countOutbound(channels: []const rt.link.Channel, tile_idx: usize) u8 {
+fn countOutbound(channels: []const rt.link.Channel, tile_id: rt.tile.TileId) u8 {
     var n: u8 = 0;
     for (channels) |ch| {
-        if (ch.src_idx == tile_idx) n += 1;
+        if (ch.src_id.eql(tile_id)) n += 1;
     }
     return n;
 }
 
 // v2.14.S8.T10.4: positive fan-in fixture — a 4-tile topology where
-// both tkrnorm(1) and tkdedu(2) feed tkaudt(3). Proves both inbound
+// both tkrnorm and tkdedu feed tkaudt. Proves both inbound
 // links are present in the channel array (the topology supports fan-in;
 // the registry entry for tkaudt gates acceptance via in_cnt).
 test "T10.4 positive fan-in: channel array has 2 inbound links to tkaudt" {
     const fanin_channels = [_]rt.link.Channel{
-        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 }, // tkings -> tkrnorm
-        .{ .src_idx = 0, .dst_idx = 2, .depth = 64, .mtu = 128 }, // tkings -> tkdedu
-        .{ .src_idx = 1, .dst_idx = 3, .depth = 64, .mtu = 128 }, // tkrnorm -> tkaudt
-        .{ .src_idx = 2, .dst_idx = 3, .depth = 64, .mtu = 128 }, // tkdedu -> tkaudt
+        .{ .src_id = id("tkings"), .dst_id = id("tknorm"), .depth = 64, .mtu = 128 }, // tkings -> tkrnorm
+        .{ .src_id = id("tkings"), .dst_id = id("tkdedu"), .depth = 64, .mtu = 128 }, // tkings -> tkdedu
+        .{ .src_id = id("tknorm"), .dst_id = id("tkaudt"), .depth = 64, .mtu = 128 }, // tkrnorm -> tkaudt
+        .{ .src_id = id("tkdedu"), .dst_id = id("tkaudt"), .depth = 64, .mtu = 128 }, // tkdedu -> tkaudt
     };
 
-    // Both inbound links to tkaudt (index 3) are present.
-    try std.testing.expectEqual(@as(u8, 2), countInbound(&fanin_channels, 3));
-    // tkings (index 0) fans out to 2 tiles.
-    try std.testing.expectEqual(@as(u8, 2), countOutbound(&fanin_channels, 0));
+    // Both inbound links to tkaudt are present.
+    try std.testing.expectEqual(@as(u8, 2), countInbound(&fanin_channels, id("tkaudt")));
+    // tkings fans out to 2 tiles.
+    try std.testing.expectEqual(@as(u8, 2), countOutbound(&fanin_channels, id("tkings")));
     // Linear tiles have 1 in / 1 out.
-    try std.testing.expectEqual(@as(u8, 1), countInbound(&fanin_channels, 1));
-    try std.testing.expectEqual(@as(u8, 1), countOutbound(&fanin_channels, 1));
-    try std.testing.expectEqual(@as(u8, 1), countInbound(&fanin_channels, 2));
-    try std.testing.expectEqual(@as(u8, 1), countOutbound(&fanin_channels, 2));
+    try std.testing.expectEqual(@as(u8, 1), countInbound(&fanin_channels, id("tknorm")));
+    try std.testing.expectEqual(@as(u8, 1), countOutbound(&fanin_channels, id("tknorm")));
+    try std.testing.expectEqual(@as(u8, 1), countInbound(&fanin_channels, id("tkdedu")));
+    try std.testing.expectEqual(@as(u8, 1), countOutbound(&fanin_channels, id("tkdedu")));
 
     // The topology itself is structurally valid.
     const fanin_descriptors = [_]rt.tile.TileDescriptor{
@@ -506,7 +511,7 @@ test "validate rejects topology with empty tile id" { // Overwrite tile 0 with e
 }
 
 test "validate topology rejects duplicate CPU exclusive placement" { // Two tiles with the same exclusive CPU id should fail topo.validate().
-    var descriptors: [8]rt.tile.TileDescriptor = undefined;
+    var descriptors: [max_tiles]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| {
         descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 0 } };
     }
@@ -516,7 +521,7 @@ test "validate topology rejects duplicate CPU exclusive placement" { // Two tile
 }
 
 test "validate topology rejects shared placement without explicit shared mode" { // Shared-core placement must use .shared, not .exclusive, for duplicate CPUs.
-    var descriptors: [8]rt.tile.TileDescriptor = undefined;
+    var descriptors: [max_tiles]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| {
         descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 0 } };
     }
@@ -536,11 +541,12 @@ test "validate rejects link id not present in topology channels" { // If a tile'
     // an explicit extension to validate(topo) (future work, not in T10).
     const entry = findById(try rt.tile.TileId.parse("tkings")).?;
     // tkings has out_cnt == 1; the topology must have exactly one channel
-    // with src_idx == 0 to match.
+    // with src_id matching tkings to match.
     const channels = channelsFromRegistry();
     var out_cnt: u8 = 0;
+    const tkings_id = try rt.tile.TileId.parse("tkings");
     for (channels) |ch| {
-        if (ch.src_idx == 0) out_cnt += 1;
+        if (ch.src_id.eql(tkings_id)) out_cnt += 1;
     }
     try std.testing.expectEqual(entry.out_cnt, out_cnt);
 }
@@ -548,11 +554,11 @@ test "validate rejects link id not present in topology channels" { // If a tile'
 test "validate rejects empty link arrays for tiles that require links" { // tkings must have exactly 1 output link; topology with 0 outputs should fail.
     var descriptors = descriptorsFromRegistry();
     // Provide channels but give tkings (index 0) 0 outgoing links by
-    // starting channels at index 1 instead of index 0.
+    // starting channels at tknorm instead of tkings.
     const channels = [_]rt.link.Channel{
-        .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 2, .dst_idx = 3, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 3, .dst_idx = 4, .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tknorm"), .dst_id = id("tkdedu"), .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tkdedu"), .dst_id = id("tkpoly"), .depth = 64, .mtu = 128 },
+        .{ .src_id = id("tkpoly"), .dst_id = id("tkaudt"), .depth = 64, .mtu = 128 },
     };
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channels };
     try std.testing.expectError(error.LinkCardinalityMismatch, validate(topo));
@@ -634,7 +640,7 @@ test "T10.15 validate topology rejects CPU id at upper u16 boundary" { // A tile
     // check range — but cpu_placement.validate() does via CpuIdMalformed.
     // This test verifies that topology.validate() passes through to the
     // runtime validate() which rejects out-of-range ids.
-    var descriptors: [8]rt.tile.TileDescriptor = undefined;
+    var descriptors: [max_tiles]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| {
         if (i == 0) {
             // Give tkings an extreme CPU id that exceeds the CpuSet capacity.
@@ -660,7 +666,7 @@ test "T10.15 cpu_placement.validate rejects extreme CPU id as malformed" { // Th
         for (&a) |*b| b.* = 0xFF;
         break :blk a;
     }; // CPU 0-1023 available
-    var descriptors: [8]rt.tile.TileDescriptor = undefined;
+    var descriptors: [max_tiles]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| {
         if (i == 0) {
             descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 65535 } };
@@ -688,7 +694,7 @@ test "T10.15 validate rejects tango_shm channel with empty workspace name" { // 
 // T10.15: explicit invalid placement mode — floating tiles are accepted
 // (no CPU pinning, no conflict), while exclusive on the same CPU fails.
 test "T10.15 validate accepts floating placement mode" {
-    var descriptors: [8]rt.tile.TileDescriptor = undefined;
+    var descriptors: [max_tiles]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |e, i| {
         descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .floating };
     }
@@ -699,7 +705,7 @@ test "T10.15 validate accepts floating placement mode" {
 // T10.15: explicit placement mode validation — exclusive and shared
 // colliding on the same CPU must be rejected by topology.validate().
 test "T10.15 validate rejects exclusive and shared colliding on same CPU" {
-    var descriptors: [8]rt.tile.TileDescriptor = undefined;
+    var descriptors: [max_tiles]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |e, i| {
         if (i == 0) {
             descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 2 } };
@@ -719,7 +725,7 @@ test "T10.15 cpu_placement.validate rejects CPU id not in available set" { // Si
     var cpus: rt.cpu_placement.CpuSet = undefined;
     @memset(&cpus, 0);
     cpus[0] = 1; // only CPU 0
-    var descriptors: [8]rt.tile.TileDescriptor = undefined;
+    var descriptors: [max_tiles]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |e, i| {
         if (i == 0) {
             // Pin tkings to CPU 1, which is not in the available set.
