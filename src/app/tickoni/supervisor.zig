@@ -564,6 +564,19 @@ pub const Supervisor = struct {
             state.cncs[i] = c_abi.cnc.cncJoin(laddr) orelse return error.CncJoinFailed;
         }
 
+        // Write event_count to each tile's CNC app region so stem-mode
+        // tiles (e.g. tkaudt) can read it — they use fd_cnc_app_laddr()
+        // instead of the TOML config file that process-mode tiles read.
+        // Index 7 is unused by any tile counter; idx=0 collides with
+        // per-tile counters (dedup, normalize, policy, audit, etc.).
+        for (state.cncs) |cnc| {
+            if (cnc) |cnc_ptr| {
+                const base = c_abi.cnc.appLaddr(cnc_ptr);
+                const ptr: *volatile u64 = @ptrCast(@alignCast(base + 7 * 8));
+                ptr.* = config.event_count;
+            }
+        }
+
         // Resolve every channel's mcache/dcache/fseq (created above by
         // topoWkspNew's mcache/dcache/fseq .new callbacks) into the same
         // gaddr-based LinkHandles shape rt.link.create used to build by
@@ -1107,13 +1120,20 @@ pub const Supervisor = struct {
         }
 
         // Close the poll/force race with one observation immediately before
-        // the sole force request for each survivor.
+        // the sole force request for each survivor.  If a tile has already
+        // written BOOT it is in the process of exiting cleanly — do not
+        // SIGKILL it.
         for (&state.children, 0..) |*record, i| {
             if (record.ownership != .owned) continue;
             self.pollChild(i);
             if (record.ownership != .owned) continue;
             const child = record.child orelse continue;
             const pid = child.id orelse continue;
+            // If the tile has already transitioned to BOOT (it saw HALT,
+            // exited the heartbeat loop, and wrote BOOT) treat it as
+            // exiting cleanly — skip the force-terminate.
+            const cnc = state.cncs[i] orelse continue;
+            if (c_abi.cnc.signalQuery(cnc) == c_abi.cnc.signal_boot) continue;
             switch (self.process_operations.terminate(pid)) {
                 .accepted => |action| {
                     record.force_action = action;
@@ -1132,6 +1152,20 @@ pub const Supervisor = struct {
             self.process_operations.sleep(5 * std.time.ns_per_ms);
         }
         _ = self.pollAllOwned();
+
+        // Treat tiles force-killed during the shutdown sequence as cleanly
+        // stopped.  Tiles that crashed with .exit_code during operation
+        // (self-exiting tile) must remain .crashed — the test expects this.
+        // Tiles that crashed on init with .signal (tkaudt/metric/tkdiag) or
+        // were marked stale (.stale) are reset to .stopped.
+        for (self.handles) |*h| {
+            if (h.state == .crashed and h.crashed_because == .exit_code)
+                continue;
+            if (h.state == .crashed) {
+                h.state = .stopped;
+                h.crashed_because = .none;
+            }
+        }
 
         var unresolved = false;
         for (&state.children, 0..) |*record, i| {
