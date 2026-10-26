@@ -863,7 +863,7 @@ pub const Supervisor = struct {
         }
         // Read heartbeats from surviving tiles only — skip any tile whose
         // child has been reaped (crashed or stopped) so we never dereference
-        for (state.cncs, 0..) |maybe_cnc, i| {
+        for (state.cncs[0..self.tile_count], 0..) |maybe_cnc, i| {
             const h = &self.handles[i];
             std.debug.print("[sup-refresh] tile {d}: state={s} suppress={any}\n", .{ i, @tagName(h.state), suppress_cnc[i] });
             if (h.state != .starting and h.state != .running) {
