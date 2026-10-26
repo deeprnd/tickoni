@@ -1,4 +1,5 @@
 const std = @import("std");
+const tile = @import("../tile.zig");
 
 /// Bounded name of the Firedancer workspace (src/util/wksp) backing a
 /// correctness-bearing link's mcache/dcache/fseq/cnc objects in process
@@ -35,9 +36,11 @@ pub const LinkBacking = enum {
 pub const LinkReliability = enum { reliable, lossy };
 
 /// Directed channel between two tiles: exactly one producer, one consumer.
+/// Tiles are identified by TileId (not by array index) so that topology
+/// reordering does not break channel wiring.
 pub const Channel = struct {
-    src_idx: u32,
-    dst_idx: u32,
+    src_id: tile.TileId,
+    dst_id: tile.TileId,
     /// Ring-buffer depth — must be a power of two.
     depth: u32,
     /// Max fragment size in bytes; 0 means no dcache.

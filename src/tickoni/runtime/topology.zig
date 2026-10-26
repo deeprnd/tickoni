@@ -22,9 +22,9 @@ pub const Topology = struct {
             if (t.id.slice().len == 0) return error.EmptyTileId;
         }
         for (self.channels) |ch| {
-            if (ch.src_idx >= self.tiles.len) return error.ChannelSrcOutOfRange;
-            if (ch.dst_idx >= self.tiles.len) return error.ChannelDstOutOfRange;
-            if (ch.src_idx == ch.dst_idx) return error.ChannelSelfLoop;
+            if (!tileIdExists(self.tiles, ch.src_id)) return error.UnknownChannelSource;
+            if (!tileIdExists(self.tiles, ch.dst_id)) return error.UnknownChannelDestination;
+            if (ch.src_id.eql(ch.dst_id)) return error.ChannelSelfLoop;
             if (ch.depth == 0 or !std.math.isPowerOfTwo(ch.depth)) return error.ChannelDepthNotPowerOfTwo;
             if (ch.backing == .tango_shm) {
                 var name = ch.workspace_name;
@@ -32,6 +32,15 @@ pub const Topology = struct {
             }
         }
         try cpu_placement.validateStatic(self.tiles);
+    }
+
+    /// Returns true if `id` matches any tile in `tiles`. Used by validate()
+    /// to ensure every channel references a known tile.
+    fn tileIdExists(tiles: []const TileDescriptor, id: TileId) bool {
+        for (tiles) |t| {
+            if (t.id.eql(id)) return true;
+        }
+        return false;
     }
 };
 
@@ -47,7 +56,7 @@ test "validate rejects non-power-of-two channel depth" {
             .{ .id = test_tile_foo, .name = "foo" },
             .{ .id = test_tile_bar, .name = "bar" },
         },
-        .channels = &.{.{ .src_idx = 0, .dst_idx = 1, .depth = 7, .mtu = 0 }},
+        .channels = &.{.{ .src_id = test_tile_foo, .dst_id = test_tile_bar, .depth = 7, .mtu = 0 }},
     };
     try std.testing.expectError(error.ChannelDepthNotPowerOfTwo, topo.validate());
 }
@@ -57,19 +66,19 @@ test "validate rejects self-loop channel" {
         .tiles = &.{
             .{ .id = test_tile_foo, .name = "foo" },
         },
-        .channels = &.{.{ .src_idx = 0, .dst_idx = 0, .depth = 64, .mtu = 0 }},
+        .channels = &.{.{ .src_id = test_tile_foo, .dst_id = test_tile_foo, .depth = 64, .mtu = 0 }},
     };
     try std.testing.expectError(error.ChannelSelfLoop, topo.validate());
 }
 
-test "validate rejects out-of-range channel src" {
+test "validate rejects unknown channel source id" {
     const topo = Topology{
         .tiles = &.{
             .{ .id = test_tile_foo, .name = "foo" },
         },
-        .channels = &.{.{ .src_idx = 99, .dst_idx = 0, .depth = 64, .mtu = 0 }},
+        .channels = &.{.{ .src_id = test_tile_bar, .dst_id = test_tile_foo, .depth = 64, .mtu = 0 }},
     };
-    try std.testing.expectError(error.ChannelSrcOutOfRange, topo.validate());
+    try std.testing.expectError(error.UnknownChannelSource, topo.validate());
 }
 
 test "validate rejects tango_shm channel with missing workspace name" {
@@ -78,7 +87,7 @@ test "validate rejects tango_shm channel with missing workspace name" {
             .{ .id = test_tile_foo, .name = "foo" },
             .{ .id = test_tile_bar, .name = "bar" },
         },
-        .channels = &.{.{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm }},
+        .channels = &.{.{ .src_id = test_tile_foo, .dst_id = test_tile_bar, .depth = 64, .mtu = 128, .backing = .tango_shm }},
     };
     try std.testing.expectError(error.ChannelWorkspaceNameMissing, topo.validate());
 }
@@ -89,7 +98,7 @@ test "validate accepts heap_dev channel with no workspace name" {
             .{ .id = test_tile_foo, .name = "foo" },
             .{ .id = test_tile_bar, .name = "bar" },
         },
-        .channels = &.{.{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 }},
+        .channels = &.{.{ .src_id = test_tile_foo, .dst_id = test_tile_bar, .depth = 64, .mtu = 128 }},
     };
     try topo.validate();
 }

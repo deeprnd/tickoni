@@ -187,7 +187,7 @@ pub fn build(
     // creating workspaces, so we only create metric/metric_in when needed.
     var has_metric_tile = false;
     for (topo_desc.tiles) |t| {
-        if (std.mem.eql(u8, t.id.slice(), "metric")) {
+        if (t.scratch_reqs != null) {
             has_metric_tile = true;
             break;
         }
@@ -235,7 +235,10 @@ pub fn build(
     for (topo_desc.tiles, 0..) |t, i| {
         cpu_idx_arr[i] = tileCpuIdx(i, t.cpu_placement);
         tile_placements[i] = t.cpu_placement;
-        if (std.mem.eql(u8, t.id.slice(), "metric")) {
+        // v2.NN.SXX Task 3: identify the metric tile by its large scratch
+        // footprint (32 MB) rather than its hardcoded id string.
+        const is_metric_tile = if (t.scratch_reqs) |r| r.footprint > 1000000 else false;
+        if (is_metric_tile) {
             fd_tile_idx_by_desc[i] = c_abi.topob.not_found;
             continue;
         }
@@ -256,8 +259,10 @@ pub fn build(
         log.kvFmt("topo_build", "build", "topoValidateTileExists(metric)", .{});
         std.debug.assert(c_abi.topob.topoValidateTileExists(topo, toZ(&tile_name_buf, "metric")));
         // Metric tile is always last in Firedancer order.
+        // v2.NN.SXX Task 3: identify metric by scratch footprint, not id.
         for (topo_desc.tiles, 0..) |t, d_idx| {
-            if (std.mem.eql(u8, t.id.slice(), "metric")) {
+            const is_metric_tile = if (t.scratch_reqs) |r| r.footprint > 1000000 else false;
+            if (is_metric_tile) {
                 fd_tile_idx_by_desc[d_idx] = non_metric_count;
                 break;
             }
@@ -306,8 +311,8 @@ pub fn build(
         var src_name_buf: [8]u8 = undefined;
         var dst_name_buf: [8]u8 = undefined;
         var link_name_buf: [8]u8 = undefined;
-        const src_name_z = toZ(&src_name_buf, topo_desc.tiles[ch.src_idx].id.slice());
-        const dst_name_z = toZ(&dst_name_buf, topo_desc.tiles[ch.dst_idx].id.slice());
+        const src_name_z = toZ(&src_name_buf, ch.src_id.slice());
+        const dst_name_z = toZ(&dst_name_buf, ch.dst_id.slice());
         const link_name_z = linkNameZ(&link_name_buf, i);
         log.kvFmt("topo_build", "build", "calling topobTileIn(dst={s}, wksp={s}, link=ch{d})", .{ dst_name_z, wksp_name_z, i });
         const fseq_obj_id = c_abi.topob.topobTileIn(topo, dst_name_z, 0, wksp_name_z, link_name_z, 0, true, true);
@@ -349,18 +354,16 @@ pub fn build(
 
     // Set per-tile scratch footprint and alignment properties so
     // tile_footprint() / tile_align() in topob.c can query them.
-    // Only the metric tile has a non-default footprint; every other
-    // tile gets 1UL (which the property setter silently skips since
-    // 1UL == the default).
+    // Only tiles with scratch_reqs set (audit, metric) get non-default
+    // properties written; generic tiles get nothing (default 1UL).
     const scratch_footprint_key: [*:0]const u8 = "tickoni.scratch_footprint";
     const scratch_align_key: [*:0]const u8 = "tickoni.scratch_align";
     for (topo_desc.tiles) |t| {
-        var tile_name_buf: [8]u8 = undefined;
-        const reqs = c_abi.topob.tickoniTileScratchRequirements(toZ(&tile_name_buf, t.id.slice()));
-        if (reqs.footprint > 1) {
-            log.kvFmt("topo_build", "build", "calling topobSetTileObjPropertyUlong({s}, footprint={d}, align={d})", .{ t.id.slice(), reqs.footprint, reqs.alignment });
+        if (t.scratch_reqs) |reqs| {
+            var tile_name_buf: [8]u8 = undefined;
+            log.kvFmt("topo_build", "build", "calling topobSetTileObjPropertyUlong({s}, footprint={d}, align={d})", .{ t.id.slice(), reqs.footprint, reqs.scratch_align });
             c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.id.slice()), 0, scratch_footprint_key, reqs.footprint);
-            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.id.slice()), 0, scratch_align_key, reqs.alignment);
+            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.id.slice()), 0, scratch_align_key, reqs.scratch_align);
         }
     }
 
@@ -477,10 +480,10 @@ test "build produces a topology for the linear Phase 0 chain" {
         testTile("tkaudt"),
     };
     const channels = [_]link_mod.Channel{
-        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 2, .dst_idx = 3, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 3, .dst_idx = 4, .depth = 64, .mtu = 128 },
+        .{ .src_id = tile_mod.TileId.parse("tkings") catch unreachable, .dst_id = tile_mod.TileId.parse("tknorm") catch unreachable, .depth = 64, .mtu = 128 },
+        .{ .src_id = tile_mod.TileId.parse("tknorm") catch unreachable, .dst_id = tile_mod.TileId.parse("tkdedu") catch unreachable, .depth = 64, .mtu = 128 },
+        .{ .src_id = tile_mod.TileId.parse("tkdedu") catch unreachable, .dst_id = tile_mod.TileId.parse("tkpoly") catch unreachable, .depth = 64, .mtu = 128 },
+        .{ .src_id = tile_mod.TileId.parse("tkpoly") catch unreachable, .dst_id = tile_mod.TileId.parse("tkaudt") catch unreachable, .depth = 64, .mtu = 128 },
     };
     const topo_desc = topology.Topology{ .tiles = &tiles, .channels = &channels };
 

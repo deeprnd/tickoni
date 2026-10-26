@@ -267,12 +267,15 @@ pub const ScratchRequirements = struct {
     footprint: usize,
 };
 
-/// Return C-owned scratch requirements for a named tile. Metric requirements
-/// come directly from TK_METRIC_RUN; generic tiles require one byte.
+/// Deprecated (v2.NN.SXX Task 3): returns default (1UL) for all tiles.
+/// Scratch requirements are now stored on TileDescriptor.scratch_reqs and
+/// queried directly by topo_build.zig.  Use t.scratch_reqs instead.
 pub fn tickoniTileScratchRequirements(tile_name: [*:0]const u8) ScratchRequirements {
-    var requirements: ScratchRequirements = undefined;
-    tk_topob_tickoni_tile_scratch_requirements(tile_name, &requirements.alignment, &requirements.footprint);
-    return requirements;
+    _ = tile_name;
+    return ScratchRequirements{
+        .alignment = 1,
+        .footprint = 1,
+    };
 }
 
 /// Return the scratch object id assigned by fd_topob_tile.

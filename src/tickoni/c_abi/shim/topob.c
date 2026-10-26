@@ -390,33 +390,23 @@ tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_t
 #endif
 
 ulong
-tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {
-#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
-  if( strcmp( tile_name, "metric" ) == 0 )
-    return tk_metric_scratch_footprint();
-  if( strcmp( tile_name, "tkaudt" ) == 0 )
-    return tk_audit_scratch_footprint_tile( NULL );
-#endif
+tk_topob_tickoni_tile_scratch_footprint( char const * tile_name FD_FN_UNUSED ) {
+  // v2.NN.SXX Task 3: scratch footprint is now set via
+  // topobSetTileObjPropertyUlong by topo_build.zig's direct
+  // t.scratch_reqs access.  This function returns the default (1UL) —
+  // callers should query the property via topob.c's
+  // tk_topo_obj_footprint() or tile_footprint() callback instead.
 return 1UL;
 }
 
 void
-tk_topob_tickoni_tile_scratch_requirements( char const * tile_name,
+tk_topob_tickoni_tile_scratch_requirements( char const * tile_name FD_FN_UNUSED,
                                             ulong * alignment_out,
                                             ulong * footprint_out ) {
-#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
-  if( strcmp( tile_name, "metric" ) == 0 ) {
-    ulong footprint = tk_metric_scratch_footprint();
-    *alignment_out  = fd_scratch_smem_align();
-    *footprint_out  = fd_scratch_smem_footprint( footprint );
-    return;
-  }
-  if( strcmp( tile_name, "tkaudt" ) == 0 ) {
-    *alignment_out = TKAUDT_CTX_ALIGN;
-    *footprint_out = tk_audit_scratch_footprint_tile( NULL );
-    return;
-  }
-#endif
+  // v2.NN.SXX Task 3: scratch requirements are now set via
+  // topobSetTileObjPropertyUlong by topo_build.zig's direct
+  // t.scratch_reqs access.  This function returns the default (1UL) —
+  // callers should read from the property set during build.
   *alignment_out = 1UL;
   *footprint_out = 1UL;
 }

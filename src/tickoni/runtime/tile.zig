@@ -22,6 +22,16 @@ pub const TileId = struct {
     }
 };
 
+/// Scratch alignment and footprint requirements for a tile.
+///
+/// Set on TileDescriptor for tiles that need a custom scratch footprint
+/// or alignment (audit, metric). Used by topo_build.zig to inject tile
+/// properties into the Firedancer topology before fd_topob_finish.
+pub const TileScratchReqs = struct {
+    scratch_align: usize,
+    footprint: usize,
+};
+
 /// Static description of one tile in a topology.
 pub const TileDescriptor = struct {
     id: TileId,
@@ -30,6 +40,11 @@ pub const TileDescriptor = struct {
     /// Defaults to floating: existing thread-mode topologies do not pin
     /// CPUs. Process-mode topologies set this explicitly.
     cpu_placement: cpu_placement.CpuPlacement = .floating,
+    /// Non-null when this tile has a custom scratch footprint/alignment
+    /// that the Firedancer layout engine must respect. Used by audit and
+    /// metric tiles. Set by the topology author in topologies.zig.
+    /// Also serves as the metric tile detection flag for topo_build.zig.
+    scratch_reqs: ?TileScratchReqs = null,
 };
 
 pub const TileState = enum {
