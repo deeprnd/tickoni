@@ -20,7 +20,7 @@ const util = @import("util");
 const logger = @import("logger");
 
 pub const magic: u32 = 0x544b5453; // "TKST"
-pub const version: u16 = 3;
+pub const version: u16 = 4;
 
 pub const max_tiles: usize = 8;
 pub const max_channels: usize = 8;
@@ -43,6 +43,11 @@ pub const TopologySpec = struct {
     channel_mtu: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
     workspace_name: link.WorkspaceName = std.mem.zeroes(link.WorkspaceName),
     metric_port: u16 = 7999,
+    /// Per-tile scratch alignment + footprint, mirrored from tile.zig's
+    /// TileScratchReqs. Serialized so tile processes rebuild the same
+    /// has_metric_tile decision as the supervisor.
+    tile_scratch_align: [max_tiles]usize = std.mem.zeroes([max_tiles]usize),
+    tile_scratch_footprint: [max_tiles]usize = std.mem.zeroes([max_tiles]usize),
 
     pub fn fromTopology(topo: topology.Topology, metric_port: u16) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec {
         const log = logger.get();
@@ -59,6 +64,10 @@ pub const TopologySpec = struct {
         for (topo.tiles, 0..) |t, i| {
             spec.tile_id[i] = t.id;
             spec.tile_cpu_placement[i] = t.cpu_placement;
+            if (t.scratch_reqs) |sr| {
+                spec.tile_scratch_align[i] = sr.scratch_align;
+                spec.tile_scratch_footprint[i] = sr.footprint;
+            }
         }
         for (topo.channels, 0..) |ch, i| {
             spec.channel_src_id[i] = ch.src_id;
@@ -83,10 +92,18 @@ pub const TopologySpec = struct {
         std.debug.assert(tiles_buf.len >= self.tile_cnt);
         std.debug.assert(channels_buf.len >= self.channel_cnt);
         for (0..self.tile_cnt) |i| {
+            var scratch_reqs: ?tile.TileScratchReqs = null;
+            if (self.tile_scratch_footprint[i] > 0) {
+                scratch_reqs = .{
+                    .scratch_align = self.tile_scratch_align[i],
+                    .footprint = self.tile_scratch_footprint[i],
+                };
+            }
             tiles_buf[i] = .{
                 .id = self.tile_id[i],
                 .name = self.tile_id[i].slice(),
                 .cpu_placement = self.tile_cpu_placement[i],
+                .scratch_reqs = scratch_reqs,
             };
         }
         for (0..self.channel_cnt) |i| {
