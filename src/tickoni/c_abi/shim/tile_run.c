@@ -49,6 +49,7 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
    Linux or macOS: tk_metric_tile.c depends on symbols from fd_metric_tile.c. */
 #if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
 #include "../topo_run/tk_metric_tile.h"
+#include "../topo_run/tk_audit_stem.h"
 #endif
 
 /* Check if this tile should use the metric run tile. Compares tile name
@@ -63,6 +64,19 @@ tile_is_metric( fd_topo_tile_t * tile ) {
   }
   int result = strcmp( tile->name, "metric" ) == 0;
   FD_LOG_NOTICE(( "tile_run: tile_is_metric EXIT tile->name=%s returning %d", tile->name, result ));
+  return result;
+}
+
+/* Check if this tile should use the audit stem run tile. Compares tile name. */
+static int
+tile_is_audit( fd_topo_tile_t * tile ) {
+  FD_LOG_NOTICE(( "tile_run: tile_is_audit ENTER tile=%p", (void*)tile ));
+  if( !tile ) {
+    FD_LOG_NOTICE(( "tile_run: tile_is_audit EXIT tile=NULL returning 0" ));
+    return 0;
+  }
+  int result = strcmp( tile->name, "audit_tile" ) == 0;
+  FD_LOG_NOTICE(( "tile_run: tile_is_audit EXIT tile->name=%s returning %d", tile->name, result ));
   return result;
 }
 
@@ -123,17 +137,22 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
   fd_topo_tile_t * tile_c = (fd_topo_tile_t *)tile;
   fd_topo_run_tile_t * run_tile;
 
-  /* Dispatch to TK_METRIC_RUN for metric tile — it uses fd_stem +
-     fd_http_server instead of Zig callbacks. */
+  /* Dispatch to TK_METRIC_RUN for metric tile, TK_AUDIT_RUN for
+     tkaudt tile — both use fd_stem-based run loops with custom
+     callbacks instead of Zig callbacks. */
 #if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
-  if( tile_is_metric( tile_c ) ) {
+  if( tile_is_audit( tile_c ) ) {
+    FD_LOG_NOTICE(( "tile_run: dispatching TK_AUDIT_RUN for tkaudt tile" ));
+    run_tile = &TK_AUDIT_RUN;
+  } else if( tile_is_metric( tile_c ) ) {
     FD_LOG_NOTICE(( "tile_run: dispatching TK_METRIC_RUN for metric tile" ));
     run_tile = &TK_METRIC_RUN;
   } else {
-    FD_LOG_NOTICE(( "tile_run: dispatching TK_TILE_RUN for non-metric tile" ));
+    FD_LOG_NOTICE(( "tile_run: dispatching TK_TILE_RUN for non-stem tile" ));
     run_tile = &TK_TILE_RUN;
   }
 #else
+  (void)tile_is_audit;
   (void)tile_is_metric;
   run_tile = &TK_TILE_RUN;
 #endif

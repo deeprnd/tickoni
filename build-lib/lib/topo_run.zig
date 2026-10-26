@@ -27,6 +27,11 @@ fn addTickoniTopoRunShims(b: *std.Build, step: *std.Build.Step.Compile) void {
         else => "src/tickoni/c_abi/shim/topo_run_platform_linux.c",
     };
 
+    // tk_audit_stem.c is NOT in topo_run — it belongs in the supervisor
+    // shim library (codec.zig) so it can share other shims.  tk_audit_stem.c
+    // is compiled in its own static library (see codec.zig) because it
+    // includes fd_stem.c with STEM_CALLBACK_CONTEXT_TYPE = tk_audit_ctx_t,
+    // which would collide with tk_metric_tile.c's stem_run (fd_metric_ctx_t).
     step.root_module.addCSourceFiles(.{
         .files = &.{
             "src/tickoni/c_abi/shim/topo_run.c",

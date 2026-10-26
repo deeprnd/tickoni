@@ -129,6 +129,20 @@ pub fn addTickoniSupervisorShimLibrary(
     });
 }
 
+/// Audit shim library: tk_audit_stem.c compiled separately from tk_metric_tile.c.
+/// Both files include fd_stem.c with different STEM_CALLBACK_CONTEXT_TYPE values
+/// (tk_audit_ctx_t vs fd_metric_ctx_t), so they need separate compilation units
+/// to avoid duplicate stem_run symbols.
+pub fn addTickoniAuditShimLibrary(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Step.Compile {
+    return addTickoniShimLibrary(b, target, optimize, "tickoni-audit-shims", &.{
+        "src/tickoni/c_abi/shim/tk_audit_stem.c",
+    });
+}
+
 /// Codec shim library: ballet.c only.
 pub fn addTickoniCodecShimLibrary(
     b: *std.Build,

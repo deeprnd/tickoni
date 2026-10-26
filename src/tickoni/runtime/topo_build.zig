@@ -294,9 +294,58 @@ pub fn build(
         log.kvFmt("topo_build", "build", "done topobTileIn for metric tile", .{});
     }
 
+    // Wire pipeline channels (src->dst) BEFORE topobAutoLayout so that
+    // topobAutoLayout sees all tile->in_link_id / in_cnt / out_link_id /
+    // out_cnt fields and can correctly assign CPU indices and layout the
+    // topology.  If autoLayout runs before channel wiring, in_cnt stays
+    // zero for every tile and stem_run never polls inputs.
+    log.kvFmt("topo_build", "build", "wiring channels BEFORE topobAutoLayout", .{});
+    const link_obj_id_before = try allocator.alloc(LinkObjIds, topo_desc.channels.len);
+    errdefer allocator.free(link_obj_id_before);
+    for (topo_desc.channels, 0..) |ch, i| {
+        var src_name_buf: [8]u8 = undefined;
+        var dst_name_buf: [8]u8 = undefined;
+        var link_name_buf: [8]u8 = undefined;
+        const src_name_z = toZ(&src_name_buf, topo_desc.tiles[ch.src_idx].id.slice());
+        const dst_name_z = toZ(&dst_name_buf, topo_desc.tiles[ch.dst_idx].id.slice());
+        const link_name_z = linkNameZ(&link_name_buf, i);
+        log.kvFmt("topo_build", "build", "calling topobTileIn(dst={s}, wksp={s}, link=ch{d})", .{ dst_name_z, wksp_name_z, i });
+        const fseq_obj_id = c_abi.topob.topobTileIn(topo, dst_name_z, 0, wksp_name_z, link_name_z, 0, true, true);
+        log.kvFmt("topo_build", "build", "calling topobTileOut(src={s}, link=ch{d})", .{ src_name_z, i });
+        c_abi.topob.topobTileOut(topo, src_name_z, 0, link_name_z, 0);
+        // Verify channel wiring: src tile has out_cnt >= 1, dst tile has in_cnt >= 1.
+        log.kvFmt("topo_build", "build", "calling topoFindTile(src={s})", .{src_name_z});
+        const src_tile_id = c_abi.topob.topoFindTile(topo, src_name_z, 0);
+        log.kvFmt("topo_build", "build", "calling topoFindTile(dst={s})", .{dst_name_z});
+        const dst_tile_id = c_abi.topob.topoFindTile(topo, dst_name_z, 0);
+        std.debug.assert(src_tile_id != c_abi.topob.not_found);
+        std.debug.assert(dst_tile_id != c_abi.topob.not_found);
+        log.kvFmt("topo_build", "build", "calling topoTileOutputCount(tile={d})", .{src_tile_id});
+        const src_out_cnt = c_abi.topob.topoTileOutputCount(topo, src_tile_id);
+        log.kvFmt("topo_build", "build", "calling topoTileInputCount(tile={d})", .{dst_tile_id});
+        const dst_in_cnt = c_abi.topob.topoTileInputCount(topo, dst_tile_id);
+        std.debug.assert(src_out_cnt > 0);
+        std.debug.assert(dst_in_cnt > 0);
+        log.kvFmt("topo_build", "build", "calling topoLinkMcacheObjId(link={d})", .{link_ids[i]});
+        const mcache_obj = c_abi.topob.topoLinkMcacheObjId(topo, link_ids[i]);
+        log.kvFmt("topo_build", "build", "calling topoLinkDcacheObjId(link={d})", .{link_ids[i]});
+        const dcache_obj = c_abi.topob.topoLinkDcacheObjId(topo, link_ids[i]);
+        log.kvFmt("topo_build", "build", "calling topoLinkFseqObjId(link={d})", .{link_ids[i]});
+        link_obj_id_before[i] = .{
+            .mcache_obj_id = mcache_obj,
+            .dcache_obj_id = dcache_obj,
+            .fseq_obj_id = fseq_obj_id,
+        };
+        log.kvFmt("topo_build", "build", "done channel ch{d} (src={s}->dst={s})", .{ i, src_name_z, dst_name_z });
+    }
+    log.kvFmt("topo_build", "build", "done channel wiring BEFORE topobAutoLayout (channel_cnt={d})", .{topo_desc.channels.len});
+
     log.kvFmt("topo_build", "build", "calling topobAutoLayout(tile_cnt={d})", .{topo_desc.tiles.len});
     c_abi.topob.topobAutoLayout(topo, @as([*]const usize, cpu_idx_arr.ptr));
     log.kvFmt("topo_build", "build", "topobAutoLayout completed", .{});
+
+    // Reuse the link_obj_id from above (already allocated before autoLayout).
+    const link_obj_id = link_obj_id_before;
 
     // Set per-tile scratch footprint and alignment properties so
     // tile_footprint() / tile_align() in topob.c can query them.
@@ -341,47 +390,6 @@ pub fn build(
         cnc_obj_id[fd_idx] = cnc_obj;
     }
     log.kvFmt("topo_build", "build", "done CNC loop (tile_cnt={d})", .{topo_desc.tiles.len});
-
-    const link_obj_id = try allocator.alloc(LinkObjIds, topo_desc.channels.len);
-    errdefer allocator.free(link_obj_id);
-    for (topo_desc.channels, 0..) |ch, i| {
-        var src_name_buf: [8]u8 = undefined;
-        var dst_name_buf: [8]u8 = undefined;
-        var link_name_buf: [8]u8 = undefined;
-        const src_name_z = toZ(&src_name_buf, topo_desc.tiles[ch.src_idx].id.slice());
-        const dst_name_z = toZ(&dst_name_buf, topo_desc.tiles[ch.dst_idx].id.slice());
-        const link_name_z = linkNameZ(&link_name_buf, i);
-        log.kvFmt("topo_build", "build", "calling topobTileIn(dst={s}, wksp={s}, link=ch{d})", .{ dst_name_z, wksp_name_z, i });
-        const fseq_obj_id = c_abi.topob.topobTileIn(topo, dst_name_z, 0, wksp_name_z, link_name_z, 0, true, true);
-        log.kvFmt("topo_build", "build", "calling topobTileOut(src={s}, link=ch{d})", .{ src_name_z, i });
-        c_abi.topob.topobTileOut(topo, src_name_z, 0, link_name_z, 0);
-        // Verify channel wiring: src tile has out_cnt >= 1, dst tile has in_cnt >= 1.
-        // Catches stale src_idx/dst_idx that reference deleted tiles.
-        log.kvFmt("topo_build", "build", "calling topoFindTile(src={s})", .{src_name_z});
-        const src_tile_id = c_abi.topob.topoFindTile(topo, src_name_z, 0);
-        log.kvFmt("topo_build", "build", "calling topoFindTile(dst={s})", .{dst_name_z});
-        const dst_tile_id = c_abi.topob.topoFindTile(topo, dst_name_z, 0);
-        std.debug.assert(src_tile_id != c_abi.topob.not_found);
-        std.debug.assert(dst_tile_id != c_abi.topob.not_found);
-        log.kvFmt("topo_build", "build", "calling topoTileOutputCount(tile={d})", .{src_tile_id});
-        const src_out_cnt = c_abi.topob.topoTileOutputCount(topo, src_tile_id);
-        log.kvFmt("topo_build", "build", "calling topoTileInputCount(tile={d})", .{dst_tile_id});
-        const dst_in_cnt = c_abi.topob.topoTileInputCount(topo, dst_tile_id);
-        std.debug.assert(src_out_cnt > 0);
-        std.debug.assert(dst_in_cnt > 0);
-        log.kvFmt("topo_build", "build", "calling topoLinkMcacheObjId(link={d})", .{link_ids[i]});
-        const mcache_obj = c_abi.topob.topoLinkMcacheObjId(topo, link_ids[i]);
-        log.kvFmt("topo_build", "build", "calling topoLinkDcacheObjId(link={d})", .{link_ids[i]});
-        const dcache_obj = c_abi.topob.topoLinkDcacheObjId(topo, link_ids[i]);
-        log.kvFmt("topo_build", "build", "calling topoLinkFseqObjId(link={d})", .{link_ids[i]});
-        link_obj_id[i] = .{
-            .mcache_obj_id = mcache_obj,
-            .dcache_obj_id = dcache_obj,
-            .fseq_obj_id = fseq_obj_id,
-        };
-        log.kvFmt("topo_build", "build", "done channel ch{d} (src={s}->dst={s})", .{ i, src_name_z, dst_name_z });
-    }
-    log.kvFmt("topo_build", "build", "done channel wiring (channel_cnt={d})", .{topo_desc.channels.len});
 
     // Print workspace -> object mapping before finish
     log.kvFmt("topo_build", "build", "calling topobDebugWkspObjIds", .{});

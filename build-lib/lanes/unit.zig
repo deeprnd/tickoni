@@ -71,7 +71,7 @@ pub fn strategy(
             .{ .name = "topologies", .module = shared.topologies },
             .{ .name = "logger", .module = shared.logger },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true, .needs_audit_stem = true },
     });
     run_count += 1;
 

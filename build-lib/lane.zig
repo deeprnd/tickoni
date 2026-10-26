@@ -10,6 +10,7 @@ const shims = @import("lib/shims.zig");
 const codec = @import("lib/codec.zig");
 const firedancer = @import("lib/firedancer.zig");
 const topo_run = @import("lib/topo_run.zig");
+const tile_run = @import("lib/tile_run.zig");
 
 /// Build-time linkage flags for a test.
 pub const TestLinkage = packed struct(u8) {
@@ -18,7 +19,8 @@ pub const TestLinkage = packed struct(u8) {
     needs_topo_run: bool = false,
     needs_tile_run: bool = false,
     needs_libc: bool = false,
-    _pad: u3 = 0,
+    needs_audit_stem: bool = false,
+    _pad: u2 = 0,
 };
 
 /// Action to dispatch for a registered test.
@@ -72,6 +74,8 @@ pub const TestBuilder = struct {
         if (spec.linkage.needs_firedancer) firedancer.linkTickoniFiredancer(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_topo_run) topo_run.linkTickoniTopoRun(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_libc) t.root_module.link_libc = true;
+        if (spec.linkage.needs_tile_run) tile_run.linkTickoniTileRun(self.b, t, self.fd_lib_dir);
+        if (spec.linkage.needs_audit_stem) t.root_module.linkLibrary(codec.addTickoniAuditShimLibrary(self.b, self.target, self.optimize));
 
         cov_step.dependOn(&self.b.addInstallArtifact(t, .{
             .dest_dir = .{ .override = .{ .custom = "cov" } },
@@ -98,6 +102,8 @@ pub const TestBuilder = struct {
         if (spec.linkage.needs_firedancer) firedancer.linkTickoniFiredancer(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_topo_run) topo_run.linkTickoniTopoRun(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_libc) t.root_module.link_libc = true;
+        if (spec.linkage.needs_tile_run) tile_run.linkTickoniTileRun(self.b, t, self.fd_lib_dir);
+        if (spec.linkage.needs_audit_stem) t.root_module.linkLibrary(codec.addTickoniAuditShimLibrary(self.b, self.target, self.optimize));
 
         return t;
     }
