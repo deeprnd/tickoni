@@ -140,6 +140,13 @@ fn toZ(buf: []u8, s: []const u8) [*:0]const u8 {
     return @ptrCast(buf.ptr);
 }
 
+/// Convert a TileId to a NUL-terminated string for Firedancer C API calls.
+/// Every TileId→C-string conversion must go through this helper so that the
+/// Firedancer boundary is a single, auditable call site.
+fn tileIdToName(id: tile.TileId, buf: []u8) [*:0]const u8 {
+    return toZ(buf, id.slice());
+}
+
 fn linkNameZ(buf: []u8, idx: usize) [*:0]const u8 {
     const s = std.fmt.bufPrint(buf[0 .. buf.len - 1], "ch{d}", .{idx}) catch unreachable;
     buf[s.len] = 0;
@@ -245,11 +252,12 @@ pub fn build(
         fd_tile_idx_by_desc[i] = non_metric_count;
         non_metric_count += 1;
         var tile_name_buf: [16]u8 = undefined;
+        const tile_name_z = tileIdToName(t.id, &tile_name_buf);
         log.kvFmt("topo_build", "build", "calling topobTile(id={s}, wksp={s})", .{ t.id.slice(), wksp_name_z });
-        _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, t.id.slice()), wksp_name_z, wksp_name_z, 0);
+        _ = c_abi.topob.topobTile(topo, tile_name_z, wksp_name_z, wksp_name_z, 0);
         // Verify tile was registered with expected name (catches tile name typos).
         log.kvFmt("topo_build", "build", "topoValidateTileExists(id={s})", .{t.id.slice()});
-        std.debug.assert(c_abi.topob.topoValidateTileExists(topo, toZ(&tile_name_buf, t.id.slice())));
+        std.debug.assert(c_abi.topob.topoValidateTileExists(topo, tile_name_z));
     }
     if (has_metric_tile) {
         var tile_name_buf: [16]u8 = undefined;
@@ -311,8 +319,8 @@ pub fn build(
         var src_name_buf: [8]u8 = undefined;
         var dst_name_buf: [8]u8 = undefined;
         var link_name_buf: [8]u8 = undefined;
-        const src_name_z = toZ(&src_name_buf, ch.src_id.slice());
-        const dst_name_z = toZ(&dst_name_buf, ch.dst_id.slice());
+        const src_name_z = tileIdToName(ch.src_id, &src_name_buf);
+        const dst_name_z = tileIdToName(ch.dst_id, &dst_name_buf);
         const link_name_z = linkNameZ(&link_name_buf, i);
         log.kvFmt("topo_build", "build", "calling topobTileIn(dst={s}, wksp={s}, link=ch{d})", .{ dst_name_z, wksp_name_z, i });
         const fseq_obj_id = c_abi.topob.topobTileIn(topo, dst_name_z, 0, wksp_name_z, link_name_z, 0, true, true);
@@ -361,9 +369,10 @@ pub fn build(
     for (topo_desc.tiles) |t| {
         if (t.scratch_reqs) |reqs| {
             var tile_name_buf: [8]u8 = undefined;
+            const name_z = tileIdToName(t.id, &tile_name_buf);
             log.kvFmt("topo_build", "build", "calling topobSetTileObjPropertyUlong({s}, footprint={d}, align={d})", .{ t.id.slice(), reqs.footprint, reqs.scratch_align });
-            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.id.slice()), 0, scratch_footprint_key, reqs.footprint);
-            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.id.slice()), 0, scratch_align_key, reqs.scratch_align);
+            c_abi.topob.topobSetTileObjPropertyUlong(topo, name_z, 0, scratch_footprint_key, reqs.footprint);
+            c_abi.topob.topobSetTileObjPropertyUlong(topo, name_z, 0, scratch_align_key, reqs.scratch_align);
         }
     }
 

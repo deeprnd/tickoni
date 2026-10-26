@@ -294,7 +294,7 @@ test "metric topology finalizes exact scratch requirements identically" {
     );
     try std.testing.expectEqual(
         @as(usize, 0),
-        c_abi.topob.topoObjOffset(parent.topo, parent_obj_id) % required.alignment,
+        c_abi.topob.topoObjOffset(parent.topo, parent_obj_id) % expected_align,
     );
     try std.testing.expect(c_abi.topob.topoValidateMetricScratch(parent.topo));
 
@@ -323,7 +323,7 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
     if (false) return error.SkipZigTest;
     const tiles = [_]runtime.tile.TileDescriptor{
         .{ .id = runtime.tile.TileId.parse("tkings") catch unreachable, .name = "ingest", .cpu_placement = .{ .exclusive = 2 } },
-        .{ .id = runtime.tile.TileId.parse("metric") catch unreachable, .name = "metric", .cpu_placement = .{ .exclusive = 3 } },
+        .{ .id = runtime.tile.TileId.parse("metric") catch unreachable, .name = "metric", .cpu_placement = .{ .exclusive = 3 }, .scratch_reqs = .{ .scratch_align = 64, .footprint = 32_000_000 } },
         .{ .id = runtime.tile.TileId.parse("tkdiag") catch unreachable, .name = "diagnostic", .cpu_placement = .{ .exclusive = 4 } },
     };
     const channels = [_]runtime.link.Channel{
