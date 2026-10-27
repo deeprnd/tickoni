@@ -172,10 +172,10 @@ test "audit_stem: DURING_FRAG consumes and audits" {
     while (poll < max_polls) : (poll += 1) {
         const snap = sup.snapshotProcessMetrics();
         try std.testing.expect(snap.audited >= prev_audited);
-        if (snap.audited >= event_count) break;
         if (snap.audited > prev_audited) {
             prev_audited = snap.audited;
         }
+        if (snap.audited >= event_count) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
 
