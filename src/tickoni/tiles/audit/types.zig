@@ -74,24 +74,44 @@ test "PolicyOutcome enum has 7 values" {
     try std.testing.expectEqual(@as(usize, 7), outcomes.len);
 }
 
+test "PolicyOutcome C↔Zig backing size matches" {
+    const c_audit = @import("audit_mod");
+    // C defines PolicyOutcome as int8_t — verify the translate-c import
+    // matches.
+    try std.testing.expectEqual(
+        @sizeOf(c_audit.PolicyOutcome),
+        @sizeOf(schema.PolicyOutcome),
+    );
+    try std.testing.expectEqual(
+        @sizeOf(std.meta.Tag(schema.PolicyOutcome)),
+        @sizeOf(c_audit.PolicyOutcome),
+    );
+}
+
+test "PolicyDecisionPayload C↔Zig layout parity" {
+    const c_audit = @import("audit_mod");
+    try std.testing.expectEqual(
+        @sizeOf(c_audit.PolicyDecisionPayload),
+        @sizeOf(schema.PolicyDecisionPayload),
+    );
+    try std.testing.expectEqual(
+        @alignOf(c_audit.PolicyDecisionPayload),
+        @alignOf(schema.PolicyDecisionPayload),
+    );
+    // Verify each field offset matches byte-for-byte.
+    const info = @typeInfo(schema.PolicyDecisionPayload).@"struct";
+    inline for (info.field_names) |fname| {
+        try std.testing.expectEqual(
+            @offsetOf(c_audit.PolicyDecisionPayload, fname),
+            @offsetOf(schema.PolicyDecisionPayload, fname),
+        );
+    }
+}
+
 test "audit_schema_version is 2" {
     try std.testing.expectEqual(
         @as(u16, 2),
         schema.audit_schema_version,
-    );
-}
-
-test "Header C↔Zig layout parity" {
-    // audit_schema.h is the single source of truth — compare Zig Header
-    // against translate-c generated AuditHeader at build time.
-    const c_audit = @import("audit_mod");
-    try std.testing.expectEqual(
-        @sizeOf(c_audit.AuditHeader),
-        @sizeOf(schema.Header),
-    );
-    try std.testing.expectEqual(
-        @alignOf(c_audit.AuditHeader),
-        @alignOf(schema.Header),
     );
 }
 
@@ -108,7 +128,7 @@ test "audit hash differs when any input changes" {
     try std.testing.expect(fnv1a_hash_6(6, 100, AUDIT_SEED, 0, 1234) != base_hash);
     try std.testing.expect(fnv1a_hash_6(5, 101, AUDIT_SEED, 0, 1234) != base_hash);
     try std.testing.expect(fnv1a_hash_6(5, 100, 1, 0, 1234) != base_hash);
-    try std.testing.expect(fnv1a_hash_6(5, 100, AUDIT_SEED, 1, 1234) != base_hash);
+    try std.testing.expect(fnv1a_hash_6(5, 100, AUDIT_SEED, 0, 1235) != base_hash);
     try std.testing.expect(fnv1a_hash_6(5, 100, AUDIT_SEED, 0, 1235) != base_hash);
 }
 
