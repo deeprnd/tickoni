@@ -262,8 +262,8 @@ pub fn runAuditProcess(
             .tile_id = msg.decided_by,
         }) catch break;
         audited += 1;
+        rt.cnc_counters.appCounterWrite(cnc, 0, audited);
     }
-    rt.cnc_counters.appCounterWrite(cnc, 0, audited);
 }
 
 // ---------------------------------------------------------------------------
