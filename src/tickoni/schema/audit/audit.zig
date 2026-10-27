@@ -3,7 +3,6 @@
 /// Audit records are cross-tile contracts and part of replay compatibility.
 /// Keep the typed schema here; codecs in src/tickoni/codec/ provide concrete
 /// binary, protobuf, JSONL, and hash encodings over this schema.
-
 const std = @import("std");
 const c_schema = @import("audit_mod");
 

@@ -9,11 +9,11 @@ pub fn main() !void {
     // Print the type info for PolicyOutcome from translate-c
     const ty = @TypeOf(audit_mod.PolicyOutcome);
     try stdout.print("audit_mod.PolicyOutcome type info:\n", .{});
-    
+
     // Check if it's an enum or c_uint
     const fields = @typeInfo(ty);
     try stdout.print("  TypeInfo kind: {any}\n", .{fields});
-    
+
     // Try to see actual enum values
     switch (fields) {
         .@"enum" => |info| {
@@ -38,9 +38,7 @@ pub fn main() !void {
     const header_info = @typeInfo(header_ty);
     switch (header_info) {
         .@"struct" => |info| {
-            try stdout.print("\naudit_mod.AuditHeader: {d} fields, size={d}, align={d}\n", .{ 
-                info.fields.len, @sizeOf(header_ty), @alignOf(header_ty) 
-            });
+            try stdout.print("\naudit_mod.AuditHeader: {d} fields, size={d}, align={d}\n", .{ info.fields.len, @sizeOf(header_ty), @alignOf(header_ty) });
         },
         else => {},
     }
@@ -50,11 +48,9 @@ pub fn main() !void {
     const pdp_info = @typeInfo(pdp_ty);
     switch (pdp_info) {
         .@"struct" => |info| {
-            try stdout.print("\naudit_mod.PolicyDecisionPayload: {d} fields\n", .{ info.fields.len });
+            try stdout.print("\naudit_mod.PolicyDecisionPayload: {d} fields\n", .{info.fields.len});
             for (info.fields, 0..) |f, i| {
-                try stdout.print("  [{d}] {s} type={any} (is_enum: {any})\n", .{ 
-                    i, f.name, f.field_type, @typeInfo(f.field_type) 
-                });
+                try stdout.print("  [{d}] {s} type={any} (is_enum: {any})\n", .{ i, f.name, f.field_type, @typeInfo(f.field_type) });
             }
         },
         else => {},

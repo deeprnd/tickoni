@@ -122,7 +122,11 @@ extern fn tk_audit_scratch_footprint_tile(?*const anyopaque) usize;
 
 // From audit_schema_layout.c — exported FNV-1a mirror for parity.
 extern fn audit_fnv1a_hash_6(
-    u64, u64, u64, u8, u64,
+    u64,
+    u64,
+    u64,
+    u8,
+    u64,
 ) u64;
 
 // ---------------------------------------------------------------------------
@@ -162,4 +166,3 @@ test "AuditHeader layout: C sizeof/align matches Zig @sizeOf/@alignOf" {
     try std.testing.expectEqual(c_size, z_size);
     try std.testing.expectEqual(c_align, z_align);
 }
-
