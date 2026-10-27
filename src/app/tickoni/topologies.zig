@@ -27,7 +27,7 @@ pub const TopologyStatus = enum { runnable, planned };
 // stack-allocated data.
 const payment_tiles = [_]TileDescriptor{
     .{ .id = TileId.parse("tkings") catch unreachable, .name = "ingest_tile" },
-    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "normalize_tile" },
+    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "normalize_tile", .scratch_reqs = .{ .scratch_align = 64, .footprint = 4096 } },
     .{ .id = TileId.parse("tkdedu") catch unreachable, .name = "dedupe_tile" },
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
     .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile", .scratch_reqs = .{ .scratch_align = 64, .footprint = 4096 } },
@@ -53,7 +53,7 @@ const payment_channels = [_]Channel{
 
 const investment_tiles = [_]TileDescriptor{
     .{ .id = TileId.parse("tkings") catch unreachable, .name = "ingest_tile" },
-    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "normalize_tile" },
+    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "normalize_tile", .scratch_reqs = .{ .scratch_align = 64, .footprint = 4096 } },
     .{ .id = TileId.parse("tkdedu") catch unreachable, .name = "dedupe_tile" },
     .{ .id = TileId.parse("tkcase") catch unreachable, .name = "case_router_tile" },
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
