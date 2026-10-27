@@ -100,6 +100,10 @@ pub fn strategy(
                     .imports = &infra_imports,
                 }),
             });
+            // C ABI shim: tango.c, os.c, util.c, wksp.c, topob.c, sandbox.c
+            // define tk_* symbols (tk_cnc_signal, tk_wksp_*, tk_fctl_*, etc.)
+            // used by the c_abi Zig modules imported by infra tests.
+            test_bin.root_module.linkLibrary(codec.addTickoniCabShimLibrary(b, target, optimize));
             codec.linkTickoniCodec(b, test_bin, fd_lib_dir);
             firedancer.linkTickoniFiredancer(b, test_bin, fd_lib_dir);
             topo_run.linkTickoniTopoRun(b, test_bin, fd_lib_dir);
@@ -130,6 +134,8 @@ pub fn strategy(
                 },
             }),
         });
+        // mock_servers uses c_abi.util which declares tk_sleep_nanos etc.
+        mock_servers_test.root_module.linkLibrary(codec.addTickoniCabShimLibrary(b, target, optimize));
         firedancer.linkTickoniFiredancer(b, mock_servers_test, fd_lib_dir);
 
         const model_tile_http_test = b.addTest(.{
@@ -147,6 +153,8 @@ pub fn strategy(
             }),
         });
         codec.linkTickoniCodec(b, model_tile_http_test, fd_lib_dir);
+        // model_tile_http uses c_abi.os which declares tk_sleep_nanos etc.
+        model_tile_http_test.root_module.linkLibrary(codec.addTickoniCabShimLibrary(b, target, optimize));
         firedancer.linkTickoniFiredancer(b, model_tile_http_test, fd_lib_dir);
 
         test_runs[test_run_count] = shims.addPlainTestRunSeries(
