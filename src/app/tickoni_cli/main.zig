@@ -116,7 +116,7 @@ fn runTickoni(allocator: Allocator, io: Io, args: []const []const u8) anyerror!s
     const bin = try locateTickoniBinary(allocator, io);
     defer allocator.free(bin);
 
-    var argv_buf: std.ArrayListUnmanaged([]const u8) = .empty;
+    var argv_buf: std.ArrayList([]const u8) = .empty;
     defer argv_buf.deinit(allocator);
     try argv_buf.append(allocator, bin);
     for (args) |a| try argv_buf.append(allocator, a);
