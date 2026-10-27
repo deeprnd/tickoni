@@ -40,7 +40,7 @@ pub fn strategy(
     tb.registerCov(.{
         .name = "test-queue",
         .source_file = "src/tickoni/c_abi/queue.zig",
-        .linkage = .{ .needs_firedancer = true },
+        .linkage = .{ .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
@@ -51,31 +51,31 @@ pub fn strategy(
     tb.registerCov(.{
         .name = "test-dcache",
         .source_file = "src/tickoni/c_abi/dcache.zig",
-        .linkage = .{ .needs_firedancer = true },
+        .linkage = .{ .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
         .name = "test-fseq",
         .source_file = "src/tickoni/c_abi/fseq.zig",
-        .linkage = .{ .needs_firedancer = true },
+        .linkage = .{ .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
         .name = "test-fctl",
         .source_file = "src/tickoni/c_abi/fctl.zig",
-        .linkage = .{ .needs_firedancer = true },
+        .linkage = .{ .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
         .name = "test-cnc",
         .source_file = "src/tickoni/c_abi/cnc.zig",
-        .linkage = .{ .needs_firedancer = true },
+        .linkage = .{ .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
         .name = "test-tempo",
         .source_file = "src/tickoni/c_abi/tempo.zig",
-        .linkage = .{ .needs_firedancer = true },
+        .linkage = .{ .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{

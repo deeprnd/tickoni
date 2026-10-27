@@ -21,7 +21,7 @@ pub const TestLinkage = packed struct(u8) {
     needs_libc: bool = false,
     needs_audit: bool = false,
     needs_audit_disco: bool = false,
-    _pad: u1 = 0,
+    needs_cabi_shim: bool = false,
 };
 
 /// Action to dispatch for a registered test.
@@ -76,6 +76,12 @@ pub const TestBuilder = struct {
         if (spec.linkage.needs_topo_run) topo_run.linkTickoniTopoRun(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_libc) t.root_module.link_libc = true;
         if (spec.linkage.needs_tile_run) tile_run.linkTickoniTileRun(self.b, t, self.fd_lib_dir);
+        if (spec.linkage.needs_cabi_shim) {
+            const cabi_shim_lib = codec.addTickoniCabShimLibrary(self.b, self.target, self.optimize);
+            t.root_module.linkLibrary(cabi_shim_lib);
+            // C ABI shim needs libfd_tango.a and libfd_util.a from Firedancer.
+            firedancer.linkTickoniFiredancer(self.b, t, self.fd_lib_dir);
+        }
         if (spec.linkage.needs_audit) {
             const shim_lib = codec.addTickoniAuditShimLibrary(self.b, self.target, self.optimize, self.fd_lib_dir);
             t.root_module.linkLibrary(shim_lib);
@@ -112,6 +118,12 @@ pub const TestBuilder = struct {
         if (spec.linkage.needs_topo_run) topo_run.linkTickoniTopoRun(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_libc) t.root_module.link_libc = true;
         if (spec.linkage.needs_tile_run) tile_run.linkTickoniTileRun(self.b, t, self.fd_lib_dir);
+        if (spec.linkage.needs_cabi_shim) {
+            const cabi_shim_lib = codec.addTickoniCabShimLibrary(self.b, self.target, self.optimize);
+            t.root_module.linkLibrary(cabi_shim_lib);
+            // C ABI shim needs libfd_tango.a and libfd_util.a from Firedancer.
+            firedancer.linkTickoniFiredancer(self.b, t, self.fd_lib_dir);
+        }
         if (spec.linkage.needs_audit) {
             const shim_lib = codec.addTickoniAuditShimLibrary(self.b, self.target, self.optimize, self.fd_lib_dir);
             t.root_module.linkLibrary(shim_lib);

@@ -1,10 +1,9 @@
 const std = @import("std");
-const shims = @import("shims.zig");
 const codec = @import("codec.zig");
 
-/// Link Firedancer tango/util libraries and add the Firedancer shim C sources.
+/// Link Firedancer tango/util libraries. C shim compilation is handled by
+/// addTickoniSupervisorShimLibrary (codec.zig) which owns all C source files.
 pub fn linkTickoniFiredancer(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8) void {
-    addTickoniFiredancerShims(b, step);
     if (step.root_module.resolved_target.?.result.os.tag == .windows) {
         step.root_module.addLibraryPath(codec.buildPath(b, fd_lib_dir));
         step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
@@ -14,29 +13,4 @@ pub fn linkTickoniFiredancer(b: *std.Build, step: *std.Build.Step.Compile, fd_li
         return;
     }
     codec.addTickoniSystemLibraries(b, step, fd_lib_dir, &.{ "fd_tango", "fd_util" });
-}
-
-/// Add Firedancer shim C sources (tango, util, wksp, sandbox, os) to the given compile step.
-fn addTickoniFiredancerShims(b: *std.Build, step: *std.Build.Step.Compile) void {
-    step.root_module.link_libc = true;
-    step.root_module.addIncludePath(b.path("src"));
-    // Firedancer shims include shmem/wksp headers by basename (fd_shmem.h, fd_wksp.h).
-    // These headers live in src/util/shmem and src/util/wksp — match codec.zig's
-    // addTickoniShimLibrary which adds the same paths for the supervisor shim.
-    step.root_module.addIncludePath(b.path("src/util/shmem"));
-    step.root_module.addIncludePath(b.path("src/util/wksp"));
-    const target_info = step.root_module.resolved_target.?.result;
-    step.root_module.addCSourceFiles(.{
-        .files = &.{
-            "src/tickoni/c_abi/shim/tango.c",
-            "src/tickoni/c_abi/shim/util.c",
-            "src/tickoni/c_abi/shim/wksp.c",
-            "src/tickoni/c_abi/shim/sandbox.c",
-            "src/tickoni/c_abi/shim/os.c",
-        },
-        .flags = shims.shimCFlagsFor(target_info),
-    });
-    if (target_info.os.tag == .windows) {
-        step.root_module.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
-    }
 }
