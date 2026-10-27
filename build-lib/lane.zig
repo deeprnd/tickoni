@@ -19,7 +19,7 @@ pub const TestLinkage = packed struct(u8) {
     needs_topo_run: bool = false,
     needs_tile_run: bool = false,
     needs_libc: bool = false,
-    needs_audit_stem: bool = false,
+    needs_audit: bool = false,
     _pad: u2 = 0,
 };
 
@@ -75,7 +75,7 @@ pub const TestBuilder = struct {
         if (spec.linkage.needs_topo_run) topo_run.linkTickoniTopoRun(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_libc) t.root_module.link_libc = true;
         if (spec.linkage.needs_tile_run) tile_run.linkTickoniTileRun(self.b, t, self.fd_lib_dir);
-        if (spec.linkage.needs_audit_stem) t.root_module.linkLibrary(codec.addTickoniAuditShimLibrary(self.b, self.target, self.optimize));
+        if (spec.linkage.needs_audit) t.root_module.linkLibrary(codec.addTickoniAuditShimLibrary(self.b, self.target, self.optimize, self.fd_lib_dir));
 
         cov_step.dependOn(&self.b.addInstallArtifact(t, .{
             .dest_dir = .{ .override = .{ .custom = "cov" } },
@@ -103,7 +103,7 @@ pub const TestBuilder = struct {
         if (spec.linkage.needs_topo_run) topo_run.linkTickoniTopoRun(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_libc) t.root_module.link_libc = true;
         if (spec.linkage.needs_tile_run) tile_run.linkTickoniTileRun(self.b, t, self.fd_lib_dir);
-        if (spec.linkage.needs_audit_stem) t.root_module.linkLibrary(codec.addTickoniAuditShimLibrary(self.b, self.target, self.optimize));
+        if (spec.linkage.needs_audit) t.root_module.linkLibrary(codec.addTickoniAuditShimLibrary(self.b, self.target, self.optimize, self.fd_lib_dir));
 
         return t;
     }

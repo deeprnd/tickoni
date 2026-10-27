@@ -106,7 +106,7 @@ pub fn strategy(
             // includes fd_stem.c with STEM_CALLBACK_CONTEXT_TYPE = tk_audit_ctx_t.
             // It's compiled in a separate static library to avoid duplicate
             // stem_run symbols with tk_metric_tile.c (fd_metric_ctx_t).
-            test_bin.root_module.linkLibrary(codec.addTickoniAuditShimLibrary(b, target, optimize));
+            test_bin.root_module.linkLibrary(codec.addTickoniAuditShimLibrary(b, target, optimize, fd_lib_dir));
             // libfd_waltz.a contains fd_http_server.o, which references ZSTD.
             test_bin.root_module.addObjectFile(.{
                 .cwd_relative = b.fmt("{s}/libfd_zstd.a", .{fd_lib_dir}),

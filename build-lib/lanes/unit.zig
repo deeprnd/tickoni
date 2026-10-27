@@ -24,7 +24,7 @@ pub fn strategy(
     const int_mods = factory.ModuleFactory.init(b, shared, tm, target, optimize).createIntModules(null);
 
     // Collect all compile steps for sequential run.
-    var run_sequence: [37]*std.Build.Step.Compile = undefined;
+    var run_sequence: [38]*std.Build.Step.Compile = undefined;
     var run_count: usize = 0;
 
     const tb = lane.TestBuilder{
@@ -71,7 +71,7 @@ pub fn strategy(
             .{ .name = "topologies", .module = shared.topologies },
             .{ .name = "logger", .module = shared.logger },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true, .needs_audit_stem = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true, .needs_audit = true },
     });
     run_count += 1;
 
@@ -189,6 +189,21 @@ pub fn strategy(
             .{ .name = "audit_codec", .module = shared.audit_codec },
             .{ .name = "audit_schema", .module = shared.audit_schema },
             .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+        },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_audit = true },
+    });
+    run_count += 1;
+
+    // test-audit-stem — stem tile scratch layout, C FNV-1a parity, schema invariants
+    // (tests migrated into types.zig rather than a separate file)
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-audit-stem",
+        .source_file = "src/tickoni/tiles/audit/types.zig",
+        .imports = &.{
+            .{ .name = "audit_codec", .module = shared.audit_codec },
+            .{ .name = "audit_schema", .module = shared.audit_schema },
+            .{ .name = "audit_mod", .module = shared.audit_mod },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true },
     });

@@ -133,14 +133,25 @@ pub fn addTickoniSupervisorShimLibrary(
 /// Both files include fd_stem.c with different STEM_CALLBACK_CONTEXT_TYPE values
 /// (tk_audit_ctx_t vs fd_metric_ctx_t), so they need separate compilation units
 /// to avoid duplicate stem_run symbols.
+///
+/// Link requirements: libfd_disco.a provides fd_topo_obj_laddr and other topo
+/// symbols that tk_audit_stem.c references via fd_topo.h.
 pub fn addTickoniAuditShimLibrary(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
+    fd_lib_dir: ?[]const u8,
 ) *std.Build.Step.Compile {
-    return addTickoniShimLibrary(b, target, optimize, "tickoni-audit-shims", &.{
+    const shim = addTickoniShimLibrary(b, target, optimize, "tickoni-audit-shims", &.{
         "src/tickoni/c_abi/shim/tk_audit_stem.c",
+        "src/tickoni/c_abi/shim/audit_schema_layout.c",
     });
+    // Audit stem needs libfd_disco.a for fd_topo_obj_laddr and topo helpers.
+    if (fd_lib_dir) |lib_dir| {
+        shim.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_disco.a", .{lib_dir}) });
+        shim.root_module.link_libcpp = true;
+    }
+    return shim;
 }
 
 /// Codec shim library: ballet.c only.
