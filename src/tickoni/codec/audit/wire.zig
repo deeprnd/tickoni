@@ -414,23 +414,30 @@ const std = @import("std");
 // against one source of truth").
 test "schema and wire Payload variants stay field-name and order synchronized" {
     comptime {
-        const schema_fields = std.meta.fields(schema.AuditEvent.Payload);
-        const wire_fields = std.meta.fields(WirePayload);
-        if (schema_fields.len != wire_fields.len) {
+        const schema_type_info = @typeInfo(schema.AuditEvent.Payload).@"struct";
+        const wire_type_info = @typeInfo(WirePayload).@"struct";
+        if (schema_type_info.field_names.len != wire_type_info.field_names.len) {
             @compileError("schema.AuditEvent.Payload and wire.WirePayload have a different number of record-type variants");
         }
-        for (schema_fields, wire_fields) |sf, wf| {
-            if (!std.mem.eql(u8, sf.name, wf.name)) {
-                @compileError("schema.AuditEvent.Payload and wire.WirePayload variant order/names diverge: " ++ sf.name ++ " vs " ++ wf.name);
+        // Check each variant name matches.
+        var i: usize = 0;
+        while (i < schema_type_info.field_names.len) : (i += 1) {
+            if (!std.mem.eql(u8, schema_type_info.field_names[i], wire_type_info.field_names[i])) {
+                @compileError("schema.AuditEvent.Payload and wire.WirePayload variant order/names diverge: " ++ schema_type_info.field_names[i] ++ " vs " ++ wire_type_info.field_names[i]);
             }
-            const schema_variant_fields = std.meta.fields(sf.type);
-            const wire_variant_fields = std.meta.fields(wf.type);
-            if (schema_variant_fields.len != wire_variant_fields.len) {
-                @compileError("schema and wire payload field count diverges for variant " ++ sf.name);
+        }
+        // Check each variant's inner struct fields match.
+        i = 0;
+        while (i < schema_type_info.field_names.len) : (i += 1) {
+            const schema_variant_type_info = @typeInfo(schema_type_info.field_types[i]).@"struct";
+            const wire_variant_type_info = @typeInfo(wire_type_info.field_types[i]).@"struct";
+            if (schema_variant_type_info.field_names.len != wire_variant_type_info.field_names.len) {
+                @compileError("schema and wire payload field count diverges for variant " ++ schema_type_info.field_names[i]);
             }
-            for (schema_variant_fields, wire_variant_fields) |svf, wvf| {
-                if (!std.mem.eql(u8, svf.name, wvf.name)) {
-                    @compileError("schema and wire payload field name diverges for variant " ++ sf.name ++ ": " ++ svf.name ++ " vs " ++ wvf.name);
+            var j: usize = 0;
+            while (j < schema_variant_type_info.field_names.len) : (j += 1) {
+                if (!std.mem.eql(u8, schema_variant_type_info.field_names[j], wire_variant_type_info.field_names[j])) {
+                    @compileError("schema and wire payload field name diverges for variant " ++ schema_type_info.field_names[i] ++ ": " ++ schema_variant_type_info.field_names[j] ++ " vs " ++ wire_variant_type_info.field_names[j]);
                 }
             }
         }

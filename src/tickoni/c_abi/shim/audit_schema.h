@@ -19,16 +19,18 @@
 #define TILE_ID_TKDEDU "tkdedu"
 #define TILE_ID_TKPOLY "tkpoly"
 
-/* PolicyOutcome — must match all 7 values from Zig PolicyOutcome enum. */
-typedef enum {
-    POLICY_ALLOW,
-    POLICY_DENY,
-    POLICY_REQUIRE_APPROVAL,
-    POLICY_MALFORMED_DROP,
-    POLICY_DUPLICATE_DROP,
-    POLICY_ESCALATE,
-    POLICY_REQUIRE_MORE_EVIDENCE,
-} PolicyOutcome;
+/* PolicyOutcome — must match Zig enum(u8) exactly (1 byte). */
+typedef int8_t PolicyOutcome;
+
+enum policy_outcome_t {
+    POLICY_ALLOW              = 0,
+    POLICY_DENY               = 1,
+    POLICY_REQUIRE_APPROVAL   = 2,
+    POLICY_MALFORMED_DROP     = 3,
+    POLICY_DUPLICATE_DROP     = 4,
+    POLICY_ESCALATE           = 5,
+    POLICY_REQUIRE_MORE_EVIDENCE  = 6
+};
 
 /* PolicyDecisionPayload — matches Zig PolicyDecisionPayload. */
 typedef struct {

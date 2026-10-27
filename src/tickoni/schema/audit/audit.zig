@@ -52,7 +52,7 @@ pub const NormalizationPayload = struct {
     canonical_event_type: [32]u8,
 };
 
-pub const PolicyDecisionPayload = struct {
+pub const PolicyDecisionPayload = extern struct {
     outcome: PolicyOutcome,
     rule_id: u32,
     failed_scope_dim: [32]u8,
