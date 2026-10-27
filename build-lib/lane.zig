@@ -20,7 +20,8 @@ pub const TestLinkage = packed struct(u8) {
     needs_tile_run: bool = false,
     needs_libc: bool = false,
     needs_audit: bool = false,
-    _pad: u2 = 0,
+    needs_audit_disco: bool = false,
+    _pad: u1 = 0,
 };
 
 /// Action to dispatch for a registered test.
@@ -75,7 +76,15 @@ pub const TestBuilder = struct {
         if (spec.linkage.needs_topo_run) topo_run.linkTickoniTopoRun(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_libc) t.root_module.link_libc = true;
         if (spec.linkage.needs_tile_run) tile_run.linkTickoniTileRun(self.b, t, self.fd_lib_dir);
-        if (spec.linkage.needs_audit) t.root_module.linkLibrary(codec.addTickoniAuditShimLibrary(self.b, self.target, self.optimize, self.fd_lib_dir));
+        if (spec.linkage.needs_audit) {
+            const shim_lib = codec.addTickoniAuditShimLibrary(self.b, self.target, self.optimize, self.fd_lib_dir);
+            t.root_module.linkLibrary(shim_lib);
+            // Audit shim requires libfd_disco.a for fd_topo_obj_laddr and
+            // fd_metrics_* symbols.  Must be a direct link on the test step;
+            // embedding it inside the static archive does not work (Zig does
+            // not resolve symbols through nested static archives).
+            t.root_module.addObjectFile(.{ .cwd_relative = self.b.fmt("{s}/libfd_disco.a", .{self.fd_lib_dir}) });
+        }
 
         cov_step.dependOn(&self.b.addInstallArtifact(t, .{
             .dest_dir = .{ .override = .{ .custom = "cov" } },
@@ -103,7 +112,15 @@ pub const TestBuilder = struct {
         if (spec.linkage.needs_topo_run) topo_run.linkTickoniTopoRun(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_libc) t.root_module.link_libc = true;
         if (spec.linkage.needs_tile_run) tile_run.linkTickoniTileRun(self.b, t, self.fd_lib_dir);
-        if (spec.linkage.needs_audit) t.root_module.linkLibrary(codec.addTickoniAuditShimLibrary(self.b, self.target, self.optimize, self.fd_lib_dir));
+        if (spec.linkage.needs_audit) {
+            const shim_lib = codec.addTickoniAuditShimLibrary(self.b, self.target, self.optimize, self.fd_lib_dir);
+            t.root_module.linkLibrary(shim_lib);
+            // Audit shim requires libfd_disco.a for fd_topo_obj_laddr and
+            // fd_metrics_* symbols.  Must be a direct link on the test step;
+            // embedding it inside the static archive does not work (Zig does
+            // not resolve symbols through nested static archives).
+            t.root_module.addObjectFile(.{ .cwd_relative = self.b.fmt("{s}/libfd_disco.a", .{self.fd_lib_dir}) });
+        }
 
         return t;
     }

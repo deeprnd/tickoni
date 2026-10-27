@@ -190,7 +190,7 @@ pub fn strategy(
             .{ .name = "audit_schema", .module = shared.audit_schema },
             .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_audit = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true, .needs_audit = true },
     });
     run_count += 1;
 
@@ -202,7 +202,7 @@ pub fn strategy(
             .{ .name = "audit_codec", .module = shared.audit_codec },
             .{ .name = "audit_schema", .module = shared.audit_schema },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_audit = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true, .needs_audit = true },
     });
     run_count += 1;
 

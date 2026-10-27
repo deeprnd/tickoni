@@ -121,7 +121,7 @@ pub fn strategy(
             .{ .name = "audit_mod", .module = shared.audit_mod },
             .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true, .needs_audit = true },
     }, cov_step);
 
     tb.registerCov(.{
