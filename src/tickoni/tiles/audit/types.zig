@@ -106,3 +106,62 @@ test "hash chain seeds with AUDIT_SEED as first prev_hash" {
     const h1 = fnv1a_hash_6(0, 0, h0, 0, 0);
     try std.testing.expect(h0 != h1);
 }
+
+// ---------------------------------------------------------------------------
+// C stem tile extern declarations — calls into tk_audit_stem.c via the
+// audit shim library.
+// ---------------------------------------------------------------------------
+
+// From audit_schema_layout.c — C helpers for parity.
+extern fn audit_header_sizeof() usize;
+extern fn audit_header_alignof() usize;
+
+// From tk_audit_stem.h / tk_audit_stem.c — scratch helpers.
+extern fn tk_audit_scratch_align() usize;
+extern fn tk_audit_scratch_footprint_tile(?*const anyopaque) usize;
+
+// From audit_schema_layout.c — exported FNV-1a mirror for parity.
+extern fn audit_fnv1a_hash_6(
+    u64, u64, u64, u8, u64,
+) u64;
+
+// ---------------------------------------------------------------------------
+// C stem tile scratch & hash parity tests
+// ---------------------------------------------------------------------------
+
+test "scratch_align returns 64" {
+    try std.testing.expectEqual(@as(usize, 64), tk_audit_scratch_align());
+}
+
+test "scratch_footprint >= ctx + 16384 * sizeof(AuditEvent)" {
+    const footprint = tk_audit_scratch_footprint_tile(null);
+    // tk_audit_ctx_t is not exported to Zig, but its fields (all ulongs/
+    // pointers/align-safe) require at least 64-byte alignment and are
+    // <= 256 bytes (10 ulongs + 1 ptr + 2 ints + 1 ptr + 1 void* +
+    // 1 ulong + 1 ulong + 1 AuditEvent scratch slot ≈ 248 bytes on
+    // 64-bit).  The footprint must cover ctx + 16384 audit records.
+    const audit_event_size = @sizeOf(schema.AuditEvent);
+    const min = 512 + 16384 * audit_event_size; // generous upper bound on ctx
+    try std.testing.expect(footprint >= min);
+}
+
+test "C hash matches Zig fnv1a_hash_6" {
+    const c_hash = audit_fnv1a_hash_6(5, 100, AUDIT_SEED, 0, 1234);
+    const z_hash = fnv1a_hash_6(5, 100, AUDIT_SEED, 0, 1234);
+    try std.testing.expectEqual(c_hash, z_hash);
+}
+
+// ---------------------------------------------------------------------------
+// Layout invariants — C helpers
+// ---------------------------------------------------------------------------
+
+test "AuditHeader layout: C sizeof/align matches Zig @sizeOf/@alignOf" {
+    const c_size = audit_header_sizeof();
+    const c_align = audit_header_alignof();
+    const z_size = @sizeOf(schema.Header);
+    const z_align = @alignOf(schema.Header);
+
+    try std.testing.expectEqual(c_size, z_size);
+    try std.testing.expectEqual(c_align, z_align);
+}
+

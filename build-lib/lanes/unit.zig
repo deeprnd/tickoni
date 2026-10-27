@@ -195,7 +195,6 @@ pub fn strategy(
     run_count += 1;
 
     // test-audit-stem — stem tile scratch layout, C FNV-1a parity, schema invariants
-    // (tests migrated into types.zig rather than a separate file)
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-audit-stem",
         .source_file = "src/tickoni/tiles/audit/types.zig",
@@ -203,7 +202,7 @@ pub fn strategy(
             .{ .name = "audit_codec", .module = shared.audit_codec },
             .{ .name = "audit_schema", .module = shared.audit_schema },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_audit = true },
     });
     run_count += 1;
 
