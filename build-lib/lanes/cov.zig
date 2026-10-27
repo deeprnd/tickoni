@@ -118,8 +118,8 @@ pub fn strategy(
         .imports = &.{
             .{ .name = "audit_codec", .module = shared.audit_codec },
             .{ .name = "audit_schema", .module = shared.audit_schema },
-            .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
             .{ .name = "audit_mod", .module = shared.audit_mod },
+            .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true },
     }, cov_step);
