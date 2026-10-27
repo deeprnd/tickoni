@@ -189,7 +189,6 @@ pub fn strategy(
             .{ .name = "audit_codec", .module = shared.audit_codec },
             .{ .name = "audit_schema", .module = shared.audit_schema },
             .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
-            .{ .name = "audit_mod", .module = shared.audit_mod },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_audit = true },
     });
@@ -203,13 +202,12 @@ pub fn strategy(
         .imports = &.{
             .{ .name = "audit_codec", .module = shared.audit_codec },
             .{ .name = "audit_schema", .module = shared.audit_schema },
-            .{ .name = "audit_mod", .module = shared.audit_mod },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true },
     });
     run_count += 1;
 
-    // payment_pipeline/mod.zig — needs audit_tile, runtime, c_abi, logger, util.
+    // payment_pipeline/mod.zig
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-payment-pipeline",
         .source_file = "src/tickoni/tiles/payment_pipeline/mod.zig",
