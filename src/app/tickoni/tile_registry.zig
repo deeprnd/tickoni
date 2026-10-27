@@ -621,11 +621,11 @@ test "T10.12 validate rejects registry entry with no matching topology tile" { /
 // that the cardinality check is the gate and that extending it to link ids
 // would require explicit per-link verification in validate().
 test "validate checks cardinality not individual link ids (documents gap for future work)" { // Create a topology where tkings (index 0) has out_cnt == 1, and the
-    // topology has exactly one channel with src_idx == 0, but the channel
-    // points to a tile index that doesn't match any registry entry.
+    // topology has exactly one channel with src_id matching tkings, but the channel
+    // points to a tile that doesn't match any registry entry.
     var descriptors = descriptorsFromRegistry();
-    // The existing linear chain already has src_idx == 0 → dst_idx == 1
-    // (tkings → tknorm), so cardinality matches. This test verifies that
+    // The existing linear chain already has src_id == tkings → dst_id == tknorm,
+    // so cardinality matches. This test verifies that
     // a topology with correct cardinality but wrong link targets still
     // passes validate(), confirming the gate is cardinality-only today.
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channelsFromRegistry() };
