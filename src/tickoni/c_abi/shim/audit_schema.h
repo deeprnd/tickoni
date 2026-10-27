@@ -5,8 +5,8 @@
 #ifndef __AUDIT_SCHEMA_H__
 #define __AUDIT_SCHEMA_H__
 
+#include <stddef.h>
 #include <stdint.h>
-#include <string.h>
 
 /* Canonical schema version — must match Zig audit_schema_version. */
 #define AUDIT_SCHEMA_VERSION 2
