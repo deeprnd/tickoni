@@ -133,15 +133,13 @@ test "scratch_align returns 64" {
     try std.testing.expectEqual(@as(usize, 64), tk_audit_scratch_align());
 }
 
-test "scratch_footprint >= ctx + 16384 * sizeof(AuditEvent)" {
+test "scratch_footprint >= ctx + 16384 * C_audit_event_size" {
     const footprint = tk_audit_scratch_footprint_tile(null);
-    // tk_audit_ctx_t is not exported to Zig, but its fields (all ulongs/
-    // pointers/align-safe) require at least 64-byte alignment and are
-    // <= 256 bytes (10 ulongs + 1 ptr + 2 ints + 1 ptr + 1 void* +
-    // 1 ulong + 1 ulong + 1 AuditEvent scratch slot ≈ 248 bytes on
-    // 64-bit).  The footprint must cover ctx + 16384 audit records.
-    const audit_event_size = @sizeOf(schema.AuditEvent);
-    const min = 512 + 16384 * audit_event_size; // generous upper bound on ctx
+    // C tk_audit_stem.c uses C AuditEvent (Header + PolicyDecisionPayload)
+    // for the scratch array, not the Zig union.  Compare against C size.
+    const c_audit_event_size = audit_header_sizeof() +
+        @sizeOf(schema.PolicyDecisionPayload);
+    const min = 512 + 16384 * c_audit_event_size; // generous upper bound on ctx
     try std.testing.expect(footprint >= min);
 }
 
