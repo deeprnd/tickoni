@@ -150,7 +150,7 @@ pub const CaseCreationPayload = struct {
     total_allocated_cents: i64,
 };
 
-pub const Header = struct {
+pub const Header = extern struct {
     schema_version: u16,
     run_id: u64,
     seq: u64,
@@ -158,7 +158,7 @@ pub const Header = struct {
     tile_id: [6]u8,
     logical_actor_id: u64,
     policy_version: [32]u8,
-    capability_envelope_id: u128,
+    capability_envelope_id: [16]u8,
     timestamp_ns: u64,
     prev_hash: u64,
     record_hash: u64,

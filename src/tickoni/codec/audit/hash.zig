@@ -20,7 +20,7 @@ pub fn auditEventsEql(a: schema.AuditEvent, b: schema.AuditEvent) bool {
     return std.meta.eql(ah, bh) and std.meta.eql(a.payload, b.payload);
 }
 
-pub fn computeWireRecordHash(event: wire.Event) u64 {
+pub fn computeWireRecordHash(event: wire.WireEvent) u64 {
     var sip: c_abi.ballet.Siphash13 = .{};
     c_abi.ballet.siphashInit(&sip, hash_k0, hash_k1);
     const h = &event.header;

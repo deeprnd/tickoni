@@ -66,15 +66,17 @@ const hashAffordability = replay.hashAffordability;
 const hashTicket = replay.hashTicket;
 const hashPaperResult = replay.hashPaperResult;
 
-fn capabilityEnvelopeId(thesis_input: *const thesis.ThesisInput, proposed_basket: *const basket.Basket) u128 {
-    return (@as(u128, thesis.computeThesisInputHash(thesis_input.*)) << 64) | @as(u128, proposed_basket.basket_id);
+fn capabilityEnvelopeId(thesis_input: *const thesis.ThesisInput, proposed_basket: *const basket.Basket) [16]u8 {
+    const hi: u64 = thesis.computeThesisInputHash(thesis_input.*);
+    const lo: u64 = proposed_basket.basket_id;
+    return std.mem.toBytes([16]u8, [2]u64{ hi, lo });
 }
 
 fn header(
     seq: u64,
     tile_id: []const u8,
     logical_actor_id: u64,
-    capability_envelope_id: u128,
+    capability_envelope_id: [16]u8,
     run_id: u64,
     prev_hash: u64,
 ) audit.Header {

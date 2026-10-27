@@ -33,7 +33,7 @@ pub fn formatBinary(buf: []u8, event: schema.AuditEvent) ![]u8 {
 pub fn parseBinary(input: []const u8) !root.ParsedBinary {
     const consumed_len = try peekBinaryLen(input);
     if (input.len < consumed_len) return error.UnexpectedEof;
-    var wire_event: wire.Event = undefined;
+    var wire_event: wire.WireEvent = undefined;
     switch (protobuf.parseProtobuf(
         input[@sizeOf(u32)..consumed_len].ptr,
         consumed_len - @sizeOf(u32),
