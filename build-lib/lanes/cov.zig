@@ -109,7 +109,7 @@ pub fn strategy(
         .name = "test-cnc-counters",
         .source_file = "src/tickoni/runtime/cnc_counters.zig",
         .imports = &.{.{ .name = "c_abi", .module = shared.c_abi }},
-        .linkage = .{ .needs_firedancer = true },
+        .linkage = .{ .needs_firedancer = true, .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
@@ -134,7 +134,7 @@ pub fn strategy(
             .{ .name = "util", .module = shared.util },
             .{ .name = "logger", .module = shared.logger },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
@@ -240,7 +240,7 @@ pub fn strategy(
             .{ .name = "topologies", .module = shared.topologies },
             .{ .name = "logger", .module = shared.logger },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_cabi_shim = true },
     }, cov_step);
 
     // Topologies cov test.
