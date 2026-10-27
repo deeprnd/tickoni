@@ -59,61 +59,7 @@ typedef struct {
 
 #define PAYMENT_MSG_SIZE (sizeof(PaymentMessage))
 
-/* ---------------------------------------------------------------------
-   Audit event schema — mirrors audit/schema.zig::AuditEvent.
-   --------------------------------------------------------------------- */
-
-typedef struct {
-  uint   schema_version;
-  uint   _pad0[3];
-  ulong  run_id;
-  ulong  seq;
-  ulong  source_offset;
-  uchar  tile_id[6];
-  uchar  _pad1[2];
-  ulong  logical_actor_id;
-  uchar  policy_version[32];
-  ulong  capability_envelope_id;
-  ulong  timestamp_ns;
-  ulong  prev_hash;
-  ulong  record_hash;
-  uchar  version[64];
-  uchar  platform_tier[64];
-  uchar  isolation_tier[64];
-  uchar  release_digest[64];
-  uchar  manifest_id[64];
-} AuditHeader;
-
-typedef enum {
-  POLICY_ALLOW,
-  POLICY_DENY,
-  POLICY_MALFORMED_DROP,
-  POLICY_DUPLICATE_DROP,
-} PolicyOutcome;
-
-typedef struct {
-  PolicyOutcome outcome;
-  uint   rule_id;
-  uint   _pad0;
-  ulong  _pad1;
-  uchar  failed_scope_dim[32];
-  ulong  source_event_hash;
-  uint   catalog_schema_version;
-  uint   _pad2[3];
-  uchar  taxonomy_id[32];
-  ulong  taxonomy_version;
-  uchar  classification_code[32];
-} PolicyDecisionPayload;
-
-typedef struct {
-  AuditHeader  header;
-  union {
-    PolicyDecisionPayload policy_decision;
-  } payload;
-} AuditEvent;
-
-#define AUDIT_SCHEMA_VERSION 1
-#define AUDIT_SEED 0xcbf29ce484222325ULL
+#include "audit_schema.h"
 
 /* ---------------------------------------------------------------------
    tk_audit_ctx_t — tkaudt stem tile context in scratch space.
@@ -279,9 +225,9 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
   ev->header.timestamp_ns = 0;
   ev->header.prev_hash = ctx->prev_hash;
 
-  ev->payload.policy_decision.outcome = (PolicyOutcome)msg->decision;
-  ev->payload.policy_decision.rule_id = 0;
-  ev->payload.policy_decision.source_event_hash = msg->event_hash;
+  ev->policy_decision.outcome = (PolicyOutcome)msg->decision;
+  ev->policy_decision.rule_id = 0;
+  ev->policy_decision.source_event_hash = msg->event_hash;
 
   /* Compute record_hash */
   {
@@ -289,8 +235,8 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
     h = (h ^ ev->header.seq) * 0x100000001b3ULL;
     h = (h ^ ev->header.source_offset) * 0x100000001b3ULL;
     h = (h ^ ev->header.prev_hash) * 0x100000001b3ULL;
-    h = (h ^ (ulong)ev->payload.policy_decision.outcome) * 0x100000001b3ULL;
-    h = (h ^ ev->payload.policy_decision.source_event_hash) * 0x100000001b3ULL;
+    h = (h ^ (ulong)ev->policy_decision.outcome) * 0x100000001b3ULL;
+    h = (h ^ ev->policy_decision.source_event_hash) * 0x100000001b3ULL;
     ev->header.record_hash = h;
   }
 
