@@ -19,10 +19,9 @@
 #define TILE_ID_TKDEDU "tkdedu"
 #define TILE_ID_TKPOLY "tkpoly"
 
-/* PolicyOutcome — must match Zig enum(u8) exactly (1 byte). */
-typedef int8_t PolicyOutcome;
-
-enum policy_outcome_t {
+/* PolicyOutcome — named C enum so translate-c produces a Zig enum with
+   named members.  Values are the single source of truth. */
+enum PolicyOutcome {
     POLICY_ALLOW              = 0,
     POLICY_DENY               = 1,
     POLICY_REQUIRE_APPROVAL   = 2,
@@ -31,6 +30,7 @@ enum policy_outcome_t {
     POLICY_ESCALATE           = 5,
     POLICY_REQUIRE_MORE_EVIDENCE  = 6
 };
+typedef enum PolicyOutcome PolicyOutcome;
 
 /* PolicyDecisionPayload — matches Zig PolicyDecisionPayload. */
 typedef struct {

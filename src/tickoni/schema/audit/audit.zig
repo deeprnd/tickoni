@@ -3,16 +3,24 @@
 /// Audit records are cross-tile contracts and part of replay compatibility.
 /// Keep the typed schema here; codecs in src/tickoni/codec/ provide concrete
 /// binary, protobuf, JSONL, and hash encodings over this schema.
+
+const std = @import("std");
+const c_schema = @import("audit_mod");
+
 pub const audit_schema_version: u16 = 2;
 
-pub const PolicyOutcome = enum(u8) {
-    allow,
-    deny,
-    require_approval,
-    malformed_drop,
-    duplicate_drop,
-    escalate,
-    require_more_evidence,
+/// PolicyOutcome — Zig enum for named member syntax (.allow, .deny, etc.)
+/// Values are compile-time derived from C constants so audit_schema.h is
+/// the source of truth. A parity test in types.zig verifies the count
+/// matches C (catches missing or extra values).
+pub const PolicyOutcome = enum(c_int) {
+    allow = c_schema.POLICY_ALLOW,
+    deny = c_schema.POLICY_DENY,
+    require_approval = c_schema.POLICY_REQUIRE_APPROVAL,
+    malformed_drop = c_schema.POLICY_MALFORMED_DROP,
+    duplicate_drop = c_schema.POLICY_DUPLICATE_DROP,
+    escalate = c_schema.POLICY_ESCALATE,
+    require_more_evidence = c_schema.POLICY_REQUIRE_MORE_EVIDENCE,
 };
 
 pub const LimitType = enum(u8) {
@@ -52,6 +60,9 @@ pub const NormalizationPayload = struct {
     canonical_event_type: [32]u8,
 };
 
+/// PolicyDecisionPayload — Zig-defined because translate-c strips C enum
+/// fields to their tag type (c_uint), incompatible with our Zig PolicyOutcome.
+/// Layout parity is verified by a test in types.zig.
 pub const PolicyDecisionPayload = extern struct {
     outcome: PolicyOutcome,
     rule_id: u32,
@@ -150,27 +161,9 @@ pub const CaseCreationPayload = struct {
     total_allocated_cents: i64,
 };
 
-pub const Header = extern struct {
-    schema_version: u16,
-    run_id: u64,
-    seq: u64,
-    source_offset: u64,
-    tile_id: [6]u8,
-    logical_actor_id: u64,
-    policy_version: [32]u8,
-    capability_envelope_id: [16]u8,
-    timestamp_ns: u64,
-    prev_hash: u64,
-    record_hash: u64,
-    // Runtime metadata: identifies the exact build/tier/manifest that produced
-    // this event. Carried through audit and replay so the entire lineage is
-    // verifiable.
-    version: [64]u8, // semver string, null-terminated
-    platform_tier: [64]u8, // e.g. "linux_full", "macos_retail"
-    isolation_tier: [64]u8, // e.g. "retail", "full"
-    release_digest: [64]u8, // git SHA or build digest
-    manifest_id: [64]u8, // which manifest was loaded (empty if none)
-};
+/// C defines `AuditHeader`; Zig re-exports as `Header` to match
+/// existing downstream usage (codec, tiles, version.zig).
+pub const Header = c_schema.AuditHeader;
 
 pub const AuditEvent = struct {
     header: Header,
