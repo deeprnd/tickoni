@@ -257,9 +257,12 @@ tknorm_unprivileged_init( fd_topo_t const *      topo,
 
     ulong cnc_obj_id = tk_topo_find_tile_obj( (fd_topo_t const *)topo, tile->id, "cnc" );
     if (cnc_obj_id != ULONG_MAX) {
-        void * cnc_laddr = fd_topo_obj_laddr( (fd_topo_t const *)topo, cnc_obj_id );
-        ctx->cnc = cnc_laddr;
-        FD_LOG_NOTICE(( "tknorm_stem: CNC joined, tile_id=%lu", tile->id ));
+        ctx->cnc = fd_cnc_join( fd_topo_obj_laddr( (fd_topo_t const *)topo, cnc_obj_id ) );
+        if (ctx->cnc) {
+            FD_LOG_NOTICE(( "tknorm_stem: CNC joined, tile_id=%lu", tile->id ));
+        } else {
+            FD_LOG_NOTICE(( "tknorm_stem: CNC join failed for tile_id=%lu", tile->id ));
+        }
     }
 
     FD_LOG_NOTICE(( "tknorm_stem: tknorm_unprivileged_init EXIT tile_id=%lu", tile->id ));
@@ -380,13 +383,7 @@ tknorm_run( fd_topo_t *      topo,
     tknorm_ctx_t * ctx = (tknorm_ctx_t *)fd_ulong_align_up(
         (ulong)scratch, TK_NORM_CTX_ALIGN );
 
-    /* Find CNC and set ctx->cnc */
-    ulong cnc_obj_id = tk_topo_find_tile_obj( topo, tile->id, "cnc" );
-    if (cnc_obj_id != ULONG_MAX) {
-        void * cnc_laddr = fd_topo_obj_laddr( topo, cnc_obj_id );
-        ctx->cnc = cnc_laddr;
-        FD_LOG_NOTICE(( "tknorm_stem: CNC joined in run, tile_id=%lu", tile->id ));
-    }
+    /* CNC already joined in unprivileged_init — nothing to do here. */
 
     stem_run( topo, tile );
 

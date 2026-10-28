@@ -3,7 +3,7 @@
 /// and compares it record-by-record against what was actually audited,
 /// reporting divergences with external effects disabled.
 const std = @import("std");
-const audit = @import("audit_tile");
+const audit = @import("tkaudt");
 const audit_sink = @import("audit_sink.zig");
 const runtime = @import("runtime.zig");
 const logger = @import("logger");

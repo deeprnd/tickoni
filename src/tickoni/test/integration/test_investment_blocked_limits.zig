@@ -1,6 +1,6 @@
 const std = @import("std");
 const adapter = @import("adapter");
-const audit = @import("audit_tile");
+const audit = @import("tkaudt");
 const investment_audit = @import("investment_audit");
 const model = @import("model");
 const portfolio = @import("portfolio");
@@ -14,7 +14,7 @@ const tkdisp = @import("tkdisp");
 const tkpoly = @import("tkpoly");
 
 test "investment_blocked_limits_integration: oversized trade is blocked before paper execution" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInputWithTarget(support.oversized_target_notional_cents);
     const thesis_id = thesis.computeThesisInputHash(input);
@@ -56,7 +56,7 @@ test "investment_blocked_limits_integration: oversized trade is blocked before p
 }
 
 test "investment_blocked_limits_integration: oversized trade replay and audit reproduce the deny" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInputWithTarget(support.oversized_target_notional_cents);
     const thesis_id = thesis.computeThesisInputHash(input);

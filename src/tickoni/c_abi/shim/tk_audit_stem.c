@@ -157,12 +157,15 @@ tk_audit_unprivileged_init( fd_topo_t const *      topo,
 
   ulong cnc_obj_id = tk_topo_find_tile_obj( (fd_topo_t const *)topo, tile->id, "cnc" );
   if( cnc_obj_id != ULONG_MAX ) {
-    void * cnc_laddr = (void *)fd_topo_obj_laddr( (fd_topo_t const *)topo, cnc_obj_id );
-    ctx->cnc = cnc_laddr;
-    FD_LOG_NOTICE(( "tk_audit_stem: CNC joined, tile_id=%lu", tile->id ));
+    ctx->cnc = fd_cnc_join( fd_topo_obj_laddr( (fd_topo_t const *)topo, cnc_obj_id ) );
+    if( ctx->cnc ) {
+      FD_LOG_NOTICE(( "tk_audit_stem: CNC joined, tile_id=%lu", tile->id ));
+    } else {
+      FD_LOG_NOTICE(( "tk_audit_stem: CNC join failed for tile_id=%lu", tile->id ));
+    }
 
     /* Read event_count from CNC app region if set (idx=7, supervisor-provided). */
-    ulong * app = (ulong *)fd_cnc_app_laddr( (fd_cnc_t *)cnc_laddr );
+    ulong * app = (ulong *)fd_cnc_app_laddr( (fd_cnc_t *)ctx->cnc );
     if( app && app[7] > 0 ) {
       ctx->event_count = app[7];
       FD_LOG_NOTICE(( "tk_audit_stem: event_count=%lu from CNC", ctx->event_count ));
@@ -333,19 +336,7 @@ tk_audit_run( fd_topo_t *      topo,
   tk_audit_ctx_t * ctx = (tk_audit_ctx_t *)fd_ulong_align_up(
     (ulong)scratch, TKAUDT_CTX_ALIGN );
 
-  /* Find CNC and set ctx->cnc */
-  ulong cnc_obj_id = tk_topo_find_tile_obj( topo, tile->id, "cnc" );
-  if( cnc_obj_id != ULONG_MAX ) {
-    void * cnc_laddr = fd_topo_obj_laddr( topo, cnc_obj_id );
-    ctx->cnc = cnc_laddr;
-    FD_LOG_NOTICE(( "tk_audit_stem: CNC joined in run, tile_id=%lu", tile->id ));
-
-    /* Write event_count to CNC app region if set by supervisor (non-zero).
-       When event_count == 0 (unset), the supervisor wrote the correct value
-       to CNC app region before spawning; when event_count > 0, it was
-       read from CNC in unprivileged_init. In both cases, the value is
-       already in CNC — no write-back needed. */
-  }
+  /* CNC already joined in unprivileged_init — nothing to do here. */
 
   stem_run( topo, tile );
 
