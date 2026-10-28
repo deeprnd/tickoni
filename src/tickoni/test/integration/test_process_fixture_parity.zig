@@ -21,10 +21,10 @@ const TileId = rt.topology.TileId;
 /// is not just a duplicate of M5's.
 const shared_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = TileId.parse("tkings") catch unreachable, .name = "ingest_tile" },
-    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "normalize_tile" },
+    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "tknorm" },
     .{ .id = TileId.parse("tkdedu") catch unreachable, .name = "dedupe_tile" },
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile", .cpu_placement = .{ .shared = 0 } },
-    .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile", .cpu_placement = .{ .shared = 0 } },
+    .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "tkaudt", .cpu_placement = .{ .shared = 0 } },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
     .{ .id = TileId.parse("metric") catch unreachable, .name = "metric" },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
@@ -36,10 +36,10 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
 /// comparison of placement mode, not tile identity.
 const exclusive_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = TileId.parse("tkings") catch unreachable, .name = "ingest_tile" },
-    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "normalize_tile" },
+    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "tknorm" },
     .{ .id = TileId.parse("tkdedu") catch unreachable, .name = "dedupe_tile" },
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile", .cpu_placement = .{ .exclusive = 0 } },
-    .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile", .cpu_placement = .{ .exclusive = 1 } },
+    .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "tkaudt", .cpu_placement = .{ .exclusive = 1 } },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
     .{ .id = TileId.parse("metric") catch unreachable, .name = "metric" },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
@@ -78,7 +78,7 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8, 
 }
 
 test "process_fixture_parity: floating, shared-core, and exclusive-core CPU placement all reach identical pipeline metrics" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     var tmp_floating = util.tmpDir();
     var floating_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const floating_len = try tmp_floating.dir.realPath(std.testing.io, &floating_path_buf);

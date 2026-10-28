@@ -20,10 +20,10 @@ const TileId = rt.topology.TileId;
 
 const shared_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = TileId.parse("tkings") catch unreachable, .name = "ingest_tile", .cpu_placement = .{ .shared = 0 } },
-    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "normalize_tile", .cpu_placement = .{ .shared = 0 } },
+    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "tknorm", .cpu_placement = .{ .shared = 0 } },
     .{ .id = TileId.parse("tkdedu") catch unreachable, .name = "dedupe_tile", .cpu_placement = .{ .shared = 0 } },
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile", .cpu_placement = .{ .shared = 0 } },
-    .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile", .cpu_placement = .{ .shared = 0 } },
+    .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "tkaudt", .cpu_placement = .{ .shared = 0 } },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile", .cpu_placement = .{ .shared = 0 } },
     .{ .id = TileId.parse("metric") catch unreachable, .name = "metric", .cpu_placement = .{ .shared = 0 } },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile", .cpu_placement = .{ .shared = 0 } },
