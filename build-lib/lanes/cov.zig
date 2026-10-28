@@ -2,7 +2,6 @@
 ///
 /// CovShared/CovTm (Phase 0) have been replaced by the canonical
 /// `modules.Shared` and `test_modules.TestModules` types (Phase 5).
-
 const std = @import("std");
 const lane = @import("../lane.zig");
 const shims = @import("../lib/shims.zig");
@@ -128,7 +127,7 @@ pub fn strategy(
         .name = "test-payment-pipeline",
         .source_file = "src/tickoni/tiles/payment_pipeline/mod.zig",
         .imports = &.{
-            .{ .name = "audit_tile", .module = shared.audit_tile },
+            .{ .name = "tkaudt", .module = shared.audit_tile },
             .{ .name = "runtime", .module = shared.runtime },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "util", .module = shared.util },

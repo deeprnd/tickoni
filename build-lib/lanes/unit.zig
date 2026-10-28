@@ -3,7 +3,6 @@
 /// Collects compile steps in a `run_sequence` array, then chains them all
 /// sequentially via `shims.addPlainTestRunSeries`, avoiding Zig 0.17's
 /// protocol-mode `--listen=-` which blocks on stdin.
-
 const std = @import("std");
 const shims = @import("../lib/shims.zig");
 const factory = @import("../factory.zig");
@@ -89,10 +88,10 @@ pub fn strategy(
         pa_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/c_abi/shim/os.c"} });
         pa_mod.addCMacro("TK_PROCESS_TEST", "1");
         switch (target.result.os.tag) {
-            .linux    => pa_mod.addCMacro("FD_HAS_LINUX",    "1"),
-            .macos    => pa_mod.addCMacro("FD_HAS_MACOS",    "1"),
-            .windows  => pa_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
-            else      => {},
+            .linux => pa_mod.addCMacro("FD_HAS_LINUX", "1"),
+            .macos => pa_mod.addCMacro("FD_HAS_MACOS", "1"),
+            .windows => pa_mod.addCMacro("FD_HAS_WINDOWS", "1"),
+            else => {},
         }
         if (target.result.os.tag == .windows) {
             pa_mod.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
@@ -220,7 +219,7 @@ pub fn strategy(
         .name = "test-payment-pipeline",
         .source_file = "src/tickoni/tiles/payment_pipeline/mod.zig",
         .imports = &.{
-            .{ .name = "audit_tile", .module = tm.audit_tile },
+            .{ .name = "tkaudt", .module = tm.audit_tile },
             .{ .name = "runtime", .module = shared.runtime },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "logger", .module = shared.logger },
@@ -384,14 +383,14 @@ pub fn strategy(
             .imports = &.{.{ .name = "util", .module = shared.util }},
         });
         logger_mod.addCSourceFiles(.{
-            .files = &.{ "src/tickoni/c_abi/shim/os.c" },
-            .flags = &.{ "-std=c17" },
+            .files = &.{"src/tickoni/c_abi/shim/os.c"},
+            .flags = &.{"-std=c17"},
         });
         switch (target.result.os.tag) {
-            .linux    => logger_mod.addCMacro("FD_HAS_LINUX",    "1"),
-            .macos    => logger_mod.addCMacro("FD_HAS_MACOS",    "1"),
-            .windows  => logger_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
-            else      => {},
+            .linux => logger_mod.addCMacro("FD_HAS_LINUX", "1"),
+            .macos => logger_mod.addCMacro("FD_HAS_MACOS", "1"),
+            .windows => logger_mod.addCMacro("FD_HAS_WINDOWS", "1"),
+            else => {},
         }
         if (target.result.os.tag == .windows) {
             logger_mod.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });

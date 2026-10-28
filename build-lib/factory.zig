@@ -6,7 +6,6 @@
 /// source of truth for each module's root_source_file and import graph.
 ///
 /// Module pointers are created once and shared across the graph.
-
 const std = @import("std");
 const modules = @import("mod/modules.zig");
 const test_mod = @import("mod/test_modules.zig");
@@ -49,7 +48,6 @@ pub const IntegrationModules = struct {
 /// ModuleFactory encapsulates the creation of all integration-test
 /// shared modules. Both unit.zig and integration.zig create a
 /// ModuleFactory and call createIntModules().
-
 pub const ModuleFactory = struct {
     b: *std.Build,
     shared: modules.Shared,
@@ -190,7 +188,7 @@ pub const ModuleFactory = struct {
             .target = self.target,
             .optimize = self.optimize,
             .imports = &.{
-                .{ .name = "audit_tile", .module = self.shared.audit_tile },
+                .{ .name = "tkaudt", .module = self.shared.audit_tile },
                 .{ .name = "basket", .module = self.shared.basket },
                 .{ .name = "drift", .module = self.tm.drift },
                 .{ .name = "model", .module = model_int_mod },

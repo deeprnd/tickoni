@@ -262,7 +262,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "audit_tile", .module = audit_tile_mod },
+            .{ .name = "tkaudt", .module = audit_tile_mod },
             .{ .name = "audit_codec", .module = audit_codec_mod },
             .{ .name = "audit_schema", .module = audit_schema_mod },
             .{ .name = "runtime", .module = runtime_mod },
