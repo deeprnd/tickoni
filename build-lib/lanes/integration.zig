@@ -89,6 +89,7 @@ pub fn strategy(
             "src/tickoni/test/integration/test_process_fixture_parity.zig",
             "src/tickoni/test/integration/test_link_bounds.zig",
             "src/tickoni/test/integration/test_audit_stem_tile.zig",
+            "src/tickoni/test/integration/test_norm_stem_tile.zig",
         };
 
         for (infra_proc_files) |path| {
@@ -112,6 +113,16 @@ pub fn strategy(
             // It's compiled in a separate static library to avoid duplicate
             // stem_run symbols with tk_metric_tile.c (fd_metric_ctx_t).
             test_bin.root_module.linkLibrary(codec.addTickoniAuditShimLibrary(b, target, optimize, fd_lib_dir));
+            // Link norm shim: tknorm uses tk_normalize_stem.c which includes
+            // fd_stem.c with STEM_CALLBACK_CONTEXT_TYPE = tknorm_ctx_t.
+            test_bin.root_module.linkLibrary(codec.addTickoniNormStemLibrary(b, target, optimize, fd_lib_dir));
+            // Norm and audit shims reference fd_topo_obj_laddr and
+            // fd_metrics_* symbols from libfd_disco.a.  Zig's linker does not
+            // resolve symbols through nested static archives, so each shim's
+            // consumer test step must add libfd_disco.a as a direct object file.
+            test_bin.root_module.addObjectFile(.{
+                .cwd_relative = b.fmt("{s}/libfd_disco.a", .{fd_lib_dir}),
+            });
             // libfd_waltz.a contains fd_http_server.o, which references ZSTD.
             test_bin.root_module.addObjectFile(.{
                 .cwd_relative = b.fmt("{s}/libfd_zstd.a", .{fd_lib_dir}),

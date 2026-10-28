@@ -13,7 +13,7 @@ const topo_run = @import("lib/topo_run.zig");
 const tile_run = @import("lib/tile_run.zig");
 
 /// Build-time linkage flags for a test.
-pub const TestLinkage = packed struct(u8) {
+pub const TestLinkage = packed struct(u9) {
     needs_codec: bool = false,
     needs_firedancer: bool = false,
     needs_topo_run: bool = false,
@@ -22,6 +22,7 @@ pub const TestLinkage = packed struct(u8) {
     needs_audit: bool = false,
     needs_audit_disco: bool = false,
     needs_cabi_shim: bool = false,
+    needs_norm_stem: bool = false,
 };
 
 /// Action to dispatch for a registered test.
@@ -91,6 +92,13 @@ pub const TestBuilder = struct {
             // not resolve symbols through nested static archives).
             t.root_module.addObjectFile(.{ .cwd_relative = self.b.fmt("{s}/libfd_disco.a", .{self.fd_lib_dir}) });
         }
+        if (spec.linkage.needs_norm_stem) {
+            const shim_lib = codec.addTickoniNormStemLibrary(self.b, self.target, self.optimize, self.fd_lib_dir);
+            t.root_module.linkLibrary(shim_lib);
+            // Norm shim requires libfd_disco.a for fd_topo_obj_laddr and
+            // fd_metrics_* symbols.  Must be a direct link on the test step.
+            t.root_module.addObjectFile(.{ .cwd_relative = self.b.fmt("{s}/libfd_disco.a", .{self.fd_lib_dir}) });
+        }
 
         cov_step.dependOn(&self.b.addInstallArtifact(t, .{
             .dest_dir = .{ .override = .{ .custom = "cov" } },
@@ -131,6 +139,13 @@ pub const TestBuilder = struct {
             // fd_metrics_* symbols.  Must be a direct link on the test step;
             // embedding it inside the static archive does not work (Zig does
             // not resolve symbols through nested static archives).
+            t.root_module.addObjectFile(.{ .cwd_relative = self.b.fmt("{s}/libfd_disco.a", .{self.fd_lib_dir}) });
+        }
+        if (spec.linkage.needs_norm_stem) {
+            const shim_lib = codec.addTickoniNormStemLibrary(self.b, self.target, self.optimize, self.fd_lib_dir);
+            t.root_module.linkLibrary(shim_lib);
+            // Norm shim requires libfd_disco.a for fd_topo_obj_laddr and
+            // fd_metrics_* symbols.  Must be a direct link on the test step.
             t.root_module.addObjectFile(.{ .cwd_relative = self.b.fmt("{s}/libfd_disco.a", .{self.fd_lib_dir}) });
         }
 

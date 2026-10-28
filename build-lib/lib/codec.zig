@@ -205,6 +205,7 @@ pub fn addTickoniNormStemLibrary(
     _ = fd_lib_dir; // consumer handles library linking
     return addTickoniShimLibrary(b, target, optimize, "tickoni-norm-stem-shims", &.{
         "src/tickoni/c_abi/shim/tk_normalize_stem.c",
+        "src/tickoni/c_abi/shim/topob.c",
     }, null);
 }
 
