@@ -24,7 +24,7 @@ pub fn strategy(
     const int_mods = factory.ModuleFactory.init(b, shared, tm, target, optimize).createIntModules(null);
 
     // Collect all compile steps for sequential run.
-    var run_sequence: [37]*std.Build.Step.Compile = undefined;
+    var run_sequence: [38]*std.Build.Step.Compile = undefined;
     var run_count: usize = 0;
 
     const tb = lane.TestBuilder{
@@ -71,7 +71,7 @@ pub fn strategy(
             .{ .name = "topologies", .module = shared.topologies },
             .{ .name = "logger", .module = shared.logger },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true, .needs_audit = true, .needs_cabi_shim = true },
     });
     run_count += 1;
 
@@ -141,7 +141,7 @@ pub fn strategy(
         run_count += 1;
     }
 
-    // === C ABI tests (need firedancer linkage) ===
+    // === C ABI tests (need firedancer linkage and C shim) ===
 
     const cabi_tests = [_]struct { path: []const u8, name: []const u8 }{
         .{ .path = "src/tickoni/c_abi/queue.zig", .name = "test-queue" },
@@ -158,7 +158,7 @@ pub fn strategy(
         run_sequence[run_count] = tb.registerRunTest(.{
             .name = t.name,
             .source_file = t.path,
-            .linkage = .{ .needs_firedancer = true },
+            .linkage = .{ .needs_cabi_shim = true },
         });
         run_count += 1;
     }
@@ -190,11 +190,23 @@ pub fn strategy(
             .{ .name = "audit_schema", .module = shared.audit_schema },
             .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true, .needs_audit = true },
     });
     run_count += 1;
 
-    // payment_pipeline/mod.zig — needs audit_tile, runtime, c_abi, logger, util.
+    // test-audit-stem — stem tile scratch layout, C FNV-1a parity, schema invariants
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-audit-stem",
+        .source_file = "src/tickoni/tiles/audit/types.zig",
+        .imports = &.{
+            .{ .name = "audit_codec", .module = shared.audit_codec },
+            .{ .name = "audit_schema", .module = shared.audit_schema },
+        },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true, .needs_audit = true },
+    });
+    run_count += 1;
+
+    // payment_pipeline/mod.zig — needs ballet.c shim (codec) and os.c shim.
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-payment-pipeline",
         .source_file = "src/tickoni/tiles/payment_pipeline/mod.zig",
@@ -205,7 +217,7 @@ pub fn strategy(
             .{ .name = "logger", .module = shared.logger },
             .{ .name = "util", .module = shared.util },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_cabi_shim = true },
     });
     run_count += 1;
 

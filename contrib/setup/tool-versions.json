@@ -16,7 +16,7 @@
       "version": "4.14.1"
     },
     "zig": {
-      "version": "0.17.0",
+      "version": "0.18.0-dev.624+b7f2c6d8f",
       "options": {
         "minisign_key": "RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
       }

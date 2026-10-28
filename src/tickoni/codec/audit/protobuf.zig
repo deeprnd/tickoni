@@ -27,7 +27,7 @@ const field_manifest_id: u32 = 94;
 pub fn formatProtobuf(
     out: [*]u8,
     out_sz: usize,
-    event: *const wire.Event,
+    event: *const wire.WireEvent,
     written: *usize,
 ) c_int {
     var scratch: [512]u8 align(32) = undefined;
@@ -205,9 +205,9 @@ pub fn formatProtobuf(
 pub fn parseProtobuf(
     in: [*]const u8,
     in_sz: usize,
-    event: *wire.Event,
+    event: *wire.WireEvent,
 ) c_int {
-    event.* = std.mem.zeroes(wire.Event);
+    event.* = std.mem.zeroes(wire.WireEvent);
 
     var inbuf: c_abi.ballet.PbInbuf = .{};
     c_abi.ballet.pbInbufInit(&inbuf, in[0..in_sz]);
@@ -298,7 +298,7 @@ pub fn parseProtobuf(
     return wire.status_ok;
 }
 
-fn parsePayload(record_type: u32, inbuf: *c_abi.ballet.PbInbuf, payload: *wire.Payload) c_int {
+fn parsePayload(record_type: u32, inbuf: *c_abi.ballet.PbInbuf, payload: *wire.WirePayload) c_int {
     var tlv: c_abi.ballet.PbTlv = .{};
     while (c_abi.ballet.pbInbufSz(inbuf) != 0) {
         if (!c_abi.ballet.pbReadTlv(inbuf, &tlv)) return wire.status_invalid_protobuf;

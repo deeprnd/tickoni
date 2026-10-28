@@ -78,7 +78,7 @@ pub fn buildPolicyDecisionEvent(
         .tile_id = tile_id,
         .logical_actor_id = 0,
         .policy_version = std.mem.zeroes([32]u8),
-        .capability_envelope_id = 0,
+        .capability_envelope_id = std.mem.zeroes([16]u8),
         .timestamp_ns = 0,
         .prev_hash = prev_hash,
         .record_hash = 0,

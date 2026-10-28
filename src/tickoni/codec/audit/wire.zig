@@ -6,7 +6,7 @@ pub const status_invalid_protobuf: c_int = 2;
 pub const status_invalid_json: c_int = 3;
 pub const status_invalid_field: c_int = 4;
 
-pub const Header = extern struct {
+pub const WireHeader = extern struct {
     schema_version: u16,
     run_id: u64,
     seq: u64,
@@ -28,19 +28,19 @@ pub const Header = extern struct {
     manifest_id: [64]u8,
 };
 
-pub const SourceEventPayload = extern struct {
+pub const WireSourceEventPayload = extern struct {
     source_system: [16]u8,
     event_type: [32]u8,
     raw_hash: u64,
 };
 
-pub const NormalizationPayload = extern struct {
+pub const WireNormalizationPayload = extern struct {
     source_event_hash: u64,
     normalized_hash: u64,
     canonical_event_type: [32]u8,
 };
 
-pub const PolicyDecisionPayload = extern struct {
+pub const WirePolicyDecisionPayload = extern struct {
     outcome: u8,
     rule_id: u32,
     failed_scope_dim: [32]u8,
@@ -51,7 +51,7 @@ pub const PolicyDecisionPayload = extern struct {
     classification_code: [32]u8,
 };
 
-pub const ModelCallPayload = extern struct {
+pub const WireModelCallPayload = extern struct {
     model_id: [32]u8,
     prompt_hash: u64,
     response_hash: u64,
@@ -63,39 +63,39 @@ pub const ModelCallPayload = extern struct {
     replay_substitution_id: u64,
 };
 
-pub const FinancialAdapterCallPayload = extern struct {
+pub const WireFinancialAdapterCallPayload = extern struct {
     adapter_id: [16]u8,
     request_hash: u64,
     response_hash: u64,
     replay_substitution_id: u32,
 };
 
-pub const ProposalPayload = extern struct {
+pub const WireProposalPayload = extern struct {
     proposal_type: [32]u8,
     proposal_hash: u64,
     approval_state: u8,
 };
 
-pub const DestinationCheckPayload = extern struct {
+pub const WireDestinationCheckPayload = extern struct {
     destination_type: [16]u8,
     allowlist_version: u32,
     outcome: u8,
 };
 
-pub const LimitCheckPayload = extern struct {
+pub const WireLimitCheckPayload = extern struct {
     limit_type: u8,
     value: i64,
     limit: i64,
     outcome: u8,
 };
 
-pub const ApprovalRequiredPayload = extern struct {
+pub const WireApprovalRequiredPayload = extern struct {
     action_class: [32]u8,
     approval_path: [32]u8,
     proposal_hash: u64,
 };
 
-pub const DenialPayload = extern struct {
+pub const WireDenialPayload = extern struct {
     action_class: [32]u8,
     reason_code: u32,
     failed_scope_dim: [32]u8,
@@ -105,53 +105,53 @@ pub const DenialPayload = extern struct {
     classification_code: [32]u8,
 };
 
-pub const TelemetryCheckpointPayload = extern struct {
+pub const WireTelemetryCheckpointPayload = extern struct {
     metric_set_hash: u64,
     source_offset_watermark: u64,
 };
 
-pub const ReplayResultPayload = extern struct {
+pub const WireReplayResultPayload = extern struct {
     capsule_id: u64,
     divergences: u64,
     first_divergent_seq: u64,
 };
 
-pub const DeduplicationPayload = extern struct {
+pub const WireDeduplicationPayload = extern struct {
     idempotency_key: u64,
     is_duplicate: u8,
 };
 
-pub const CaseCreationPayload = extern struct {
+pub const WireCaseCreationPayload = extern struct {
     basket_id: u64,
     instrument_count: u8,
     rejected_count: u8,
     total_allocated_cents: i64,
 };
 
-pub const Payload = extern union {
-    source_event: SourceEventPayload,
-    normalization: NormalizationPayload,
-    policy_decision: PolicyDecisionPayload,
-    model_call: ModelCallPayload,
-    financial_adapter_call: FinancialAdapterCallPayload,
-    proposal: ProposalPayload,
-    destination_check: DestinationCheckPayload,
-    limit_check: LimitCheckPayload,
-    approval_required: ApprovalRequiredPayload,
-    denial: DenialPayload,
-    telemetry_checkpoint: TelemetryCheckpointPayload,
-    replay_result: ReplayResultPayload,
-    deduplication: DeduplicationPayload,
-    case_creation: CaseCreationPayload,
+pub const WirePayload = extern union {
+    source_event: WireSourceEventPayload,
+    normalization: WireNormalizationPayload,
+    policy_decision: WirePolicyDecisionPayload,
+    model_call: WireModelCallPayload,
+    financial_adapter_call: WireFinancialAdapterCallPayload,
+    proposal: WireProposalPayload,
+    destination_check: WireDestinationCheckPayload,
+    limit_check: WireLimitCheckPayload,
+    approval_required: WireApprovalRequiredPayload,
+    denial: WireDenialPayload,
+    telemetry_checkpoint: WireTelemetryCheckpointPayload,
+    replay_result: WireReplayResultPayload,
+    deduplication: WireDeduplicationPayload,
+    case_creation: WireCaseCreationPayload,
 };
 
-pub const Event = extern struct {
-    header: Header,
+pub const WireEvent = extern struct {
+    header: WireHeader,
     record_type: u8,
-    payload: Payload,
+    payload: WirePayload,
 };
 
-pub fn toWireEvent(event: schema.AuditEvent) Event {
+pub fn toWireEvent(event: schema.AuditEvent) WireEvent {
     return .{
         .header = .{
             .schema_version = event.header.schema_version,
@@ -161,7 +161,7 @@ pub fn toWireEvent(event: schema.AuditEvent) Event {
             .tile_id = event.header.tile_id,
             .logical_actor_id = event.header.logical_actor_id,
             .policy_version = event.header.policy_version,
-            .capability_envelope_id_le = @bitCast(event.header.capability_envelope_id),
+            .capability_envelope_id_le = event.header.capability_envelope_id,
             .timestamp_ns = event.header.timestamp_ns,
             .prev_hash = event.header.prev_hash,
             .record_hash = event.header.record_hash,
@@ -178,7 +178,7 @@ pub fn toWireEvent(event: schema.AuditEvent) Event {
 
 pub fn fromWireEvent(
     codec: anytype,
-    event: Event,
+    event: WireEvent,
 ) !schema.AuditEvent {
     try codec.checkSchemaVersion(event.header.schema_version);
     const record_type = try codec.parseRecordType(event.record_type);
@@ -192,7 +192,7 @@ pub fn fromWireEvent(
             .tile_id = event.header.tile_id,
             .logical_actor_id = event.header.logical_actor_id,
             .policy_version = event.header.policy_version,
-            .capability_envelope_id = @bitCast(event.header.capability_envelope_id_le),
+            .capability_envelope_id = event.header.capability_envelope_id_le,
             .timestamp_ns = event.header.timestamp_ns,
             .prev_hash = event.header.prev_hash,
             .record_hash = event.header.record_hash,
@@ -206,7 +206,7 @@ pub fn fromWireEvent(
     };
 }
 
-fn toWirePayload(payload: schema.AuditEvent.Payload) Payload {
+fn toWirePayload(payload: schema.AuditEvent.Payload) WirePayload {
     return switch (payload) {
         .source_event => |p| .{ .source_event = .{
             .source_system = p.source_system,
@@ -219,7 +219,7 @@ fn toWirePayload(payload: schema.AuditEvent.Payload) Payload {
             .canonical_event_type = p.canonical_event_type,
         } },
         .policy_decision => |p| .{ .policy_decision = .{
-            .outcome = @backingInt(p.outcome),
+            .outcome = @intCast(@backingInt(p.outcome)),
             .rule_id = p.rule_id,
             .failed_scope_dim = p.failed_scope_dim,
             .source_event_hash = p.source_event_hash,
@@ -253,13 +253,13 @@ fn toWirePayload(payload: schema.AuditEvent.Payload) Payload {
         .destination_check => |p| .{ .destination_check = .{
             .destination_type = p.destination_type,
             .allowlist_version = p.allowlist_version,
-            .outcome = @backingInt(p.outcome),
+            .outcome = @intCast(@backingInt(p.outcome)),
         } },
         .limit_check => |p| .{ .limit_check = .{
             .limit_type = @backingInt(p.limit_type),
             .value = p.value,
             .limit = p.limit,
-            .outcome = @backingInt(p.outcome),
+            .outcome = @intCast(@backingInt(p.outcome)),
         } },
         .approval_required => |p| .{ .approval_required = .{
             .action_class = p.action_class,
@@ -297,7 +297,7 @@ fn toWirePayload(payload: schema.AuditEvent.Payload) Payload {
     };
 }
 
-fn fromWirePayload(record_type: schema.RecordType, payload: Payload) !schema.AuditEvent.Payload {
+fn fromWirePayload(record_type: schema.RecordType, payload: WirePayload) !schema.AuditEvent.Payload {
     return switch (record_type) {
         .source_event => .{ .source_event = .{
             .source_system = payload.source_event.source_system,
@@ -414,23 +414,30 @@ const std = @import("std");
 // against one source of truth").
 test "schema and wire Payload variants stay field-name and order synchronized" {
     comptime {
-        const schema_fields = std.meta.fields(schema.AuditEvent.Payload);
-        const wire_fields = std.meta.fields(Payload);
-        if (schema_fields.len != wire_fields.len) {
-            @compileError("schema.AuditEvent.Payload and wire.Payload have a different number of record-type variants");
+        const schema_type_info = @typeInfo(schema.AuditEvent.Payload).@"struct";
+        const wire_type_info = @typeInfo(WirePayload).@"struct";
+        if (schema_type_info.field_names.len != wire_type_info.field_names.len) {
+            @compileError("schema.AuditEvent.Payload and wire.WirePayload have a different number of record-type variants");
         }
-        for (schema_fields, wire_fields) |sf, wf| {
-            if (!std.mem.eql(u8, sf.name, wf.name)) {
-                @compileError("schema.AuditEvent.Payload and wire.Payload variant order/names diverge: " ++ sf.name ++ " vs " ++ wf.name);
+        // Check each variant name matches.
+        var i: usize = 0;
+        while (i < schema_type_info.field_names.len) : (i += 1) {
+            if (!std.mem.eql(u8, schema_type_info.field_names[i], wire_type_info.field_names[i])) {
+                @compileError("schema.AuditEvent.Payload and wire.WirePayload variant order/names diverge: " ++ schema_type_info.field_names[i] ++ " vs " ++ wire_type_info.field_names[i]);
             }
-            const schema_variant_fields = std.meta.fields(sf.type);
-            const wire_variant_fields = std.meta.fields(wf.type);
-            if (schema_variant_fields.len != wire_variant_fields.len) {
-                @compileError("schema and wire payload field count diverges for variant " ++ sf.name);
+        }
+        // Check each variant's inner struct fields match.
+        i = 0;
+        while (i < schema_type_info.field_names.len) : (i += 1) {
+            const schema_variant_type_info = @typeInfo(schema_type_info.field_types[i]).@"struct";
+            const wire_variant_type_info = @typeInfo(wire_type_info.field_types[i]).@"struct";
+            if (schema_variant_type_info.field_names.len != wire_variant_type_info.field_names.len) {
+                @compileError("schema and wire payload field count diverges for variant " ++ schema_type_info.field_names[i]);
             }
-            for (schema_variant_fields, wire_variant_fields) |svf, wvf| {
-                if (!std.mem.eql(u8, svf.name, wvf.name)) {
-                    @compileError("schema and wire payload field name diverges for variant " ++ sf.name ++ ": " ++ svf.name ++ " vs " ++ wvf.name);
+            var j: usize = 0;
+            while (j < schema_variant_type_info.field_names.len) : (j += 1) {
+                if (!std.mem.eql(u8, schema_variant_type_info.field_names[j], wire_variant_type_info.field_names[j])) {
+                    @compileError("schema and wire payload field name diverges for variant " ++ schema_type_info.field_names[i] ++ ": " ++ schema_variant_type_info.field_names[j] ++ " vs " ++ wire_variant_type_info.field_names[j]);
                 }
             }
         }

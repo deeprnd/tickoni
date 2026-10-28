@@ -79,7 +79,7 @@ pub fn strategy(
     };
 
     if (register_infra) {
-        // 1-7. Process-mode files share infra_imports.
+        // 1-8. Process-mode files share infra_imports.
         const infra_proc_files: []const []const u8 = &.{
             "src/tickoni/test/integration/test_metric_tile_integration.zig",
             "src/tickoni/test/integration/test_process_topology.zig",
@@ -88,6 +88,7 @@ pub fn strategy(
             "src/tickoni/test/integration/test_process_cpu_placement.zig",
             "src/tickoni/test/integration/test_process_fixture_parity.zig",
             "src/tickoni/test/integration/test_link_bounds.zig",
+            "src/tickoni/test/integration/test_audit_stem_tile.zig",
         };
 
         for (infra_proc_files) |path| {
@@ -99,9 +100,18 @@ pub fn strategy(
                     .imports = &infra_imports,
                 }),
             });
+            // C ABI shim: tango.c, os.c, util.c, wksp.c, topob.c, sandbox.c
+            // define tk_* symbols (tk_cnc_signal, tk_wksp_*, tk_fctl_*, etc.)
+            // used by the c_abi Zig modules imported by infra tests.
+            test_bin.root_module.linkLibrary(codec.addTickoniCabShimLibrary(b, target, optimize));
             codec.linkTickoniCodec(b, test_bin, fd_lib_dir);
             firedancer.linkTickoniFiredancer(b, test_bin, fd_lib_dir);
             topo_run.linkTickoniTopoRun(b, test_bin, fd_lib_dir);
+            // Link audit shim: tile 4 (tkaudt) uses tk_audit_stem.c which
+            // includes fd_stem.c with STEM_CALLBACK_CONTEXT_TYPE = tk_audit_ctx_t.
+            // It's compiled in a separate static library to avoid duplicate
+            // stem_run symbols with tk_metric_tile.c (fd_metric_ctx_t).
+            test_bin.root_module.linkLibrary(codec.addTickoniAuditShimLibrary(b, target, optimize, fd_lib_dir));
             // libfd_waltz.a contains fd_http_server.o, which references ZSTD.
             test_bin.root_module.addObjectFile(.{
                 .cwd_relative = b.fmt("{s}/libfd_zstd.a", .{fd_lib_dir}),
@@ -124,6 +134,8 @@ pub fn strategy(
                 },
             }),
         });
+        // mock_servers uses c_abi.util which declares tk_sleep_nanos etc.
+        mock_servers_test.root_module.linkLibrary(codec.addTickoniCabShimLibrary(b, target, optimize));
         firedancer.linkTickoniFiredancer(b, mock_servers_test, fd_lib_dir);
 
         const model_tile_http_test = b.addTest(.{
@@ -141,6 +153,8 @@ pub fn strategy(
             }),
         });
         codec.linkTickoniCodec(b, model_tile_http_test, fd_lib_dir);
+        // model_tile_http uses c_abi.os which declares tk_sleep_nanos etc.
+        model_tile_http_test.root_module.linkLibrary(codec.addTickoniCabShimLibrary(b, target, optimize));
         firedancer.linkTickoniFiredancer(b, model_tile_http_test, fd_lib_dir);
 
         test_runs[test_run_count] = shims.addPlainTestRunSeries(

@@ -262,9 +262,22 @@ test "metric topology finalizes exact scratch requirements identically" {
     );
     defer child.deinit(std.testing.allocator);
 
-    const required = c_abi.topob.tickoniTileScratchRequirements("metric");
-    try std.testing.expect(required.alignment > 1);
-    try std.testing.expect(required.footprint > 1);
+    // v2.NN.SXX Task 3: read expected scratch requirements from the
+    // metric tile's descriptor scratch_reqs instead of the deprecated
+    // tickoniTileScratchRequirements() shim.
+    var expected_align: usize = 0;
+    var expected_footprint: usize = 0;
+    for (topologies.paymentPipelineProcess().tiles) |t| {
+        if (std.mem.eql(u8, t.id.slice(), "metric")) {
+            if (t.scratch_reqs) |reqs| {
+                expected_align = reqs.scratch_align;
+                expected_footprint = reqs.footprint;
+                break;
+            }
+        }
+    }
+    try std.testing.expect(expected_align > 1);
+    try std.testing.expect(expected_footprint > 1);
 
     const parent_obj_id = c_abi.topob.topoFindTile(parent.topo, "metric", 0);
     const child_obj_id = c_abi.topob.topoFindTile(child.topo, "metric", 0);
@@ -273,15 +286,15 @@ test "metric topology finalizes exact scratch requirements identically" {
     try std.testing.expectEqual(parent_obj_id, child_obj_id);
 
     try std.testing.expectEqual(
-        required.alignment,
+        expected_align,
         c_abi.topob.topoObjScratchAlign(parent.topo, parent_obj_id),
     );
     try std.testing.expect(
-        c_abi.topob.topoObjFootprint(parent.topo, parent_obj_id) >= required.footprint,
+        c_abi.topob.topoObjFootprint(parent.topo, parent_obj_id) >= expected_footprint,
     );
     try std.testing.expectEqual(
         @as(usize, 0),
-        c_abi.topob.topoObjOffset(parent.topo, parent_obj_id) % required.alignment,
+        c_abi.topob.topoObjOffset(parent.topo, parent_obj_id) % expected_align,
     );
     try std.testing.expect(c_abi.topob.topoValidateMetricScratch(parent.topo));
 
@@ -310,11 +323,11 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
     if (false) return error.SkipZigTest;
     const tiles = [_]runtime.tile.TileDescriptor{
         .{ .id = runtime.tile.TileId.parse("tkings") catch unreachable, .name = "ingest", .cpu_placement = .{ .exclusive = 2 } },
-        .{ .id = runtime.tile.TileId.parse("metric") catch unreachable, .name = "metric", .cpu_placement = .{ .exclusive = 3 } },
+        .{ .id = runtime.tile.TileId.parse("metric") catch unreachable, .name = "metric", .cpu_placement = .{ .exclusive = 3 }, .scratch_reqs = .{ .scratch_align = 64, .footprint = 32_000_000 } },
         .{ .id = runtime.tile.TileId.parse("tkdiag") catch unreachable, .name = "diagnostic", .cpu_placement = .{ .exclusive = 4 } },
     };
     const channels = [_]runtime.link.Channel{
-        .{ .src_idx = 0, .dst_idx = 2, .depth = 64, .mtu = 128 },
+        .{ .src_id = runtime.tile.TileId.parse("tkings") catch unreachable, .dst_id = runtime.tile.TileId.parse("tkdiag") catch unreachable, .depth = 64, .mtu = 128 },
     };
     const topology = runtime.topology.Topology{ .tiles = &tiles, .channels = &channels };
     var ws_buf: [16]u8 = undefined;

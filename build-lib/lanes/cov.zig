@@ -40,7 +40,7 @@ pub fn strategy(
     tb.registerCov(.{
         .name = "test-queue",
         .source_file = "src/tickoni/c_abi/queue.zig",
-        .linkage = .{ .needs_firedancer = true },
+        .linkage = .{ .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
@@ -51,31 +51,31 @@ pub fn strategy(
     tb.registerCov(.{
         .name = "test-dcache",
         .source_file = "src/tickoni/c_abi/dcache.zig",
-        .linkage = .{ .needs_firedancer = true },
+        .linkage = .{ .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
         .name = "test-fseq",
         .source_file = "src/tickoni/c_abi/fseq.zig",
-        .linkage = .{ .needs_firedancer = true },
+        .linkage = .{ .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
         .name = "test-fctl",
         .source_file = "src/tickoni/c_abi/fctl.zig",
-        .linkage = .{ .needs_firedancer = true },
+        .linkage = .{ .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
         .name = "test-cnc",
         .source_file = "src/tickoni/c_abi/cnc.zig",
-        .linkage = .{ .needs_firedancer = true },
+        .linkage = .{ .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
         .name = "test-tempo",
         .source_file = "src/tickoni/c_abi/tempo.zig",
-        .linkage = .{ .needs_firedancer = true },
+        .linkage = .{ .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
@@ -109,7 +109,7 @@ pub fn strategy(
         .name = "test-cnc-counters",
         .source_file = "src/tickoni/runtime/cnc_counters.zig",
         .imports = &.{.{ .name = "c_abi", .module = shared.c_abi }},
-        .linkage = .{ .needs_firedancer = true },
+        .linkage = .{ .needs_firedancer = true, .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
@@ -118,9 +118,10 @@ pub fn strategy(
         .imports = &.{
             .{ .name = "audit_codec", .module = shared.audit_codec },
             .{ .name = "audit_schema", .module = shared.audit_schema },
+            .{ .name = "audit_mod", .module = shared.audit_mod },
             .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true, .needs_audit = true },
     }, cov_step);
 
     tb.registerCov(.{
@@ -133,7 +134,7 @@ pub fn strategy(
             .{ .name = "util", .module = shared.util },
             .{ .name = "logger", .module = shared.logger },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_cabi_shim = true },
     }, cov_step);
 
     tb.registerCov(.{
@@ -239,7 +240,7 @@ pub fn strategy(
             .{ .name = "topologies", .module = shared.topologies },
             .{ .name = "logger", .module = shared.logger },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_cabi_shim = true },
     }, cov_step);
 
     // Topologies cov test.

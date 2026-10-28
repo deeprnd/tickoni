@@ -10,6 +10,7 @@ const shims = @import("lib/shims.zig");
 const codec = @import("lib/codec.zig");
 const firedancer = @import("lib/firedancer.zig");
 const topo_run = @import("lib/topo_run.zig");
+const tile_run = @import("lib/tile_run.zig");
 
 /// Build-time linkage flags for a test.
 pub const TestLinkage = packed struct(u8) {
@@ -18,7 +19,9 @@ pub const TestLinkage = packed struct(u8) {
     needs_topo_run: bool = false,
     needs_tile_run: bool = false,
     needs_libc: bool = false,
-    _pad: u3 = 0,
+    needs_audit: bool = false,
+    needs_audit_disco: bool = false,
+    needs_cabi_shim: bool = false,
 };
 
 /// Action to dispatch for a registered test.
@@ -72,6 +75,22 @@ pub const TestBuilder = struct {
         if (spec.linkage.needs_firedancer) firedancer.linkTickoniFiredancer(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_topo_run) topo_run.linkTickoniTopoRun(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_libc) t.root_module.link_libc = true;
+        if (spec.linkage.needs_tile_run) tile_run.linkTickoniTileRun(self.b, t, self.fd_lib_dir);
+        if (spec.linkage.needs_cabi_shim) {
+            const cabi_shim_lib = codec.addTickoniCabShimLibrary(self.b, self.target, self.optimize);
+            t.root_module.linkLibrary(cabi_shim_lib);
+            // C ABI shim needs libfd_tango.a and libfd_util.a from Firedancer.
+            firedancer.linkTickoniFiredancer(self.b, t, self.fd_lib_dir);
+        }
+        if (spec.linkage.needs_audit) {
+            const shim_lib = codec.addTickoniAuditShimLibrary(self.b, self.target, self.optimize, self.fd_lib_dir);
+            t.root_module.linkLibrary(shim_lib);
+            // Audit shim requires libfd_disco.a for fd_topo_obj_laddr and
+            // fd_metrics_* symbols.  Must be a direct link on the test step;
+            // embedding it inside the static archive does not work (Zig does
+            // not resolve symbols through nested static archives).
+            t.root_module.addObjectFile(.{ .cwd_relative = self.b.fmt("{s}/libfd_disco.a", .{self.fd_lib_dir}) });
+        }
 
         cov_step.dependOn(&self.b.addInstallArtifact(t, .{
             .dest_dir = .{ .override = .{ .custom = "cov" } },
@@ -98,6 +117,22 @@ pub const TestBuilder = struct {
         if (spec.linkage.needs_firedancer) firedancer.linkTickoniFiredancer(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_topo_run) topo_run.linkTickoniTopoRun(self.b, t, self.fd_lib_dir);
         if (spec.linkage.needs_libc) t.root_module.link_libc = true;
+        if (spec.linkage.needs_tile_run) tile_run.linkTickoniTileRun(self.b, t, self.fd_lib_dir);
+        if (spec.linkage.needs_cabi_shim) {
+            const cabi_shim_lib = codec.addTickoniCabShimLibrary(self.b, self.target, self.optimize);
+            t.root_module.linkLibrary(cabi_shim_lib);
+            // C ABI shim needs libfd_tango.a and libfd_util.a from Firedancer.
+            firedancer.linkTickoniFiredancer(self.b, t, self.fd_lib_dir);
+        }
+        if (spec.linkage.needs_audit) {
+            const shim_lib = codec.addTickoniAuditShimLibrary(self.b, self.target, self.optimize, self.fd_lib_dir);
+            t.root_module.linkLibrary(shim_lib);
+            // Audit shim requires libfd_disco.a for fd_topo_obj_laddr and
+            // fd_metrics_* symbols.  Must be a direct link on the test step;
+            // embedding it inside the static archive does not work (Zig does
+            // not resolve symbols through nested static archives).
+            t.root_module.addObjectFile(.{ .cwd_relative = self.b.fmt("{s}/libfd_disco.a", .{self.fd_lib_dir}) });
+        }
 
         return t;
     }

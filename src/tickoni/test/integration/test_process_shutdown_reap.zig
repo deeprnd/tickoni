@@ -22,6 +22,7 @@ const topologies = @import("topologies");
 
 const Supervisor = supervisor_mod.Supervisor;
 const ProcessPipelineConfig = supervisor_mod.ProcessPipelineConfig;
+const max_tiles = supervisor_mod.max_tiles;
 
 // ---------------------------------------------------------------------------
 // Helper: spawn a pipeline and wait for it to complete normally
@@ -52,7 +53,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
     defer sup.deinit();
 
     // Tile 5 (tkrepl) will self-exit(1) after exactly 1 heartbeat.
-    var crash_after: [8]u32 = std.mem.zeroes([8]u32);
+    var crash_after: [max_tiles]u32 = std.mem.zeroes([max_tiles]u32);
     crash_after[5] = 1;
 
     const port = util.nextMetricPort();
@@ -187,7 +188,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
     defer sup.deinit();
 
     // Tile 0 (tking) exits after 1 heartbeat — it crashes before stopProcess.
-    var crash_after: [8]u32 = std.mem.zeroes([8]u32);
+    var crash_after: [max_tiles]u32 = std.mem.zeroes([max_tiles]u32);
     crash_after[0] = 1;
 
     const port = util.nextMetricPort();
@@ -378,7 +379,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
     // Tile 5 exits after 1 heartbeat — it crashes before stopProcess
     // sends HALT. This tests the scenario where a tile failure races
     // with the shutdown sequence.
-    var crash_after: [8]u32 = std.mem.zeroes([8]u32);
+    var crash_after: [max_tiles]u32 = std.mem.zeroes([max_tiles]u32);
     crash_after[5] = 1;
 
     const port = util.nextMetricPort();
@@ -455,7 +456,7 @@ test "shutdown_reap: non-zero exit during grace → force-phase preserves .exite
 
     // Tile 5 exits after 1 heartbeat — it will crash during the grace
     // period, before stopProcess sends HALT to any tile.
-    var crash_after: [8]u32 = std.mem.zeroes([8]u32);
+    var crash_after: [max_tiles]u32 = std.mem.zeroes([max_tiles]u32);
     crash_after[5] = 1;
 
     const port = util.nextMetricPort();

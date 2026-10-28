@@ -47,7 +47,7 @@ pub const process_config_magic: u32 = 0x544b5043; // "TKPC"
 pub const process_config_version: u16 = 1;
 
 pub const StuckTileHook = struct {
-    tile_idx: u32,
+    fd_tile_idx: u32,
     after_messages: u64 = 0,
     sleep_ns: u64 = 60 * std.time.ns_per_s,
 };
@@ -91,11 +91,11 @@ fn sleepNanos(ns: u64) void {
 
 fn maybeBlockForTest(process_cfg: ProcessRuntimeConfig, tile_idx: u32, completed_messages: u64) void {
     const hook = process_cfg.stuck_tile orelse return;
-    if (hook.tile_idx != tile_idx or completed_messages < hook.after_messages) return;
+    if (hook.fd_tile_idx != tile_idx or completed_messages <= hook.after_messages) return;
     std.log.warn(
         "stuck_tile hook triggered: tile_idx={d}, after_messages={d}, sleep_ns={d} — entering infinite block",
         .{
-            hook.tile_idx,
+            hook.fd_tile_idx,
             hook.after_messages,
             hook.sleep_ns,
         },
@@ -262,8 +262,8 @@ pub fn runAuditProcess(
             .tile_id = msg.decided_by,
         }) catch break;
         audited += 1;
+        rt.cnc_counters.appCounterWrite(cnc, 0, audited);
     }
-    rt.cnc_counters.appCounterWrite(cnc, 0, audited);
 }
 
 // ---------------------------------------------------------------------------
@@ -280,7 +280,7 @@ test "ProcessConfig round-trips through a file" {
             .inject_duplicate = true,
             .inject_malformed = true,
         },
-        .stuck_tile = .{ .tile_idx = 2, .after_messages = 7, .sleep_ns = 1234 },
+        .stuck_tile = .{ .fd_tile_idx = 2, .after_messages = 7, .sleep_ns = 1234 },
     };
     try writeProcessConfig(cfg, std.testing.io, tmp.dir, "payment_pipeline.config");
 
@@ -289,7 +289,7 @@ test "ProcessConfig round-trips through a file" {
     try std.testing.expectEqual(@as(i64, 45_600), read_back.pipeline.policy_limit_cents);
     try std.testing.expect(read_back.pipeline.inject_duplicate);
     try std.testing.expect(read_back.pipeline.inject_malformed);
-    try std.testing.expectEqual(@as(?u32, 2), if (read_back.stuck_tile) |hook| hook.tile_idx else null);
+    try std.testing.expectEqual(@as(?u32, 2), if (read_back.stuck_tile) |hook| hook.fd_tile_idx else null);
     try std.testing.expectEqual(@as(?u64, 7), if (read_back.stuck_tile) |hook| hook.after_messages else null);
 }
 

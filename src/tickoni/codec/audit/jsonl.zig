@@ -12,7 +12,14 @@ pub fn formatJsonLine(event: schema.AuditEvent, writer: anytype) !void {
     try writer.print("\"tile_id\":\"{s}\",", .{std.mem.sliceTo(&h.tile_id, 0)});
     try writer.print("\"logical_actor_id\":{d},", .{h.logical_actor_id});
     try writer.print("\"policy_version\":\"{s}\",", .{std.mem.sliceTo(&h.policy_version, 0)});
-    try writer.print("\"capability_envelope_id\":{d},", .{h.capability_envelope_id});
+    // T9: capability_envelope_id is [16]u8; serialize as hex string for JSON.
+    const ceid = h.capability_envelope_id;
+    try writer.print("\"capability_envelope_id\":\"", .{});
+    for (ceid, 0..) |byte, idx| {
+        if (idx > 0) try writer.writeAll("");
+        try writer.print("{X:0>2}", .{byte});
+    }
+    try writer.writeAll("\",");
     try writer.print("\"timestamp_ns\":{d},", .{h.timestamp_ns});
     try writer.print("\"prev_hash\":{d},", .{h.prev_hash});
     try writer.print("\"record_hash\":{d},", .{h.record_hash});
@@ -163,7 +170,7 @@ test "jsonl formatJsonLine produces valid JSON with hash-chain fields" {
             .tile_id = "tkings",
             .logical_actor_id = 1,
             .policy_version = "v1",
-            .capability_envelope_id = 7,
+            .capability_envelope_id = @as([16]u8, @bitCast(@as(u128, 7))),
             .timestamp_ns = 1_000_000_000,
             .prev_hash = 0,
             .record_hash = 0xDEADBEEF,
@@ -221,7 +228,7 @@ test "jsonl formatJsonLine produces consistent hash for same event" {
             .tile_id = "tkings",
             .logical_actor_id = 0,
             .policy_version = "v1",
-            .capability_envelope_id = 0,
+            .capability_envelope_id = std.mem.zeroes([16]u8),
             .timestamp_ns = 0,
             .prev_hash = 0,
             .record_hash = 0,

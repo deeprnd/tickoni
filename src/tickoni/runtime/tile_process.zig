@@ -112,7 +112,7 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
     g_ctx.work(g_ctx.io, wksp, g_ctx.spec, g_ctx.cnc, g_ctx.allocator) catch |err| {
         const log = logger.get();
         var msg_buf: [256]u8 = undefined;
-        const msg = std.fmt.bufPrint(&msg_buf, "work failed for tile {d} ({s}): {t}", .{ g_ctx.spec.tile_idx, g_ctx.spec.tile_id.slice(), err }) catch "work failed";
+        const msg = std.fmt.bufPrint(&msg_buf, "work failed for tile {d} ({s}): {t}", .{ g_ctx.spec.fd_tile_idx, g_ctx.spec.tile_id.slice(), err }) catch "work failed";
         log.err("tile_process", "tk_tile_run", msg);
         std.process.exit(1);
     };
@@ -150,7 +150,7 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     };
 
     boot.bootWithSyntheticArgv(spec.shmemPath(), "") catch |err| {
-        std.debug.print("tile_process: bootWithSyntheticArgv failed for tile {d}: {t}\n", .{ spec.tile_idx, err });
+        std.debug.print("tile_process: bootWithSyntheticArgv failed for tile {d}: {t}\n", .{ spec.fd_tile_idx, err });
         return 1;
     };
     var built_opt: ?topo_build.BuiltTopo = null;
@@ -161,11 +161,11 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
 
     var topology_spec_path_buf: [launch_spec.shmem_path_cap + 32]u8 = undefined;
     const topology_spec_path = std.fmt.bufPrint(&topology_spec_path_buf, "{s}/topology.spec", .{spec.shmemPath()}) catch {
-        std.debug.print("tile_process: shmem path too long for tile {d}\n", .{spec.tile_idx});
+        std.debug.print("tile_process: shmem path too long for tile {d}\n", .{spec.fd_tile_idx});
         return 1;
     };
     const topo_spec = topology_spec.TopologySpec.readFromFile(io, std.Io.Dir.cwd(), topology_spec_path) catch |err| {
-        std.debug.print("tile_process: failed to read topology spec for tile {d}: {t}\n", .{ spec.tile_idx, err });
+        std.debug.print("tile_process: failed to read topology spec for tile {d}: {t}\n", .{ spec.fd_tile_idx, err });
         return 1;
     };
     var tiles_buf: [topology_spec.max_tiles]tile_mod.TileDescriptor = undefined;
@@ -173,7 +173,7 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     const topo_desc = topo_spec.toTopology(&tiles_buf, &channels_buf);
 
     const built = topo_build.build(allocator, topo_desc, spec.workspace_name.slice(), topo_spec.metric_port) catch |err| {
-        std.debug.print("tile_process: failed to rebuild topology for tile {d}: {t}\n", .{ spec.tile_idx, err });
+        std.debug.print("tile_process: failed to rebuild topology for tile {d}: {t}\n", .{ spec.fd_tile_idx, err });
         return 1;
     };
     built_opt = built;

@@ -72,12 +72,19 @@ pub fn linkTickoniWindowsUuid(b: *std.Build, step: *std.Build.Step.Compile, fd_l
 }
 
 /// Create a static shim library from the given C source files.
+///
+/// `platform_file` is an optional platform-specific file (e.g.
+/// `topo_run_platform_linux.c`). It is compiled alongside `files` so the
+/// caller controls exactly which platform symbols land in this archive.
+/// Pass `null` when the platform file is compiled elsewhere (e.g. by
+/// `linkTickoniTopoRun`).
 pub fn addTickoniShimLibrary(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     name: []const u8,
     files: []const []const u8,
+    platform_file: ?[]const u8,
 ) *std.Build.Step.Compile {
     const mod = b.createModule(.{
         .target = target,
@@ -90,10 +97,17 @@ pub fn addTickoniShimLibrary(
     // supervisor shim module just as the relative Linux includes are.
     mod.addIncludePath(b.path("src/util/shmem"));
     mod.addIncludePath(b.path("src/util/wksp"));
+
     mod.addCSourceFiles(.{
         .files = files,
         .flags = shims.shimCFlagsFor(target.result),
     });
+    if (platform_file) |pf| {
+        mod.addCSourceFiles(.{
+            .files = &.{pf},
+            .flags = shims.shimCFlagsFor(target.result),
+        });
+    }
     if (target.result.os.tag == .windows) {
         mod.addCSourceFiles(.{
             .files = &.{"src/tickoni/c_abi/shim/windows_crt.c"},
@@ -108,12 +122,34 @@ pub fn addTickoniShimLibrary(
     });
 }
 
+/// C ABI shim library: tango.c, os.c, util.c, wksp.c, topob.c, sandbox.c.
+/// Used by C ABI tests and supervisor/lifecycle tests that need tk_* shim symbols.
+pub fn addTickoniCabShimLibrary(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Step.Compile {
+    return addTickoniShimLibrary(b, target, optimize, "tickoni-cabi-shims", &.{
+        "src/tickoni/c_abi/shim/tango.c",
+        "src/tickoni/c_abi/shim/os.c",
+        "src/tickoni/c_abi/shim/util.c",
+        "src/tickoni/c_abi/shim/wksp.c",
+        "src/tickoni/c_abi/shim/topob.c",
+        "src/tickoni/c_abi/shim/sandbox.c",
+    }, null);
+}
+
 /// Supervisor shim library: all shim files needed by the Tickoni supervisor executable.
 pub fn addTickoniSupervisorShimLibrary(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
 ) *std.Build.Step.Compile {
+    const topo_run_platform_file = switch (target.result.os.tag) {
+        .macos => "src/tickoni/c_abi/shim/topo_run_platform_macos.c",
+        .windows => "src/tickoni/c_abi/shim/topo_run_platform_windows.c",
+        else => "src/tickoni/c_abi/shim/topo_run_platform_linux.c",
+    };
     return addTickoniShimLibrary(b, target, optimize, "tickoni-supervisor-shims", &.{
         shims.ballet_c,
         "src/tickoni/c_abi/shim/tango.c",
@@ -122,11 +158,54 @@ pub fn addTickoniSupervisorShimLibrary(
         "src/tickoni/c_abi/shim/sandbox.c",
         "src/tickoni/c_abi/shim/os.c",
         "src/tickoni/c_abi/shim/topo_run.c",
-        "src/tickoni/c_abi/shim/topo_run_platform_windows.c",
         "src/tickoni/c_abi/shim/topob.c",
         "src/tickoni/c_abi/shim/tile_run.c",
         "src/tickoni/c_abi/shim/tk_metric_tile.c",
-    });
+    }, topo_run_platform_file);
+}
+
+/// Audit shim library: tk_audit_stem.c compiled separately from tk_metric_tile.c.
+/// Both files include fd_stem.c with different STEM_CALLBACK_CONTEXT_TYPE values
+/// (tk_audit_ctx_t vs fd_metric_ctx_t), so they need separate compilation units
+/// to avoid duplicate stem_run symbols.
+///
+/// Link requirements: libfd_disco.a provides fd_topo_obj_laddr and other topo
+/// symbols that tk_topo_find_tile_obj (from topob.c) references.
+///
+/// Note: libfd_disco.a must be linked by the *consumer* (the test step), not
+/// embedded inside this static archive. Zig's linker does not resolve symbols
+/// through nested static archives, and libfd_disco.a contains objects with
+/// interdependent symbols (fd_metrics_tl, fd_metrics_base_tl) that only
+/// resolve correctly when the archive is a direct link target.
+pub fn addTickoniAuditShimLibrary(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    fd_lib_dir: ?[]const u8,
+) *std.Build.Step.Compile {
+    _ = fd_lib_dir; // consumer handles library linking
+    return addTickoniShimLibrary(b, target, optimize, "tickoni-audit-shims", &.{
+        "src/tickoni/c_abi/shim/tk_audit_stem.c",
+        "src/tickoni/c_abi/shim/audit_schema_layout.c",
+        "src/tickoni/c_abi/shim/topob.c",
+    }, null);
+}
+
+/// Normalize tile stem shim library: tk_normalize_stem.c compiled separately
+/// from tk_metric_tile.c and tk_audit_stem.c. All three files include
+/// fd_stem.c with different STEM_CALLBACK_CONTEXT_TYPE values (fd_metric_ctx_t,
+/// tk_audit_ctx_t, tknorm_ctx_t), so they need separate compilation units to
+/// avoid duplicate stem_run symbols.
+pub fn addTickoniNormStemLibrary(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    fd_lib_dir: ?[]const u8,
+) *std.Build.Step.Compile {
+    _ = fd_lib_dir; // consumer handles library linking
+    return addTickoniShimLibrary(b, target, optimize, "tickoni-norm-stem-shims", &.{
+        "src/tickoni/c_abi/shim/tk_normalize_stem.c",
+    }, null);
 }
 
 /// Codec shim library: ballet.c only.
@@ -138,7 +217,7 @@ pub fn addTickoniCodecShimLibrary(
 ) *std.Build.Step.Compile {
     return addTickoniShimLibrary(b, target, optimize, name, &.{
         shims.ballet_c,
-    });
+    }, null);
 }
 
 /// Apply Windows FD manifest fixups by reading the manifest file and adding

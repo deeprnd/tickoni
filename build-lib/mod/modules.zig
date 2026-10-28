@@ -11,6 +11,7 @@ pub const Shared = struct {
     audit_schema: *std.Build.Module,
     audit_codec: *std.Build.Module,
     audit_tile: *std.Build.Module,
+    audit_mod: *std.Build.Module,
     tier: *std.Build.Module,
     version: *std.Build.Module,
     version_opts: *std.Build.Step.Options,
@@ -68,10 +69,23 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
             .{ .name = "runtime", .module = runtime_mod },
         },
     });
+    // translate-c module: imports audit_schema.h at build time for C layout parity.
+    // Uses Zig 0.18's built-in `b.addTranslateC()`.
+    const tc = b.addTranslateC(.{
+        .root_source_file = b.path("src/tickoni/c_abi/shim/audit_schema.h"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = false,
+    });
+    const audit_mod = tc.createModule();
+
     const audit_schema_mod = b.addModule("audit_schema", .{
         .root_source_file = b.path("src/tickoni/schema/audit/audit.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{
+            .{ .name = "audit_mod", .module = audit_mod },
+        },
     });
     const audit_codec_mod = b.addModule("audit_codec", .{
         .root_source_file = b.path("src/tickoni/codec/audit.zig"),
@@ -89,8 +103,10 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .imports = &.{
             .{ .name = "audit_codec", .module = audit_codec_mod },
             .{ .name = "audit_schema", .module = audit_schema_mod },
+            .{ .name = "audit_mod", .module = audit_mod },
         },
     });
+
     const tier_mod = b.addModule("tier", .{
         .root_source_file = b.path("src/tickoni/util/tier.zig"),
         .target = target,
@@ -275,6 +291,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .audit_schema = audit_schema_mod,
         .audit_codec = audit_codec_mod,
         .audit_tile = audit_tile_mod,
+        .audit_mod = audit_mod,
         .tier = tier_mod,
         .version = version_mod,
         .version_opts = version_opts,

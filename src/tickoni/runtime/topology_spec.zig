@@ -20,7 +20,7 @@ const util = @import("util");
 const logger = @import("logger");
 
 pub const magic: u32 = 0x544b5453; // "TKST"
-pub const version: u16 = 2;
+pub const version: u16 = 4;
 
 pub const max_tiles: usize = 8;
 pub const max_channels: usize = 8;
@@ -37,12 +37,17 @@ pub const TopologySpec = struct {
         break :blk buf;
     },
     channel_cnt: u8,
-    channel_src_idx: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
-    channel_dst_idx: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
+    channel_src_id: [max_channels]tile.TileId = std.mem.zeroes([max_channels]tile.TileId),
+    channel_dst_id: [max_channels]tile.TileId = std.mem.zeroes([max_channels]tile.TileId),
     channel_depth: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
     channel_mtu: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
     workspace_name: link.WorkspaceName = std.mem.zeroes(link.WorkspaceName),
     metric_port: u16 = 7999,
+    /// Per-tile scratch alignment + footprint, mirrored from tile.zig's
+    /// TileScratchReqs. Serialized so tile processes rebuild the same
+    /// has_metric_tile decision as the supervisor.
+    tile_scratch_align: [max_tiles]usize = std.mem.zeroes([max_tiles]usize),
+    tile_scratch_footprint: [max_tiles]usize = std.mem.zeroes([max_tiles]usize),
 
     pub fn fromTopology(topo: topology.Topology, metric_port: u16) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec {
         const log = logger.get();
@@ -59,10 +64,14 @@ pub const TopologySpec = struct {
         for (topo.tiles, 0..) |t, i| {
             spec.tile_id[i] = t.id;
             spec.tile_cpu_placement[i] = t.cpu_placement;
+            if (t.scratch_reqs) |sr| {
+                spec.tile_scratch_align[i] = sr.scratch_align;
+                spec.tile_scratch_footprint[i] = sr.footprint;
+            }
         }
         for (topo.channels, 0..) |ch, i| {
-            spec.channel_src_idx[i] = ch.src_idx;
-            spec.channel_dst_idx[i] = ch.dst_idx;
+            spec.channel_src_id[i] = ch.src_id;
+            spec.channel_dst_id[i] = ch.dst_id;
             spec.channel_depth[i] = ch.depth;
             spec.channel_mtu[i] = ch.mtu;
             if (i == 0) {
@@ -83,16 +92,26 @@ pub const TopologySpec = struct {
         std.debug.assert(tiles_buf.len >= self.tile_cnt);
         std.debug.assert(channels_buf.len >= self.channel_cnt);
         for (0..self.tile_cnt) |i| {
+            var scratch_reqs: ?tile.TileScratchReqs = null;
+            if (self.tile_scratch_footprint[i] > 0) {
+                scratch_reqs = .{
+                    .scratch_align = self.tile_scratch_align[i],
+                    .footprint = self.tile_scratch_footprint[i],
+                };
+            }
             tiles_buf[i] = .{
                 .id = self.tile_id[i],
                 .name = self.tile_id[i].slice(),
                 .cpu_placement = self.tile_cpu_placement[i],
+                .scratch_reqs = scratch_reqs,
             };
         }
         for (0..self.channel_cnt) |i| {
+            // Look up src_id and dst_id in the tile_id array to reconstruct
+            // the Channel with correct src_id/dst_id TileId values.
             channels_buf[i] = .{
-                .src_idx = self.channel_src_idx[i],
-                .dst_idx = self.channel_dst_idx[i],
+                .src_id = self.channel_src_id[i],
+                .dst_id = self.channel_dst_id[i],
                 .depth = self.channel_depth[i],
                 .mtu = self.channel_mtu[i],
                 .backing = .tango_shm,
@@ -138,8 +157,8 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
         .{ .id = try tile.TileId.parse("tkdedu"), .name = "tkdedu" },
     };
     const channels = [_]link.Channel{
-        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = try link.WorkspaceName.parse("tkpay0") },
-        .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = try link.WorkspaceName.parse("tkpay0") },
+        .{ .src_id = try tile.TileId.parse("tkings"), .dst_id = try tile.TileId.parse("tknorm"), .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = try link.WorkspaceName.parse("tkpay0") },
+        .{ .src_id = try tile.TileId.parse("tknorm"), .dst_id = try tile.TileId.parse("tkdedu"), .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = try link.WorkspaceName.parse("tkpay0") },
     };
     const topo = topology.Topology{ .tiles = &tiles, .channels = &channels };
 
@@ -158,8 +177,8 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
     try std.testing.expectEqual(cpu_placement.CpuPlacement{ .shared = 1 }, rebuilt.tiles[1].cpu_placement);
     try std.testing.expectEqual(cpu_placement.CpuPlacement.floating, rebuilt.tiles[2].cpu_placement);
     try std.testing.expectEqual(@as(usize, 2), rebuilt.channels.len);
-    try std.testing.expectEqual(@as(u32, 0), rebuilt.channels[0].src_idx);
-    try std.testing.expectEqual(@as(u32, 1), rebuilt.channels[0].dst_idx);
+    try std.testing.expect((try tile.TileId.parse("tkings")).eql(rebuilt.channels[0].src_id));
+    try std.testing.expect((try tile.TileId.parse("tknorm")).eql(rebuilt.channels[0].dst_id));
     try std.testing.expectEqualStrings("tkpay0", rebuilt.channels[0].workspace_name.slice());
 }
 

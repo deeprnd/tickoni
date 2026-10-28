@@ -25,6 +25,23 @@ fn validateBuildPath(path: []const u8) ![]const u8 {
     return path;
 }
 
+/// Wire translate-c to import audit_schema.h directly into Zig at build time.
+/// Returns the generated module so parity tests can compare C and Zig layouts
+/// without manual matching. Uses Zig 0.18's built-in `b.addTranslateC()`.
+fn addAuditSchemaTranslation(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Module {
+    const tc = b.addTranslateC(.{
+        .root_source_file = b.path("src/tickoni/c_abi/shim/audit_schema.h"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = false,
+    });
+    return tc.createModule();
+}
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});

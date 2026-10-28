@@ -624,6 +624,36 @@ form is the readable export form. Hashing rules, especially the exclusion of
 `timestamp_ns` from `record_hash`, must remain consistent across both so replay
 and export inspection describe the same event chain.
 
+### Schema Structs vs Wire Structs
+
+The audit codec layer keeps two parallel struct definitions — one for
+in-memory processing and one for binary serialization — because they serve
+different purposes and cannot be unified without losing deterministic layout.
+
+**Schema structs** (in-memory, `src/tickoni/schema/audit/audit.zig`):
+Natural Zig alignment and typed fields. Used by tiles during processing:
+`schema_version: u16`, `capability_envelope_id: u128`, `outcome: PolicyOutcome`
+(typed enum), `is_duplicate: bool`. These structs optimize for type safety and
+Zig reflection, not byte layout.
+
+**Wire structs** (serialization, `src/tickoni/codec/audit/wire.zig`):
+`extern struct` with C ABI layout for protobuf, JSONL, and binary codecs.
+Used by `binary.zig`, `jsonl.zig`, and `protobuf.zig`. Fields are raw backing
+types: `capability_envelope_id_le: [16]u8` (Zig's `u128` has no stable C
+representation — the C header uses `unsigned __int128`), `outcome: u8`,
+`is_duplicate: u8`. These structs guarantee identical bytes across platforms.
+
+A single struct cannot serve both roles. Zig's `packed` layout is
+implementation-defined and differs between targets. Natural alignment
+produces padding that varies with target ABI — a `u128` field pads to 16 bytes
+on x86 but `unsigned __int128` in C has a different layout, so a protobuf
+codec would produce different bytes depending on which platform compiled the
+binary. For a financial audit trail you need deterministic byte layout.
+
+Conversion happens through `toWireEvent` / `fromWireEvent` in `wire.zig`.
+A compile-time sync check (`std.meta.fields`) catches when a field is added
+to one without the other, producing a `@compileError` instead of silent drift.
+
 ## Replay
 
 Replay is a deterministic comparison path. It is not allowed to invoke
