@@ -27,10 +27,10 @@ pub const TopologyStatus = enum { runnable, planned };
 // stack-allocated data.
 const payment_tiles = [_]TileDescriptor{
     .{ .id = TileId.parse("tkings") catch unreachable, .name = "ingest_tile" },
-    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "normalize_tile", .scratch_reqs = .{ .scratch_align = 64, .footprint = 4096 } },
+    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "tknorm", .scratch_reqs = .{ .scratch_align = 64, .footprint = 4096 } },
     .{ .id = TileId.parse("tkdedu") catch unreachable, .name = "dedupe_tile" },
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
-    .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile", .scratch_reqs = .{ .scratch_align = 64, .footprint = 4096 } },
+    .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "tkaudt", .scratch_reqs = .{ .scratch_align = 64, .footprint = 4096 } },
     .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
     .{ .id = TileId.parse("metric") catch unreachable, .name = "metric", .scratch_reqs = .{ .scratch_align = 128, .footprint = 33554432 } },
     .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
@@ -53,11 +53,11 @@ const payment_channels = [_]Channel{
 
 const investment_tiles = [_]TileDescriptor{
     .{ .id = TileId.parse("tkings") catch unreachable, .name = "ingest_tile" },
-    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "normalize_tile", .scratch_reqs = .{ .scratch_align = 64, .footprint = 4096 } },
+    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "tknorm", .scratch_reqs = .{ .scratch_align = 64, .footprint = 4096 } },
     .{ .id = TileId.parse("tkdedu") catch unreachable, .name = "dedupe_tile" },
     .{ .id = TileId.parse("tkcase") catch unreachable, .name = "case_router_tile" },
     .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
-    .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile", .scratch_reqs = .{ .scratch_align = 64, .footprint = 4096 } },
+    .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "tkaudt", .scratch_reqs = .{ .scratch_align = 64, .footprint = 4096 } },
     .{ .id = TileId.parse("tkdisp") catch unreachable, .name = "agent_dispatch_tile" },
     .{ .id = TileId.parse("tkagnt") catch unreachable, .name = "agent_worker_tile" },
     .{ .id = TileId.parse("tkmodl") catch unreachable, .name = "model_gateway_tile" },

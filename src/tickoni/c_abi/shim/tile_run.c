@@ -76,7 +76,7 @@ tile_is_audit( fd_topo_tile_t * tile ) {
     FD_LOG_NOTICE(( "tile_run: tile_is_audit EXIT tile=NULL returning 0" ));
     return 0;
   }
-  int result = strcmp( tile->name, "audit_tile" ) == 0;
+  int result = strcmp( tile->name, "tkaudt" ) == 0;
   FD_LOG_NOTICE(( "tile_run: tile_is_audit EXIT tile->name=%s returning %d", tile->name, result ));
   return result;
 }
@@ -89,7 +89,7 @@ tile_is_normalize( fd_topo_tile_t * tile ) {
     FD_LOG_NOTICE(( "tile_run: tile_is_normalize EXIT tile=NULL returning 0" ));
     return 0;
   }
-  int result = strcmp( tile->name, "normalize_tile" ) == 0;
+  int result = strcmp( tile->name, "tknorm" ) == 0;
   FD_LOG_NOTICE(( "tile_run: tile_is_normalize EXIT tile->name=%s returning %d", tile->name, result ));
   return result;
 }
