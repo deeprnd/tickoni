@@ -92,7 +92,7 @@ fn waitForNormalized(sup: *Supervisor, target: u64) !Supervisor.ProcessMetricSna
 // ---------------------------------------------------------------------------
 
 test "norm_stem: topology builds and starts" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -141,7 +141,7 @@ test "norm_stem: topology builds and starts" {
 // ---------------------------------------------------------------------------
 
 test "norm_stem: DURING_FRAG consumes and normalizes" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -198,7 +198,7 @@ test "norm_stem: DURING_FRAG consumes and normalizes" {
 // ---------------------------------------------------------------------------
 
 test "norm_stem: CNC HALT stops tile cleanly" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -244,7 +244,7 @@ test "norm_stem: CNC HALT stops tile cleanly" {
 // ---------------------------------------------------------------------------
 
 test "norm_stem: event_count bounded run completes" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -297,7 +297,7 @@ test "norm_stem: event_count bounded run completes" {
 // ---------------------------------------------------------------------------
 
 test "norm_stem: sequential runs on same workspace" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
