@@ -30,10 +30,10 @@ def resolve_cc(platform_name: str, compiler: str) -> str:
 
 def nproc() -> int:
     """Return CPU count."""
-    env = os.environ.get("TK_BUILD_CORES")
-    if env:
+    cores = os.environ.get("FD_BUILD_CORES")
+    if cores:
         try:
-            cores = int(env)
+            cores = int(cores)
             if cores >= 1:
                 return cores
         except ValueError:

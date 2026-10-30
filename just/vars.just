@@ -30,6 +30,10 @@ export cpu_count := `bash contrib/platform.sh cores`
 # Derive job count once — cpu_count - 1 is the Firedancer convention.
 export build_jobs := `bash contrib/platform.sh jobs`
 
+# Export to subprocesses (orchestrator.py, dynamic_test_opts.py check these).
+export FD_BUILD_CORES := `bash contrib/platform.sh jobs`
+export FD_TEST_CORES   := `bash contrib/platform.sh jobs`
+
 # ── Firedancer build directories ──────────────────────────────────────────────
 # Per-compiler build directories (kept for CI compatibility). Each Firedancer
 # build profile compiles to a different BUILDDIR/lib/ subtree.  *_build is the
