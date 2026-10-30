@@ -630,11 +630,11 @@ pub const Supervisor = struct {
         }
         for (self.handles, 0..) |*h, i| {
             const tile = self.topo.tiles[i];
-            spawn_log.kvFmt("supervisor", "spawn", "tile_idx={d} tile_id={s}", .{ i, tile.id.slice() });
+            spawn_log.kvFmt("supervisor", "spawn", "tile_idx={d} tile_id={s}", .{ i, tile.name.slice() });
 
             const spec = try rt.launch_spec.LaunchSpec.init(.{
                 .tile_idx = @intCast(i),
-                .tile_id = tile.id,
+                .tile_id = tile.name,
                 .cpu_placement = tile.cpu_placement,
                 .workspace_name = channels_copy[0].workspace_name,
                 .cnc_gaddr = state.cnc_gaddrs[i],
@@ -681,7 +681,7 @@ pub const Supervisor = struct {
             });
 
             spawn_log.kvFmt("supervisor", "spawn", "tile={s} tile_idx={d} pid={any} spec={s}", .{
-                tile.id.slice(), i, child.id, spec_path,
+                tile.name.slice(), i, child.id, spec_path,
             });
             h.pid = child.id;
             h.cpu_placement = tile.cpu_placement;

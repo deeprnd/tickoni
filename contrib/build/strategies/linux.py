@@ -30,6 +30,14 @@ def resolve_cc(platform_name: str, compiler: str) -> str:
 
 def nproc() -> int:
     """Return CPU count."""
+    cores = os.environ.get("FD_BUILD_CORES")
+    if cores:
+        try:
+            cores = int(cores)
+            if cores >= 1:
+                return cores
+        except ValueError:
+            pass
     try:
         return int(subprocess.check_output(["nproc"], text=True).strip())
     except (subprocess.CalledProcessError, FileNotFoundError):

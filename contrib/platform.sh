@@ -144,6 +144,12 @@ tk_cores() {
   echo "$cores"
 }
 
+tk_jobs() {
+  local cores
+  cores="$(tk_cores)"
+  expr "$cores" - 1
+}
+
 # ── Standalone invocation ────────────────────────────────────────────────────
 # If the script is run directly (not sourced), read arg and print result.
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]] 2>/dev/null || [[ -z "${1:-}" ]]; then
@@ -158,6 +164,7 @@ else
     os)         tk_os ;;
     arch)       tk_arch ;;
     cores)      tk_cores ;;
+    jobs)       expr $(tk_cores) - 1 ;;
     *)
       echo "usage: $0 [os|arch|platform]" >&2
       exit 1

@@ -25,14 +25,14 @@ pub const TopologyStatus = enum { runnable, planned };
 // Static backing arrays for paymentPipeline — avoids returning pointers to
 // stack-allocated data.
 const payment_tiles = [_]TileDescriptor{
-    .{ .id = TileId.parse("tkings") catch unreachable, .name = "ingest_tile" },
-    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "normalize_tile" },
-    .{ .id = TileId.parse("tkdedu") catch unreachable, .name = "dedupe_tile" },
-    .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
-    .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
-    .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric" },
-    .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
+    .{ .id = 0, .name = TileId.parse("tkings") catch unreachable },
+    .{ .id = 1, .name = TileId.parse("tknorm") catch unreachable },
+    .{ .id = 2, .name = TileId.parse("tkdedu") catch unreachable },
+    .{ .id = 3, .name = TileId.parse("tkpoly") catch unreachable },
+    .{ .id = 4, .name = TileId.parse("tkaudt") catch unreachable },
+    .{ .id = 5, .name = TileId.parse("tkrepl") catch unreachable },
+    .{ .id = 6, .name = TileId.parse("metric") catch unreachable },
+    .{ .id = 7, .name = TileId.parse("tkdiag") catch unreachable },
 };
 const payment_channels = [_]Channel{
     .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 },
@@ -42,20 +42,20 @@ const payment_channels = [_]Channel{
 };
 
 const investment_tiles = [_]TileDescriptor{
-    .{ .id = TileId.parse("tkings") catch unreachable, .name = "ingest_tile" },
-    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "normalize_tile" },
-    .{ .id = TileId.parse("tkdedu") catch unreachable, .name = "dedupe_tile" },
-    .{ .id = TileId.parse("tkcase") catch unreachable, .name = "case_router_tile" },
-    .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile" },
-    .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile" },
-    .{ .id = TileId.parse("tkdisp") catch unreachable, .name = "agent_dispatch_tile" },
-    .{ .id = TileId.parse("tkagnt") catch unreachable, .name = "agent_worker_tile" },
-    .{ .id = TileId.parse("tkmodl") catch unreachable, .name = "model_gateway_tile" },
-    .{ .id = TileId.parse("tktool") catch unreachable, .name = "tool_broker_tile" },
-    .{ .id = TileId.parse("tkadpt") catch unreachable, .name = "adapter_tile" },
-    .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile" },
-    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric" },
-    .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile" },
+    .{ .id = 0, .name = TileId.parse("tkings") catch unreachable },
+    .{ .id = 1, .name = TileId.parse("tknorm") catch unreachable },
+    .{ .id = 2, .name = TileId.parse("tkdedu") catch unreachable },
+    .{ .id = 3, .name = TileId.parse("tkcase") catch unreachable },
+    .{ .id = 4, .name = TileId.parse("tkpoly") catch unreachable },
+    .{ .id = 5, .name = TileId.parse("tkaudt") catch unreachable },
+    .{ .id = 6, .name = TileId.parse("tkdisp") catch unreachable },
+    .{ .id = 7, .name = TileId.parse("tkagnt") catch unreachable },
+    .{ .id = 8, .name = TileId.parse("tkmodl") catch unreachable },
+    .{ .id = 9, .name = TileId.parse("tktool") catch unreachable },
+    .{ .id = 10, .name = TileId.parse("tkadpt") catch unreachable },
+    .{ .id = 11, .name = TileId.parse("tkrepl") catch unreachable },
+    .{ .id = 12, .name = TileId.parse("metric") catch unreachable },
+    .{ .id = 13, .name = TileId.parse("tkdiag") catch unreachable },
 };
 
 const investment_channels = [_]Channel{
@@ -169,9 +169,9 @@ test "paymentPipeline has Phase 0 product tiles and channels" {
     const topo = paymentPipeline();
     try std.testing.expectEqual(@as(usize, 8), topo.tiles.len);
     try std.testing.expectEqual(@as(usize, 4), topo.channels.len);
-    try std.testing.expectEqualStrings("tkings", topo.tiles[0].id.slice());
-    try std.testing.expectEqualStrings("tkaudt", topo.tiles[4].id.slice());
-    try std.testing.expectEqualStrings("tkdiag", topo.tiles[7].id.slice());
+    try std.testing.expectEqualStrings("tkings", topo.tiles[0].name.slice());
+    try std.testing.expectEqualStrings("tkaudt", topo.tiles[4].name.slice());
+    try std.testing.expectEqualStrings("tkdiag", topo.tiles[7].name.slice());
     try std.testing.expectEqual(@as(u32, 0), topo.channels[0].src_idx);
     try std.testing.expectEqual(@as(u32, 1), topo.channels[0].dst_idx);
 }
@@ -195,10 +195,10 @@ test "investmentWorkflow includes tkmodl tktool tkadpt and passes validation" {
     const topo = investmentWorkflow();
     try topo.validate();
     try std.testing.expectEqual(@as(usize, 14), topo.tiles.len);
-    try std.testing.expectEqualStrings("tkmodl", topo.tiles[8].id.slice());
-    try std.testing.expectEqualStrings("tktool", topo.tiles[9].id.slice());
-    try std.testing.expectEqualStrings("tkadpt", topo.tiles[10].id.slice());
-    try std.testing.expectEqualStrings("tkrepl", topo.tiles[11].id.slice());
+    try std.testing.expectEqualStrings("tkmodl", topo.tiles[8].name.slice());
+    try std.testing.expectEqualStrings("tktool", topo.tiles[9].name.slice());
+    try std.testing.expectEqualStrings("tkadpt", topo.tiles[10].name.slice());
+    try std.testing.expectEqualStrings("tkrepl", topo.tiles[11].name.slice());
 }
 
 test "paymentPipelineProcess has 8 tiles, 4 tango_shm channels, and passes validation" {

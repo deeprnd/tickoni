@@ -20,25 +20,25 @@ test-unit-fd:
 # ── FD test build recipes (build test executables only) ───────────────────
 
 build-test-unit-fd-linux-x86-gcc:
-    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform linux-x86 build-fd fd-tickoni-fd test gcc-12 "lz4 blst zstd" --build-target unit-test
+    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform linux-x86 --jobs {{ make_jobs }} build-fd fd-tickoni-fd test gcc-12 "lz4 blst zstd" --build-target unit-test
 
 build-test-unit-fd-linux-x86-clang:
-    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform linux-x86 build-fd fd-tickoni-fd test clang-18 "lz4 blst zstd" --build-target unit-test
+    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform linux-x86 --jobs {{ make_jobs }} build-fd fd-tickoni-fd test clang-18 "lz4 blst zstd" --build-target unit-test
 
 build-test-unit-fd-linux-arm-gcc:
-    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform linux-arm build-fd fd-tickoni-fd test gcc-14 "lz4 blst zstd" --build-target unit-test
+    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform linux-arm --jobs {{ make_jobs }} build-fd fd-tickoni-fd test gcc-14 "lz4 blst zstd" --build-target unit-test
 
 build-test-unit-fd-macos-x86:
-    env JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ python }} contrib/build/orchestrator.py --platform macos-x86 build-fd fd-tickoni-fd test clang "lz4 blst zstd" --build-target unit-test
+    env JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ python }} contrib/build/orchestrator.py --platform macos-x86 --jobs {{ make_jobs }} build-fd fd-tickoni-fd test clang "lz4 blst zstd" --build-target unit-test
 
 build-test-unit-fd-macos-arm:
-    env JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ python }} contrib/build/orchestrator.py --platform macos-arm build-fd fd-tickoni-fd test clang "lz4 blst zstd" --build-target unit-test
+    env JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ python }} contrib/build/orchestrator.py --platform macos-arm --jobs {{ make_jobs }} build-fd fd-tickoni-fd test clang "lz4 blst zstd" --build-target unit-test
 
 build-test-unit-fd-windows-x86:
-    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform windows-x86 build-fd fd-tickoni-fd test clang --arch x86_64 "lz4 blst zstd" --build-target unit-test
+    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform windows-x86 --jobs {{ make_jobs }} build-fd fd-tickoni-fd test clang --arch x86_64 "lz4 blst zstd" --build-target unit-test
 
 build-test-unit-fd-windows-arm:
-    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform windows-arm build-fd fd-tickoni-fd test clang --arch arm64 "lz4 blst zstd" --build-target unit-test
+    env JUST_GMAKE={{ make }} {{ python }} contrib/build/orchestrator.py --platform windows-arm --jobs {{ make_jobs }} build-fd fd-tickoni-fd test clang --arch arm64 "lz4 blst zstd" --build-target unit-test
 
 # ── FD test run recipes (run existing test executables only) ──────────────
 
@@ -49,18 +49,18 @@ test-unit-fd-linux-x86-clang: build-test-unit-fd-linux-x86-clang test-unit-fd-li
 test-unit-fd-linux-arm-gcc: build-test-unit-fd-linux-arm-gcc test-unit-fd-linux-arm-gcc-run
 
 test-unit-fd-macos-x86:
-    @echo "SKIPPED: test-unit-fd-macos-x86 — lz4 needs more porting"
+    echo "SKIPPED: test-unit-fd-macos-x86 — lz4 needs more porting"
 
 test-unit-fd-macos-arm:
-    @echo "BLOCKED: test-unit-fd-macos-arm — macOS ARM64 support is incomplete (Linux-only runtime tests and no vendored blst assembly)"
+    echo "BLOCKED: test-unit-fd-macos-arm — macOS ARM64 support is incomplete (Linux-only runtime tests and no vendored blst assembly)"
     @true
 
 test-unit-fd-windows-x86:
-    @echo "BLOCKED: test-unit-fd-windows-x86 — Windows fmemopen support is required"
+    echo "BLOCKED: test-unit-fd-windows-x86 — Windows fmemopen support is required"
     @true
 
 test-unit-fd-windows-arm:
-    @echo "BLOCKED: test-unit-fd-windows-arm — Windows fmemopen support is required"
+    echo "BLOCKED: test-unit-fd-windows-arm — Windows fmemopen support is required"
     @true
 
 # ── FD test run implementations (run existing test executables only) ──────
@@ -69,25 +69,31 @@ test-unit-fd-linux-x86-gcc-run:
     #!/usr/bin/env bash
     set -euo pipefail
     timeout=600
-    eval "$({{ python }} contrib/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
-    echo "Running unit tests with: $TEST_OPTS"
-    contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt $(TEST_OPTS)
+    opts=$({{ python }} contrib/infra/dynamic_test_opts.py | grep '^TEST_OPTS=')
+    eval "$opts"
+    test_jobs={{ make_jobs }}
+    echo "Running unit tests with: $TEST_OPTS (using {{ cpu_count }} cores → $test_jobs jobs)"
+    contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt $TEST_OPTS
 
 test-unit-fd-linux-x86-clang-run:
     #!/usr/bin/env bash
     set -euo pipefail
     timeout=600
-    eval "$({{ python }} contrib/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
-    echo "Running unit tests with: $TEST_OPTS"
-    contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt $(TEST_OPTS)
+    opts=$({{ python }} contrib/infra/dynamic_test_opts.py | grep '^TEST_OPTS=')
+    eval "$opts"
+    test_jobs={{ make_jobs }}
+    echo "Running unit tests with: $TEST_OPTS (using {{ cpu_count }} cores → $test_jobs jobs)"
+    contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt $TEST_OPTS
 
 test-unit-fd-linux-arm-gcc-run:
     #!/usr/bin/env bash
     set -euo pipefail
     timeout=600
-    eval "$({{ python }} contrib/infra/dynamic_test_opts.py | grep -E '^TEST_OPTS=|^LDFLAGS_EXE=')"
-    echo "Running unit tests with: $TEST_OPTS"
-    contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt $(TEST_OPTS)
+    opts=$({{ python }} contrib/infra/dynamic_test_opts.py | grep '^TEST_OPTS=')
+    eval "$opts"
+    test_jobs={{ make_jobs }}
+    echo "Running unit tests with: $TEST_OPTS (using {{ cpu_count }} cores → $test_jobs jobs)"
+    contrib/test/run_unit_tests.sh --tests {{ OBJDIR }}/unit-test/automatic.txt $TEST_OPTS
 
 # ── Unit test dispatchers ────────────────────────────────────────────────
 # test-unit-tk runs TK Zig unit tests on the host platform.
