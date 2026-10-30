@@ -126,7 +126,10 @@ def cmd_build_fd(args, config: dict) -> None:
     # Resolve tools
     make = strat.resolve_make()
     ar_tool = strat.resolve_ar(compiler) if platform_name.startswith("windows") else None
-    nproc_val = strat.nproc()
+    if args.jobs is not None:
+        nproc_val = args.jobs
+    else:
+        nproc_val = strat.nproc()
 
     # Determine CC
     cc = compiler
@@ -414,6 +417,8 @@ def main() -> None:
     )
     parser.add_argument("--ldflags", default="",
                         help="Extra LDFLAGS_EXE (e.g. '--ldflags -Wl,-z,shstk')")
+    parser.add_argument("--jobs", type=int, default=None,
+                        help="Override parallel job count (default: nproc)")
     sub = parser.add_subparsers(dest="command")
 
     # build-fd
@@ -459,14 +464,21 @@ def main() -> None:
         platform_name = platform_from_args(args)
         strategies = __import__("contrib.build.strategies", fromlist=["load"])
         strat = strategies.load(platform_name)
-        print(strat.nproc())
+        if args.jobs is not None:
+            print(args.jobs)
+        else:
+            print(strat.nproc())
     elif args.command == "make":
         platform_name = platform_from_args(args)
         strategies = __import__("contrib.build.strategies", fromlist=["load"])
         strat = strategies.load(platform_name)
         make = strat.resolve_make()
+        if args.jobs is not None:
+            jc = args.jobs
+        else:
+            jc = strat.nproc()
         cmd = [make, "-f", os.path.join(ROOT_DIR, "contrib/build/GNUmakefile"),
-               f"-j{strat.nproc()}", "-Otarget"] + args.target
+               f"-j{jc}", "-Otarget"] + args.target
         subprocess.run(cmd, cwd=ROOT_DIR, check=True)
 
 
