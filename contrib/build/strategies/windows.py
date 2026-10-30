@@ -238,10 +238,10 @@ def arch_normalize(raw_arch: str) -> str:
 
 def nproc() -> int:
     """Return CPU count on Windows."""
-    env = os.environ.get("TK_BUILD_CORES")
-    if env:
+    cores = os.environ.get("FD_BUILD_CORES")
+    if cores:
         try:
-            cores = int(env)
+            cores = int(cores)
             if cores >= 1:
                 return cores
         except ValueError:

@@ -63,10 +63,10 @@ def _detect_memory_bytes() -> int:
 def _detect_cores() -> int:
     """Detect logical CPU core count."""
     # 1. Use env var if set (from justfile cpu_count)
-    env = os.environ.get("TK_TEST_CORES")
-    if env:
+    cores = os.environ.get("FD_TEST_CORES")
+    if cores:
         try:
-            cores = int(env)
+            cores = int(cores)
             if cores >= 1:
                 return cores
         except ValueError:
