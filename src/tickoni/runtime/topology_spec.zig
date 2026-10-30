@@ -29,7 +29,8 @@ pub const TopologySpec = struct {
     magic_field: u32 = magic,
     version_field: u16 = version,
     tile_cnt: u8,
-    tile_id: [max_tiles]tile.TileId = std.mem.zeroes([max_tiles]tile.TileId),
+    tile_id: [max_tiles]usize = std.mem.zeroes([max_tiles]usize),
+    tile_dispatch_name: [max_tiles]tile.TileId = std.mem.zeroes([max_tiles]tile.TileId),
     tile_cpu_placement: [max_tiles]cpu_placement.CpuPlacement = blk: {
         var buf: [max_tiles]cpu_placement.CpuPlacement = undefined;
         var i: usize = 0;
@@ -57,7 +58,8 @@ pub const TopologySpec = struct {
             .metric_port = metric_port,
         };
         for (topo.tiles, 0..) |t, i| {
-            spec.tile_id[i] = t.id;
+            spec.tile_id[i] = i;
+            spec.tile_dispatch_name[i] = t.name;
             spec.tile_cpu_placement[i] = t.cpu_placement;
         }
         for (topo.channels, 0..) |ch, i| {
@@ -74,8 +76,6 @@ pub const TopologySpec = struct {
     }
 
     /// Writes into caller-provided fixed buffers (no allocation).
-    /// TileDescriptor.name is diagnostics-only and not part of the wire
-    /// format — reconstructed here as the same string as id.slice().
     pub fn toTopology(self: *const TopologySpec, tiles_buf: []tile.TileDescriptor, channels_buf: []link.Channel) topology.Topology {
         const log = logger.get();
         log.enter("topology_spec", "TopologySpec.toTopology");
@@ -85,7 +85,7 @@ pub const TopologySpec = struct {
         for (0..self.tile_cnt) |i| {
             tiles_buf[i] = .{
                 .id = self.tile_id[i],
-                .name = self.tile_id[i].slice(),
+                .name = self.tile_dispatch_name[self.tile_id[i]],
                 .cpu_placement = self.tile_cpu_placement[i],
             };
         }
@@ -133,9 +133,9 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
     defer tmp.cleanup();
 
     const tiles = [_]tile.TileDescriptor{
-        .{ .id = try tile.TileId.parse("tkings"), .name = "tkings", .cpu_placement = .{ .exclusive = 0 } },
-        .{ .id = try tile.TileId.parse("tknorm"), .name = "tknorm", .cpu_placement = .{ .shared = 1 } },
-        .{ .id = try tile.TileId.parse("tkdedu"), .name = "tkdedu" },
+        .{ .id = try tile.TileId.parse("tkings"), .name = tile.TileId.parse("tkings") catch unreachable, .cpu_placement = .{ .exclusive = 0 } },
+        .{ .id = try tile.TileId.parse("tknorm"), .name = tile.TileId.parse("tknorm") catch unreachable, .cpu_placement = .{ .shared = 1 } },
+        .{ .id = try tile.TileId.parse("tkdedu"), .name = tile.TileId.parse("tkdedu") catch unreachable },
     };
     const channels = [_]link.Channel{
         .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = try link.WorkspaceName.parse("tkpay0") },
@@ -153,7 +153,7 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
     const rebuilt = read_back.toTopology(&tiles_buf, &channels_buf);
 
     try std.testing.expectEqual(@as(usize, 3), rebuilt.tiles.len);
-    try std.testing.expectEqualStrings("tkings", rebuilt.tiles[0].id.slice());
+    try std.testing.expectEqualStrings("tkings", rebuilt.tiles[0].name.slice());
     try std.testing.expectEqual(cpu_placement.CpuPlacement{ .exclusive = 0 }, rebuilt.tiles[0].cpu_placement);
     try std.testing.expectEqual(cpu_placement.CpuPlacement{ .shared = 1 }, rebuilt.tiles[1].cpu_placement);
     try std.testing.expectEqual(cpu_placement.CpuPlacement.floating, rebuilt.tiles[2].cpu_placement);
@@ -190,7 +190,7 @@ test "TopologySpec readFromFile rejects a bad magic" {
 test "TopologySpec fromTopology fails closed on too many tiles" {
     const port = util.nextMetricPort();
     var tiles: [max_tiles + 1]tile.TileDescriptor = undefined;
-    for (&tiles) |*t| t.* = .{ .id = tile.TileId.parse("tkfoo") catch unreachable, .name = "t", .cpu_placement = .floating };
+    for (&tiles) |*t| t.* = .{ .id = tile.TileId.parse("tkfoo") catch unreachable, .name = tile.TileId.parse("tkfoo") catch unreachable, .cpu_placement = .floating };
     const topo = topology.Topology{ .tiles = &tiles, .channels = &.{} };
     try std.testing.expectError(error.TooManyTiles, TopologySpec.fromTopology(topo, port));
 }
