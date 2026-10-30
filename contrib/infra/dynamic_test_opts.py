@@ -62,7 +62,17 @@ def _detect_memory_bytes() -> int:
 
 def _detect_cores() -> int:
     """Detect logical CPU core count."""
-    # Try nproc (Linux, macOS, Windows WSL)
+    # 1. Use env var if set (from justfile cpu_count)
+    env = os.environ.get("TK_TEST_CORES")
+    if env:
+        try:
+            cores = int(env)
+            if cores >= 1:
+                return cores
+        except ValueError:
+            pass
+
+    # 2. Fall back to nproc (Linux, macOS, Windows WSL)
     try:
         result = subprocess.run(
             ["nproc"], capture_output=True, text=True, timeout=10
@@ -145,9 +155,9 @@ def run_dynamic_test_opts() -> dict:
     test_opts = f"--page-sz normal --page-cnt {page_cnt} -j {max_jobs}"
     ldflags_exe = "-Wl,-z,shstk"
 
-    # ── Output (source-friendly: clean KEY=VALUE lines) ────────────────
-    print(f"TEST_OPTS=\"{test_opts}\"")
-    print(f"LDFLAGS_EXE=\"{ldflags_exe}\"")
+    # ── Output (source-friendly: quoted KEY=VALUE for eval safety) ──────
+    print(f'TEST_OPTS="{test_opts}"')
+    print(f'LDFLAGS_EXE="{ldflags_exe}"')
 
     return {"TEST_OPTS": test_opts, "LDFLAGS_EXE": ldflags_exe}
 
