@@ -8,6 +8,9 @@ cd "$ROOT_DIR"
 # Source platform.sh for cross-platform OS/arch detection
 source "${ROOT_DIR}/contrib/platform.sh"
 
+# Single source of truth for make parallelism (cores - 1, per Firedancer convention).
+make_jobs="$(tk_jobs)"
+
 MAKE_RUNNER=(python3 ./contrib/build/orchestrator.py make)
 # CODEQL_THRESHOLD_CHECK and CODEQL_HIGH_SECURITY_THRESHOLD were part of a
 # previous codeql-threshold-check design that was never wired into a command.
@@ -114,8 +117,8 @@ cmd_sanitize_check_fd() {
   # Use the shared FD builder so the Makefile path, Tickoni machine profile,
   # source scope, extras, and unit-test target stay in one place.
   run_step "clang asan+ubsan unit-test" \
-    python3 contrib/build/orchestrator.py --ldflags="-Wl,-z,shstk" build-fd clang-asan-ubsan test \
-      clang "asan ubsan blst zstd lz4"
+    python3 contrib/build/orchestrator.py --ldflags="-Wl,-z,shstk" --jobs "$make_jobs" \
+    build-fd clang-asan-ubsan test clang "asan ubsan blst zstd lz4"
 }
 
 cmd_sanitize_check_tk() {
@@ -124,7 +127,7 @@ cmd_sanitize_check_tk() {
   # fd_disco, fd_waltz) plus their third-party deps, then writes the
   # Windows Zig link-manifest files into the same lib dir.
   run_step "build fd-tickoni-fd libs" \
-    python3 contrib/build/orchestrator.py build-fd fd-tickoni-fd test gcc "lz4 blst zstd nanopb"
+    python3 contrib/build/orchestrator.py --jobs "$make_jobs" build-fd fd-tickoni-fd test gcc "lz4 blst zstd nanopb"
   # Route zig local cache to build/.zig-cache (defined in just/common.just)
   local _cache_dir
   _cache_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/build/.zig-cache"
