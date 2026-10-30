@@ -25,7 +25,10 @@ export os := `bash contrib/platform.sh os`
 # Detect arch from platform.sh (falls back to "unknown")
 export arch := `bash contrib/platform.sh arch`
 
-cpu_count := `bash contrib/platform.sh cores`
+export cpu_count := `bash contrib/platform.sh cores`
+
+# Derive job count once — cpu_count - 1 is the Firedancer convention.
+export build_jobs := `bash contrib/platform.sh jobs`
 
 # ── Firedancer build directories ──────────────────────────────────────────────
 # Per-compiler build directories (kept for CI compatibility). Each Firedancer

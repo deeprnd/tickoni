@@ -83,6 +83,14 @@ def resolve_cc(platform_name: str, compiler: str) -> str:
 
 def nproc() -> int:
     """Return CPU count (sysctl on macOS, no nproc)."""
+    env = os.environ.get("TK_BUILD_CORES")
+    if env:
+        try:
+            cores = int(env)
+            if cores >= 1:
+                return cores
+        except ValueError:
+            pass
     try:
         return int(subprocess.check_output(
             ["sysctl", "-n", "hw.ncpu"], text=True).strip())

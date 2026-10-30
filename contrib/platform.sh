@@ -158,6 +158,7 @@ else
     os)         tk_os ;;
     arch)       tk_arch ;;
     cores)      tk_cores ;;
+    jobs)       expr $(tk_cores) - 1 ;;
     *)
       echo "usage: $0 [os|arch|platform]" >&2
       exit 1
