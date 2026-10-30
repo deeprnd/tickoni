@@ -187,7 +187,7 @@ pub fn build(
     // creating workspaces, so we only create metric/metric_in when needed.
     var has_metric_tile = false;
     for (topo_desc.tiles) |t| {
-        if (std.mem.eql(u8, t.id.slice(), "metric")) {
+        if (std.mem.eql(u8, t.name.slice(), "metric")) {
             has_metric_tile = true;
             break;
         }
@@ -235,18 +235,18 @@ pub fn build(
     for (topo_desc.tiles, 0..) |t, i| {
         cpu_idx_arr[i] = tileCpuIdx(i, t.cpu_placement);
         tile_placements[i] = t.cpu_placement;
-        if (std.mem.eql(u8, t.id.slice(), "metric")) {
+        if (std.mem.eql(u8, t.name.slice(), "metric")) {
             fd_tile_idx_by_desc[i] = c_abi.topob.not_found;
             continue;
         }
         fd_tile_idx_by_desc[i] = non_metric_count;
         non_metric_count += 1;
         var tile_name_buf: [16]u8 = undefined;
-        log.kvFmt("topo_build", "build", "calling topobTile(id={s}, wksp={s})", .{ t.id.slice(), wksp_name_z });
-        _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, t.id.slice()), wksp_name_z, wksp_name_z, 0);
+        log.kvFmt("topo_build", "build", "calling topobTile(id={s}, wksp={s})", .{ t.name.slice(), wksp_name_z });
+        _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, t.name.slice()), wksp_name_z, wksp_name_z, 0);
         // Verify tile was registered with expected name (catches tile name typos).
-        log.kvFmt("topo_build", "build", "topoValidateTileExists(id={s})", .{t.id.slice()});
-        std.debug.assert(c_abi.topob.topoValidateTileExists(topo, toZ(&tile_name_buf, t.id.slice())));
+        log.kvFmt("topo_build", "build", "topoValidateTileExists(id={s})", .{t.name.slice()});
+        std.debug.assert(c_abi.topob.topoValidateTileExists(topo, toZ(&tile_name_buf, t.name.slice())));
     }
     if (has_metric_tile) {
         var tile_name_buf: [16]u8 = undefined;
@@ -257,7 +257,7 @@ pub fn build(
         std.debug.assert(c_abi.topob.topoValidateTileExists(topo, toZ(&tile_name_buf, "metric")));
         // Metric tile is always last in Firedancer order.
         for (topo_desc.tiles, 0..) |t, d_idx| {
-            if (std.mem.eql(u8, t.id.slice(), "metric")) {
+            if (std.mem.eql(u8, t.name.slice(), "metric")) {
                 fd_tile_idx_by_desc[d_idx] = non_metric_count;
                 break;
             }
@@ -307,11 +307,11 @@ pub fn build(
     const scratch_align_key: [*:0]const u8 = "tickoni.scratch_align";
     for (topo_desc.tiles) |t| {
         var tile_name_buf: [8]u8 = undefined;
-        const reqs = c_abi.topob.tickoniTileScratchRequirements(toZ(&tile_name_buf, t.id.slice()));
+        const reqs = c_abi.topob.tickoniTileScratchRequirements(toZ(&tile_name_buf, t.name.slice()));
         if (reqs.footprint > 1) {
-            log.kvFmt("topo_build", "build", "calling topobSetTileObjPropertyUlong({s}, footprint={d}, align={d})", .{ t.id.slice(), reqs.footprint, reqs.alignment });
-            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.id.slice()), 0, scratch_footprint_key, reqs.footprint);
-            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.id.slice()), 0, scratch_align_key, reqs.alignment);
+            log.kvFmt("topo_build", "build", "calling topobSetTileObjPropertyUlong({s}, footprint={d}, align={d})", .{ t.name.slice(), reqs.footprint, reqs.alignment });
+            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.name.slice()), 0, scratch_footprint_key, reqs.footprint);
+            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.name.slice()), 0, scratch_align_key, reqs.alignment);
         }
     }
 
@@ -348,8 +348,8 @@ pub fn build(
         var src_name_buf: [8]u8 = undefined;
         var dst_name_buf: [8]u8 = undefined;
         var link_name_buf: [8]u8 = undefined;
-        const src_name_z = toZ(&src_name_buf, topo_desc.tiles[ch.src_idx].id.slice());
-        const dst_name_z = toZ(&dst_name_buf, topo_desc.tiles[ch.dst_idx].id.slice());
+        const src_name_z = toZ(&src_name_buf, topo_desc.tiles[ch.src_idx].name.slice());
+        const dst_name_z = toZ(&dst_name_buf, topo_desc.tiles[ch.dst_idx].name.slice());
         const link_name_z = linkNameZ(&link_name_buf, i);
         log.kvFmt("topo_build", "build", "calling topobTileIn(dst={s}, wksp={s}, link=ch{d})", .{ dst_name_z, wksp_name_z, i });
         const fseq_obj_id = c_abi.topob.topobTileIn(topo, dst_name_z, 0, wksp_name_z, link_name_z, 0, true, true);
