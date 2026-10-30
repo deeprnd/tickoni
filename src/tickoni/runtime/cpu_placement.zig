@@ -155,8 +155,8 @@ const TestTopology = struct {
 };
 
 /// Builds a minimal TileDescriptor for placement-validation tests below.
-fn tile(id: []const u8, placement: CpuPlacement) tile_mod.TileDescriptor {
-    return .{ .id = TileId.parse(id) catch unreachable, .name = id, .cpu_placement = placement };
+fn tile(idx: usize, name: []const u8, placement: CpuPlacement) tile_mod.TileDescriptor {
+    return .{ .id = idx, .name = TileId.parse(name) catch unreachable, .cpu_placement = placement };
 }
 
 test "validate rejects an out-of-range exclusive cpu id as malformed, not an assert" {
@@ -165,7 +165,7 @@ test "validate rejects an out-of-range exclusive cpu id as malformed, not an ass
     set(&cpus, 0);
 
     const topo = TestTopology{
-        .tiles = &.{tile("tkfoo", .{ .exclusive = 65000 })},
+        .tiles = &.{tile(0, "tkfoo", .{ .exclusive = 65000 })},
     };
     try std.testing.expectError(error.CpuIdMalformed, validate(topo, &cpus));
 }
@@ -176,7 +176,7 @@ test "validate rejects an exclusive cpu id not in available_cpus" {
     set(&cpus, 0);
 
     const topo = TestTopology{
-        .tiles = &.{tile("tkfoo", .{ .exclusive = 1 })},
+        .tiles = &.{tile(0, "tkfoo", .{ .exclusive = 1 })},
     };
     try std.testing.expectError(error.CpuUnavailable, validate(topo, &cpus));
 }
@@ -187,7 +187,7 @@ test "validate rejects a shared cpu id not in available_cpus" {
     set(&cpus, 0);
 
     const topo = TestTopology{
-        .tiles = &.{tile("tkfoo", .{ .shared = 5 })},
+        .tiles = &.{tile(0, "tkfoo", .{ .shared = 5 })},
     };
     try std.testing.expectError(error.CpuUnavailable, validate(topo, &cpus));
 }
@@ -199,8 +199,8 @@ test "validate propagates topo.validate()'s structural checks (duplicate exclusi
 
     const topo = TestTopology{
         .tiles = &.{
-            tile("tkfoo", .{ .exclusive = 0 }),
-            tile("tkbar", .{ .exclusive = 0 }),
+            tile(0, "tkfoo", .{ .exclusive = 0 }),
+            tile(1, "tkbar", .{ .exclusive = 0 }),
         },
     };
     try std.testing.expectError(error.CpuPlacementConflict, validate(topo, &cpus));
@@ -212,7 +212,7 @@ test "validate reports floating-only topology with shared_core false" {
     set(&cpus, 0);
 
     const topo = TestTopology{
-        .tiles = &.{ tile("tkfoo", .floating), tile("tkbar", .floating) },
+        .tiles = &.{ tile(0, "tkfoo", .floating), tile(1, "tkbar", .floating) },
     };
     const report = try validate(topo, &cpus);
     try std.testing.expectEqual(@as(usize, 0), report.exclusive_count);
@@ -228,9 +228,9 @@ test "validate reports shared_core true when two tiles share a cpu id" {
 
     const topo = TestTopology{
         .tiles = &.{
-            tile("tkfoo", .{ .shared = 0 }),
-            tile("tkbar", .{ .shared = 0 }),
-            tile("tkbaz", .floating),
+            tile(0, "tkfoo", .{ .shared = 0 }),
+            tile(1, "tkbar", .{ .shared = 0 }),
+            tile(2, "tkbaz", .floating),
         },
     };
     const report = try validate(topo, &cpus);
@@ -247,8 +247,8 @@ test "validate reports shared_core false for distinct exclusive cpu ids" {
 
     const topo = TestTopology{
         .tiles = &.{
-            tile("tkfoo", .{ .exclusive = 0 }),
-            tile("tkbar", .{ .exclusive = 1 }),
+            tile(0, "tkfoo", .{ .exclusive = 0 }),
+            tile(1, "tkbar", .{ .exclusive = 1 }),
         },
     };
     const report = try validate(topo, &cpus);

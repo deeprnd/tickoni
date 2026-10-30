@@ -19,7 +19,10 @@ pub const Topology = struct {
 
     pub fn validate(self: Topology) !void {
         for (self.tiles) |t| {
-            if (t.id.slice().len == 0) return error.EmptyTileId;
+            // TileId.parse always succeeds for ≤6-char inputs; empty name only
+            // happens if someone explicitly parsed "".  Keep the check for
+            // explicit empty-name detection via zeroed TileId.
+            if (t.name.eql(.{})) return error.EmptyTileName;
         }
         for (self.channels) |ch| {
             if (ch.src_idx >= self.tiles.len) return error.ChannelSrcOutOfRange;
@@ -40,12 +43,15 @@ pub const Topology = struct {
 const test_tile_foo = TileId.parse("tkfoo") catch unreachable;
 const test_tile_bar = TileId.parse("tkbar") catch unreachable;
 const test_tile_baz = TileId.parse("tkbaz") catch unreachable;
+const test_name_foo = TileId.parse("foo") catch unreachable;
+const test_name_bar = TileId.parse("bar") catch unreachable;
+const test_name_baz = TileId.parse("baz") catch unreachable;
 
 test "validate rejects non-power-of-two channel depth" {
     const topo = Topology{
         .tiles = &.{
-            .{ .id = test_tile_foo, .name = "foo" },
-            .{ .id = test_tile_bar, .name = "bar" },
+            .{ .id = 0, .name = test_name_foo },
+            .{ .id = 1, .name = test_name_bar },
         },
         .channels = &.{.{ .src_idx = 0, .dst_idx = 1, .depth = 7, .mtu = 0 }},
     };
@@ -55,7 +61,7 @@ test "validate rejects non-power-of-two channel depth" {
 test "validate rejects self-loop channel" {
     const topo = Topology{
         .tiles = &.{
-            .{ .id = test_tile_foo, .name = "foo" },
+            .{ .id = 0, .name = test_name_foo },
         },
         .channels = &.{.{ .src_idx = 0, .dst_idx = 0, .depth = 64, .mtu = 0 }},
     };
@@ -65,7 +71,7 @@ test "validate rejects self-loop channel" {
 test "validate rejects out-of-range channel src" {
     const topo = Topology{
         .tiles = &.{
-            .{ .id = test_tile_foo, .name = "foo" },
+            .{ .id = 0, .name = test_name_foo },
         },
         .channels = &.{.{ .src_idx = 99, .dst_idx = 0, .depth = 64, .mtu = 0 }},
     };
@@ -75,8 +81,8 @@ test "validate rejects out-of-range channel src" {
 test "validate rejects tango_shm channel with missing workspace name" {
     const topo = Topology{
         .tiles = &.{
-            .{ .id = test_tile_foo, .name = "foo" },
-            .{ .id = test_tile_bar, .name = "bar" },
+            .{ .id = 0, .name = test_name_foo },
+            .{ .id = 1, .name = test_name_bar },
         },
         .channels = &.{.{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm }},
     };
@@ -86,8 +92,8 @@ test "validate rejects tango_shm channel with missing workspace name" {
 test "validate accepts heap_dev channel with no workspace name" {
     const topo = Topology{
         .tiles = &.{
-            .{ .id = test_tile_foo, .name = "foo" },
-            .{ .id = test_tile_bar, .name = "bar" },
+            .{ .id = 0, .name = test_name_foo },
+            .{ .id = 1, .name = test_name_bar },
         },
         .channels = &.{.{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 }},
     };
@@ -97,8 +103,8 @@ test "validate accepts heap_dev channel with no workspace name" {
 test "validate rejects two tiles pinned exclusive on the same cpu" {
     const topo = Topology{
         .tiles = &.{
-            .{ .id = test_tile_foo, .name = "foo", .cpu_placement = .{ .exclusive = 0 } },
-            .{ .id = test_tile_bar, .name = "bar", .cpu_placement = .{ .exclusive = 0 } },
+            .{ .id = 0, .name = test_name_foo, .cpu_placement = .{ .exclusive = 0 } },
+            .{ .id = 1, .name = test_name_bar, .cpu_placement = .{ .exclusive = 0 } },
         },
         .channels = &.{},
     };
@@ -108,8 +114,8 @@ test "validate rejects two tiles pinned exclusive on the same cpu" {
 test "validate rejects exclusive and shared colliding on the same cpu" {
     const topo = Topology{
         .tiles = &.{
-            .{ .id = test_tile_foo, .name = "foo", .cpu_placement = .{ .exclusive = 2 } },
-            .{ .id = test_tile_bar, .name = "bar", .cpu_placement = .{ .shared = 2 } },
+            .{ .id = 0, .name = test_name_foo, .cpu_placement = .{ .exclusive = 2 } },
+            .{ .id = 1, .name = test_name_bar, .cpu_placement = .{ .shared = 2 } },
         },
         .channels = &.{},
     };
@@ -119,8 +125,8 @@ test "validate rejects exclusive and shared colliding on the same cpu" {
 test "validate accepts two tiles declaring shared on the same cpu" {
     const topo = Topology{
         .tiles = &.{
-            .{ .id = test_tile_foo, .name = "foo", .cpu_placement = .{ .shared = 3 } },
-            .{ .id = test_tile_bar, .name = "bar", .cpu_placement = .{ .shared = 3 } },
+            .{ .id = 0, .name = test_name_foo, .cpu_placement = .{ .shared = 3 } },
+            .{ .id = 1, .name = test_name_bar, .cpu_placement = .{ .shared = 3 } },
         },
         .channels = &.{},
     };
@@ -130,9 +136,9 @@ test "validate accepts two tiles declaring shared on the same cpu" {
 test "validate accepts distinct exclusive cpu ids and floating tiles" {
     const topo = Topology{
         .tiles = &.{
-            .{ .id = test_tile_foo, .name = "foo", .cpu_placement = .{ .exclusive = 0 } },
-            .{ .id = test_tile_bar, .name = "bar", .cpu_placement = .{ .exclusive = 1 } },
-            .{ .id = test_tile_baz, .name = "baz" },
+            .{ .id = 0, .name = test_name_foo, .cpu_placement = .{ .exclusive = 0 } },
+            .{ .id = 1, .name = test_name_bar, .cpu_placement = .{ .exclusive = 1 } },
+            .{ .id = 2, .name = test_name_baz },
         },
         .channels = &.{},
     };
