@@ -16,17 +16,16 @@ const util = @import("util");
 const topologies = @import("topologies");
 
 const Supervisor = supervisor_mod.Supervisor;
-const TileId = rt.topology.TileId;
 
 const shared_core_tiles = [_]rt.topology.TileDescriptor{
-    .{ .id = TileId.parse("tkings") catch unreachable, .name = "ingest_tile", .cpu_placement = .{ .shared = 0 } },
-    .{ .id = TileId.parse("tknorm") catch unreachable, .name = "normalize_tile", .cpu_placement = .{ .shared = 0 } },
-    .{ .id = TileId.parse("tkdedu") catch unreachable, .name = "dedupe_tile", .cpu_placement = .{ .shared = 0 } },
-    .{ .id = TileId.parse("tkpoly") catch unreachable, .name = "policy_tile", .cpu_placement = .{ .shared = 0 } },
-    .{ .id = TileId.parse("tkaudt") catch unreachable, .name = "audit_tile", .cpu_placement = .{ .shared = 0 } },
-    .{ .id = TileId.parse("tkrepl") catch unreachable, .name = "replay_tile", .cpu_placement = .{ .shared = 0 } },
-    .{ .id = TileId.parse("metric") catch unreachable, .name = "metric", .cpu_placement = .{ .shared = 0 } },
-    .{ .id = TileId.parse("tkdiag") catch unreachable, .name = "diag_tile", .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 0, .name = rt.topology.TileId.parse("tkings") catch unreachable, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 1, .name = rt.topology.TileId.parse("tknorm") catch unreachable, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 2, .name = rt.topology.TileId.parse("tkdedu") catch unreachable, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 3, .name = rt.topology.TileId.parse("tkpoly") catch unreachable, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 4, .name = rt.topology.TileId.parse("tkaudt") catch unreachable, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 5, .name = rt.topology.TileId.parse("tkrepl") catch unreachable, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 6, .name = rt.topology.TileId.parse("metric") catch unreachable, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 7, .name = rt.topology.TileId.parse("tkdiag") catch unreachable, .cpu_placement = .{ .shared = 0 } },
 };
 
 const event_count: u64 = 64;

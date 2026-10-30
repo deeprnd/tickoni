@@ -147,7 +147,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
     const tkrepl_idx = 5;
     var crash_after_heartbeats = std.mem.zeroes([8]u32);
     crash_after_heartbeats[tkrepl_idx] = 1;
-    try std.testing.expectEqualStrings("tkrepl", topo.tiles[tkrepl_idx].id.slice());
+    try std.testing.expectEqualStrings("tkrepl", topo.tiles[tkrepl_idx].name.slice());
 
     const port = util.nextMetricPort();
     const event_count: u64 = 16;
