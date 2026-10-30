@@ -24,9 +24,10 @@ pub const TileId = struct {
 
 /// Static description of one tile in a topology.
 pub const TileDescriptor = struct {
-    id: TileId,
-    /// Human-readable name used in logs and diagnostics.
-    name: []const u8,
+    /// Positional index like Firedancer's `fd_topo_tile_t.id` (usize).
+    id: usize,
+    /// 6-char dispatch name (matches fd_topo_tile_t.name[7]).
+    name: TileId,
     /// Defaults to floating: existing thread-mode topologies do not pin
     /// CPUs. Process-mode topologies set this explicitly.
     cpu_placement: cpu_placement.CpuPlacement = .floating,
