@@ -29,28 +29,35 @@ build-fd-tk-libs: build-fd
 
 # Linux — GCC
 build-fd-linux-x86-gcc:
+    @echo "Building Firedancer libs with {{ cpu_count }} cores (jobs: {{ build_jobs }})"
     {{ python }} contrib/build/orchestrator.py --platform linux-x86 build-fd fd-tickoni-fd libs gcc-12
 
 # Linux — Clang
 build-fd-linux-x86-clang:
+    @echo "Building Firedancer libs with {{ cpu_count }} cores (jobs: {{ build_jobs }})"
     {{ python }} contrib/build/orchestrator.py --platform linux-x86 build-fd fd-clang libs clang-18
 
 # Linux — ARM GCC
 build-fd-linux-arm-gcc:
+    @echo "Building Firedancer libs with {{ cpu_count }} cores (jobs: {{ build_jobs }})"
     {{ python }} contrib/build/orchestrator.py --platform linux-arm build-fd fd-tickoni-fd libs gcc-14
 
 # macOS
 build-fd-macos-x86:
+    @echo "Building Firedancer libs with {{ cpu_count }} cores (jobs: {{ build_jobs }})"
     env JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ python }} contrib/build/orchestrator.py --platform macos-x86 build-fd fd-tickoni-fd libs clang "lz4 blst zstd"
 
 build-fd-macos-arm:
+    @echo "Building Firedancer libs with {{ cpu_count }} cores (jobs: {{ build_jobs }})"
     env JUST_GMAKE="$(brew --prefix)/bin/gmake" {{ python }} contrib/build/orchestrator.py --platform macos-arm build-fd fd-tickoni-fd libs clang "lz4 blst zstd"
 
 # Windows
 build-fd-windows-x86:
+    @echo "Building Firedancer libs with {{ cpu_count }} cores (jobs: {{ build_jobs }})"
     {{ python }} contrib/build/orchestrator.py --platform windows-x86 build-fd fd-tickoni-fd libs clang --arch x86_64
 
 build-fd-windows-arm:
+    @echo "Building Firedancer libs with {{ cpu_count }} cores (jobs: {{ build_jobs }})"
     {{ python }} contrib/build/orchestrator.py --platform windows-arm build-fd fd-tickoni-fd libs clang --arch arm64
 
 # ── Compatibility aliases ──────────────────────────────────────────────────
