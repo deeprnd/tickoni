@@ -28,11 +28,14 @@ export arch := `bash contrib/platform.sh arch`
 export cpu_count := `bash contrib/platform.sh cores`
 
 # Derive job count once — cpu_count - 1 is the Firedancer convention.
-export build_jobs := `bash contrib/platform.sh jobs`
+export make_jobs := `bash contrib/platform.sh jobs`
 
 # Export to subprocesses (orchestrator.py, dynamic_test_opts.py check these).
+# FD_BUILD_CORES: make parallelism (cores - 1 per Firedancer convention).
+# FD_TEST_CORES: test parallelism — dynamic_test_opts.py applies its own
+# cores - 1 logic, so we pass the raw core count here.
 export FD_BUILD_CORES := `bash contrib/platform.sh jobs`
-export FD_TEST_CORES   := `bash contrib/platform.sh jobs`
+export FD_TEST_CORES   := `bash contrib/platform.sh cores`
 
 # ── Firedancer build directories ──────────────────────────────────────────────
 # Per-compiler build directories (kept for CI compatibility). Each Firedancer
