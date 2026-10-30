@@ -166,7 +166,7 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
 
     try File.writeStreamingAll(stdout, init.io, "tickoni-supervisor: process-mode pipeline started\ntiles:\n");
     for (sup.monitor()) |h| {
-        const tile_name = topo.tiles[h.tile_idx].id.slice();
+        const tile_name = topo.tiles[h.tile_idx].name.slice();
         const line = try std.fmt.bufPrint(&buf, "  [{d}] {s}  pid={?}  state={s}\n", .{
             h.tile_idx,
             tile_name,
@@ -203,7 +203,7 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
         for (0..count) |i| {
             const p = prev_per_tile[i];
             const c = curr_per_tile[i];
-            const tile_id = topo.tiles[i].id;
+            const tile_name = topo.tiles[i].name.slice();
             const delta_prod = @as(i64, @intCast(c.produced)) - @as(i64, @intCast(p.produced));
             const delta_norm = @as(i64, @intCast(c.normalized)) - @as(i64, @intCast(p.normalized));
             const delta_inv = @as(i64, @intCast(c.invalid)) - @as(i64, @intCast(p.invalid));
@@ -212,7 +212,6 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
             const delta_deny = @as(i64, @intCast(c.denied)) - @as(i64, @intCast(p.denied));
             const delta_audit = @as(i64, @intCast(c.audited)) - @as(i64, @intCast(p.audited));
             if (delta_prod != 0 or delta_norm != 0 or delta_inv != 0 or delta_dup != 0 or delta_allow != 0 or delta_deny != 0 or delta_audit != 0) {
-                const tile_name = tile_id.slice();
                 const line = try std.fmt.bufPrint(
                     &buf,
                     "  tile={s}  dP={d} dN={d} dI={d} dD={d} dA={d} dR={d} dU={d}\n",
@@ -259,8 +258,8 @@ fn cmdStatus(io: std.Io, topo: rt.topology.Topology) !void {
     try File.writeStreamingAll(stdout, io, header);
 
     for (topo.tiles, 0..) |t, i| {
-        const line = try std.fmt.bufPrint(&buf, "  [{d}] id={s}  name={s}\n", .{
-            i, t.id.slice(), t.name,
+        const line = try std.fmt.bufPrint(&buf, "  [{d}] id={s}  name={d}\n", .{
+            i, t.name.slice(), t.id,
         });
         try File.writeStreamingAll(stdout, io, line);
     }
