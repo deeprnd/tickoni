@@ -258,21 +258,18 @@ pub fn findByIdx(idx: usize) *const TileEntry {
 pub fn validate(topo: rt.topology.Topology) !void {
     if (topo.tiles.len != entries.len) return error.TopologyTileCountMismatch;
     for (topo.tiles) |t| {
-        if (findById(t.id) == null) return error.UnregisteredTopologyTile;
+        const registered = for (entries) |e| {
+            if (t.name.eql(e.id)) break true;
+        } else false;
+        if (!registered) return error.UnregisteredTopologyTile;
     }
-    for (&entries) |*e| {
-        var found = false;
-        for (topo.tiles) |t| {
-            if (t.id.eql(e.id)) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) return error.RegisteredTileMissingFromTopology;
+    for (&entries, 0..) |*e, i| {
+        const t = topo.tiles[i];
+        if (!t.name.eql(e.id)) return error.RegisteredTileMissingFromTopology;
     }
 
     for (topo.tiles, 0..) |t, i| {
-        const entry = findById(t.id) orelse unreachable; // proven present above
+        const entry = findByIdx(t.id); // proven present above
         var in_cnt: u8 = 0;
         var out_cnt: u8 = 0;
         for (topo.channels) |ch| {
@@ -346,7 +343,7 @@ test "expected link cardinality matches the linear Phase 0 chain" {
 
 fn descriptorsFromRegistry() [8]rt.tile.TileDescriptor {
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
-    for (&entries, 0..) |*e, i| descriptors[i] = .{ .id = e.id, .name = "t" };
+    for (&entries, 0..) |*e, i| descriptors[i] = .{ .id = i, .name = e.id };
     return descriptors;
 }
 
@@ -370,14 +367,15 @@ test "validate accepts a topology matching the registry" {
 
 test "validate rejects a topology with an unregistered tile" {
     var descriptors = descriptorsFromRegistry();
-    descriptors[0].id = try rt.tile.TileId.parse("tkzzzz");
+    // Create a tile with a non-existent dispatch name.
+    descriptors[0].name = rt.tile.TileId.parse("tkzzzz") catch unreachable;
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &.{} };
     try std.testing.expectError(error.UnregisteredTopologyTile, validate(topo));
 }
 
 test "validate rejects a topology with the wrong tile count" {
     var descriptors: [7]rt.tile.TileDescriptor = undefined;
-    for (entries[0..7], 0..) |e, i| descriptors[i] = .{ .id = e.id, .name = "t" };
+    for (entries[0..7], 0..) |*e, i| descriptors[i] = .{ .id = i, .name = e.id };
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &.{} };
     try std.testing.expectError(error.TopologyTileCountMismatch, validate(topo));
 }
@@ -387,7 +385,7 @@ test "validate rejects a topology missing a registered tile even at the right co
     // with a duplicate of tkings's id, so tkrnorm is absent from the
     // topology while every present id is still individually registered.
     var descriptors = descriptorsFromRegistry();
-    descriptors[1].id = descriptors[0].id;
+    descriptors[1].name = descriptors[0].name;
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &.{} };
     try std.testing.expectError(error.RegisteredTileMissingFromTopology, validate(topo));
 }
@@ -463,10 +461,10 @@ test "T10.4 positive fan-in: channel array has 2 inbound links to tkaudt" {
 
     // The topology itself is structurally valid.
     const fanin_descriptors = [_]rt.tile.TileDescriptor{
-        .{ .id = id("tkings"), .name = "ingest" },
-        .{ .id = id("tknorm"), .name = "normalize" },
-        .{ .id = id("tkdedu"), .name = "dedupe" },
-        .{ .id = id("tkaudt"), .name = "audit" },
+        .{ .id = 0, .name = id("tkings") },
+        .{ .id = 1, .name = id("tknorm") },
+        .{ .id = 2, .name = id("tkdedu") },
+        .{ .id = 3, .name = id("tkaudt") },
     };
     const fanin_topo = rt.topology.Topology{ .tiles = &fanin_descriptors, .channels = &fanin_channels };
     try fanin_topo.validate(); // passes — structural constraints are satisfied
@@ -493,32 +491,32 @@ test "validate rejects mismatched process callback for tiles with pipeline role"
 // and placement mode should fail closed. These are structural checks that
 // the topology.validate() and cpu_placement.validate() functions already
 // enforce; this test verifies the error surface is correct.
-test "validate rejects topology with empty tile id" { // Overwrite tile 0 with empty id (TileId with empty slice).
-    const empty_id = try rt.tile.TileId.parse("");
+test "validate rejects topology with empty tile name" { // Overwrite tile 0 with empty name (TileId with empty slice).
+    const empty_name = try rt.tile.TileId.parse("");
     var descriptors = descriptorsFromRegistry();
-    descriptors[0].id = empty_id;
-    // topology.validate() rejects empty tile ids via EmptyTileId.
+    descriptors[0].name = empty_name;
+    // topology.validate() rejects empty tile names via EmptyTileName.
     // We can't directly call validate(topo) from tile_registry because
     // the registry validate() doesn't call topo.validate() — but the
     // Supervisor.init() does, and that's the call path tested in
     // test_process_topology.zig. This test just verifies the property.
-    try std.testing.expect(empty_id.slice().len == 0);
+    try std.testing.expect(empty_name.slice().len == 0);
 }
 
 test "validate topology rejects duplicate CPU exclusive placement" { // Two tiles with the same exclusive CPU id should fail topo.validate().
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| {
-        descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 0 } };
+        descriptors[i] = .{ .id = i, .name = e.id, .cpu_placement = .{ .exclusive = 0 } };
     }
     // Give all tiles the same exclusive CPU — topology.validate() will reject.
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channelsFromRegistry() };
     try std.testing.expectError(error.CpuPlacementConflict, topo.validate());
 }
 
-test "validate topology rejects shared placement without explicit shared mode" { // Shared-core placement must use .shared, not .exclusive, for duplicate CPUs.
+test "validate topology rejects shared placement without explicit shared mode" {
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| {
-        descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 0 } };
+        descriptors[i] = .{ .id = i, .name = e.id, .cpu_placement = .{ .exclusive = 0 } };
     }
     // Two tiles with exclusive=0 should conflict.
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channelsFromRegistry() };
@@ -574,13 +572,11 @@ test "validate accepts tiles with zero links when registry expects zero" { // tk
 // dedicated duplicate-id test the story calls out (distinct from the
 // RegisteredTileMissingFromTopology test above that catches the same
 // scenario indirectly).
-test "T10.12 validate rejects topology with duplicate tile ids" { // Create a topology where two tiles share the same TileId.
+test "T10.12 validate rejects topology with duplicate tile ids" {
     var descriptors = descriptorsFromRegistry();
-    // Overwrite index 2 (tkdedu) with the same id as index 0 (tkings).
-    descriptors[2].id = descriptors[0].id;
+    // Overwrite index 2 (tkdedu) with the same name as index 0 (tkings).
+    descriptors[2].name = descriptors[0].name;
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channelsFromRegistry() };
-    // The bijection check catches this: tkdedu (entries[2]) is absent from
-    // the topology, so RegisteredTileMissingFromTopology is returned.
     try std.testing.expectError(error.RegisteredTileMissingFromTopology, validate(topo));
 }
 
@@ -589,13 +585,11 @@ test "T10.12 validate rejects topology with duplicate tile ids" { // Create a to
 // This is the "standalone" test the story calls out (the existing
 // "unregistered tile" test above uses a non-existent tile id; this one
 // uses a valid registry tile id placed in the wrong tile's slot).
-test "T10.12 validate rejects topology tile not in registry" { // Replace the first tile's id with tknorm's id (index 0 becomes a
-    // duplicate of index 1). This proves that every topology tile id
-    // must map to a unique registry entry — the bijection is enforced.
+test "T10.12 validate rejects topology tile not in registry" {
     var descriptors = descriptorsFromRegistry();
-    // Put tkrnorm's id in tkings's slot — tkings (entries[0]) is now
+    // Put tkrnorm's name in tkings's slot — tkings (entries[0]) is now
     // absent from the topology, so RegisteredTileMissingFromTopology.
-    descriptors[0].id = id("tknorm");
+    descriptors[0].name = entries[1].id;
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channelsFromRegistry() };
     try std.testing.expectError(error.RegisteredTileMissingFromTopology, validate(topo));
 }
@@ -604,7 +598,7 @@ test "T10.12 validate rejects topology tile not in registry" { // Replace the fi
 // A registry entry whose tile id is absent from the topology must be rejected.
 test "T10.12 validate rejects registry entry with no matching topology tile" { // Build a topology with only 7 of the 8 registered tiles (remove metric).
     var descriptors: [7]rt.tile.TileDescriptor = undefined;
-    for (entries[0..7], 0..) |e, i| descriptors[i] = .{ .id = e.id, .name = "t" };
+    for (entries[0..7], 0..) |*e, i| descriptors[i] = .{ .id = i, .name = e.id };
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &.{} };
     try std.testing.expectError(error.TopologyTileCountMismatch, validate(topo));
 }
@@ -641,9 +635,9 @@ test "T10.15 validate topology rejects CPU id at upper u16 boundary" { // A tile
             // cpu_placement.validateStatic() doesn't check range (that's the
             // runtime validate() concern), so topo.validate() passes but
             // cpu_placement.validate(topo, cpus) rejects.
-            descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 65535 } };
+            descriptors[i] = .{ .id = i, .name = e.id, .cpu_placement = .{ .exclusive = 65535 } };
         } else {
-            descriptors[i] = .{ .id = e.id, .name = "t" };
+            descriptors[i] = .{ .id = i, .name = e.id };
         }
     }
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channelsFromRegistry() };
@@ -663,9 +657,9 @@ test "T10.15 cpu_placement.validate rejects extreme CPU id as malformed" { // Th
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
     for (&entries, 0..) |*e, i| {
         if (i == 0) {
-            descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 65535 } };
+            descriptors[i] = .{ .id = i, .name = e.id, .cpu_placement = .{ .exclusive = 65535 } };
         } else {
-            descriptors[i] = .{ .id = e.id, .name = "t" };
+            descriptors[i] = .{ .id = i, .name = e.id };
         }
     }
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channelsFromRegistry() };
@@ -689,8 +683,8 @@ test "T10.15 validate rejects tango_shm channel with empty workspace name" { // 
 // (no CPU pinning, no conflict), while exclusive on the same CPU fails.
 test "T10.15 validate accepts floating placement mode" {
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
-    for (&entries, 0..) |e, i| {
-        descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .floating };
+    for (&entries, 0..) |*e, i| {
+        descriptors[i] = .{ .id = i, .name = e.id, .cpu_placement = .floating };
     }
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channelsFromRegistry() };
     try topo.validate();
@@ -700,15 +694,15 @@ test "T10.15 validate accepts floating placement mode" {
 // colliding on the same CPU must be rejected by topology.validate().
 test "T10.15 validate rejects exclusive and shared colliding on same CPU" {
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
-    for (&entries, 0..) |e, i| {
+    for (&entries, 0..) |*e, i| {
         if (i == 0) {
-            descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 2 } };
+            descriptors[i] = .{ .id = i, .name = e.id, .cpu_placement = .{ .exclusive = 2 } };
         } else {
-            descriptors[i] = .{ .id = e.id, .name = "t" };
+            descriptors[i] = .{ .id = i, .name = e.id };
         }
     }
     // Add a second tile sharing the same CPU via .shared.
-    descriptors[1] = .{ .id = entries[1].id, .name = "t", .cpu_placement = .{ .shared = 2 } };
+    descriptors[1] = .{ .id = 1, .name = entries[1].id, .cpu_placement = .{ .shared = 2 } };
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channelsFromRegistry() };
     try std.testing.expectError(error.CpuPlacementConflict, topo.validate());
 }
@@ -720,12 +714,12 @@ test "T10.15 cpu_placement.validate rejects CPU id not in available set" { // Si
     @memset(&cpus, 0);
     cpus[0] = 1; // only CPU 0
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
-    for (&entries, 0..) |e, i| {
+    for (&entries, 0..) |*e, i| {
         if (i == 0) {
             // Pin tkings to CPU 1, which is not in the available set.
-            descriptors[i] = .{ .id = e.id, .name = "t", .cpu_placement = .{ .exclusive = 1 } };
+            descriptors[i] = .{ .id = i, .name = e.id, .cpu_placement = .{ .exclusive = 1 } };
         } else {
-            descriptors[i] = .{ .id = e.id, .name = "t" };
+            descriptors[i] = .{ .id = i, .name = e.id };
         }
     }
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channelsFromRegistry() };
