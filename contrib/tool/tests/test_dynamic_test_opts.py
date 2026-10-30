@@ -11,6 +11,7 @@ creating a custom mock object that carries the real
 subprocess.TimeoutExpired exception.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -122,25 +123,38 @@ class TestDetectMemoryBytes:
 
 
 class TestDetectCores:
+    def _unset_fd_test_cores(self):
+        """Remove FD_TEST_CORES env var so subprocess path is exercised."""
+        old = os.environ.pop("FD_TEST_CORES", None)
+        old_sp = d.subprocess
+        return old, old_sp
+
+    def _restore(self, old_env, old_sp):
+        if old_env is not None:
+            os.environ["FD_TEST_CORES"] = old_env
+        else:
+            os.environ.pop("FD_TEST_CORES", None)
+        d.subprocess = old_sp
+
     def test_nproc(self):
         mock_sp = _MockSubprocess()
         mock_sp.run.return_value = _FakeResult(stdout="12\n")
-        old_sp = d.subprocess
+        old_env, old_sp = self._unset_fd_test_cores()
         d.subprocess = mock_sp
         try:
             assert _detect_cores() == 12
         finally:
-            d.subprocess = old_sp
+            self._restore(old_env, old_sp)
 
     def test_nproc_zero_returns_4(self):
         mock_sp = _MockSubprocess()
         mock_sp.run.return_value = _FakeResult(stdout="0\n")
-        old_sp = d.subprocess
+        old_env, old_sp = self._unset_fd_test_cores()
         d.subprocess = mock_sp
         try:
             assert _detect_cores() == 4  # fallback
         finally:
-            d.subprocess = old_sp
+            self._restore(old_env, old_sp)
 
     def test_macos_sysctl_ncpu(self):
         def side_effect(cmd, *args, **kwargs):
@@ -152,12 +166,12 @@ class TestDetectCores:
 
         mock_sp = _MockSubprocess()
         mock_sp.run.side_effect = side_effect
-        old_sp = d.subprocess
+        old_env, old_sp = self._unset_fd_test_cores()
         d.subprocess = mock_sp
         try:
             assert _detect_cores() == 8
         finally:
-            d.subprocess = old_sp
+            self._restore(old_env, old_sp)
 
     def test_nproc_error_returns_4(self):
         def side_effect(cmd, *args, **kwargs):
@@ -165,18 +179,28 @@ class TestDetectCores:
 
         mock_sp = _MockSubprocess()
         mock_sp.run.side_effect = side_effect
-        old_sp = d.subprocess
+        old_env, old_sp = self._unset_fd_test_cores()
         d.subprocess = mock_sp
         try:
             assert _detect_cores() == 4  # fallback
         finally:
-            d.subprocess = old_sp
+            self._restore(old_env, old_sp)
 
 
 # ── run_dynamic_test_opts ────────────────────────────────────────────
 
 
 class TestRunDynamicTestOpts:
+    def setUp(self):
+        """Unset FD_TEST_CORES so subprocess path is exercised."""
+        self._old_fd_test_cores = os.environ.pop("FD_TEST_CORES", None)
+
+    def tearDown(self):
+        if self._old_fd_test_cores is not None:
+            os.environ["FD_TEST_CORES"] = self._old_fd_test_cores
+        else:
+            os.environ.pop("FD_TEST_CORES", None)
+
     def _make_runner(self, memory_bytes, cores):
         """Build a subprocess.run that returns `memory_bytes` then `cores`."""
         mem_bytes = memory_bytes
