@@ -309,9 +309,9 @@ test "metric topology finalizes exact scratch requirements identically" {
 test "metric topology preserves descriptor identity, CNC ownership, CPU placement, and zero links" {
     if (false) return error.SkipZigTest;
     const tiles = [_]runtime.tile.TileDescriptor{
-        .{ .id = runtime.tile.TileId.parse("tkings") catch unreachable, .name = "ingest", .cpu_placement = .{ .exclusive = 2 } },
-        .{ .id = runtime.tile.TileId.parse("metric") catch unreachable, .name = "metric", .cpu_placement = .{ .exclusive = 3 } },
-        .{ .id = runtime.tile.TileId.parse("tkdiag") catch unreachable, .name = "diagnostic", .cpu_placement = .{ .exclusive = 4 } },
+        .{ .id = 0, .name = runtime.tile.TileId.parse("tking") catch unreachable, .cpu_placement = .{ .exclusive = 2 } },
+        .{ .id = 1, .name = runtime.tile.TileId.parse("metric") catch unreachable, .cpu_placement = .{ .exclusive = 3 } },
+        .{ .id = 2, .name = runtime.tile.TileId.parse("tkdiag") catch unreachable, .cpu_placement = .{ .exclusive = 4 } },
     };
     const channels = [_]runtime.link.Channel{
         .{ .src_idx = 0, .dst_idx = 2, .depth = 64, .mtu = 128 },
@@ -321,7 +321,7 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
     var built = try runtime.topo_build.build(std.testing.allocator, topology, util.nextWorkspaceName(&ws_buf), 0);
     defer built.deinit(std.testing.allocator);
 
-    const tkings_id = c_abi.topob.topoFindTile(built.topo, "tkings", 0);
+    const tkings_id = c_abi.topob.topoFindTile(built.topo, "tking", 0);
     try std.testing.expect(tkings_id != c_abi.topob.not_found);
     const metric_id = c_abi.topob.topoFindTile(built.topo, "metric", 0);
     try std.testing.expect(metric_id != c_abi.topob.not_found);
@@ -364,7 +364,7 @@ test "metric_tile_integration: topology with metric builds and starts" {
     // Verify metric tile exists in topology
     var found_metric_tile = false;
     for (topo.tiles) |tile| {
-        if (std.mem.eql(u8, tile.id.slice(), "metric")) {
+        if (std.mem.eql(u8, tile.name.slice(), "metric")) {
             found_metric_tile = true;
             break;
         }
@@ -729,7 +729,7 @@ test "metric_tile_integration: CNC join verifies tile finds CNC object" {
 
     var metric_idx: ?usize = null;
     for (topo.tiles, 0..) |tile, i| {
-        if (std.mem.eql(u8, tile.id.slice(), "metric")) {
+        if (std.mem.eql(u8, tile.name.slice(), "metric")) {
             metric_idx = i;
             break;
         }
