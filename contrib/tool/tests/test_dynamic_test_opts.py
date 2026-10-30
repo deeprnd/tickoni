@@ -191,11 +191,11 @@ class TestDetectCores:
 
 
 class TestRunDynamicTestOpts:
-    def setUp(self):
-        """Unset FD_TEST_CORES so subprocess path is exercised."""
+    def setup_method(self):
+        """pytest calls setup_method (not setUp); unset FD_TEST_CORES so subprocess path is exercised."""
         self._old_fd_test_cores = os.environ.pop("FD_TEST_CORES", None)
 
-    def tearDown(self):
+    def teardown_method(self):
         if self._old_fd_test_cores is not None:
             os.environ["FD_TEST_CORES"] = self._old_fd_test_cores
         else:
