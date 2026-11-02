@@ -61,45 +61,8 @@ def _detect_memory_bytes() -> int:
 
 
 def _detect_cores() -> int:
-    """Detect logical CPU core count."""
-    # 1. Use env var if set (from justfile cpu_count)
-    cores = os.environ.get("FD_TEST_CORES")
-    if cores:
-        try:
-            cores = int(cores)
-            if cores >= 1:
-                return cores
-        except ValueError:
-            pass
-
-    # 2. Fall back to nproc (Linux, macOS, Windows WSL)
-    try:
-        result = subprocess.run(
-            ["nproc"], capture_output=True, text=True, timeout=10
-        )
-        if result.returncode == 0:
-            cores = int(result.stdout.strip())
-            if cores >= 1:
-                return cores
-    except (FileNotFoundError, ValueError, subprocess.TimeoutExpired):
-        pass
-
-    # macOS: sysctl -n hw.ncpu
-    try:
-        result = subprocess.run(
-            ["sysctl", "-n", "hw.ncpu"],
-            capture_output=True, text=True,
-            timeout=10,
-        )
-        if result.returncode == 0:
-            cores = int(result.stdout.strip())
-            if cores >= 1:
-                return cores
-    except (FileNotFoundError, ValueError, subprocess.TimeoutExpired):
-        pass
-
-    # Fallback
-    return 4
+    """CPU core count. Passed by justfile via FD_TEST_CORES."""
+    return int(os.environ["FD_TEST_CORES"])
 
 
 def run_dynamic_test_opts() -> dict:
@@ -136,8 +99,8 @@ def run_dynamic_test_opts() -> dict:
     # Safe budget for ONE test: half of remaining RAM
     safe_budget = remaining_bytes // 2
 
-    # Max threads: cores - 1, capped
-    max_jobs = min(cores - 1, max_parallel_cap)
+    # Max threads: capped
+    max_jobs = min(cores, max_parallel_cap)
     max_jobs = max(max_jobs, min_jobs)  # at least min_jobs
 
     # page_cnt = safe_budget / (page_sz * max_jobs * overhead_mult)
