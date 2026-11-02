@@ -548,6 +548,7 @@ pub const Supervisor = struct {
         built_topo_owned_by_state = true;
         self.process_state = state;
         boot_needs_halt = false;
+        // stopProcess is best-effort cleanup; outer error already discarded.
         errdefer self.stopProcess(io) catch {};
 
         // Resolve every tile's cnc content (created above by
