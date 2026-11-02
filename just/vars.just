@@ -32,10 +32,9 @@ export make_jobs := `bash contrib/platform.sh jobs`
 
 # Export to subprocesses (orchestrator.py, dynamic_test_opts.py check these).
 # FD_BUILD_CORES: make parallelism (cores - 1 per Firedancer convention).
-# FD_TEST_CORES: test parallelism — dynamic_test_opts.py applies its own
-# cores - 1 logic, so we pass the raw core count here.
+# FD_TEST_CORES: test parallelism (also cores - 1, set by dynamic_test_opts.py).
 export FD_BUILD_CORES := `bash contrib/platform.sh jobs`
-export FD_TEST_CORES   := `bash contrib/platform.sh cores`
+export FD_TEST_CORES   := `bash contrib/platform.sh jobs`
 
 # ── Firedancer build directories ──────────────────────────────────────────────
 # Per-compiler build directories (kept for CI compatibility). Each Firedancer
