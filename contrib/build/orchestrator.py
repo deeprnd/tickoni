@@ -129,7 +129,8 @@ def cmd_build_fd(args, config: dict) -> None:
     if args.jobs is not None:
         nproc_val = args.jobs
     else:
-        nproc_val = strat.nproc()
+        # Passed by justfile from platform.sh jobs (single source)
+        nproc_val = int(os.environ["FD_BUILD_CORES"])
 
     # Determine CC
     cc = compiler
@@ -476,7 +477,8 @@ def main() -> None:
         if args.jobs is not None:
             jc = args.jobs
         else:
-            jc = strat.nproc()
+            # Passed by justfile from platform.sh jobs (single source)
+            jc = int(os.environ["FD_BUILD_CORES"])
         cmd = [make, "-f", os.path.join(ROOT_DIR, "contrib/build/GNUmakefile"),
                f"-j{jc}", "-Otarget"] + args.target
         subprocess.run(cmd, cwd=ROOT_DIR, check=True)

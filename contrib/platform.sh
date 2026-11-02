@@ -144,7 +144,7 @@ tk_cores() {
   echo "$cores"
 }
 
-tk_jobs() {
+make_jobs() {
   local cores
   cores="$(tk_cores)"
   expr "$cores" - 1
@@ -164,7 +164,7 @@ else
     os)         tk_os ;;
     arch)       tk_arch ;;
     cores)      tk_cores ;;
-    jobs)       expr $(tk_cores) - 1 ;;
+    jobs)       make_jobs ;;
     *)
       echo "usage: $0 [os|arch|platform]" >&2
       exit 1

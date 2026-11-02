@@ -9,7 +9,7 @@ cd "$ROOT_DIR"
 source "${ROOT_DIR}/contrib/platform.sh"
 
 # Single source of truth for make parallelism (cores - 1, per Firedancer convention).
-make_jobs="$(tk_jobs)"
+make_jobs="$(make_jobs)"
 
 MAKE_RUNNER=(python3 ./contrib/build/orchestrator.py make)
 # CODEQL_THRESHOLD_CHECK and CODEQL_HIGH_SECURITY_THRESHOLD were part of a
