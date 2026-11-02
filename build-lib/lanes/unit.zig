@@ -24,7 +24,7 @@ pub fn strategy(
     const int_mods = factory.ModuleFactory.init(b, shared, tm, target, optimize).createIntModules(null);
 
     // Collect all compile steps for sequential run.
-    var run_sequence: [37]*std.Build.Step.Compile = undefined;
+    var run_sequence: [38]*std.Build.Step.Compile = undefined;
     var run_count: usize = 0;
 
     const tb = lane.TestBuilder{
@@ -45,6 +45,17 @@ pub fn strategy(
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-tile",
         .source_file = "src/tickoni/runtime/tile.zig",
+    });
+    run_count += 1;
+
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-topo-build",
+        .source_file = "src/tickoni/runtime/topo_build.zig",
+        .imports = &.{
+            .{ .name = "c_abi", .module = shared.c_abi },
+            .{ .name = "logger", .module = shared.logger },
+        },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
     });
     run_count += 1;
 
