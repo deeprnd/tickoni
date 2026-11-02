@@ -456,17 +456,17 @@ pub fn build(
 const tile_mod = @import("tile.zig");
 const link_mod = @import("link.zig");
 
-fn testTile(id: []const u8) tile_mod.TileDescriptor {
-    return .{ .id = tile_mod.TileId.parse(id) catch unreachable, .name = id };
+fn testTile(idx: usize, id: []const u8) tile_mod.TileDescriptor {
+    return .{ .id = idx, .name = tile_mod.TileId.parse(id) catch unreachable };
 }
 
 test "build produces a topology for the linear Phase 0 chain" {
     const tiles = [_]tile_mod.TileDescriptor{
-        testTile("tkings"),
-        testTile("tknorm"),
-        testTile("tkdedu"),
-        testTile("tkpoly"),
-        testTile("tkaudt"),
+        testTile(0, "tkings"),
+        testTile(1, "tknorm"),
+        testTile(2, "tkdedu"),
+        testTile(3, "tkpoly"),
+        testTile(4, "tkaudt"),
     };
     const channels = [_]link_mod.Channel{
         .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 },
@@ -490,4 +490,38 @@ test "concreteWorkspaceName matches Firedancer join naming" {
     var buf: [concrete_workspace_name_cap]u8 = undefined;
     const name = try concreteWorkspaceName(&buf, "tkpay0");
     try std.testing.expectEqualStrings("tickoni_tkpay0.wksp", name);
+}
+
+test "build with metric tile populates metric_wksp_idx and metric_tile_idx" {
+    const tiles = [_]tile_mod.TileDescriptor{
+        testTile(0, "tkings"),
+        testTile(1, "tknorm"),
+        testTile(2, "tkdedu"),
+        testTile(3, "tkpoly"),
+        testTile(4, "tkaudt"),
+        testTile(5, "metric"),
+    };
+    const channels = [_]link_mod.Channel{
+        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 },
+        .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 128 },
+        .{ .src_idx = 2, .dst_idx = 3, .depth = 64, .mtu = 128 },
+        .{ .src_idx = 3, .dst_idx = 4, .depth = 64, .mtu = 128 },
+    };
+    const topo_desc = topology.Topology{ .tiles = &tiles, .channels = &channels };
+
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 9091);
+    defer built.deinit(std.testing.allocator);
+
+    // Metric workspace indices must be valid (not not_found).
+    try std.testing.expect(built.metric_wksp_idx != c_abi.topob.not_found);
+    try std.testing.expect(built.metric_in_wksp_idx != c_abi.topob.not_found);
+
+    // Metric tile must be found and indexed in tile_infos.
+    try std.testing.expect(built.metric_tile_idx != c_abi.topob.not_found);
+    try std.testing.expect(built.metric_tile_obj_id != 0);
+
+    // The metric tile must be resolvable by TileId.
+    const metric_id = tile_mod.TileId.parse("metric") catch unreachable;
+    const found_idx = built.tileIdxById(metric_id);
+    try std.testing.expectEqual(built.metric_tile_idx, found_idx);
 }
