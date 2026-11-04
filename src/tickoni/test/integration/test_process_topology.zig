@@ -13,7 +13,7 @@ const util = @import("util");
 const Supervisor = supervisor_mod.Supervisor;
 
 test "process_topology_integration: every tile is a distinct OS process parented by the supervisor" {
-    // Temporarily skipped to unblock minimal_2tile isolation test
+    // Temporarily skipped to unblock minimal_setup isolation test
     if (true) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
