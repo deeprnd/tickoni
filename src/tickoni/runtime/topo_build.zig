@@ -160,26 +160,35 @@ pub fn build(
     workspace_name: []const u8,
     metric_port: u16,
 ) !BuiltTopo {
+    std.debug.print("[topo-build] ENTER build workspace={s}\n", .{workspace_name});
     const log = logger.get();
     log.enter("topo_build", "build");
     defer log.exit("topo_build", "build");
-    std.debug.assert(c_abi.topob.topoAlignof() <= topo_alloc_align.toByteUnits());
-
+    const align_check = c_abi.topob.topoAlignof();
+    std.debug.print("[topo-build] alignof={d} <= {d} check={}\n", .{ align_check, topo_alloc_align.toByteUnits(), align_check <= topo_alloc_align.toByteUnits() });
     const size = c_abi.topob.topoSizeof();
-    log.kvFmt("topo_build", "build", "size={d} align={d}", .{ size, topo_alloc_align.toByteUnits() });
-
-    const buf = try allocator.alignedAlloc(u8, topo_alloc_align, size);
+    std.debug.print("[topo-build] size={d} ws={s}\n", .{size, workspace_name});
+    std.debug.print("[topo-build] before alignedAlloc\n", .{});
+    std.debug.print("[topo-build] alloc ptr={x} page_align={d} size={d} bytes={d}MB\n", .{ @intFromPtr(&allocator), topo_alloc_align.toByteUnits(), size, size / 1024 / 1024 });
+    const buf = allocator.alignedAlloc(u8, topo_alloc_align, size) catch |err| {
+        std.debug.print("[topo-build] alignedAlloc FAILED: {any}\n", .{err});
+        return error.AllocFailed;
+    };
+    std.debug.print("[topo-build] alignedAlloc ok\n", .{});
     errdefer allocator.free(buf);
 
     log.kvFmt("topo_build", "build", "allocated buf ptr={x} len={d}", .{ @intFromPtr(buf.ptr), buf.len });
 
     var app_name_buf: [64]u8 = undefined;
+    std.debug.print("[topo-build] before topobNew\n", .{});
     log.kvFmt("topo_build", "build", "passing to topobNew ptr={x}", .{@intFromPtr(buf.ptr)});
     const topo = c_abi.topob.topobNew(buf.ptr, toZ(&app_name_buf, app_name)) orelse return error.TopobNewFailed;
+    std.debug.print("[topo-build] topobNew ok\n", .{});
 
     var wksp_name_buf: [64]u8 = undefined;
-    log.kvFmt("topo_build", "build", "calling topobWksp(name={s})", .{workspace_name});
+    std.debug.print("[topo-build] before topobWksp(name={s})\n", .{workspace_name});
     const wksp_idx = c_abi.topob.topobWksp(topo, toZ(&wksp_name_buf, workspace_name));
+    std.debug.print("[topo-build] topobWksp ok idx={d}\n", .{wksp_idx});
     var wksp_name_z_buf: [64]u8 = undefined;
     const wksp_name_z = toZ(&wksp_name_z_buf, workspace_name);
 
@@ -336,6 +345,7 @@ pub fn build(
         const fd_idx = fd_tile_idx_by_desc[desc_idx];
         log.kvFmt("topo_build", "build", "calling topobObj(tile_desc={d}, fd_idx={d}, type=cnc)", .{ desc_idx, fd_idx });
         const cnc_obj = c_abi.topob.topobObj(topo, "cnc", wksp_name_z);
+        std.debug.print("[topo-build] cnc_obj[{d}]={x} wksp_name={s}\\n", .{ fd_idx, cnc_obj, wksp_name_z });
         log.kvFmt("topo_build", "build", "calling topobTileUses(fd_idx={d}, cnc_obj={d})", .{ fd_idx, cnc_obj });
         c_abi.topob.topobTileUses(topo, fd_idx, cnc_obj, true);
         cnc_obj_id[fd_idx] = cnc_obj;

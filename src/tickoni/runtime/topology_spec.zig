@@ -105,9 +105,12 @@ pub const TopologySpec = struct {
     const fio = @import("file_io.zig");
 
     pub fn writeToFile(self: *const TopologySpec, io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !void {
+        std.debug.print("[TopologySpec] writeToFile: path={s} magic={x} version={d} tile_cnt={d} chan_cnt={d}\n", .{ sub_path, self.magic_field, self.version_field, self.tile_cnt, self.channel_cnt });
         var file = try fio.createFile(io, dir, sub_path);
         defer file.close(io);
-        try file.writePositionalAll(io, std.mem.asBytes(self), 0);
+        const bytes = std.mem.asBytes(self);
+        std.debug.print("[TopologySpec] writeToFile: writing {d} bytes\n", .{bytes.len});
+        try file.writePositionalAll(io, bytes, 0);
     }
 
     pub fn readFromFile(io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !TopologySpec {
@@ -116,6 +119,7 @@ pub const TopologySpec = struct {
         var spec: TopologySpec = undefined;
         const buf = std.mem.asBytes(&spec);
         const n = try file.readPositionalAll(io, buf, 0);
+        std.debug.print("[TopologySpec] readFromFile: path={s} n={d} sizeof={d} read_magic={x}\n", .{ sub_path, n, @sizeOf(TopologySpec), spec.magic_field });
         if (n != @sizeOf(TopologySpec)) return error.TopologySpecTruncated;
         if (spec.magic_field != magic) return error.TopologySpecBadMagic;
         if (spec.version_field != version) return error.TopologySpecUnsupportedVersion;
