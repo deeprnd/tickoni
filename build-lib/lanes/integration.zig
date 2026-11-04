@@ -43,8 +43,8 @@ pub const LaneKind = enum {
     domain,
 };
 
-/// Max possible run count across all lane kinds (all=15).
-const max_run_count: usize = 15;
+/// Max possible run count across all lane kinds (all=16).
+const max_run_count: usize = 16;
 
 /// Register integration tests for the requested lane kind.
 pub fn strategy(
@@ -88,6 +88,7 @@ pub fn strategy(
             "src/tickoni/test/integration/test_process_cpu_placement.zig",
             "src/tickoni/test/integration/test_process_fixture_parity.zig",
             "src/tickoni/test/integration/test_link_bounds.zig",
+            "src/tickoni/test/integration/test_minimal_2tile.zig",
         };
 
         for (infra_proc_files) |path| {
