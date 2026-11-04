@@ -28,6 +28,7 @@
 #if FD_HAS_LINUX || FD_HAS_MACOS
 #include <unistd.h>
 #endif
+#include <stdio.h>
 
 /* fd_topo_run_tile_t's callbacks have a fixed C signature
    (fd_topo_t*, fd_topo_tile_t*) with no room for Zig closure state.
@@ -49,6 +50,7 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
    Linux or macOS: tk_metric_tile.c depends on symbols from fd_metric_tile.c. */
 #if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
 #include "../topo_run/tk_metric_tile.h"
+#include "../topo_run/tk_audit_stem.h"
 #endif
 
 /* Check if this tile should use the metric run tile. Compares tile name
@@ -63,6 +65,25 @@ tile_is_metric( fd_topo_tile_t * tile ) {
   }
   int result = strcmp( tile->name, "metric" ) == 0;
   FD_LOG_NOTICE(( "tile_run: tile_is_metric EXIT tile->name=%s returning %d", tile->name, result ));
+  return result;
+}
+
+/* Check if this tile should use the audit stem run tile. Compares tile name
+   against "tkaudt" (the name field in the topology that maps to the
+   audit stem tile). */
+static int
+tile_is_audit( fd_topo_tile_t * tile ) {
+  write( 2, "[tile-run] tile_is_audit ENTER tile=%p\n", 34 );
+  FD_LOG_NOTICE(( "tile_run: tile_is_audit ENTER tile=%p", (void*)tile ));
+  if( !tile ) {
+    write( 2, "[tile-run] tile_is_audit: tile is NULL\n", 39 );
+    FD_LOG_NOTICE(( "tile_run: tile_is_audit EXIT tile=NULL returning 0" ));
+    return 0;
+  }
+  write( 2, "[tile-run] tile_is_audit: tile->name=%s\n", 38 );
+  int result = strcmp( tile->name, "tkaudt" ) == 0;
+  FD_LOG_NOTICE(( "tile_run: tile_is_audit EXIT tile->name=%s returning %d", tile->name, result ));
+  write( 2, "[tile-run] tile_is_audit EXIT\n", 30 );
   return result;
 }
 
@@ -119,14 +140,26 @@ tk_topo_run_tile_simple_uses_upstream( void ) {
 
 void
 tk_topo_run_tile_simple( void * topo, void * tile ) {
+  /* Direct stdout output for debugging (independent of FD_LOG file setup) */
+  write( 2, "[tile-run] tk_topo_run_tile_simple ENTER\n", 41 );
   FD_LOG_NOTICE(( "tile_run: tk_topo_run_tile_simple ENTER topo=%p tile=%p", topo, tile ));
   fd_topo_tile_t * tile_c = (fd_topo_tile_t *)tile;
   fd_topo_run_tile_t * run_tile;
 
-  /* Dispatch to TK_METRIC_RUN for metric tile — it uses fd_stem +
-     fd_http_server instead of Zig callbacks. */
+  write( 2, "[tile-run] checking tile_is_audit\n", 35 );
+  /* DEBUG: print tile address and name before audit check */
+  {
+    char dbg_buf[256]; int dbg_off = snprintf(dbg_buf, sizeof(dbg_buf),
+      "[tile-run] tile_ptr=%p tile->name=%p tile->name_val=%s\n",
+      (void*)tile_c, (void*)tile_c->name, tile_c->name);
+    write( 2, dbg_buf, dbg_off );
+  }
 #if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
-  if( tile_is_metric( tile_c ) ) {
+  if( tile_is_audit( tile_c ) ) {
+    FD_LOG_NOTICE(( "tile_run: dispatching TK_AUDIT_RUN for audit tile" ));
+    write( 2, "[tile-run] dispatching TK_AUDIT_RUN\n", 37 );
+    run_tile = &TK_AUDIT_RUN;
+  } else if( tile_is_metric( tile_c ) ) {
     FD_LOG_NOTICE(( "tile_run: dispatching TK_METRIC_RUN for metric tile" ));
     run_tile = &TK_METRIC_RUN;
   } else {
@@ -134,18 +167,31 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
     run_tile = &TK_TILE_RUN;
   }
 #else
+  (void)tile_is_audit;
   (void)tile_is_metric;
   run_tile = &TK_TILE_RUN;
 #endif
 
   FD_LOG_NOTICE(( "tile_run: calling fd_topo_run_tile, run_tile=%p run_tile->name=%s", (void*)run_tile, run_tile ? run_tile->name : "NULL" ));
+  write( 2, "[tile-run] about to call fd_topo_run_tile\n", 43 );
+
+  /* Debug: print tile link IDs before fd_topo_run_tile */
+  char dbg_buf[256];
+  int dbg_off = snprintf(dbg_buf, sizeof(dbg_buf),
+    "[tile-run] tile->in_cnt=%lu in_link_id[0]=%lu link_cnt=%lu metrics=%p\n",
+    tile_c->in_cnt,
+    tile_c->in_link_id[0],
+    ((fd_topo_t const *)topo)->link_cnt,
+    (void*)tile_c->metrics);
+  write( 2, dbg_buf, dbg_off );
 #if FD_HAS_LINUX
   fd_topo_run_tile( (fd_topo_t *)topo, (fd_topo_tile_t *)tile,
                     TK_PROCESS_MODE_SANDBOX_NONE, TK_KEEP_CONTROLLING_TERMINAL,
                     FD_TOPO_CORE_DUMP_LEVEL_REGULAR,
                     (uint)getuid(), (uint)getgid(), /* allow_fd */ -1,
                     run_tile );
-  FD_LOG_NOTICE(( "tile_run: fd_topo_run_tile returned (should not return for metric tile)" ));
+  write( 2, "[tile-run] fd_topo_run_tile returned\n", 37 );
+  FD_LOG_NOTICE(( "tile_run: fd_topo_run_tile returned (run_tile->name=%s, tile_name=%s)", run_tile ? run_tile->name : "NULL", tile_c->name ));
 #elif FD_HAS_MACOS
   tk_topo_run_tile( topo, tile,
                     TK_PROCESS_MODE_SANDBOX_NONE, TK_KEEP_CONTROLLING_TERMINAL,
