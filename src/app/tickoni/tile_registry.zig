@@ -117,11 +117,14 @@ fn loadProcessConfig(io: std.Io, spec: *const rt.launch_spec.LaunchSpec) !tiles.
 
 fn tkingsProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
     _ = allocator;
+    std.debug.print("[tkings] joining output link...\n", .{});
     if (spec.out_cnt != 1) return error.MissingOutputLink;
     var output = try rt.link.Producer.join(wksp, spec.outLinks()[0]);
     defer output.leave();
     const cfg = try loadProcessConfig(io, spec);
+    std.debug.print("[tkings] producing events (event_count={d})...\n", .{cfg.pipeline.event_count});
     tiles.process.runIngestProcess(cfg, spec.tile_idx, &output, cnc);
+    std.debug.print("[tkings] done producing\n", .{});
 }
 
 fn tkrnormProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
