@@ -99,8 +99,9 @@ stack of conventions and guardrails:
    tiles: loop-top shutdown check, periodic housekeeping, credit/backpressure
    handling, input polling, fragment processing, output publication, and
    heartbeat/metric visibility.
-5. The supervisor path owns process/thread launch, child tracking, crash
-   visibility, and crash-only shutdown behavior.
+5. Tickoni's supervisor owns OS-process launch, child tracking, crash visibility,
+   and crash-only shutdown behavior. Firedancer's optional single-process
+   pthread launcher is not used by the Linux full runtime.
 
 The Firedancer shape to preserve is the semantics of that lifecycle:
 
@@ -119,6 +120,47 @@ tile selected from topology
 The Linux full-runtime adapter must preserve the ordering, guard intent, and
 failure behavior of these steps unless an explicit Tickoni substitute is
 documented and tested.
+
+### Process-Per-Tile Launch And Boot
+
+Tickoni's Linux topology is process-per-tile:
+
+```text
+supervisor
+  -> bootLite(): version + logging + shared memory; supervisor is not a tile
+  -> std.process.spawn(): one child process per topology tile
+       -> full fd_boot(): initialize child tile-local Firedancer state
+       -> fd_topo_run_tile(): run lifecycle in that already-spawned child
+```
+
+Full `fd_boot()` in a child does not mean that Tickoni launches tiles as
+threads. The child command line does not provide `--tile-cpus`; Firedancer
+therefore configures a one-tile group, treats the calling thread as tile 0, and
+creates no additional pthread. Tickoni does not call
+`fd_topo_run_single_process()`, which is the separate Firedancer path that
+creates tile pthreads.
+
+`FD_HAS_THREADS` is likewise a compile-time capability switch, not a launch-mode
+selector. It changes facilities such as `FD_TL` to thread-local storage. Linux
+Tickoni shims omit it because their runtime contract is one execution thread in
+each tile process. They retain `FD_HAS_ATOMIC=1` for atomic communication across
+process-shared workspace memory.
+
+### Stem Specialization Ownership
+
+`fd_stem.c` is a macro-generated template, not one generic exported run loop.
+Each inclusion fixes the context type, alignment, callbacks, burst, lazy
+interval, and shutdown rule at compile time. A tile must therefore enter only
+its own specialization:
+
+- `tkaudt` generates and calls its private `tkaudt_run` specialization.
+- `metric` delegates through `fd_tile_metric.run`, which enters the metric
+  specialization generated with `fd_metric_ctx_t` and metric callbacks.
+
+Calling a stem runner generated for another tile can reinterpret scratch memory
+under the wrong context type and crash after `fd_topo_run_tile()` initialization.
+This specialization mismatch, not the absence of `FD_HAS_THREADS`, caused the
+`tkaudt`/`metric` runtime failure covered by `test-integration-tk-infra`.
 
 ## Non-Blocking I/O Discipline
 
@@ -185,16 +227,18 @@ between iterations.
 ### Tickoni Application
 
 Tickoni Phase 0 tiles (`tkings`, `tknorm`, `tkdedu`, `tkpoly`, `tkaudt`,
-`tkmetr`, `tkdiag`) already follow this pattern: they process bounded event
-counts, have no network/file I/O in the hot path, and use `fd_topo_run_tile`
-or equivalent harness loops that interleave heartbeat with work.
+`metric`, `tkdiag`) run in distinct child processes. Each child enters
+`fd_topo_run_tile`; ordinary pipeline tiles use Tickoni-owned callbacks, while
+`tkaudt` and `metric` enter their own tile-specific stem specializations. All
+paths must interleave heartbeat or CNC health, work, and HALT observation.
 
 **Timing note — metric tile bootstrap:** The metric tile has a longer bootstrap
-window than pipeline tiles because its CNC app-region is only populated after
-the tile joins its workspace, enters `stem_run → before_credit → listen()`,
-runs `unprivileged_init()`, and starts the HTTP server. Pipeline tile CNC
-counters are valid as soon as processing starts; metric tile CNC counters
-(boot timestamp, snapshot count) need the bootstrap window. See
+window than pipeline tiles. Its privileged initialization creates HTTP server
+state; `fd_topo_run_tile` then fills links, registers metrics, and calls
+`unprivileged_init`, which publishes `boot_ts` to the CNC app region. Only then
+does `fd_tile_metric.run` enter the metric stem and poll `fd_http_server` through
+`before_credit`. The CNC timestamp may therefore be visible before the HTTP
+endpoint completes its first poll/listen cycle. See
 [workspace-management.md](workspace-management.md#tile-boot-timing-pipeline-tiles-vs-metric-tile)
 for the practical implications in tests and diagnostics.
 
@@ -202,8 +246,8 @@ Future tiles (`tkcase`, `tkrepl`, `tkmodl`, `tktool`, `tkadpt`, `tkapi`) must
 adhere to the same discipline:
 
 - **Model access (`tkmodl`):** Use bounded polling on shared memory or a
-  non-blocking queue from the LLM server proxy. Never have the model thread
-  block waiting for a response. Responses arrive via shared memory or a
+  non-blocking queue from the LLM server proxy. Never have the model gateway
+  process block waiting for a response. Responses arrive via shared memory or a
   pre-allocated ring buffer.
 - **Adapter access (`tktool`, `tkadpt`):** Read and write through bounded
   shared-memory queues or a proxy tile that does the I/O and publishes
@@ -224,9 +268,9 @@ cost is one core per idle tile — acceptable because a validator node has
 many cores and each tile is latency-critical on its own pinned core.
 
 Tickoni runs on targeted consumer hardware with limited cores. We cannot
-guarantee tile-to-core exclusivity: multiple tiles share cores as threads.
-If each tile spins for the full poll budget when genuinely idle, `N` idle
-links burn `N` entire cores even though no work is being done.
+guarantee tile-to-core exclusivity: multiple tile processes may share a core.
+If each tile process spins for the full poll budget when genuinely idle, `N`
+idle links can still burn `N` cores even though no work is being done.
 
 The link primitives (`consumer.zig`, `producer.zig`) use a **hybrid pattern**:
 
@@ -252,10 +296,13 @@ conscious architectural relaxation, not an oversight: it is documented in
 
 ### Anti-Patterns (What to Avoid)
 
-- `sleep()`, `nanosleep()`, `usleep()` — OS-level sleep, blocks the entire
-  tile thread and prevents shutdown/heartbeat from interleaving.
-- `pthread_cond_wait()` or `futex()` — blocks the tile thread. The stem loop
-  cannot observe shutdown or health changes while the thread is waiting.
+- Unbounded or long `sleep()`/`nanosleep()`/`usleep()` calls — they block the
+  tile process's only execution context and prevent shutdown/heartbeat from
+  interleaving. The explicitly bounded idle sleep described above is allowed
+  because every iteration rechecks CNC HALT and health.
+- `pthread_cond_wait()` or an unbounded `futex()` wait — blocks that execution
+  context. The stem loop cannot observe shutdown or health changes while it is
+  waiting.
 - `read()` on a blocking socket or pipe — blocks on EOF or no-data. Use
   `FD_MCACHE_WAIT` on a shared-memory ring buffer instead.
 - Synchronous file I/O in the hot path — disk latency varies wildly and can
@@ -293,11 +340,14 @@ Tickoni boundary allows:
 - link filling for `mcache`, `dcache`, `fseq`, and related state
 - sandbox entry and allowed-fd/seccomp discipline where supported
 - metrics registration or equivalent per-tile health visibility
-- process launch semantics where the selected Linux mode uses them
+- one supervisor-spawned OS process per tile; Firedancer lifecycle execution
+  begins only after the child already exists
 - crash and shutdown semantics
-- stem-loop guard patterns for shutdown, housekeeping, credit, and heartbeat
-- per-tile CPU placement via `fd_topo_cpus_init()` +
-  `fd_topob_auto_layout_cpus()` with Tickoni name arrays in priority slots
+- tile-specific stem-loop guard patterns for shutdown, housekeeping, credit,
+  and heartbeat
+- Tickoni-owned process placement validation and `cpu_idx` topology metadata via
+  `tk_topob_auto_layout()`; actual child-process affinity, when enabled, must be
+  applied explicitly rather than inherited from Firedancer's pthread launcher
 
 The adapter should follow Firedancer harness hooks, guards, ordering, and
 failure semantics. If Tickoni replaces one of those pieces, the replacement
@@ -333,46 +383,32 @@ pattern is:
 6. **Validate:** `fd_topob_finish(topo)` runs structural validation (free check,
    link connectivity, workspace coverage) — pure generic, no Solana dependency.
 
-7. **CPU placement:** `fd_topo_cpus_init()` → `fd_topob_auto_layout_cpus()`
-   assigns each tile to a CPU core using priority phase arrays. The 4 arrays
-   (`CRITICAL_TILES[]`, `ALWAYS[]`, `STARTUP[]`, `FLOATING[]`) are the only
-   Solana-specific part — they contain hardcoded tile name strings matched
-   against `fd_topo_tile_t.name` via `strcmp`. Tickoni replaces these arrays
-   with Tickoni tile names:
+7. **Record CPU placement metadata:** `topo_build.zig` derives a `cpu_idx_arr`
+   from each Tickoni `CpuPlacement` and passes it to
+   `tk_topob_auto_layout(topo, cpu_idx_arr)`. The shim copies those values into
+   `topo->tiles[]` before `fd_topob_finish()`:
 
    ```c
-   // Patched in fd_topob.c — CRITICAL (no HT sharing)
-   static char const * CRITICAL_TILES[] = {
-     "pack", "poh", "pohh", "gui", "guih",
-     "tkings", "tknorm",
-     NULL
-   };
-
-   // Patched — ALWAYS (continuous pipeline)
-   static char const * ALWAYS[] = {
-     "backt", "benchg", "net", "sock", "quic", "bundle",
-     "verify", "dedup", "pack", "sign", "shred", "pktgen",
-     "tkdedu", "tkpoly", "tkaudt",
-     NULL
-   };
-
-   // Patched — FLOATING (monitoring, kernel-scheduled)
-   static char const * FLOATING[] = {
-     "netlnk", "metric", "diag", "bencho",
-     "tkmetr", "tkdiag", "tkdisp",
-     NULL
-   };
+   void
+   tk_topob_auto_layout( void * topo, ulong const * cpu_idx_arr ) {
+     fd_topo_t * t = (fd_topo_t *)topo;
+     for( ulong i=0UL; i<t->tile_cnt; i++ )
+       t->tiles[ i ].cpu_idx = cpu_idx_arr[ i ];
+   }
    ```
 
-   The algorithm (`fd_topo_cpus_init` → `auto_tile_cpu` → `auto_layout_cpus`)
-   is fully generic: NUMA-aware core scanning, hyperthread-pair exclusion for
-   latency-sensitive tiles, 4-phase priority ordering, and "floating" fallback
-   for unmatched tiles (logged as warning, left to kernel scheduler). Only the
-   name strings change.
+   Tickoni does not append its tile names to Firedancer's validator priority
+   arrays. The supervisor validates placement against the live host affinity
+   mask, while this adapter records the resulting topology metadata. The direct
+   per-process `fd_topo_run_tile()` path does not call Firedancer's
+   `run_tile_thread()` affinity setup, so `cpu_idx` alone is not proof that a
+   child process was pinned.
 
-8. **Launch:** Pass `topo` and `topo->tiles[]` to `fd_topo_run_tile()` — the
-   harness joins workspaces, fills link pointers, enters sandbox, runs the tile,
-   and checks shutdown state.
+8. **Run inside the child:** The Tickoni supervisor first spawns one OS process
+   for the tile. That child passes `topo` and its selected `topo->tiles[]` entry
+   to `fd_topo_run_tile()`. The harness joins workspaces, fills link pointers,
+   enters the sandbox, registers metrics, and invokes the tile callbacks on the
+   child's calling thread. It does not spawn another tile thread.
 
 **Why `0` for Solana flags is safe:** `fd_topob_new()` does `memset(topo, 0)`,
 so all Solana union fields in `fd_topo_t` are already zero. The launch path
@@ -435,9 +471,11 @@ already calls an identically-named wrapper at the identically-positioned
 harness step. The shim absorbs the implementation difference; the harness does
 not need to change.
 
-**What changes in upstream `fd_topob.c`:** Only the 4 name arrays get Tickoni
-tile names appended. No logic changes, no new functions, no struct modifications.
-The file set is tracked by `engine-check-changes` to catch any upstream drift.
+**What changes upstream:** Nothing for Tickoni placement. The Tickoni-owned
+`tk_topob_auto_layout()` shim consumes the harness-provided placement array and
+writes `tile->cpu_idx` without modifying Firedancer's validator priority lists.
+The relevant upstream topology files remain covered by `engine-check-changes`
+for drift detection.
 
 ### C ABI Substrate
 
@@ -465,43 +503,41 @@ this with `tile_process.zig` through the c_abi bridge:
 
 ```text
 ┌─────────────────────────────────────────────────┐
-│  Tickoni tile_process.zig (our harness)         │
-│  - self-exec supervisor                         │
-│  - join wksp → privileged_init → sandbox        │
-│  - join mcache/dcache/cnc/fseq/fctl/tempo       │
-│  - unprivileged_init → work loop                │
-│  - heartbeat/halt loop                          │
+│  Tickoni supervisor.zig                         │
+│  - bootLite: version + log + shared memory      │
+│  - spawn and track one child process per tile   │
+└─────────────────────────────────────────────────┘
+                          │ self-exec launch spec
+┌─────────────────────────────────────────────────┐
+│  Tickoni tile_process.zig / tile_main.zig       │
+│  - rebuild matching topology                    │
+│  - full fd_boot: caller becomes tile 0          │
+│  - call fd_topo_run_tile through c_abi          │
+│  - no additional tile pthread                   │
 └─────────────────────────────────────────────────┘
                           │ calls through c_abi bridge
 ┌─────────────────────────────────────────────────┐
 │  c_abi bridge (src/tickoni/c_abi/)              │
-│  - wksp.zig    + shim/wksp.c      → fd_wksp_*  │
-│  - dcache.zig  + shim/tango.c     → fd_dcache_*│
-│  - fseq.zig    + shim/tango.c     → fd_fseq_*  │
-│  - fctl.zig    + shim/tango.c     → fd_fctl_*  │
-│  - tempo.zig   + shim/util.c      → fd_tempo_* │
-│  - cnc.zig     + shim/tango.c     → fd_cnc_*   │
-│  - queue.zig                                         │
-│  - boot.zig      + shim/ballet.c  → fd_boot/     │
-│  - sandbox.zig   + shim/sandbox.c → fd_sandbox   │
-│  - topo_run.zig  (fd_topo_run_tile)                │
-│  - topob.zig     (fd_topob_* topology builder)    │
-│                                                 │
-│  NEW additions needed:                          │
-│  - metrics.zig + shim/tango.c → fd_metrics_*    │
+│  - boot.zig      + shim/util.c       → fd_boot  │
+│  - wksp.zig      + shim/wksp.c       → fd_wksp_*│
+│  - topo_run.zig  + shim/topo_run.c   → lifecycle│
+│  - topob.zig     + shim/topob.c      → topology │
+│  - tango wrappers                       → IPC    │
+│  - tile-specific audit/metric shims     → stem  │
 └─────────────────────────────────────────────────┘
                           │ links against
 ┌─────────────────────────────────────────────────┐
-│  Firedancer infrastructure (unchanged)          │
+│  Firedancer infrastructure                      │
+│  src/disco/{topo,stem,metrics}                  │
 │  src/tango/{mcache,dcache,fseq,cnc,fctl,tempo}  │
 │  src/util/{sandbox,util}                        │
-│  src/disco/metrics                              │
 └─────────────────────────────────────────────────┘
 ```
 
-The diagram shows that Tickoni only needs to add 1 Zig wrapper + shim
-(`metrics`) to cover the full Firedancer substrate used by the harness.
-No structural changes to Firedancer are required.
+The diagram shows the current process boundary: Tickoni owns child-process
+orchestration, while each child reuses the Firedancer lifecycle and selected
+per-tile stem implementations through the C ABI. No thread-per-tile dispatcher
+is inserted between the supervisor and `fd_topo_run_tile()`.
 
 The c_abi bridge also includes `topo_build.zig` and `topology_spec.zig`,
 which are not adapter modules themselves but core orchestration components:
@@ -525,15 +561,16 @@ which are not adapter modules themselves but core orchestration components:
   and fail-closed on truncation. Parent writes once; each child reads,
   rebuilds an identical `fd_topo_t`, and finds its own tile index in it.
 
-|- **`cpu_placement.zig`** (`src/tickoni/runtime/cpu_placement.zig`): implements
+- **`cpu_placement.zig`** (`src/tickoni/runtime/cpu_placement.zig`): implements
   the Tickoni CPU placement model with `CpuPlacement` enum variants
-  `exclusive`, `shared`, and `floating`, plus `validateStatic()` that enforces
+  `exclusive`, `shared`, and `floating`, plus validation that enforces
   exclusive collision detection and shared/exclusive co-existence rules.
-  CPU affinity is a Firedancer-thread-model optimization with zero benefit in
-  Tickoni's process-model — the IPC boundary already breaks the cache-locality
-  chain that makes pinning valuable. See [platform-tiers.md](platform-tiers.md)
-  for the full reasoning. The supervisor does not call `sched_setaffinity`,
-  `SetThreadAffinityMask`, or any affinity API.
+  Placement is process scheduling policy, not evidence of a thread-mode
+  topology. The current supervisor validates and serializes placement, but the
+  direct child call to `fd_topo_run_tile()` does not use Firedancer's
+  `run_tile_thread()` affinity path. Any process pinning must therefore be
+  applied explicitly to the child process and verified independently; it must
+  not be inferred from `tile->cpu_idx`.
 
 #### 11-Item Reuse Categorization (from audit 8.md)
 
@@ -541,10 +578,9 @@ Firedancer infrastructure decomposes into 11 reuse categories. The first 4
 require only `tk_*` shims (already covered or trivial). The remaining 7
 require deliberate Tickoni implementation or are explicitly not reused:
 
-1. **`fd_topo_run_tile` harness** — reuse the Firedancer lifecycle (harness)
-   by wiring a minimal `fd_topo_run_tile_t` through the adapter. The `tile_process.zig`
-   path is equivalent and may be used instead when harness reuse proves too
-   expensive.
+1. **`fd_topo_run_tile` harness** — directly reused. `tile_process.zig` and
+   the dedicated stem-tile path rebuild the topology, select one tile, and call
+   the harness inside the supervisor-spawned child process.
 
 2. **Topology arrays** — `fd_topo_tile_t[32]`, `fd_topo_link_t[256]`,
    `fd_topo_wksp_t[4]` — the array-based topology is a direct match for Tickoni's
@@ -580,14 +616,16 @@ require deliberate Tickoni implementation or are explicitly not reused:
 7. **Shutdown semantics** — `cnc` shutdown flag checked inside tile work loop,
    not only outside — preserved in Tickoni.
 
-8. **Crash-only lifecycle** — crash teardown follows Firedancer semantics via
-   `fd_stem` teardown, but Tickoni implements this in `tile_process.zig`, not
-   through `fd_stem`. The crash teardown pattern is preserved.
+8. **Crash-only lifecycle** — the generic pipeline path preserves the
+   lifecycle through Tickoni callbacks invoked by `fd_topo_run_tile`. Stem tiles
+   preserve it through their own stem specialization and CNC HALT rule.
 
-9. **Stem loop (multi-input multiplexer)** — **NOT REUSED.** `fd_stem.c` is a
-   multi-input callback multiplexer with credit/burst accounting tied to Solana
-   validator tile semantics. Tickoni implements its own single-input bounded
-   polling per tile.
+9. **Stem loop (multi-input multiplexer)** — selectively reused. Tickoni does
+   not use one generic stem runner for every tile. `tkaudt` compiles a private
+   `tkaudt_run`; `metric` enters the specialization owned by
+   `fd_tile_metric.run`. Ordinary process tiles may continue to use
+   Tickoni-owned bounded loops. A specialization generated for one context must
+   never be called for another tile.
 
 10. **Supervisor (fork+exec + wait4)** — **NOT REUSED.** `run.c`/`run1.c` manage
     PID namespaces, seccomp, and process lifecycle. Tickoni's `supervisor.zig`
@@ -634,14 +672,15 @@ The following concrete findings were verified during audit S8:
 - **fd_topob_tile_in()/fd_topob_tile_out()** — generic link wiring. **No Solana.**
 - **fd_topob_finish()** — structural validation (workspace uniqueness, link
   reachability, no duplicates, no self-loops). **No Solana.**
-- **fd_topob_auto_layout()** — hardcodes Solana tile name arrays (`FLOATING[]`,
-  `STARTUP[]`, `ALWAYS[]`, `CRITICAL_TILES[]`). **Solana names only.** The
-  algorithm (NUMA scanning, HT-pair exclusion, 4-phase priority ordering) is
-  generic and should be reused with Tickoni tile groups.
+- **fd_topob_auto_layout()** — hardcodes validator tile name arrays. Tickoni
+  does not call this policy function or add Tickoni names to those arrays; its
+  `tk_topob_auto_layout()` wrapper copies explicit Tickoni placement metadata
+  into the topology.
 
-**Verdict:** Use fd_topob.c with 3 params set to 0, 2 functions reimplemented
-with Tickoni names. Extract and reuse the CPU placement algorithm as-is. No
-Solana semantics leak into Tickoni product code.
+**Verdict:** Use the generic `fd_topob.c` construction and validation functions
+with the three optional flags set to zero. Keep Tickoni placement policy in the
+Tickoni-owned wrapper and supervisor, without importing validator tile names or
+Firedancer's pthread-launch affinity path.
 
 #### Structural Resolutions (from v2.14.s8-wip.md)
 
@@ -653,12 +692,12 @@ been resolved:
    investigation, and engine drift guard. Resolved by splitting: S8 handles the
    core tasks, T11 handles tempo/fctl shims.
 
-2. **tile_process.zig stays as product code:** The tension was whether to replace
-   tile_process.zig's hand-rolled loop with fd_topo_run_tile. Resolution: keep
-   tile_process.zig as the product-level self-exec boot/heartbeat/halt loop.
-   The adapter layer (in the Linux full-runtime adapter) may optionally call
-   fd_topo_run_tile, but tile_process.zig itself remains a product tile
-   lifecycle implementation, not the adapter.
+2. **tile_process.zig stays as product code:** The original resolution kept
+   `tile_process.zig` as the product-level self-exec boot/heartbeat/halt entry.
+   The current implementation preserves that ownership while delegating the
+   lifecycle sequence to `fd_topo_run_tile` through the adapter. Generic tiles
+   supply Tickoni callbacks; dedicated stem tiles enter their own specialization.
+   `tile_process.zig` is therefore not a second parallel harness.
 
 3. **tempo/fctl shims explicitly scoped:** Audit 8's plan requires them for
    proper stuck-tile defense. Resolved as V2.14.S8.T11.
