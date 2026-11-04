@@ -54,6 +54,9 @@ pub fn main(init: std.process.Init) !void {
     log.enter("main", "init");
     defer log.exit("main", "init");
 
+    // Ignore SIGPIPE early, before any workspace or tile operations.
+    ignoreSigPipe(init);
+
     if (verbose) log.debug("main", "main", "verbose mode enabled");
 
     // First arg is the command
@@ -90,6 +93,14 @@ pub fn main(init: std.process.Init) !void {
     if (std.mem.eql(u8, cmd, "__tile-run")) {
         const spec_path = if (arg_count > 1) args[1] else std.process.exit(1);
         std.process.exit(tile_main.run(init.io, init.gpa, spec_path));
+    }
+
+    // Internal supervisor-to-child handoff for stem tiles (tkaudt):
+    // minimal boot + topology rebuild without Zig callbacks; dispatches
+    // to the tile's own fd_stem-based run loop.
+    if (std.mem.eql(u8, cmd, "__stem-run")) {
+        const spec_path = if (arg_count > 1) args[1] else std.process.exit(1);
+        std.process.exit(tile_main.stemRun(init.io, init.gpa, spec_path));
     }
 
     if (std.mem.eql(u8, cmd, "start-process")) {
@@ -148,6 +159,25 @@ fn cmdDoctor(init: std.process.Init, format: doctor_output.Format) !void {
 /// v2.14.S1: run the payment pipeline as one OS process per tile connected
 /// by Tango shared memory instead of in-process threads. run_dir holds the
 /// per-tile launch specs and the FD_SHMEM_PATH workspace backing.
+const CSigaction = extern struct {
+    sa_handler: usize,
+    sa_mask: [8]usize,
+    sa_flags: c_int,
+    sa_restorer: ?*anyopaque,
+};
+extern "c" fn sigaction(sig: c_int, act: ?*const CSigaction, oact: ?*CSigaction) c_int;
+
+fn ignoreSigPipe(init: std.process.Init) void {
+    var act: CSigaction = .{ .sa_handler = 0, .sa_mask = undefined, .sa_flags = 0, .sa_restorer = null };
+    act.sa_handler = 1; // SIG_IGN
+    const rc = sigaction(13, &act, null);
+    if (rc != 0) {
+        var buf: [64]u8 = undefined;
+        const msg = std.fmt.bufPrint(&buf, "SIGPIPE: sigaction failed rc={d}\n", .{rc}) catch "";
+        _ = File.writeStreamingAll(File.stderr(), init.io, msg) catch {};
+    }
+}
+
 fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: []const u8, verbose: bool) !void {
     const log = logger.get();
     log.enter("cmdStartProcess", "init");
