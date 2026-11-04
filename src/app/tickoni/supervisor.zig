@@ -30,7 +30,7 @@ pub const ProcessPipelineConfig = struct {
     /// Test-only hook (v2.14.S1.T12 crash isolation): tile i self-exits(1)
     /// after this many heartbeats instead of waiting for a halt signal.
     /// 0 means run normally. Indexed by tile_idx.
-    crash_after_heartbeats: [8]u32 = std.mem.zeroes([8]u32),
+    crash_after_heartbeats: []const u32 = &.{},
     /// Test-only hook (v2.14.S8.T6 stale-heartbeat proof): the selected
     /// tile blocks forever after stuck_after_messages loop iterations.
     stuck_tile_idx: ?u32 = null,
@@ -131,10 +131,10 @@ const ProcessState = struct {
     built_topo: rt.topo_build.BuiltTopo,
     workspace_name: []u8,
     run_dir: []u8,
-    cnc_gaddrs: [8]usize,
+    cnc_gaddrs: []usize,
     /// Parent-side cnc joins, used to send the halt signal during stop.
-    cncs: [8]?*c_abi.cnc.Cnc,
-    children: [8]ChildRecord,
+    cncs: []?*c_abi.cnc.Cnc,
+    children: []ChildRecord,
     heartbeat_stale_after_ms: u32,
     /// Grace period between requesting HALT and force-terminating tiles already
     /// classified stale. Lets slow but healthy children observe HALT and exit
@@ -147,6 +147,9 @@ const ProcessState = struct {
     /// (FileNotFound, unexpected non-zero exit, or signal). Prevents
     /// deinit() from crashing on stale shared memory.
     has_child_crashed: bool = false,
+    /// Reusable suppress_cnc buffer for refreshProcessHealth/snapshotProcessMetrics.
+    /// Sized to tile count at start; reallocated only if tile count changes.
+    suppress_cnc: []bool = undefined,
 
     /// Tears down resources only. Process ownership must have been resolved
     /// by stopProcess before shared memory can be released.
@@ -155,7 +158,9 @@ const ProcessState = struct {
         // left them unresolved, skip the CNC dereferences that could
         // segfault on torn-down shared memory.
         if (!self.has_child_crashed) {
-            for (self.children) |record| std.debug.assert(record.ownership != .owned);
+            for (self.cncs) |maybe_cnc| {
+                if (maybe_cnc) |cnc| _ = c_abi.cnc.cncLeave(cnc);
+            }
         }
         // When children have already crashed, skip the fragile C-level
         // ops that dereference per-child cnc pointers — those children
@@ -170,8 +175,8 @@ const ProcessState = struct {
         // The supervisor must survive teardown so tests can observe
         // monitor() state after stopProcess completes.
         if (!self.has_child_crashed) {
-            for (&self.cncs) |*maybe_cnc| {
-                if (maybe_cnc.*) |cnc| _ = c_abi.cnc.cncLeave(cnc);
+            for (self.cncs) |maybe_cnc| {
+                if (maybe_cnc) |cnc| _ = c_abi.cnc.cncLeave(cnc);
             }
         }
         if (self.metric_in_wksp) |metric_in_wksp| _ = c_abi.wksp.wkspDetach(metric_in_wksp);
@@ -181,6 +186,10 @@ const ProcessState = struct {
         if (@intFromPtr(self.wksp) > 4096) _ = c_abi.wksp.wkspDetach(self.wksp);
         c_abi.boot.halt();
         self.built_topo.deinit(allocator);
+        allocator.free(self.cnc_gaddrs);
+        allocator.free(self.cncs);
+        allocator.free(self.children);
+        allocator.free(self.suppress_cnc);
         if (self.workspace_name.len > 0) allocator.free(self.workspace_name);
         if (self.run_dir.len > 0) allocator.free(self.run_dir);
     }
@@ -245,6 +254,25 @@ pub const Supervisor = struct {
         defer log.exit("supervisor", "init");
         try topo.validate();
         try tile_registry.validate(topo);
+        const handles = try allocator.alloc(TileHandle, topo.tiles.len);
+        for (handles, 0..) |*h, i| h.* = TileHandle.init(@intCast(i));
+        return .{
+            .allocator = allocator,
+            .tile_count = topo.tiles.len,
+            .handles = handles,
+            .topo = topo,
+        };
+    }
+
+    /// Test-only init for partial topologies (subset of registered tiles).
+    /// Skips tile_registry.validate() but still runs topo.validate()'s
+    /// structural checks. Used by isolation tests that run fewer tiles
+    /// than the full 8-tile registry.
+    pub fn initForTest(allocator: std.mem.Allocator, topo: Topology) !Supervisor {
+        const log = logger.get();
+        log.enter("supervisor", "initForTest");
+        defer log.exit("supervisor", "initForTest");
+        try topo.validate();
         const handles = try allocator.alloc(TileHandle, topo.tiles.len);
         for (handles, 0..) |*h, i| h.* = TileHandle.init(@intCast(i));
         return .{
@@ -344,9 +372,9 @@ pub const Supervisor = struct {
         const supervisor_log = std.fmt.bufPrint(&supervisor_log_path, "{s}/logs/supervisor.log", .{config.run_dir}) catch "";
 
         // Supervisor boot: lightweight boot that initializes version,
-        // logging, and shared-memory subsystems without creating tile
-        // threads (fd_tile_private_boot). The supervisor spawns tile
-        // processes that boot their own tile threads independently.
+        // logging, and shared-memory subsystems without initializing this
+        // process as a tile. The supervisor spawns one process per tile;
+        // each child initializes itself as tile 0.
         try rt.boot.bootLite(config.run_dir, supervisor_log);
         var boot_needs_halt = true;
         errdefer if (boot_needs_halt) c_abi.boot.halt();
@@ -530,6 +558,7 @@ pub const Supervisor = struct {
 
         const bytes = try self.allocator.alignedAlloc(u8, .fromByteUnits(@alignOf(ProcessState)), @sizeOf(ProcessState));
         const state: *ProcessState = @ptrCast(@alignCast(bytes));
+        const tile_cnt = self.topo.tiles.len;
         state.* = .{
             .wksp = wksp,
             .metric_wksp = metric_wksp_ptr,
@@ -537,13 +566,18 @@ pub const Supervisor = struct {
             .built_topo = built_topo,
             .workspace_name = try self.allocator.dupe(u8, full_workspace_name),
             .run_dir = try self.allocator.dupe(u8, config.run_dir),
-            .cnc_gaddrs = std.mem.zeroes([8]usize),
-            .cncs = std.mem.zeroes([8]?*c_abi.cnc.Cnc),
-            .children = std.mem.zeroes([8]ChildRecord),
+            .cnc_gaddrs = try self.allocator.alloc(usize, tile_cnt),
+            .cncs = try self.allocator.alloc(?*c_abi.cnc.Cnc, tile_cnt),
+            .children = try self.allocator.alloc(ChildRecord, tile_cnt),
             .heartbeat_stale_after_ms = heartbeat_stale_after_ms,
             .stop_grace_ns = resolvedStopGraceNs(config),
             .placement_report = placement_report,
         };
+        for (state.cnc_gaddrs) |*v| v.* = 0;
+        for (state.cncs) |*v| v.* = null;
+        for (state.children) |*v| v.* = .{.child = null, .ownership = .vacant};
+        state.suppress_cnc = try self.allocator.alloc(bool, tile_cnt);
+        for (state.suppress_cnc) |*v| v.* = false;
         auxiliary_workspaces_owned_by_state = true;
         built_topo_owned_by_state = true;
         self.process_state = state;
@@ -559,19 +593,23 @@ pub const Supervisor = struct {
         // wkspAlloc); how children join them (LaunchSpec's gaddr fields)
         // is unchanged. tile_infos is indexed by Firedancer tile index,
         // so built_topo.cnc_obj_id[i] is correct for every Firedancer i.
-        for (built_topo.tile_infos, 0..) |_, i| {
+        for (state.cnc_gaddrs, 0..) |*gaddr, i| {
             const laddr = c_abi.topob.topoObjLaddr(built_topo.topo, built_topo.cnc_obj_id[i]);
-            state.cnc_gaddrs[i] = c_abi.wksp.wkspGaddr(wksp, laddr);
-            state.cncs[i] = c_abi.cnc.cncJoin(laddr) orelse return error.CncJoinFailed;
+            std.debug.print("[sup-debug] cnc_obj_id[{d}]={x} laddr={x} gaddr={x}\\n", .{ i, built_topo.cnc_obj_id[i], @intFromPtr(laddr), gaddr.* });
+            gaddr.* = c_abi.wksp.wkspGaddr(wksp, laddr);
+        }
+        for (state.cncs, 0..) |*maybe_cnc, i| {
+            const laddr = c_abi.topob.topoObjLaddr(built_topo.topo, built_topo.cnc_obj_id[i]);
+            maybe_cnc.* = c_abi.cnc.cncJoin(laddr) orelse return error.CncJoinFailed;
         }
 
         // Resolve every channel's mcache/dcache/fseq (created above by
         // topoWkspNew's mcache/dcache/fseq .new callbacks) into the same
         // gaddr-based LinkHandles shape rt.link.create used to build by
         // hand.
-        var link_handles_buf: [8]rt.link.LinkHandles = undefined;
-        std.debug.assert(self.topo.channels.len <= link_handles_buf.len);
-        const link_handles = link_handles_buf[0..self.topo.channels.len];
+        const chan_cnt = self.topo.channels.len;
+        const link_handles = try self.allocator.alloc(rt.link.LinkHandles, chan_cnt);
+        defer self.allocator.free(link_handles);
         for (self.topo.channels, 0..) |ch, i| {
             const ids = built_topo.link_obj_id[i];
             link_handles[i] = .{
@@ -616,11 +654,19 @@ pub const Supervisor = struct {
         const topology_spec_path = try std.fmt.allocPrint(self.allocator, "{s}/topology.spec", .{config.run_dir});
         defer self.allocator.free(topology_spec_path);
         var topology_spec = try rt.topology_spec.TopologySpec.fromTopology(self.topo, config.metric_port);
+        std.debug.print("[sup-debug] TOPO_SPEC: sizeof={d} magic={x} version={d} tile_cnt={d} chan_cnt={d}\n", .{
+            @sizeOf(rt.topology_spec.TopologySpec),
+            topology_spec.magic_field,
+            topology_spec.version_field,
+            topology_spec.tile_cnt,
+            topology_spec.channel_cnt,
+        });
         // Override workspace_name with the runtime config value so
         // child tiles look for the readiness marker at the right path
         // (tests set a unique workspace_name like "test0"; the topology
         // source has it hardcoded to "tkpay0").
         topology_spec.workspace_name = try rt.link.WorkspaceName.parse(full_workspace_name);
+        std.debug.print("[sup-debug] AFTER override: magic={x}\n", .{topology_spec.magic_field});
         try topology_spec.writeToFile(io, std.Io.Dir.cwd(), topology_spec_path);
 
         const spawn_log = logger.get();
@@ -641,7 +687,7 @@ pub const Supervisor = struct {
                 .cnc_gaddr = state.cnc_gaddrs[i],
                 .shmem_path = config.run_dir,
                 .heartbeat_interval_ns = config.heartbeat_interval_ns,
-                .crash_after_heartbeats = config.crash_after_heartbeats[i],
+                .crash_after_heartbeats = if (i < config.crash_after_heartbeats.len) config.crash_after_heartbeats[i] else 0,
                 .channels = channels_copy,
                 .link_handles = link_handles,
             });
@@ -670,8 +716,16 @@ pub const Supervisor = struct {
             var argv_buf: [4][]const u8 = undefined;
             var argv_count: usize = 3;
             argv_buf[0] = self_exe_path;
-            argv_buf[1] = "__tile-run";
             argv_buf[2] = spec_path;
+            // Stem tiles (tkaudt) use the dedicated __stem-run path which
+            // skips Zig callbacks and dispatches straight to the tile's
+            // fd_stem-based run loop. All other tiles use __tile-run.
+            const tile_name = tile.name.slice();
+            if (std.mem.eql(u8, tile_name, "tkaudt")) {
+                argv_buf[1] = "__stem-run";
+            } else {
+                argv_buf[1] = "__tile-run";
+            }
             if (config.verbose) {
                 argv_buf[3] = "--verbose";
                 argv_count = 4;
@@ -696,6 +750,10 @@ pub const Supervisor = struct {
             switch (tile.cpu_placement) {
                 .exclusive, .shared, .floating => {},
             }
+        }
+        std.debug.print("[supervisor] spawn loop complete: tile_cnt={d}\n", .{self.topo.tiles.len});
+        for (self.handles, 0..) |h, i| {
+            std.debug.print("[supervisor] tile {d}: pid={any} state={s}\n", .{ i, h.pid, @tagName(h.state) });
         }
     }
 
@@ -811,19 +869,16 @@ pub const Supervisor = struct {
         const now_ns = self.process_operations.now();
         const now_ms = heartbeatNowMs(now_ns) orelse return;
         std.debug.print("[sup-refresh] now_ms={d} stale_ms={d} tile_count={d}\n", .{ now_ms, state.heartbeat_stale_after_ms, state.cncs.len });
-        // Reap any exited children FIRST so we detect crashes before
-        // reading cnc heartbeats.  A crashed tile's cnc is corrupted and
-        // reading it can SIGSEGV/SIGABRT the supervisor; by reaping first
-        // the handle is already marked .crashed and we skip it below.
-        var suppress_cnc: [8]bool = std.mem.zeroes([8]bool);
-        for (&state.children, 0..) |*record, i| {
+        const tile_cnt = state.cncs.len;
+        for (state.suppress_cnc[0..tile_cnt]) |*v| v.* = false;
+        for (state.children[0..], 0..) |*record, i| {
             if (record.ownership != .owned) {
-                suppress_cnc[i] = true;
+                state.suppress_cnc[i] = true;
                 std.debug.print("[sup-refresh] tile {d}: ownership not owned, suppressing cnc\n", .{i});
                 continue;
             }
             const child = &(record.child orelse {
-                suppress_cnc[i] = true;
+                state.suppress_cnc[i] = true;
                 std.debug.print("[sup-refresh] tile {d}: no child ptr, suppressing cnc\n", .{i});
                 continue;
             });
@@ -832,14 +887,14 @@ pub const Supervisor = struct {
             switch (result) {
                 .running => {},
                 .observation => |observation| switch (observation) {
-                    .stopped => suppress_cnc[i] = true,
-                    .exited, .signaled => suppress_cnc[i] = true,
+                    .stopped => state.suppress_cnc[i] = true,
+                    .exited, .signaled => state.suppress_cnc[i] = true,
                 },
-                .no_child, .failed => suppress_cnc[i] = true,
+                .no_child, .failed => state.suppress_cnc[i] = true,
             }
             if (self.handles[i].state == .crashed) {
                 state.has_child_crashed = true;
-                suppress_cnc[i] = true;
+                state.suppress_cnc[i] = true;
                 std.debug.print("[sup-refresh] tile {d}: already crashed, suppressing cnc\n", .{i});
             }
         }
@@ -847,12 +902,12 @@ pub const Supervisor = struct {
         // child has been reaped (crashed or stopped) so we never dereference
         for (state.cncs, 0..) |maybe_cnc, i| {
             const h = &self.handles[i];
-            std.debug.print("[sup-refresh] tile {d}: state={s} suppress={any}\n", .{ i, @tagName(h.state), suppress_cnc[i] });
+            std.debug.print("[sup-refresh] tile {d}: state={s} suppress={any}\n", .{ i, @tagName(h.state), state.suppress_cnc[i] });
             if (h.state != .starting and h.state != .running) {
                 std.debug.print("[sup-refresh] tile {d}: not starting/running, skipping\n", .{i});
                 continue;
             }
-            if (suppress_cnc[i]) {
+            if (state.suppress_cnc[i]) {
                 std.debug.print("[sup-refresh] tile {d}: suppressed, skipping cnc read\n", .{i});
                 continue;
             }
@@ -932,18 +987,22 @@ pub const Supervisor = struct {
 
     pub fn snapshotProcessMetrics(self: *Supervisor) ProcessMetricSnapshot {
         const state = self.process_state orelse return .{};
+        std.debug.print("[snapshot] process_state exists, tile_infos.len={d}\n", .{state.built_topo.tile_infos.len});
         var snap = ProcessMetricSnapshot{};
         // Build a suppression mask from live children / non-crashed handles.
         // A crashed child's CNC is corrupted and reading it SIGABRTs the
         // supervisor — the same guard used in refreshProcessHealth.
-        var suppress_cnc: [8]bool = std.mem.zeroes([8]bool);
-        for (&state.children, 0..) |*record, i| {
+        const tile_cnt = state.cncs.len;
+        for (state.suppress_cnc[0..tile_cnt]) |*v| v.* = false;
+        for (state.children[0..], 0..) |*record, i| {
             if (record.ownership != .owned) {
-                suppress_cnc[i] = true;
+                state.suppress_cnc[i] = true;
+                std.debug.print("[snapshot] tile {d}: ownership not owned, suppress\n", .{i});
                 continue;
             }
             const child = &(record.child orelse {
-                suppress_cnc[i] = true;
+                state.suppress_cnc[i] = true;
+                std.debug.print("[snapshot] tile {d}: no child ptr, suppress\n", .{i});
                 continue;
             });
             const result = self.process_operations.poll(child);
@@ -951,17 +1010,24 @@ pub const Supervisor = struct {
             switch (result) {
                 .running => {},
                 .observation => |obs| switch (obs) {
-                    .stopped => suppress_cnc[i] = true,
-                    .exited, .signaled => suppress_cnc[i] = true,
+                    .stopped => state.suppress_cnc[i] = true,
+                    .exited, .signaled => state.suppress_cnc[i] = true,
                 },
-                .no_child, .failed => suppress_cnc[i] = true,
+                .no_child, .failed => state.suppress_cnc[i] = true,
             }
-            if (self.handles[i].state == .crashed) suppress_cnc[i] = true;
+            if (self.handles[i].state == .crashed) state.suppress_cnc[i] = true;
         }
         for (state.built_topo.tile_infos, 0..) |info, i| {
-            if (suppress_cnc[i]) continue;
-            const cnc = state.cncs[i] orelse continue;
-            std.debug.print("[sup-snap] tile={s} firedancer_idx={d} cnc={x}\n", .{ info.tile_id.slice(), i, @intFromPtr(cnc) });
+            if (state.suppress_cnc[i]) {
+                std.debug.print("[snapshot] tile {s}({d}): suppressed\n", .{ info.tile_id.slice(), i });
+                continue;
+            }
+            std.debug.print("[snapshot] tile {s}({d}): reading cnc\n", .{ info.tile_id.slice(), i });
+            const cnc = state.cncs[i] orelse {
+                std.debug.print("[snapshot] tile {s}({d}): cnc null\n", .{ info.tile_id.slice(), i });
+                continue;
+            };
+            std.debug.print("[snapshot] tile {s}({d}): cnc={x}\n", .{ info.tile_id.slice(), i, @intFromPtr(cnc) });
             const entry = tile_registry.findById(info.tile_id) orelse continue;
             for (entry.counters) |c| {
                 const v = rt.cnc_counters.appCounterRead(cnc, c.idx);
@@ -1095,7 +1161,7 @@ pub const Supervisor = struct {
         // to records for which ownership remains with this supervisor.
         _ = self.pollAllOwned();
         const halt_time = self.process_operations.now();
-        for (&state.children, 0..) |*record, i| {
+        for (state.children[0..], 0..) |*record, i| {
             if (record.ownership != .owned) continue;
             record.halt_timestamp = halt_time;
             if (state.cncs[i]) |cnc| c_abi.cnc.signal(cnc, c_abi.cnc.signal_halt);
@@ -1109,7 +1175,7 @@ pub const Supervisor = struct {
 
         // Close the poll/force race with one observation immediately before
         // the sole force request for each survivor.
-        for (&state.children, 0..) |*record, i| {
+        for (state.children[0..], 0..) |*record, i| {
             if (record.ownership != .owned) continue;
             self.pollChild(i);
             if (record.ownership != .owned) continue;
@@ -1135,7 +1201,7 @@ pub const Supervisor = struct {
         _ = self.pollAllOwned();
 
         var unresolved = false;
-        for (&state.children, 0..) |*record, i| {
+        for (state.children[0..], 0..) |*record, i| {
             if (record.ownership != .owned) continue;
             unresolved = true;
             self.handles[i].state = .unresolved;
@@ -1230,12 +1296,19 @@ test "heartbeat age handles u32 millisecond wraparound" {
 fn installLifecycleTestState(sup: *Supervisor) !*ProcessState {
     const bytes = try sup.allocator.alignedAlloc(u8, .fromByteUnits(@alignOf(ProcessState)), @sizeOf(ProcessState));
     const state: *ProcessState = @ptrCast(@alignCast(bytes));
+    const tile_cnt = sup.topo.tiles.len;
     state.* = undefined;
-    state.children = std.mem.zeroes([8]ChildRecord);
-    state.cncs = std.mem.zeroes([8]?*c_abi.cnc.Cnc);
+    state.children = try sup.allocator.alloc(ChildRecord, tile_cnt);
+    state.cncs = try sup.allocator.alloc(?*c_abi.cnc.Cnc, tile_cnt);
+    state.cnc_gaddrs = try sup.allocator.alloc(usize, tile_cnt);
+    state.suppress_cnc = try sup.allocator.alloc(bool, tile_cnt);
     state.stop_grace_ns = 0;
     // Initialize ALL fields to safe zero/empty values so stopProcess's
     // deinit() doesn't free undefined pointers and GPE under kcov.
+    for (state.children) |*v| v.* = .{.child = null, .ownership = .vacant};
+    for (state.cncs) |*v| v.* = null;
+    for (state.cnc_gaddrs) |*v| v.* = 0;
+    for (state.suppress_cnc) |*v| v.* = false;
     state.built_topo = .{
         .buf = &.{},
         .topo = @ptrFromInt(1),
@@ -1257,7 +1330,6 @@ fn installLifecycleTestState(sup: *Supervisor) !*ProcessState {
     state.wksp = @ptrFromInt(1);
     state.metric_wksp = null;
     state.metric_in_wksp = null;
-    state.cnc_gaddrs = std.mem.zeroes([8]usize);
     state.heartbeat_stale_after_ms = 0;
     state.placement_report = .{
         .exclusive_count = 0,
