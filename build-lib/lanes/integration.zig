@@ -88,7 +88,7 @@ pub fn strategy(
             "src/tickoni/test/integration/test_process_cpu_placement.zig",
             "src/tickoni/test/integration/test_process_fixture_parity.zig",
             "src/tickoni/test/integration/test_link_bounds.zig",
-            "src/tickoni/test/integration/test_minimal_2tile.zig",
+            "src/tickoni/test/integration/test_minimal_setup.zig",
         };
 
         for (infra_proc_files) |path| {

@@ -13,7 +13,7 @@ const util = @import("util");
 
 const Supervisor = supervisor_mod.Supervisor;
 
-test "minimal_3tile_integration: tkings → tkaudt + metric observer" {
+test "minimal_setup_integration: tkings → tkaudt + metric observer" {
     if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
