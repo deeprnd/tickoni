@@ -165,6 +165,35 @@ pub fn paymentPipelineProcess() Topology {
     };
 }
 
+/// Minimal 3-tile topology for isolation testing: tkings → tkaudt (+ metric).
+/// The metric tile is required so Firedancer's fd_topo_fill_tile can set
+/// tile_c->metrics to a non-NULL value; without it every tile gets a NULL
+/// metrics pointer and tk_topo_run_tile's FD_TEST(tile_c->metrics) asserts.
+const minimal_tiles = [_]TileDescriptor{
+    .{ .id = 0, .name = TileId.parse("tkings") catch unreachable },
+    .{ .id = 1, .name = TileId.parse("tkaudt") catch unreachable },
+    .{ .id = 2, .name = TileId.parse("metric") catch unreachable },
+};
+const minimal_channels = [_]Channel{
+    .{
+        .src_idx = 0,
+        .dst_idx = 1,
+        .depth = 64,
+        .mtu = 128,
+        .backing = .tango_shm,
+        .reliability = .reliable,
+        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
+    },
+};
+
+/// Minimal 3-tile topology (tkings → tkaudt + metric observer tile).
+pub fn minimalProcess() Topology {
+    return .{
+        .tiles = &minimal_tiles,
+        .channels = &minimal_channels,
+    };
+}
+
 test "paymentPipeline has Phase 0 product tiles and channels" {
     const topo = paymentPipeline();
     try std.testing.expectEqual(@as(usize, 8), topo.tiles.len);
