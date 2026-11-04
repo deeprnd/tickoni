@@ -13,6 +13,7 @@ pub const shim_c_files = &.{
     "topo_run.c",
     "topob.c",
     "tile_run.c",
+    "tk_audit_stem.c",
     "ballet.c",
 };
 
@@ -57,6 +58,7 @@ pub fn shimCFlagsFor(target: std.Target) []const []const u8 {
         .linux => &.{
             "-std=c17", "-U__BMI2__", "-U__LZCNT__",
             "-DFD_HAS_HOSTED=1", "-DFD_HAS_LINUX=1",
+            "-DFD_HAS_ATOMIC=1",
             "-DFD_HAS_OPENSSL=1", unaligned_style,
         },
         .macos => &.{
