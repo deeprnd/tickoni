@@ -24,6 +24,12 @@ by a file on disk. It provides:
   that map to laddr via `wkspLaddr`/`wkspGaddr`
 - **Join semantics**: a process must explicitly join a workspace to use it
 
+Because these objects are shared across tile processes, Linux shim code keeps
+`FD_HAS_ATOMIC=1`: Firedancer defines that capability to include atomic access
+from threads residing in different processes over shared memory. This is
+independent of `FD_HAS_THREADS`; Tickoni's Linux process-per-tile runtime does
+not define that thread capability for its shims.
+
 Firedancer validators create workspaces backed by hugetlbfs (huge/gigantic pages
 requiring root privileges and `MAP_HUGE_*` mmap flags). Tickoni avoids this
 requirement entirely by using normal 4 KiB pages.
@@ -328,7 +334,10 @@ Each tile process joins only the workspaces it needs:
 ```c
 // topo_run.c — fd_topo_run_tile()
 fd_topo_join_tile_workspaces(topo, tile, core_dump_level);  // join needed wksp
-fd_topo_fill_tile(topo, tile);                               // fill mcache/dcache/fseq
+tile_run->privileged_init(topo, tile);
+fd_sandbox_enter(...);                                      // when enabled
+fd_topo_fill_tile(topo, tile);                              // fill mcache/dcache/fseq
+fd_metrics_register(tile->metrics);
 tile_run->unprivileged_init(topo, tile);
 tile_run->run(topo, tile);
 ```
@@ -340,6 +349,27 @@ tile_run->run(topo, tile);
 
 After joining, `fd_topo_fill_tile()` maps the tile's mcache/dcache/fseq pointers
 from the topology objects into the tile's local address space.
+
+### Process Boot And Workspace Join
+
+The supervisor and tile children deliberately use different Firedancer boot
+paths:
+
+```text
+supervisor process: bootLite() -> version + log + shmem -> spawn one process per tile
+tile child process: full boot() -> tile subsystem -> fd_topo_run_tile() in that child
+```
+
+The supervisor skips `fd_tile_private_boot()` because it is not a tile process.
+Each child performs full boot before joining its workspaces. Tickoni does not
+pass `--tile-cpus`, so Firedancer treats the calling thread as tile 0 and creates
+no additional pthread. The workspace join and tile lifecycle still run inside
+one distinct child process per configured tile.
+
+Full boot is therefore required for tile-local Firedancer state, but it is not a
+thread-per-tile launch mechanism. Process creation and child tracking remain
+owned by `src/app/tickoni/supervisor.zig`; `fd_topo_run_tile()` owns the lifecycle
+inside an already-spawned child.
 
 ### Readiness Markers — Why They Exist
 
@@ -405,12 +435,14 @@ valid:
   and their `unprivileged_init()` runs immediately after. The supervisor's
   `snapshotProcessMetrics()` can read counter values (produced, normalized,
   audited, etc.) from their CNC as soon as the pipeline starts processing events.
-- **Metric tile** — its CNC app-region only becomes populated after the tile
-  joins its workspace, enters `stem_run → before_credit → listen()`, and then
-  runs `unprivileged_init()`, which writes `boot_ts` to CNC index 2 and begins
-  polling snapshots. The metric tile's HTTP server must also bind and begin
-  listening before its bootstrap timestamp is meaningful. This bootstrap path has
-  extra wall-clock overhead compared to pipeline tiles.
+- **Metric tile** — after workspace join, its privileged initialization creates
+  the HTTP server state. `fd_topo_run_tile()` then fills links, registers metrics,
+  and invokes metric `unprivileged_init()`, which writes `boot_ts` to CNC index 2.
+  Only after that does `fd_tile_metric.run` enter the metric tile's own stem
+  specialization and poll `fd_http_server` from `before_credit`. The CNC boot
+  timestamp can therefore become valid before the HTTP endpoint has completed
+  its first successful poll/listen cycle. This bootstrap path has extra
+  wall-clock overhead compared to pipeline tiles.
 
 **Practical consequence:** When a test or diagnostic reads the metric tile's CNC
 values directly (boot timestamp, snapshot count, backpressure waits), it must wait
@@ -468,7 +500,7 @@ buffer) and hosts the HTTP server state. The `metric_tile_obj_id` field in
 | Workspace creation | `fd_topo_create_workspace()` → hugetlbfs | `wkspNewNamed()` → normal pages |
 | Workspace join | `fd_topo_join_workspace()` | `topoJoinWorkspaces()` |
 | Object callbacks | `src/app/shared/fd_obj_callbacks.c` | `shim/topob.c` (6-entry array, no fdctl coupling) |
-| Tile launch | `fd_topo_run_tile()` | `tile_process.zig` (parallel implementation) |
+| Tile launch | `fd_topo_run_tile()` | Supervisor spawns one child process per tile; `tile_process.zig` invokes `fd_topo_run_tile()` inside that child |
 | Workspace backing | hugetlbfs (root, Linux-only) | normal pages (4 KiB, cross-platform) |
 | Workspace count | ~35+ (validator-dependent) | 3 (Phase 0) |
 
@@ -493,7 +525,7 @@ Process-mode workspace validation should include:
 | `src/tickoni/c_abi/topo.zig` | Zig wrappers for topology workspace ops: `topoWkspSetPtr`, `topoWkspFootprint`, `topoJoinWorkspaces` |
 | `src/tickoni/c_abi/shim/topob.c` | C shims for topology builder, callbacks, workspace injection |
 | `src/app/tickoni/supervisor.zig` | Phase 0 supervisor — explicit `wkspNewNamed()` calls, readiness markers |
-|| `src/disco/topo/fd_topo_run.c` | Firedancer tile launch — joins workspaces, fills tiles, enters sandbox (Linux only; see [platform-tiers.md](platform-tiers.md) for the Linux-only sandbox breakdown) |
+| `src/disco/topo/fd_topo_run.c` | Firedancer tile lifecycle — joins workspaces, fills tiles, registers metrics, and invokes the run callback inside an already-spawned child process (Linux only; see [platform-tiers.md](platform-tiers.md)) |
 | `src/app/firedancer/topology.c` | Firedancer workspace declarations (`metric`, `metric_in`, ~30 others) |
 | `src/disco/metrics/fd_metric_tile.c` | Metric tile — observer in `metric` wksp, reads from `metric_in` |
 
