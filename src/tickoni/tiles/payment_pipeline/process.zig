@@ -33,7 +33,9 @@ const PaymentMessage = payment_runtime.PaymentMessage;
 const msg_size = @sizeOf(PaymentMessage);
 
 fn halted(cnc: *c_abi.cnc.Cnc) bool {
-    return c_abi.cnc.signalQuery(cnc) == c_abi.cnc.signal_halt;
+    const sig = c_abi.cnc.signalQuery(cnc);
+    std.debug.print("[halted] signal={d} halt={d} result={s}\n", .{ sig, c_abi.cnc.signal_halt, if (sig == c_abi.cnc.signal_halt) "true" else "false" });
+    return sig == c_abi.cnc.signal_halt;
 }
 
 // ---------------------------------------------------------------------------
