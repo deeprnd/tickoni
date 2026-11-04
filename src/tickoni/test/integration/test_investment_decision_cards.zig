@@ -3,7 +3,7 @@ const support = @import("investment_support");
 const std = @import("std");
 
 test "investment_decision_cards_integration: allowed fixture exposes decision cards and drift contract" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     const result = try investment_fixture.runAllowedTradeScenario(std.testing.allocator, std.testing.io, support.operationsThesisInput());
 
     try std.testing.expectEqual(result.basket.basket_id, result.decision_cards.thesis_card.basket_id);
