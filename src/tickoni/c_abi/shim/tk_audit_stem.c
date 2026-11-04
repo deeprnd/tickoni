@@ -43,10 +43,17 @@ typedef struct {
 
     /* Tile pointer for allow_shutdown */
     fd_topo_tile_t const *tile;
+
+    /* Scratch-allocated audit record ring buffer pointer.
+       Points into scratch space (computed in privileged_init). */
+    AuditEvent *audit_records;
 } tk_audit_ctx_t;
 
 #define TKAUDT_CTX_ALIGN alignof(tk_audit_ctx_t)
 #define TKAUDT_AUDIT_CAPACITY 16384
+
+/* Audit hash seed — initial prev_hash value. */
+#define AUDIT_SEED 0xDEADBEEF
 
 /* Forward declarations for Firedancer callback typedefs (2 params each).
    All callback functions MUST be static — they are used by the
@@ -122,9 +129,6 @@ tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     (void)topo;
     (void)tile;
 
-    /* ctx lives in scratch, allocated by Firedancer.
-       MUST match stem_run's alignment: ctx = fd_ulong_align_up(scratch, TKAUDT_CTX_ALIGN).
-       Without this, DURING_FRAG reads uninitialized garbage from a different address. */
     void * scratch = fd_topo_obj_laddr( (fd_topo_t *)topo, tile->tile_obj_id );
     tk_audit_ctx_t * ctx = (tk_audit_ctx_t *)fd_ulong_align_up( (ulong)scratch, TKAUDT_CTX_ALIGN );
 
@@ -132,10 +136,9 @@ tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     ctx->audited = 0;
     ctx->cnc = NULL;
     ctx->audit_count = 0;
-    ctx->prev_hash = 0;
+    ctx->prev_hash = AUDIT_SEED;
     ctx->tile = tile;
-
-    FD_LOG_NOTICE(( "tkaudt: stem tile privileged init, tile_id=%lu", tile->id ));
+    ctx->audit_records = NULL;
 }
 
 static void
