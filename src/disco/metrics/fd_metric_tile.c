@@ -275,7 +275,6 @@ populate_allowed_fds( fd_topo_t const *      topo,
 #define STEM_LAZY ((long)10e6) /* 10ms */
 
 #undef STEM_EXPORT
-#define STEM_EXPORT
 #define STEM_CALLBACK_CONTEXT_TYPE  fd_metric_ctx_t
 #define STEM_CALLBACK_CONTEXT_ALIGN alignof(fd_metric_ctx_t)
 
@@ -286,6 +285,15 @@ populate_allowed_fds( fd_topo_t const *      topo,
    (matches upstream behavior for Firedancer's native metric tile). */
 #define STEM_CALLBACK_SHOULD_SHUTDOWN( ctx ) \
   ( (ctx)->cnc && fd_cnc_signal_query( (fd_cnc_t *)(ctx)->cnc ) == FD_CNC_SIGNAL_HALT )
+
+/* Make stem_run static to avoid duplicate symbol with the Tickoni shim
+   files (tk_audit_stem.c). The test binary links both libfd_disco.a and
+   the shim files; both include fd_stem.c which generates stem_run.
+   By making the archive's version static, only the shim's stem_run
+   (with audit callbacks) appears in the test binary. */
+#ifndef STEM_EXPORT
+#define STEM_EXPORT static
+#endif
 
 #include "../stem/fd_stem.c"
 
