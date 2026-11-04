@@ -49,6 +49,7 @@ extern fn tk_topob_tile_out(topo: *Topo, tile_name: [*:0]const u8, tile_kind_id:
 extern fn tk_topob_finish(topo: *Topo) void;
 extern fn tk_topo_create_workspace(topo: *Topo, wksp_idx: usize, update_existing: c_int) c_int;
 extern fn tk_topo_wksp_new(topo: *Topo, wksp_idx: usize) void;
+extern fn tk_topo_wksp_new_child(topo: *Topo, wksp_idx: usize) void;
 extern fn tk_topo_join_workspaces(topo: *Topo, mode: c_int, core_dump_level: c_int) void;
 extern fn tk_topo_leave_workspaces(topo: *Topo) void;
 extern fn tk_topo_find_wksp(topo: *Topo, name: [*:0]const u8) usize;
@@ -153,6 +154,12 @@ pub fn topoCreateWorkspace(topo: *Topo, wksp_idx: usize, update_existing: bool) 
 
 pub fn topoWkspNew(topo: *Topo, wksp_idx: usize) void {
     tk_topo_wksp_new(topo, wksp_idx);
+}
+
+/// Child variant of topoWkspNew: uses TK_CALLBACKS_CHILD (excludes cnc)
+/// to avoid zeroing CNC app regions that the supervisor already initialized.
+pub fn topoWkspNewChild(topo: *Topo, wksp_idx: usize) void {
+    tk_topo_wksp_new_child(topo, wksp_idx);
 }
 
 pub fn topoJoinWorkspaces(topo: *Topo, read_write: bool, core_dump_level: i32) void {

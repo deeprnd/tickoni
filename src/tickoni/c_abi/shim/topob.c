@@ -236,6 +236,8 @@ static fd_topo_obj_callbacks_t tk_obj_cb_cnc = {
   .new       = cnc_new,
 };
 
+/* Parent-side callbacks (supervisor): includes cnc so the supervisor
+   initializes all CNC objects during startPaymentPipelineProcess. */
 static fd_topo_obj_callbacks_t * TK_CALLBACKS[] = {
   &tk_obj_cb_mcache,
   &tk_obj_cb_dcache,
@@ -243,6 +245,24 @@ static fd_topo_obj_callbacks_t * TK_CALLBACKS[] = {
   &tk_obj_cb_metrics,
   &tk_obj_cb_tile,
   &tk_obj_cb_cnc,
+  NULL,
+};
+
+/* Child-side callbacks (tile processes): excludes cnc to avoid zeroing
+   CNC app regions that the supervisor already initialized.  The
+   supervisor calls topoWkspNew with TK_CALLBACKS before spawning any
+   children, so all CNC objects are already initialized.  Child tiles
+   still need mcache/dcache/fseq/metrics/tile callbacks for their own
+   link-local objects, but must NOT call cnc_new on shared CNC objects
+   (which would zero every tile's counters).  Each tile still calls
+   cncNew in its privileged init to set signal/heartbeat for its own
+   CNC, which is separate from topoWkspNew. */
+static fd_topo_obj_callbacks_t * TK_CALLBACKS_CHILD[] = {
+  &tk_obj_cb_mcache,
+  &tk_obj_cb_dcache,
+  &tk_obj_cb_fseq,
+  &tk_obj_cb_metrics,
+  &tk_obj_cb_tile,
   NULL,
 };
 
@@ -265,7 +285,9 @@ tk_topob_new( void * mem, char const * app_name ) {
 
 ulong
 tk_topob_wksp( void * topo, char const * name ) {
+  fprintf(stderr, "[c-shim] tk_topob_wksp: topo=%p name=%s\n", topo, name ? name : "(NULL)");
   fd_topo_wksp_t * wksp = fd_topob_wksp( (fd_topo_t *)topo, name );
+  fprintf(stderr, "[c-shim] tk_topob_wksp: ok wksp=%p id=%lu\n", wksp, wksp->id);
   return wksp->id;
 }
 
@@ -386,6 +408,7 @@ tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_t
    Linux or macOS: tk_metric_tile.c references symbols from fd_metric_tile.c. */
 #if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
 #include "../topo_run/tk_metric_tile.h"
+#include "../topo_run/tk_audit_stem.h"
 #endif
 
 ulong
@@ -393,6 +416,8 @@ tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {
 #if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
   if( strcmp( tile_name, "metric" ) == 0 )
     return tk_metric_scratch_footprint();
+  if( strcmp( tile_name, "tkaudt" ) == 0 )
+    return tk_audit_scratch_footprint();
 #endif
 return 1UL;
 }
@@ -406,6 +431,12 @@ tk_topob_tickoni_tile_scratch_requirements( char const * tile_name,
     ulong footprint = tk_metric_scratch_footprint();
     *alignment_out  = fd_scratch_smem_align();
     *footprint_out  = fd_scratch_smem_footprint( footprint );
+    return;
+  }
+  if( strcmp( tile_name, "tkaudt" ) == 0 ) {
+    ulong footprint = tk_audit_scratch_footprint();
+    *alignment_out  = TKAUDT_CTX_ALIGN;
+    *footprint_out  = footprint;
     return;
   }
 #endif
@@ -423,6 +454,12 @@ void
 tk_topo_wksp_new( void * topo, ulong wksp_idx ) {
   fd_topo_t * t = (fd_topo_t *)topo;
   fd_topo_wksp_new( t, &t->workspaces[ wksp_idx ], TK_CALLBACKS );
+}
+
+void
+tk_topo_wksp_new_child( void * topo, ulong wksp_idx ) {
+  fd_topo_t * t = (fd_topo_t *)topo;
+  fd_topo_wksp_new( t, &t->workspaces[ wksp_idx ], TK_CALLBACKS_CHILD );
 }
 
 /* Maps every workspace in the topology into this process's address space
