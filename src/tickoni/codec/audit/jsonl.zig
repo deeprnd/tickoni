@@ -21,7 +21,23 @@ pub fn formatJsonLine(event: schema.AuditEvent, writer: anytype) !void {
     try writer.print("\"isolation_tier\":\"{s}\",", .{std.mem.sliceTo(&h.isolation_tier, 0)});
     try writer.print("\"release_digest\":\"{s}\",", .{std.mem.sliceTo(&h.release_digest, 0)});
     try writer.print("\"manifest_id\":\"{s}\",", .{std.mem.sliceTo(&h.manifest_id, 0)});
-    try writer.print("\"record_type\":\"{s}\",", .{@tagName(std.meta.activeTag(event.payload))});
+    const record_type: []const u8 = switch (event.payload) {
+        .source_event => "source_event",
+        .normalization => "normalization",
+        .policy_decision => "policy_decision",
+        .model_call => "model_call",
+        .financial_adapter_call => "financial_adapter_call",
+        .proposal => "proposal",
+        .destination_check => "destination_check",
+        .limit_check => "limit_check",
+        .approval_required => "approval_required",
+        .denial => "denial",
+        .telemetry_checkpoint => "telemetry_checkpoint",
+        .replay_result => "replay_result",
+        .deduplication => "deduplication",
+        .case_creation => "case_creation",
+    };
+    try writer.print("\"record_type\":\"{s}\",", .{record_type});
     try writer.writeAll("\"payload\":");
     try writePayloadJson(event.payload, writer);
     try writer.writeAll("}\n");
@@ -160,27 +176,35 @@ test "jsonl formatJsonLine produces valid JSON with hash-chain fields" {
             .run_id = run_id,
             .seq = 0,
             .source_offset = 42,
-            .tile_id = "tkings",
+            .tile_id = std.mem.zeroes([6]u8),
             .logical_actor_id = 1,
-            .policy_version = "v1",
+            .policy_version = std.mem.zeroes([32]u8),
             .capability_envelope_id = 7,
             .timestamp_ns = 1_000_000_000,
             .prev_hash = 0,
-            .record_hash = 0xDEADBEEF,
-            .version = "0.1.0",
-            .platform_tier = "linux_full",
-            .isolation_tier = "retail",
-            .release_digest = "abc123",
-            .manifest_id = "",
+            .record_hash = 0,
+            .version = std.mem.zeroes([64]u8),
+            .platform_tier = std.mem.zeroes([64]u8),
+            .isolation_tier = std.mem.zeroes([64]u8),
+            .release_digest = std.mem.zeroes([64]u8),
+            .manifest_id = std.mem.zeroes([64]u8),
         },
         .payload = .{
             .source_event = .{
-                .source_system = "ops_feed",
-                .event_type = "trading_order.propose",
+                .source_system = std.mem.zeroes([16]u8),
+                .event_type = std.mem.zeroes([32]u8),
                 .raw_hash = 0x12345678,
             },
         },
     };
+    std.mem.copyForwards(u8, &event.header.tile_id, "tkings");
+    std.mem.copyForwards(u8, &event.header.policy_version, "v1");
+    std.mem.copyForwards(u8, &event.header.version, "0.1.0");
+    std.mem.copyForwards(u8, &event.header.platform_tier, "linux_full");
+    std.mem.copyForwards(u8, &event.header.isolation_tier, "retail");
+    std.mem.copyForwards(u8, &event.header.release_digest, "abc123");
+    std.mem.copyForwards(u8, &event.payload.source_event.source_system, "ops_feed");
+    std.mem.copyForwards(u8, &event.payload.source_event.event_type, "trading_order.propose");
     event.header.record_hash = hash.computeRecordHash(event);
 
     var buf: [4096]u8 = undefined;
@@ -197,16 +221,31 @@ test "jsonl formatJsonLine produces valid JSON with hash-chain fields" {
     defer parsed.deinit();
 
     const obj = parsed.value.object;
-    try std.testing.expectEqual(run_id, try obj.get("run_id").?.number());
-    try std.testing.expectEqual(0, try obj.get("prev_hash").?.number());
-    try std.testing.expectEqual(event.header.record_hash, try obj.get("record_hash").?.number());
-    try std.testing.expectEqual(0, try obj.get("seq").?.number());
-    try std.testing.expectEqual(@as(u16, schema.audit_schema_version), @intCast(try obj.get("schema_version").?.number()));
+    // Helper: extract u64 from dynamic JSON Value (may be .integer or .number_string)
+    const getInt = struct {
+        fn get(v: std.json.Value) u64 {
+            return switch (v) {
+                .integer => |n| @intCast(n),
+                .number_string => |s| std.fmt.parseInt(u64, s, 10) catch unreachable,
+                else => unreachable,
+            };
+        }
+    }.get;
+
+    try std.testing.expectEqual(run_id, getInt(obj.get("run_id") orelse unreachable));
+    try std.testing.expectEqual(@as(u64, 0), getInt(obj.get("prev_hash") orelse unreachable));
+    try std.testing.expectEqual(event.header.record_hash, getInt(obj.get("record_hash") orelse unreachable));
+    try std.testing.expectEqual(@as(u64, 0), getInt(obj.get("seq") orelse unreachable));
+    try std.testing.expectEqual(@as(u16, schema.audit_schema_version), @as(u16, @intCast(getInt(obj.get("schema_version") orelse unreachable))));
     // T9: Verify metadata fields are present in JSONL output
-    try std.testing.expectEqualSlices(u8, "0.1.0", obj.get("version").?.string());
-    try std.testing.expectEqualSlices(u8, "linux_full", obj.get("platform_tier").?.string());
-    try std.testing.expectEqualSlices(u8, "retail", obj.get("isolation_tier").?.string());
-    try std.testing.expectEqualSlices(u8, "abc123", obj.get("release_digest").?.string());
+    const version_val = obj.get("version") orelse unreachable;
+    const platform_val = obj.get("platform_tier") orelse unreachable;
+    const isolation_val = obj.get("isolation_tier") orelse unreachable;
+    const release_val = obj.get("release_digest") orelse unreachable;
+    try std.testing.expectEqualSlices(u8, "0.1.0", version_val.string);
+    try std.testing.expectEqualSlices(u8, "linux_full", platform_val.string);
+    try std.testing.expectEqualSlices(u8, "retail", isolation_val.string);
+    try std.testing.expectEqualSlices(u8, "abc123", release_val.string);
 }
 
 test "jsonl formatJsonLine produces consistent hash for same event" {
@@ -218,27 +257,35 @@ test "jsonl formatJsonLine produces consistent hash for same event" {
             .run_id = run_id,
             .seq = 1,
             .source_offset = 1,
-            .tile_id = "tkings",
+            .tile_id = std.mem.zeroes([6]u8),
             .logical_actor_id = 0,
-            .policy_version = "v1",
+            .policy_version = std.mem.zeroes([32]u8),
             .capability_envelope_id = 0,
             .timestamp_ns = 0,
             .prev_hash = 0,
             .record_hash = 0,
-            .version = "0.1.0",
-            .platform_tier = "linux_full",
-            .isolation_tier = "retail",
-            .release_digest = "abc123",
-            .manifest_id = "",
+            .version = std.mem.zeroes([64]u8),
+            .platform_tier = std.mem.zeroes([64]u8),
+            .isolation_tier = std.mem.zeroes([64]u8),
+            .release_digest = std.mem.zeroes([64]u8),
+            .manifest_id = std.mem.zeroes([64]u8),
         },
         .payload = .{
             .source_event = .{
-                .source_system = "test",
-                .event_type = "payment_initiate",
+                .source_system = std.mem.zeroes([16]u8),
+                .event_type = std.mem.zeroes([32]u8),
                 .raw_hash = 0xAABBCCDD,
             },
         },
     };
+    std.mem.copyForwards(u8, &event.header.tile_id, "tkings");
+    std.mem.copyForwards(u8, &event.header.policy_version, "v1");
+    std.mem.copyForwards(u8, &event.header.version, "0.1.0");
+    std.mem.copyForwards(u8, &event.header.platform_tier, "linux_full");
+    std.mem.copyForwards(u8, &event.header.isolation_tier, "retail");
+    std.mem.copyForwards(u8, &event.header.release_digest, "abc123");
+    std.mem.copyForwards(u8, &event.payload.source_event.source_system, "test");
+    std.mem.copyForwards(u8, &event.payload.source_event.event_type, "payment_initiate");
     const expected_hash = hash.computeRecordHash(event);
     event.header.record_hash = expected_hash;
 

@@ -17,7 +17,131 @@ pub fn auditEventsEql(a: schema.AuditEvent, b: schema.AuditEvent) bool {
     var bh = b.header;
     ah.timestamp_ns = 0;
     bh.timestamp_ns = 0;
-    return std.meta.eql(ah, bh) and std.meta.eql(a.payload, b.payload);
+    return eqlHeader(ah, bh) and eqlPayload(a.payload, b.payload);
+}
+
+fn eqlHeader(a: schema.Header, b: schema.Header) bool {
+    return a.schema_version == b.schema_version and
+        a.run_id == b.run_id and
+        a.seq == b.seq and
+        a.source_offset == b.source_offset and
+        std.mem.eql(u8, &a.tile_id, &b.tile_id) and
+        a.logical_actor_id == b.logical_actor_id and
+        std.mem.eql(u8, &a.policy_version, &b.policy_version) and
+        a.capability_envelope_id == b.capability_envelope_id and
+        a.timestamp_ns == b.timestamp_ns and
+        a.prev_hash == b.prev_hash and
+        a.record_hash == b.record_hash and
+        std.mem.eql(u8, &a.version, &b.version) and
+        std.mem.eql(u8, &a.platform_tier, &b.platform_tier) and
+        std.mem.eql(u8, &a.isolation_tier, &b.isolation_tier) and
+        std.mem.eql(u8, &a.release_digest, &b.release_digest) and
+        std.mem.eql(u8, &a.manifest_id, &b.manifest_id);
+}
+
+fn eqlPayload(a: schema.AuditEvent.Payload, b: schema.AuditEvent.Payload) bool {
+    return switch (a) {
+        .source_event => |av| switch (b) {
+            .source_event => |bv| av.raw_hash == bv.raw_hash and
+                std.mem.eql(u8, &av.source_system, &bv.source_system) and
+                std.mem.eql(u8, &av.event_type, &bv.event_type),
+            else => false,
+        },
+        .normalization => |av| switch (b) {
+            .normalization => |bv| av.source_event_hash == bv.source_event_hash and
+                av.normalized_hash == bv.normalized_hash and
+                std.mem.eql(u8, &av.canonical_event_type, &bv.canonical_event_type),
+            else => false,
+        },
+        .policy_decision => |av| switch (b) {
+            .policy_decision => |bv| av.outcome == bv.outcome and
+                av.rule_id == bv.rule_id and
+                av.source_event_hash == bv.source_event_hash and
+                av.catalog_schema_version == bv.catalog_schema_version and
+                std.mem.eql(u8, &av.failed_scope_dim, &bv.failed_scope_dim) and
+                std.mem.eql(u8, &av.taxonomy_id, &bv.taxonomy_id) and
+                av.taxonomy_version == bv.taxonomy_version and
+                std.mem.eql(u8, &av.classification_code, &bv.classification_code),
+            else => false,
+        },
+        .model_call => |av| switch (b) {
+            .model_call => |bv| std.mem.eql(u8, &av.model_id, &bv.model_id) and
+                av.prompt_hash == bv.prompt_hash and
+                av.response_hash == bv.response_hash and
+                av.token_estimate == bv.token_estimate and
+                av.retry_count == bv.retry_count and
+                std.mem.eql(u8, &av.actor_role, &bv.actor_role) and
+                std.mem.eql(u8, &av.workflow, &bv.workflow) and
+                av.policy_decision_id == bv.policy_decision_id and
+                av.replay_substitution_id == bv.replay_substitution_id,
+            else => false,
+        },
+        .financial_adapter_call => |av| switch (b) {
+            .financial_adapter_call => |bv| std.mem.eql(u8, &av.adapter_id, &bv.adapter_id) and
+                av.request_hash == bv.request_hash and
+                av.response_hash == bv.response_hash and
+                av.replay_substitution_id == bv.replay_substitution_id,
+            else => false,
+        },
+        .proposal => |av| switch (b) {
+            .proposal => |bv| std.mem.eql(u8, &av.proposal_type, &bv.proposal_type) and
+                av.proposal_hash == bv.proposal_hash and
+                av.approval_state == bv.approval_state,
+            else => false,
+        },
+        .destination_check => |av| switch (b) {
+            .destination_check => |bv| std.mem.eql(u8, &av.destination_type, &bv.destination_type) and
+                av.allowlist_version == bv.allowlist_version and
+                av.outcome == bv.outcome,
+            else => false,
+        },
+        .limit_check => |av| switch (b) {
+            .limit_check => |bv| av.limit_type == bv.limit_type and
+                av.value == bv.value and
+                av.limit == bv.limit and
+                av.outcome == bv.outcome,
+            else => false,
+        },
+        .approval_required => |av| switch (b) {
+            .approval_required => |bv| std.mem.eql(u8, &av.action_class, &bv.action_class) and
+                std.mem.eql(u8, &av.approval_path, &bv.approval_path) and
+                av.proposal_hash == bv.proposal_hash,
+            else => false,
+        },
+        .denial => |av| switch (b) {
+            .denial => |bv| std.mem.eql(u8, &av.action_class, &bv.action_class) and
+                av.reason_code == bv.reason_code and
+                std.mem.eql(u8, &av.failed_scope_dim, &bv.failed_scope_dim) and
+                av.catalog_schema_version == bv.catalog_schema_version and
+                std.mem.eql(u8, &av.taxonomy_id, &bv.taxonomy_id) and
+                av.taxonomy_version == bv.taxonomy_version and
+                std.mem.eql(u8, &av.classification_code, &bv.classification_code),
+            else => false,
+        },
+        .telemetry_checkpoint => |av| switch (b) {
+            .telemetry_checkpoint => |bv| av.metric_set_hash == bv.metric_set_hash and
+                av.source_offset_watermark == bv.source_offset_watermark,
+            else => false,
+        },
+        .replay_result => |av| switch (b) {
+            .replay_result => |bv| av.capsule_id == bv.capsule_id and
+                av.divergences == bv.divergences and
+                av.first_divergent_seq == bv.first_divergent_seq,
+            else => false,
+        },
+        .deduplication => |av| switch (b) {
+            .deduplication => |bv| av.idempotency_key == bv.idempotency_key and
+                av.is_duplicate == bv.is_duplicate,
+            else => false,
+        },
+        .case_creation => |av| switch (b) {
+            .case_creation => |bv| av.basket_id == bv.basket_id and
+                av.instrument_count == bv.instrument_count and
+                av.rejected_count == bv.rejected_count and
+                av.total_allocated_cents == bv.total_allocated_cents,
+            else => false,
+        },
+    };
 }
 
 pub fn computeWireRecordHash(event: wire.Event) u64 {
