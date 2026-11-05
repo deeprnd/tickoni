@@ -9,9 +9,12 @@
 #ifndef __AUDIT_SCHEMA_H__
 #define __AUDIT_SCHEMA_H__
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* ─── Tile IDs ─── */
+
+#define AUDIT_SCHEMA_VERSION 2
 
 /* Tile IDs used as producers in audit records. The pipeline stage that
    actually finalizes a message's decision stamps its own id here
@@ -23,7 +26,8 @@
 
 /* ─── PolicyOutcome (matches Zig audit.PolicyOutcome enum(u8)) ─── */
 
-typedef enum {
+typedef uint8_t PolicyOutcome;
+enum {
     POLICY_ALLOW                = 0,
     POLICY_DENY                 = 1,
     POLICY_REQUIRE_APPROVAL     = 2,
@@ -31,11 +35,12 @@ typedef enum {
     POLICY_DUPLICATE_DROP       = 4,
     POLICY_ESCALATE             = 5,
     POLICY_REQUIRE_MORE_EVIDENCE = 6,
-} PolicyOutcome;
+};
 
 /* ─── RecordType (matches Zig audit.RecordType enum(u8)) ─── */
 
-typedef enum {
+typedef uint8_t RecordType;
+enum {
     RECORD_SOURCE_EVENT           = 0,
     RECORD_NORMALIZATION          = 1,
     RECORD_POLICY_DECISION        = 2,
@@ -50,34 +55,40 @@ typedef enum {
     RECORD_REPLAY_RESULT          = 11,
     RECORD_DUPLICATION            = 12,
     RECORD_CASE_CREATION          = 13,
-} RecordType;
+};
 
-/* ─── RawPayment (matches Zig runtime.RawPayment struct) ───
-   Source offset, idempotency key, account, amount, currency, malformed flag.
-   Total size: 40 bytes. */
+/* ─── RawPayment (matches Zig runtime.RawPayment's in-memory layout) ───
+   Zig's default struct layout places the 64-bit amount before account_id:
+   source_offset=0, idempotency_key=8, amount_cents=16, account_id=24,
+   currency=28, malformed=31.  Total size: 32 bytes. */
 typedef struct {
-    uint64_t  source_offset;    /* 0  - offset in the source stream */
-    uint64_t  idempotency_key;  /* 8  - dedup key */
-    uint32_t  account_id;       /* 16 - source account */
-    int64_t   amount_cents;     /* 20 - amount in smallest currency unit */
-    uint8_t   currency[3];      /* 28 - e.g. "USD" */
-    uint8_t   malformed;        /* 31 - 1 if framing validation failed */
-    uint8_t   _pad0[7];         /* 32 - pad to 40-byte aligned RawPayment */
+    uint64_t  source_offset;
+    uint64_t  idempotency_key;
+    int64_t   amount_cents;
+    uint32_t  account_id;
+    uint8_t   currency[3];
+    uint8_t   malformed;
 } RawPayment;
 
-/* ─── PaymentMessage (matches Zig runtime.PaymentMessage struct) ───
-   Sent from tkpoly → tkaudt on the pipeline link.
-   Total size: 57 bytes. */
+/* ─── PaymentMessage (matches Zig runtime.PaymentMessage's in-memory layout) ───
+   Sent from tkpoly → tkaudt on the pipeline link.  Total size: 56 bytes. */
 typedef struct {
-    RawPayment raw;             /* 0  - the validated payment (40 bytes) */
-    uint64_t   event_hash;      /* 40 - content hash of the event */
-    uint8_t    pipeline_hops;   /* 48 - how many tiles it traversed */
-    uint8_t    duplicate;       /* 49 - 1 if this was a dedupe hit */
-    uint8_t    decision;        /* 50 - PolicyOutcome (u8) */
-    uint8_t    decided_by[6];   /* 51 - tile id that decided */
+    RawPayment raw;
+    uint64_t   event_hash;
+    uint8_t    pipeline_hops;
+    uint8_t    duplicate;
+    uint8_t    decision;
+    uint8_t    decided_by[6];
 } PaymentMessage;
 
 #define PAYMENT_MSG_SIZE sizeof(PaymentMessage)
+
+_Static_assert( sizeof(RawPayment)==32UL, "RawPayment must match Zig's process-link ABI" );
+_Static_assert( offsetof(RawPayment, amount_cents)==16UL, "RawPayment.amount_cents ABI drift" );
+_Static_assert( offsetof(RawPayment, account_id)==24UL, "RawPayment.account_id ABI drift" );
+_Static_assert( sizeof(PaymentMessage)==56UL, "PaymentMessage must match Zig's process-link ABI" );
+_Static_assert( offsetof(PaymentMessage, event_hash)==32UL, "PaymentMessage.event_hash ABI drift" );
+_Static_assert( offsetof(PaymentMessage, decided_by)==43UL, "PaymentMessage.decided_by ABI drift" );
 
 /* ─── Header (matches Zig audit.Header struct) ─── */
 
