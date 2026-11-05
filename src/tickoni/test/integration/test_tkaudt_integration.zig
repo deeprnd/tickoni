@@ -39,6 +39,7 @@ const EXPECTED_TILE_COUNT: usize = 3;
 // ---------------------------------------------------------------------------
 
 test "tkaudt_integration: Step 3.1 audit record allocation and counting stub" {
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
