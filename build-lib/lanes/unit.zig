@@ -195,10 +195,11 @@ pub fn strategy(
     // audit/mod.zig — needs audit_codec, audit_schema, fixture_audit_gen.
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-audit",
-        .source_file = "src/tickoni/tiles/audit/mod.zig",
+        .source_file = "src/tickoni/codec/audit/mod.zig",
         .imports = &.{
             .{ .name = "audit_codec", .module = shared.audit_codec },
             .{ .name = "audit_schema", .module = shared.audit_schema },
+            .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true },
