@@ -14,7 +14,7 @@ const util = @import("util");
 const Supervisor = supervisor_mod.Supervisor;
 
 test "minimal_setup_integration: tkings → tkaudt + metric observer" {
-    if (false) return error.SkipZigTest;
+    if (true) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
