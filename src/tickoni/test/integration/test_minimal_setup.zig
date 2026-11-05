@@ -42,6 +42,7 @@ test "minimal_setup_integration: tkings → tkaudt + metric observer" {
         .workspace_name = workspace_name,
         .metric_port = port,
     });
+    errdefer sup.stopProcess(std.testing.io) catch {};
 
     const supervisor_pid = c_abi.sandbox.getpid();
 
@@ -60,14 +61,16 @@ test "minimal_setup_integration: tkings → tkaudt + metric observer" {
     // Wait for tkaudt to finish auditing
     const max_polls: u32 = 400;
     var poll: u32 = 0;
+    var metrics = sup.snapshotProcessMetrics();
     while (poll < max_polls) : (poll += 1) {
-        if (sup.snapshotProcessMetrics().audited >= event_count) break;
+        metrics = sup.snapshotProcessMetrics();
+        if (metrics.audited >= event_count and metrics.produced >= event_count) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
-    const metrics = sup.snapshotProcessMetrics();
-    std.debug.print("[test] metrics: produced={d} audited={d}\\n", .{ metrics.produced, metrics.audited });
+    metrics = sup.snapshotProcessMetrics();
+    std.debug.print("[test] metrics: produced={d} audited={d}\n", .{ metrics.produced, metrics.audited });
     for (sup.monitor(), 0..) |h, i| {
-        std.debug.print("[test] tile {d}: state={s} pid={any}\\n", .{ i, @tagName(h.state), h.pid });
+        std.debug.print("[test] tile {d}: state={s} pid={any}\n", .{ i, @tagName(h.state), h.pid });
     }
 
     try std.testing.expectEqual(@as(u64, event_count), metrics.audited);
