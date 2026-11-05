@@ -57,9 +57,6 @@ pub const PolicyDecisionPayload = struct {
     rule_id: u32,
     failed_scope_dim: [32]u8,
     source_event_hash: u64,
-    // Classification evidence: zero/empty when this decision is not a
-    // classification-scope decision (e.g. affordability or restricted-
-    // instrument denials).
     catalog_schema_version: u32,
     taxonomy_id: [32]u8,
     taxonomy_version: u32,
@@ -162,14 +159,11 @@ pub const Header = struct {
     timestamp_ns: u64,
     prev_hash: u64,
     record_hash: u64,
-    // Runtime metadata: identifies the exact build/tier/manifest that produced
-    // this event. Carried through audit and replay so the entire lineage is
-    // verifiable.
-    version: [64]u8, // semver string, null-terminated
-    platform_tier: [64]u8, // e.g. "linux_full", "macos_retail"
-    isolation_tier: [64]u8, // e.g. "retail", "full"
-    release_digest: [64]u8, // git SHA or build digest
-    manifest_id: [64]u8, // which manifest was loaded (empty if none)
+    version: [64]u8,
+    platform_tier: [64]u8,
+    isolation_tier: [64]u8,
+    release_digest: [64]u8,
+    manifest_id: [64]u8,
 };
 
 pub const AuditEvent = struct {

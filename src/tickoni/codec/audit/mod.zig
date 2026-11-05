@@ -1,7 +1,7 @@
 const schema = @import("audit_schema");
 const binary = @import("binary.zig");
 const hash = @import("hash.zig");
-const jsonl = @import("jsonl.zig");
+const jsonl_mod = @import("jsonl.zig");
 
 pub const max_binary_len: usize = 256;
 
@@ -50,5 +50,11 @@ pub fn parseBinary(input: []const u8) !ParsedBinary {
 }
 
 pub fn formatJsonLine(event: schema.AuditEvent, writer: anytype) !void {
-    return jsonl.formatJsonLine(event, writer);
+    return jsonl_mod.formatJsonLine(event, writer);
+}
+
+pub const jsonl = jsonl_mod;
+
+test {
+    _ = @import("jsonl.zig");
 }
