@@ -31,10 +31,10 @@ pub const PaymentPipelineConfig = struct {
     policy_limit_cents: i64 = 100_000,
     inject_duplicate: bool = true,
     inject_malformed: bool = false,
-    /// When set, tkings records a sandbox failure at this source offset and
-    /// stops the topology.  This simulates the process-supervisor edge while
-    /// the spike still runs in threads.
-    sandbox_fail_at: ?u64 = null,
+    /// Optional test-only hook called at each offset. Use
+    /// `@import("builtin").is_test and hook != null` to gate the invocation so
+    /// the branch is dead code in production builds.
+    sandbox_fail_hook: ?*const fn (offset: u64, state: *PaymentPipelineState) callconv(.c) void = null,
 };
 
 pub const RawPayment = struct {
