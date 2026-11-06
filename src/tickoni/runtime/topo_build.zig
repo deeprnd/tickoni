@@ -167,7 +167,7 @@ pub fn build(
     const align_check = c_abi.topob.topoAlignof();
     std.debug.print("[topo-build] alignof={d} <= {d} check={}\n", .{ align_check, topo_alloc_align.toByteUnits(), align_check <= topo_alloc_align.toByteUnits() });
     const size = c_abi.topob.topoSizeof();
-    std.debug.print("[topo-build] size={d} ws={s}\n", .{size, workspace_name});
+    std.debug.print("[topo-build] size={d} ws={s}\n", .{ size, workspace_name });
     std.debug.print("[topo-build] before alignedAlloc\n", .{});
     std.debug.print("[topo-build] alloc ptr={x} page_align={d} size={d} bytes={d}MB\n", .{ @intFromPtr(&allocator), topo_alloc_align.toByteUnits(), size, size / 1024 / 1024 });
     const buf = allocator.alignedAlloc(u8, topo_alloc_align, size) catch |err| {
