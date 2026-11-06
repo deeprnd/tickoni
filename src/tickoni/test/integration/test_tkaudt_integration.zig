@@ -117,6 +117,8 @@ const AuditContext = extern struct {
     tile: ?*anyopaque,
     audit_records: ?*anyopaque,
     wksp: ?*anyopaque,
+    event_count: u64,
+    input_exhausted: i32,
 };
 
 fn auditRecords(sup: *Supervisor) ![]const AuditRecord {
@@ -138,7 +140,7 @@ comptime {
     std.debug.assert(@sizeOf(AuditHeader) == 448);
     std.debug.assert(@sizeOf(PolicyDecisionPayload) == 136);
     std.debug.assert(@sizeOf(AuditRecord) == 592);
-    std.debug.assert(@sizeOf(AuditContext) == 56);
+    std.debug.assert(@sizeOf(AuditContext) == 72);
 }
 
 // ===========================================================================
@@ -167,7 +169,7 @@ test "tkaudt_integration: Audit record allocation and counting stub" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
     });
@@ -234,7 +236,7 @@ test "tkaudt_integration: Hash chain verification" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
     });

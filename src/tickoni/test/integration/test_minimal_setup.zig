@@ -38,7 +38,7 @@ test "minimal_setup_integration: tkings → tkaudt + metric observer" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = port,
     });
