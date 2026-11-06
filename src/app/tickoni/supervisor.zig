@@ -756,6 +756,13 @@ pub const Supervisor = struct {
                 argv_buf[3] = "--verbose";
                 argv_count = 4;
             }
+            // Pass event_count to the tkaudt stem tile so it can exit
+            // promptly when audited >= event_count (Phase 3.4).
+            if (std.mem.eql(u8, tile_name, "tkaudt")) {
+                var buf: [21]u8 = undefined;
+                const s = std.fmt.bufPrint(&buf, "{d}", .{config.event_count}) catch &buf;
+                try env.put("TKAUDT_EVENT_COUNT", s);
+            }
             const child = try std.process.spawn(io, .{
                 .argv = argv_buf[0..argv_count],
                 .environ_map = &env,
@@ -1018,12 +1025,48 @@ pub const Supervisor = struct {
         // Build a suppression mask from live children / non-crashed handles.
         // A crashed child's CNC is corrupted and reading it SIGABRTs the
         // supervisor — the same guard used in refreshProcessHealth.
+        //
+        // For tiles that are exiting/stopped (not crashed), read their final
+        // counter values BEFORE suppressing, so the supervisor captures the
+        // last known metrics for stem tiles that exit promptly (e.g. tkaudt
+        // with Phase 3.4 event-count gating).
         const tile_cnt = state.cncs.len;
         for (state.suppress_cnc[0..tile_cnt]) |*v| v.* = false;
         for (state.children[0..], 0..) |*record, i| {
             if (record.ownership != .owned) {
                 state.suppress_cnc[i] = true;
-                std.debug.print("[snapshot] tile {d}: ownership not owned, suppress\n", .{i});
+                // Tile was reaped before we polled it (fast-exit stem tiles).
+                // Read its final counter snapshot before suppressing the CNC.
+                if (record.terminal_observation) |obs| switch (obs) {
+                    .exited, .signaled => {
+                        const tile_info = state.built_topo.tile_infos[i];
+                        if (state.cncs[i]) |cnc| {
+                            const id = tile_info.tile_id;
+                            if (tile_registry.findById(id)) |tile_entry| {
+                                for (tile_entry.counters) |c| {
+                                    const v = rt.cnc_counters.appCounterRead(cnc, c.idx);
+                                    switch (c.field) {
+                                        .produced => snap.produced = v,
+                                        .normalized => snap.normalized = v,
+                                        .invalid => snap.invalid = v,
+                                        .duplicates => snap.duplicates = v,
+                                        .allowed => snap.allowed = v,
+                                        .denied => snap.denied = v,
+                                        .audited => snap.audited = v,
+                                        .replay_checked => snap.replay_checked = v,
+                                        .replay_match => snap.replay_match = v,
+                                        .metric_snapshots => snap.metric_snapshots = v,
+                                        .metric_backpressure_waits => snap.metric_backpressure_waits = v,
+                                        .diag_crashed_tile => snap.diag_crash_count = v,
+                                        .diag_sandbox_failures => snap.diag_sandbox_count = v,
+                                        .metric_boot_timestamp => snap.metric_boot_timestamp = v,
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    else => {},
+                };
                 continue;
             }
             const child = &(record.child orelse {
@@ -1035,9 +1078,45 @@ pub const Supervisor = struct {
             self.recordPollResult(i, result);
             switch (result) {
                 .running => {},
-                .observation => |obs| switch (obs) {
-                    .stopped => state.suppress_cnc[i] = true,
-                    .exited, .signaled => state.suppress_cnc[i] = true,
+                .observation => |obs| {
+                    // Read counters for tiles that are exiting or stopped.
+                    // This captures final metrics before the tile is
+                    // reaped (ownership = .reaped) and CNC suppressed.
+                    switch (obs) {
+                        .stopped => state.suppress_cnc[i] = true,
+                        .exited, .signaled => {
+                            state.suppress_cnc[i] = true;
+                            // Read the final counter snapshot before the
+                            // tile's CNC is suppressed. The tile process
+                            // has exited, but CNC shared memory is still
+                            // mapped parent-side (not yet detached).
+                            const tile_info = state.built_topo.tile_infos[i];
+                            if (state.cncs[i]) |cnc| {
+                                const id = tile_info.tile_id;
+                                if (tile_registry.findById(id)) |tile_entry| {
+                                    for (tile_entry.counters) |c| {
+                                        const v = rt.cnc_counters.appCounterRead(cnc, c.idx);
+                                        switch (c.field) {
+                                            .produced => snap.produced = v,
+                                            .normalized => snap.normalized = v,
+                                            .invalid => snap.invalid = v,
+                                            .duplicates => snap.duplicates = v,
+                                            .allowed => snap.allowed = v,
+                                            .denied => snap.denied = v,
+                                            .audited => snap.audited = v,
+                                            .replay_checked => snap.replay_checked = v,
+                                            .replay_match => snap.replay_match = v,
+                                            .metric_snapshots => snap.metric_snapshots = v,
+                                            .metric_backpressure_waits => snap.metric_backpressure_waits = v,
+                                            .diag_crashed_tile => snap.diag_crash_count = v,
+                                            .diag_sandbox_failures => snap.diag_sandbox_count = v,
+                                            .metric_boot_timestamp => snap.metric_boot_timestamp = v,
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                    }
                 },
                 .no_child, .failed => state.suppress_cnc[i] = true,
             }

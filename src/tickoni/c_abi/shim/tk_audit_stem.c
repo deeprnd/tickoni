@@ -20,6 +20,7 @@
 
 #include <string.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 /* Fixed header values — not carried in PaymentMessage but needed for
    the audit record and its hash chain. */
@@ -58,6 +59,12 @@ typedef struct {
     /* Workspace pointer for chunk-to-laddr conversion in DURING_FRAG.
        Set in privileged_init from the tile's workspace ID. */
     void *wksp;
+
+    /* Event count gating (Phase 3.4).
+       Set from TKAUDT_EVENT_COUNT env var. Tile exits when
+       audited >= event_count, regardless of idle ticks. */
+    uint64_t event_count;
+    int32_t  input_exhausted;
 } tk_audit_ctx_t;
 
 #define TKAUDT_CTX_ALIGN alignof(tk_audit_ctx_t)
@@ -90,7 +97,8 @@ static void tk_audit_run( fd_topo_t * topo, fd_topo_tile_t * tile );
 #define STEM_CALLBACK_CONTEXT_ALIGN TKAUDT_CTX_ALIGN
 #define STEM_CALLBACK_DURING_FRAG   tk_audit_during_frag
 #define STEM_CALLBACK_SHOULD_SHUTDOWN(ctx) \
-  ( (ctx)->cnc && fd_cnc_signal_query( (fd_cnc_t *)(ctx)->cnc ) == FD_CNC_SIGNAL_HALT )
+  ( (ctx)->input_exhausted || \
+    ( (ctx)->cnc && fd_cnc_signal_query( (fd_cnc_t *)(ctx)->cnc ) == FD_CNC_SIGNAL_HALT ) )
 
 #include "../../../disco/metrics/fd_metrics.h"
 #include "../../../disco/stem/fd_stem.c"
@@ -150,6 +158,19 @@ tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     ctx->audit_count = 0;
     ctx->prev_hash = AUDIT_SEED;
     ctx->tile = tile;
+    ctx->event_count = 0;
+    ctx->input_exhausted = 0;
+
+    /* Read event_count from environment (Phase 3.4).
+       Supervisor passes TKAUDT_EVENT_COUNT so the tile can exit
+       promptly after processing all events, without idle-threshold wait. */
+    {
+        const char *env = getenv("TKAUDT_EVENT_COUNT");
+        if (env) {
+            ctx->event_count = strtoull(env, NULL, 10);
+            FD_LOG_NOTICE(( "tkaudt: event_count=%lu from env", (unsigned long)ctx->event_count ));
+        }
+    }
 
     /* Point audit_records at the scratch block that follows the context.
        This is the same memory region reserved by scratch_footprint_tile. */
@@ -345,6 +366,12 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
     /* Advance counter. */
     ctx->audit_count += 1;
     ctx->audited += 1;
+
+    /* Event-count gating (Phase 3.4): exit promptly after processing
+       all expected events. When event_count is 0 (env not set), skip. */
+    if( ctx->event_count && ctx->audited >= ctx->event_count ) {
+        ctx->input_exhausted = 1;
+    }
 
     /* Publish progress to CNC app[0] for supervisor snapshots. */
     if( ctx->cnc ) {
