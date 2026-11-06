@@ -905,6 +905,21 @@ test "metric_tile_integration: sequential pipeline runs on same port" {
         }
 
         const snap = sup.snapshotProcessMetrics();
+        // Diagnostic: dump per-tile state, exit codes, and raw snapshot values
+        std.debug.print("  [metric-test] iteration {d} diag:\\n", .{i + 1});
+        std.debug.print("  [metric-test]   produced={d} audited={d} metric_snapshots={d} boot_ts={d}\\n", .{
+            snap.produced, snap.audited, snap.metric_snapshots, snap.metric_boot_timestamp,
+        });
+        for (sup.monitor(), 0..) |h, j| {
+            if (h.state == .crashed) {
+                std.debug.print("  [metric-test]   tile[{d}] CRASHED: exit_code={d} reason={s}\\n", .{
+                    j, h.exit_code, @tagName(h.crashed_because),
+                });
+            } else {
+                std.debug.print("  [metric-test]   tile[{d}] state={s}\\n", .{ j, @tagName(h.state) });
+            }
+        }
+
         try std.testing.expectEqual(event_count, snap.audited);
         try std.testing.expect(snap.metric_snapshots > 0);
         try std.testing.expect(
