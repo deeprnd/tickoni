@@ -746,8 +746,7 @@ pub const Supervisor = struct {
             // Stem tiles (tkaudt) use the dedicated __stem-run path which
             // skips Zig callbacks and dispatches straight to the tile's
             // fd_stem-based run loop. All other tiles use __tile-run.
-            const tile_name = tile.name.slice();
-            if (std.mem.eql(u8, tile_name, "tkaudt")) {
+            if (rt.tile_ids.tkaudt.eql(tile.name)) {
                 argv_buf[1] = "__stem-run";
             } else {
                 argv_buf[1] = "__tile-run";
@@ -758,7 +757,7 @@ pub const Supervisor = struct {
             }
             // Pass event_count to the tkaudt stem tile so it can exit
             // promptly when audited >= event_count (Phase 3.4).
-            if (std.mem.eql(u8, tile_name, "tkaudt")) {
+            if (rt.tile_ids.tkaudt.eql(tile.name)) {
                 var buf: [21]u8 = undefined;
                 const s = std.fmt.bufPrint(&buf, "{d}", .{config.event_count}) catch &buf;
                 try env.put("TKAUDT_EVENT_COUNT", s);
