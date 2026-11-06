@@ -169,7 +169,7 @@ test "LaunchSpec round-trips through a file" {
 
     const read_back = try LaunchSpec.readFromFile(std.testing.io, tmp.dir, "tile.spec");
     try std.testing.expectEqual(@as(u32, 3), read_back.tile_idx);
-    try std.testing.expectEqualStrings("tkpoly", read_back.tile_id.slice());
+    try std.testing.expectEqualStrings(tile_ids.tkpoly.slice(), read_back.tile_id.slice());
     try std.testing.expectEqual(cpu_placement.CpuPlacement{ .exclusive = 2 }, read_back.cpu_placement);
     try std.testing.expectEqualStrings("tkpay0", read_back.workspace_name.slice());
     try std.testing.expectEqual(@as(usize, 4096), read_back.cnc_gaddr);
