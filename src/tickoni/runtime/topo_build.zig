@@ -21,6 +21,7 @@ const cpu_placement = @import("cpu_placement.zig");
 const logger = @import("logger");
 const tile = @import("tile.zig");
 const tile_ids = @import("tile_ids.zig");
+const util = @import("util");
 
 const Topo = c_abi.topob.Topo;
 
@@ -135,12 +136,8 @@ pub const BuiltTopo = struct {
     }
 };
 
-fn toZ(buf: []u8, s: []const u8) [*:0]const u8 {
-    @memcpy(buf[0..s.len], s);
-    buf[s.len] = 0;
-    return @ptrCast(buf.ptr);
-}
-
+/// linkNameZ formats a channel link name ("chN") into a caller-allocated buffer
+/// and returns a null-terminated pointer.
 fn linkNameZ(buf: []u8, idx: usize) [*:0]const u8 {
     const s = std.fmt.bufPrint(buf[0 .. buf.len - 1], "ch{d}", .{idx}) catch unreachable;
     buf[s.len] = 0;
@@ -183,15 +180,15 @@ pub fn build(
     var app_name_buf: [64]u8 = undefined;
     std.debug.print("[topo-build] before topobNew\n", .{});
     log.kvFmt("topo_build", "build", "passing to topobNew ptr={x}", .{@intFromPtr(buf.ptr)});
-    const topo = c_abi.topob.topobNew(buf.ptr, toZ(&app_name_buf, app_name)) orelse return error.TopobNewFailed;
+    const topo = c_abi.topob.topobNew(buf.ptr, util.toZ(&app_name_buf, app_name)) orelse return error.TopobNewFailed;
     std.debug.print("[topo-build] topobNew ok\n", .{});
 
     var wksp_name_buf: [64]u8 = undefined;
     std.debug.print("[topo-build] before topobWksp(name={s})\n", .{workspace_name});
-    const wksp_idx = c_abi.topob.topobWksp(topo, toZ(&wksp_name_buf, workspace_name));
+    const wksp_idx = c_abi.topob.topobWksp(topo, util.toZ(&wksp_name_buf, workspace_name));
     std.debug.print("[topo-build] topobWksp ok idx={d}\n", .{wksp_idx});
     var wksp_name_z_buf: [64]u8 = undefined;
-    const wksp_name_z = toZ(&wksp_name_z_buf, workspace_name);
+    const wksp_name_z = util.toZ(&wksp_name_z_buf, workspace_name);
 
     // v2.22.S4 Task 0: Scan tiles to detect if metric tile is present BEFORE
     // creating workspaces, so we only create metric/metric_in when needed.
@@ -253,18 +250,18 @@ pub fn build(
         non_metric_count += 1;
         var tile_name_buf: [16]u8 = undefined;
         log.kvFmt("topo_build", "build", "calling topobTile(id={s}, wksp={s})", .{ t.name.slice(), wksp_name_z });
-        _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, t.name.slice()), wksp_name_z, wksp_name_z, 0);
+        _ = c_abi.topob.topobTile(topo, util.toZ(&tile_name_buf, t.name.slice()), wksp_name_z, wksp_name_z, 0);
         // Verify tile was registered with expected name (catches tile name typos).
         log.kvFmt("topo_build", "build", "topoValidateTileExists(id={s})", .{t.name.slice()});
-        std.debug.assert(c_abi.topob.topoValidateTileExists(topo, toZ(&tile_name_buf, t.name.slice())));
+        std.debug.assert(c_abi.topob.topoValidateTileExists(topo, util.toZ(&tile_name_buf, t.name.slice())));
     }
     if (has_metric_tile) {
         var tile_name_buf: [16]u8 = undefined;
         log.kvFmt("topo_build", "build", "calling topobTile(metric, metric, metric)", .{});
-        _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, tile_ids.metric.slice()), "metric", "metric", 0);
+        _ = c_abi.topob.topobTile(topo, util.toZ(&tile_name_buf, tile_ids.metric.slice()), "metric", "metric", 0);
         // Verify metric tile was registered.
         log.kvFmt("topo_build", "build", "topoValidateTileExists(metric)", .{});
-        std.debug.assert(c_abi.topob.topoValidateTileExists(topo, toZ(&tile_name_buf, tile_ids.metric.slice())));
+        std.debug.assert(c_abi.topob.topoValidateTileExists(topo, util.toZ(&tile_name_buf, tile_ids.metric.slice())));
         // Metric tile is always last in Firedancer order.
         for (topo_desc.tiles, 0..) |t, d_idx| {
             if (tile_ids.metric.eql(t.name)) {
@@ -277,7 +274,7 @@ pub fn build(
     if (has_metric_tile) {
         var metric_name_buf: [16]u8 = undefined;
         log.kvFmt("topo_build", "build", "calling topoFindTile(metric)", .{});
-        const metric_idx = c_abi.topob.topoFindTile(topo, toZ(&metric_name_buf, tile_ids.metric.slice()), 0);
+        const metric_idx = c_abi.topob.topoFindTile(topo, util.toZ(&metric_name_buf, tile_ids.metric.slice()), 0);
         if (metric_idx != c_abi.topob.not_found) {
             metric_tile_idx = metric_idx;
             log.kvFmt("topo_build", "build", "detected metric tile at idx={d}, metric_wksp={d}, metric_in_wksp={d}", .{ metric_tile_idx, metric_wksp_idx, metric_in_wksp_idx });
@@ -299,7 +296,7 @@ pub fn build(
             var link_name_buf: [8]u8 = undefined;
             const link_name_z = linkNameZ(&link_name_buf, i);
             // Connect this link into the metric tile's inputs from metric_in workspace
-            _ = c_abi.topob.topobTileIn(topo, toZ(&tile_name_buf, tile_ids.metric.slice()), 0, toZ(&in_name_buf, "metric_in"), link_name_z, 0, true, true);
+            _ = c_abi.topob.topobTileIn(topo, util.toZ(&tile_name_buf, tile_ids.metric.slice()), 0, util.toZ(&in_name_buf, "metric_in"), link_name_z, 0, true, true);
         }
         log.kvFmt("topo_build", "build", "done topobTileIn for metric tile", .{});
     }
@@ -317,11 +314,11 @@ pub fn build(
     const scratch_align_key: [*:0]const u8 = "tickoni.scratch_align";
     for (topo_desc.tiles) |t| {
         var tile_name_buf: [8]u8 = undefined;
-        const reqs = c_abi.topob.tickoniTileScratchRequirements(toZ(&tile_name_buf, t.name.slice()));
+        const reqs = c_abi.topob.tickoniTileScratchRequirements(util.toZ(&tile_name_buf, t.name.slice()));
         if (reqs.footprint > 1) {
             log.kvFmt("topo_build", "build", "calling topobSetTileObjPropertyUlong({s}, footprint={d}, align={d})", .{ t.name.slice(), reqs.footprint, reqs.alignment });
-            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.name.slice()), 0, scratch_footprint_key, reqs.footprint);
-            c_abi.topob.topobSetTileObjPropertyUlong(topo, toZ(&tile_name_buf, t.name.slice()), 0, scratch_align_key, reqs.alignment);
+            c_abi.topob.topobSetTileObjPropertyUlong(topo, util.toZ(&tile_name_buf, t.name.slice()), 0, scratch_footprint_key, reqs.footprint);
+            c_abi.topob.topobSetTileObjPropertyUlong(topo, util.toZ(&tile_name_buf, t.name.slice()), 0, scratch_align_key, reqs.alignment);
         }
     }
 
@@ -359,8 +356,8 @@ pub fn build(
         var src_name_buf: [8]u8 = undefined;
         var dst_name_buf: [8]u8 = undefined;
         var link_name_buf: [8]u8 = undefined;
-        const src_name_z = toZ(&src_name_buf, topo_desc.tiles[ch.src_idx].name.slice());
-        const dst_name_z = toZ(&dst_name_buf, topo_desc.tiles[ch.dst_idx].name.slice());
+        const src_name_z = util.toZ(&src_name_buf, topo_desc.tiles[ch.src_idx].name.slice());
+        const dst_name_z = util.toZ(&dst_name_buf, topo_desc.tiles[ch.dst_idx].name.slice());
         const link_name_z = linkNameZ(&link_name_buf, i);
         log.kvFmt("topo_build", "build", "calling topobTileIn(dst={s}, wksp={s}, link=ch{d})", .{ dst_name_z, wksp_name_z, i });
         const fseq_obj_id = c_abi.topob.topobTileIn(topo, dst_name_z, 0, wksp_name_z, link_name_z, 0, true, true);
@@ -492,7 +489,8 @@ test "build produces a topology for the linear Phase 0 chain" {
 
     try std.testing.expectEqual(@as(usize, 5), built.cnc_obj_id.len);
 
-    const tkaudt_id = c_abi.topob.topoFindTile(built.topo, tile_ids.tkaudt.slice(), 0);
+    var tkaudt_buf: [8]u8 = undefined;
+    const tkaudt_id = c_abi.topob.topoFindTile(built.topo, util.toZ(&tkaudt_buf, tile_ids.tkaudt.slice()), 0);
     try std.testing.expect(tkaudt_id != c_abi.topob.not_found);
 }
 

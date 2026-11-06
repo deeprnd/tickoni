@@ -14,6 +14,19 @@ pub const linux_ids = @import("linux_ids.zig");
 pub const sizes = @import("sizes.zig");
 pub const sandbox_defaults = @import("sandbox_defaults.zig");
 
+/// Convert a `[]const u8` slice to a null-terminated pointer suitable for
+/// C FFI. Caller supplies the buffer — the returned pointer is valid as long
+/// as the buffer outlives the call (never returns a dangling pointer).
+///
+/// Usage:
+///   var buf: [8]u8 = undefined;
+///   const z = util.toZ(&buf, some_slice);
+pub fn toZ(buf: []u8, s: []const u8) [*:0]const u8 {
+    @memcpy(buf[0..s.len], s);
+    buf[s.len] = 0;
+    return @ptrCast(&buf[0]);
+}
+
 /// Check whether a TCP port is already bound on localhost.
 /// Returns true if `bind()` fails (port in use or TIME_WAIT), false otherwise (port free).
 ///
