@@ -7,6 +7,7 @@
 /// specifically; floating is the third leg proving the baseline itself.
 const std = @import("std");
 const rt = @import("runtime");
+const tile_ids = rt.tile_ids;
 const c_abi = @import("c_abi");
 const supervisor_mod = @import("supervisor");
 const util = @import("util");
@@ -19,14 +20,14 @@ const Supervisor = supervisor_mod.Supervisor;
 /// pair than test_process_cpu_placement.zig pins, so this test's coverage
 /// is not just a duplicate of M5's.
 const shared_core_tiles = [_]rt.topology.TileDescriptor{
-    .{ .id = 0, .name = rt.topology.TileId.parse("tkings") catch unreachable },
-    .{ .id = 1, .name = rt.topology.TileId.parse("tknorm") catch unreachable },
-    .{ .id = 2, .name = rt.topology.TileId.parse("tkdedu") catch unreachable },
-    .{ .id = 3, .name = rt.topology.TileId.parse("tkpoly") catch unreachable, .cpu_placement = .{ .shared = 0 } },
-    .{ .id = 4, .name = rt.topology.TileId.parse("tkaudt") catch unreachable, .cpu_placement = .{ .shared = 0 } },
-    .{ .id = 5, .name = rt.topology.TileId.parse("tkrepl") catch unreachable },
-    .{ .id = 6, .name = rt.topology.TileId.parse("metric") catch unreachable },
-    .{ .id = 7, .name = rt.topology.TileId.parse("tkdiag") catch unreachable },
+    .{ .id = 0, .name = tile_ids.tkings },
+    .{ .id = 1, .name = tile_ids.tknorm },
+    .{ .id = 2, .name = tile_ids.tkdedu },
+    .{ .id = 3, .name = tile_ids.tkpoly, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 4, .name = tile_ids.tkaudt, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 5, .name = tile_ids.tkrepl },
+    .{ .id = 6, .name = tile_ids.metric },
+    .{ .id = 7, .name = tile_ids.tkdiag },
 };
 
 /// Same 8 tiles, tkpoly and tkaudt each pinned to their own exclusive CPU
@@ -34,14 +35,14 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
 /// on the same CPU). Same tile pair as shared_core_tiles for a like-for-like
 /// comparison of placement mode, not tile identity.
 const exclusive_core_tiles = [_]rt.topology.TileDescriptor{
-    .{ .id = 0, .name = rt.topology.TileId.parse("tkings") catch unreachable },
-    .{ .id = 1, .name = rt.topology.TileId.parse("tknorm") catch unreachable },
-    .{ .id = 2, .name = rt.topology.TileId.parse("tkdedu") catch unreachable },
-    .{ .id = 3, .name = rt.topology.TileId.parse("tkpoly") catch unreachable, .cpu_placement = .{ .exclusive = 0 } },
-    .{ .id = 4, .name = rt.topology.TileId.parse("tkaudt") catch unreachable, .cpu_placement = .{ .exclusive = 1 } },
-    .{ .id = 5, .name = rt.topology.TileId.parse("tkrepl") catch unreachable },
-    .{ .id = 6, .name = rt.topology.TileId.parse("metric") catch unreachable },
-    .{ .id = 7, .name = rt.topology.TileId.parse("tkdiag") catch unreachable },
+    .{ .id = 0, .name = tile_ids.tkings },
+    .{ .id = 1, .name = tile_ids.tknorm },
+    .{ .id = 2, .name = tile_ids.tkdedu },
+    .{ .id = 3, .name = tile_ids.tkpoly, .cpu_placement = .{ .exclusive = 0 } },
+    .{ .id = 4, .name = tile_ids.tkaudt, .cpu_placement = .{ .exclusive = 1 } },
+    .{ .id = 5, .name = tile_ids.tkrepl },
+    .{ .id = 6, .name = tile_ids.metric },
+    .{ .id = 7, .name = tile_ids.tkdiag },
 };
 
 const event_count: u64 = 24;

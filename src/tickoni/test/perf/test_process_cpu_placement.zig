@@ -11,6 +11,7 @@
 /// ~3x slower (single-core contention), so the envelope is set to 3x.
 const std = @import("std");
 const rt = @import("runtime");
+const tile_ids = rt.tile_ids;
 const supervisor_mod = @import("supervisor");
 const util = @import("util");
 const topologies = @import("topologies");
@@ -18,14 +19,14 @@ const topologies = @import("topologies");
 const Supervisor = supervisor_mod.Supervisor;
 
 const shared_core_tiles = [_]rt.topology.TileDescriptor{
-    .{ .id = 0, .name = rt.topology.TileId.parse("tkings") catch unreachable, .cpu_placement = .{ .shared = 0 } },
-    .{ .id = 1, .name = rt.topology.TileId.parse("tknorm") catch unreachable, .cpu_placement = .{ .shared = 0 } },
-    .{ .id = 2, .name = rt.topology.TileId.parse("tkdedu") catch unreachable, .cpu_placement = .{ .shared = 0 } },
-    .{ .id = 3, .name = rt.topology.TileId.parse("tkpoly") catch unreachable, .cpu_placement = .{ .shared = 0 } },
-    .{ .id = 4, .name = rt.topology.TileId.parse("tkaudt") catch unreachable, .cpu_placement = .{ .shared = 0 } },
-    .{ .id = 5, .name = rt.topology.TileId.parse("tkrepl") catch unreachable, .cpu_placement = .{ .shared = 0 } },
-    .{ .id = 6, .name = rt.topology.TileId.parse("metric") catch unreachable, .cpu_placement = .{ .shared = 0 } },
-    .{ .id = 7, .name = rt.topology.TileId.parse("tkdiag") catch unreachable, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 0, .name = tile_ids.tkings, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 1, .name = tile_ids.tknorm, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 2, .name = tile_ids.tkdedu, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 3, .name = tile_ids.tkpoly, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 4, .name = tile_ids.tkaudt, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 5, .name = tile_ids.tkrepl, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 6, .name = tile_ids.metric, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 7, .name = tile_ids.tkdiag, .cpu_placement = .{ .shared = 0 } },
 };
 
 const event_count: u64 = 64;
