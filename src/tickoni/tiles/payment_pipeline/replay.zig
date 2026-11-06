@@ -5,7 +5,7 @@
 const std = @import("std");
 const audit = @import("audit_tile");
 const audit_sink = @import("audit_sink.zig");
-const audit_shared = @import("audit_shared.zig");
+const tile_ids = @import("runtime").tile_ids;
 const runtime = @import("runtime.zig");
 const logger = @import("logger");
 
@@ -38,7 +38,7 @@ pub fn runReplay(state: *PaymentPipelineState) void {
 }
 
 fn deterministicReplayDivergences(state: *PaymentPipelineState, log: *logger.Logger) u64 {
-    var prev_hash = audit_shared.audit_seed;
+    var prev_hash = audit_sink.audit_seed;
     var expected_seq: u64 = 0;
     var divergences: u64 = 0;
 
@@ -56,7 +56,7 @@ fn deterministicReplayDivergences(state: *PaymentPipelineState, log: *logger.Log
             else
                 .allow;
         };
-        const decided_by: [6]u8 = if (malformed) audit_shared.tile_id_tknorm else audit_shared.tile_id_tkpoly;
+        const decided_by: tile_ids.TileId = if (malformed) tile_ids.tknorm else tile_ids.tkpoly;
 
         const expected = buildReplayEvent(expected_seq, raw, event_hash, decision, decided_by, prev_hash);
         if (expected_seq >= state.audit.count) {
@@ -84,7 +84,7 @@ fn buildReplayEvent(
     raw: RawPayment,
     event_hash: u64,
     decision: PolicyDecision,
-    decided_by: [6]u8,
+    decided_by: tile_ids.TileId,
     prev_hash: u64,
 ) audit.AuditEvent {
     return audit_sink.buildPolicyDecisionEvent(
@@ -92,7 +92,7 @@ fn buildReplayEvent(
         raw.source_offset,
         event_hash,
         @fromBackingInt(@intCast(@backingInt(decision))),
-        decided_by,
+        decided_by.bytes,
         prev_hash,
     );
 }

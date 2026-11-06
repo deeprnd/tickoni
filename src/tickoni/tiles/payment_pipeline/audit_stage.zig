@@ -8,7 +8,7 @@ const runtime = @import("runtime.zig");
 const queue = @import("queue.zig");
 const logger = @import("logger");
 const audit_sink = @import("audit_sink.zig");
-const audit_shared = @import("audit_shared.zig");
+const tile_ids = @import("runtime").tile_ids;
 
 const PaymentPipelineState = runtime.PaymentPipelineState;
 
@@ -25,7 +25,7 @@ pub fn runAudit(state: *PaymentPipelineState) void {
             .source_offset = msg.raw.source_offset,
             .event_hash = msg.event_hash,
             .decision = @fromBackingInt(@intCast(@backingInt(msg.decision))),
-            .tile_id = msg.decided_by,
+            .tile_id = msg.decided_by.bytes,
         }) catch {
             state.crashed_tile.store(4, .release);
             state.requestStop();
@@ -33,7 +33,7 @@ pub fn runAudit(state: *PaymentPipelineState) void {
             break;
         };
         _ = state.audited.fetchAdd(1, .release);
-        log.kvFmt("tkaudt", "runAudit", "offset={d} event_hash={x} decided_by={d}", .{ msg.raw.source_offset, msg.event_hash, msg.decided_by[0] });
+        log.kvFmt("tkaudt", "runAudit", "offset={d} event_hash={x} decided_by={s}", .{ msg.raw.source_offset, msg.event_hash, msg.decided_by.slice() });
     }
     state.audit_done.store(true, .release);
     log.debug("tkaudt", "runAudit", "done");
@@ -49,7 +49,7 @@ test "sandbox failure records crash diagnostics and stops audit" {
         .pipeline_hops = 1,
         .duplicate = false,
         .decision = .allow,
-        .decided_by = audit_shared.tile_id_tkpoly,
+        .decided_by = tile_ids.tkpoly,
         .event_hash = 0,
     }, &state.stop);
     state.q_poly_audit.close();

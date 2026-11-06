@@ -4,7 +4,7 @@
 const std = @import("std");
 const runtime = @import("runtime.zig");
 const audit_sink = @import("audit_sink.zig");
-const audit_shared = @import("audit_shared.zig");
+const tile_ids = @import("runtime").tile_ids;
 const logger = @import("logger");
 
 const PaymentPipelineState = runtime.PaymentPipelineState;
@@ -25,7 +25,7 @@ pub fn runNormalize(state: *PaymentPipelineState) void {
             msg.pipeline_hops += 1;
             msg.event_hash = runtime.stableEventHash(msg.raw);
             msg.decision = .malformed_drop;
-            msg.decided_by = audit_shared.tile_id_tknorm;
+            msg.decided_by = tile_ids.tknorm;
             log.kvFmt("tknorm", "runNormalize", "offset={d} event_hash={x} account={d} reason=malformed", .{ msg.raw.source_offset, msg.event_hash, msg.raw.account_id });
             state.q_norm_dedu.push(msg, &state.stop) catch break;
             continue;
