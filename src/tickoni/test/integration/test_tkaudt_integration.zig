@@ -124,7 +124,8 @@ const AuditContext = extern struct {
 
 fn auditRecords(sup: *Supervisor) ![]const AuditRecord {
     const topo = sup.getTopo() orelse return error.NoProcessState;
-    const tile_id = c_abi.topob.topoFindTile(topo, tile_ids.tkaudt.slice(), 0);
+    var name_buf: [8]u8 = undefined;
+    const tile_id = c_abi.topob.topoFindTile(topo, util.toZ(&name_buf, tile_ids.tkaudt.slice()), 0);
     if (tile_id == c_abi.topob.not_found) return error.AuditTileNotFound;
 
     const tile_obj_id = c_abi.topob.topoTileObjId(topo, tile_id);
