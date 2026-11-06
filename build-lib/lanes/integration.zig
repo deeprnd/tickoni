@@ -2,7 +2,6 @@
 ///
 /// Module creation is delegated to the ModuleFactory in factory.zig.
 /// This file owns only the integration test registration (strategy).
-
 const std = @import("std");
 const factory = @import("../factory.zig");
 const codec = @import("../lib/codec.zig");
@@ -172,6 +171,7 @@ pub fn strategy(
                 .optimize = optimize,
                 .imports = &.{
                     .{ .name = "adapter", .module = int_mods.adapter_int_mod },
+                    .{ .name = "runtime", .module = int_mods.shared_runtime },
                     .{ .name = "audit_tile", .module = int_mods.shared_audit_tile },
                     .{ .name = "basket", .module = int_mods.shared_basket },
                     .{ .name = "investment_audit", .module = int_mods.investment_audit_int_mod },
@@ -334,17 +334,17 @@ pub fn strategy(
             }),
         });
         system_suite_test.root_module.addCSourceFiles(.{
-            .files = &.{ "src/tickoni/c_abi/shim/os.c" },
+            .files = &.{"src/tickoni/c_abi/shim/os.c"},
             .flags = shims.shimCFlagsFor(target.result),
         });
         // os.c uses FD_HAS_LINUX / FD_HAS_MACOS / FD_HAS_WINDOWS to select
         // the platform block; add the platform define via addCMacro so it
         // stays in sync with shimCFlagsFor if the function changes.
         switch (target.result.os.tag) {
-            .linux    => system_suite_test.root_module.addCMacro("FD_HAS_LINUX",    "1"),
-            .macos    => system_suite_test.root_module.addCMacro("FD_HAS_MACOS",    "1"),
-            .windows  => system_suite_test.root_module.addCMacro("FD_HAS_WINDOWS",  "1"),
-            else      => {},
+            .linux => system_suite_test.root_module.addCMacro("FD_HAS_LINUX", "1"),
+            .macos => system_suite_test.root_module.addCMacro("FD_HAS_MACOS", "1"),
+            .windows => system_suite_test.root_module.addCMacro("FD_HAS_WINDOWS", "1"),
+            else => {},
         }
         if (target.result.os.tag == .windows) {
             system_suite_test.root_module.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });

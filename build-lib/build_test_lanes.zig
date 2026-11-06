@@ -3,7 +3,6 @@
 ///
 /// This is a thin bridge — all logic lives in build-lib/lanes/* and
 /// build-lib/factory.zig.
-
 const std = @import("std");
 const lane = @import("lane.zig");
 const build_lane = @import("lanes/unit.zig");
@@ -68,7 +67,6 @@ pub fn registerTestLanes(
         .investment_support_int_mod = int_mods.investment_support_int_mod,
         .fd_lib_dir = fd_lib_dir,
     }, target, optimize, system_step);
-
 }
 
 /// Register the coverage lane (always available).

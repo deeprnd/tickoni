@@ -3,7 +3,6 @@
 /// Extracts inline system test registration from build.zig into a callable
 /// function. Preserves identical compile flags, linkage, and module structure.
 /// Runs all proofs under src/tickoni/test/system.
-
 const std = @import("std");
 const codec = @import("../lib/codec.zig");
 const shims = @import("../lib/shims.zig");
