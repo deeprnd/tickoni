@@ -14,8 +14,8 @@ const PaymentPipelineState = runtime.PaymentPipelineState;
 
 pub fn runAudit(state: *PaymentPipelineState) void {
     const log = logger.get();
-    log.enter("tkaudt", "runAudit");
-    defer log.exit("tkaudt", "runAudit");
+    log.enter(tile_ids.tkaudt.slice(), "runAudit");
+    defer log.exit(tile_ids.tkaudt.slice(), "runAudit");
 
     var offset: u64 = 0;
     while (state.q_poly_audit.pop(&state.stop)) |msg| {
@@ -29,14 +29,14 @@ pub fn runAudit(state: *PaymentPipelineState) void {
         }) catch {
             state.crashed_tile.store(4, .release);
             state.requestStop();
-            log.err("tkaudt", "runAudit", "audit log append failed");
+            log.err(tile_ids.tkaudt.slice(), "runAudit", "audit log append failed");
             break;
         };
         _ = state.audited.fetchAdd(1, .release);
-        log.kvFmt("tkaudt", "runAudit", "offset={d} event_hash={x} decided_by={s}", .{ msg.raw.source_offset, msg.event_hash, msg.decided_by.slice() });
+        log.kvFmt(tile_ids.tkaudt.slice(), "runAudit", "offset={d} event_hash={x} decided_by={s}", .{ msg.raw.source_offset, msg.event_hash, msg.decided_by.slice() });
     }
     state.audit_done.store(true, .release);
-    log.debug("tkaudt", "runAudit", "done");
+    log.debug(tile_ids.tkaudt.slice(), "runAudit", "done");
 }
 
 test "sandbox failure records crash diagnostics and stops audit" {

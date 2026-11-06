@@ -11,8 +11,8 @@ const PaymentPipelineState = runtime.PaymentPipelineState;
 
 pub fn runNormalize(state: *PaymentPipelineState) void {
     const log = logger.get();
-    log.enter("tknorm", "runNormalize");
-    defer log.exit("tknorm", "runNormalize");
+    log.enter(tile_ids.tknorm.slice(), "runNormalize");
+    defer log.exit(tile_ids.tknorm.slice(), "runNormalize");
 
     defer state.q_norm_dedu.close();
 
@@ -26,17 +26,17 @@ pub fn runNormalize(state: *PaymentPipelineState) void {
             msg.event_hash = runtime.stableEventHash(msg.raw);
             msg.decision = .malformed_drop;
             msg.decided_by = tile_ids.tknorm;
-            log.kvFmt("tknorm", "runNormalize", "offset={d} event_hash={x} account={d} reason=malformed", .{ msg.raw.source_offset, msg.event_hash, msg.raw.account_id });
+            log.kvFmt(tile_ids.tknorm.slice(), "runNormalize", "offset={d} event_hash={x} account={d} reason=malformed", .{ msg.raw.source_offset, msg.event_hash, msg.raw.account_id });
             state.q_norm_dedu.push(msg, &state.stop) catch break;
             continue;
         }
         msg.pipeline_hops += 1;
         msg.event_hash = runtime.stableEventHash(msg.raw);
         _ = state.normalized.fetchAdd(1, .release);
-        log.kvFmt("tknorm", "runNormalize", "offset={d} event_hash={x} account={d} amount={d}c", .{ msg.raw.source_offset, msg.event_hash, msg.raw.account_id, msg.raw.amount_cents });
+        log.kvFmt(tile_ids.tknorm.slice(), "runNormalize", "offset={d} event_hash={x} account={d} amount={d}c", .{ msg.raw.source_offset, msg.event_hash, msg.raw.account_id, msg.raw.amount_cents });
         state.q_norm_dedu.push(msg, &state.stop) catch break;
     }
-    log.debug("tknorm", "runNormalize", "done");
+    log.debug(tile_ids.tknorm.slice(), "runNormalize", "done");
 }
 
 test "sandbox failure records crash diagnostics and stops normalize" {

@@ -16,14 +16,14 @@ const PolicyDecision = runtime.PolicyDecision;
 
 pub fn runReplay(state: *PaymentPipelineState) void {
     const log = logger.get();
-    log.enter("tkrepl", "runReplay");
-    defer log.exit("tkrepl", "runReplay");
+    log.enter(tile_ids.tkrepl.slice(), "runReplay");
+    defer log.exit(tile_ids.tkrepl.slice(), "runReplay");
 
     while (!state.audit_done.load(.acquire)) {
         if (state.stop.load(.acquire) and state.crashed_tile.load(.acquire) != runtime.crash_none) {
             state.replay_checked.store(true, .release);
             state.replay_match.store(false, .release);
-            log.err("tkrepl", "runReplay", "aborting replay due to crash");
+            log.err(tile_ids.tkrepl.slice(), "runReplay", "aborting replay due to crash");
             return;
         }
         std.Thread.yield() catch {};
@@ -34,7 +34,7 @@ pub fn runReplay(state: *PaymentPipelineState) void {
     state.replay_divergences.store(divergences, .release);
     state.replay_match.store(divergences == 0, .release);
     state.replay_checked.store(true, .release);
-    log.debug("tkrepl", "runReplay", "replay check complete");
+    log.debug(tile_ids.tkrepl.slice(), "runReplay", "replay check complete");
 }
 
 fn deterministicReplayDivergences(state: *PaymentPipelineState, log: *logger.Logger) u64 {
@@ -60,10 +60,10 @@ fn deterministicReplayDivergences(state: *PaymentPipelineState, log: *logger.Log
 
         const expected = buildReplayEvent(expected_seq, raw, event_hash, decision, decided_by, prev_hash);
         if (expected_seq >= state.audit.count) {
-            log.kvFmt("tkrepl", "deterministicReplayDivergences", "seq={d} reason=missing_audit_record expected_seq={d} actual_count={d}", .{ expected_seq, expected_seq, state.audit.count });
+            log.kvFmt(tile_ids.tkrepl.slice(), "deterministicReplayDivergences", "seq={d} reason=missing_audit_record expected_seq={d} actual_count={d}", .{ expected_seq, expected_seq, state.audit.count });
             divergences += 1;
         } else if (!audit.auditEventsEql(expected, state.audit.records[@intCast(expected_seq)])) {
-            log.kvFmt("tkrepl", "deterministicReplayDivergences", "seq={d} expected_hash={x} actual_hash={x} reason=hash_mismatch", .{ expected_seq, expected.header.record_hash, state.audit.records[@intCast(expected_seq)].header.record_hash });
+            log.kvFmt(tile_ids.tkrepl.slice(), "deterministicReplayDivergences", "seq={d} expected_hash={x} actual_hash={x} reason=hash_mismatch", .{ expected_seq, expected.header.record_hash, state.audit.records[@intCast(expected_seq)].header.record_hash });
             divergences += 1;
         }
         prev_hash = expected.header.record_hash;

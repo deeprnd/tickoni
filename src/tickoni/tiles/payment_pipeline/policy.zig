@@ -12,8 +12,8 @@ const PaymentPipelineState = runtime.PaymentPipelineState;
 
 pub fn runPolicy(state: *PaymentPipelineState) void {
     const log = logger.get();
-    log.enter("tkpoly", "runPolicy");
-    defer log.exit("tkpoly", "runPolicy");
+    log.enter(tile_ids.tkpoly.slice(), "runPolicy");
+    defer log.exit(tile_ids.tkpoly.slice(), "runPolicy");
 
     defer state.q_poly_audit.close();
 
@@ -29,21 +29,21 @@ pub fn runPolicy(state: *PaymentPipelineState) void {
         } else if (msg.duplicate) {
             msg.decision = .duplicate_drop;
             msg.decided_by = tile_ids.tkpoly;
-            log.kvFmt("tkpoly", "runPolicy", "offset={d} decision=duplicate_drop account={d} idempotency_key={d}", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.idempotency_key });
+            log.kvFmt(tile_ids.tkpoly.slice(), "runPolicy", "offset={d} decision=duplicate_drop account={d} idempotency_key={d}", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.idempotency_key });
         } else if (msg.raw.amount_cents > state.config.policy_limit_cents) {
             msg.decision = .deny;
             msg.decided_by = tile_ids.tkpoly;
             _ = state.denied.fetchAdd(1, .release);
-            log.kvFmt("tkpoly", "runPolicy", "offset={d} decision=deny account={d} amount={d}c limit={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents, state.config.policy_limit_cents });
+            log.kvFmt(tile_ids.tkpoly.slice(), "runPolicy", "offset={d} decision=deny account={d} amount={d}c limit={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents, state.config.policy_limit_cents });
         } else {
             msg.decision = .allow;
             msg.decided_by = tile_ids.tkpoly;
             _ = state.allowed.fetchAdd(1, .release);
-            log.kvFmt("tkpoly", "runPolicy", "offset={d} decision=allow account={d} amount={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents });
+            log.kvFmt(tile_ids.tkpoly.slice(), "runPolicy", "offset={d} decision=allow account={d} amount={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents });
         }
         state.q_poly_audit.push(msg, &state.stop) catch break;
     }
-    log.debug("tkpoly", "runPolicy", "done");
+    log.debug(tile_ids.tkpoly.slice(), "runPolicy", "done");
 }
 
 test "sandbox failure records crash diagnostics and stops policy" {

@@ -3,6 +3,7 @@
 /// crash path while the pipeline still runs in threads.
 const std = @import("std");
 const runtime = @import("runtime.zig");
+const tile_ids = @import("runtime").tile_ids;
 const logger = @import("logger");
 
 const PaymentPipelineState = runtime.PaymentPipelineState;
@@ -11,8 +12,8 @@ pub const tile_tkings: i32 = 0;
 
 pub fn runIngest(state: *PaymentPipelineState) void {
     const log = logger.get();
-    log.enter("tkings", "runIngest");
-    defer log.exit("tkings", "runIngest");
+    log.enter(tile_ids.tkings.slice(), "runIngest");
+    defer log.exit(tile_ids.tkings.slice(), "runIngest");
 
     defer state.q_ing_norm.close();
 
@@ -31,9 +32,9 @@ pub fn runIngest(state: *PaymentPipelineState) void {
         const raw = runtime.syntheticPayment(state.config, offset);
         if (state.q_ing_norm.push(.{ .raw = raw, .pipeline_hops = 1 }, &state.stop)) |_| {
             _ = state.produced.fetchAdd(1, .release);
-            log.kvFmt("tkings", "runIngest", "offset={d} account={d} amount={d}c", .{ offset, raw.account_id, raw.amount_cents });
+            log.kvFmt(tile_ids.tkings.slice(), "runIngest", "offset={d} account={d} amount={d}c", .{ offset, raw.account_id, raw.amount_cents });
         } else |_| {
-            log.kvFmt("tkings", "runIngest", "offset={d} reason=queue_full", .{offset});
+            log.kvFmt(tile_ids.tkings.slice(), "runIngest", "offset={d} reason=queue_full", .{offset});
             break;
         }
     }
