@@ -6,6 +6,7 @@ const std = @import("std");
 const schema = @import("types.zig");
 const codec = @import("codec.zig");
 const rt = @import("runtime");
+const tile_ids = rt.tile_ids;
 
 fn parseFixedAsciiBytes(comptime N: usize, value: []const u8) ![N]u8 {
     if (value.len > N) return error.StringTooLong;
@@ -61,18 +62,18 @@ pub fn makeFixtures() [12]schema.AuditEvent { // Runtime metadata populated from
     const digest = "abc123";
     const manifest_id = "fixture.investment.v1";
     const headers = [_]schema.Header{
-        fixtureHeader(1, 10, "tkings", 1001, "policy_ingress_v1", 1, 111, 500, 0, runtime, isolation, digest, manifest_id, version),
-        fixtureHeader(2, 11, "tknorm", 1002, "policy_norm_v1", 2, 222, 501, 0, runtime, isolation, digest, manifest_id, version),
-        fixtureHeader(3, 12, "tkpoly", 1003, "policy_poly_v1", 3, 333, 502, 0, runtime, isolation, digest, manifest_id, version),
-        fixtureHeader(4, 13, "tkmodl", 1004, "policy_model_v1", 4, 444, 503, 0, runtime, isolation, digest, manifest_id, version),
-        fixtureHeader(5, 14, "tkadpt", 1005, "policy_adpt_v1", 5, 555, 504, 0, runtime, isolation, digest, manifest_id, version),
-        fixtureHeader(6, 15, "tkagnt", 1006, "policy_prop_v1", 6, 666, 505, 0, runtime, isolation, digest, manifest_id, version),
-        fixtureHeader(7, 16, "tkpoly", 1007, "policy_dest_v1", 7, 777, 506, 0, runtime, isolation, digest, manifest_id, version),
-        fixtureHeader(8, 17, "tkpoly", 1008, "policy_limt_v1", 8, 888, 507, 0, runtime, isolation, digest, manifest_id, version),
-        fixtureHeader(9, 18, "tkpoly", 1009, "policy_aprv_v1", 9, 999, 508, 0, runtime, isolation, digest, manifest_id, version),
-        fixtureHeader(10, 19, "tkpoly", 1010, "policy_deny_v1", 10, 1110, 509, 0, runtime, isolation, digest, manifest_id, version),
-        fixtureHeader(11, 20, "metric", 1011, "policy_metr_v1", 11, 1221, 510, 0, runtime, isolation, digest, manifest_id, version),
-        fixtureHeader(12, 21, "tkrepl", 1012, "policy_repl_v1", 12, 1332, 511, 0, runtime, isolation, digest, manifest_id, version),
+        fixtureHeader(1, 10, tile_ids.tkings.slice(), 1001, "policy_ingress_v1", 1, 111, 500, 0, runtime, isolation, digest, manifest_id, version),
+        fixtureHeader(2, 11, tile_ids.tknorm.slice(), 1002, "policy_norm_v1", 2, 222, 501, 0, runtime, isolation, digest, manifest_id, version),
+        fixtureHeader(3, 12, tile_ids.tkpoly.slice(), 1003, "policy_poly_v1", 3, 333, 502, 0, runtime, isolation, digest, manifest_id, version),
+        fixtureHeader(4, 13, tile_ids.tkmodl.slice(), 1004, "policy_model_v1", 4, 444, 503, 0, runtime, isolation, digest, manifest_id, version),
+        fixtureHeader(5, 14, tile_ids.tkadpt.slice(), 1005, "policy_adpt_v1", 5, 555, 504, 0, runtime, isolation, digest, manifest_id, version),
+        fixtureHeader(6, 15, tile_ids.tkagnt.slice(), 1006, "policy_prop_v1", 6, 666, 505, 0, runtime, isolation, digest, manifest_id, version),
+        fixtureHeader(7, 16, tile_ids.tkpoly.slice(), 1007, "policy_dest_v1", 7, 777, 506, 0, runtime, isolation, digest, manifest_id, version),
+        fixtureHeader(8, 17, tile_ids.tkpoly.slice(), 1008, "policy_limt_v1", 8, 888, 507, 0, runtime, isolation, digest, manifest_id, version),
+        fixtureHeader(9, 18, tile_ids.tkpoly.slice(), 1009, "policy_aprv_v1", 9, 999, 508, 0, runtime, isolation, digest, manifest_id, version),
+        fixtureHeader(10, 19, tile_ids.tkpoly.slice(), 1010, "policy_deny_v1", 10, 1110, 509, 0, runtime, isolation, digest, manifest_id, version),
+        fixtureHeader(11, 20, tile_ids.metric.slice(), 1011, "policy_metr_v1", 11, 1221, 510, 0, runtime, isolation, digest, manifest_id, version),
+        fixtureHeader(12, 21, tile_ids.tkrepl.slice(), 1012, "policy_repl_v1", 12, 1332, 511, 0, runtime, isolation, digest, manifest_id, version),
     };
 
     const events = [_]schema.AuditEvent{
@@ -158,7 +159,7 @@ pub fn makeFixtures() [12]schema.AuditEvent { // Runtime metadata populated from
 }
 
 test "computeRecordHash excludes timestamp_ns" {
-    const hdr = fixtureHeader(0, 0, "tkpoly", 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0");
+    const hdr = fixtureHeader(0, 0, tile_ids.tkpoly.slice(), 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0");
     const payload = schema.AuditEvent.Payload{ .policy_decision = .{
         .outcome = .allow,
         .rule_id = 1,
@@ -177,7 +178,7 @@ test "computeRecordHash excludes timestamp_ns" {
 }
 
 test "hash chain mutation changes downstream records" {
-    const first = codec.buildEvent(fixtureHeader(0, 0, "tkpoly", 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0"), .{ .policy_decision = .{
+    const first = codec.buildEvent(fixtureHeader(0, 0, tile_ids.tkpoly.slice(), 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0"), .{ .policy_decision = .{
         .outcome = .allow,
         .rule_id = 1,
         .failed_scope_dim = parseFixedAsciiBytes(32, "scope") catch unreachable,
@@ -187,7 +188,7 @@ test "hash chain mutation changes downstream records" {
         .taxonomy_version = 0,
         .classification_code = std.mem.zeroes([32]u8),
     } });
-    var second_header = fixtureHeader(1, 1, "tkpoly", 0, "policy", 0, 0, first.header.record_hash, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0");
+    var second_header = fixtureHeader(1, 1, tile_ids.tkpoly.slice(), 0, "policy", 0, 0, first.header.record_hash, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0");
     const second = codec.buildEvent(second_header, .{ .policy_decision = .{
         .outcome = .allow,
         .rule_id = 1,
@@ -199,7 +200,7 @@ test "hash chain mutation changes downstream records" {
         .classification_code = std.mem.zeroes([32]u8),
     } });
 
-    const mutated_first = codec.buildEvent(fixtureHeader(0, 9, "tkpoly", 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0"), .{ .policy_decision = .{
+    const mutated_first = codec.buildEvent(fixtureHeader(0, 9, tile_ids.tkpoly.slice(), 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0"), .{ .policy_decision = .{
         .outcome = .allow,
         .rule_id = 1,
         .failed_scope_dim = parseFixedAsciiBytes(32, "scope") catch unreachable,
@@ -221,7 +222,7 @@ test "binary and wire format pinned" {
 }
 
 test "policy_decision and denial classification evidence survives binary round-trip" {
-    const h = fixtureHeader(0, 0, "tkpoly", 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0");
+    const h = fixtureHeader(0, 0, tile_ids.tkpoly.slice(), 0, "policy", 0, 0, 0, 0, "linux_full", "full", "abc", "fixture.v1", "0.1.0");
 
     const policy_event = codec.buildEvent(h, .{ .policy_decision = .{
         .outcome = .deny,

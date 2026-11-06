@@ -3,14 +3,15 @@
 /// unchanged rather than checking already-rejected messages for duplicates.
 const std = @import("std");
 const runtime = @import("runtime.zig");
+const tile_ids = @import("runtime").tile_ids;
 const logger = @import("logger");
 
 const PaymentPipelineState = runtime.PaymentPipelineState;
 
 pub fn runDedupe(state: *PaymentPipelineState) void {
     const log = logger.get();
-    log.enter("tkdedu", "runDedupe");
-    defer log.exit("tkdedu", "runDedupe");
+    log.enter(tile_ids.tkdedu.slice(), "runDedupe");
+    defer log.exit(tile_ids.tkdedu.slice(), "runDedupe");
 
     defer state.q_dedu_poly.close();
 
@@ -22,11 +23,11 @@ pub fn runDedupe(state: *PaymentPipelineState) void {
         if (msg.decision != .malformed_drop and state.seenOrRemember(msg)) {
             msg.duplicate = true;
             _ = state.duplicates.fetchAdd(1, .release);
-            log.kvFmt("tkdedu", "runDedupe", "offset={d} idempotency_key={d} event_hash={x} reason=duplicate", .{ msg.raw.source_offset, msg.raw.idempotency_key, msg.event_hash });
+            log.kvFmt(tile_ids.tkdedu.slice(), "runDedupe", "offset={d} idempotency_key={d} event_hash={x} reason=duplicate", .{ msg.raw.source_offset, msg.raw.idempotency_key, msg.event_hash });
         }
         state.q_dedu_poly.push(msg, &state.stop) catch break;
     }
-    log.debug("tkdedu", "runDedupe", "done");
+    log.debug(tile_ids.tkdedu.slice(), "runDedupe", "done");
 }
 
 test "sandbox failure records crash diagnostics and stops dedupe" {
