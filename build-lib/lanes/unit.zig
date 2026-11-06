@@ -53,6 +53,7 @@ pub fn strategy(
         .imports = &.{
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "logger", .module = shared.logger },
+            .{ .name = "util", .module = shared.util },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
     });
