@@ -80,6 +80,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .imports = &.{
             .{ .name = "c_abi", .module = c_abi_mod },
             .{ .name = "audit_schema", .module = audit_schema_mod },
+            .{ .name = "runtime", .module = runtime_mod },
         },
     });
     const audit_tile_mod = b.createModule(.{
