@@ -13,11 +13,14 @@
 /// ProcessConfig.
 const std = @import("std");
 const tile = @import("tile.zig");
+const tile_ids_mod = @import("tile_ids.zig");
 const cpu_placement = @import("cpu_placement.zig");
 const link = @import("link.zig");
 const topology = @import("topology.zig");
 const util = @import("util");
 const logger = @import("logger");
+
+const tile_ids = tile_ids_mod;
 
 pub const magic: u32 = 0x544b5453; // "TKST"
 pub const version: u16 = 2;
@@ -137,9 +140,9 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
     defer tmp.cleanup();
 
     const tiles = [_]tile.TileDescriptor{
-        .{ .id = try tile.TileId.parse("tkings"), .name = tile.TileId.parse("tkings") catch unreachable, .cpu_placement = .{ .exclusive = 0 } },
-        .{ .id = try tile.TileId.parse("tknorm"), .name = tile.TileId.parse("tknorm") catch unreachable, .cpu_placement = .{ .shared = 1 } },
-        .{ .id = try tile.TileId.parse("tkdedu"), .name = tile.TileId.parse("tkdedu") catch unreachable },
+        .{ .id = tile_ids.tkings, .name = tile_ids.tkings, .cpu_placement = .{ .exclusive = 0 } },
+        .{ .id = tile_ids.tknorm, .name = tile_ids.tknorm, .cpu_placement = .{ .shared = 1 } },
+        .{ .id = tile_ids.tkdedu, .name = tile_ids.tkdedu },
     };
     const channels = [_]link.Channel{
         .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = try link.WorkspaceName.parse("tkpay0") },
@@ -157,7 +160,7 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
     const rebuilt = read_back.toTopology(&tiles_buf, &channels_buf);
 
     try std.testing.expectEqual(@as(usize, 3), rebuilt.tiles.len);
-    try std.testing.expectEqualStrings("tkings", rebuilt.tiles[0].name.slice());
+    try std.testing.expectEqualStrings(tile_ids.tkings.slice(), rebuilt.tiles[0].name.slice());
     try std.testing.expectEqual(cpu_placement.CpuPlacement{ .exclusive = 0 }, rebuilt.tiles[0].cpu_placement);
     try std.testing.expectEqual(cpu_placement.CpuPlacement{ .shared = 1 }, rebuilt.tiles[1].cpu_placement);
     try std.testing.expectEqual(cpu_placement.CpuPlacement.floating, rebuilt.tiles[2].cpu_placement);
@@ -194,7 +197,7 @@ test "TopologySpec readFromFile rejects a bad magic" {
 test "TopologySpec fromTopology fails closed on too many tiles" {
     const port = util.nextMetricPort();
     var tiles: [max_tiles + 1]tile.TileDescriptor = undefined;
-    for (&tiles) |*t| t.* = .{ .id = tile.TileId.parse("tkfoo") catch unreachable, .name = tile.TileId.parse("tkfoo") catch unreachable, .cpu_placement = .floating };
+    for (&tiles) |*t| t.* = .{ .id = tile_ids.tkfoo, .name = tile_ids.tkfoo, .cpu_placement = .floating };
     const topo = topology.Topology{ .tiles = &tiles, .channels = &.{} };
     try std.testing.expectError(error.TooManyTiles, TopologySpec.fromTopology(topo, port));
 }

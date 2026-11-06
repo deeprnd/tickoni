@@ -20,6 +20,7 @@ const topology = @import("topology.zig");
 const cpu_placement = @import("cpu_placement.zig");
 const logger = @import("logger");
 const tile = @import("tile.zig");
+const tile_ids = @import("tile_ids.zig");
 
 const Topo = c_abi.topob.Topo;
 
@@ -467,7 +468,7 @@ const tile_mod = @import("tile.zig");
 const link_mod = @import("link.zig");
 
 fn testTile(idx: usize, id: []const u8) tile_mod.TileDescriptor {
-    return .{ .id = idx, .name = tile_mod.TileId.parse(id) catch unreachable };
+    return .{ .id = idx, .name = tile_ids.lookup(id) orelse unreachable };
 }
 
 test "build produces a topology for the linear Phase 0 chain" {
@@ -531,7 +532,7 @@ test "build with metric tile populates metric_wksp_idx and metric_tile_idx" {
     try std.testing.expect(built.metric_tile_obj_id != 0);
 
     // The metric tile must be resolvable by TileId.
-    const metric_id = tile_mod.TileId.parse("metric") catch unreachable;
+    const metric_id = tile_ids.metric;
     const found_idx = built.tileIdxById(metric_id);
     try std.testing.expectEqual(built.metric_tile_idx, found_idx);
 }
