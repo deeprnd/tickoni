@@ -40,7 +40,7 @@ fn spawnPipeline(
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -60,7 +60,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
     try spawnPipeline(&sup, std.testing.io, .{
         .run_dir = run_dir,
         .event_count = 16,
-        .crash_after_heartbeats = crash_after,
+        .crash_after_heartbeats = &crash_after,
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
         .tile_exe_path = "zig-out/bin/tickoni-supervisor",
@@ -119,7 +119,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: child exits between running-check and kill → was_forced=false classification" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -175,7 +175,7 @@ test "shutdown_reap: child exits between running-check and kill → was_forced=f
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: pre-existing crash survives stopProcess" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -195,7 +195,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
     try spawnPipeline(&sup, std.testing.io, .{
         .run_dir = run_dir,
         .event_count = 16,
-        .crash_after_heartbeats = crash_after,
+        .crash_after_heartbeats = &crash_after,
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
         .tile_exe_path = "zig-out/bin/tickoni-supervisor",
@@ -240,7 +240,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: externally reaped child classified as .unknown not .exited_ok" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -301,7 +301,7 @@ test "shutdown_reap: externally reaped child classified as .unknown not .exited_
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: final timeout reap classifies still-running child as .unknown" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -364,7 +364,7 @@ test "shutdown_reap: final timeout reap classifies still-running child as .unkno
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -386,7 +386,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
     try spawnPipeline(&sup, std.testing.io, .{
         .run_dir = run_dir,
         .event_count = 16,
-        .crash_after_heartbeats = crash_after,
+        .crash_after_heartbeats = &crash_after,
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
         .tile_exe_path = "zig-out/bin/tickoni-supervisor",
@@ -442,7 +442,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: non-zero exit during grace → force-phase preserves .exited_code" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -463,7 +463,7 @@ test "shutdown_reap: non-zero exit during grace → force-phase preserves .exite
     try spawnPipeline(&sup, std.testing.io, .{
         .run_dir = run_dir,
         .event_count = 16,
-        .crash_after_heartbeats = crash_after,
+        .crash_after_heartbeats = &crash_after,
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
         .tile_exe_path = "zig-out/bin/tickoni-supervisor",

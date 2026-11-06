@@ -27,7 +27,7 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
 };
 
 test "process_cpu_placement_integration: two tiles sharing one cpu get distinct pids and still complete" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -87,7 +87,7 @@ test "process_cpu_placement_integration: two tiles sharing one cpu get distinct 
 }
 
 test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails closed before spawning" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -139,7 +139,7 @@ test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails
 // the structural check from cpu_placement.zig's validateStatic() exercised at
 // the full supervisor process-level, not just in a unit-test topology.
 test "process_cpu_placement_integration: shared-core rejected when sharing is not explicit" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     // Two tiles declare the same exclusive CPU id — neither uses `.shared`,
     // so validateStatic() must return CpuPlacementConflict.
     const undeclared_collide_tiles = [_]rt.topology.TileDescriptor{
@@ -167,7 +167,7 @@ test "process_cpu_placement_integration: shared-core rejected when sharing is no
 // this is also a structural conflict because exclusive implies sole ownership
 // of that CPU. validateStatic() requires both sides to declare shared.
 test "process_cpu_placement_integration: exclusive and shared on the same cpu conflicts" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const mixed_tiles = [_]rt.topology.TileDescriptor{
         .{ .id = 0, .name = rt.topology.TileId.parse("tkings") catch unreachable, .cpu_placement = .{ .exclusive = 1 } },
         .{ .id = 1, .name = rt.topology.TileId.parse("tknorm") catch unreachable, .cpu_placement = .{ .shared = 1 } },
@@ -198,7 +198,7 @@ test "process_cpu_placement_integration: exclusive and shared on the same cpu co
 //   - functional pipeline completion is unchanged
 // not a wall-clock throughput comparison that assumes real kernel pinning.
 test "process_cpu_placement_integration: shared-core reporting changes placement metadata, not correctness" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const event_count: u64 = 16;
 
     // --- Run floating baseline (no explicit placement declarations) ---

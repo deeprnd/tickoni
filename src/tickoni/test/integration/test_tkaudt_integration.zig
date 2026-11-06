@@ -17,17 +17,14 @@
 /// a continuous hash chain: prev_hash[k] == record_hash[k-1] for k >= 1,
 /// and prev_hash[0] == AUDIT_SEED.
 ///
-/// The tile writes records to scratch during DURING_FRAG. On shutdown it
-/// calls a registered export callback (set via tk_audit_set_export_callback)
-/// which the supervisor provides. Because the callback pointer is set in
-/// the supervisor before fork(), the child inherits it and calls it in the
-/// supervisor's address space — no IPC needed.
-///
-/// The callback copies records into an in-memory buffer so the test can
-/// verify the hash chain without file I/O.
+/// The tile writes records into its shared scratch allocation during
+/// DURING_FRAG. The supervisor maps that allocation in the same Tango
+/// workspace, so this test reads it while the tile is still running. This
+/// verifies the records the stem tile actually produced without adding an
+/// export path or file I/O.
 ///
 /// Assertions:
-///   - callback receives exactly event_count records
+///   - scratch contains exactly event_count records
 ///   - prev_hash[0] == AUDIT_SEED
 ///   - prev_hash[k] == record_hash[k-1] for k >= 1
 ///   - all record hashes are non-zero
@@ -60,21 +57,20 @@ const EXPECTED_TILE_COUNT: usize = 3;
 const MAX_BUFFER_RECORDS: usize = 256;
 
 // ===========================================================================
-// Export callback types (must match C declarations in tk_audit_stem.h)
+// Shared-scratch audit record layout
 // ===========================================================================
 
-const AuditRecord = extern struct {
-    // Header fields (must match audit_schema.h AuditHeader layout)
+const AuditHeader = extern struct {
     schema_version: u16,
-    _pad0: [14]u8 = undefined,
+    _pad0: [14]u8,
     run_id: u64,
     seq: u64,
     source_offset: u64,
     tile_id: [6]u8,
-    _pad1: [2]u8 = undefined,
+    _pad1: [2]u8,
     logical_actor_id: u64,
     policy_version: [32]u8,
-    _pad2: [8]u8 = undefined,
+    _pad2: [8]u8,
     capability_envelope_id: u64,
     timestamp_ns: u64,
     prev_hash: u64,
@@ -84,64 +80,73 @@ const AuditRecord = extern struct {
     isolation_tier: [64]u8,
     release_digest: [64]u8,
     manifest_id: [64]u8,
+};
 
-    // Payload fields (must match C struct AuditEvent layout)
-    record_type: u8,
-    _pad_payload: [4]u8 = undefined,
+const PolicyDecisionPayload = extern struct {
     outcome: u8,
-    _pad_outcome: [7]u8 = undefined,
+    _pad0: [7]u8,
     rule_id: u32,
     failed_scope_dim: [32]u8,
+    _pad1: [4]u8,
     source_event_hash: u64,
     catalog_schema_version: u32,
-    _pad_csv: [4]u8 = undefined,
+    _pad2: [4]u8,
     taxonomy_id: [32]u8,
     taxonomy_version: u32,
     classification_code: [32]u8,
+    _pad3: [4]u8,
 };
 
-const ExportBuffer = struct {
-    records: [MAX_BUFFER_RECORDS]AuditRecord align(8),
-    count: usize,
-    total_bytes: usize,
+/// Mirrors audit_schema.h's AuditEvent. The explicit seven-byte padding after
+/// record_type accounts for the C compiler's three-byte alignment gap before
+/// PolicyDecisionPayload in addition to AuditEvent._pad[4].
+const AuditRecord = extern struct {
+    header: AuditHeader,
+    record_type: u8,
+    _pad: [7]u8,
+    policy_decision: PolicyDecisionPayload,
 };
 
-// ===========================================================================
-// C FFI declarations for the export callback mechanism
-// ===========================================================================
+/// Prefix of tk_audit_ctx_t. The scratch record array begins directly after
+/// this context and both C and Zig give it eight-byte alignment.
+const AuditContext = extern struct {
+    audited: u64,
+    cnc: ?*anyopaque,
+    audit_count: u64,
+    prev_hash: u64,
+    tile: ?*anyopaque,
+    audit_records: ?*anyopaque,
+    wksp: ?*anyopaque,
+};
 
-/// Callback type: fn(*const AuditRecord, usize, *void) called from the tile.
-/// Matches C: void (*tk_audit_export_fn)( void const *records, ulong count, void *export_ctx )
-export fn audit_export_callback_fn(
-    records: [*]const AuditRecord,
-    count: usize,
-    export_ctx: ?*anyopaque,
-) void {
-    const buf: *ExportBuffer = @alignCast(@ptrCast(export_ctx));
-    buf.count = count;
-    buf.total_bytes = count * @sizeOf(AuditRecord);
+fn auditRecords(sup: *Supervisor) ![]const AuditRecord {
+    const topo = sup.getTopo() orelse return error.NoProcessState;
+    const tile_id = c_abi.topob.topoFindTile(topo, "tkaudt", 0);
+    if (tile_id == c_abi.topob.not_found) return error.AuditTileNotFound;
 
-    var i: usize = 0;
-    while (i < count and i < MAX_BUFFER_RECORDS) : (i += 1) {
-        buf.records[i] = records[i];
-    }
+    const tile_obj_id = c_abi.topob.topoTileObjId(topo, tile_id);
+    const scratch = c_abi.topob.topoObjLaddr(topo, tile_obj_id);
+    const ctx: *const AuditContext = @ptrCast(@alignCast(scratch));
+    if (ctx.audit_count > MAX_BUFFER_RECORDS) return error.AuditRecordCapacityExceeded;
+
+    const records_addr = @intFromPtr(scratch) + @sizeOf(AuditContext);
+    const records: [*]const AuditRecord = @ptrFromInt(records_addr);
+    return records[0..@intCast(ctx.audit_count)];
 }
 
-/// The callback type matches C: void (*tk_audit_export_fn)( void const *, ulong, void * )
-const AuditExportCallback = fn ([*]const AuditRecord, usize, ?*anyopaque) void;
-
-/// Declare the actual C function exported by tk_audit_stem.c.
-/// The C function takes a function pointer (tk_audit_export_fn).
-/// In Zig 0.18, we work around extern fn parameter restrictions by accepting
-/// the function pointer as *anyopaque and casting at the call site.
-extern fn tk_audit_set_export_callback( fn_raw: ?*anyopaque, export_ctx: ?*anyopaque ) void;
+comptime {
+    std.debug.assert(@sizeOf(AuditHeader) == 448);
+    std.debug.assert(@sizeOf(PolicyDecisionPayload) == 136);
+    std.debug.assert(@sizeOf(AuditRecord) == 592);
+    std.debug.assert(@sizeOf(AuditContext) == 56);
+}
 
 // ===========================================================================
 // Test: audit record allocation (Step 3.1) — tile boots and counts
 // ===========================================================================
 
 test "tkaudt_integration: Audit record allocation and counting stub" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -156,6 +161,7 @@ test "tkaudt_integration: Audit record allocation and counting stub" {
     defer sup.deinit();
 
     const event_count: u64 = DEFAULT_EVENT_COUNT;
+    const metric_port = util.nextMetricPort();
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
     try sup.startPaymentPipelineProcess(std.testing.io, .{
@@ -163,6 +169,7 @@ test "tkaudt_integration: Audit record allocation and counting stub" {
         .event_count = event_count,
         .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
+        .metric_port = metric_port,
     });
 
     // Wait for tkaudt to finish auditing.
@@ -217,18 +224,11 @@ test "tkaudt_integration: Hash chain verification" {
 
     var sup = try Supervisor.initForTest(std.testing.allocator, topo);
     defer sup.deinit();
-
-    // Register the export callback before the tile runs.
-    // The child process inherits this function pointer and calls it in the
-    // supervisor's address space during flush.
-    // Zig 0.18: export fn is a function value — take its address via &fn,
-    // then cast through int-to-ptr to work around extern fn parameter restrictions.
-    var buffer: ExportBuffer = .{ .records = undefined, .count = 0, .total_bytes = 0 };
-    const fn_addr = @intFromPtr(&audit_export_callback_fn);
-    const fn_ptr: *anyopaque = @ptrFromInt(fn_addr);
-    tk_audit_set_export_callback(fn_ptr, &buffer);
+    var stopped = false;
+    defer if (!stopped) sup.stopProcess(std.testing.io) catch {};
 
     const event_count: u64 = DEFAULT_EVENT_COUNT;
+    const metric_port = util.nextMetricPort();
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
     try sup.startPaymentPipelineProcess(std.testing.io, .{
@@ -236,6 +236,7 @@ test "tkaudt_integration: Hash chain verification" {
         .event_count = event_count,
         .tile_exe_path = "zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
+        .metric_port = metric_port,
     });
 
     // Wait for tkaudt to finish auditing.
@@ -266,68 +267,33 @@ test "tkaudt_integration: Hash chain verification" {
         try std.testing.expect(h.state != .crashed);
     }
 
-    // 3. Wait for shutdown completion.
-    var wait: u32 = 0;
-    while (wait < 100) : (wait += 1) {
-        var all_stopped = true;
-        for (sup.monitor()) |h| {
-            if (h.state != .stopped) all_stopped = false;
-        }
-        if (all_stopped) break;
-        util.process.sleepNanos(POLL_INTERVAL);
-    }
-
-    for (sup.monitor()) |h| {
-        try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
-    }
-
-    // 4. Verify hash chain from the export callback buffer.
-    const record_count = buffer.count;
-    try std.testing.expectEqual(@as(usize, event_count), record_count);
+    // 3. Verify the hash chain in the shared scratch allocation before
+    // shutdown releases the workspace.
+    const records = try auditRecords(&sup);
+    try std.testing.expectEqual(@as(usize, event_count), records.len);
 
     // AUDIT_SEED = 0xDEADBEEF (from tk_audit_stem.c).
     const AUDIT_SEED: u64 = 0xDEADBEEF;
+    try std.testing.expectEqual(AUDIT_SEED, records[0].header.prev_hash);
 
-    // prev_hash[0] must be AUDIT_SEED.
-    try std.testing.expectEqual(
-        AUDIT_SEED,
-        buffer.records[0].prev_hash,
-    );
-
-    // prev_hash[k] == record_hash[k-1] for k >= 1.
     var k: usize = 1;
-    while (k < record_count) : (k += 1) {
+    while (k < records.len) : (k += 1) {
         try std.testing.expectEqual(
-            buffer.records[k - 1].record_hash,
-            buffer.records[k].prev_hash,
+            records[k - 1].header.record_hash,
+            records[k].header.prev_hash,
         );
     }
 
-    // All record hashes must be non-zero (valid hashes).
     var i: usize = 0;
-    while (i < record_count) : (i += 1) {
-        try std.testing.expect(
-            buffer.records[i].record_hash != 0,
-        );
+    while (i < records.len) : (i += 1) {
+        try std.testing.expect(records[i].header.record_hash != 0);
+        try std.testing.expectEqual(@as(u64, i), records[i].header.seq);
+        try std.testing.expectEqual(@as(u16, 2), records[i].header.schema_version);
     }
 
-    // seq must be sequential: 0, 1, 2, ...
-    var s: usize = 0;
-    while (s < record_count) : (s += 1) {
-        try std.testing.expectEqual(@as(u64, s), buffer.records[s].seq);
-    }
-
-    // schema_version must match AUDIT_SCHEMA_VERSION.
-    const AUDIT_SCHEMA_VERSION: u16 = 1;
-    var v: usize = 0;
-    while (v < record_count) : (v += 1) {
-        try std.testing.expectEqual(
-            AUDIT_SCHEMA_VERSION,
-            buffer.records[v].schema_version,
-        );
-    }
-
-    sup.stopProcess(std.testing.io) catch {};
+    // 4. The stem tile remains running until the supervisor sends HALT.
+    try sup.stopProcess(std.testing.io);
+    stopped = true;
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
     }
