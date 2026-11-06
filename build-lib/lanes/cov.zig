@@ -119,6 +119,7 @@ pub fn strategy(
             .{ .name = "audit_schema", .module = shared.audit_schema },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
+            .{ .name = "runtime", .module = shared.runtime },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true },
     }, cov_step);
