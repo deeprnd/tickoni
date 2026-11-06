@@ -43,7 +43,7 @@ pub const tkdiag: tile.TileId = .{ .bytes = "tkdiag".* };
 /// All known tile IDs, ordered by Firedancer tile index.
 pub const all: [16]tile.TileId = .{
     tkings, tknorm, tkdedu, tkpoly, tkaudt, tkrepl, tkcase, tkdisp,
-    tkagnt, tkmodl, tktool, tkadpt, tkexec, tkapi, metric, tkdiag,
+    tkagnt, tkmodl, tktool, tkadpt, tkexec, tkapi,  metric, tkdiag,
 };
 
 /// Lookup: returns the TileId for a name string, or null.
