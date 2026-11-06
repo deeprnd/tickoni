@@ -19,13 +19,12 @@ pub fn runIngest(state: *PaymentPipelineState) void {
     var offset: u64 = 0;
     while (offset < state.config.event_count) : (offset += 1) {
         if (state.stop.load(.acquire)) break;
-        if (state.config.sandbox_fail_at) |fail_at| {
-            if (offset == fail_at) {
-                _ = state.sandbox_failures.fetchAdd(1, .release);
-                state.crashed_tile.store(tile_tkings, .release);
-                log.err("tkings", "runIngest", "sandbox failure triggered at offset");
-                state.requestStop();
-                break;
+        // Test-only sandbox-failure hook. @import("builtin").is_test is a
+        // compile-time constant; when false the entire inner branch is dead
+        // code eliminated.
+        if (@import("builtin").is_test) {
+            if (state.config.sandbox_fail_hook) |hook| {
+                hook(offset, state);
             }
         }
 
@@ -41,7 +40,16 @@ pub fn runIngest(state: *PaymentPipelineState) void {
 }
 
 test "sandbox failure records crash diagnostics and stops ingest" {
-    var state = try PaymentPipelineState.init(std.testing.allocator, .{ .event_count = 10, .queue_depth = 2, .sandbox_fail_at = 2 });
+    const hook = struct {
+        pub fn trigger(offset: u64, state: *PaymentPipelineState) callconv(.c) void {
+            if (offset == 2) {
+                _ = state.sandbox_failures.fetchAdd(1, .release);
+                state.crashed_tile.store(tile_tkings, .release);
+                state.requestStop();
+            }
+        }
+    }.trigger;
+    var state = try PaymentPipelineState.init(std.testing.allocator, .{ .event_count = 10, .queue_depth = 2, .sandbox_fail_hook = &hook });
     defer state.deinit();
     runIngest(&state);
     const diag = state.snapshotDiag();
