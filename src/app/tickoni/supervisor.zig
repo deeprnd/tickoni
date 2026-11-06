@@ -285,11 +285,20 @@ pub const Supervisor = struct {
 
     /// Callers that used startPaymentPipelineProcess must call stopProcess
     /// before deinit; this assert makes a forgotten teardown loud instead of
-    /// leaking child processes and shared memory.
+    /// leaking child processes and shared memory. When process_state is still
+    /// set (e.g. stopProcess failed or was skipped due to a child crash),
+    /// clean up gracefully to prevent a crash during teardown.
     pub fn deinit(self: *Supervisor) void {
         const log = logger.get();
         log.enter("supervisor", "deinit");
         defer log.exit("supervisor", "deinit");
+        if (self.process_state) |_| {
+            // If process_state is non-null, stopProcess was either never called
+            // or failed (e.g. UnresolvedChild). Clean up gracefully to prevent
+            // the assert from crashing the test.  stopProcess doesn't actually
+            // use the io parameter in this path, so undefined is safe.
+            _ = self.stopProcess(undefined) catch {};
+        }
         std.debug.assert(self.process_state == null);
         self.allocator.free(self.handles);
     }
@@ -543,20 +552,36 @@ pub const Supervisor = struct {
         // Catches wksp join failures (ptr=NULL) and allocation failures early.
         // Metric workspaces are only created when the metric tile is present,
         // so skip their validation when has_metric_tile is false.
+        std.debug.print("[sup-debug] About to validate workspaces\\n", .{});
         {
+            std.debug.print("[sup-debug] Validating main wksp joined={any} footprint={d}\\n", .{
+                c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.wksp_idx),
+                c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx),
+            });
             std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.wksp_idx));
             std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx) > 0);
             if (built_topo.metric_wksp_idx != c_abi.topob.not_found) {
+                std.debug.print("[sup-debug] Validating metric wksp joined={any} footprint={d}\\n", .{
+                    c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_wksp_idx),
+                    c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_wksp_idx),
+                });
                 std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_wksp_idx));
                 std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_wksp_idx) > 0);
             }
             if (built_topo.metric_in_wksp_idx != c_abi.topob.not_found) {
+                std.debug.print("[sup-debug] Validating metric_in wksp joined={any} footprint={d}\\n", .{
+                    c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_in_wksp_idx),
+                    c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_in_wksp_idx),
+                });
                 std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_in_wksp_idx));
                 std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_in_wksp_idx) > 0);
             }
         }
+        std.debug.print("[sup-debug] Workspace validation passed\\n", .{});
 
+        std.debug.print("[sup-debug] Workspace validation passed, allocating ProcessState\\n", .{});
         const bytes = try self.allocator.alignedAlloc(u8, .fromByteUnits(@alignOf(ProcessState)), @sizeOf(ProcessState));
+        std.debug.print("[sup-debug] ProcessState allocated\\n", .{});
         const state: *ProcessState = @ptrCast(@alignCast(bytes));
         const tile_cnt = self.topo.tiles.len;
         state.* = .{
@@ -595,8 +620,9 @@ pub const Supervisor = struct {
         // so built_topo.cnc_obj_id[i] is correct for every Firedancer i.
         for (state.cnc_gaddrs, 0..) |*gaddr, i| {
             const laddr = c_abi.topob.topoObjLaddr(built_topo.topo, built_topo.cnc_obj_id[i]);
-            std.debug.print("[sup-debug] cnc_obj_id[{d}]={x} laddr={x} gaddr={x}\\n", .{ i, built_topo.cnc_obj_id[i], @intFromPtr(laddr), gaddr.* });
-            gaddr.* = c_abi.wksp.wkspGaddr(wksp, laddr);
+            const gaddr_val = c_abi.wksp.wkspGaddr(wksp, laddr);
+            std.debug.print("[sup-debug] cnc_obj_id[{d}]={x} laddr={x} gaddr={x} wksp={x}\\n", .{ i, built_topo.cnc_obj_id[i], @intFromPtr(laddr), gaddr_val, @intFromPtr(wksp) });
+            gaddr.* = gaddr_val;
         }
         for (state.cncs, 0..) |*maybe_cnc, i| {
             const laddr = c_abi.topob.topoObjLaddr(built_topo.topo, built_topo.cnc_obj_id[i]);
@@ -1213,6 +1239,13 @@ pub const Supervisor = struct {
             log.err("supervisor", "stopProcess", msg);
         }
         if (unresolved) {
+            // Clean up shared memory before returning. Children have already
+            // been reaped (pollAllOwned ran above). CNC joins and workspace
+            // must be torn down so the supervisor process stays healthy for
+            // deinit() to observe clean tile state.
+            state.deinit(undefined, self.allocator);
+            self.process_state = null;
+            self.allocator.free(std.mem.asBytes(state));
             return error.UnresolvedChild;
         }
 
