@@ -212,9 +212,12 @@ pub const entries = [_]TileEntry{
         .in_cnt = 1,
         .out_cnt = 1,
     },
+    // tkaudt migrated to fd_stem tile (Phase 4.1) — lifecycle owned by
+    // TK_AUDIT_RUN's privileged_init / stem_run, not the process-mode
+    // callback path below.
     .{
         .id = id("tkaudt"),
-        .process_fn = tkaudtProcess,
+        .process_fn = null,
         .counters = &.{.{ .idx = 0, .field = .audited }},
         .in_cnt = 1,
     },
@@ -311,8 +314,8 @@ test "process_fn is null for tiles with no process-mode role" {
     }
 }
 
-test "process_fn is set for the 5 pipeline-stage tiles" {
-    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt" }) |name| {
+test "process_fn is set for the 4 pipeline-stage tiles" {
+    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly" }) |name| {
         const tile_id = try rt.tile.TileId.parse(name);
         const entry = findById(tile_id).?;
         try std.testing.expect(entry.process_fn != null);
@@ -479,11 +482,10 @@ test "T10.4 positive fan-in: channel array has 2 inbound links to tkaudt" {
 // ---------------------------------------------------------------------------
 
 test "validate rejects mismatched process callback for tiles with pipeline role" {
-    // Each of the 5 pipeline-stage tiles must have a non-null process_fn.
-    // If a process_fn were null for one of these, the supervisor's
-    // startPaymentPipelineProcess would fail when it tries to spawn the
-    // tile (T10.14: null process callback for a pipeline-stage tile).
-    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt" }) |name| {
+    // Each of the 4 pipeline-stage tiles must have a non-null process_fn.
+    // tkaudt has migrated to an fd_stem tile and no longer uses the process
+    // callback path — it runs via TK_AUDIT_RUN instead.
+    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly" }) |name| {
         const tile_id = try rt.tile.TileId.parse(name);
         const entry = findById(tile_id).?;
         try std.testing.expect(entry.process_fn != null);
