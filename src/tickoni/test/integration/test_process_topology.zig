@@ -14,7 +14,7 @@ const Supervisor = supervisor_mod.Supervisor;
 
 test "process_topology_integration: every tile is a distinct OS process parented by the supervisor" {
     // Temporarily skipped to unblock minimal_setup isolation test
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -56,9 +56,7 @@ test "process_topology_integration: every tile is a distinct OS process parented
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
     const metrics = sup.snapshotProcessMetrics();
-    std.debug.print("[test] metrics: produced={d} audited={d}\n", .{
-        metrics.produced, metrics.audited
-    });
+    std.debug.print("[test] metrics: produced={d} audited={d}\n", .{ metrics.produced, metrics.audited });
     for (sup.monitor(), 0..) |h, i| {
         std.debug.print("[test] tile {d}: state={s} pid={any}\n", .{ i, @tagName(h.state), h.pid });
     }
@@ -72,7 +70,7 @@ test "process_topology_integration: every tile is a distinct OS process parented
 }
 
 test "process_topology_integration: supervisor marks a truly stuck tile stale while blocked consumers keep heartbeating" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -140,7 +138,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
 }
 
 test "process_topology_integration: a self-exiting tile is reported crashed via exit_code, not signal" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -163,7 +161,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .crash_after_heartbeats = crash_after_heartbeats,
+        .crash_after_heartbeats = &crash_after_heartbeats,
         .heartbeat_interval_ns = 10 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 60 * std.time.ns_per_s,
         .tile_exe_path = "zig-out/bin/tickoni-supervisor",
@@ -199,7 +197,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
 }
 
 test "process_topology_integration: process mode refuses to start a heap_dev-backed channel" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
@@ -228,7 +226,7 @@ test "process_topology_integration: process mode refuses to start a heap_dev-bac
 }
 
 test "process_topology_integration: process mode refuses to start with a missing workspace name" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const base = topologies.paymentPipelineProcess();
     var channels: [4]rt.topology.Channel = undefined;
     @memcpy(&channels, base.channels[0..4]);

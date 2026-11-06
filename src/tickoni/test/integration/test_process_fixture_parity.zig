@@ -66,7 +66,21 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8, 
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
 
+    // The metric observer has a separate workspace/bootstrap path and may
+    // reach its stem loop after the deterministic pipeline finishes. Verify it
+    // became live for this run, but do not compare its loop count across CPU
+    // placements: that count is scheduler-dependent.
+    const max_metric_ready_polls: u32 = 400;
+    var metric_ready_poll: u32 = 0;
+    while (metric_ready_poll < max_metric_ready_polls) : (metric_ready_poll += 1) {
+        const snap = sup.snapshotProcessMetrics();
+        if (snap.metric_boot_timestamp >= 1_000_000_000_000_000_000 and snap.metric_snapshots > 0) break;
+        util.process.sleepNanos(5 * std.time.ns_per_ms);
+    }
+
     const metrics = sup.snapshotProcessMetrics();
+    try std.testing.expect(metrics.metric_boot_timestamp >= 1_000_000_000_000_000_000);
+    try std.testing.expect(metrics.metric_snapshots > 0);
     try sup.stopProcess(io);
 
     for (sup.monitor()) |h| {
@@ -77,7 +91,7 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8, 
 }
 
 test "process_fixture_parity: floating, shared-core, and exclusive-core CPU placement all reach identical pipeline metrics" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp_floating = util.tmpDir();
     var floating_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const floating_len = try tmp_floating.dir.realPath(std.testing.io, &floating_path_buf);
@@ -108,9 +122,10 @@ test "process_fixture_parity: floating, shared-core, and exclusive-core CPU plac
     };
     const exclusive_metrics = try runToCompletion(std.testing.io, exclusive_topo, exclusive_run_dir, util.nextWorkspaceName(&ws_buf));
 
-    // Compare all fields except metric_boot_timestamp (varies by wall-clock time
-    // across runs; CPU placement is a scheduling policy, not a correctness
-    // dimension — pipeline counters must match).
+    // CPU placement is a scheduling policy, not a correctness dimension: only
+    // deterministic event-path counters must match. metric_snapshots counts
+    // observer stem iterations, so it varies with child bootstrap and scheduler
+    // timing; its liveness contract is covered by test_metric_tile_integration.
     try std.testing.expectEqual(floating_metrics.produced, shared_metrics.produced);
     try std.testing.expectEqual(floating_metrics.normalized, shared_metrics.normalized);
     try std.testing.expectEqual(floating_metrics.invalid, shared_metrics.invalid);
@@ -120,8 +135,6 @@ test "process_fixture_parity: floating, shared-core, and exclusive-core CPU plac
     try std.testing.expectEqual(floating_metrics.audited, shared_metrics.audited);
     try std.testing.expectEqual(floating_metrics.replay_checked, shared_metrics.replay_checked);
     try std.testing.expectEqual(floating_metrics.replay_match, shared_metrics.replay_match);
-    try std.testing.expectEqual(floating_metrics.metric_snapshots, shared_metrics.metric_snapshots);
-    try std.testing.expectEqual(floating_metrics.metric_backpressure_waits, shared_metrics.metric_backpressure_waits);
     try std.testing.expectEqual(floating_metrics.diag_crash_count, shared_metrics.diag_crash_count);
     try std.testing.expectEqual(floating_metrics.diag_sandbox_count, shared_metrics.diag_sandbox_count);
     try std.testing.expectEqual(floating_metrics.produced, exclusive_metrics.produced);
@@ -133,8 +146,6 @@ test "process_fixture_parity: floating, shared-core, and exclusive-core CPU plac
     try std.testing.expectEqual(floating_metrics.audited, exclusive_metrics.audited);
     try std.testing.expectEqual(floating_metrics.replay_checked, exclusive_metrics.replay_checked);
     try std.testing.expectEqual(floating_metrics.replay_match, exclusive_metrics.replay_match);
-    try std.testing.expectEqual(floating_metrics.metric_snapshots, exclusive_metrics.metric_snapshots);
-    try std.testing.expectEqual(floating_metrics.metric_backpressure_waits, exclusive_metrics.metric_backpressure_waits);
     try std.testing.expectEqual(floating_metrics.diag_crash_count, exclusive_metrics.diag_crash_count);
     try std.testing.expectEqual(floating_metrics.diag_sandbox_count, exclusive_metrics.diag_sandbox_count);
     try std.testing.expectEqual(event_count, floating_metrics.produced);
