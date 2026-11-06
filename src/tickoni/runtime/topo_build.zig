@@ -197,7 +197,7 @@ pub fn build(
     // creating workspaces, so we only create metric/metric_in when needed.
     var has_metric_tile = false;
     for (topo_desc.tiles) |t| {
-        if (std.mem.eql(u8, t.name.slice(), "metric")) {
+        if (tile_ids.metric.eql(t.name)) {
             has_metric_tile = true;
             break;
         }
@@ -245,7 +245,7 @@ pub fn build(
     for (topo_desc.tiles, 0..) |t, i| {
         cpu_idx_arr[i] = tileCpuIdx(i, t.cpu_placement);
         tile_placements[i] = t.cpu_placement;
-        if (std.mem.eql(u8, t.name.slice(), "metric")) {
+        if (tile_ids.metric.eql(t.name)) {
             fd_tile_idx_by_desc[i] = c_abi.topob.not_found;
             continue;
         }
@@ -261,13 +261,13 @@ pub fn build(
     if (has_metric_tile) {
         var tile_name_buf: [16]u8 = undefined;
         log.kvFmt("topo_build", "build", "calling topobTile(metric, metric, metric)", .{});
-        _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, "metric"), "metric", "metric", 0);
+        _ = c_abi.topob.topobTile(topo, toZ(&tile_name_buf, tile_ids.metric.slice()), "metric", "metric", 0);
         // Verify metric tile was registered.
         log.kvFmt("topo_build", "build", "topoValidateTileExists(metric)", .{});
-        std.debug.assert(c_abi.topob.topoValidateTileExists(topo, toZ(&tile_name_buf, "metric")));
+        std.debug.assert(c_abi.topob.topoValidateTileExists(topo, toZ(&tile_name_buf, tile_ids.metric.slice())));
         // Metric tile is always last in Firedancer order.
         for (topo_desc.tiles, 0..) |t, d_idx| {
-            if (std.mem.eql(u8, t.name.slice(), "metric")) {
+            if (tile_ids.metric.eql(t.name)) {
                 fd_tile_idx_by_desc[d_idx] = non_metric_count;
                 break;
             }
@@ -277,7 +277,7 @@ pub fn build(
     if (has_metric_tile) {
         var metric_name_buf: [16]u8 = undefined;
         log.kvFmt("topo_build", "build", "calling topoFindTile(metric)", .{});
-        const metric_idx = c_abi.topob.topoFindTile(topo, toZ(&metric_name_buf, "metric"), 0);
+        const metric_idx = c_abi.topob.topoFindTile(topo, toZ(&metric_name_buf, tile_ids.metric.slice()), 0);
         if (metric_idx != c_abi.topob.not_found) {
             metric_tile_idx = metric_idx;
             log.kvFmt("topo_build", "build", "detected metric tile at idx={d}, metric_wksp={d}, metric_in_wksp={d}", .{ metric_tile_idx, metric_wksp_idx, metric_in_wksp_idx });
@@ -299,7 +299,7 @@ pub fn build(
             var link_name_buf: [8]u8 = undefined;
             const link_name_z = linkNameZ(&link_name_buf, i);
             // Connect this link into the metric tile's inputs from metric_in workspace
-            _ = c_abi.topob.topobTileIn(topo, toZ(&tile_name_buf, "metric"), 0, toZ(&in_name_buf, "metric_in"), link_name_z, 0, true, true);
+            _ = c_abi.topob.topobTileIn(topo, toZ(&tile_name_buf, tile_ids.metric.slice()), 0, toZ(&in_name_buf, "metric_in"), link_name_z, 0, true, true);
         }
         log.kvFmt("topo_build", "build", "done topobTileIn for metric tile", .{});
     }
@@ -473,11 +473,11 @@ fn testTile(idx: usize, id: []const u8) tile_mod.TileDescriptor {
 
 test "build produces a topology for the linear Phase 0 chain" {
     const tiles = [_]tile_mod.TileDescriptor{
-        testTile(0, "tkings"),
-        testTile(1, "tknorm"),
-        testTile(2, "tkdedu"),
-        testTile(3, "tkpoly"),
-        testTile(4, "tkaudt"),
+        testTile(0, tile_ids.tkings.slice()),
+        testTile(1, tile_ids.tknorm.slice()),
+        testTile(2, tile_ids.tkdedu.slice()),
+        testTile(3, tile_ids.tkpoly.slice()),
+        testTile(4, tile_ids.tkaudt.slice()),
     };
     const channels = [_]link_mod.Channel{
         .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 },
@@ -493,7 +493,7 @@ test "build produces a topology for the linear Phase 0 chain" {
     try std.testing.expectEqual(@as(usize, 5), built.cnc_obj_id.len);
 
     var name_buf: [8]u8 = undefined;
-    const tkaudt_id = c_abi.topob.topoFindTile(built.topo, toZ(&name_buf, "tkaudt"), 0);
+    const tkaudt_id = c_abi.topob.topoFindTile(built.topo, tile_ids.tkaudt.slice(), 0);
     try std.testing.expect(tkaudt_id != c_abi.topob.not_found);
 }
 
@@ -505,12 +505,12 @@ test "concreteWorkspaceName matches Firedancer join naming" {
 
 test "build with metric tile populates metric_wksp_idx and metric_tile_idx" {
     const tiles = [_]tile_mod.TileDescriptor{
-        testTile(0, "tkings"),
-        testTile(1, "tknorm"),
-        testTile(2, "tkdedu"),
-        testTile(3, "tkpoly"),
-        testTile(4, "tkaudt"),
-        testTile(5, "metric"),
+        testTile(0, tile_ids.tkings.slice()),
+        testTile(1, tile_ids.tknorm.slice()),
+        testTile(2, tile_ids.tkdedu.slice()),
+        testTile(3, tile_ids.tkpoly.slice()),
+        testTile(4, tile_ids.tkaudt.slice()),
+        testTile(5, tile_ids.metric.slice()),
     };
     const channels = [_]link_mod.Channel{
         .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 },

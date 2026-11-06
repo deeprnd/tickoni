@@ -273,12 +273,12 @@ test "metric topology finalizes exact scratch requirements identically" {
     );
     defer child.deinit(std.testing.allocator);
 
-    const required = c_abi.topob.tickoniTileScratchRequirements("metric");
+    const required = c_abi.topob.tickoniTileScratchRequirements(tile_ids.metric.slice());
     try std.testing.expect(required.alignment > 1);
     try std.testing.expect(required.footprint > 1);
 
-    const parent_obj_id = c_abi.topob.topoFindTile(parent.topo, "metric", 0);
-    const child_obj_id = c_abi.topob.topoFindTile(child.topo, "metric", 0);
+    const parent_obj_id = c_abi.topob.topoFindTile(parent.topo, tile_ids.metric.slice(), 0);
+    const child_obj_id = c_abi.topob.topoFindTile(child.topo, tile_ids.metric.slice(), 0);
     try std.testing.expect(parent_obj_id != c_abi.topob.not_found);
     try std.testing.expect(child_obj_id != c_abi.topob.not_found);
     try std.testing.expectEqual(parent_obj_id, child_obj_id);
@@ -332,11 +332,11 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
     var built = try runtime.topo_build.build(std.testing.allocator, topology, util.nextWorkspaceName(&ws_buf), 0);
     defer built.deinit(std.testing.allocator);
 
-    const tkings_id = c_abi.topob.topoFindTile(built.topo, "tkings", 0);
+    const tkings_id = c_abi.topob.topoFindTile(built.topo, tile_ids.tkings.slice(), 0);
     try std.testing.expect(tkings_id != c_abi.topob.not_found);
-    const metric_id = c_abi.topob.topoFindTile(built.topo, "metric", 0);
+    const metric_id = c_abi.topob.topoFindTile(built.topo, tile_ids.metric.slice(), 0);
     try std.testing.expect(metric_id != c_abi.topob.not_found);
-    const diag_id = c_abi.topob.topoFindTile(built.topo, "tkdiag", 0);
+    const diag_id = c_abi.topob.topoFindTile(built.topo, tile_ids.tkdiag.slice(), 0);
     try std.testing.expect(diag_id != c_abi.topob.not_found);
     // CNC ownership verification is implicit in the CPU placement check.
     // Metric tile is a real polled observer — it should have one input link
@@ -375,7 +375,7 @@ test "metric_tile_integration: topology with metric builds and starts" {
     // Verify metric tile exists in topology
     var found_metric_tile = false;
     for (topo.tiles) |tile| {
-        if (std.mem.eql(u8, tile.name.slice(), "metric")) {
+        if (tile_ids.metric.eql(tile.name)) {
             found_metric_tile = true;
             break;
         }
@@ -740,7 +740,7 @@ test "metric_tile_integration: CNC join verifies tile finds CNC object" {
 
     var metric_idx: ?usize = null;
     for (topo.tiles, 0..) |tile, i| {
-        if (std.mem.eql(u8, tile.name.slice(), "metric")) {
+        if (tile_ids.metric.eql(tile.name)) {
             metric_idx = i;
             break;
         }

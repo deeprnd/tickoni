@@ -35,6 +35,7 @@ const builtin = @import("builtin");
 const c_abi = @import("c_abi");
 const runtime = @import("runtime");
 const rt = runtime;
+const tile_ids = runtime.tile_ids;
 const supervisor_mod = @import("supervisor");
 const topologies = @import("topologies");
 const util = @import("util");
@@ -123,7 +124,7 @@ const AuditContext = extern struct {
 
 fn auditRecords(sup: *Supervisor) ![]const AuditRecord {
     const topo = sup.getTopo() orelse return error.NoProcessState;
-    const tile_id = c_abi.topob.topoFindTile(topo, "tkaudt", 0);
+    const tile_id = c_abi.topob.topoFindTile(topo, tile_ids.tkaudt.slice(), 0);
     if (tile_id == c_abi.topob.not_found) return error.AuditTileNotFound;
 
     const tile_obj_id = c_abi.topob.topoTileObjId(topo, tile_id);

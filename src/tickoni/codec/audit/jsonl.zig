@@ -1,6 +1,7 @@
 const std = @import("std");
 const schema = @import("audit_schema");
 const hash = @import("hash.zig");
+const tile_ids = @import("tile_ids.zig");
 
 pub fn formatJsonLine(event: schema.AuditEvent, writer: anytype) !void {
     const h = event.header;
@@ -197,7 +198,7 @@ test "jsonl formatJsonLine produces valid JSON with hash-chain fields" {
             },
         },
     };
-    std.mem.copyForwards(u8, &event.header.tile_id, "tkings");
+    std.mem.copyForwards(u8, &event.header.tile_id, tile_ids.tkings.slice());
     std.mem.copyForwards(u8, &event.header.policy_version, "v1");
     std.mem.copyForwards(u8, &event.header.version, "0.1.0");
     std.mem.copyForwards(u8, &event.header.platform_tier, "linux_full");
@@ -278,7 +279,7 @@ test "jsonl formatJsonLine produces consistent hash for same event" {
             },
         },
     };
-    std.mem.copyForwards(u8, &event.header.tile_id, "tkings");
+    std.mem.copyForwards(u8, &event.header.tile_id, tile_ids.tkings.slice());
     std.mem.copyForwards(u8, &event.header.policy_version, "v1");
     std.mem.copyForwards(u8, &event.header.version, "0.1.0");
     std.mem.copyForwards(u8, &event.header.platform_tier, "linux_full");
