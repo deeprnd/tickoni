@@ -43,7 +43,7 @@ elif [ "$JOB" = "coverage-tk" ]; then
         exit 1
     }
 
-    COV_PREFIX="${ZIG_PREFIX:-zig-out}"
+    COV_PREFIX="${ZIG_PREFIX:-build/zig-out}"
     COV_BINS="${COV_PREFIX}/cov"
     COV_RAW="build/coverage/tk/kcov"
     SUMMARY="build/coverage/tk/coverage-summary.json"
