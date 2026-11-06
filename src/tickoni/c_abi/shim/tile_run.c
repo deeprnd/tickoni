@@ -24,6 +24,7 @@
 
 #include "../../../util/fd_util.h"
 #include "../../../disco/topo/fd_topo.h"
+#include "audit_schema.h"
 
 #if FD_HAS_LINUX || FD_HAS_MACOS
 #include <unistd.h>
@@ -63,13 +64,13 @@ tile_is_metric( fd_topo_tile_t * tile ) {
     FD_LOG_NOTICE(( "tile_run: tile_is_metric EXIT tile=NULL returning 0" ));
     return 0;
   }
-  int result = strcmp( tile->name, "metric" ) == 0;
+  int result = strcmp( tile->name, TILE_ID_METRIC ) == 0;
   FD_LOG_NOTICE(( "tile_run: tile_is_metric EXIT tile->name=%s returning %d", tile->name, result ));
   return result;
 }
 
 /* Check if this tile should use the audit stem run tile. Compares tile name
-   against "tkaudt" (the name field in the topology that maps to the
+   against TILE_ID_TKAUDT (the name field in the topology that maps to the
    audit stem tile). */
 static int
 tile_is_audit( fd_topo_tile_t * tile ) {
@@ -79,7 +80,7 @@ tile_is_audit( fd_topo_tile_t * tile ) {
     return 0;
   }
   FD_LOG_NOTICE(( "tile_run: tile_is_audit: tile->name=%s", tile->name ));
-  int result = strcmp( tile->name, "tkaudt" ) == 0;
+  int result = strcmp( tile->name, TILE_ID_TKAUDT ) == 0;
   FD_LOG_NOTICE(( "tile_run: tile_is_audit EXIT tile->name=%s returning %d", tile->name, result ));
   return result;
 }

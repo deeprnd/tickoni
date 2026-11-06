@@ -20,9 +20,22 @@
    actually finalizes a message's decision stamps its own id here
    (tknorm for malformed_drop, tkpoly for allow/deny) instead of
    every record being attributed to tkpoly. */
-#define TILE_ID_TKNORM "tknorm"
-#define TILE_ID_TKDEDU "tkdedu"
-#define TILE_ID_TKPOLY "tkpoly"
+#define TILE_ID_TKINGS  "tkings"
+#define TILE_ID_TKNORM  "tknorm"
+#define TILE_ID_TKDEDU  "tkdedu"
+#define TILE_ID_TKPOLY  "tkpoly"
+#define TILE_ID_TKAUDT  "tkaudt"
+#define TILE_ID_TKREPL  "tkrepl"
+#define TILE_ID_TKCASE  "tkcase"
+#define TILE_ID_TKDISP  "tkdisp"
+#define TILE_ID_TKAGNT  "tkagnt"
+#define TILE_ID_TKMODL  "tkmodl"
+#define TILE_ID_TKTOOL  "tktool"
+#define TILE_ID_TKADPT  "tkadpt"
+#define TILE_ID_TKEXEC  "tkexec"
+#define TILE_ID_TKAPI   "tkapi0"
+#define TILE_ID_METRIC  "metric"
+#define TILE_ID_TKDIAG  "tkdiag"
 
 /* ─── PolicyOutcome (matches Zig audit.PolicyOutcome enum(u8)) ─── */
 

@@ -409,14 +409,15 @@ tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_t
 #if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
 #include "../topo_run/tk_metric_tile.h"
 #include "../topo_run/tk_audit_stem.h"
+#include "audit_schema.h"
 #endif
 
 ulong
 tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {
 #if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
-  if( strcmp( tile_name, "metric" ) == 0 )
+  if( strcmp( tile_name, TILE_ID_METRIC ) == 0 )
     return tk_metric_scratch_footprint();
-  if( strcmp( tile_name, "tkaudt" ) == 0 )
+  if( strcmp( tile_name, TILE_ID_TKAUDT ) == 0 )
     return tk_audit_scratch_footprint();
 #endif
 return 1UL;
@@ -427,13 +428,13 @@ tk_topob_tickoni_tile_scratch_requirements( char const * tile_name,
                                             ulong * alignment_out,
                                             ulong * footprint_out ) {
 #if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
-  if( strcmp( tile_name, "metric" ) == 0 ) {
+  if( strcmp( tile_name, TILE_ID_METRIC ) == 0 ) {
     ulong footprint = tk_metric_scratch_footprint();
     *alignment_out  = fd_scratch_smem_align();
     *footprint_out  = fd_scratch_smem_footprint( footprint );
     return;
   }
-  if( strcmp( tile_name, "tkaudt" ) == 0 ) {
+  if( strcmp( tile_name, TILE_ID_TKAUDT ) == 0 ) {
     ulong footprint = tk_audit_scratch_footprint();
     *alignment_out  = TKAUDT_CTX_ALIGN;
     *footprint_out  = footprint;
