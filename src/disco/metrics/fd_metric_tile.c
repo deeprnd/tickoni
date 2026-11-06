@@ -198,16 +198,24 @@ void
 unprivileged_init( fd_topo_t const *      topo,
                    fd_topo_tile_t const * tile ) {
   FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init ENTER tile_id=%lu", tile->id ));
+  FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init checking topo ptr=%p", (void*)topo ));
+  FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init checking tile tile_obj_id=%lu", tile->tile_obj_id ));
   void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
+  FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init scratch ptr=%p", scratch ));
+  if( FD_UNLIKELY( !scratch ) )
+    FD_LOG_ERR(( "fd_metric_tile: scratch is NULL — bad tile_obj_id=%lu", tile->tile_obj_id ));
 
   FD_SCRATCH_ALLOC_INIT( l, scratch );
+  FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init scratch alloc init ok" ));
   fd_metric_ctx_t * ctx = FD_SCRATCH_ALLOC_APPEND( l, alignof( fd_metric_ctx_t ), sizeof( fd_metric_ctx_t ) );
+  FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init ctx alloc ok ctx=%p", (void*)ctx ));
 
   ctx->topo = topo;
   ctx->boot_ts = fd_log_wallclock_nanos();
   ctx->cnc = NULL;
 
   ulong scratch_top = FD_SCRATCH_ALLOC_FINI( l, scratch_align() );
+  FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init scratch fini top=%lu", scratch_top ));
   if( FD_UNLIKELY( scratch_top > (ulong)scratch + scratch_footprint( tile ) ) )
     FD_LOG_ERR(( "scratch overflow %lu %lu %lu", scratch_top - (ulong)scratch - scratch_footprint( tile ), scratch_top, (ulong)scratch + scratch_footprint( tile ) ));
 
