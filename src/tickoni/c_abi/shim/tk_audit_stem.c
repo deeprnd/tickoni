@@ -411,7 +411,7 @@ tk_audit_run( fd_topo_t *      topo,
 /* ─── fd_topo_run_tile_t ─── */
 
 fd_topo_run_tile_t TK_AUDIT_RUN = {
-    .name                     = "tkaudt",
+    .name                     = TILE_ID_TKAUDT,
     .keep_host_networking     = 0,
     .allow_connect            = 0,
     .allow_renameat           = 0,

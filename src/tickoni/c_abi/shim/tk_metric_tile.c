@@ -33,6 +33,7 @@
 #include "disco/metrics/fd_metric_tile.h"
 #include "../topo_run/tk_metric_tile.h"
 #include "../../tango/cnc/fd_cnc.h"
+#include "audit_schema.h"
 
 /* This macro mirrors the value defined in fd_metric_tile.c so that
    tk_metric_tile.c can reference it without including the .c source. */
@@ -194,7 +195,7 @@ tk_get_metric_run_tile( void ) {
    --------------------------------------------------------------------- */
 
 fd_topo_run_tile_t TK_METRIC_RUN = {
-  .name                     = "metric",
+  .name                     = TILE_ID_METRIC,
   .keep_host_networking     = 0,
   .allow_connect            = 0,
   .allow_renameat           = 0,
