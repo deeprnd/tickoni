@@ -600,7 +600,7 @@ pub const Supervisor = struct {
         };
         for (state.cnc_gaddrs) |*v| v.* = 0;
         for (state.cncs) |*v| v.* = null;
-        for (state.children) |*v| v.* = .{.child = null, .ownership = .vacant};
+        for (state.children) |*v| v.* = .{ .child = null, .ownership = .vacant };
         state.suppress_cnc = try self.allocator.alloc(bool, tile_cnt);
         for (state.suppress_cnc) |*v| v.* = false;
         auxiliary_workspaces_owned_by_state = true;
@@ -1338,7 +1338,7 @@ fn installLifecycleTestState(sup: *Supervisor) !*ProcessState {
     state.stop_grace_ns = 0;
     // Initialize ALL fields to safe zero/empty values so stopProcess's
     // deinit() doesn't free undefined pointers and GPE under kcov.
-    for (state.children) |*v| v.* = .{.child = null, .ownership = .vacant};
+    for (state.children) |*v| v.* = .{ .child = null, .ownership = .vacant };
     for (state.cncs) |*v| v.* = null;
     for (state.cnc_gaddrs) |*v| v.* = 0;
     for (state.suppress_cnc) |*v| v.* = false;

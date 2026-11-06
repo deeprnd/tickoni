@@ -138,7 +138,7 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
             break;
         }
         if (g_ctx.heartbeats < 5) {
-            std.debug.print("[tile-run] heartbeat={d} sig={d}\n", .{g_ctx.heartbeats, sig});
+            std.debug.print("[tile-run] heartbeat={d} sig={d}\n", .{ g_ctx.heartbeats, sig });
         }
 
         util.process.sleepNanos(g_ctx.spec.heartbeat_interval_ns);
@@ -162,7 +162,7 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         std.debug.print("tile_process: failed to read launch spec {s}: {t}\n", .{ spec_path, err });
         return 1;
     };
-    std.debug.print("[tile-process] tile {d} spec read ok\n", .{ spec.tile_idx });
+    std.debug.print("[tile-process] tile {d} spec read ok\n", .{spec.tile_idx});
 
     // Read topology spec and build BEFORE boot. Firedancer's fd_boot() can
     // interfere with Zig's page_allocator (mmap state), so topology build

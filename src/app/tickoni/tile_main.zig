@@ -39,13 +39,13 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
     log.enter("tile_main", "stemRun");
     defer log.exit("tile_main", "stemRun");
 
-        std.debug.print("[tile-main] stemRun: START\n", .{});
+    std.debug.print("[tile-main] stemRun: START\n", .{});
 
     const spec = rt.launch_spec.LaunchSpec.readFromFile(io, std.Io.Dir.cwd(), spec_path) catch |err| {
         std.debug.print("tile_main: failed to read launch spec {s}: {t}\n", .{ spec_path, err });
         return 1;
     };
-        std.debug.print("[tile-main] stemRun: read launch spec ok\n", .{});
+    std.debug.print("[tile-main] stemRun: read launch spec ok\n", .{});
 
     // Build topology BEFORE boot. Firedancer's fd_boot() can interfere with
     // Zig's page_allocator; topology build only touches in-memory structures.
@@ -70,7 +70,7 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
         std.debug.print("tile_main: failed to rebuild topology for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
-        std.debug.print("[tile-main] stemRun: topo_build.build ok\n", .{});
+    std.debug.print("[tile-main] stemRun: topo_build.build ok\n", .{});
     var built_opt: ?rt.topo_build.BuiltTopo = built;
     errdefer c_abi.boot.haltForTileProcess();
     errdefer if (built_opt) |*b| b.deinit(allocator);
@@ -80,7 +80,7 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
         std.debug.print("tile_main: bootWithSyntheticArgv failed for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
-        std.debug.print("[tile-main] stemRun: bootWithSyntheticArgv ok\n", .{});
+    std.debug.print("[tile-main] stemRun: bootWithSyntheticArgv ok\n", .{});
 
     // Firedancer's fd_topo_run_tile (called via runTileSimple below) handles
     // workspace joining internally: it calls fd_topo_join_tile_workspaces
@@ -88,7 +88,7 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
     // matches the tkings/__tile-run path and avoids a double-join that
     // corrupts workspace state (stemRun's explicit topoJoinWorkspaces +
     // topoWkspNewChild + Firedancer's internal join caused SIGSEGV in tkaudt).
-        std.debug.print("[tile-main] stemRun: skipping explicit workspace join (fd_topo_run_tile handles it)\n", .{});
+    std.debug.print("[tile-main] stemRun: skipping explicit workspace join (fd_topo_run_tile handles it)\n", .{});
 
     var tile_id_buf: [7]u8 = undefined;
     const id_slice = spec.tile_id.slice();
@@ -96,13 +96,13 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
     tile_id_buf[id_slice.len] = 0;
     const tile_id_z: [*:0]const u8 = @ptrCast(&tile_id_buf);
 
-        std.debug.print("[tile-main] stemRun: calling topoFindTile\n", .{});
+    std.debug.print("[tile-main] stemRun: calling topoFindTile\n", .{});
     const tile_idx = c_abi.topob.topoFindTile(built.topo, tile_id_z, 0);
     if (tile_idx == c_abi.topob.not_found) {
         std.debug.print("tile_main: tile {s} not found in rebuilt topology\n", .{id_slice});
         return 1;
     }
-        std.debug.print("[tile-main] stemRun: topoFindTile ok, calling runTileSimple\n", .{});
+    std.debug.print("[tile-main] stemRun: topoFindTile ok, calling runTileSimple\n", .{});
     c_abi.topob.topoTileSetAllowShutdown(built.topo, tile_idx, true);
 
     c_abi.topo_run.runTileSimple(built.topo, c_abi.topob.topoTilePtr(built.topo, tile_idx));
