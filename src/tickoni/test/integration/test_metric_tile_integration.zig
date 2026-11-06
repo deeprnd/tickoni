@@ -181,7 +181,7 @@ fn parsePrometheusMetric(body: []const u8, name: []const u8) ?u64 {
 }
 
 test "parsePrometheusMetric accepts counter total suffix" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const body = "metric_bytes_read_total 42\n";
     try std.testing.expectEqual(@as(?u64, 42), parsePrometheusMetric(body, "metric_bytes_read"));
 }
@@ -232,7 +232,7 @@ fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) !void {
             defer std.testing.allocator.free(content);
             std.debug.print("  === {s} ===\n{s}\n  === end ===\n", .{ name, content });
         }
-        std.testing.allocator.free(c_path);
+        std.testing.allocator.free(c_path[0..log_path.len]);
         std.debug.panic("TileCrashed", .{});
     }
 }
@@ -248,7 +248,7 @@ fn allocCStr(allocator: std.mem.Allocator, s: []const u8) ![*:0]u8 {
 // ---------------------------------------------------------------------------
 
 test "metric topology finalizes exact scratch requirements identically" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const port = util.nextMetricPort();
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
 
@@ -317,7 +317,7 @@ test "metric topology finalizes exact scratch requirements identically" {
 }
 
 test "metric topology preserves descriptor identity, CNC ownership, CPU placement, and zero links" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const tiles = [_]runtime.tile.TileDescriptor{
         .{ .id = 0, .name = runtime.tile.TileId.parse("tking") catch unreachable, .cpu_placement = .{ .exclusive = 2 } },
         .{ .id = 1, .name = runtime.tile.TileId.parse("metric") catch unreachable, .cpu_placement = .{ .exclusive = 3 } },
@@ -354,7 +354,7 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: topology with metric builds and starts" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -414,7 +414,7 @@ test "metric_tile_integration: topology with metric builds and starts" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -504,7 +504,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: unknown path returns HTTP 404" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -557,7 +557,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: boot_timestamp is a valid large positive value" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -622,7 +622,7 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: workspace join completeness" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -689,7 +689,7 @@ test "metric_tile_integration: workspace join completeness" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -734,7 +734,7 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: CNC join verifies tile finds CNC object" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     const topo = topologies.paymentPipelineProcess();
 
     var metric_idx: ?usize = null;
@@ -760,7 +760,7 @@ test "metric_tile_integration: CNC join verifies tile finds CNC object" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
 
@@ -845,7 +845,7 @@ test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: sequential pipeline runs on same port" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
