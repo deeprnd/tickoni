@@ -8,6 +8,7 @@ const runtime = @import("runtime.zig");
 const queue = @import("queue.zig");
 const logger = @import("logger");
 const audit_sink = @import("audit_sink.zig");
+const audit_shared = @import("audit_shared.zig");
 
 const PaymentPipelineState = runtime.PaymentPipelineState;
 
@@ -48,7 +49,7 @@ test "sandbox failure records crash diagnostics and stops audit" {
         .pipeline_hops = 1,
         .duplicate = false,
         .decision = .allow,
-        .decided_by = audit_sink.tile_id_tkpoly,
+        .decided_by = audit_shared.tile_id_tkpoly,
         .event_hash = 0,
     }, &state.stop);
     state.q_poly_audit.close();
