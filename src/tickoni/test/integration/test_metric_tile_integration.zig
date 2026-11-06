@@ -386,7 +386,7 @@ test "metric_tile_integration: topology with metric builds and starts" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = 1000,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -435,7 +435,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -525,7 +525,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -578,7 +578,7 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -643,7 +643,7 @@ test "metric_tile_integration: workspace join completeness" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -710,7 +710,7 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -782,7 +782,7 @@ test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -880,7 +880,7 @@ test "metric_tile_integration: sequential pipeline runs on same port" {
         try sup.startPaymentPipelineProcess(std.testing.io, .{
             .run_dir = iter_run_dir,
             .event_count = event_count,
-            .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+            .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
             .workspace_name = util.nextWorkspaceName(&ws_buf),
             .metric_port = port,
         });

@@ -37,7 +37,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -135,7 +135,7 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
         .event_count = event_count,
         .heartbeat_interval_ns = 20 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 1 * std.time.ns_per_ms,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });

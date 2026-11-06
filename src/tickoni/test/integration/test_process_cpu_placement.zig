@@ -51,7 +51,7 @@ test "process_cpu_placement_integration: two tiles sharing one cpu get distinct 
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -116,7 +116,7 @@ test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails
     const port = util.nextMetricPort();
     try std.testing.expectError(error.CpuIdMalformed, sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = "bogus",
         .metric_port = port,
     }));
@@ -216,7 +216,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     try floating_sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = floating_run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&floating_ws_buf),
         .metric_port = port,
     });
@@ -259,7 +259,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     try shared_sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = shared_run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&shared_ws_buf),
         .metric_port = port,
     });
