@@ -17,7 +17,7 @@
 const std = @import("std");
 const queue = @import("queue.zig");
 const audit_sink = @import("audit_sink.zig");
-const audit_shared = @import("audit_shared.zig");
+const tile_ids = @import("runtime").tile_ids;
 
 pub const PolicyDecision = enum(u8) {
     allow,
@@ -56,7 +56,7 @@ pub const PaymentMessage = struct {
     /// Id of the tile stage that finalized `decision` (tknorm for
     /// malformed_drop, tkpoly for allow/deny/duplicate_drop), so tkaudt can
     /// attribute each record to its real producer instead of always tkpoly.
-    decided_by: [6]u8 = audit_shared.tile_id_tkpoly,
+    decided_by: tile_ids.TileId = tile_ids.tkpoly,
 };
 
 pub const MetricSnapshot = struct {
@@ -290,7 +290,7 @@ pub fn syntheticPayment(config: PaymentPipelineConfig, offset: u64) RawPayment {
 }
 
 pub fn stableEventHash(raw: RawPayment) u64 {
-    var h = audit_shared.audit_seed;
+    var h = audit_sink.audit_seed;
     hashU64(&h, raw.idempotency_key);
     hashU32(&h, raw.account_id);
     hashI64(&h, raw.amount_cents);

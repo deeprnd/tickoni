@@ -4,6 +4,9 @@
 const std = @import("std");
 const tile = @import("tile.zig");
 
+/// Re-exported from tile.zig so callers use tile_ids.TileId everywhere.
+pub const TileId = tile.TileId;
+
 /// Ingress tile — receives raw financial events from external streams.
 pub const tkings: tile.TileId = .{ .bytes = "tkings".* };
 /// Normalization tile — canonicalizes source-specific payloads.
