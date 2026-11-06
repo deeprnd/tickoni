@@ -5,6 +5,7 @@
 const std = @import("std");
 const runtime = @import("runtime.zig");
 const audit_sink = @import("audit_sink.zig");
+const audit_shared = @import("audit_shared.zig");
 const logger = @import("logger");
 
 const PaymentPipelineState = runtime.PaymentPipelineState;
@@ -27,16 +28,16 @@ pub fn runPolicy(state: *PaymentPipelineState) void {
             // malformed source facts.
         } else if (msg.duplicate) {
             msg.decision = .duplicate_drop;
-            msg.decided_by = audit_sink.tile_id_tkpoly;
+            msg.decided_by = audit_shared.tile_id_tkpoly;
             log.kvFmt("tkpoly", "runPolicy", "offset={d} decision=duplicate_drop account={d} idempotency_key={d}", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.idempotency_key });
         } else if (msg.raw.amount_cents > state.config.policy_limit_cents) {
             msg.decision = .deny;
-            msg.decided_by = audit_sink.tile_id_tkpoly;
+            msg.decided_by = audit_shared.tile_id_tkpoly;
             _ = state.denied.fetchAdd(1, .release);
             log.kvFmt("tkpoly", "runPolicy", "offset={d} decision=deny account={d} amount={d}c limit={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents, state.config.policy_limit_cents });
         } else {
             msg.decision = .allow;
-            msg.decided_by = audit_sink.tile_id_tkpoly;
+            msg.decided_by = audit_shared.tile_id_tkpoly;
             _ = state.allowed.fetchAdd(1, .release);
             log.kvFmt("tkpoly", "runPolicy", "offset={d} decision=allow account={d} amount={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents });
         }
@@ -55,7 +56,7 @@ test "sandbox failure records crash diagnostics and stops policy" {
         .pipeline_hops = 1,
         .duplicate = false,
         .decision = .allow,
-        .decided_by = audit_sink.tile_id_tkdedu,
+        .decided_by = audit_shared.tile_id_tkdedu,
     }, &state.stop);
     state.q_dedu_poly.close();
     runPolicy(&state);

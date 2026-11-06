@@ -28,6 +28,7 @@ const c_abi = @import("c_abi");
 const util = @import("util");
 const payment_runtime = @import("runtime.zig");
 const audit_sink = @import("audit_sink.zig");
+const audit_shared = @import("audit_shared.zig");
 
 const PaymentMessage = payment_runtime.PaymentMessage;
 const msg_size = @sizeOf(PaymentMessage);
@@ -146,7 +147,7 @@ pub fn runNormalizeProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, inp
         msg.event_hash = payment_runtime.stableEventHash(msg.raw);
         if (!payment_runtime.validFraming(msg.raw)) {
             msg.decision = .malformed_drop;
-            msg.decided_by = audit_sink.tile_id_tknorm;
+            msg.decided_by = audit_shared.tile_id_tknorm;
             invalid += 1;
         } else {
             normalized += 1;
@@ -222,14 +223,14 @@ pub fn runPolicyProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, input:
             // malformed source facts.
         } else if (msg.duplicate) {
             msg.decision = .duplicate_drop;
-            msg.decided_by = audit_sink.tile_id_tkpoly;
+            msg.decided_by = audit_shared.tile_id_tkpoly;
         } else if (msg.raw.amount_cents > cfg.policy_limit_cents) {
             msg.decision = .deny;
-            msg.decided_by = audit_sink.tile_id_tkpoly;
+            msg.decided_by = audit_shared.tile_id_tkpoly;
             denied += 1;
         } else {
             msg.decision = .allow;
-            msg.decided_by = audit_sink.tile_id_tkpoly;
+            msg.decided_by = audit_shared.tile_id_tkpoly;
             allowed += 1;
         }
         output.publish(std.mem.asBytes(&msg), &backpressure_waits, &stop_flag, cnc) catch break;
