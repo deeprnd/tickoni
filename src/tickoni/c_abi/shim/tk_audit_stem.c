@@ -2,13 +2,11 @@
 
    Phase 1: wire the stem tile, verify it runs without crashing.
    Phase 3.2: build real audit events with hash chain (in-progress).
-   Phase 3.3: export via callback (no file I/O in tile).
 
    Stem tile behavior:
    - DURING_FRAG: build AuditEvent from PaymentMessage, compute record_hash
      via SipHash1-3, store in scratch ring buffer, update prev_hash chain
    - SHOULD_SHUTDOWN: exit on the supervisor's CNC HALT signal
-   - shutdown: call registered export callback with all collected records
 */
 
 #define _GNU_SOURCE
@@ -32,33 +30,6 @@
 /* We need access to the topo helper function.
    tk_topo_run_tile.c declares tk_topo_find_tile_obj as an extern. */
 extern ulong tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_type );
-
-/* ─── Export callback ───
-
-   The tile writes audit records to scratch during processing.  On
-   shutdown it calls the registered export callback so the caller
-   decides where records go (in-memory buffer, JSONL serializer,
-   replay capsule, etc.).  The tile has zero I/O knowledge.
-
-   The callback is global because Firedancer's stem template generates
-   one `stem_run` function per tile type.  All instances of a tile
-   type share the same stem code path.
-
-   Caller sets it via tk_audit_set_export_callback() before the stem
-   tile starts.  Set to NULL to disable export. */
-
-typedef void (*tk_audit_export_fn)( void const *records, ulong count, void *export_ctx );
-
-static tk_audit_export_fn g_export_fn  = NULL;
-static void              *g_export_ctx = NULL;
-
-/* Register the audit record export callback and its user-context.
-   Called by the supervisor or test harness before the stem tile starts. */
-void
-tk_audit_set_export_callback( tk_audit_export_fn fn, void *export_ctx ) {
-    g_export_fn  = fn;
-    g_export_ctx = export_ctx;
-}
 
 /* ─── Context ───
 
@@ -120,15 +91,6 @@ static void tk_audit_run( fd_topo_t * topo, fd_topo_tile_t * tile );
 #define STEM_CALLBACK_DURING_FRAG   tk_audit_during_frag
 #define STEM_CALLBACK_SHOULD_SHUTDOWN(ctx) \
   ( (ctx)->cnc && fd_cnc_signal_query( (fd_cnc_t *)(ctx)->cnc ) == FD_CNC_SIGNAL_HALT )
-
-/* Flush collected audit records via the registered export callback.
-   Called after the main stem loop exits.  No file I/O knowledge. */
-static void
-tk_audit_flush_records( tk_audit_ctx_t * ctx ) {
-    if( ctx->audit_count > 0 && g_export_fn ) {
-        g_export_fn( ctx->audit_records, ctx->audit_count, g_export_ctx );
-    }
-}
 
 #include "../../../disco/metrics/fd_metrics.h"
 #include "../../../disco/stem/fd_stem.c"
@@ -401,7 +363,6 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
    2. Cast to ctx type
    3. Find CNC object and set ctx->cnc (for shutdown detection)
    4. Enter the audit-specific tkaudt_run loop
-   5. After loop exits, flush records via export callback
 */
 
 static void
@@ -418,9 +379,6 @@ tk_audit_run( fd_topo_t *      topo,
 
     /* Run the stem loop.  Stem exits when SHOULD_SHUTDOWN returns true. */
     tkaudt_run( topo, tile );
-
-    /* Flush collected audit records via export callback (no file I/O in tile). */
-    tk_audit_flush_records( ctx );
 }
 
 /* ─── fd_topo_run_tile_t ─── */

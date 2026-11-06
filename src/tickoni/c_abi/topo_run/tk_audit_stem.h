@@ -28,26 +28,6 @@ extern fd_topo_run_tile_t const * tk_get_audit_run_tile( void );
    accessor. */
 extern ulong tk_audit_scratch_footprint( void );
 
-/* ─── Export callback ───
-
-   The tile writes audit records to scratch during processing.  On
-   shutdown it calls the registered export callback so the caller
-   decides where records go (in-memory buffer, JSONL serializer,
-   replay capsule, etc.).  The tile has zero I/O knowledge.
-
-   The callback is global because Firedancer's stem template generates
-   one `stem_run` function per tile type.  All instances of a tile
-   type share the same stem code path.
-
-   Caller sets it via tk_audit_set_export_callback() before the stem
-   tile starts.  Set to NULL to disable export. */
-
-typedef void (*tk_audit_export_fn)( void const *records, ulong count, void *export_ctx );
-
-/* Register the audit record export callback and its user-context.
-   Called by the supervisor or test harness before the stem tile starts. */
-extern void tk_audit_set_export_callback( tk_audit_export_fn fn, void *export_ctx );
-
 /* The alignment for the audit tile's scratch space.
    Matches TKAUDT_CTX_ALIGN in tk_audit_stem.c.
    topob.c uses this to verify alignment parity. */
