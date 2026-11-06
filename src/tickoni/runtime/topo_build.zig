@@ -492,7 +492,6 @@ test "build produces a topology for the linear Phase 0 chain" {
 
     try std.testing.expectEqual(@as(usize, 5), built.cnc_obj_id.len);
 
-    var name_buf: [8]u8 = undefined;
     const tkaudt_id = c_abi.topob.topoFindTile(built.topo, tile_ids.tkaudt.slice(), 0);
     try std.testing.expect(tkaudt_id != c_abi.topob.not_found);
 }

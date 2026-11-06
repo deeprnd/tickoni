@@ -1,7 +1,7 @@
 const std = @import("std");
 const schema = @import("audit_schema");
 const hash = @import("hash.zig");
-const tile_ids = @import("tile_ids.zig");
+const tile_ids = @import("runtime").tile_ids;
 
 pub fn formatJsonLine(event: schema.AuditEvent, writer: anytype) !void {
     const h = event.header;
