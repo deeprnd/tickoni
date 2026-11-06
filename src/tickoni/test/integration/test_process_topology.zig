@@ -5,6 +5,7 @@
 /// on Linux, sysctl on macOS, and CreateToolhelp32Snapshot on Windows.
 const std = @import("std");
 const rt = @import("runtime");
+const tile_ids = rt.tile_ids;
 const c_abi = @import("c_abi");
 const supervisor_mod = @import("supervisor");
 const topologies = @import("topologies");
@@ -152,7 +153,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
     const tkrepl_idx = 5;
     var crash_after_heartbeats = std.mem.zeroes([8]u32);
     crash_after_heartbeats[tkrepl_idx] = 1;
-    try std.testing.expectEqualStrings("tkrepl", topo.tiles[tkrepl_idx].name.slice());
+    try std.testing.expectEqualStrings(tile_ids.tkrepl.slice(), topo.tiles[tkrepl_idx].name.slice());
 
     const port = util.nextMetricPort();
     const event_count: u64 = 16;

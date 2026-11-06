@@ -6,6 +6,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const rt = @import("runtime");
+const tile_ids = rt.tile_ids;
 const c_abi = @import("c_abi");
 const supervisor_mod = @import("supervisor");
 const topologies = @import("topologies");
@@ -24,9 +25,9 @@ test "minimal_setup_integration: tkings → tkaudt + metric observer" {
     // Minimal 3-tile topology: tkings → tkaudt + metric (observer only)
     const topo = topologies.minimalProcess();
     try std.testing.expectEqual(@as(usize, 3), topo.tiles.len);
-    try std.testing.expectEqualStrings("tkings", topo.tiles[0].name.slice());
-    try std.testing.expectEqualStrings("tkaudt", topo.tiles[1].name.slice());
-    try std.testing.expectEqualStrings("metric", topo.tiles[2].name.slice());
+    try std.testing.expectEqualStrings(tile_ids.tkings.slice(), topo.tiles[0].name.slice());
+    try std.testing.expectEqualStrings(tile_ids.tkaudt.slice(), topo.tiles[1].name.slice());
+    try std.testing.expectEqualStrings(tile_ids.metric.slice(), topo.tiles[2].name.slice());
 
     var sup = try Supervisor.initForTest(std.testing.allocator, topo);
     defer sup.deinit();

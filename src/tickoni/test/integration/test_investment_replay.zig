@@ -1,4 +1,5 @@
 const std = @import("std");
+const rt = @import("runtime");
 const adapter = @import("adapter");
 const audit = @import("audit_tile");
 const investment_fixture = @import("investment_fixture");
@@ -183,10 +184,10 @@ test "investment_replay_integration: allowed trade audit chain hashes are real a
     }
 
     // Tile ID at each sequence position must match the owning tile.
-    const expected_tile_ids = [investment_audit.allowed_trade_event_count][]const u8{
-        "tkings", "tknorm", "tkdedu", "tkcase", "tkpoly",
-        "tkmodl", "tkadpt", "tkadpt", "tkagnt", "tkadpt",
-        "tkpoly", "tkagnt", "tkpoly", "tkagnt", "tkrepl",
+    const expected_tile_ids = [_][]const u8{
+        rt.tile_ids.tkings.slice(), rt.tile_ids.tknorm.slice(), rt.tile_ids.tkdedu.slice(), rt.tile_ids.tkcase.slice(), rt.tile_ids.tkpoly.slice(),
+        rt.tile_ids.tkmodl.slice(), rt.tile_ids.tkadpt.slice(), rt.tile_ids.tkadpt.slice(), rt.tile_ids.tkagnt.slice(), rt.tile_ids.tkadpt.slice(),
+        rt.tile_ids.tkpoly.slice(), rt.tile_ids.tkagnt.slice(), rt.tile_ids.tkpoly.slice(), rt.tile_ids.tkagnt.slice(), rt.tile_ids.tkrepl.slice(),
     };
     for (chain.events, expected_tile_ids) |event, expected| {
         try std.testing.expectEqualStrings(expected, std.mem.sliceTo(&event.header.tile_id, 0));
@@ -374,10 +375,10 @@ test "investment_replay_integration: audit jsonl hash chain is consistent" {
 
     const AuditLine = struct { run_id: u64, tile_id: []const u8, prev_hash: u64, record_hash: u64 };
 
-    const expected_tile_ids = [investment_audit.allowed_trade_event_count][]const u8{
-        "tkings", "tknorm", "tkdedu", "tkcase", "tkpoly",
-        "tkmodl", "tkadpt", "tkadpt", "tkagnt", "tkadpt",
-        "tkpoly", "tkagnt", "tkpoly", "tkagnt", "tkrepl",
+    const expected_tile_ids = [_][]const u8{
+        rt.tile_ids.tkings.slice(), rt.tile_ids.tknorm.slice(), rt.tile_ids.tkdedu.slice(), rt.tile_ids.tkcase.slice(), rt.tile_ids.tkpoly.slice(),
+        rt.tile_ids.tkmodl.slice(), rt.tile_ids.tkadpt.slice(), rt.tile_ids.tkadpt.slice(), rt.tile_ids.tkagnt.slice(), rt.tile_ids.tkadpt.slice(),
+        rt.tile_ids.tkpoly.slice(), rt.tile_ids.tkagnt.slice(), rt.tile_ids.tkpoly.slice(), rt.tile_ids.tkagnt.slice(), rt.tile_ids.tkrepl.slice(),
     };
 
     var lines = std.mem.tokenizeScalar(u8, raw, '\n');
