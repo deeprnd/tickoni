@@ -37,6 +37,11 @@
 #define TILE_ID_METRIC  "metric"
 #define TILE_ID_TKDIAG  "tkdiag"
 
+/* ─── Workspace Names ─── */
+
+#define WKSP_NAME_METRIC    "metric"
+#define WKSP_NAME_METRIC_IN "metric_in"
+
 /* ─── PolicyOutcome (matches Zig audit.PolicyOutcome enum(u8)) ─── */
 
 typedef uint8_t PolicyOutcome;
