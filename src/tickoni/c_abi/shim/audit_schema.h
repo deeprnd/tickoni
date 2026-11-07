@@ -159,4 +159,98 @@ typedef struct {
 
 #define AUDIT_EVENT_SIZE sizeof(AuditEvent)
 
+/* ─── Wire-format payload types (for binary serialization) ───
+   These mirror the wire codec types in wire.zig.
+   translate-c generates extern structs from these — no hand-written
+   Zig mirrors needed, alignment is guaranteed by the C compiler. */
+
+typedef struct {
+    uint8_t   source_system[16];
+    uint8_t   event_type[32];
+    uint64_t  raw_hash;
+} WireSourceEventPayload;
+
+typedef struct {
+    uint64_t  source_event_hash;
+    uint64_t  normalized_hash;
+    uint8_t   canonical_event_type[32];
+} WireNormalizationPayload;
+
+typedef struct {
+    uint8_t   model_id[32];
+    uint64_t  prompt_hash;
+    uint64_t  response_hash;
+    uint32_t  token_estimate;
+    uint8_t   retry_count;
+    uint8_t   actor_role[16];
+    uint8_t   workflow[16];
+    uint64_t  policy_decision_id;
+    uint64_t  replay_substitution_id;
+} WireModelCallPayload;
+
+typedef struct {
+    uint8_t   adapter_id[16];
+    uint64_t  request_hash;
+    uint64_t  response_hash;
+    uint32_t  replay_substitution_id;
+} WireFinancialAdapterCallPayload;
+
+typedef struct {
+    uint8_t   proposal_type[32];
+    uint64_t  proposal_hash;
+    uint8_t   approval_state;
+} WireProposalPayload;
+
+typedef struct {
+    uint8_t   destination_type[16];
+    uint32_t  allowlist_version;
+    PolicyOutcome outcome;
+} WireDestinationCheckPayload;
+
+typedef struct {
+    RecordType limit_type;  /* LimitType — same as RecordType enum */
+    int64_t     value;
+    int64_t     limit;
+    PolicyOutcome outcome;
+} WireLimitCheckPayload;
+
+typedef struct {
+    uint8_t   action_class[32];
+    uint8_t   approval_path[32];
+    uint64_t  proposal_hash;
+} WireApprovalRequiredPayload;
+
+typedef struct {
+    uint8_t   action_class[32];
+    uint32_t  reason_code;
+    uint8_t   failed_scope_dim[32];
+    uint32_t  catalog_schema_version;
+    uint8_t   taxonomy_id[32];
+    uint32_t  taxonomy_version;
+    uint8_t   classification_code[32];
+} WireDenialPayload;
+
+typedef struct {
+    uint64_t  metric_set_hash;
+    uint64_t  source_offset_watermark;
+} WireTelemetryCheckpointPayload;
+
+typedef struct {
+    uint64_t  capsule_id;
+    uint64_t  divergences;
+    uint64_t  first_divergent_seq;
+} WireReplayResultPayload;
+
+typedef struct {
+    uint64_t  idempotency_key;
+    uint8_t   is_duplicate;
+} WireDeduplicationPayload;
+
+typedef struct {
+    uint64_t  basket_id;
+    uint8_t   instrument_count;
+    uint8_t   rejected_count;
+    int64_t   total_allocated_cents;
+} WireCaseCreationPayload;
+
 #endif /* __AUDIT_SCHEMA_H__ */
