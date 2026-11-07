@@ -128,7 +128,7 @@ pub fn strategy(
         .name = "test-payment-pipeline",
         .source_file = "src/tickoni/tiles/payment_pipeline/mod.zig",
         .imports = &.{
-            .{ .name = "audit_tile", .module = shared.audit_tile },
+            .{ .name = "audit", .module = shared.audit },
             .{ .name = "runtime", .module = shared.runtime },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "util", .module = shared.util },

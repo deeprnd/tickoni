@@ -173,7 +173,7 @@ pub fn strategy(
                 .imports = &.{
                     .{ .name = "adapter", .module = int_mods.adapter_int_mod },
                     .{ .name = "runtime", .module = int_mods.shared_runtime },
-                    .{ .name = "audit_tile", .module = int_mods.shared_audit_tile },
+                    .{ .name = "audit", .module = int_mods.shared_audit },
                     .{ .name = "basket", .module = int_mods.shared_basket },
                     .{ .name = "investment_audit", .module = int_mods.investment_audit_int_mod },
                     .{ .name = "investment_fixture", .module = int_mods.investment_fixture_mod },
@@ -249,7 +249,7 @@ pub fn strategy(
                 .optimize = optimize,
                 .imports = &.{
                     .{ .name = "adapter", .module = int_mods.adapter_int_mod },
-                    .{ .name = "audit_tile", .module = int_mods.shared_audit_tile },
+                    .{ .name = "audit", .module = int_mods.shared_audit },
                     .{ .name = "investment_audit", .module = int_mods.investment_audit_int_mod },
                     .{ .name = "model", .module = int_mods.model_int_mod },
                     .{ .name = "portfolio", .module = int_mods.shared_portfolio },
@@ -300,7 +300,7 @@ pub fn strategy(
                 .target = target,
                 .optimize = optimize,
                 .imports = &.{
-                    .{ .name = "audit_tile", .module = int_mods.shared_audit_tile },
+                    .{ .name = "audit", .module = int_mods.shared_audit },
                     .{ .name = "basket", .module = int_mods.shared_basket },
                     .{ .name = "investment_audit", .module = int_mods.investment_audit_int_mod },
                     .{ .name = "replay", .module = int_mods.replay_int_mod },

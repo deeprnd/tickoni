@@ -12,7 +12,7 @@ pub const Shared = struct {
     audit_consts: *std.Build.Module,
     audit_mod: *std.Build.Module,
     audit_codec: *std.Build.Module,
-    audit_tile: *std.Build.Module,
+    audit: *std.Build.Module,
     tier: *std.Build.Module,
     version: *std.Build.Module,
     version_opts: *std.Build.Step.Options,
@@ -101,14 +101,14 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
             .{ .name = "runtime", .module = runtime_mod },
         },
     });
-    const audit_tile_mod = b.createModule(.{
-        .root_source_file = b.path("src/tickoni/tiles/audit/mod.zig"),
+    const audit_mod_s = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/schema/audit/mod.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
+            .{ .name = "audit_mod", .module = audit_mod },
             .{ .name = "audit_codec", .module = audit_codec_mod },
             .{ .name = "audit_schema", .module = audit_schema_mod },
-            .{ .name = "audit_mod", .module = audit_mod },
             .{ .name = "audit_consts", .module = audit_consts_mod },
         },
     });
@@ -270,7 +270,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "audit_tile", .module = audit_tile_mod },
+            .{ .name = "audit", .module = audit_mod_s },
             .{ .name = "audit_codec", .module = audit_codec_mod },
             .{ .name = "audit_schema", .module = audit_schema_mod },
             .{ .name = "audit_mod", .module = audit_mod },
@@ -302,7 +302,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .audit_consts = audit_consts_mod,
         .audit_mod = audit_mod,
         .audit_codec = audit_codec_mod,
-        .audit_tile = audit_tile_mod,
+        .audit = audit_mod_s,
         .tier = tier_mod,
         .version = version_mod,
         .version_opts = version_opts,

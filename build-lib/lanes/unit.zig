@@ -215,14 +215,14 @@ pub fn strategy(
     run_sequence[run_count] = test_audit;
     run_count += 1;
 
-    // payment_pipeline/mod.zig — needs audit_tile, runtime, c_abi, logger, util.
+    // payment_pipeline/mod.zig — needs audit, runtime, c_abi, logger, util.
     // Note: audit_consts resolved via filesystem fallback (same directory).
     const pp_mod_root = b.createModule(.{
         .root_source_file = b.path("src/tickoni/tiles/payment_pipeline/mod.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "audit_tile", .module = tm.audit_tile },
+            .{ .name = "audit", .module = shared.audit },
             .{ .name = "runtime", .module = shared.runtime },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "logger", .module = shared.logger },
