@@ -101,6 +101,18 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
             .{ .name = "runtime", .module = runtime_mod },
         },
     });
+    // Standalone build-module for C interop with tk_audit_stem.c.
+    // Not a submodule of c_abi (that would create module-root conflicts)
+    // but importable as @import("c_abi_audit") by any module that needs
+    // stem tile interop alongside domain types.
+    const c_abi_audit_mod = b.addModule("c_abi_audit", .{
+        .root_source_file = b.path("src/tickoni/c_abi/audit.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "audit_schema", .module = audit_schema_mod },
+        },
+    });
     const audit_mod_s = b.createModule(.{
         .root_source_file = b.path("src/tickoni/schema/audit/mod.zig"),
         .target = target,
@@ -110,6 +122,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
             .{ .name = "audit_codec", .module = audit_codec_mod },
             .{ .name = "audit_schema", .module = audit_schema_mod },
             .{ .name = "audit_consts", .module = audit_consts_mod },
+            .{ .name = "c_abi_audit", .module = c_abi_audit_mod },
         },
     });
     const tier_mod = b.addModule("tier", .{
