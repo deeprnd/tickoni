@@ -66,7 +66,7 @@ test "Phase 0 rejects malformed payment framing" {
     try std.testing.expectEqual(@as(u64, 1), state.invalid.load(.seq_cst));
     try std.testing.expectEqual(@as(u64, 0), state.normalized.load(.seq_cst));
     try std.testing.expectEqual(@as(u64, 1), state.audited.load(.seq_cst));
-    try std.testing.expectEqual(audit.PolicyOutcome.malformed_drop, state.audit.records[0].payload.policy_decision.outcome);
+    try std.testing.expectEqual(@as(u8, @backingInt(audit.PolicyOutcome.malformed_drop)), state.audit.records[0].payload.policy_decision.outcome);
     try std.testing.expect(state.replay_match.load(.seq_cst));
 }
 

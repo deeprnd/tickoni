@@ -50,7 +50,7 @@ pub fn buildPolicyDecisionEvent(
         .manifest_id = std.mem.zeroes([64]u8),
     }, .{
         .policy_decision = .{
-            .outcome = outcome,
+            .outcome = @backingInt(outcome),
             .rule_id = 0,
             .failed_scope_dim = std.mem.zeroes([32]u8),
             .source_event_hash = event_hash,

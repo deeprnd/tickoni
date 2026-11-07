@@ -68,15 +68,16 @@ const hashAffordability = replay.hashAffordability;
 const hashTicket = replay.hashTicket;
 const hashPaperResult = replay.hashPaperResult;
 
-fn capabilityEnvelopeId(thesis_input: *const thesis.ThesisInput, proposed_basket: *const basket.Basket) u128 {
-    return (@as(u128, thesis.computeThesisInputHash(thesis_input.*)) << 64) | @as(u128, proposed_basket.basket_id);
+fn capabilityEnvelopeId(thesis_input: *const thesis.ThesisInput, proposed_basket: *const basket.Basket) u64 {
+    const thesis_hash = thesis.computeThesisInputHash(thesis_input.*);
+    return @as(u64, @truncate(thesis_hash)) ^ @as(u64, proposed_basket.basket_id);
 }
 
 fn header(
     seq: u64,
     tile_id: []const u8,
     logical_actor_id: u64,
-    capability_envelope_id: u128,
+    capability_envelope_id: u64,
     run_id: u64,
     prev_hash: u64,
 ) audit.Header {
@@ -160,7 +161,7 @@ pub fn buildAllowedTradeChain(
 
     events[4] = audit.buildEvent(header(4, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .policy_decision = .{
-            .outcome = if (ticket.policy_outcome == .allow) .allow else .deny,
+            .outcome = if (ticket.policy_outcome == .allow) @backingInt(audit.PolicyOutcome.allow) else @backingInt(audit.PolicyOutcome.deny),
             .rule_id = 1101,
             .failed_scope_dim = parseFixedAsciiBytes(32, if (ticket.policy_outcome == .allow) "" else "per_order_notional"),
             .source_event_hash = normalized_hash,
@@ -228,7 +229,7 @@ pub fn buildAllowedTradeChain(
 
     events[10] = audit.buildEvent(header(10, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .policy_decision = .{
-            .outcome = if (drift_contract.payment_proposal_update.requires_user_action) .require_approval else .allow,
+            .outcome = if (drift_contract.payment_proposal_update.requires_user_action) @backingInt(audit.PolicyOutcome.require_approval) else @backingInt(audit.PolicyOutcome.allow),
             .rule_id = 1303,
             .failed_scope_dim = parseFixedAsciiBytes(32, firstPaymentScopeDim(&drift_contract.payment_drift)),
             .source_event_hash = payment_update_hash,
@@ -344,7 +345,7 @@ pub fn buildOversizedTradeBlockedChain(
 
     events[4] = audit.buildEvent(header(4, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .policy_decision = .{
-            .outcome = .deny,
+            .outcome = @backingInt(audit.PolicyOutcome.deny),
             .rule_id = 1101,
             .failed_scope_dim = parseFixedAsciiBytes(32, blocked_reason.failed_scope_dim.label()),
             .source_event_hash = normalized_hash,
@@ -487,7 +488,7 @@ pub fn buildRestrictedInstrumentBlockedChain(
 
     events[4] = audit.buildEvent(header(4, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .policy_decision = .{
-            .outcome = .deny,
+            .outcome = @backingInt(audit.PolicyOutcome.deny),
             .rule_id = 1101,
             .failed_scope_dim = parseFixedAsciiBytes(32, "restricted_instrument"),
             .source_event_hash = normalized_hash,
