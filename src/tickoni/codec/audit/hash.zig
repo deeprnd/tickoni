@@ -2,7 +2,7 @@ const std = @import("std");
 const c_abi = @import("c_abi");
 const schema = @import("audit_schema");
 const wire = @import("wire.zig");
-const audit_consts = @import("audit_consts.zig");
+const audit_consts = @import("audit_consts");
 
 /// Hash constants — reference audit_consts.h via audit_consts module.
 const hash_k0: u64 = audit_consts.AUDIT_HASH_K0;

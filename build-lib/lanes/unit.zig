@@ -193,9 +193,8 @@ pub fn strategy(
 
     // === Tile tests with special linkage ===
 
-    // audit/mod.zig — needs audit_codec, audit_schema, fixture_audit_gen, runtime.
-    // Note: audit_consts resolved via filesystem fallback (same directory) to avoid
-    // Zig 0.18 @import() scoping issues with -M registered modules.
+    // audit/mod.zig — needs audit_codec, audit_schema, audit_consts, fixture_audit_gen, runtime.
+    // audit_consts resolved via build-module (shared.audit_consts).
     const audit_mod_root = b.createModule(.{
         .root_source_file = b.path("src/tickoni/codec/audit/mod.zig"),
         .target = target,
@@ -203,6 +202,7 @@ pub fn strategy(
         .imports = &.{
             .{ .name = "audit_codec", .module = shared.audit_codec },
             .{ .name = "audit_schema", .module = shared.audit_schema },
+            .{ .name = "audit_consts", .module = shared.audit_consts },
             .{ .name = "audit_mod", .module = shared.audit_mod },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
@@ -216,7 +216,7 @@ pub fn strategy(
     run_count += 1;
 
     // payment_pipeline/mod.zig — needs audit, runtime, c_abi, logger, util.
-    // Note: audit_consts resolved via filesystem fallback (same directory).
+    // audit_consts resolved via build-module (shared.audit_consts).
     const pp_mod_root = b.createModule(.{
         .root_source_file = b.path("src/tickoni/tiles/payment_pipeline/mod.zig"),
         .target = target,
@@ -224,6 +224,7 @@ pub fn strategy(
         .imports = &.{
             .{ .name = "audit", .module = shared.audit },
             .{ .name = "runtime", .module = shared.runtime },
+            .{ .name = "audit_consts", .module = shared.audit_consts },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "logger", .module = shared.logger },
             .{ .name = "util", .module = shared.util },

@@ -117,6 +117,7 @@ pub fn strategy(
         .imports = &.{
             .{ .name = "audit_codec", .module = shared.audit_codec },
             .{ .name = "audit_schema", .module = shared.audit_schema },
+            .{ .name = "audit_consts", .module = shared.audit_consts },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
             .{ .name = "runtime", .module = shared.runtime },
@@ -130,6 +131,7 @@ pub fn strategy(
         .imports = &.{
             .{ .name = "audit", .module = shared.audit },
             .{ .name = "runtime", .module = shared.runtime },
+            .{ .name = "audit_consts", .module = shared.audit_consts },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "util", .module = shared.util },
             .{ .name = "logger", .module = shared.logger },

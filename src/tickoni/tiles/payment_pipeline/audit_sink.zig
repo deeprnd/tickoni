@@ -1,6 +1,6 @@
 const std = @import("std");
 const audit = @import("audit");
-const audit_consts = @import("audit_consts.zig");
+const audit_consts = @import("audit_consts");
 
 pub const AuditAppendInput = struct {
     source_offset: u64,

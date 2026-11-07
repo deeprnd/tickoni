@@ -5,7 +5,7 @@
 /// (src/tickoni/tiles/payment_pipeline/queue.zig's BoundedQueue). The pure
 /// decision logic — hashing, framing validation, dedup comparison, policy
 /// decision, audit record building — is reused unchanged from
-/// src/tickoni/tiles/payment_pipeline/{runtime,audit_shared}.zig; only the
+/// src/tickoni/tiles/payment_pipeline/{runtime,audit_sink}.zig; only the
 /// transport and state ownership differ from thread mode. Dedup state
 /// (tkdedu) and the audit log (tkaudt) are local to that tile's own
 /// process now, not a struct shared across tiles.
