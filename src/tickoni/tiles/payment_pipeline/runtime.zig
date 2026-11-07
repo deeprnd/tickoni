@@ -17,6 +17,7 @@
 const std = @import("std");
 const queue = @import("queue.zig");
 const audit_sink = @import("audit_sink.zig");
+const audit_shared = @import("audit_shared.zig");
 const tile_ids = @import("runtime").tile_ids;
 
 pub const PolicyDecision = enum(u8) {
@@ -290,7 +291,7 @@ pub fn syntheticPayment(config: PaymentPipelineConfig, offset: u64) RawPayment {
 }
 
 pub fn stableEventHash(raw: RawPayment) u64 {
-    var h = audit_sink.audit_seed;
+    var h = audit_shared.audit_seed;
     hashU64(&h, raw.idempotency_key);
     hashU32(&h, raw.account_id);
     hashI64(&h, raw.amount_cents);

@@ -165,17 +165,6 @@ fn tkpolyProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
     tiles.process.runPolicyProcess(cfg, spec.tile_idx, &input, &output, cnc);
 }
 
-fn tkaudtProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
-    if (spec.in_cnt != 1) return error.MissingInputLink;
-    var input = try rt.link.Consumer.join(wksp, spec.inLinks()[0]);
-    defer input.leave();
-    const cfg = try loadProcessConfig(io, spec);
-    const cap: usize = @intCast(cfg.pipeline.event_count);
-    var audit_log = try tiles.audit_sink.AuditLog.init(allocator, cap);
-    defer audit_log.deinit(allocator);
-    tiles.process.runAuditProcess(cfg, spec.tile_idx, &input, cnc, &audit_log);
-}
-
 // ---------------------------------------------------------------------------
 // Registry.
 // ---------------------------------------------------------------------------
