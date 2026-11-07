@@ -18,6 +18,8 @@ pub fn runDiag(state: *PaymentPipelineState) void {
         if (diag.crashed_tile != runtime.crash_none) {
             log.kvFmt(tile_ids.tkdiag.slice(), "runDiag", "crashed_tile={d} sandbox_failures={d}", .{ diag.crashed_tile, diag.sandbox_failures });
         }
+        // std.Thread.yield() error is an OS scheduling failure — retrying
+        // or aborting provides no benefit; the loop naturally slows and recovers.
         std.Thread.yield() catch {};
     }
     _ = state.snapshotDiag();

@@ -39,6 +39,8 @@ pub fn BoundedQueue(comptime T: type) type {
 
                 _ = self.push_waits.fetchAdd(1, .release);
                 if (stop.load(.acquire)) return error.Stopped;
+                // std.Thread.yield() error is an OS scheduling failure — retrying
+                // or aborting provides no benefit; the loop naturally slows and recovers.
                 std.Thread.yield() catch {};
             }
         }
@@ -55,6 +57,8 @@ pub fn BoundedQueue(comptime T: type) type {
 
                 if (self.closed.load(.acquire)) return null;
                 if (stop.load(.acquire)) return null;
+                // std.Thread.yield() error is an OS scheduling failure — retrying
+                // or aborting provides no benefit; the loop naturally slows and recovers.
                 std.Thread.yield() catch {};
             }
         }

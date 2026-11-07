@@ -26,6 +26,8 @@ pub fn runReplay(state: *PaymentPipelineState) void {
             log.err(tile_ids.tkrepl.slice(), "runReplay", "aborting replay due to crash");
             return;
         }
+        // std.Thread.yield() error is an OS scheduling failure — retrying
+        // or aborting provides no benefit; the loop naturally slows and recovers.
         std.Thread.yield() catch {};
     }
 
