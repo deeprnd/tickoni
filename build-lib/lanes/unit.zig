@@ -5,6 +5,7 @@
 /// protocol-mode `--listen=-` which blocks on stdin.
 const std = @import("std");
 const shims = @import("../lib/shims.zig");
+const codec = @import("../lib/codec.zig");
 const factory = @import("../factory.zig");
 const lane = @import("../lane.zig");
 const firedancer = @import("../lib/firedancer.zig");
@@ -193,24 +194,33 @@ pub fn strategy(
     // === Tile tests with special linkage ===
 
     // audit/mod.zig — needs audit_codec, audit_schema, fixture_audit_gen, runtime.
-    run_sequence[run_count] = tb.registerRunTest(.{
-        .name = "test-audit",
-        .source_file = "src/tickoni/codec/audit/mod.zig",
+    // Note: audit_consts resolved via filesystem fallback (same directory) to avoid
+    // Zig 0.18 @import() scoping issues with -M registered modules.
+    const audit_mod_root = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/codec/audit/mod.zig"),
+        .target = target,
+        .optimize = optimize,
         .imports = &.{
             .{ .name = "audit_codec", .module = shared.audit_codec },
             .{ .name = "audit_schema", .module = shared.audit_schema },
+            .{ .name = "audit_mod", .module = shared.audit_mod },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
             .{ .name = "runtime", .module = shared.runtime },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
     });
+    const test_audit = b.addTest(.{ .root_module = audit_mod_root });
+    codec.linkTickoniCodec(b, test_audit, fd_lib_dir);
+    firedancer.linkTickoniFiredancer(b, test_audit, fd_lib_dir);
+    run_sequence[run_count] = test_audit;
     run_count += 1;
 
     // payment_pipeline/mod.zig — needs audit_tile, runtime, c_abi, logger, util.
-    run_sequence[run_count] = tb.registerRunTest(.{
-        .name = "test-payment-pipeline",
-        .source_file = "src/tickoni/tiles/payment_pipeline/mod.zig",
+    // Note: audit_consts resolved via filesystem fallback (same directory).
+    const pp_mod_root = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/tiles/payment_pipeline/mod.zig"),
+        .target = target,
+        .optimize = optimize,
         .imports = &.{
             .{ .name = "audit_tile", .module = tm.audit_tile },
             .{ .name = "runtime", .module = shared.runtime },
@@ -218,8 +228,11 @@ pub fn strategy(
             .{ .name = "logger", .module = shared.logger },
             .{ .name = "util", .module = shared.util },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
     });
+    const test_pp = b.addTest(.{ .root_module = pp_mod_root });
+    codec.linkTickoniCodec(b, test_pp, fd_lib_dir);
+    firedancer.linkTickoniFiredancer(b, test_pp, fd_lib_dir);
+    run_sequence[run_count] = test_pp;
     run_count += 1;
 
     // case/mod.zig — standalone.

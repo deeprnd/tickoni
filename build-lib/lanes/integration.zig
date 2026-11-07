@@ -66,6 +66,7 @@ pub fn strategy(
         .{ .name = "util", .module = int_mods.shared_util },
         .{ .name = "supervisor", .module = int_mods.supervisor_named_mod },
         .{ .name = "topologies", .module = int_mods.shared_topologies },
+        .{ .name = "audit_consts", .module = int_mods.shared_audit_consts },
     };
 
     // ------------------------------------------------------------------
