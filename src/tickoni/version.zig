@@ -15,6 +15,7 @@ pub const build_version_patch: u16 = build_opts.BUILD_VERSION_PATCH;
 pub const build_version_pre: []const u8 = build_opts.BUILD_VERSION_PRE;
 pub const build_git_sha: []const u8 = build_opts.BUILD_GIT_SHA;
 pub const build_id: []const u8 = build_opts.BUILD_ID;
+pub const build_zig_version: []const u8 = build_opts.BUILD_ZIG_VERSION;
 
 /// Format the semver release string into the caller-provided `buf`.
 /// The returned slice points into `buf` — the caller owns `buf` and
@@ -68,7 +69,8 @@ pub const VersionInfo = struct {
     replay_schema_version: u16 = 0,
     manifest_version: u16 = 0,
     manifest_version_str: ?[]const u8 = null,
-    compiler: []const u8 = "unknown",
+    zig_compiler: []const u8 = "unknown",
+    c_compiler: []const u8 = "unknown",
 
     pub fn init(gpa: std.mem.Allocator) !VersionInfo {
         var buf: [64]u8 = undefined;
@@ -87,7 +89,8 @@ pub const VersionInfo = struct {
             .replay_schema_version = audit_mod.audit_schema_version,
             .manifest_version = 0,
             .manifest_version_str = null,
-            .compiler = tier_mod.detectCompilerVersion(),
+            .zig_compiler = build_zig_version,
+            .c_compiler = tier_mod.detectCompilerVersion(),
         };
     }
 
@@ -153,7 +156,8 @@ pub fn formatVersionInfo(info: VersionInfo, writer: anytype) !void {
     } else {
         try writer.print("Manifest: none\n", .{});
     }
-    try writer.print("Compiler: {s}\n", .{info.compiler});
+    try writer.print("Zig Compiler: {s}\n", .{info.zig_compiler});
+    try writer.print("C Compiler: {s}\n", .{info.c_compiler});
 }
 
 // ---------------------------------------------------------------------------
@@ -181,7 +185,8 @@ test "VersionInfo fields are non-empty" {
         .policy_schema_version = 2,
         .replay_schema_version = 2,
         .manifest_version = 1,
-        .compiler = "clang 15.0",
+        .zig_compiler = "zig 0.18.0",
+        .c_compiler = "clang 15.0",
     };
     try std.testing.expect(info.semver.len > 0);
     try std.testing.expect(info.build_id.len > 0);
@@ -190,7 +195,8 @@ test "VersionInfo fields are non-empty" {
     try std.testing.expect(info.arch.len > 0);
     try std.testing.expect(info.runtime_tier.len > 0);
     try std.testing.expect(info.isolation_tier.len > 0);
-    try std.testing.expect(info.compiler.len > 0);
+    try std.testing.expect(info.zig_compiler.len > 0);
+    try std.testing.expect(info.c_compiler.len > 0);
 }
 
 test "semver format validates major.minor.patch" {
@@ -248,7 +254,8 @@ test "formatVersionInfo contains all required fields" {
         .replay_schema_version = 2,
         .manifest_version = 1,
         .manifest_version_str = "1.0.0",
-        .compiler = "clang 15.0",
+        .zig_compiler = "zig 0.18.0",
+        .c_compiler = "clang 15.0",
     };
     var buf: [1024]u8 = undefined;
     var w = std.Io.Writer.fixed(&buf);
@@ -264,7 +271,8 @@ test "formatVersionInfo contains all required fields" {
     try std.testing.expect(std.mem.indexOf(u8, output, "Policy Schema: 2") != null);
     try std.testing.expect(std.mem.indexOf(u8, output, "Replay Schema: 2") != null);
     try std.testing.expect(std.mem.indexOf(u8, output, "Manifest: 1.0.0") != null);
-    try std.testing.expect(std.mem.indexOf(u8, output, "Compiler: clang 15.0") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "Zig Compiler: zig 0.18.0") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "C Compiler: clang 15.0") != null);
 }
 
 test "formatVersionInfo validates all Tier enum values" {
@@ -310,7 +318,8 @@ test "formatVersionInfo shows 'none' when manifest version is unset" {
         .replay_schema_version = 1,
         .manifest_version = 0,
         .manifest_version_str = null,
-        .compiler = "clang 15.0",
+        .zig_compiler = "zig 0.18.0",
+        .c_compiler = "clang 15.0",
     };
     var buf: [1024]u8 = undefined;
     var w = std.Io.Writer.fixed(&buf);
@@ -343,7 +352,8 @@ test "formatVersionInfo ends with newline" {
         .policy_schema_version = 1,
         .replay_schema_version = 1,
         .manifest_version = 1,
-        .compiler = "clang 15.0",
+        .zig_compiler = "zig 0.18.0",
+        .c_compiler = "clang 15.0",
     };
     var buf: [1024]u8 = undefined;
     var w = std.Io.Writer.fixed(&buf);
