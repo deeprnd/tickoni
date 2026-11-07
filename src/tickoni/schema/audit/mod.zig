@@ -3,6 +3,7 @@
 // use @import("audit") as a single entry point.
 const audit_schema = @import("audit_schema");
 const audit_codec = @import("audit_codec");
+const c_abi_audit = @import("c_abi_audit");
 
 pub const audit_schema_version = audit_schema.audit_schema_version;
 pub const PolicyOutcome = audit_schema.PolicyOutcome;
@@ -36,3 +37,18 @@ pub const peekBinaryLen = audit_codec.peekBinaryLen;
 pub const formatBinary = audit_codec.formatBinary;
 pub const formatJsonLine = audit_codec.formatJsonLine;
 pub const parseBinary = audit_codec.parseBinary;
+
+// ─── C interop (tk_audit_stem.c) ────────────────────────────────────────────
+// Thin Zig wrappers over the C stem tile. Consumers that need the stem
+// tile interop (run tile descriptor, scratch footprint) use these.
+// Domain types and codecs are above; C interop stays separate in this
+// module for clarity, but everything is accessible via @import("audit").
+
+/// Opaque handle for fd_topo_run_tile_t. Only shim code knows the real layout.
+pub const TopoRunTile = c_abi_audit.TopoRunTile;
+
+/// Returns a pointer to the TK_AUDIT_RUN tile descriptor.
+pub const getAuditRunTile = c_abi_audit.getAuditRunTile;
+
+/// Returns the scratch footprint (in bytes) for the audit tile.
+pub const auditScratchFootprint = c_abi_audit.auditScratchFootprint;
