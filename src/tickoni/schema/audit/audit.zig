@@ -8,17 +8,29 @@ pub const c_schema = @import("audit_mod");
 
 pub const audit_schema_version: u16 = c_schema.AUDIT_SCHEMA_VERSION;
 
-// ─── Enums (Zig-only — no C interop needed) ───
+// ─── Enums (Zig-only — values verified against C header via comptime) ───
 
+/// PolicyOutcome — authoritative in Zig, values mirrored from audit_schema.h.
+/// Comptime assertions below verify alignment with C constants (POLICY_ALLOW, etc.).
 pub const PolicyOutcome = enum(u8) {
-    allow,
-    deny,
-    require_approval,
-    malformed_drop,
-    duplicate_drop,
-    escalate,
-    require_more_evidence,
+    allow = 0,
+    deny = 1,
+    require_approval = 2,
+    malformed_drop = 3,
+    duplicate_drop = 4,
+    escalate = 5,
+    require_more_evidence = 6,
 };
+
+comptime {
+    std.debug.assert(@intFromEnum(PolicyOutcome.allow) == c_schema.POLICY_ALLOW);
+    std.debug.assert(@intFromEnum(PolicyOutcome.deny) == c_schema.POLICY_DENY);
+    std.debug.assert(@intFromEnum(PolicyOutcome.require_approval) == c_schema.POLICY_REQUIRE_APPROVAL);
+    std.debug.assert(@intFromEnum(PolicyOutcome.malformed_drop) == c_schema.POLICY_MALFORMED_DROP);
+    std.debug.assert(@intFromEnum(PolicyOutcome.duplicate_drop) == c_schema.POLICY_DUPLICATE_DROP);
+    std.debug.assert(@intFromEnum(PolicyOutcome.escalate) == c_schema.POLICY_ESCALATE);
+    std.debug.assert(@intFromEnum(PolicyOutcome.require_more_evidence) == c_schema.POLICY_REQUIRE_MORE_EVIDENCE);
+}
 
 pub const LimitType = enum(u8) {
     amount,
