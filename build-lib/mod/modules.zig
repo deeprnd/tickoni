@@ -9,6 +9,7 @@ pub const Shared = struct {
     runtime: *std.Build.Module,
     topologies: *std.Build.Module,
     audit_schema: *std.Build.Module,
+    audit_mod: *std.Build.Module,
     audit_codec: *std.Build.Module,
     audit_tile: *std.Build.Module,
     tier: *std.Build.Module,
@@ -68,10 +69,19 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
             .{ .name = "runtime", .module = runtime_mod },
         },
     });
+    const audit_mod_step = b.addTranslateC(.{
+        .root_source_file = b.path("src/tickoni/c_abi/shim/audit_schema.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const audit_mod = audit_mod_step.createModule();
     const audit_schema_mod = b.addModule("audit_schema", .{
         .root_source_file = b.path("src/tickoni/schema/audit/audit.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{
+            .{ .name = "audit_mod", .module = audit_mod },
+        },
     });
     const audit_codec_mod = b.addModule("audit_codec", .{
         .root_source_file = b.path("src/tickoni/codec/audit.zig"),
@@ -80,6 +90,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .imports = &.{
             .{ .name = "c_abi", .module = c_abi_mod },
             .{ .name = "audit_schema", .module = audit_schema_mod },
+            .{ .name = "audit_mod", .module = audit_mod },
             .{ .name = "runtime", .module = runtime_mod },
         },
     });
@@ -90,6 +101,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .imports = &.{
             .{ .name = "audit_codec", .module = audit_codec_mod },
             .{ .name = "audit_schema", .module = audit_schema_mod },
+            .{ .name = "audit_mod", .module = audit_mod },
         },
     });
     const tier_mod = b.addModule("tier", .{
@@ -250,6 +262,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
             .{ .name = "audit_tile", .module = audit_tile_mod },
             .{ .name = "audit_codec", .module = audit_codec_mod },
             .{ .name = "audit_schema", .module = audit_schema_mod },
+            .{ .name = "audit_mod", .module = audit_mod },
             .{ .name = "runtime", .module = runtime_mod },
             .{ .name = "c_abi", .module = c_abi_mod },
             .{ .name = "util", .module = util_mod },
@@ -274,6 +287,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .topologies = topologies_named_mod,
         .tile_registry = tile_registry_mod,
         .audit_schema = audit_schema_mod,
+        .audit_mod = audit_mod,
         .audit_codec = audit_codec_mod,
         .audit_tile = audit_tile_mod,
         .tier = tier_mod,
