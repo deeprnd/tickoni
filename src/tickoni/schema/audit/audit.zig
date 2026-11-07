@@ -23,13 +23,13 @@ pub const PolicyOutcome = enum(u8) {
 };
 
 comptime {
-    std.debug.assert(@intFromEnum(PolicyOutcome.allow) == c_schema.POLICY_ALLOW);
-    std.debug.assert(@intFromEnum(PolicyOutcome.deny) == c_schema.POLICY_DENY);
-    std.debug.assert(@intFromEnum(PolicyOutcome.require_approval) == c_schema.POLICY_REQUIRE_APPROVAL);
-    std.debug.assert(@intFromEnum(PolicyOutcome.malformed_drop) == c_schema.POLICY_MALFORMED_DROP);
-    std.debug.assert(@intFromEnum(PolicyOutcome.duplicate_drop) == c_schema.POLICY_DUPLICATE_DROP);
-    std.debug.assert(@intFromEnum(PolicyOutcome.escalate) == c_schema.POLICY_ESCALATE);
-    std.debug.assert(@intFromEnum(PolicyOutcome.require_more_evidence) == c_schema.POLICY_REQUIRE_MORE_EVIDENCE);
+    std.debug.assert(@backingInt(PolicyOutcome.allow) == c_schema.POLICY_ALLOW);
+    std.debug.assert(@backingInt(PolicyOutcome.deny) == c_schema.POLICY_DENY);
+    std.debug.assert(@backingInt(PolicyOutcome.require_approval) == c_schema.POLICY_REQUIRE_APPROVAL);
+    std.debug.assert(@backingInt(PolicyOutcome.malformed_drop) == c_schema.POLICY_MALFORMED_DROP);
+    std.debug.assert(@backingInt(PolicyOutcome.duplicate_drop) == c_schema.POLICY_DUPLICATE_DROP);
+    std.debug.assert(@backingInt(PolicyOutcome.escalate) == c_schema.POLICY_ESCALATE);
+    std.debug.assert(@backingInt(PolicyOutcome.require_more_evidence) == c_schema.POLICY_REQUIRE_MORE_EVIDENCE);
 }
 
 pub const LimitType = enum(u8) {
