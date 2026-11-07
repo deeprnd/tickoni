@@ -3,7 +3,6 @@
 /// when it makes that rejection decision.
 const std = @import("std");
 const runtime = @import("runtime.zig");
-const audit_sink = @import("audit_sink.zig");
 const tile_ids = @import("runtime").tile_ids;
 const logger = @import("logger");
 

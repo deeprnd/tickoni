@@ -77,6 +77,7 @@ test {
     _ = @import("dedupe.zig");
     _ = @import("policy.zig");
     _ = @import("audit_stage.zig");
+    _ = @import("audit_shared.zig");
     _ = @import("replay.zig");
     _ = @import("diag.zig");
     _ = @import("process.zig");

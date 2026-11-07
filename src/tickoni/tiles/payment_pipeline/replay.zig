@@ -4,7 +4,7 @@
 /// reporting divergences with external effects disabled.
 const std = @import("std");
 const audit = @import("audit_tile");
-const audit_sink = @import("audit_sink.zig");
+const audit_shared = @import("audit_shared.zig");
 const tile_ids = @import("runtime").tile_ids;
 const runtime = @import("runtime.zig");
 const logger = @import("logger");
@@ -38,7 +38,7 @@ pub fn runReplay(state: *PaymentPipelineState) void {
 }
 
 fn deterministicReplayDivergences(state: *PaymentPipelineState, log: *logger.Logger) u64 {
-    var prev_hash = audit_sink.audit_seed;
+    var prev_hash = audit_shared.audit_seed;
     var expected_seq: u64 = 0;
     var divergences: u64 = 0;
 
@@ -87,7 +87,7 @@ fn buildReplayEvent(
     decided_by: tile_ids.TileId,
     prev_hash: u64,
 ) audit.AuditEvent {
-    return audit_sink.buildPolicyDecisionEvent(
+    return audit_shared.buildPolicyDecisionEvent(
         seq,
         raw.source_offset,
         event_hash,

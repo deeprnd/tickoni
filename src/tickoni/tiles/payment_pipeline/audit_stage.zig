@@ -7,7 +7,6 @@ const std = @import("std");
 const runtime = @import("runtime.zig");
 const queue = @import("queue.zig");
 const logger = @import("logger");
-const audit_sink = @import("audit_sink.zig");
 const tile_ids = @import("runtime").tile_ids;
 
 const PaymentPipelineState = runtime.PaymentPipelineState;

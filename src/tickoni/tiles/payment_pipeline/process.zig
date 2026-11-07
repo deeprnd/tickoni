@@ -5,7 +5,7 @@
 /// (src/tickoni/tiles/payment_pipeline/queue.zig's BoundedQueue). The pure
 /// decision logic — hashing, framing validation, dedup comparison, policy
 /// decision, audit record building — is reused unchanged from
-/// src/tickoni/tiles/payment_pipeline/{runtime,audit_sink}.zig; only the
+/// src/tickoni/tiles/payment_pipeline/{runtime,audit_shared}.zig; only the
 /// transport and state ownership differ from thread mode. Dedup state
 /// (tkdedu) and the audit log (tkaudt) are local to that tile's own
 /// process now, not a struct shared across tiles.
@@ -27,7 +27,6 @@ const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const util = @import("util");
 const payment_runtime = @import("runtime.zig");
-const audit_sink = @import("audit_sink.zig");
 const tile_ids = rt.tile_ids;
 
 const PaymentMessage = payment_runtime.PaymentMessage;
@@ -237,36 +236,6 @@ pub fn runPolicyProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, input:
     }
     rt.cnc_counters.appCounterWrite(cnc, 0, allowed);
     rt.cnc_counters.appCounterWrite(cnc, 1, denied);
-}
-
-pub fn runAuditProcess(
-    process_cfg: ProcessRuntimeConfig,
-    tile_idx: u32,
-    input: *rt.link.Consumer,
-    cnc: *c_abi.cnc.Cnc,
-    audit_log: *audit_sink.AuditLog,
-) void {
-    const cfg = process_cfg.pipeline;
-    var stop_flag = std.atomic.Value(bool).init(false);
-    var idle_polls = std.atomic.Value(u64).init(0);
-    var buf: [msg_size]u8 = undefined;
-
-    var audited: u64 = 0;
-    var i: u64 = 0;
-    while (i < cfg.event_count) : (i += 1) {
-        maybeBlockForTest(process_cfg, tile_idx, i);
-        if (halted(cnc)) break;
-        _ = input.consume(&buf, &idle_polls, &stop_flag, cnc) orelse break;
-        const msg = std.mem.bytesToValue(PaymentMessage, buf[0..msg_size]);
-        audit_log.append(.{
-            .source_offset = msg.raw.source_offset,
-            .event_hash = msg.event_hash,
-            .decision = @fromBackingInt(@intCast(@backingInt(msg.decision))),
-            .tile_id = msg.decided_by.bytes,
-        }) catch break;
-        audited += 1;
-    }
-    rt.cnc_counters.appCounterWrite(cnc, 0, audited);
 }
 
 // ---------------------------------------------------------------------------
