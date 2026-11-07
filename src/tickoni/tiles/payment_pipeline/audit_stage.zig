@@ -2,7 +2,7 @@
 /// audit log, attributing each record to whichever earlier stage
 /// (decided_by) actually finalized it. Named audit_stage.zig (not audit.zig)
 /// to stay distinct from the sibling audit_sink.zig record-builder and the
-/// audit_tile module this pipeline audits into.
+/// audit_sink module this pipeline audits into.
 const std = @import("std");
 const runtime = @import("runtime.zig");
 const queue = @import("queue.zig");

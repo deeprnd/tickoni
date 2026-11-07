@@ -1,6 +1,6 @@
 const std = @import("std");
 const adapter = @import("adapter");
-const audit = @import("audit_tile");
+const audit = @import("audit");
 const investment_audit = @import("investment_audit");
 const model = @import("model");
 const portfolio = @import("portfolio");

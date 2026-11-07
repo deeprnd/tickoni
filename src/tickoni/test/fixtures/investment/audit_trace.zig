@@ -1,5 +1,5 @@
 const std = @import("std");
-const audit = @import("audit_tile");
+const audit = @import("audit");
 const runtime = @import("runtime");
 const tile_ids = runtime.tile_ids;
 const basket = @import("basket");

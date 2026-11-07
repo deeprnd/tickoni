@@ -3,7 +3,7 @@
 /// and compares it record-by-record against what was actually audited,
 /// reporting divergences with external effects disabled.
 const std = @import("std");
-const audit = @import("audit_tile");
+const audit = @import("audit");
 const audit_sink = @import("audit_sink.zig");
 const tile_ids = @import("runtime").tile_ids;
 const runtime = @import("runtime.zig");
@@ -87,14 +87,41 @@ fn buildReplayEvent(
     decided_by: tile_ids.TileId,
     prev_hash: u64,
 ) audit.AuditEvent {
-    return audit_sink.buildPolicyDecisionEvent(
-        seq,
-        raw.source_offset,
-        event_hash,
-        @fromBackingInt(@intCast(@backingInt(decision))),
-        decided_by.bytes,
-        prev_hash,
-    );
+    const outcome: audit.PolicyOutcome = switch (decision) {
+        .allow => .allow,
+        .deny => .deny,
+        .malformed_drop => .malformed_drop,
+        .duplicate_drop => .duplicate_drop,
+    };
+    return audit.buildEvent(.{
+        .schema_version = audit.audit_schema_version,
+        .run_id = 0,
+        .seq = seq,
+        .source_offset = raw.source_offset,
+        .tile_id = decided_by.bytes,
+        .logical_actor_id = 0,
+        .policy_version = std.mem.zeroes([32]u8),
+        .capability_envelope_id = 0,
+        .timestamp_ns = 0,
+        .prev_hash = prev_hash,
+        .record_hash = 0,
+        .version = std.mem.zeroes([64]u8),
+        .platform_tier = std.mem.zeroes([64]u8),
+        .isolation_tier = std.mem.zeroes([64]u8),
+        .release_digest = std.mem.zeroes([64]u8),
+        .manifest_id = std.mem.zeroes([64]u8),
+    }, .{
+        .policy_decision = .{
+            .outcome = @backingInt(outcome),
+            .rule_id = 0,
+            .failed_scope_dim = std.mem.zeroes([32]u8),
+            .source_event_hash = event_hash,
+            .catalog_schema_version = 0,
+            .taxonomy_id = std.mem.zeroes([32]u8),
+            .taxonomy_version = 0,
+            .classification_code = std.mem.zeroes([32]u8),
+        },
+    });
 }
 
 fn replayDuplicate(config: PaymentPipelineConfig, offset: u64, key: u64, hash: u64) bool {
