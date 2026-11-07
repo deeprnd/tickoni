@@ -71,3 +71,6 @@ ZIG_PREFIX_REL := "build/zig-out"
 # CI build artifacts are consumed on different Linux x86_64 hosts. Keep Zig
 # code generation on the same Haswell baseline as the Firedancer archives.
 zig_linux_x86_cpu := "-Dcpu=haswell"
+
+# Zig compiler version string (auto-detected).
+zig_version := `zig version`
