@@ -203,9 +203,9 @@ pub fn build(
     // v2.22.S4 Task 0: Create metric and metric_in workspaces only when
     // metric is present, so links and tiles route correctly for all topologies.
     if (has_metric_tile) log.kvFmt("topo_build", "build", "calling topobWksp(metric)", .{});
-    const metric_wksp_idx: usize = if (has_metric_tile) c_abi.topob.topobWksp(topo, "metric") else c_abi.topob.not_found;
+    const metric_wksp_idx: usize = if (has_metric_tile) c_abi.topob.topobWksp(topo, c_abi.wksp.wksp_name_metric) else c_abi.topob.not_found;
     if (has_metric_tile) log.kvFmt("topo_build", "build", "calling topobWksp(metric_in)", .{});
-    const metric_in_wksp_idx: usize = if (has_metric_tile) c_abi.topob.topobWksp(topo, "metric_in") else c_abi.topob.not_found;
+    const metric_in_wksp_idx: usize = if (has_metric_tile) c_abi.topob.topobWksp(topo, c_abi.wksp.wksp_name_metric_in) else c_abi.topob.not_found;
     var metric_tile_idx: usize = c_abi.topob.not_found;
 
     // Links first, then tiles, then metric tile wiring (so in_cnt is
@@ -258,7 +258,7 @@ pub fn build(
     if (has_metric_tile) {
         var tile_name_buf: [16]u8 = undefined;
         log.kvFmt("topo_build", "build", "calling topobTile(metric, metric, metric)", .{});
-        _ = c_abi.topob.topobTile(topo, util.toZ(&tile_name_buf, tile_ids.metric.slice()), "metric", "metric", 0);
+        _ = c_abi.topob.topobTile(topo, util.toZ(&tile_name_buf, tile_ids.metric.slice()), c_abi.wksp.wksp_name_metric, c_abi.wksp.wksp_name_metric, 0);
         // Verify metric tile was registered.
         log.kvFmt("topo_build", "build", "topoValidateTileExists(metric)", .{});
         std.debug.assert(c_abi.topob.topoValidateTileExists(topo, util.toZ(&tile_name_buf, tile_ids.metric.slice())));
@@ -292,11 +292,10 @@ pub fn build(
         log.kvFmt("topo_build", "build", "calling topobTileIn(metric, metric_in, ch0..ch{d})", .{topo_desc.channels.len - 1});
         for (topo_desc.channels, 0..) |_, i| {
             var tile_name_buf: [16]u8 = undefined;
-            var in_name_buf: [16]u8 = undefined;
             var link_name_buf: [8]u8 = undefined;
             const link_name_z = linkNameZ(&link_name_buf, i);
             // Connect this link into the metric tile's inputs from metric_in workspace
-            _ = c_abi.topob.topobTileIn(topo, util.toZ(&tile_name_buf, tile_ids.metric.slice()), 0, util.toZ(&in_name_buf, "metric_in"), link_name_z, 0, true, true);
+            _ = c_abi.topob.topobTileIn(topo, util.toZ(&tile_name_buf, tile_ids.metric.slice()), 0, c_abi.wksp.wksp_name_metric_in, link_name_z, 0, true, true);
         }
         log.kvFmt("topo_build", "build", "done topobTileIn for metric tile", .{});
     }

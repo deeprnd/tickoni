@@ -428,7 +428,7 @@ pub const Supervisor = struct {
         // test invocation.
         {
             var stale_name: [64]u8 = undefined;
-            const printed = std.fmt.bufPrint(&stale_name, "{s}_{s}.wksp", .{ rt.topo_build.app_name, "metric" }) catch &stale_name;
+            const printed = std.fmt.bufPrint(&stale_name, "{s}_{s}.wksp", .{ rt.topo_build.app_name, c_abi.wksp.wksp_name_metric }) catch &stale_name;
             stale_name[printed.len] = 0;
             if (c_abi.wksp.wkspExistsNamed(@ptrCast(&stale_name))) {
                 _ = c_abi.wksp.wkspDeleteNamed(@ptrCast(&stale_name));
@@ -436,7 +436,7 @@ pub const Supervisor = struct {
         }
         {
             var stale_name: [64]u8 = undefined;
-            const printed = std.fmt.bufPrint(&stale_name, "{s}_{s}.wksp", .{ rt.topo_build.app_name, "metric_in" }) catch &stale_name;
+            const printed = std.fmt.bufPrint(&stale_name, "{s}_{s}.wksp", .{ rt.topo_build.app_name, c_abi.wksp.wksp_name_metric_in }) catch &stale_name;
             stale_name[printed.len] = 0;
             if (c_abi.wksp.wkspExistsNamed(@ptrCast(&stale_name))) {
                 _ = c_abi.wksp.wkspDeleteNamed(@ptrCast(&stale_name));
