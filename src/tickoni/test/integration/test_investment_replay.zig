@@ -13,15 +13,6 @@ const tkcase = @import("tkcase");
 const tkdisp = @import("tkdisp");
 const tkpoly = @import("tkpoly");
 
-/// Helper to check if an env var is set.
-/// In Zig 0.17 env vars are only available via init.environ_map in main(),
-/// so we always return false here — hasEnv only gates a fixture generation
-/// test that is run via an explicit flag anyway.
-fn hasEnv(key: []const u8) bool {
-    _ = key;
-    return false;
-}
-
 /// Resolve a repo-relative path (starting with "src/") against the
 /// executable's location by walking up the tree to find the repo root
 /// (a directory whose child is "src/").  Caller must free the returned
@@ -293,8 +284,6 @@ test "investment_replay_integration: tamper detection reports first divergent ha
 }
 
 test "gen audit allowed trade jsonl" {
-    if (false) return error.SkipZigTest;
-    if (hasEnv("TK_GEN_FIXTURES") == false) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
     const thesis_id = thesis.computeThesisInputHash(input);

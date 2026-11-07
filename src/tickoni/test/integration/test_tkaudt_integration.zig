@@ -1,7 +1,7 @@
 /// Phase 3 Step 3.1: Audit record allocation in scratch.
 ///
 /// This test verifies that the scratch-allocated audit records pointer and
-/// AUDIT_SEED-based prev_hash initialization don't break the tkaudt tile.
+/// AUDIT_INITIAL_HASH-based prev_hash initialization don't break the tkaudt tile.
 /// It exercises the same process-mode topology as test_minimal_setup.zig
 /// but is dedicated to Step 3.1 so we can iterate on audit record building
 /// (Step 3.2+) without regressing the allocation itself.
@@ -15,7 +15,7 @@
 ///
 /// This test verifies that the audit records built by the tkaudt tile form
 /// a continuous hash chain: prev_hash[k] == record_hash[k-1] for k >= 1,
-/// and prev_hash[0] == AUDIT_SEED.
+/// and prev_hash[0] == AUDIT_INITIAL_HASH.
 ///
 /// The tile writes records into its shared scratch allocation during
 /// DURING_FRAG. The supervisor maps that allocation in the same Tango
@@ -25,7 +25,7 @@
 ///
 /// Assertions:
 ///   - scratch contains exactly event_count records
-///   - prev_hash[0] == AUDIT_SEED
+///   - prev_hash[0] == AUDIT_INITIAL_HASH
 ///   - prev_hash[k] == record_hash[k-1] for k >= 1
 ///   - all record hashes are non-zero
 ///   - pipeline completes and shuts down cleanly
@@ -276,9 +276,8 @@ test "tkaudt_integration: Hash chain verification" {
     const records = try auditRecords(&sup);
     try std.testing.expectEqual(@as(usize, event_count), records.len);
 
-    // AUDIT_SEED = 0xDEADBEEF (from tk_audit_stem.c).
-    const AUDIT_SEED: u64 = 0xDEADBEEF;
-    try std.testing.expectEqual(AUDIT_SEED, records[0].header.prev_hash);
+    // AUDIT_INITIAL_HASH = 0 (identity seed, from audit_consts.h).
+    try std.testing.expectEqual(@as(u64, 0), records[0].header.prev_hash);
 
     var k: usize = 1;
     while (k < records.len) : (k += 1) {
