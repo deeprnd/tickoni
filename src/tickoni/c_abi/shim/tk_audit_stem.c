@@ -70,9 +70,6 @@ typedef struct {
 #define TKAUDT_CTX_ALIGN alignof(tk_audit_ctx_t)
 #define TKAUDT_AUDIT_CAPACITY 16384
 
-/* Audit hash seed — initial prev_hash value. */
-#define AUDIT_SEED 0xDEADBEEF
-
 /* Forward declarations for Firedancer callback typedefs (2 params each).
    All callback functions MUST be static — they are used by the
    STEM_CALLBACK_* macros which fd_stem.c expands into calls within
@@ -156,7 +153,7 @@ tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     ctx->audited = 0;
     ctx->cnc = NULL;
     ctx->audit_count = 0;
-    ctx->prev_hash = AUDIT_SEED;
+    ctx->prev_hash = AUDIT_INITIAL_HASH;
     ctx->tile = tile;
     ctx->event_count = 0;
     ctx->input_exhausted = 0;
@@ -227,7 +224,7 @@ static uint64_t
 tk_audit_compute_record_hash( AuditEvent * event ) {
     fd_siphash13_t  sip[1];
 
-    fd_siphash13_init( sip, 0x0000544455414B55ULL, 2ULL );
+    fd_siphash13_init( sip, AUDIT_HASH_K0, AUDIT_HASH_K1 );
 
     /* Header fields — these map 1:1 to wire.Header fields.
        capability_envelope_id_le: the C struct stores a u64, wire stores

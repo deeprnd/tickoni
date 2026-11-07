@@ -1,5 +1,6 @@
 const std = @import("std");
 const audit = @import("audit_tile");
+const audit_consts = @import("audit_consts.zig");
 
 pub const AuditAppendInput = struct {
     source_offset: u64,
@@ -15,7 +16,7 @@ pub const Decision = enum(u8) {
     duplicate_drop,
 };
 
-pub const audit_seed: u64 = 0xcbf29ce484222325;
+pub const audit_seed: u64 = audit_consts.AUDIT_INITIAL_HASH;
 
 pub const AuditLog = struct {
     records: []audit.AuditEvent,

@@ -1,3 +1,4 @@
+const std = @import("std");
 const schema = @import("audit_schema");
 const binary = @import("binary.zig");
 const hash = @import("hash.zig");

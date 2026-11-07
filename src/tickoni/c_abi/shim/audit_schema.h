@@ -12,6 +12,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "audit_consts.h"
+
 /* ─── Tile IDs ─── */
 
 #define AUDIT_SCHEMA_VERSION 2

@@ -2,11 +2,11 @@ const std = @import("std");
 const c_abi = @import("c_abi");
 const schema = @import("audit_schema");
 const wire = @import("wire.zig");
+const audit_consts = @import("audit_consts.zig");
 
-/// k0/k1 are fixed constants baked into the audit schema. Changing them
-/// invalidates all existing audit logs.
-const hash_k0: u64 = 0x0000544455414B54; // "TKAUDT\0\0" LE
-const hash_k1: u64 = 2; // schema version
+/// Hash constants — reference audit_consts.h via audit_consts module.
+const hash_k0: u64 = audit_consts.AUDIT_HASH_K0;
+const hash_k1: u64 = audit_consts.AUDIT_HASH_K1;
 
 pub fn computeRecordHash(event: schema.AuditEvent) u64 {
     return computeWireRecordHash(wire.toWireEvent(event));
