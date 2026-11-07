@@ -59,14 +59,12 @@ pub fn detectArchString() []const u8 {
     };
 }
 
-/// Return the compiler version string (clang, gcc, etc.).
+/// Return the compiler version string via __VERSION__ (from compiler_version.c).
+extern "c" fn tickoni_compiler_version() [*:0]const u8;
+
 pub fn detectCompilerVersion() []const u8 {
-    return switch (builtin.target.cpu.arch) {
-        .x86_64 => "gcc (GCC)",
-        .aarch64 => "clang (Apple clang)",
-        .arm => "clang (Apple clang)",
-        else => "unknown",
-    };
+    const raw = tickoni_compiler_version();
+    return if (raw[0] == 0) "unknown" else std.mem.sliceTo(raw, 0);
 }
 
 // ---------------------------------------------------------------------------

@@ -30,7 +30,7 @@ pub const Shared = struct {
     tile_registry: *std.Build.Module,
 };
 
-pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) Shared {
+pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, zig_version: []const u8) Shared {
     const c_abi_mod = b.addModule("c_abi", .{
         .root_source_file = b.path("src/tickoni/c_abi/c_abi.zig"),
         .target = target,
@@ -117,6 +117,8 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .target = target,
         .optimize = optimize,
     });
+    tier_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/util/compiler_version.c"} });
+    tier_mod.link_libc = true;
     const build_version_option = b.option([]const u8, "version", "Build version string") orelse "0.1.0";
     const tk_gen_fixtures = b.option(bool, "tk-gen-fixtures", "Generate audit fixtures during test run") orelse false;
 
@@ -161,6 +163,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
     version_opts.addOption(u16, "BUILD_VERSION_MINOR", bv_minor);
     version_opts.addOption(u16, "BUILD_VERSION_PATCH", bv_patch);
     version_opts.addOption([]const u8, "BUILD_VERSION_PRE", bv_pre);
+    version_opts.addOption([]const u8, "BUILD_ZIG_VERSION", zig_version);
     version_opts.addOption([]const u8, "BUILD_GIT_SHA", "unknown");
     version_opts.addOption([]const u8, "BUILD_ID", "dev-unknown");
     version_opts.addOption(bool, "TK_GEN_FIXTURES", tk_gen_fixtures);

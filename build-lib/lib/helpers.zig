@@ -104,9 +104,6 @@ pub fn createCliExe(
         .name = "tickoni",
         .root_module = cli_main_mod,
     });
-    cli_exe.root_module.addCSourceFiles(.{
-        .files = &.{"src/tickoni/util/compiler_version.c"},
-    });
     if (target.result.os.tag == .windows) {
         cli_exe.root_module.linkLibrary(codec.addTickoniCodecShimLibrary(b, target, optimize, "tickoni-codec-shims"));
         codec.addWindowsFdManifestFixups(b, cli_exe, b.fmt("{s}/fd_windows_zig_codec_link.txt", .{fd_lib_dir}));

@@ -139,16 +139,9 @@ pub fn strategy(
     });
     run_count += 1;
 
-    // tier.zig — needs C source (compiler_version.c) and libc.
+    // tier.zig — shared.tier now owns compiler_version.c linkage.
     {
-        const tier_mod = b.createModule(.{
-            .root_source_file = b.path("src/tickoni/util/tier.zig"),
-            .target = target,
-            .optimize = optimize,
-        });
-        tier_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/util/compiler_version.c"} });
-        tier_mod.link_libc = true;
-        const tier_test = b.addTest(.{ .name = "test-tier", .root_module = tier_mod });
+        const tier_test = b.addTest(.{ .name = "test-tier", .root_module = shared.tier });
         run_sequence[run_count] = tier_test;
         run_count += 1;
     }
@@ -252,7 +245,7 @@ pub fn strategy(
 
     // === V2.21.S3 modules ===
 
-    // version.zig — tier, audit_schema, build_options, compiler_version.c.
+    // version.zig — tier, audit_schema, build_options.
     {
         const v_mod = b.createModule(.{
             .root_source_file = b.path("src/tickoni/version.zig"),
@@ -264,8 +257,6 @@ pub fn strategy(
                 .{ .name = "build_options", .module = shared.version_opts.createModule() },
             },
         });
-        v_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/util/compiler_version.c"} });
-        v_mod.link_libc = true;
         const v_test = b.addTest(.{ .name = "test-version", .root_module = v_mod });
         run_sequence[run_count] = v_test;
         run_count += 1;
