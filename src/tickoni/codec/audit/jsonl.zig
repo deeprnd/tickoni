@@ -62,7 +62,7 @@ fn writePayloadJson(payload: schema.AuditEvent.Payload, writer: anytype) !void {
         },
         .policy_decision => |p| {
             try writer.writeAll("{");
-            try writer.print("\"outcome\":\"{s}\",", .{@tagName(p.outcome)});
+            try writer.print("\"outcome\":\"{s}\",", .{@tagName(@as(schema.PolicyOutcome, @fromBackingInt(@intCast(p.outcome))))});
             try writer.print("\"rule_id\":{d},", .{p.rule_id});
             try writer.print("\"failed_scope_dim\":\"{s}\",", .{std.mem.sliceTo(&p.failed_scope_dim, 0)});
             try writer.print("\"source_event_hash\":{d},", .{p.source_event_hash});
