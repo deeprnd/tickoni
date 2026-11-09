@@ -184,6 +184,16 @@ pub const ModuleFactory = struct {
             },
         });
 
+        const shared_fixture_mod = self.b.createModule(.{
+            .root_source_file = self.b.path("src/tickoni/test/fixtures/shared.zig"),
+            .target = self.target,
+            .optimize = self.optimize,
+            .imports = &.{
+                .{ .name = "audit", .module = self.shared.audit },
+                .{ .name = "runtime", .module = self.shared.runtime },
+            },
+        });
+
         const investment_audit_int_mod = self.b.createModule(.{
             .root_source_file = self.b.path("src/tickoni/test/fixtures/investment/audit_trace.zig"),
             .target = self.target,
@@ -196,6 +206,7 @@ pub const ModuleFactory = struct {
                 .{ .name = "portfolio", .module = self.shared.portfolio },
                 .{ .name = "replay", .module = replay_int_mod },
                 .{ .name = "runtime", .module = self.shared.runtime },
+                .{ .name = "shared", .module = shared_fixture_mod },
                 .{ .name = "thesis", .module = self.shared.thesis },
                 .{ .name = "trade_ticket", .module = self.tm.trade_ticket },
             },
