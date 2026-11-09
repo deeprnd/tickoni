@@ -55,7 +55,7 @@ pub fn main(init: std.process.Init) !void {
     defer log.exit("main", "init");
 
     // Ignore SIGPIPE early, before any workspace or tile operations.
-    ignoreSigPipe(init);
+    ignoreSigPipe();
 
     if (verbose) log.debug("main", "main", "verbose mode enabled");
 
@@ -151,8 +151,7 @@ fn cmdDoctor(init: std.process.Init, format: doctor_output.Format) !void {
     std.process.exit(if (fail_count > 0) 1 else 0);
 }
 
-fn ignoreSigPipe(init: std.process.Init) void {
-    _ = init;
+fn ignoreSigPipe() void {
     util.os_api.ignoreSigpipe();
 }
 
