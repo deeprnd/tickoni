@@ -13,6 +13,7 @@
 
 #include "firedancer.h"
 #include "audit_schema.h"
+#include "tickoni/c_abi/shim/stem_helpers.h"
 
 #include "../../../disco/topo/fd_topo.h"
 #include "../../../ballet/siphash13/fd_siphash13.h"
@@ -147,7 +148,7 @@ tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     (void)tile;
 
     void * scratch = fd_topo_obj_laddr( (fd_topo_t *)topo, tile->tile_obj_id );
-    tk_audit_ctx_t * ctx = (tk_audit_ctx_t *)fd_ulong_align_up( (ulong)scratch, TKAUDT_CTX_ALIGN );
+    tk_audit_ctx_t * ctx = STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN);
 
     /* Scratch is already zeroed by Firedancer. Initialize explicitly. */
     ctx->audited = 0;
@@ -174,14 +175,8 @@ tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     ulong ctx_end = fd_ulong_align_up( (ulong)ctx + sizeof(tk_audit_ctx_t), alignof(AuditEvent) );
     ctx->audit_records = (AuditEvent *)ctx_end;
 
-    /* Derive workspace pointer from the tile's input link mcache.
-       The mcache is set by fd_topo_fill_tile as a real local address
-       in this tile process. fd_wksp_containing(mcache) returns the
-       correct workspace pointer for THIS process. */
-    ulong in_link_id = tile->in_link_id[0];
-    fd_topo_link_t const * link = &topo->links[ in_link_id ];
-    void * mcache = fd_topo_obj_laddr( (fd_topo_t *)topo, link->mcache_obj_id );
-    ctx->wksp = (void *)fd_wksp_containing( mcache );
+    /* Derive workspace pointer from the tile's input link mcache. */
+    ctx->wksp = stk_derive_wksp(topo, tile, 0);
 
     FD_LOG_NOTICE(( "tkaudt: privileged init ctx=%p records=%p wksp=%p count=%lu",
                     ctx, ctx->audit_records, ctx->wksp, (unsigned long)TKAUDT_AUDIT_CAPACITY ));
@@ -194,15 +189,11 @@ tk_audit_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile 
 
     /* ctx lives in scratch. MUST match stem_run's alignment. */
     void * scratch = fd_topo_obj_laddr( (fd_topo_t *)topo, tile->tile_obj_id );
-    tk_audit_ctx_t * ctx = (tk_audit_ctx_t *)fd_ulong_align_up( (ulong)scratch, TKAUDT_CTX_ALIGN );
+    tk_audit_ctx_t * ctx = STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN);
 
     /* Find the CNC for this tile and set ctx->cnc for shutdown detection. */
-    ulong cnc_obj_id = tk_topo_find_tile_obj( topo, (ulong)tile->id, "cnc" );
-    if( cnc_obj_id != ULONG_MAX ) {
-        void * cnc_laddr = fd_topo_obj_laddr( (fd_topo_t *)topo, cnc_obj_id );
-        ctx->cnc = cnc_laddr;
-        FD_LOG_NOTICE(( "tkaudt: stem tile unprivileged init found CNC obj_id=%lu", cnc_obj_id ));
-    }
+    STK_UNPRIV_INIT(topo, tile, ctx);
+
     FD_LOG_NOTICE(( "tkaudt: stem tile unprivileged init, tile_id=%lu cnc=%p",
                     tile->id, ctx->cnc ));
 }
@@ -295,27 +286,10 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
                       ulong            ctl ) {
     (void)in_idx; (void)seq; (void)sig; (void)ctl;
 
-    /* fd_stem validates that the fragment fits the input link MTU before
-       invoking this callback. */
-    if( FD_UNLIKELY( !sz ) ) {
-        FD_LOG_WARNING(( "tkaudt: empty fragment" ));
+    /* Shared boilerplate: empty check, size check, wksp check, chunk→gaddr */
+    if( !stk_validate_frag(sz, PAYMENT_MSG_SIZE, ctx->wksp) )
         return;
-    }
-
-    /* Validate fragment size */
-    if( FD_UNLIKELY( sz != PAYMENT_MSG_SIZE ) ) {
-        FD_LOG_WARNING(( "tkaudt: fragment size %zu != expected %u", sz, (unsigned)PAYMENT_MSG_SIZE ));
-        return;
-    }
-
-    /* `chunk` is a Firedancer compact chunk index, not a workspace gaddr.
-       The process-mode producer stores `gaddr / FD_CHUNK_ALIGN` in the
-       mcache, so restore the gaddr before resolving it in this process. */
-    if( FD_UNLIKELY( !ctx->wksp ) ) {
-        FD_LOG_WARNING(( "tkaudt: wksp not initialized" ));
-        return;
-    }
-    PaymentMessage const * msg = (PaymentMessage const *)fd_wksp_laddr_fast( ctx->wksp, chunk * FD_CHUNK_ALIGN );
+    PaymentMessage const * msg = stk_chunk_to_gaddr(ctx->wksp, chunk);
 
     /* Build AuditEvent in the next scratch slot. */
     if( ctx->audit_count >= TKAUDT_AUDIT_CAPACITY ) {
@@ -365,16 +339,11 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
     ctx->audited += 1;
 
     /* Event-count gating (Phase 3.4): exit promptly after processing
-       all expected events. When event_count is 0 (env not set), skip. */
-    if( ctx->event_count && ctx->audited >= ctx->event_count ) {
-        ctx->input_exhausted = 1;
-    }
+       all expected events. */
+    STK_EVENT_EXHAUSTED(ctx, ctx->event_count, ctx->audited);
 
     /* Publish progress to CNC app[0] for supervisor snapshots. */
-    if( ctx->cnc ) {
-        ulong * app = (ulong *)fd_cnc_app_laddr( (fd_cnc_t *)ctx->cnc );
-        if( app ) app[0] = ctx->audited;
-    }
+    stk_publish_progress(ctx->cnc, ctx->audited);
 }
 
 /* ─── Run entry point ───
@@ -393,7 +362,7 @@ static void
 tk_audit_run( fd_topo_t *      topo,
               fd_topo_tile_t * tile ) {
     void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
-    tk_audit_ctx_t * ctx = (tk_audit_ctx_t *)fd_ulong_align_up( (ulong)scratch, TKAUDT_CTX_ALIGN );
+    tk_audit_ctx_t * ctx = STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN);
 
     /* The stem shutdown callback reads the tile CNC. */
     ulong cnc_obj_id = tk_topo_find_tile_obj( topo, tile->id, "cnc" );
