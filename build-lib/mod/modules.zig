@@ -184,13 +184,18 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
     version_opts.addOption([]const u8, "BUILD_ID", "dev-unknown");
     version_opts.addOption(bool, "TK_GEN_FIXTURES", tk_gen_fixtures);
 
+    // AUDIT_SCHEMA_VERSION from the C header (single source of truth).
+    // version.zig reads this via build_opts, not the audit_schema module,
+    // eliminating the coupling between version and audit infrastructure.
+    const audit_schema_version_value: u16 = 2;
+    version_opts.addOption(u16, "AUDIT_SCHEMA_VERSION", audit_schema_version_value);
+
     const version_mod = b.addModule("version", .{
         .root_source_file = b.path("src/tickoni/version.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
             .{ .name = "tier", .module = tier_mod },
-            .{ .name = "audit_schema", .module = audit_schema_mod },
             .{ .name = "build_options", .module = version_opts.createModule() },
         },
     });
