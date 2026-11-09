@@ -69,12 +69,7 @@ pub fn main(init: std.process.Init) !void {
     if (std.mem.eql(u8, cmd, "--version")) {
         log.debug("main", "main", "version flag received");
         const ver = @import("version");
-        const info = ver.VersionInfo.init(init.gpa) catch |err| {
-            var buf: [256]u8 = undefined;
-            const msg = try std.fmt.bufPrint(&buf, "version info init: {}\n", .{err});
-            try File.writeStreamingAll(File.stderr(), init.io, msg);
-            std.process.exit(1);
-        };
+        const info = ver.VersionInfo.init();
         var buf: [1024]u8 = undefined;
         var w = std.Io.Writer.fixed(&buf);
         try ver.formatVersionInfo(info, &w);

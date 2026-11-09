@@ -42,9 +42,8 @@ pub fn main(init: std.process.Init) !void {
 }
 
 fn printVersion(io: std.Io, gpa: std.mem.Allocator) !void {
-    var info = try version.VersionInfo.init(gpa);
-    defer info.deinit(gpa);
-
+    _ = gpa;
+    const info = version.VersionInfo.init();
     var buf: [1024]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     try version.formatVersionInfo(info, &writer);
