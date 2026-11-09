@@ -75,10 +75,13 @@ class Orchestrator:
             os.path.join(repo_root, "build", ".zig-global-cache"),
         )
 
+        zig_version = subprocess.run(["zig", "version"], capture_output=True, text=True).stdout.strip()
+
         cmd = [
             "zig", "build",
             "-Dtest=true",
             f"-Dfd-lib-dir={fd_lib_dir_abs}",
+            f"-Dzig-version={zig_version}",
             target,
             "--summary", "all",
         ]
