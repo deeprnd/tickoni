@@ -80,6 +80,9 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .root_source_file = b.path("src/tickoni/codec/audit/audit_consts.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{
+            .{ .name = "audit_mod", .module = audit_mod },
+        },
     });
     const audit_schema_mod = b.addModule("audit_schema", .{
         .root_source_file = b.path("src/tickoni/schema/audit/audit.zig"),

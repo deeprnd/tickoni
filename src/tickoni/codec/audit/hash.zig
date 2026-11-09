@@ -4,7 +4,7 @@ const schema = @import("audit_schema");
 const wire = @import("wire.zig");
 const audit_consts = @import("audit_consts");
 
-/// Hash constants — reference audit_consts.h via audit_consts module.
+/// Hash constants — from audit_consts which loads from C header via translate-c.
 const hash_k0: u64 = audit_consts.AUDIT_HASH_K0;
 const hash_k1: u64 = audit_consts.AUDIT_HASH_K1;
 

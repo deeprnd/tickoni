@@ -1,16 +1,9 @@
-// Audit constants — single source of truth for Zig code.
-// Values come from audit_consts.h but are defined here so that
-// translate-c self-import is avoided and @import() resolution works.
-pub const AUDIT_HASH_K0: u64 = 0x0000544455414B54; // "TKAUDT\0\0" LE
-pub const AUDIT_HASH_K1: u64 = 2; // schema version
-pub const AUDIT_INITIAL_HASH: u64 = 0; // identity seed
+/// Audit constants — loaded from C header via translate-c (audit_mod).
+/// The C header defines these as static const uint64_t so translate-c
+/// generates proper Zig compile-time constants.
+/// Values come from: src/tickoni/c_abi/shim/audit_consts.h
+const audit_mod = @import("audit_mod");
 
-comptime {
-    // Compile-time verification that these match the C header.
-    // AUDIT_HASH_K0 = 0x0000544455414B54ULL ("TKAUDT\0\0" LE)
-    // AUDIT_HASH_K1 = 2
-    // AUDIT_INITIAL_HASH = 0
-    _ = AUDIT_HASH_K0;
-    _ = AUDIT_HASH_K1;
-    _ = AUDIT_INITIAL_HASH;
-}
+pub const AUDIT_HASH_K0: u64 = audit_mod.AUDIT_HASH_K0;
+pub const AUDIT_HASH_K1: u64 = audit_mod.AUDIT_HASH_K1;
+pub const AUDIT_INITIAL_HASH: u64 = audit_mod.AUDIT_INITIAL_HASH;
