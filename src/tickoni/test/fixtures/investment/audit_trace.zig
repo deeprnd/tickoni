@@ -2,6 +2,7 @@ const std = @import("std");
 const audit = @import("audit");
 const runtime = @import("runtime");
 const tile_ids = runtime.tile_ids;
+const fixtures_shared = @import("shared");
 const basket = @import("basket");
 const drift = @import("drift");
 const model = @import("model");
@@ -48,16 +49,6 @@ const rebalance_proposal_type = "trading_rebalance.propose";
 const payment_update_proposal_type = "payment_retry.propose";
 const replay_capsule_id = "replay_capsule_ai_infra";
 
-fn parseFixedAsciiBytes(comptime N: usize, value: []const u8) [N]u8 {
-    if (value.len > N) @panic("fixed ASCII field too long");
-    var out = std.mem.zeroes([N]u8);
-    for (value, 0..) |byte, idx| {
-        if (byte < 0x20 or byte > 0x7e) @panic("non-ASCII byte in fixed field");
-        out[idx] = byte;
-    }
-    return out;
-}
-
 // Quote/affordability/ticket/paper-result hashing reuses replay's canonical
 // helpers (src/tickoni/tiles/replay/mod.zig) instead of reimplementing the
 // same field-by-field Wyhash mixing here, so fixture audit traces and replay
@@ -71,29 +62,6 @@ const hashPaperResult = replay.hashPaperResult;
 fn capabilityEnvelopeId(thesis_input: *const thesis.ThesisInput, proposed_basket: *const basket.Basket) u64 {
     const thesis_hash = thesis.computeThesisInputHash(thesis_input.*);
     return @as(u64, @truncate(thesis_hash)) ^ @as(u64, proposed_basket.basket_id);
-}
-
-fn header(
-    seq: u64,
-    tile_id: []const u8,
-    logical_actor_id: u64,
-    capability_envelope_id: u64,
-    run_id: u64,
-    prev_hash: u64,
-) audit.Header {
-    var hdr = std.mem.zeroes(audit.Header);
-    hdr.schema_version = audit.audit_schema_version;
-    hdr.run_id = run_id;
-    hdr.seq = seq;
-    hdr.source_offset = seq + 1;
-    hdr.tile_id = parseFixedAsciiBytes(6, tile_id);
-    hdr.logical_actor_id = logical_actor_id;
-    hdr.policy_version = parseFixedAsciiBytes(32, policy_version);
-    hdr.capability_envelope_id = capability_envelope_id;
-    hdr.timestamp_ns = 0;
-    hdr.prev_hash = prev_hash;
-    hdr.record_hash = 0;
-    return hdr;
 }
 
 pub fn buildAllowedTradeChain(
@@ -123,25 +91,25 @@ pub fn buildAllowedTradeChain(
     var events: [allowed_trade_event_count]audit.AuditEvent = undefined;
     var prev_hash: u64 = 0;
 
-    events[0] = audit.buildEvent(header(0, tile_ids.tkings.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[0] = audit.buildEvent(fixtures_shared.header(0, tile_ids.tkings.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .source_event = .{
-            .source_system = parseFixedAsciiBytes(16, source_system),
-            .event_type = parseFixedAsciiBytes(32, source_event_type),
+            .source_system = fixtures_shared.parseFixedAsciiBytes(16, source_system),
+            .event_type = fixtures_shared.parseFixedAsciiBytes(32, source_event_type),
             .raw_hash = raw_hash,
         },
     });
     prev_hash = events[0].header.record_hash;
 
-    events[1] = audit.buildEvent(header(1, tile_ids.tknorm.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[1] = audit.buildEvent(fixtures_shared.header(1, tile_ids.tknorm.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .normalization = .{
             .source_event_hash = raw_hash,
             .normalized_hash = normalized_hash,
-            .canonical_event_type = parseFixedAsciiBytes(32, canonical_event_type),
+            .canonical_event_type = fixtures_shared.parseFixedAsciiBytes(32, canonical_event_type),
         },
     });
     prev_hash = events[1].header.record_hash;
 
-    events[2] = audit.buildEvent(header(2, tile_ids.tkdedu.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[2] = audit.buildEvent(fixtures_shared.header(2, tile_ids.tkdedu.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .deduplication = .{
             .idempotency_key = raw_hash,
             .is_duplicate = false,
@@ -149,7 +117,7 @@ pub fn buildAllowedTradeChain(
     });
     prev_hash = events[2].header.record_hash;
 
-    events[3] = audit.buildEvent(header(3, tile_ids.tkcase.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[3] = audit.buildEvent(fixtures_shared.header(3, tile_ids.tkcase.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .case_creation = .{
             .basket_id = proposed_basket.basket_id,
             .instrument_count = proposed_basket.instrument_count,
@@ -159,11 +127,11 @@ pub fn buildAllowedTradeChain(
     });
     prev_hash = events[3].header.record_hash;
 
-    events[4] = audit.buildEvent(header(4, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[4] = audit.buildEvent(fixtures_shared.header(4, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .policy_decision = .{
             .outcome = if (ticket.policy_outcome == .allow) @backingInt(audit.PolicyOutcome.allow) else @backingInt(audit.PolicyOutcome.deny),
             .rule_id = 1101,
-            .failed_scope_dim = parseFixedAsciiBytes(32, if (ticket.policy_outcome == .allow) "" else "per_order_notional"),
+            .failed_scope_dim = fixtures_shared.parseFixedAsciiBytes(32, if (ticket.policy_outcome == .allow) "" else "per_order_notional"),
             .source_event_hash = normalized_hash,
             .catalog_schema_version = proposed_basket.catalog_schema_version,
             .taxonomy_id = std.mem.zeroes([32]u8),
@@ -173,24 +141,24 @@ pub fn buildAllowedTradeChain(
     });
     prev_hash = events[4].header.record_hash;
 
-    events[5] = audit.buildEvent(header(5, tile_ids.tkmodl.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[5] = audit.buildEvent(fixtures_shared.header(5, tile_ids.tkmodl.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .model_call = .{
-            .model_id = parseFixedAsciiBytes(32, model_backend_id),
+            .model_id = fixtures_shared.parseFixedAsciiBytes(32, model_backend_id),
             .prompt_hash = raw_hash,
             .response_hash = model_response_hash,
             .token_estimate = model_response.token_usage.total_tokens,
             .retry_count = 0,
-            .actor_role = parseFixedAsciiBytes(16, actor_role),
-            .workflow = parseFixedAsciiBytes(16, workflow),
+            .actor_role = fixtures_shared.parseFixedAsciiBytes(16, actor_role),
+            .workflow = fixtures_shared.parseFixedAsciiBytes(16, workflow),
             .policy_decision_id = 0,
             .replay_substitution_id = 0,
         },
     });
     prev_hash = events[5].header.record_hash;
 
-    events[6] = audit.buildEvent(header(6, tile_ids.tkadpt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[6] = audit.buildEvent(fixtures_shared.header(6, tile_ids.tkadpt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .financial_adapter_call = .{
-            .adapter_id = parseFixedAsciiBytes(16, "portfolio"),
+            .adapter_id = fixtures_shared.parseFixedAsciiBytes(16, "portfolio"),
             .request_hash = hashBytes("portfolio.read"),
             .response_hash = hashAffordability(affordability),
             .replay_substitution_id = 1,
@@ -198,9 +166,9 @@ pub fn buildAllowedTradeChain(
     });
     prev_hash = events[6].header.record_hash;
 
-    events[7] = audit.buildEvent(header(7, tile_ids.tkadpt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[7] = audit.buildEvent(fixtures_shared.header(7, tile_ids.tkadpt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .financial_adapter_call = .{
-            .adapter_id = parseFixedAsciiBytes(16, "quotes"),
+            .adapter_id = fixtures_shared.parseFixedAsciiBytes(16, "quotes"),
             .request_hash = normalized_hash,
             .response_hash = quote_response_hash,
             .replay_substitution_id = 2,
@@ -208,18 +176,18 @@ pub fn buildAllowedTradeChain(
     });
     prev_hash = events[7].header.record_hash;
 
-    events[8] = audit.buildEvent(header(8, tile_ids.tkagnt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[8] = audit.buildEvent(fixtures_shared.header(8, tile_ids.tkagnt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .proposal = .{
-            .proposal_type = parseFixedAsciiBytes(32, proposal_type),
+            .proposal_type = fixtures_shared.parseFixedAsciiBytes(32, proposal_type),
             .proposal_hash = proposal_hash,
             .approval_state = 0,
         },
     });
     prev_hash = events[8].header.record_hash;
 
-    events[9] = audit.buildEvent(header(9, tile_ids.tkadpt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[9] = audit.buildEvent(fixtures_shared.header(9, tile_ids.tkadpt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .financial_adapter_call = .{
-            .adapter_id = parseFixedAsciiBytes(16, "paper_fill"),
+            .adapter_id = fixtures_shared.parseFixedAsciiBytes(16, "paper_fill"),
             .request_hash = proposal_hash,
             .response_hash = paper_response_hash,
             .replay_substitution_id = 3,
@@ -227,11 +195,11 @@ pub fn buildAllowedTradeChain(
     });
     prev_hash = events[9].header.record_hash;
 
-    events[10] = audit.buildEvent(header(10, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[10] = audit.buildEvent(fixtures_shared.header(10, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .policy_decision = .{
             .outcome = if (drift_contract.payment_proposal_update.requires_user_action) @backingInt(audit.PolicyOutcome.require_approval) else @backingInt(audit.PolicyOutcome.allow),
             .rule_id = 1303,
-            .failed_scope_dim = parseFixedAsciiBytes(32, firstPaymentScopeDim(&drift_contract.payment_drift)),
+            .failed_scope_dim = fixtures_shared.parseFixedAsciiBytes(32, firstPaymentScopeDim(&drift_contract.payment_drift)),
             .source_event_hash = payment_update_hash,
             .catalog_schema_version = 0,
             .taxonomy_id = std.mem.zeroes([32]u8),
@@ -241,34 +209,34 @@ pub fn buildAllowedTradeChain(
     });
     prev_hash = events[10].header.record_hash;
 
-    events[11] = audit.buildEvent(header(11, tile_ids.tkagnt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[11] = audit.buildEvent(fixtures_shared.header(11, tile_ids.tkagnt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .proposal = .{
-            .proposal_type = parseFixedAsciiBytes(32, rebalance_proposal_type),
+            .proposal_type = fixtures_shared.parseFixedAsciiBytes(32, rebalance_proposal_type),
             .proposal_hash = rebalance_hash,
             .approval_state = 0,
         },
     });
     prev_hash = events[11].header.record_hash;
 
-    events[12] = audit.buildEvent(header(12, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[12] = audit.buildEvent(fixtures_shared.header(12, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .approval_required = .{
-            .action_class = parseFixedAsciiBytes(32, drift_contract.payment_proposal_update.actionClassSlice()),
-            .approval_path = parseFixedAsciiBytes(32, drift_contract.payment_proposal_update.approvalPathSlice()),
+            .action_class = fixtures_shared.parseFixedAsciiBytes(32, drift_contract.payment_proposal_update.actionClassSlice()),
+            .approval_path = fixtures_shared.parseFixedAsciiBytes(32, drift_contract.payment_proposal_update.approvalPathSlice()),
             .proposal_hash = payment_update_hash,
         },
     });
     prev_hash = events[12].header.record_hash;
 
-    events[13] = audit.buildEvent(header(13, tile_ids.tkagnt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[13] = audit.buildEvent(fixtures_shared.header(13, tile_ids.tkagnt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .proposal = .{
-            .proposal_type = parseFixedAsciiBytes(32, payment_update_proposal_type),
+            .proposal_type = fixtures_shared.parseFixedAsciiBytes(32, payment_update_proposal_type),
             .proposal_hash = payment_update_hash,
             .approval_state = @backingInt(drift_contract.payment_proposal_update.approval_state),
         },
     });
     prev_hash = events[13].header.record_hash;
 
-    events[14] = audit.buildEvent(header(14, tile_ids.tkrepl.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[14] = audit.buildEvent(fixtures_shared.header(14, tile_ids.tkrepl.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .replay_result = .{
             .capsule_id = hashBytes(replay_capsule_id),
             .divergences = replay_result.divergence_count,
@@ -307,25 +275,25 @@ pub fn buildOversizedTradeBlockedChain(
     var events: [oversized_trade_blocked_event_count]audit.AuditEvent = undefined;
     var prev_hash: u64 = 0;
 
-    events[0] = audit.buildEvent(header(0, tile_ids.tkings.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[0] = audit.buildEvent(fixtures_shared.header(0, tile_ids.tkings.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .source_event = .{
-            .source_system = parseFixedAsciiBytes(16, source_system),
-            .event_type = parseFixedAsciiBytes(32, source_event_type),
+            .source_system = fixtures_shared.parseFixedAsciiBytes(16, source_system),
+            .event_type = fixtures_shared.parseFixedAsciiBytes(32, source_event_type),
             .raw_hash = raw_hash,
         },
     });
     prev_hash = events[0].header.record_hash;
 
-    events[1] = audit.buildEvent(header(1, tile_ids.tknorm.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[1] = audit.buildEvent(fixtures_shared.header(1, tile_ids.tknorm.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .normalization = .{
             .source_event_hash = raw_hash,
             .normalized_hash = normalized_hash,
-            .canonical_event_type = parseFixedAsciiBytes(32, canonical_event_type),
+            .canonical_event_type = fixtures_shared.parseFixedAsciiBytes(32, canonical_event_type),
         },
     });
     prev_hash = events[1].header.record_hash;
 
-    events[2] = audit.buildEvent(header(2, tile_ids.tkdedu.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[2] = audit.buildEvent(fixtures_shared.header(2, tile_ids.tkdedu.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .deduplication = .{
             .idempotency_key = raw_hash,
             .is_duplicate = false,
@@ -333,7 +301,7 @@ pub fn buildOversizedTradeBlockedChain(
     });
     prev_hash = events[2].header.record_hash;
 
-    events[3] = audit.buildEvent(header(3, tile_ids.tkcase.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[3] = audit.buildEvent(fixtures_shared.header(3, tile_ids.tkcase.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .case_creation = .{
             .basket_id = proposed_basket.basket_id,
             .instrument_count = proposed_basket.instrument_count,
@@ -343,11 +311,11 @@ pub fn buildOversizedTradeBlockedChain(
     });
     prev_hash = events[3].header.record_hash;
 
-    events[4] = audit.buildEvent(header(4, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[4] = audit.buildEvent(fixtures_shared.header(4, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .policy_decision = .{
             .outcome = @backingInt(audit.PolicyOutcome.deny),
             .rule_id = 1101,
-            .failed_scope_dim = parseFixedAsciiBytes(32, blocked_reason.failed_scope_dim.label()),
+            .failed_scope_dim = fixtures_shared.parseFixedAsciiBytes(32, blocked_reason.failed_scope_dim.label()),
             .source_event_hash = normalized_hash,
             .catalog_schema_version = proposed_basket.catalog_schema_version,
             .taxonomy_id = std.mem.zeroes([32]u8),
@@ -357,24 +325,24 @@ pub fn buildOversizedTradeBlockedChain(
     });
     prev_hash = events[4].header.record_hash;
 
-    events[5] = audit.buildEvent(header(5, tile_ids.tkmodl.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[5] = audit.buildEvent(fixtures_shared.header(5, tile_ids.tkmodl.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .model_call = .{
-            .model_id = parseFixedAsciiBytes(32, model_backend_id),
+            .model_id = fixtures_shared.parseFixedAsciiBytes(32, model_backend_id),
             .prompt_hash = raw_hash,
             .response_hash = model_response_hash,
             .token_estimate = model_response.token_usage.total_tokens,
             .retry_count = 0,
-            .actor_role = parseFixedAsciiBytes(16, actor_role),
-            .workflow = parseFixedAsciiBytes(16, workflow),
+            .actor_role = fixtures_shared.parseFixedAsciiBytes(16, actor_role),
+            .workflow = fixtures_shared.parseFixedAsciiBytes(16, workflow),
             .policy_decision_id = 0,
             .replay_substitution_id = 0,
         },
     });
     prev_hash = events[5].header.record_hash;
 
-    events[6] = audit.buildEvent(header(6, tile_ids.tkadpt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[6] = audit.buildEvent(fixtures_shared.header(6, tile_ids.tkadpt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .financial_adapter_call = .{
-            .adapter_id = parseFixedAsciiBytes(16, "portfolio"),
+            .adapter_id = fixtures_shared.parseFixedAsciiBytes(16, "portfolio"),
             .request_hash = hashBytes("portfolio.read"),
             .response_hash = hashAffordability(affordability),
             .replay_substitution_id = 1,
@@ -382,9 +350,9 @@ pub fn buildOversizedTradeBlockedChain(
     });
     prev_hash = events[6].header.record_hash;
 
-    events[7] = audit.buildEvent(header(7, tile_ids.tkadpt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[7] = audit.buildEvent(fixtures_shared.header(7, tile_ids.tkadpt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .financial_adapter_call = .{
-            .adapter_id = parseFixedAsciiBytes(16, "quotes"),
+            .adapter_id = fixtures_shared.parseFixedAsciiBytes(16, "quotes"),
             .request_hash = normalized_hash,
             .response_hash = quote_response_hash,
             .replay_substitution_id = 2,
@@ -392,16 +360,16 @@ pub fn buildOversizedTradeBlockedChain(
     });
     prev_hash = events[7].header.record_hash;
 
-    events[8] = audit.buildEvent(header(8, tile_ids.tkagnt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[8] = audit.buildEvent(fixtures_shared.header(8, tile_ids.tkagnt.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .proposal = .{
-            .proposal_type = parseFixedAsciiBytes(32, proposal_type),
+            .proposal_type = fixtures_shared.parseFixedAsciiBytes(32, proposal_type),
             .proposal_hash = proposal_hash,
             .approval_state = 0,
         },
     });
     prev_hash = events[8].header.record_hash;
 
-    events[9] = audit.buildEvent(header(9, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[9] = audit.buildEvent(fixtures_shared.header(9, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .limit_check = .{
             .limit_type = .amount,
             .value = blocked_reason.requested_cents,
@@ -411,11 +379,11 @@ pub fn buildOversizedTradeBlockedChain(
     });
     prev_hash = events[9].header.record_hash;
 
-    events[10] = audit.buildEvent(header(10, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[10] = audit.buildEvent(fixtures_shared.header(10, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .denial = .{
-            .action_class = parseFixedAsciiBytes(32, "trading_order.place"),
+            .action_class = fixtures_shared.parseFixedAsciiBytes(32, "trading_order.place"),
             .reason_code = @backingInt(blocked_reason.code),
-            .failed_scope_dim = parseFixedAsciiBytes(32, blocked_reason.failed_scope_dim.label()),
+            .failed_scope_dim = fixtures_shared.parseFixedAsciiBytes(32, blocked_reason.failed_scope_dim.label()),
             .catalog_schema_version = proposed_basket.catalog_schema_version,
             .taxonomy_id = std.mem.zeroes([32]u8),
             .taxonomy_version = 0,
@@ -424,7 +392,7 @@ pub fn buildOversizedTradeBlockedChain(
     });
     prev_hash = events[10].header.record_hash;
 
-    events[11] = audit.buildEvent(header(11, tile_ids.tkrepl.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[11] = audit.buildEvent(fixtures_shared.header(11, tile_ids.tkrepl.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .replay_result = .{
             .capsule_id = hashBytes("replay_capsule_ai_infra_oversized_25000"),
             .divergences = replay_result.divergence_count,
@@ -450,25 +418,25 @@ pub fn buildRestrictedInstrumentBlockedChain(
     var events: [restricted_instrument_blocked_event_count]audit.AuditEvent = undefined;
     var prev_hash: u64 = 0;
 
-    events[0] = audit.buildEvent(header(0, tile_ids.tkings.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[0] = audit.buildEvent(fixtures_shared.header(0, tile_ids.tkings.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .source_event = .{
-            .source_system = parseFixedAsciiBytes(16, source_system),
-            .event_type = parseFixedAsciiBytes(32, source_event_type),
+            .source_system = fixtures_shared.parseFixedAsciiBytes(16, source_system),
+            .event_type = fixtures_shared.parseFixedAsciiBytes(32, source_event_type),
             .raw_hash = raw_hash,
         },
     });
     prev_hash = events[0].header.record_hash;
 
-    events[1] = audit.buildEvent(header(1, tile_ids.tknorm.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[1] = audit.buildEvent(fixtures_shared.header(1, tile_ids.tknorm.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .normalization = .{
             .source_event_hash = raw_hash,
             .normalized_hash = normalized_hash,
-            .canonical_event_type = parseFixedAsciiBytes(32, canonical_event_type),
+            .canonical_event_type = fixtures_shared.parseFixedAsciiBytes(32, canonical_event_type),
         },
     });
     prev_hash = events[1].header.record_hash;
 
-    events[2] = audit.buildEvent(header(2, tile_ids.tkdedu.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[2] = audit.buildEvent(fixtures_shared.header(2, tile_ids.tkdedu.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .deduplication = .{
             .idempotency_key = raw_hash,
             .is_duplicate = false,
@@ -476,7 +444,7 @@ pub fn buildRestrictedInstrumentBlockedChain(
     });
     prev_hash = events[2].header.record_hash;
 
-    events[3] = audit.buildEvent(header(3, tile_ids.tkcase.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[3] = audit.buildEvent(fixtures_shared.header(3, tile_ids.tkcase.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .case_creation = .{
             .basket_id = proposed_basket.basket_id,
             .instrument_count = proposed_basket.instrument_count,
@@ -486,11 +454,11 @@ pub fn buildRestrictedInstrumentBlockedChain(
     });
     prev_hash = events[3].header.record_hash;
 
-    events[4] = audit.buildEvent(header(4, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[4] = audit.buildEvent(fixtures_shared.header(4, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .policy_decision = .{
             .outcome = @backingInt(audit.PolicyOutcome.deny),
             .rule_id = 1101,
-            .failed_scope_dim = parseFixedAsciiBytes(32, "restricted_instrument"),
+            .failed_scope_dim = fixtures_shared.parseFixedAsciiBytes(32, "restricted_instrument"),
             .source_event_hash = normalized_hash,
             .catalog_schema_version = proposed_basket.catalog_schema_version,
             .taxonomy_id = std.mem.zeroes([32]u8),
@@ -503,11 +471,11 @@ pub fn buildRestrictedInstrumentBlockedChain(
     _ = actor_role;
     _ = workflow;
 
-    events[5] = audit.buildEvent(header(5, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[5] = audit.buildEvent(fixtures_shared.header(5, tile_ids.tkpoly.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .denial = .{
-            .action_class = parseFixedAsciiBytes(32, proposal_type),
+            .action_class = fixtures_shared.parseFixedAsciiBytes(32, proposal_type),
             .reason_code = @backingInt(basket.RejectionReason.restricted_instrument),
-            .failed_scope_dim = parseFixedAsciiBytes(32, "restricted_instrument"),
+            .failed_scope_dim = fixtures_shared.parseFixedAsciiBytes(32, "restricted_instrument"),
             .catalog_schema_version = proposed_basket.catalog_schema_version,
             .taxonomy_id = std.mem.zeroes([32]u8),
             .taxonomy_version = 0,
@@ -516,7 +484,7 @@ pub fn buildRestrictedInstrumentBlockedChain(
     });
     prev_hash = events[5].header.record_hash;
 
-    events[6] = audit.buildEvent(header(6, tile_ids.tkrepl.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
+    events[6] = audit.buildEvent(fixtures_shared.header(6, tile_ids.tkrepl.slice(), thesis_input.account_id, capability_id, run_id, prev_hash), .{
         .replay_result = .{
             .capsule_id = hashBytes("replay_capsule_ai_infra_restricted_soxl"),
             .divergences = replay_result.divergence_count,
