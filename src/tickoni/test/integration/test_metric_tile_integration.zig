@@ -212,36 +212,27 @@ fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) !void {
         }
     }
     if (has_tile_crash) {
-        const log_path = try std.fmt.allocPrint(
-            std.testing.allocator,
-            "{s}/logs",
-            .{run_dir},
-        );
-        defer std.testing.allocator.free(log_path);
-        // Read log files via C opendir/readdir (avoids Zig 0.18 DirIterator BADF)
-        const c_path = try allocCStr(std.testing.allocator, log_path);
-        const dp = std.c.opendir(c_path) orelse return;
-        var entry_ptr: ?*const std.c.dirent = null;
+        // Read log files for crash diagnostics.
+        const logs_dir = try std.fs.path.join(std.testing.allocator, &.{ run_dir, "logs" });
+        defer std.testing.allocator.free(logs_dir);
+        const dir = std.Io.Dir.cwd().openDir(std.testing.io, logs_dir, .{ .iterate = true }) catch return;
+        defer dir.close(std.testing.io);
+        var it = std.Io.Dir.iterate(dir);
         while (true) {
-            entry_ptr = std.c.readdir(dp) orelse break;
-            const entry = entry_ptr.?;
-            const name: []const u8 = entry.name[0..entry.name.len];
-            if (name.len == 0) continue;
-            const full_path = try std.fs.path.join(std.testing.allocator, &.{ run_dir, "logs", name });
+            const result = it.next(std.testing.io) catch break;
+            const entry = result orelse break;
+            const name = entry.name;
+            const full_path = try std.fs.path.join(std.testing.allocator, &.{ logs_dir, name });
             defer std.testing.allocator.free(full_path);
-            const content = std.Io.Dir.cwd().readFileAlloc(std.testing.io, full_path, std.testing.allocator, .limited(65536)) catch "";
-            defer std.testing.allocator.free(content);
+            const content = std.Io.Dir.readFileAlloc(
+                std.Io.Dir.cwd(), std.testing.io, full_path,
+                std.testing.allocator, .limited(65536),
+            ) catch continue;
             std.debug.print("  === {s} ===\n{s}\n  === end ===\n", .{ name, content });
+            std.testing.allocator.free(content);
         }
-        std.testing.allocator.free(c_path[0..log_path.len]);
         std.debug.panic("TileCrashed", .{});
     }
-}
-
-fn allocCStr(allocator: std.mem.Allocator, s: []const u8) ![*:0]u8 {
-    const buf = try allocator.allocSentinel(u8, s.len, 0);
-    @memcpy(buf[0..s.len], s);
-    return buf;
 }
 
 // ---------------------------------------------------------------------------
