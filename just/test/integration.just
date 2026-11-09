@@ -20,7 +20,7 @@ test-integration-tk:
     esac
 
 test-integration-tk-linux-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig_version)" test-integration-tk
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig version)" test-integration-tk
 
 # CLI integration tests (spawn the tickoni binary).
 test-integration-cli:
@@ -37,7 +37,7 @@ test-integration-cli:
     esac
 
 test-integration-cli-linux-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig_version)" test-integration-cli
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig version)" test-integration-cli
 
 test-integration-cli-linux-arm: test-integration-cli-linux-x86
 test-integration-cli-macos-x86: test-integration-cli-linux-x86
@@ -66,7 +66,7 @@ test-integration-tk-infra:
     esac
 
 test-integration-tk-infra-linux-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig_version)" test-integration-tk-infra
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig version)" test-integration-tk-infra
 
 test-integration-tk-infra-linux-arm: test-integration-tk-infra-linux-x86
 
@@ -75,7 +75,7 @@ test-integration-tk-infra-macos-x86: test-integration-tk-infra-linux-x86
 test-integration-tk-infra-macos-arm: test-integration-tk-infra-linux-x86
 
 test-integration-tk-infra-windows-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig_version)" test-integration-tk-infra
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig version)" test-integration-tk-infra
 
 test-integration-tk-infra-windows-arm: test-integration-tk-infra-windows-x86
 
@@ -94,7 +94,7 @@ test-integration-tk-domain:
     esac
 
 test-integration-tk-domain-linux-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig_version)" test-integration-tk-domain
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig version)" test-integration-tk-domain
 
 test-integration-tk-domain-linux-arm: test-integration-tk-domain-linux-x86
 
@@ -103,16 +103,16 @@ test-integration-tk-domain-macos-x86: test-integration-tk-domain-linux-x86
 test-integration-tk-domain-macos-arm: test-integration-tk-domain-linux-x86
 
 test-integration-tk-domain-windows-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig_version)" test-integration-tk-domain
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig version)" test-integration-tk-domain
 
 test-integration-tk-domain-windows-arm: test-integration-tk-domain-windows-x86
 
 # Windows-specific integration tests.
 test-integration-tk-windows-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig_version)" test-integration-tk
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig version)" test-integration-tk
 
 test-integration-tk-windows-arm:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig_version)" test-integration-tk
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig version)" test-integration-tk
 
 test-integration-all:
     {{ python }} contrib/tool/readme/run-badged-command.py integration bash -c "just test-integration-fd && just test-integration-tk && just test-integration-cli"
