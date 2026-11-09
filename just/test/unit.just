@@ -112,7 +112,7 @@ test-unit-tk:
     esac
 
 test-unit-tk-linux-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-unit-tk
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig_version)" test-unit-tk
 
 test-unit-tk-linux-arm: test-unit-tk-linux-x86
 
@@ -121,7 +121,7 @@ test-unit-tk-macos-x86: test-unit-tk-linux-x86
 test-unit-tk-macos-arm: test-unit-tk-macos-x86
 
 test-unit-tk-windows-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-unit-tk
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} TK_LOG_LEVEL=0 zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig_version)" test-unit-tk
 
 test-unit-tk-windows-arm: test-unit-tk-windows-x86
 
@@ -150,7 +150,7 @@ test-unit-all:
 # CLI lane runs `test-unit-cli` which compiles and runs doctor + CLI tests sequentially.
 
 test-unit-cli-linux-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} test-unit-cli
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig_version)" test-unit-cli
 
 test-unit-cli-linux-arm: test-unit-cli-linux-x86
 
