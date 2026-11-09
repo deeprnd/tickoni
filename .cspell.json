@@ -591,6 +591,7 @@
     "DSNAPPY",
     "dtls",
     "DZSTD",
+    "Dzig",
     "errorlevel",
     "fips",
     "fsanitize",
