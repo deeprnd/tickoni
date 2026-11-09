@@ -43,8 +43,11 @@ pub fn build(b: *std.Build) void {
     };
     const build_tests = b.option(bool, "test", "Compile and run Tickoni test binaries") orelse false;
     const build_perf = b.option(bool, "perf", "Compile and run Tickoni performance test binaries") orelse false;
-    const zig_version_raw = b.option([]const u8, "zig-version", "Zig compiler version string") orelse "";
-    const zig_version = if (zig_version_raw.len > 0) zig_version_raw else "0.18.0-dev";
+    const zig_version_raw = b.option([]const u8, "zig-version", "Zig compiler version string") orelse {
+        std.debug.print("error: --zig-version is required\n", .{});
+        return;
+    };
+    const zig_version = zig_version_raw;
 
     const shared = @import("build-lib/mod/modules.zig").modules(b, target, optimize, zig_version);
     const tm = @import("build-lib/mod/test_modules.zig").testModules(b, target, optimize, shared);
