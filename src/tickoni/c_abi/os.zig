@@ -17,6 +17,7 @@ extern fn tk_port_is_in_use(port: u16) c_int;
 extern fn tk_write(fd: c_int, buf: [*]const u8, count: usize) usize;
 extern fn tk_isatty(fd: c_int) c_int;
 extern fn tk_fflush() void;
+extern fn tk_ignore_sigpipe() void;
 extern fn tk_setenv(name: [*]const u8, value: [*]const u8, overwrite: c_int) c_int;
 extern fn tk_getenv(name: [*]const u8) [*:0]const u8;
 extern fn tk_getenv_len(name: [*]const u8) c_long;
@@ -146,6 +147,10 @@ pub fn isTerminal(fd: c_int) c_int {
 
 pub fn flushStderr() void {
     tk_fflush();
+}
+
+pub fn ignoreSigpipe() void {
+    tk_ignore_sigpipe();
 }
 
 pub fn setEnv(name: [*]const u8, value: [*]const u8, overwrite: c_int) c_int {

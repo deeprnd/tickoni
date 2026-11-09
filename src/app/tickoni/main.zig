@@ -151,28 +151,9 @@ fn cmdDoctor(init: std.process.Init, format: doctor_output.Format) !void {
     std.process.exit(if (fail_count > 0) 1 else 0);
 }
 
-/// v2.14.S1: run the payment pipeline as one OS process per tile connected
-/// by Tango shared memory instead of in-process threads. run_dir holds the
-/// per-tile launch specs and the FD_SHMEM_PATH workspace backing.
-const CSigaction = extern struct {
-    sa_handler: usize,
-    sa_mask: [8]usize,
-    sa_flags: c_int,
-    sa_restorer: ?*anyopaque,
-};
-extern "c" fn sigaction(sig: c_int, act: ?*const CSigaction, oact: ?*CSigaction) c_int;
-
 fn ignoreSigPipe(init: std.process.Init) void {
-    comptime if (std.builtin.os.tag == .windows) return;
-
-    var act: CSigaction = .{ .sa_handler = 0, .sa_mask = undefined, .sa_flags = 0, .sa_restorer = null };
-    act.sa_handler = 1; // SIG_IGN
-    const rc = sigaction(13, &act, null);
-    if (rc != 0) {
-        var buf: [64]u8 = undefined;
-        const msg = std.fmt.bufPrint(&buf, "SIGPIPE: sigaction failed rc={d}\n", .{rc}) catch "";
-        _ = File.writeStreamingAll(File.stderr(), init.io, msg) catch {};
-    }
+    _ = init;
+    util.os_api.ignoreSigpipe();
 }
 
 fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: []const u8, verbose: bool) !void {
