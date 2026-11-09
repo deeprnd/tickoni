@@ -10,6 +10,15 @@
 ///   zig build compile-tk
 ///
 /// The existing GNUmakefile (C/Firedancer build) is unchanged.
+///
+/// Build system rationale: the build graph is factored into build-lib/ submodules —
+/// modules.zig (Shared declarations), test_modules.zig (TestModules), factory.zig
+/// (integration module graph), lanes/{unit,integration,cov}.zig (lane strategies),
+/// and lib/{helpers,shims,codec,firedancer,topo_run,tile_run}.zig (linkage helpers).
+/// This decomposition was introduced in the tkaudt consolidation epic
+/// (v2.22-s26-tkaudt-dedup-done.md) to support lane-based test registration,
+/// audit codec linkage, and Firedancer integration wiring. Each submodule has a
+/// single responsibility: module declarations, lane registration, or linkage.
 
 const std = @import("std");
 const helpers = @import("build-lib/lib/helpers.zig");
