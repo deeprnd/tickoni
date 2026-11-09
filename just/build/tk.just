@@ -1,9 +1,9 @@
 # ── Build: Tickoni (Zig) ─────────────────────────────────────────────────
 # Dispatcher and platform-specific Tickoni build recipes.
 #
-# zig version is computed once at runtime in the dispatcher's bash script,
-# exported as $ZIG_VERSION, and referenced in all sub-recipes. No parse-time
-# backtick — zig is only called when build-tk is actually invoked.
+# zig version is computed at runtime: the dispatcher (build-tk) exports it
+# for the exec chain, and each platform sub-recipe also exports it so CI can
+# call the sub-recipe directly without the dispatcher.
 
 # Bare dispatcher
 build-tk:
@@ -22,21 +22,39 @@ build-tk:
 
 # Linux
 build-tk-linux-x86:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export ZIG_VERSION=$(zig version)
     ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$ZIG_VERSION"
 
 build-tk-linux-arm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export ZIG_VERSION=$(zig version)
     ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$ZIG_VERSION"
 
 # macOS
 build-tk-macos-x86:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export ZIG_VERSION=$(zig version)
     ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$ZIG_VERSION"
 
 build-tk-macos-arm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export ZIG_VERSION=$(zig version)
     ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$ZIG_VERSION"
 
 # Windows
 build-tk-windows-x86:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export ZIG_VERSION=$(zig version)
     ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$ZIG_VERSION"
 
 build-tk-windows-arm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export ZIG_VERSION=$(zig version)
     ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build -p {{ ZIG_PREFIX }} -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$ZIG_VERSION"
