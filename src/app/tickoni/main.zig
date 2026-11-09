@@ -163,6 +163,8 @@ const CSigaction = extern struct {
 extern "c" fn sigaction(sig: c_int, act: ?*const CSigaction, oact: ?*CSigaction) c_int;
 
 fn ignoreSigPipe(init: std.process.Init) void {
+    comptime if (std.builtin.os.tag == .windows) return;
+
     var act: CSigaction = .{ .sa_handler = 0, .sa_mask = undefined, .sa_flags = 0, .sa_restorer = null };
     act.sa_handler = 1; // SIG_IGN
     const rc = sigaction(13, &act, null);
