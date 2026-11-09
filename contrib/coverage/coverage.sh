@@ -59,10 +59,11 @@ elif [ "$JOB" = "coverage-tk" ]; then
     # build can leave cache metadata referring to object files that no longer
     # exist, causing Zig 0.17 to report missing *_zcu.o files at link time.
     rm -rf "$COV_CACHE" "$COV_GLOBAL_CACHE" "$COV_BINS" "$COV_RAW"
+    export ZIG_VERSION=$(zig version)
     ZIG_LOCAL_CACHE_DIR="$COV_CACHE" ZIG_GLOBAL_CACHE_DIR="$COV_GLOBAL_CACHE" zig build \
         --cache-dir "$COV_CACHE" \
         -p "$COV_PREFIX" \
-        -Dtest=true compile-tk -Doptimize=ReleaseSafe -Dfd-lib-dir=build/fd-tickoni-fd/lib
+        -Dtest=true -Dzig-version="$ZIG_VERSION" compile-tk -Doptimize=ReleaseSafe -Dfd-lib-dir=build/fd-tickoni-fd/lib
 
     mkdir -p "$COV_RAW"
 
