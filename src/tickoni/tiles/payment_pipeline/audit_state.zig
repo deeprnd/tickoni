@@ -4,7 +4,6 @@
 /// only depend on this slim struct instead of the full pipeline state.
 ///
 /// This resolves maintainability-audit Finding C3.
-
 const std = @import("std");
 const audit = @import("audit");
 const audit_sink = @import("audit_sink.zig");

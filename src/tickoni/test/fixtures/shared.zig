@@ -3,7 +3,6 @@
 /// These helpers are intentionally kept here rather than in a runtime
 /// module because they produce values for deterministic audit chains,
 /// not for the live event pipeline.
-
 const std = @import("std");
 const audit = @import("audit");
 const runtime = @import("runtime");
@@ -24,7 +23,6 @@ pub fn parseFixedAsciiBytes(comptime N: usize, value: []const u8) [N]u8 {
 
 /// Build an `audit.Header` with the canonical schema version and a
 /// zeroed timestamp/record_hash so `tkaudt` can compute them.
-
 pub fn header(
     seq: u64,
     tile_id: []const u8,
