@@ -19,7 +19,7 @@ pub fn runIngest(state: *PaymentPipelineState) void {
 
     var offset: u64 = 0;
     while (offset < state.config.event_count) : (offset += 1) {
-        if (state.stop.load(.acquire)) break;
+        if (state.audit.stop.load(.acquire)) break;
         // Test-only sandbox-failure hook. @import("builtin").is_test is a
         // compile-time constant; when false the entire inner branch is dead
         // code eliminated.
@@ -30,7 +30,7 @@ pub fn runIngest(state: *PaymentPipelineState) void {
         }
 
         const raw = runtime.syntheticPayment(state.config, offset);
-        if (state.q_ing_norm.push(.{ .raw = raw, .pipeline_hops = 1 }, &state.stop)) |_| {
+        if (state.q_ing_norm.push(.{ .raw = raw, .pipeline_hops = 1 }, &state.audit.stop)) |_| {
             _ = state.produced.fetchAdd(1, .release);
             log.kvFmt(tile_ids.tkings.slice(), "runIngest", "offset={d} account={d} amount={d}c", .{ offset, raw.account_id, raw.amount_cents });
         } else |_| {
@@ -45,7 +45,7 @@ test "sandbox failure records crash diagnostics and stops ingest" {
         pub fn trigger(offset: u64, state: *PaymentPipelineState) callconv(.c) void {
             if (offset == 2) {
                 _ = state.sandbox_failures.fetchAdd(1, .release);
-                state.crashed_tile.store(tile_tkings, .release);
+                state.audit.crashed_tile.store(tile_tkings, .release);
                 state.requestStop();
             }
         }
@@ -56,5 +56,5 @@ test "sandbox failure records crash diagnostics and stops ingest" {
     const diag = state.snapshotDiag();
     try std.testing.expectEqual(tile_tkings, diag.crashed_tile);
     try std.testing.expectEqual(@as(u64, 1), diag.sandbox_failures);
-    try std.testing.expect(state.stop.load(.seq_cst));
+    try std.testing.expect(state.audit.stop.load(.seq_cst));
 }

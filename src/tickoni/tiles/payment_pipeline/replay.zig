@@ -9,12 +9,13 @@ const tile_ids = @import("runtime").tile_ids;
 const runtime = @import("runtime.zig");
 const logger = @import("logger");
 
+const AuditState = runtime.AuditState;
 const PaymentPipelineState = runtime.PaymentPipelineState;
 const PaymentPipelineConfig = runtime.PaymentPipelineConfig;
 const RawPayment = runtime.RawPayment;
 const PolicyDecision = runtime.PolicyDecision;
 
-pub fn runReplay(state: *PaymentPipelineState) void {
+pub fn runReplay(state: *AuditState, config: PaymentPipelineConfig) void {
     const log = logger.get();
     log.enter(tile_ids.tkrepl.slice(), "runReplay");
     defer log.exit(tile_ids.tkrepl.slice(), "runReplay");
@@ -32,28 +33,28 @@ pub fn runReplay(state: *PaymentPipelineState) void {
     }
 
     state.external_effects_disabled.store(true, .release);
-    const divergences = deterministicReplayDivergences(state, log);
+    const divergences = deterministicReplayDivergences(state, config, log);
     state.replay_divergences.store(divergences, .release);
     state.replay_match.store(divergences == 0, .release);
     state.replay_checked.store(true, .release);
     log.debug(tile_ids.tkrepl.slice(), "runReplay", "replay check complete");
 }
 
-fn deterministicReplayDivergences(state: *PaymentPipelineState, log: *logger.Logger) u64 {
+fn deterministicReplayDivergences(state: *AuditState, config: PaymentPipelineConfig, log: *logger.Logger) u64 {
     var prev_hash = audit_sink.audit_seed;
     var expected_seq: u64 = 0;
     var divergences: u64 = 0;
 
     var offset: u64 = 0;
-    while (offset < state.config.event_count) : (offset += 1) {
-        const raw = runtime.syntheticPayment(state.config, offset);
+    while (offset < config.event_count) : (offset += 1) {
+        const raw = runtime.syntheticPayment(config, offset);
         const event_hash = runtime.stableEventHash(raw);
         const malformed = !runtime.validFraming(raw);
         const decision: PolicyDecision = if (malformed) .malformed_drop else blk: {
-            const duplicate = replayDuplicate(state.config, offset, raw.idempotency_key, event_hash);
+            const duplicate = replayDuplicate(config, offset, raw.idempotency_key, event_hash);
             break :blk if (duplicate)
                 .duplicate_drop
-            else if (raw.amount_cents > state.config.policy_limit_cents)
+            else if (raw.amount_cents > config.policy_limit_cents)
                 .deny
             else
                 .allow;
@@ -61,22 +62,22 @@ fn deterministicReplayDivergences(state: *PaymentPipelineState, log: *logger.Log
         const decided_by: tile_ids.TileId = if (malformed) tile_ids.tknorm else tile_ids.tkpoly;
 
         const expected = buildReplayEvent(expected_seq, raw, event_hash, decision, decided_by, prev_hash);
-        if (expected_seq >= state.audit.count) {
-            log.kvFmt(tile_ids.tkrepl.slice(), "deterministicReplayDivergences", "seq={d} reason=missing_audit_record expected_seq={d} actual_count={d}", .{ expected_seq, expected_seq, state.audit.count });
+        if (expected_seq >= state.auditCount()) {
+            log.kvFmt(tile_ids.tkrepl.slice(), "deterministicReplayDivergences", "seq={d} reason=missing_audit_record expected_seq={d} actual_count={d}", .{ expected_seq, expected_seq, state.auditCount() });
             divergences += 1;
-        } else if (!audit.auditEventsEql(expected, state.audit.records[@intCast(expected_seq)])) {
-            log.kvFmt(tile_ids.tkrepl.slice(), "deterministicReplayDivergences", "seq={d} expected_hash={x} actual_hash={x} reason=hash_mismatch", .{ expected_seq, expected.header.record_hash, state.audit.records[@intCast(expected_seq)].header.record_hash });
+        } else if (!audit.auditEventsEql(expected, state.audit.records[expected_seq])) {
+            log.kvFmt(tile_ids.tkrepl.slice(), "deterministicReplayDivergences", "seq={d} expected_hash={x} actual_hash={x} reason=hash_mismatch", .{ expected_seq, expected.header.record_hash, state.audit.records[expected_seq].header.record_hash });
             divergences += 1;
         }
         prev_hash = expected.header.record_hash;
         expected_seq += 1;
     }
 
-    if (expected_seq != state.audit.count) {
-        divergences += if (expected_seq > state.audit.count)
-            expected_seq - state.audit.count
+    if (expected_seq != state.auditCount()) {
+        divergences += if (expected_seq > state.auditCount())
+            expected_seq - state.auditCount()
         else
-            state.audit.count - expected_seq;
+            state.auditCount() - expected_seq;
     }
     return divergences;
 }
@@ -141,6 +142,6 @@ test "sandbox failure records crash diagnostics and stops replay" {
     defer state.deinit();
 
     // Signal that audit is done so runReplay does not busy-wait forever
-    state.audit_done.store(true, .release);
-    runReplay(&state);
+    state.audit.audit_done.store(true, .release);
+    runReplay(&state.audit, state.config);
 }

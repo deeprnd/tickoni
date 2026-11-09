@@ -34,13 +34,13 @@ pub const validFraming = runtime.validFraming;
 // one tile's own file.
 
 fn runOneSequentialForTest(state: *PaymentPipelineState, raw: RawPayment) !void {
-    try state.q_ing_norm.push(.{ .raw = raw, .pipeline_hops = 1 }, &state.stop);
+    try state.q_ing_norm.push(.{ .raw = raw, .pipeline_hops = 1 }, &state.audit.stop);
     state.q_ing_norm.close();
     runNormalize(state);
     runDedupe(state);
     runPolicy(state);
-    runAudit(state);
-    runReplay(state);
+    runAudit(&state.audit, &state.audit.stop, &state.q_poly_audit);
+    runReplay(&state.audit, state.config);
 }
 
 test "payment tile stages audit and replay one valid payment sequentially" {
@@ -54,9 +54,9 @@ test "payment tile stages audit and replay one valid payment sequentially" {
     try std.testing.expectEqual(@as(u64, 1), metrics.audited);
     try std.testing.expectEqual(@as(u64, 1), metrics.allowed);
     try std.testing.expectEqual(@as(u64, 5), metrics.max_latency_hops);
-    try std.testing.expect(state.replay_checked.load(.seq_cst));
-    try std.testing.expect(state.replay_match.load(.seq_cst));
-    try std.testing.expect(state.external_effects_disabled.load(.seq_cst));
+    try std.testing.expect(state.audit.replay_checked.load(.seq_cst));
+    try std.testing.expect(state.audit.replay_match.load(.seq_cst));
+    try std.testing.expect(state.audit.external_effects_disabled.load(.seq_cst));
 }
 
 test "Phase 0 rejects malformed payment framing" {
@@ -65,9 +65,9 @@ test "Phase 0 rejects malformed payment framing" {
     try runOneSequentialForTest(&state, syntheticPayment(state.config, 0));
     try std.testing.expectEqual(@as(u64, 1), state.invalid.load(.seq_cst));
     try std.testing.expectEqual(@as(u64, 0), state.normalized.load(.seq_cst));
-    try std.testing.expectEqual(@as(u64, 1), state.audited.load(.seq_cst));
-    try std.testing.expectEqual(@as(u8, @backingInt(audit.PolicyOutcome.malformed_drop)), state.audit.records[0].payload.policy_decision.outcome);
-    try std.testing.expect(state.replay_match.load(.seq_cst));
+    try std.testing.expectEqual(@as(u64, 1), state.audit.audited.load(.seq_cst));
+    try std.testing.expectEqual(@as(u8, @backingInt(audit.PolicyOutcome.malformed_drop)), state.audit.audit.records[0].payload.policy_decision.outcome);
+    try std.testing.expect(state.audit.replay_match.load(.seq_cst));
 }
 
 test {

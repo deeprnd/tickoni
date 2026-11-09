@@ -17,7 +17,7 @@ pub fn runPolicy(state: *PaymentPipelineState) void {
     defer state.q_poly_audit.close();
 
     var offset: u64 = 0;
-    while (state.q_dedu_poly.pop(&state.stop)) |msg_in| {
+    while (state.q_dedu_poly.pop(&state.audit.stop)) |msg_in| {
         var msg = msg_in;
         msg.pipeline_hops += 1;
         offset += 1;
@@ -40,7 +40,7 @@ pub fn runPolicy(state: *PaymentPipelineState) void {
             _ = state.allowed.fetchAdd(1, .release);
             log.kvFmt(tile_ids.tkpoly.slice(), "runPolicy", "offset={d} decision=allow account={d} amount={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents });
         }
-        state.q_poly_audit.push(msg, &state.stop) catch break;
+        state.q_poly_audit.push(msg, &state.audit.stop) catch break;
     }
     log.debug(tile_ids.tkpoly.slice(), "runPolicy", "done");
 }
@@ -56,7 +56,7 @@ test "sandbox failure records crash diagnostics and stops policy" {
         .duplicate = false,
         .decision = .allow,
         .decided_by = tile_ids.tkdedu,
-    }, &state.stop);
+    }, &state.audit.stop);
     state.q_dedu_poly.close();
     runPolicy(&state);
 }

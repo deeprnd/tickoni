@@ -12,7 +12,7 @@ pub fn runDiag(state: *PaymentPipelineState) void {
     log.enter(tile_ids.tkdiag.slice(), "runDiag");
     defer log.exit(tile_ids.tkdiag.slice(), "runDiag");
 
-    while (!state.replay_checked.load(.acquire) and !state.stop.load(.acquire)) {
+    while (!state.audit.replay_checked.load(.acquire) and !state.audit.stop.load(.acquire)) {
         const diag = state.snapshotDiag();
         _ = state.diag_snapshots.fetchAdd(1, .release);
         if (diag.crashed_tile != runtime.crash_none) {
@@ -32,6 +32,6 @@ test "sandbox failure records crash diagnostics and stops diag" {
     defer state.deinit();
 
     // Signal that replay is checked so runDiag does not busy-wait forever
-    state.replay_checked.store(true, .release);
+    state.audit.replay_checked.store(true, .release);
     runDiag(&state);
 }

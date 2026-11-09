@@ -9,15 +9,18 @@ const queue = @import("queue.zig");
 const logger = @import("logger");
 const tile_ids = @import("runtime").tile_ids;
 
+/// Re-export AuditState so callers use runtime.AuditState everywhere.
+pub const AuditState = runtime.AuditState;
 const PaymentPipelineState = runtime.PaymentPipelineState;
+const MessageQueue = queue.BoundedQueue(runtime.PaymentMessage);
 
-pub fn runAudit(state: *PaymentPipelineState) void {
+pub fn runAudit(state: *AuditState, stop: *std.atomic.Value(bool), q_poly_audit: *MessageQueue) void {
     const log = logger.get();
     log.enter(tile_ids.tkaudt.slice(), "runAudit");
     defer log.exit(tile_ids.tkaudt.slice(), "runAudit");
 
     var offset: u64 = 0;
-    while (state.q_poly_audit.pop(&state.stop)) |msg| {
+    while (q_poly_audit.pop(stop)) |msg| {
         offset += 1;
         queue.updateMaxU64(&state.max_latency_hops, @as(u64, msg.pipeline_hops) + 1);
         state.audit.append(.{
@@ -27,7 +30,7 @@ pub fn runAudit(state: *PaymentPipelineState) void {
             .tile_id = msg.decided_by.bytes,
         }) catch {
             state.crashed_tile.store(4, .release);
-            state.requestStop();
+            stop.store(true, .release);
             log.err(tile_ids.tkaudt.slice(), "runAudit", "audit log append failed");
             break;
         };
@@ -50,7 +53,7 @@ test "sandbox failure records crash diagnostics and stops audit" {
         .decision = .allow,
         .decided_by = tile_ids.tkpoly,
         .event_hash = 0,
-    }, &state.stop);
+    }, &state.audit.stop);
     state.q_poly_audit.close();
-    runAudit(&state);
+    runAudit(&state.audit, &state.audit.stop, &state.q_poly_audit);
 }

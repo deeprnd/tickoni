@@ -17,6 +17,7 @@
 const std = @import("std");
 const queue = @import("queue.zig");
 const audit_sink = @import("audit_sink.zig");
+const audit_state = @import("audit_state.zig");
 const tile_ids = @import("runtime").tile_ids;
 
 pub const PolicyDecision = enum(u8) {
@@ -121,6 +122,11 @@ const MessageQueue = queue.BoundedQueue(PaymentMessage);
 const AuditLog = audit_sink.AuditLog;
 pub const crash_none: i32 = -1;
 
+/// Audit coordination state embedded in PaymentPipelineState.
+/// audit_stage.zig and replay.zig depend on this slim struct (not the full
+/// PaymentPipelineState), resolving maintainability-audit Finding C3.
+pub const AuditState = audit_state.AuditState;
+
 pub const PaymentPipelineState = struct {
     allocator: std.mem.Allocator,
     config: PaymentPipelineConfig,
@@ -131,27 +137,18 @@ pub const PaymentPipelineState = struct {
     seen_keys: []u64,
     seen_hashes: []u64,
     seen_count: usize,
-    audit: AuditLog,
+    /// Audit coordination — owns stop, audit_done, audit log, replay state.
+    audit: AuditState,
 
-    stop: std.atomic.Value(bool),
-    audit_done: std.atomic.Value(bool),
-    replay_checked: std.atomic.Value(bool),
-    replay_match: std.atomic.Value(bool),
-    external_effects_disabled: std.atomic.Value(bool),
-    crashed_tile: std.atomic.Value(i32),
-
+    /// Payment-specific metric counters (not in AuditState).
     produced: std.atomic.Value(u64),
     normalized: std.atomic.Value(u64),
     invalid: std.atomic.Value(u64),
     duplicates: std.atomic.Value(u64),
     allowed: std.atomic.Value(u64),
     denied: std.atomic.Value(u64),
-    audited: std.atomic.Value(u64),
     sandbox_failures: std.atomic.Value(u64),
-    metric_snapshots: std.atomic.Value(u64),
     diag_snapshots: std.atomic.Value(u64),
-    replay_divergences: std.atomic.Value(u64),
-    max_latency_hops: std.atomic.Value(u64),
 
     pub fn init(allocator: std.mem.Allocator, config: PaymentPipelineConfig) !PaymentPipelineState {
         if (config.queue_depth == 0 or !std.math.isPowerOfTwo(config.queue_depth)) {
@@ -183,25 +180,15 @@ pub const PaymentPipelineState = struct {
             .seen_keys = seen_keys,
             .seen_hashes = seen_hashes,
             .seen_count = 0,
-            .audit = try AuditLog.init(allocator, audit_cap),
-            .stop = std.atomic.Value(bool).init(false),
-            .audit_done = std.atomic.Value(bool).init(false),
-            .replay_checked = std.atomic.Value(bool).init(false),
-            .replay_match = std.atomic.Value(bool).init(false),
-            .external_effects_disabled = std.atomic.Value(bool).init(false),
-            .crashed_tile = std.atomic.Value(i32).init(crash_none),
+            .audit = try AuditState.init(allocator, audit_cap),
             .produced = std.atomic.Value(u64).init(0),
             .normalized = std.atomic.Value(u64).init(0),
             .invalid = std.atomic.Value(u64).init(0),
             .duplicates = std.atomic.Value(u64).init(0),
             .allowed = std.atomic.Value(u64).init(0),
             .denied = std.atomic.Value(u64).init(0),
-            .audited = std.atomic.Value(u64).init(0),
             .sandbox_failures = std.atomic.Value(u64).init(0),
-            .metric_snapshots = std.atomic.Value(u64).init(0),
             .diag_snapshots = std.atomic.Value(u64).init(0),
-            .replay_divergences = std.atomic.Value(u64).init(0),
-            .max_latency_hops = std.atomic.Value(u64).init(0),
         };
     }
 
@@ -224,7 +211,7 @@ pub const PaymentPipelineState = struct {
     }
 
     pub fn requestStop(self: *PaymentPipelineState) void {
-        self.stop.store(true, .release);
+        self.audit.stop.store(true, .release);
         self.closeQueues();
     }
 
@@ -236,7 +223,7 @@ pub const PaymentPipelineState = struct {
             .duplicates = self.duplicates.load(.acquire),
             .allowed = self.allowed.load(.acquire),
             .denied = self.denied.load(.acquire),
-            .audited = self.audited.load(.acquire),
+            .audited = self.audit.audited.load(.acquire),
             .backpressure_waits = self.q_ing_norm.pushWaits() +
                 self.q_norm_dedu.pushWaits() +
                 self.q_dedu_poly.pushWaits() +
@@ -245,17 +232,17 @@ pub const PaymentPipelineState = struct {
                 @max(self.q_ing_norm.maxDepth(), self.q_norm_dedu.maxDepth()),
                 @max(self.q_dedu_poly.maxDepth(), self.q_poly_audit.maxDepth()),
             ),
-            .max_latency_hops = self.max_latency_hops.load(.acquire),
+            .max_latency_hops = self.audit.max_latency_hops.load(.acquire),
         };
     }
 
     pub fn snapshotDiag(self: *PaymentPipelineState) DiagSnapshot {
         return .{
-            .crashed_tile = self.crashed_tile.load(.acquire),
+            .crashed_tile = self.audit.crashed_tile.load(.acquire),
             .sandbox_failures = self.sandbox_failures.load(.acquire),
-            .audit_records = self.audited.load(.acquire),
-            .replay_checked = self.replay_checked.load(.acquire),
-            .replay_match = self.replay_match.load(.acquire),
+            .audit_records = self.audit.audited.load(.acquire),
+            .replay_checked = self.audit.replay_checked.load(.acquire),
+            .replay_match = self.audit.replay_match.load(.acquire),
         };
     }
 
