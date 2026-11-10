@@ -131,29 +131,26 @@ pub fn tmpDir() TmpDir {
             @panic("util.tmpDir: base_path has no slash");
         const parent = base_path[0..last_slash];
         if (parent.len > 0 and parent[0] == '/') {
-            // Absolute path: open it directly
             break :blk2 std.Io.Dir.openDir(std.Io.Dir.cwd(), io, parent, .{
                 .access_sub_paths = true,
             }) catch @panic("util.tmpDir: failed to open parent dir");
         }
-        // Relative path: create it, then open as a Dir handle
+        // Relative path: open each component progressively (openDir doesn't
+        // support multi-component relative paths)
         var dir = std.Io.Dir.cwd();
         var remaining = parent;
         while (remaining.len > 0) {
             const slash = std.mem.indexOfScalar(u8, remaining, '/') orelse {
-                _ = dir.createDirPath(io, remaining) catch
-                    @panic("util.tmpDir: failed to create dir");
+                dir = dir.createDirPathOpen(io, remaining, .{}) catch
+                    @panic("util.tmpDir: failed to open parent dir");
                 break;
             };
             const comp = remaining[0..slash];
-            _ = dir.createDirPath(io, comp) catch
-                @panic("util.tmpDir: failed to create dir");
+            dir = dir.createDirPathOpen(io, comp, .{}) catch
+                @panic("util.tmpDir: failed to open parent dir");
             remaining = remaining[slash + 1 ..];
         }
-        // dir is now CWD; open `parent` as a handle
-        break :blk2 dir.openDir(io, parent, .{
-            .access_sub_paths = true,
-        }) catch @panic("util.tmpDir: failed to open parent dir");
+        break :blk2 dir;
     };
     const tmp_dir = parent_dir.createDirPathOpen(io, "tmp", .{}) catch
         @panic("util.tmpDir: failed to create tmp dir");
