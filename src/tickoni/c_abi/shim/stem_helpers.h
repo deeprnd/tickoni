@@ -14,8 +14,8 @@
 #ifndef __STEM_HELPERS_H__
 #define __STEM_HELPERS_H__
 
-#include "../../../disco/topo/fd_topo.h"
-#include "../../../util/wksp/fd_wksp.h"
+#include "disco/topo/fd_topo.h"
+#include "util/wksp/fd_wksp.h"
 
 /* ─── Context retrieval ───
 
@@ -118,7 +118,7 @@ stk_find_cnc(fd_topo_t const * topo, ulong tile_id) {
      stk_publish_progress(ctx->cnc, ctx->audited);
      stk_publish_progress(ctx->cnc, ctx->normalized + ctx->invalid);
 */
-#include "../../../tango/cnc/fd_cnc.h"
+#include "tango/cnc/fd_cnc.h"
 
 static inline void
 stk_publish_progress(void * cnc, ulong value) {
