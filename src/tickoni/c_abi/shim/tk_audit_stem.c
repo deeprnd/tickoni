@@ -372,6 +372,11 @@ tk_audit_run( fd_topo_t *      topo,
 
     /* Run the stem loop.  Stem exits when SHOULD_SHUTDOWN returns true. */
     tkaudt_run( topo, tile );
+
+    /* Signal to Firedancer dispatch (fd_topo_run_tile / tk_topo_run_tile)
+       that the tile exited cleanly. The dispatch resets allow_shutdown=0
+       before calling run(), then checks it after — crash if still 0. */
+    tile->allow_shutdown = 1;
 }
 
 /* ─── fd_topo_run_tile_t ─── */

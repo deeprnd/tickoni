@@ -174,6 +174,11 @@ tk_metric_run( fd_topo_t *      topo,
      under the wrong lifecycle rules. */
   fd_tile_metric.run( topo, tile );
 
+  /* Signal to Firedancer dispatch (fd_topo_run_tile / tk_topo_run_tile)
+     that the tile exited cleanly. The dispatch resets allow_shutdown=0
+     before calling run(), then checks it after — crash if still 0. */
+  tile->allow_shutdown = 1;
+
   FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_run EXIT tile_id=%lu", tile->id ));
 }
 
