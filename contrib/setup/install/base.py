@@ -185,14 +185,25 @@ class DownloadInstallStrategy(InstallStrategy):
             _run_cmd(['tar', '-xzf', archive_path, '-C', tmpdir])
         elif name.endswith('.zip'):
             _run_cmd(['unzip', '-o', archive_path, '-d', tmpdir])
-        else:
-            print(f"ERROR: unsupported archive format: {name}", file=sys.stderr)
-            sys.exit(1)
+        # Non-archive binaries (buf, etc.) — already in tmpdir, no extraction needed.
 
     def _install_binary(self, tmpdir: str, bin_name: str) -> None:
+        import os as _os
+
         bin_path = self._find_binary(tmpdir, bin_name)
-        if bin_path and __import__('os').path.isfile(bin_path):
+        if bin_path and _os.path.isfile(bin_path):
             print(f"  Installing {bin_name} to /usr/local/bin/")
             _run_cmd(['sudo', 'install', '-m', '755', bin_path, f'/usr/local/bin/{bin_name}'])
-        else:
-            print(f"WARNING: could not find {bin_name} in archive", file=sys.stderr)
+            return
+
+        # Non-archive asset (e.g. buf-Linux-x86_64 → bin_name buf):
+        # fall back to a file whose name starts with bin_name + separator.
+        import re as _re
+        for entry in _os.listdir(tmpdir):
+            full = _os.path.join(tmpdir, entry)
+            if _os.path.isfile(full) and _re.match(rf"^{_re.escape(bin_name)}[-_]", entry):
+                print(f"  Installing {bin_name} to /usr/local/bin/")
+                _run_cmd(['sudo', 'install', '-m', '755', full, f'/usr/local/bin/{bin_name}'])
+                return
+
+        print(f"WARNING: could not find {bin_name} in archive", file=__import__('sys').stderr)

@@ -211,6 +211,10 @@ class GitHubReleaseStrategy(DownloadInstallStrategy):
         os_name, arch = get_platform_from_string(platform_str)
         if os_name == 'macos':
             os_name = 'darwin'
+        # Map orchestrator arch tokens to GitHub release pattern keys.
+        arch_map = {'x86': 'amd64', 'arm': 'arm64', 'amd64': 'amd64', 'arm64': 'arm64', 'aarch64': 'arm64'}
+        if arch is not None:
+            arch = arch_map.get(arch, arch)
         asset_pattern_os_map = params.get('asset_pattern_os_map', {})
         asset_pattern = params.get('asset_pattern', '')
         pattern = ''
