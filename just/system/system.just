@@ -43,7 +43,7 @@ system-mem-drop-caches:
 system-kill-test:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "killing test processes (user: $USER)..."
+    echo "killing test processes (user: ${USER:-${USERNAME:-unknown}})..."
     case "{{ os }}" in
       linux)
         # Phase 1: kill child tile processes first (tkings, tknorm, tkdedu, etc.)
