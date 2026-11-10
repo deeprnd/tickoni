@@ -34,6 +34,7 @@ fn addTickoniTopoRunShims(b: *std.Build, step: *std.Build.Step.Compile) void {
             "src/tickoni/c_abi/shim/topob.c",
             "src/tickoni/c_abi/shim/tk_metric_tile.c",
             "src/tickoni/c_abi/shim/tk_audit_stem.c",
+            "src/tickoni/c_abi/shim/tk_normalize_stem.c",
         },
         .flags = shims.shimCFlagsFor(target_info),
     });
