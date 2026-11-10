@@ -1323,9 +1323,27 @@ fd_hash_memcpy( ulong                    seed,
 #endif
 #endif
 
+/* fd_tick_t is the signed type of a full-width tick count.  It is plain
+   long everywhere except Windows, which is LLP64: there long is 32-bit,
+   so (long)rdtsc would truncate the tick counter and wrap it every ~1.4 s
+   (x86 TSC) / a few minutes (ARM64 cntvct), making signed tick arithmetic
+   such as fd_stem's now+reload and next-now overflow.  Code that does
+   tick arithmetic (e.g. fd_stem) must use fd_tick_t / fd_tickcount_wide()
+   instead of long / fd_tickcount().  fd_tickcount() keeps its historical
+   long type so existing callers are unchanged. */
+
+#if FD_HAS_WINDOWS
+typedef long long fd_tick_t;
+#else
+typedef long      fd_tick_t;
+#endif
+
+FD_STATIC_ASSERT( sizeof(fd_tick_t)==8UL, fd_tick_t_must_be_64_bit );
+
 #if FD_TICKCOUNT_STYLE==0 /* Portable fallback (slow).  Ticks at 1 ns / tick */
 
-#define fd_tickcount() fd_log_wallclock() /* TODO: fix ugly pre-log usage */
+#define fd_tickcount_wide() ((fd_tick_t)fd_log_wallclock())
+#define fd_tickcount()      fd_log_wallclock() /* TODO: fix ugly pre-log usage */
 
 #elif FD_TICKCOUNT_STYLE==1 /* RTDSC (fast) */
 
@@ -1361,15 +1379,16 @@ fd_hash_memcpy( ulong                    seed,
    and/or when the developer is confident that applications using this
    will have appropriate permissions when deployed. */
 
-#define fd_tickcount() ((long)__builtin_ia32_rdtsc())
+#define fd_tickcount_wide() ((fd_tick_t)__builtin_ia32_rdtsc())
+#define fd_tickcount()      ((long)fd_tickcount_wide())
 
 #elif FD_TICKCOUNT_STYLE==2 /* armv8 (fast) */
 
 /* fd_tickcount (ARM): https://developer.arm.com/documentation/ddi0601/2021-12/AArch64-Registers/CNTVCT-EL0--Counter-timer-Virtual-Count-register
    Approx 24 MHz on Apple M1. */
 
-static inline long
-fd_tickcount( void ) {
+static inline fd_tick_t
+fd_tickcount_wide( void ) {
   /* consider using 'isb' */
   ulong value;
   __asm__ __volatile__ (
@@ -1377,7 +1396,12 @@ fd_tickcount( void ) {
     "mrs %0, cntvct_el0\n"
     "nop"
     : "=r" (value) );
-  return (long)value;
+  return (fd_tick_t)value;
+}
+
+static inline long
+fd_tickcount( void ) {
+  return (long)fd_tickcount_wide();
 }
 
 #else

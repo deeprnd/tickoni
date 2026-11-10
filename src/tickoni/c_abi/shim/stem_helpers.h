@@ -31,9 +31,16 @@
 
 /* ─── Workspace derivation ───
 
-   Derive workspace pointer from a tile's input link mcache. The mcache is
-   set by fd_topo_fill_tile as a real local address in this tile process;
-   fd_wksp_containing returns the correct workspace for THIS process.
+   Derive workspace pointer from a tile's input link mcache. The topology
+   records which workspace each object was allocated from, and the tile's
+   workspace join (fd_topo_join_tile_workspaces / its Windows shim) stores
+   the local join pointer in topo->workspaces[], so fd_topo_obj_wksp_base
+   returns the correct workspace for THIS process.
+
+   fd_wksp_containing must not be used here: it relies on
+   fd_shmem_join_query_by_addr, which is hard-coded to ENOENT on Windows
+   (fd_shmem_windows.c), so it always returned NULL and every fragment was
+   silently rejected by stk_validate_frag.
 
    Takes the topo, tile, and input link index (0 for single-input tiles).
    Returns the workspace pointer, or NULL if the link has no mcache.
@@ -46,8 +53,7 @@ stk_derive_wksp(fd_topo_t const * topo, fd_topo_tile_t const * tile, ulong in_id
     ulong in_link_id = tile->in_link_id[in_idx];
     fd_topo_link_t const * link = &topo->links[in_link_id];
     if (link->mcache_obj_id == ULONG_MAX) return NULL;
-    void * mcache = fd_topo_obj_laddr((fd_topo_t *)topo, link->mcache_obj_id);
-    return (void *)fd_wksp_containing(mcache);
+    return fd_topo_obj_wksp_base(topo, link->mcache_obj_id);
 }
 
 /* ─── CNC lookup ───
