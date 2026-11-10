@@ -14,6 +14,7 @@ pub const shim_c_files = &.{
     "topob.c",
     "tile_run.c",
     "tk_audit_stem.c",
+    "tk_normalize_stem.c",
     "ballet.c",
 };
 
