@@ -52,6 +52,7 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
 #if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
 #include "../topo_run/tk_metric_tile.h"
 #include "../topo_run/tk_audit_stem.h"
+#include "../topo_run/tk_norm_stem.h"
 #endif
 
 /* Check if this tile should use the metric run tile. Compares tile name
@@ -82,6 +83,21 @@ tile_is_audit( fd_topo_tile_t * tile ) {
   FD_LOG_NOTICE(( "tile_run: tile_is_audit: tile->name=%s", tile->name ));
   int result = strcmp( tile->name, TILE_ID_TKAUDT ) == 0;
   FD_LOG_NOTICE(( "tile_run: tile_is_audit EXIT tile->name=%s returning %d", tile->name, result ));
+  return result;
+}
+
+/* Check if this tile should use the norm stem run tile. Compares tile name
+   against TILE_ID_TKNORM. */
+static int
+tile_is_norm( fd_topo_tile_t * tile ) {
+  FD_LOG_NOTICE(( "tile_run: tile_is_norm ENTER tile=%p", (void*)tile ));
+  if( !tile ) {
+    FD_LOG_NOTICE(( "tile_run: tile_is_norm EXIT tile=NULL returning 0" ));
+    return 0;
+  }
+  FD_LOG_NOTICE(( "tile_run: tile_is_norm: tile->name=%s", tile->name ));
+  int result = strcmp( tile->name, TILE_ID_TKNORM ) == 0;
+  FD_LOG_NOTICE(( "tile_run: tile_is_norm EXIT tile->name=%s returning %d", tile->name, result ));
   return result;
 }
 
@@ -145,12 +161,15 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
     run_tile = &TK_AUDIT_RUN;
   } else if( tile_is_metric( tile_c ) ) {
     run_tile = &TK_METRIC_RUN;
+  } else if( tile_is_norm( tile_c ) ) {
+    run_tile = &TK_NORM_RUN;
   } else {
     run_tile = &TK_TILE_RUN;
   }
 #else
   (void)tile_is_audit;
   (void)tile_is_metric;
+  (void)tile_is_norm;
   run_tile = &TK_TILE_RUN;
 #endif
 
