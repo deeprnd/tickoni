@@ -225,8 +225,11 @@ fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) !void {
             const full_path = try std.fs.path.join(std.testing.allocator, &.{ logs_dir, name });
             defer std.testing.allocator.free(full_path);
             const content = std.Io.Dir.readFileAlloc(
-                std.Io.Dir.cwd(), std.testing.io, full_path,
-                std.testing.allocator, .limited(65536),
+                std.Io.Dir.cwd(),
+                std.testing.io,
+                full_path,
+                std.testing.allocator,
+                .limited(65536),
             ) catch continue;
             std.debug.print("  === {s} ===\n{s}\n  === end ===\n", .{ name, content });
             std.testing.allocator.free(content);
