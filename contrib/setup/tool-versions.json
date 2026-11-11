@@ -958,7 +958,7 @@
       "install_method": "apt",
       "parameters": {
         "packages": [
-          "libgl1-mesa-dev",
+          "libgl-dev",
           "libx11-dev",
           "libxext-dev",
           "libxcb1-dev",
