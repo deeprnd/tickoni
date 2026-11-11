@@ -244,7 +244,8 @@ class GitHubReleaseStrategy(DownloadInstallStrategy):
             version = release.get('tag_name', '').lstrip('v')
             pattern = pattern.replace('{version}', version)
 
-        download_url = f"https://github.com/{owner}/{repo}/releases/download/v{version}/{pattern}"
+        version_prefix = params.get('version_prefix', 'v')
+        download_url = f"https://github.com/{owner}/{repo}/releases/download/{version_prefix}{version}/{pattern}"
         return (download_url, version, pattern, verify_checksum)
 
     def _install_cbmc_deb(self, tool, params, config, platform_str, version):

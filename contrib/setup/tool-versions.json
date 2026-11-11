@@ -519,15 +519,39 @@
     "minisign": {
       "category": "essential",
       "platform": "all",
-      "install_method": {
-        "linux": "apt",
-        "macos": "brew",
-        "windows": "minisign_download"
-      },
+      "install_method": "github_release",
       "parameters": {
-        "package": "minisign",
+        "owner": "jedisct1",
+        "repo": "minisign",
         "version_ref": "minisign",
-        "sha256": "37b600344e20c19314b2e82813db2bfdcc408b77b876f7727889dbd46d539479"
+        "version_prefix": "",
+        "asset_pattern_os_map": {
+          "linux": {
+            "amd64": "minisign-{version}-linux.tar.gz",
+            "arm64": "minisign-{version}-linux.tar.gz"
+          },
+          "darwin": {
+            "amd64": "minisign-{version}-macos.zip",
+            "arm64": "minisign-{version}-macos.zip"
+          },
+          "windows": {
+            "amd64": "minisign-{version}-win64.zip",
+            "arm64": "minisign-{version}-win64.zip"
+          }
+        },
+        "extract_dir_os_map": {
+          "linux": {
+            "amd64": "minisign-linux/x86_64",
+            "arm64": "minisign-linux/aarch64"
+          },
+          "darwin": ".",
+          "windows": {
+            "amd64": "minisign-win64/x86_64",
+            "arm64": "minisign-win64/aarch64"
+          }
+        },
+        "bin_name": "minisign",
+        "bin_name_windows": "minisign.exe"
       },
       "idempotent_check": "command -v minisign"
     },

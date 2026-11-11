@@ -114,7 +114,7 @@ def test_windows_minisign_does_not_depend_on_winget():
         cfg["tools"]["minisign"]["install_method"],
         "windows-arm",
         "minisign",
-    ) == "minisign_download"
+    ) == "github_release"
 
 
 def test_windows_ccache_does_not_depend_on_winget():
