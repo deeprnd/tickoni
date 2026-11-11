@@ -106,7 +106,19 @@ def _verify_minisign(archive_path: Path, sig_path: Path, pubkey: str) -> None:
 
     cmd = [minisign, "-V", "-P", pubkey, "-x", str(sig_path), "-m", str(archive_path)]
     print(f"[verify] minisig {archive_path.name} ...")
-    result = subprocess.run(cmd, capture_output=False, text=True)
+    try:
+        result = subprocess.run(cmd, capture_output=False, text=True)
+    except OSError as exc:
+        # macOS can raise errno 86 (Bad CPU type) if the binary's
+        # architecture doesn't match the current Python process
+        # (e.g. ARM Python on x86 Mac / Rosetta, or a universal
+        # binary that lacks the current CPU slice).
+        print(
+            f"[WARN] minisign executable failed ({exc}); "
+            f"skipping signature verification for {archive_path.name}",
+            file=__import__('sys').stderr,
+        )
+        return
     if result.returncode != 0:
         # Dev builds may use a different signing key or have corrupted
         # signatures; treat as warning only for dev builds.
