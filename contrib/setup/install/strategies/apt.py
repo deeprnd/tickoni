@@ -34,6 +34,30 @@ def _resolve_version(tool_name, platform_str, config):
     return str(raw)
 
 
+def _ensure_universe():
+    """Ensure the universe repository is enabled."""
+    try:
+        result = subprocess.run(
+            ['grep', '-r', 'universe', '/etc/apt/sources.list.d/'],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            subprocess.run(
+                ['sudo', '-n', 'add-apt-repository', '-y', 'universe'],
+                capture_output=True, text=True, timeout=30
+            )
+    except Exception:
+        pass
+
+
+def _fix_broken():
+    """Fix any broken apt state before installing."""
+    subprocess.run(
+        ['sudo', '-n', 'apt-get', 'install', '-f', '-y'],
+        capture_output=True, text=True, timeout=60
+    )
+
+
 def _apt_install(pkg_name):
     """Install one package, trying non-interactive sudo first."""
     print(f"[APT] Installing {pkg_name}...")
@@ -84,6 +108,11 @@ class AptInstallStrategy(InstallStrategy):
 
         from config import _apt_update
         _apt_update()
+
+        # Ensure universe repo and fix broken apt state once (before all packages)
+        _ensure_universe()
+        _fix_broken()
+
         for pkg_name in packages:
             # Determine final package name with version if applicable
             if _is_versioned_package(pkg_name):
@@ -99,12 +128,19 @@ class AptInstallStrategy(InstallStrategy):
 
             result = _apt_install(final_pkg)
             if result.returncode != 0:
+                # Print the actual apt error for debugging
+                stderr = (result.stderr or '').strip()
+                if stderr:
+                    print(f"  [APT-ERR] {stderr[:500]}", file=sys.stderr)
                 # Fallback: if versioned install fails, try without version
                 if final_pkg != pkg_name:
                     print(f"  [WARN] {final_pkg} not available, trying {pkg_name}",
                           file=sys.stderr)
                     result = _apt_install(pkg_name)
                     if result.returncode != 0:
+                        stderr2 = (result.stderr or '').strip()
+                        if stderr2:
+                            print(f"  [APT-ERR] {stderr2[:500]}", file=sys.stderr)
                         print(f"ERROR: apt install failed for {pkg_name}",
                               file=sys.stderr)
                         sys.exit(1)
