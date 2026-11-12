@@ -174,6 +174,13 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
 #endif
 
   FD_LOG_NOTICE(( "tile_run: calling fd_topo_run_tile, run_tile=%p", (void*)run_tile ));
+  fd_topo_t *topo_c = (fd_topo_t *)topo;
+  FD_LOG_NOTICE(( "tile_run: tile->id=%lu name=%s in_cnt=%lu",
+    tile_c->id, tile_c->name, tile_c->in_cnt ));
+  for( ulong j=0UL; j < tile_c->in_cnt; j++ ) {
+    FD_LOG_NOTICE(( "tile_run:   in_link[%lu] fseq_obj_id=%lu",
+      j, tile_c->in_link_fseq_obj_id[j] ));
+  }
 
 #if FD_HAS_LINUX
   fd_topo_run_tile( (fd_topo_t *)topo, (fd_topo_tile_t *)tile,
