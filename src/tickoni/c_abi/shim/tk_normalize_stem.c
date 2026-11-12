@@ -255,8 +255,14 @@ tknorm_during_frag( tknorm_ctx_t * ctx,
     ctx->output_sz = PAYMENT_MSG_SIZE;
     /* Chunk offset will be set in after_credit when we allocate from output dcache */
 
-    /* Shared boilerplate: progress publishing */
-    stk_publish_progress(ctx->cnc, ctx->normalized + ctx->invalid);
+    /* Publish the two registry-owned counters while the stem loop is live. */
+    if (ctx->cnc) {
+        ulong * app = (ulong *)fd_cnc_app_laddr((fd_cnc_t *)ctx->cnc);
+        if (app) {
+            app[0] = ctx->normalized;
+            app[1] = ctx->invalid;
+        }
+    }
 }
 
 static void
