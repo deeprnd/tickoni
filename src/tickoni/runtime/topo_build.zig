@@ -288,14 +288,20 @@ pub fn build(
     // v2.22.S4 Task 0: Wire each tile's output links into the metric tile
     // via the metric_in workspace BEFORE topobAutoLayout so that the
     // metric tile's in_cnt is set correctly by the layout engine.
+    // Only wire observer inputs for channels where metric is NOT already
+    // the explicit destination (line 354-390 handles the explicit dst).
     if (metric_tile_idx != c_abi.topob.not_found) {
         log.kvFmt("topo_build", "build", "calling topobTileIn(metric, metric_in, ch0..ch{d})", .{topo_desc.channels.len - 1});
-        for (topo_desc.channels, 0..) |_, i| {
+        for (topo_desc.channels, 0..) |ch, i| {
+            // Skip channels where metric is already the explicit dst —
+            // that channel's input is wired in the per-channel loop below.
+            if (ch.dst_idx == metric_tile_idx) continue;
             var tile_name_buf: [16]u8 = undefined;
             var link_name_buf: [8]u8 = undefined;
             const link_name_z = linkNameZ(&link_name_buf, i);
-            // Connect this link into the metric tile's inputs from metric_in workspace
-            _ = c_abi.topob.topobTileIn(topo, util.toZ(&tile_name_buf, tile_ids.metric.slice()), 0, c_abi.wksp.wksp_name_metric_in, link_name_z, 0, true, true);
+            // The metric tile observes pipeline links but must not apply
+            // flow control to their producers.
+            _ = c_abi.topob.topobTileIn(topo, util.toZ(&tile_name_buf, tile_ids.metric.slice()), 0, c_abi.wksp.wksp_name_metric_in, link_name_z, 0, false, true);
         }
         log.kvFmt("topo_build", "build", "done topobTileIn for metric tile", .{});
     }
