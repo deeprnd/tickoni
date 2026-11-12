@@ -21,31 +21,43 @@ extern fn tknorm_tile_scratch_footprint() c_ulong;
 extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) c_ulong;
 
 test "tknorm tile identity — name is TILE_ID_TKNORM" {
+    if (false) return error.SkipZigTest;
+
     const name = std.mem.sliceTo(tk_get_norm_run_name(), 0);
     try std.testing.expectEqualStrings("tknorm", name);
 }
 
 test "tknorm tile identity — run callback is non-null" {
+    if (false) return error.SkipZigTest;
+
     try std.testing.expect(tk_get_norm_run_run() != null);
 }
 
 test "tknorm tile identity — scratch callbacks are non-null" {
+    if (false) return error.SkipZigTest;
+
     try std.testing.expect(tk_get_norm_run_scratch_align() != null);
     try std.testing.expect(tk_get_norm_run_scratch_footprint() != null);
 }
 
 test "tknorm tile identity — init callbacks are non-null" {
+    if (false) return error.SkipZigTest;
+
     try std.testing.expect(tk_get_norm_run_privileged_init() != null);
     try std.testing.expect(tk_get_norm_run_unprivileged_init() != null);
 }
 
 test "tknorm scratch footprint — returns deterministic value > 1" {
+    if (false) return error.SkipZigTest;
+
     const footprint = tknorm_tile_scratch_footprint();
     try std.testing.expect(footprint > 1);
     try std.testing.expectEqual(footprint, tknorm_tile_scratch_footprint());
 }
 
 test "tknorm scratch footprint — topob wrapper matches direct call" {
+    if (false) return error.SkipZigTest;
+
     const direct = tknorm_tile_scratch_footprint();
     const via_topob = tk_topob_tickoni_tile_scratch_footprint("tknorm");
     try std.testing.expectEqual(direct, via_topob);

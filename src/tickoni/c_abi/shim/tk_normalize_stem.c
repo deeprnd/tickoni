@@ -338,7 +338,7 @@ tknorm_tile_scratch_footprint( void ) {
     return TK_NORM_RUN.scratch_footprint( NULL );
 }
 
-/* Field accessors for test_norm_stem_standalone.zig.
+/* Field accessors for integration/test_tknorm_integration.zig.
    These avoid Zig-C struct layout mismatch by reading individual fields. */
 char const *
 tk_get_norm_run_name( void ) {
