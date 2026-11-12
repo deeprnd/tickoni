@@ -325,3 +325,43 @@ fd_topo_run_tile_t const *
 tk_get_norm_run_tile( void ) {
     return &TK_NORM_RUN;
 }
+
+/* Wrapper for topob.c: query scratch footprint without needing a
+   fd_topo_tile_t pointer. Delegates to TK_NORM_RUN.scratch_footprint
+   to avoid conflicting with the STEM-generated macro function. */
+ulong
+tknorm_tile_scratch_footprint( void ) {
+    return TK_NORM_RUN.scratch_footprint( NULL );
+}
+
+/* Field accessors for test_norm_stem_standalone.zig.
+   These avoid Zig-C struct layout mismatch by reading individual fields. */
+char const *
+tk_get_norm_run_name( void ) {
+    return TK_NORM_RUN.name;
+}
+
+void *
+tk_get_norm_run_run( void ) {
+    return (void *)TK_NORM_RUN.run;
+}
+
+void *
+tk_get_norm_run_scratch_align( void ) {
+    return (void *)TK_NORM_RUN.scratch_align;
+}
+
+void *
+tk_get_norm_run_scratch_footprint( void ) {
+    return (void *)TK_NORM_RUN.scratch_footprint;
+}
+
+void *
+tk_get_norm_run_privileged_init( void ) {
+    return (void *)TK_NORM_RUN.privileged_init;
+}
+
+void *
+tk_get_norm_run_unprivileged_init( void ) {
+    return (void *)TK_NORM_RUN.unprivileged_init;
+}

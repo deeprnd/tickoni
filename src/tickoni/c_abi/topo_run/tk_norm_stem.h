@@ -18,7 +18,19 @@ extern fd_topo_run_tile_t TK_NORM_RUN;
    never need to know the symbol name. */
 extern fd_topo_run_tile_t const * tk_get_norm_run_tile( void );
 
+/* Query the scratch footprint for the norm tile without needing a
+   fd_topo_tile_t pointer. */
+extern ulong tknorm_tile_scratch_footprint( void );
+
 /* Alignment constant for the norm tile's scratch space. */
 #define TKNORM_CTX_ALIGN 8
+
+/* Field accessors for standalone test — avoids Zig-C struct layout mismatch. */
+extern char const * tk_get_norm_run_name( void );
+extern void * tk_get_norm_run_run( void );
+extern void * tk_get_norm_run_scratch_align( void );
+extern void * tk_get_norm_run_scratch_footprint( void );
+extern void * tk_get_norm_run_privileged_init( void );
+extern void * tk_get_norm_run_unprivileged_init( void );
 
 #endif /* __TK_NORM_STEM_H__ */
