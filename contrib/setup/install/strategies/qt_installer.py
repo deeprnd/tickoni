@@ -165,7 +165,7 @@ class QtInstallerStrategy(InstallStrategy):
         # Linux: verify graphics-libs were installed by the orchestrator
         if platform_str.startswith('linux'):
             packages = [
-                'libgl1-mesa-dev',   # OpenGL
+                'libgl-dev',         # OpenGL
                 'libx11-dev',        # X11
                 'libxext-dev',       # X11 extensions
                 'libxcb1-dev',       # XCB
