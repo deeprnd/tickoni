@@ -959,6 +959,9 @@
       "parameters": {
         "packages": [
           "libgl-dev",
+          "libegl1",
+          "libegl-dev",
+          "libgbm-dev",
           "libx11-dev",
           "libxext-dev",
           "libxcb1-dev",
@@ -976,7 +979,7 @@
           "libxcb-xkb1"
         ]
       },
-      "idempotent_check": "pkg-config --libs gl x11"
+      "idempotent_check": "pkg-config --libs gl egl x11"
     },
     "qt-installer": {
       "category": "qt",
