@@ -363,9 +363,21 @@ fd_shmem_create_multi_flags( char const *  name,
        friends. */
 
     if( FD_UNLIKELY( fd_numa_mlock( sub_shmem, sub_sz ) ) ) {
-      FD_LOG_WARNING(( "sub[%lu]: fd_numa_mlock(\"%s\",%lu KiB) failed (%i-%s)",
-                       sub_idx, path, sub_sz>>10, errno, fd_io_strerror( errno ) ));
-      ERROR( unmap );
+      if( FD_UNLIKELY( page_sz != FD_SHMEM_NORMAL_PAGE_SZ ) ) {
+        /* For huge/gigantic pages, mlock is mandatory (hugetlbfs pages
+           must be resident to avoid SIGBUS). Fail the allocation. */
+        FD_LOG_WARNING(( "sub[%lu]: fd_numa_mlock(\"%s\",%lu KiB) failed (%i-%s)",
+                         sub_idx, path, sub_sz>>10, errno, fd_io_strerror( errno ) ));
+        ERROR( unmap );
+      }
+      /* For normal (4 KiB) pages, mlock is best-effort. Pages are already
+         mapped by mmap above — if mlock fails (e.g. RLIMIT_MEMLOCK too low),
+         the kernel still provides them. This avoids RLIMIT_MEMLOCK
+         requirements for normal-page workspaces while preserving correctness
+         guarantees for huge/gigantic pages. Matches the pattern in
+         fd_shmem_acquire_multi. */
+      FD_LOG_DEBUG(( "sub[%lu]: fd_numa_mlock(\"%s\",%lu KiB) best-effort skipped (%i-%s)",
+                     sub_idx, path, sub_sz>>10, errno, fd_io_strerror( errno ) ));
     }
 
     /* At this point all pages in this subregion should be allocated on

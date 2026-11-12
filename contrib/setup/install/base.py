@@ -9,6 +9,20 @@ import zipfile
 from pathlib import Path
 
 
+def _expand_home(path: str) -> str:
+    """Expand ~ to HOME."""
+    if path == '~':
+        path = os.environ.get('HOME', os.path.expanduser('~'))
+    elif path.startswith('~/'):
+        path = os.path.join(os.environ.get('HOME', os.path.expanduser('~')), path[2:])
+    return path
+
+
+def _is_windows(platform_str: str) -> bool:
+    """Decide Windows from the orchestrator-supplied platform string."""
+    return platform_str.startswith('windows')
+
+
 def _download_file(url, dest, dry_run=False):
     """Download a file from url to dest, with retries."""
     if dry_run:
@@ -114,17 +128,20 @@ class DownloadInstallStrategy(InstallStrategy):
         """
         ...
 
-    def _find_binary(self, tmpdir: str, bin_name: str) -> str | None:
-        """Walk extracted tree to find a binary by name."""
-        for root, dirs, files in __import__('os').walk(tmpdir):
-            for f in files:
-                if f == bin_name:
-                    return __import__('os').path.join(root, f)
-            # Early exit if found
-            if __import__('os').path.join(root, bin_name) in [
-                __import__('os').path.join(root, x) for x in files
-            ]:
-                return __import__('os').path.join(root, bin_name)
+    def _find_binary(self, tmpdir: str, bin_name: str, platform_str: str = '') -> str | None:
+        """Walk extracted tree to find a binary by name.
+
+        On Windows, also tries the binary name with '.exe' suffix if the
+        original name doesn't end with '.exe'.
+        """
+        candidates = [bin_name]
+        if _is_windows(platform_str) and not bin_name.endswith('.exe'):
+            candidates.append(bin_name + '.exe')
+        for candidate in candidates:
+            for root, dirs, files in __import__('os').walk(tmpdir):
+                for f in files:
+                    if f == candidate:
+                        return __import__('os').path.join(root, f)
         return None
 
     def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool) -> None:
@@ -135,6 +152,11 @@ class DownloadInstallStrategy(InstallStrategy):
             return
 
         bin_name = tool['parameters'].get('bin_name', 'downloaded_binary')
+        if _is_windows(platform_str):
+            bin_name = tool['parameters'].get('bin_name_windows', bin_name)
+        install_dir = tool['parameters'].get('install_dir', '')
+        # Store tool for extract_dir_os_map access
+        self._tool = tool
 
         if dry_run:
             print(f"  [DRY-RUN] Would download v{version}/{pattern}")
@@ -148,8 +170,8 @@ class DownloadInstallStrategy(InstallStrategy):
                 sys.exit(1)
 
             self._verify_checksum(tool, config, archive_path, verify_checksum)
-            self._extract(archive_path, tmpdir)
-            self._install_binary(tmpdir, bin_name)
+            self._extract(archive_path, tmpdir, platform_str)
+            self._install_binary(tmpdir, bin_name, platform_str, install_dir)
 
     def _download_file(self, url: str, dest: Path) -> None:
         _download_file(url, dest, dry_run=False)
@@ -179,20 +201,89 @@ class DownloadInstallStrategy(InstallStrategy):
                             print(f"  Checksum verified")
                             break
 
-    def _extract(self, archive_path: Path, tmpdir: str) -> None:
+    def _extract(self, archive_path: Path, tmpdir: str, platform_str: str = '') -> None:
+        if self._tool.get('parameters', {}).get('extract_dir_os_map'):
+            self._extract_and_flatten(archive_path, tmpdir, platform_str)
+            return
         name = archive_path.name
         if name.endswith(('.tar.gz', '.tgz')):
             _run_cmd(['tar', '-xzf', archive_path, '-C', tmpdir])
         elif name.endswith('.zip'):
             _run_cmd(['unzip', '-o', archive_path, '-d', tmpdir])
-        else:
-            print(f"ERROR: unsupported archive format: {name}", file=sys.stderr)
-            sys.exit(1)
+        # Non-archive binaries (buf, etc.) — already in tmpdir, no extraction needed.
 
-    def _install_binary(self, tmpdir: str, bin_name: str) -> None:
-        bin_path = self._find_binary(tmpdir, bin_name)
-        if bin_path and __import__('os').path.isfile(bin_path):
-            print(f"  Installing {bin_name} to /usr/local/bin/")
-            _run_cmd(['sudo', 'install', '-m', '755', bin_path, f'/usr/local/bin/{bin_name}'])
+    def _extract_and_flatten(self, archive_path: Path, tmpdir: str, platform_str: str) -> None:
+        """Extract archive and flatten to the platform-specific subdirectory."""
+        name = archive_path.name
+        if name.endswith(('.tar.gz', '.tgz')):
+            _run_cmd(['tar', '-xzf', archive_path, '-C', tmpdir])
+        elif name.endswith('.zip'):
+            _run_cmd(['unzip', '-o', archive_path, '-d', tmpdir])
+
+        params = self._tool.get('parameters', {})
+        extract_dir_os_map = params.get('extract_dir_os_map', {})
+        if not extract_dir_os_map:
+            return
+
+        from platform import get_platform_from_string
+        os_name, arch = get_platform_from_string(platform_str)
+        if os_name == 'macos':
+            os_name = 'darwin'
+        arch_map = {'x86': 'amd64', 'arm': 'arm64', 'amd64': 'amd64', 'arm64': 'arm64', 'aarch64': 'arm64'}
+        if arch is not None:
+            arch = arch_map.get(arch, arch)
+
+        os_map = extract_dir_os_map.get(os_name, '')
+        if isinstance(os_map, dict):
+            extract_dir = os_map.get(arch, '.')
         else:
-            print(f"WARNING: could not find {bin_name} in archive", file=sys.stderr)
+            extract_dir = str(os_map)
+
+        if extract_dir and extract_dir != '.':
+            inner = os.path.join(tmpdir, extract_dir)
+            if os.path.isdir(inner):
+                for item in os.listdir(inner):
+                    src = os.path.join(inner, item)
+                    dst = os.path.join(tmpdir, item)
+                    if os.path.exists(dst):
+                        continue
+                    os.rename(src, dst)
+                os.rmdir(inner)
+                # Remove parent dirs if empty
+                parent = os.path.dirname(inner)
+                while parent != tmpdir and os.path.isdir(parent) and not os.listdir(parent):
+                    os.rmdir(parent)
+                    parent = os.path.dirname(parent)
+
+    def _install_binary(self, tmpdir: str, bin_name: str, platform_str: str = '', install_dir: str = '') -> None:
+        import os as _os
+
+        bin_path = self._find_binary(tmpdir, bin_name, platform_str)
+        if bin_path and _os.path.isfile(bin_path):
+            target_dir = _expand_home(install_dir) if install_dir else '/usr/local/bin'
+            if _is_windows(platform_str):
+                # Windows: use $LOCALAPPDATA/Tickoni/bin or the configured install_dir
+                if not install_dir:
+                    local_app_data = os.environ.get('LOCALAPPDATA')
+                    target_dir = os.path.join(local_app_data, 'Tickoni', 'bin') if local_app_data else r'C:\Tickoni\bin'
+            print(f"  Installing {bin_name} to {target_dir}/")
+            target_path = os.path.join(target_dir, bin_name)
+            _run_cmd(['sudo', 'install', '-m', '755', bin_path, target_path] if not _is_windows(platform_str) else ['cp', bin_path, target_path])
+            return
+
+        # Non-archive asset (e.g. buf-Linux-x86_64 → bin_name buf):
+        # fall back to a file whose name starts with bin_name + separator.
+        import re as _re
+        for entry in _os.listdir(tmpdir):
+            full = _os.path.join(tmpdir, entry)
+            if _os.path.isfile(full) and _re.match(rf"^{_re.escape(bin_name)}[-_]", entry):
+                target_dir = _expand_home(install_dir) if install_dir else '/usr/local/bin'
+                if _is_windows(platform_str):
+                    local_app_data = os.environ.get('LOCALAPPDATA')
+                    target_dir = os.path.join(local_app_data, 'Tickoni', 'bin') if local_app_data else r'C:\Tickoni\bin'
+                print(f"  Installing {bin_name} to {target_dir}/")
+                target_path = os.path.join(target_dir, bin_name)
+                _run_cmd(['sudo', 'install', '-m', '755', full, target_path] if not _is_windows(platform_str) else ['cp', full, target_path])
+                return
+
+        print(f"WARNING: could not find {bin_name} in archive", file=__import__('sys').stderr)

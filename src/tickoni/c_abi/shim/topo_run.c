@@ -10,6 +10,7 @@
 #define _GNU_SOURCE
 #endif
 
+#include <unistd.h>
 #include "../../../util/fd_util.h"
 #include "../../../disco/events/fd_event_report.h"
 #include "../../../disco/metrics/fd_metrics.h"
@@ -53,6 +54,10 @@ tk_topo_run_tile( void * topo,
                   uint   gid,
                   int    allow_fd,
                   void * tile_run ) {
+  static char buf_tkr[128]; int len_tkr = __builtin_snprintf(buf_tkr, sizeof(buf_tkr),
+    "[topo-run-shim] tk_topo_run_tile ENTER tile=%s\n",
+    ((fd_topo_tile_t const *)tile)->name);
+  if( len_tkr > 0 ) write(2, buf_tkr, len_tkr > 127 ? 127 : len_tkr);
   fd_topo_t *          topo_c     = (fd_topo_t *)topo;
   fd_topo_tile_t *     tile_c     = (fd_topo_tile_t *)tile;
   fd_topo_run_tile_t * tile_run_c = (fd_topo_run_tile_t *)tile_run;
@@ -129,6 +134,14 @@ tk_topo_run_tile( void * topo,
   FD_TEST( tile_c->metrics );
   fd_metrics_register( tile_c->metrics );
   fd_event_register( topo_c, tile_c );
+
+  /* Verify fd_metrics_tl after registration */
+  {
+    static char buf_dbg[384]; int len_dbg = __builtin_snprintf(buf_dbg, sizeof(buf_dbg),
+      "[topo-run-shim] AFTER metrics_reg tile->metrics=%p fd_metrics_tl=%p pid=%lu tid=%lu\n",
+      (void*)tile_c->metrics, (void*)fd_metrics_tl, pid, tid);
+    if( len_dbg > 0 ) write(2, buf_dbg, len_dbg > 383 ? 383 : len_dbg);
+  }
 
   FD_MGAUGE_SET( TILE, PID, pid );
   FD_MGAUGE_SET( TILE, TID, tid );

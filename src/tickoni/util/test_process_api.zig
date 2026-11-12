@@ -1,3 +1,7 @@
+/// Tests for process_api.zig — separated because this test binary needs
+/// TK_PROCESS_TEST macro, os.c C shim compilation, link_libc, and the
+/// c_abi module, none of which can be expressed on an inline `test { }`
+/// block inside process_api.zig. See build-lib/lanes/unit.zig:90–116.
 const std = @import("std");
 const builtin = @import("builtin");
 const process_api = @import("process_api.zig");

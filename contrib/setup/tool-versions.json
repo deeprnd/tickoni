@@ -16,7 +16,7 @@
       "version": "4.14.1"
     },
     "zig": {
-      "version": "0.17.0",
+      "version": "0.18.0-dev.935+ead8f5a7a",
       "options": {
         "minisign_key": "RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
       }
@@ -369,7 +369,6 @@
     "quality": [
       "core",
       "build",
-      "go",
       "zig",
       "nodejs"
     ],
@@ -520,15 +519,39 @@
     "minisign": {
       "category": "essential",
       "platform": "all",
-      "install_method": {
-        "linux": "apt",
-        "macos": "brew",
-        "windows": "minisign_download"
-      },
+      "install_method": "github_release",
       "parameters": {
-        "package": "minisign",
+        "owner": "jedisct1",
+        "repo": "minisign",
         "version_ref": "minisign",
-        "sha256": "37b600344e20c19314b2e82813db2bfdcc408b77b876f7727889dbd46d539479"
+        "version_prefix": "",
+        "asset_pattern_os_map": {
+          "linux": {
+            "amd64": "minisign-{version}-linux.tar.gz",
+            "arm64": "minisign-{version}-linux.tar.gz"
+          },
+          "darwin": {
+            "amd64": "minisign-{version}-macos.zip",
+            "arm64": "minisign-{version}-macos.zip"
+          },
+          "windows": {
+            "amd64": "minisign-{version}-win64.zip",
+            "arm64": "minisign-{version}-win64.zip"
+          }
+        },
+        "extract_dir_os_map": {
+          "linux": {
+            "amd64": "minisign-linux/x86_64",
+            "arm64": "minisign-linux/aarch64"
+          },
+          "darwin": ".",
+          "windows": {
+            "amd64": "minisign-win64/x86_64",
+            "arm64": "minisign-win64/aarch64"
+          }
+        },
+        "bin_name": "minisign",
+        "bin_name_windows": "minisign.exe"
       },
       "idempotent_check": "command -v minisign"
     },
@@ -751,10 +774,26 @@
     "buf": {
       "category": "quality",
       "platform": "all",
-      "install_method": "go_install",
+      "install_method": "github_release",
       "parameters": {
-        "module": "github.com/bufbuild/buf/cmd/buf",
-        "version": "1.72.0"
+        "owner": "bufbuild",
+        "repo": "buf",
+        "version_ref": "buf",
+        "asset_pattern_os_map": {
+          "linux": {
+            "amd64": "buf-Linux-x86_64",
+            "arm64": "buf-Linux-arm64"
+          },
+          "darwin": {
+            "amd64": "buf-Darwin-x86_64",
+            "arm64": "buf-Darwin-arm64"
+          },
+          "windows": {
+            "amd64": "buf-Windows-x86_64.exe",
+            "arm64": "buf-Windows-arm64.exe"
+          }
+        },
+        "bin_name": "buf"
       },
       "idempotent_check": "command -v buf"
     },
@@ -919,7 +958,10 @@
       "install_method": "apt",
       "parameters": {
         "packages": [
-          "libgl1-mesa-dev",
+          "libgl-dev",
+          "libegl1",
+          "libegl-dev",
+          "libgbm-dev",
           "libx11-dev",
           "libxext-dev",
           "libxcb1-dev",
@@ -937,7 +979,7 @@
           "libxcb-xkb1"
         ]
       },
-      "idempotent_check": "pkg-config --libs gl x11"
+      "idempotent_check": "pkg-config --libs gl egl x11"
     },
     "qt-installer": {
       "category": "qt",

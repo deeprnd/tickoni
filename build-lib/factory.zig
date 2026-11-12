@@ -6,7 +6,6 @@
 /// source of truth for each module's root_source_file and import graph.
 ///
 /// Module pointers are created once and shared across the graph.
-
 const std = @import("std");
 const modules = @import("mod/modules.zig");
 const test_mod = @import("mod/test_modules.zig");
@@ -31,7 +30,8 @@ pub const IntegrationModules = struct {
     mock_broker_market_server_mod: *std.Build.Module,
     mock_openai_server_mod: *std.Build.Module,
     exe: ?*std.Build.Step.Compile,
-    shared_audit_tile: *std.Build.Module,
+    shared_audit_consts: *std.Build.Module,
+    shared_audit: *std.Build.Module,
     shared_basket: *std.Build.Module,
     shared_portfolio: *std.Build.Module,
     shared_thesis: *std.Build.Module,
@@ -49,7 +49,6 @@ pub const IntegrationModules = struct {
 /// ModuleFactory encapsulates the creation of all integration-test
 /// shared modules. Both unit.zig and integration.zig create a
 /// ModuleFactory and call createIntModules().
-
 pub const ModuleFactory = struct {
     b: *std.Build,
     shared: modules.Shared,
@@ -185,17 +184,29 @@ pub const ModuleFactory = struct {
             },
         });
 
+        const shared_fixture_mod = self.b.createModule(.{
+            .root_source_file = self.b.path("src/tickoni/test/fixtures/shared.zig"),
+            .target = self.target,
+            .optimize = self.optimize,
+            .imports = &.{
+                .{ .name = "audit", .module = self.shared.audit },
+                .{ .name = "runtime", .module = self.shared.runtime },
+            },
+        });
+
         const investment_audit_int_mod = self.b.createModule(.{
             .root_source_file = self.b.path("src/tickoni/test/fixtures/investment/audit_trace.zig"),
             .target = self.target,
             .optimize = self.optimize,
             .imports = &.{
-                .{ .name = "audit_tile", .module = self.shared.audit_tile },
+                .{ .name = "audit", .module = self.shared.audit },
                 .{ .name = "basket", .module = self.shared.basket },
                 .{ .name = "drift", .module = self.tm.drift },
                 .{ .name = "model", .module = model_int_mod },
                 .{ .name = "portfolio", .module = self.shared.portfolio },
                 .{ .name = "replay", .module = replay_int_mod },
+                .{ .name = "runtime", .module = self.shared.runtime },
+                .{ .name = "shared", .module = shared_fixture_mod },
                 .{ .name = "thesis", .module = self.shared.thesis },
                 .{ .name = "trade_ticket", .module = self.tm.trade_ticket },
             },
@@ -318,7 +329,8 @@ pub const ModuleFactory = struct {
             .mock_broker_market_server_mod = mock_broker_market_server_mod,
             .mock_openai_server_mod = mock_openai_server_mod,
             .exe = exe,
-            .shared_audit_tile = self.shared.audit_tile,
+            .shared_audit_consts = self.shared.audit_consts,
+            .shared_audit = self.shared.audit,
             .shared_basket = self.shared.basket,
             .shared_portfolio = self.shared.portfolio,
             .shared_thesis = self.shared.thesis,

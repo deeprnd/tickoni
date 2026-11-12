@@ -43,6 +43,12 @@ def _resolve(tool_name, platform_str):
         ("gitleaks", "macos-x86", "darwin_x64"),
         ("actionlint", "linux-arm", "linux_arm64"),
         ("gitleaks", "linux-x86", "linux_x64"),
+        ("buf", "linux-x86", "Linux-x86_64"),
+        ("buf", "linux-arm", "Linux-arm64"),
+        ("buf", "macos-x86", "Darwin-x86_64"),
+        ("buf", "macos-arm", "Darwin-arm64"),
+        ("buf", "windows-x86", "Windows-x86_64.exe"),
+        ("buf", "windows-arm", "Windows-arm64.exe"),
     ],
 )
 def test_github_release_asset_resolves(tool_name, platform_str, expected_token):

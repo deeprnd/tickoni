@@ -385,8 +385,11 @@ STEM_(run1)( ulong                        in_cnt,
 
   FD_LOG_INFO(( "Running stem, cr_max = %lu", cr_max ));
   FD_MGAUGE_SET( TILE, STATUS, 1UL );
-  long then = fd_tickcount();
-  long now  = then;
+  /* Tick arithmetic below uses fd_tick_t (64-bit on every target, see
+     fd_util_base.h), not long: on Windows long is 32-bit and the tick
+     counter would wrap and overflow every ~1.4 s. */
+  fd_tick_t then = fd_tickcount_wide();
+  fd_tick_t now  = then;
   for(;;) {
 
 #ifdef STEM_CALLBACK_SHOULD_SHUTDOWN
@@ -396,7 +399,7 @@ STEM_(run1)( ulong                        in_cnt,
     /* Do housekeeping at a low rate in the background */
 
     ulong housekeeping_ticks = 0UL;
-    if( FD_UNLIKELY( (now-then)>=0L ) ) {
+    if( FD_UNLIKELY( (now-then)>=(fd_tick_t)0 ) ) {
       ulong event_idx = (ulong)event_map[ event_seq ];
 
       /* Do the next async event.  event_idx:
@@ -507,8 +510,8 @@ STEM_(run1)( ulong                        in_cnt,
       }
 
       /* Reload housekeeping timer */
-      then = now + (long)fd_tempo_async_reload( rng, async_min );
-      long next = fd_tickcount();
+      then = now + (fd_tick_t)fd_tempo_async_reload( rng, async_min );
+      fd_tick_t next = fd_tickcount_wide();
       housekeeping_ticks = (ulong)(next - now);
       now = next;
     }
@@ -544,7 +547,7 @@ STEM_(run1)( ulong                        in_cnt,
       metric_in_backp   = 1UL;
       FD_SPIN_PAUSE();
       metric_regime_ticks[2] += housekeeping_ticks;
-      long next = fd_tickcount();
+      fd_tick_t next = fd_tickcount_wide();
       metric_regime_ticks[5] += (ulong)(next - now);
       now = next;
       continue;
@@ -557,7 +560,7 @@ STEM_(run1)( ulong                        in_cnt,
     STEM_CALLBACK_AFTER_CREDIT( ctx, &stem, &poll_in, &charge_busy_after );
     if( FD_UNLIKELY( !poll_in ) ) {
       metric_regime_ticks[1] += housekeeping_ticks;
-      long next = fd_tickcount();
+      fd_tick_t next = fd_tickcount_wide();
       metric_regime_ticks[4] += (ulong)(next - now);
       now = next;
       continue;
@@ -569,7 +572,7 @@ STEM_(run1)( ulong                        in_cnt,
     if( FD_UNLIKELY( !in_cnt ) ) {
       int was_busy = charge_busy_before+charge_busy_after;
       metric_regime_ticks[0] += housekeeping_ticks;
-      long next = fd_tickcount();
+      fd_tick_t next = fd_tickcount_wide();
       if( FD_UNLIKELY( was_busy ) ) metric_regime_ticks[3] += (ulong)(next - now);
       else                          metric_regime_ticks[6] += (ulong)(next - now);
       now = next;
@@ -586,7 +589,7 @@ STEM_(run1)( ulong                        in_cnt,
 #endif
 
 #if defined(STEM_CALLBACK_BEFORE_CREDIT) || defined(STEM_CALLBACK_AFTER_CREDIT)
-      long prefrag_next = fd_tickcount();
+      fd_tick_t prefrag_next = fd_tickcount_wide();
       prefrag_ticks = (ulong)(prefrag_next - now);
       now = prefrag_next;
     }
@@ -645,7 +648,7 @@ STEM_(run1)( ulong                        in_cnt,
       /* Don't bother with spin as polling multiple locations */
       *housekeeping_regime += housekeeping_ticks;
       *prefrag_regime += prefrag_ticks;
-      long next = fd_tickcount();
+      fd_tick_t next = fd_tickcount_wide();
       *finish_regime += (ulong)(next - now);
       now = next;
       continue;
@@ -656,7 +659,7 @@ STEM_(run1)( ulong                        in_cnt,
     if( FD_UNLIKELY( filter<0 ) ) {
       metric_regime_ticks[1] += housekeeping_ticks;
       metric_regime_ticks[4] += prefrag_ticks;
-      long next = fd_tickcount();
+      fd_tick_t next = fd_tickcount_wide();
       metric_regime_ticks[7] += (ulong)(next - now);
       now = next;
       continue;
@@ -670,7 +673,7 @@ STEM_(run1)( ulong                        in_cnt,
 
       metric_regime_ticks[1] += housekeeping_ticks;
       metric_regime_ticks[4] += prefrag_ticks;
-      long next = fd_tickcount();
+      fd_tick_t next = fd_tickcount_wide();
       metric_regime_ticks[7] += (ulong)(next - now);
       now = next;
       continue;
@@ -718,7 +721,7 @@ STEM_(run1)( ulong                        in_cnt,
       /* Don't bother with spin as polling multiple locations */
       metric_regime_ticks[1] += housekeeping_ticks;
       metric_regime_ticks[4] += prefrag_ticks;
-      long next = fd_tickcount();
+      fd_tick_t next = fd_tickcount_wide();
       metric_regime_ticks[7] += (ulong)(next - now);
       now = next;
       continue;
@@ -728,7 +731,7 @@ STEM_(run1)( ulong                        in_cnt,
     int return_frag = STEM_CALLBACK_RETURNABLE_FRAG( ctx, (ulong)this_in->idx, seq_found, sig, chunk, sz, ctl, tsorig, tspub, &stem );
     if( FD_UNLIKELY( return_frag ) ) {
       metric_regime_ticks[1] += housekeeping_ticks;
-      long next = fd_tickcount();
+      fd_tick_t next = fd_tickcount_wide();
       metric_regime_ticks[4] += (ulong)(next - now);
       now = next;
       continue;
@@ -750,7 +753,7 @@ STEM_(run1)( ulong                        in_cnt,
 
     metric_regime_ticks[1] += housekeeping_ticks;
     metric_regime_ticks[4] += prefrag_ticks;
-    long next = fd_tickcount();
+    fd_tick_t next = fd_tickcount_wide();
     metric_regime_ticks[7] += (ulong)(next - now);
     now = next;
   }

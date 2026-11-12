@@ -107,6 +107,19 @@ pub fn wkspExistsNamed(name: [*:0]const u8) bool {
 }
 
 // ---------------------------------------------------------------------------
+// Canonical workspace names for Tickoni topology.
+// These mirror Firedancer's workspace name conventions used by
+// the metric tile (fd_tile_metric.name = "metric") and the
+// metric_in workspace that collects metric tile outputs.
+//
+// topo_build.zig and supervisor.zig use these constants instead
+// of raw string literals to keep topology declaration centralized.
+// ---------------------------------------------------------------------------
+
+pub const wksp_name_metric: [*:0]const u8 = "metric";
+pub const wksp_name_metric_in: [*:0]const u8 = "metric_in";
+
+// ---------------------------------------------------------------------------
 // Tests — constants only; no C linkage required
 // ---------------------------------------------------------------------------
 

@@ -13,6 +13,7 @@ const std = @import("std");
 const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const tiles = @import("tiles");
+const tile_ids = rt.tile_ids;
 
 /// Process-mode run callback: joins this tile's links from the launch spec
 /// and runs its pipeline stage. Not every tile has a process-mode role yet
@@ -70,7 +71,7 @@ pub const TileEntry = struct {
 };
 
 fn id(comptime s: []const u8) rt.tile.TileId {
-    return rt.tile.TileId.parse(s) catch unreachable;
+    return tile_ids.lookup(s) orelse unreachable;
 }
 
 /// Reads the payment-pipeline test config the supervisor wrote once for
@@ -117,11 +118,14 @@ fn loadProcessConfig(io: std.Io, spec: *const rt.launch_spec.LaunchSpec) !tiles.
 
 fn tkingsProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
     _ = allocator;
+    std.debug.print("[tkings] joining output link...\n", .{});
     if (spec.out_cnt != 1) return error.MissingOutputLink;
     var output = try rt.link.Producer.join(wksp, spec.outLinks()[0]);
     defer output.leave();
     const cfg = try loadProcessConfig(io, spec);
+    std.debug.print("[tkings] producing events (event_count={d})...\n", .{cfg.pipeline.event_count});
     tiles.process.runIngestProcess(cfg, spec.tile_idx, &output, cnc);
+    std.debug.print("[tkings] done producing\n", .{});
 }
 
 fn tkrnormProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
@@ -161,17 +165,6 @@ fn tkpolyProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
     tiles.process.runPolicyProcess(cfg, spec.tile_idx, &input, &output, cnc);
 }
 
-fn tkaudtProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
-    if (spec.in_cnt != 1) return error.MissingInputLink;
-    var input = try rt.link.Consumer.join(wksp, spec.inLinks()[0]);
-    defer input.leave();
-    const cfg = try loadProcessConfig(io, spec);
-    const cap: usize = @intCast(cfg.pipeline.event_count);
-    var audit_log = try tiles.audit_sink.AuditLog.init(allocator, cap);
-    defer audit_log.deinit(allocator);
-    tiles.process.runAuditProcess(cfg, spec.tile_idx, &input, cnc, &audit_log);
-}
-
 // ---------------------------------------------------------------------------
 // Registry.
 // ---------------------------------------------------------------------------
@@ -183,44 +176,47 @@ fn tkaudtProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
 /// position, so a reordering here is harmless.
 pub const entries = [_]TileEntry{
     .{
-        .id = id("tkings"),
+        .id = tile_ids.tkings,
         .process_fn = tkingsProcess,
         .counters = &.{.{ .idx = 0, .field = .produced }},
         .out_cnt = 1,
     },
     .{
-        .id = id("tknorm"),
+        .id = tile_ids.tknorm,
         .process_fn = tkrnormProcess,
         .counters = &.{ .{ .idx = 0, .field = .normalized }, .{ .idx = 1, .field = .invalid } },
         .in_cnt = 1,
         .out_cnt = 1,
     },
     .{
-        .id = id("tkdedu"),
+        .id = tile_ids.tkdedu,
         .process_fn = tkdeduProcess,
         .counters = &.{.{ .idx = 0, .field = .duplicates }},
         .in_cnt = 1,
         .out_cnt = 1,
     },
     .{
-        .id = id("tkpoly"),
+        .id = tile_ids.tkpoly,
         .process_fn = tkpolyProcess,
         .counters = &.{ .{ .idx = 0, .field = .allowed }, .{ .idx = 1, .field = .denied } },
         .in_cnt = 1,
         .out_cnt = 1,
     },
+    // tkaudt migrated to fd_stem tile (Phase 4.1) — lifecycle owned by
+    // TK_AUDIT_RUN's privileged_init / stem_run, not the process-mode
+    // callback path below.
     .{
-        .id = id("tkaudt"),
-        .process_fn = tkaudtProcess,
+        .id = tile_ids.tkaudt,
+        .process_fn = null,
         .counters = &.{.{ .idx = 0, .field = .audited }},
         .in_cnt = 1,
     },
     .{
-        .id = id("tkrepl"),
+        .id = tile_ids.tkrepl,
         .counters = &.{ .{ .idx = 0, .field = .replay_checked }, .{ .idx = 1, .field = .replay_match } },
     },
     .{
-        .id = id("metric"),
+        .id = tile_ids.metric,
         .counters = &.{
             .{ .idx = 0, .field = .metric_snapshots },
             .{ .idx = 1, .field = .metric_backpressure_waits },
@@ -230,7 +226,7 @@ pub const entries = [_]TileEntry{
         .out_cnt = 0,
     },
     .{
-        .id = id("tkdiag"),
+        .id = tile_ids.tkdiag,
         .counters = &.{ .{ .idx = 0, .field = .diag_crashed_tile }, .{ .idx = 1, .field = .diag_sandbox_failures } },
     },
 };
@@ -290,53 +286,53 @@ test "registry has exactly the 8 Phase 0 tiles" {
 
 test "findById finds every registered tile" {
     inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt", "tkrepl", "metric", "tkdiag" }) |name| {
-        const tile_id = try rt.tile.TileId.parse(name);
+        const tile_id = tile_ids.lookup(name) orelse unreachable;
         try std.testing.expect(findById(tile_id) != null);
     }
 }
 
 test "findById returns null for an unregistered id" {
-    const unknown = try rt.tile.TileId.parse("tkzzzz");
+    const unknown = rt.tile.TileId.parse("tkzzzz") catch unreachable;
     try std.testing.expectEqual(@as(?*const TileEntry, null), findById(unknown));
 }
 
 test "process_fn is null for tiles with no process-mode role" {
     inline for (.{ "tkrepl", "metric", "tkdiag" }) |name| {
-        const tile_id = try rt.tile.TileId.parse(name);
+        const tile_id = tile_ids.lookup(name) orelse unreachable;
         const entry = findById(tile_id).?;
         try std.testing.expectEqual(@as(?ProcessFn, null), entry.process_fn);
     }
 }
 
-test "process_fn is set for the 5 pipeline-stage tiles" {
-    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt" }) |name| {
-        const tile_id = try rt.tile.TileId.parse(name);
+test "process_fn is set for the 4 pipeline-stage tiles" {
+    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly" }) |name| {
+        const tile_id = tile_ids.lookup(name) orelse unreachable;
         const entry = findById(tile_id).?;
         try std.testing.expect(entry.process_fn != null);
     }
 }
 
 test "counter schema matches known field meanings" {
-    const tkings = findById(try rt.tile.TileId.parse("tkings")).?;
+    const tkings = findById(tile_ids.tkings).?;
     try std.testing.expectEqual(@as(usize, 1), tkings.counters.len);
     try std.testing.expectEqual(CounterField.produced, tkings.counters[0].field);
 
-    const tkrnorm = findById(try rt.tile.TileId.parse("tknorm")).?;
+    const tkrnorm = findById(tile_ids.tknorm).?;
     try std.testing.expectEqual(@as(usize, 2), tkrnorm.counters.len);
     try std.testing.expectEqual(CounterField.normalized, tkrnorm.counters[0].field);
     try std.testing.expectEqual(CounterField.invalid, tkrnorm.counters[1].field);
 }
 
 test "expected link cardinality matches the linear Phase 0 chain" {
-    const tkings = findById(try rt.tile.TileId.parse("tkings")).?;
+    const tkings = findById(tile_ids.tkings).?;
     try std.testing.expectEqual(@as(u8, 0), tkings.in_cnt);
     try std.testing.expectEqual(@as(u8, 1), tkings.out_cnt);
 
-    const tkaudt = findById(try rt.tile.TileId.parse("tkaudt")).?;
+    const tkaudt = findById(tile_ids.tkaudt).?;
     try std.testing.expectEqual(@as(u8, 1), tkaudt.in_cnt);
     try std.testing.expectEqual(@as(u8, 0), tkaudt.out_cnt);
 
-    const tkrepl = findById(try rt.tile.TileId.parse("tkrepl")).?;
+    const tkrepl = findById(tile_ids.tkrepl).?;
     try std.testing.expectEqual(@as(u8, 0), tkrepl.in_cnt);
     try std.testing.expectEqual(@as(u8, 0), tkrepl.out_cnt);
 }
@@ -461,10 +457,10 @@ test "T10.4 positive fan-in: channel array has 2 inbound links to tkaudt" {
 
     // The topology itself is structurally valid.
     const fanin_descriptors = [_]rt.tile.TileDescriptor{
-        .{ .id = 0, .name = id("tkings") },
-        .{ .id = 1, .name = id("tknorm") },
-        .{ .id = 2, .name = id("tkdedu") },
-        .{ .id = 3, .name = id("tkaudt") },
+        .{ .id = 0, .name = tile_ids.tkings },
+        .{ .id = 1, .name = tile_ids.tknorm },
+        .{ .id = 2, .name = tile_ids.tkdedu },
+        .{ .id = 3, .name = tile_ids.tkaudt },
     };
     const fanin_topo = rt.topology.Topology{ .tiles = &fanin_descriptors, .channels = &fanin_channels };
     try fanin_topo.validate(); // passes — structural constraints are satisfied
@@ -476,12 +472,11 @@ test "T10.4 positive fan-in: channel array has 2 inbound links to tkaudt" {
 // ---------------------------------------------------------------------------
 
 test "validate rejects mismatched process callback for tiles with pipeline role" {
-    // Each of the 5 pipeline-stage tiles must have a non-null process_fn.
-    // If a process_fn were null for one of these, the supervisor's
-    // startPaymentPipelineProcess would fail when it tries to spawn the
-    // tile (T10.14: null process callback for a pipeline-stage tile).
-    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt" }) |name| {
-        const tile_id = try rt.tile.TileId.parse(name);
+    // Each of the 4 pipeline-stage tiles must have a non-null process_fn.
+    // tkaudt has migrated to an fd_stem tile and no longer uses the process
+    // callback path — it runs via TK_AUDIT_RUN instead.
+    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly" }) |name| {
+        const tile_id = tile_ids.lookup(name) orelse unreachable;
         const entry = findById(tile_id).?;
         try std.testing.expect(entry.process_fn != null);
     }
@@ -492,7 +487,7 @@ test "validate rejects mismatched process callback for tiles with pipeline role"
 // the topology.validate() and cpu_placement.validate() functions already
 // enforce; this test verifies the error surface is correct.
 test "validate rejects topology with empty tile name" { // Overwrite tile 0 with empty name (TileId with empty slice).
-    const empty_name = try rt.tile.TileId.parse("");
+    const empty_name = rt.tile.TileId.parse("") catch unreachable;
     var descriptors = descriptorsFromRegistry();
     descriptors[0].name = empty_name;
     // topology.validate() rejects empty tile names via EmptyTileName.
@@ -532,7 +527,7 @@ test "validate rejects link id not present in topology channels" { // If a tile'
     // verify individual link ids. This test documents that the cardinality
     // check is the primary gate; individual link id validation would need
     // an explicit extension to validate(topo) (future work, not in T10).
-    const entry = findById(try rt.tile.TileId.parse("tkings")).?;
+    const entry = findById(tile_ids.tkings).?;
     // tkings has out_cnt == 1; the topology must have exactly one channel
     // with src_idx == 0 to match.
     const channels = channelsFromRegistry();
@@ -558,7 +553,7 @@ test "validate rejects empty link arrays for tiles that require links" { // tkin
 
 test "validate accepts tiles with zero links when registry expects zero" { // tkrepl, metric, tkdiag have in_cnt == 0 and out_cnt == 0 — a
     // topology with 0 channels should still validate for these tiles.
-    const entry = findById(try rt.tile.TileId.parse("tkrepl")).?;
+    const entry = findById(tile_ids.tkrepl).?;
     try std.testing.expectEqual(@as(u8, 0), entry.in_cnt);
     try std.testing.expectEqual(@as(u8, 0), entry.out_cnt);
 }

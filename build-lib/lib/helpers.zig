@@ -104,13 +104,10 @@ pub fn createCliExe(
         .name = "tickoni",
         .root_module = cli_main_mod,
     });
-    cli_exe.root_module.addCSourceFiles(.{
-        .files = &.{"src/tickoni/util/compiler_version.c"},
-    });
     if (target.result.os.tag == .windows) {
         cli_exe.root_module.linkLibrary(codec.addTickoniCodecShimLibrary(b, target, optimize, "tickoni-codec-shims"));
         codec.addWindowsFdManifestFixups(b, cli_exe, b.fmt("{s}/fd_windows_zig_codec_link.txt", .{fd_lib_dir}));
-        codec.addTickoniSystemLibraries(b, cli_exe, fd_lib_dir, &.{"fd_ballet", "fd_util"});
+        codec.addTickoniSystemLibraries(b, cli_exe, fd_lib_dir, &.{ "fd_ballet", "fd_util" });
         cli_exe.root_module.linkSystemLibrary("crypt32", .{ .use_pkg_config = .no });
     } else {
         codec.linkTickoniCodec(b, cli_exe, fd_lib_dir);

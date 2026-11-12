@@ -54,6 +54,9 @@ pub fn main(init: std.process.Init) !void {
     log.enter("main", "init");
     defer log.exit("main", "init");
 
+    // Ignore SIGPIPE early, before any workspace or tile operations.
+    ignoreSigPipe();
+
     if (verbose) log.debug("main", "main", "verbose mode enabled");
 
     // First arg is the command
@@ -66,12 +69,7 @@ pub fn main(init: std.process.Init) !void {
     if (std.mem.eql(u8, cmd, "--version")) {
         log.debug("main", "main", "version flag received");
         const ver = @import("version");
-        const info = ver.VersionInfo.init(init.gpa) catch |err| {
-            var buf: [256]u8 = undefined;
-            const msg = try std.fmt.bufPrint(&buf, "version info init: {}\n", .{err});
-            try File.writeStreamingAll(File.stderr(), init.io, msg);
-            std.process.exit(1);
-        };
+        const info = ver.VersionInfo.init();
         var buf: [1024]u8 = undefined;
         var w = std.Io.Writer.fixed(&buf);
         try ver.formatVersionInfo(info, &w);
@@ -90,6 +88,14 @@ pub fn main(init: std.process.Init) !void {
     if (std.mem.eql(u8, cmd, "__tile-run")) {
         const spec_path = if (arg_count > 1) args[1] else std.process.exit(1);
         std.process.exit(tile_main.run(init.io, init.gpa, spec_path));
+    }
+
+    // Internal supervisor-to-child handoff for stem tiles (tkaudt):
+    // minimal boot + topology rebuild without Zig callbacks; dispatches
+    // to the tile's own fd_stem-based run loop.
+    if (std.mem.eql(u8, cmd, "__stem-run")) {
+        const spec_path = if (arg_count > 1) args[1] else std.process.exit(1);
+        std.process.exit(tile_main.stemRun(init.io, init.gpa, spec_path));
     }
 
     if (std.mem.eql(u8, cmd, "start-process")) {
@@ -145,9 +151,10 @@ fn cmdDoctor(init: std.process.Init, format: doctor_output.Format) !void {
     std.process.exit(if (fail_count > 0) 1 else 0);
 }
 
-/// v2.14.S1: run the payment pipeline as one OS process per tile connected
-/// by Tango shared memory instead of in-process threads. run_dir holds the
-/// per-tile launch specs and the FD_SHMEM_PATH workspace backing.
+fn ignoreSigPipe() void {
+    util.os_api.ignoreSigpipe();
+}
+
 fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: []const u8, verbose: bool) !void {
     const log = logger.get();
     log.enter("cmdStartProcess", "init");

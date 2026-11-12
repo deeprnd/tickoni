@@ -11,3 +11,4 @@ pub const peekBinaryLen = audit.peekBinaryLen;
 pub const formatBinary = audit.formatBinary;
 pub const parseBinary = audit.parseBinary;
 pub const formatJsonLine = audit.formatJsonLine;
+pub const jsonl = audit.jsonl;

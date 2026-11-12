@@ -10,6 +10,15 @@
 ///   zig build compile-tk
 ///
 /// The existing GNUmakefile (C/Firedancer build) is unchanged.
+///
+/// Build system rationale: the build graph is factored into build-lib/ submodules —
+/// modules.zig (Shared declarations), test_modules.zig (TestModules), factory.zig
+/// (integration module graph), lanes/{unit,integration,cov}.zig (lane strategies),
+/// and lib/{helpers,shims,codec,firedancer,topo_run,tile_run}.zig (linkage helpers).
+/// This decomposition was introduced in the tkaudt consolidation epic
+/// (v2.22-s26-tkaudt-dedup-done.md) to support lane-based test registration,
+/// audit codec linkage, and Firedancer integration wiring. Each submodule has a
+/// single responsibility: module declarations, lane registration, or linkage.
 
 const std = @import("std");
 const helpers = @import("build-lib/lib/helpers.zig");
@@ -26,7 +35,24 @@ fn validateBuildPath(path: []const u8) ![]const u8 {
 }
 
 pub fn build(b: *std.Build) void {
-    const target = b.standardTargetOptions(.{});
+    const native_target = b.standardTargetOptions(.{});
+    // Native CPU detection on certain x86_64 CPUs (e.g. icelake_server)
+    // produces enum values the C frontend (aro) rejects.  Construct a safe
+    // target that preserves native OS/ABI (for library resolution) but
+    // uses haswell CPU model (matches Firedancer x86_64 baseline).
+    const target = if (native_target.result.cpu.arch == .x86_64) blk: {
+        const safe_cpu = std.Target.x86.cpu.haswell.toCpu(.x86_64);
+        break :blk std.Build.ResolvedTarget{
+            .query = native_target.query,
+            .result = .{
+                .cpu = safe_cpu,
+                .os = native_target.result.os,
+                .abi = native_target.result.abi,
+                .ofmt = native_target.result.ofmt,
+                .dynamic_linker = native_target.result.dynamic_linker,
+            },
+        };
+    } else native_target;
     const optimize = b.standardOptimizeOption(.{});
     const fd_lib_dir = validateBuildPath(b.option([]const u8, "fd-lib-dir", "Firedancer lib dir (default: build/fd-tickoni-fd/lib)") orelse "build/fd-tickoni-fd/lib") catch {
         std.debug.print("error: Invalid --fd-lib-dir: must be a non-empty, non-absolute path under 1024 chars without '..' components\n", .{});
@@ -34,8 +60,13 @@ pub fn build(b: *std.Build) void {
     };
     const build_tests = b.option(bool, "test", "Compile and run Tickoni test binaries") orelse false;
     const build_perf = b.option(bool, "perf", "Compile and run Tickoni performance test binaries") orelse false;
+    const zig_version_raw = b.option([]const u8, "zig-version", "Zig compiler version string") orelse {
+        std.debug.print("error: --zig-version is required\n", .{});
+        return;
+    };
+    const zig_version = zig_version_raw;
 
-    const shared = @import("build-lib/mod/modules.zig").modules(b, target, optimize);
+    const shared = @import("build-lib/mod/modules.zig").modules(b, target, optimize, zig_version);
     const tm = @import("build-lib/mod/test_modules.zig").testModules(b, target, optimize, shared);
 
     // Supervisor executable

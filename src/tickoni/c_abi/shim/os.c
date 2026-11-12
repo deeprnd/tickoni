@@ -11,6 +11,7 @@
  * Function catalog:
  *   tk_port_is_in_use       — bind a TCP socket to check port availability (Win32 only)
  *   tk_monotonic_nanos      — monotonic clock in nanoseconds
+ *   tk_ignore_sigpipe       — ignore SIGPIPE to prevent supervisor death from tile crashes
  *   tk_sleep_nanos          — sleep for a specified nanosecond count
  *   tk_self_exe_path        — resolve the executable's file path
  *   tk_parent_pid           — get the parent PID of a given process
@@ -223,6 +224,18 @@ int tk_isatty( int fd ) {
 
 void tk_fflush( void ) {
   fflush( stderr );
+}
+
+void tk_ignore_sigpipe( void ) {
+  /* SIGPIPE (signal 13) terminates processes by default on writes to broken
+   * pipes/sockets. The supervisor spawns child tile processes connected by
+   * pipes; when one crashes the others get broken-pipe writes. Without
+   * ignoring SIGPIPE, a single tile crash cascades into supervisor death —
+   * the very failure the supervisor must detect and report. */
+  struct sigaction sa;
+  memset( &sa, 0, sizeof(sa) );
+  sa.sa_handler = SIG_IGN;
+  sigaction( SIGPIPE, &sa, NULL );
 }
 
 int tk_setenv( const char * name, const char * value, int overwrite ) {
@@ -484,6 +497,12 @@ int tk_isatty( int fd ) {
 
 void tk_fflush( void ) {
   fflush( stderr );
+}
+
+void tk_ignore_sigpipe( void ) {
+  /* Windows has no SIGPIPE signal; broken pipe writes return WSAECONNRESET
+   * (an error code, not a signal). No-op. */
+  (void)0;
 }
 
 int tk_setenv( const char * name, const char * value, int overwrite ) {

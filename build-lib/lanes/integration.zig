@@ -2,7 +2,6 @@
 ///
 /// Module creation is delegated to the ModuleFactory in factory.zig.
 /// This file owns only the integration test registration (strategy).
-
 const std = @import("std");
 const factory = @import("../factory.zig");
 const codec = @import("../lib/codec.zig");
@@ -43,8 +42,8 @@ pub const LaneKind = enum {
     domain,
 };
 
-/// Max possible run count across all lane kinds (all=15).
-const max_run_count: usize = 15;
+/// Max possible run count across all lane kinds (all=16).
+const max_run_count: usize = 16;
 
 /// Register integration tests for the requested lane kind.
 pub fn strategy(
@@ -67,6 +66,7 @@ pub fn strategy(
         .{ .name = "util", .module = int_mods.shared_util },
         .{ .name = "supervisor", .module = int_mods.supervisor_named_mod },
         .{ .name = "topologies", .module = int_mods.shared_topologies },
+        .{ .name = "audit_consts", .module = int_mods.shared_audit_consts },
     };
 
     // ------------------------------------------------------------------
@@ -88,6 +88,8 @@ pub fn strategy(
             "src/tickoni/test/integration/test_process_cpu_placement.zig",
             "src/tickoni/test/integration/test_process_fixture_parity.zig",
             "src/tickoni/test/integration/test_link_bounds.zig",
+            "src/tickoni/test/integration/test_minimal_setup.zig",
+            "src/tickoni/test/integration/test_tkaudt_integration.zig",
         };
 
         for (infra_proc_files) |path| {
@@ -170,7 +172,8 @@ pub fn strategy(
                 .optimize = optimize,
                 .imports = &.{
                     .{ .name = "adapter", .module = int_mods.adapter_int_mod },
-                    .{ .name = "audit_tile", .module = int_mods.shared_audit_tile },
+                    .{ .name = "runtime", .module = int_mods.shared_runtime },
+                    .{ .name = "audit", .module = int_mods.shared_audit },
                     .{ .name = "basket", .module = int_mods.shared_basket },
                     .{ .name = "investment_audit", .module = int_mods.investment_audit_int_mod },
                     .{ .name = "investment_fixture", .module = int_mods.investment_fixture_mod },
@@ -246,7 +249,7 @@ pub fn strategy(
                 .optimize = optimize,
                 .imports = &.{
                     .{ .name = "adapter", .module = int_mods.adapter_int_mod },
-                    .{ .name = "audit_tile", .module = int_mods.shared_audit_tile },
+                    .{ .name = "audit", .module = int_mods.shared_audit },
                     .{ .name = "investment_audit", .module = int_mods.investment_audit_int_mod },
                     .{ .name = "model", .module = int_mods.model_int_mod },
                     .{ .name = "portfolio", .module = int_mods.shared_portfolio },
@@ -297,7 +300,7 @@ pub fn strategy(
                 .target = target,
                 .optimize = optimize,
                 .imports = &.{
-                    .{ .name = "audit_tile", .module = int_mods.shared_audit_tile },
+                    .{ .name = "audit", .module = int_mods.shared_audit },
                     .{ .name = "basket", .module = int_mods.shared_basket },
                     .{ .name = "investment_audit", .module = int_mods.investment_audit_int_mod },
                     .{ .name = "replay", .module = int_mods.replay_int_mod },
@@ -332,17 +335,17 @@ pub fn strategy(
             }),
         });
         system_suite_test.root_module.addCSourceFiles(.{
-            .files = &.{ "src/tickoni/c_abi/shim/os.c" },
+            .files = &.{"src/tickoni/c_abi/shim/os.c"},
             .flags = shims.shimCFlagsFor(target.result),
         });
         // os.c uses FD_HAS_LINUX / FD_HAS_MACOS / FD_HAS_WINDOWS to select
         // the platform block; add the platform define via addCMacro so it
         // stays in sync with shimCFlagsFor if the function changes.
         switch (target.result.os.tag) {
-            .linux    => system_suite_test.root_module.addCMacro("FD_HAS_LINUX",    "1"),
-            .macos    => system_suite_test.root_module.addCMacro("FD_HAS_MACOS",    "1"),
-            .windows  => system_suite_test.root_module.addCMacro("FD_HAS_WINDOWS",  "1"),
-            else      => {},
+            .linux => system_suite_test.root_module.addCMacro("FD_HAS_LINUX", "1"),
+            .macos => system_suite_test.root_module.addCMacro("FD_HAS_MACOS", "1"),
+            .windows => system_suite_test.root_module.addCMacro("FD_HAS_WINDOWS", "1"),
+            else => {},
         }
         if (target.result.os.tag == .windows) {
             system_suite_test.root_module.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });

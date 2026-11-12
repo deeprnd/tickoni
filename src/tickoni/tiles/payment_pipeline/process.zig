@@ -27,13 +27,15 @@ const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const util = @import("util");
 const payment_runtime = @import("runtime.zig");
-const audit_sink = @import("audit_sink.zig");
+const tile_ids = rt.tile_ids;
 
 const PaymentMessage = payment_runtime.PaymentMessage;
 const msg_size = @sizeOf(PaymentMessage);
 
 fn halted(cnc: *c_abi.cnc.Cnc) bool {
-    return c_abi.cnc.signalQuery(cnc) == c_abi.cnc.signal_halt;
+    const sig = c_abi.cnc.signalQuery(cnc);
+    std.debug.print("[halted] signal={d} halt={d} result={s}\n", .{ sig, c_abi.cnc.signal_halt, if (sig == c_abi.cnc.signal_halt) "true" else "false" });
+    return sig == c_abi.cnc.signal_halt;
 }
 
 // ---------------------------------------------------------------------------
@@ -144,7 +146,7 @@ pub fn runNormalizeProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, inp
         msg.event_hash = payment_runtime.stableEventHash(msg.raw);
         if (!payment_runtime.validFraming(msg.raw)) {
             msg.decision = .malformed_drop;
-            msg.decided_by = audit_sink.tile_id_tknorm;
+            msg.decided_by = tile_ids.tknorm;
             invalid += 1;
         } else {
             normalized += 1;
@@ -220,50 +222,20 @@ pub fn runPolicyProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, input:
             // malformed source facts.
         } else if (msg.duplicate) {
             msg.decision = .duplicate_drop;
-            msg.decided_by = audit_sink.tile_id_tkpoly;
+            msg.decided_by = tile_ids.tkpoly;
         } else if (msg.raw.amount_cents > cfg.policy_limit_cents) {
             msg.decision = .deny;
-            msg.decided_by = audit_sink.tile_id_tkpoly;
+            msg.decided_by = tile_ids.tkpoly;
             denied += 1;
         } else {
             msg.decision = .allow;
-            msg.decided_by = audit_sink.tile_id_tkpoly;
+            msg.decided_by = tile_ids.tkpoly;
             allowed += 1;
         }
         output.publish(std.mem.asBytes(&msg), &backpressure_waits, &stop_flag, cnc) catch break;
     }
     rt.cnc_counters.appCounterWrite(cnc, 0, allowed);
     rt.cnc_counters.appCounterWrite(cnc, 1, denied);
-}
-
-pub fn runAuditProcess(
-    process_cfg: ProcessRuntimeConfig,
-    tile_idx: u32,
-    input: *rt.link.Consumer,
-    cnc: *c_abi.cnc.Cnc,
-    audit_log: *audit_sink.AuditLog,
-) void {
-    const cfg = process_cfg.pipeline;
-    var stop_flag = std.atomic.Value(bool).init(false);
-    var idle_polls = std.atomic.Value(u64).init(0);
-    var buf: [msg_size]u8 = undefined;
-
-    var audited: u64 = 0;
-    var i: u64 = 0;
-    while (i < cfg.event_count) : (i += 1) {
-        maybeBlockForTest(process_cfg, tile_idx, i);
-        if (halted(cnc)) break;
-        _ = input.consume(&buf, &idle_polls, &stop_flag, cnc) orelse break;
-        const msg = std.mem.bytesToValue(PaymentMessage, buf[0..msg_size]);
-        audit_log.append(.{
-            .source_offset = msg.raw.source_offset,
-            .event_hash = msg.event_hash,
-            .decision = @fromBackingInt(@intCast(@backingInt(msg.decision))),
-            .tile_id = msg.decided_by,
-        }) catch break;
-        audited += 1;
-    }
-    rt.cnc_counters.appCounterWrite(cnc, 0, audited);
 }
 
 // ---------------------------------------------------------------------------

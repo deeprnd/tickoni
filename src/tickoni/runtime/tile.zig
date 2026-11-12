@@ -1,5 +1,6 @@
 const std = @import("std");
 const cpu_placement = @import("cpu_placement.zig");
+const tile_ids = @import("tile_ids.zig");
 
 /// Six-character runtime ID for a tile (matches the fd_topo char name[7] constraint).
 pub const TileId = struct {
@@ -123,8 +124,9 @@ pub const TileHandle = struct {
 };
 
 test "TileId parse valid 6-char name" {
+    // parse is the only runtime string→TileId path and must stay.
     const id = try TileId.parse("tkings");
-    try std.testing.expectEqualStrings("tkings", id.slice());
+    try std.testing.expectEqualStrings(tile_ids.tkings.slice(), id.slice());
 }
 
 test "TileId parse short name" {
@@ -137,11 +139,8 @@ test "TileId parse rejects names longer than 6 chars" {
 }
 
 test "TileId equality" {
-    const a = try TileId.parse("tknorm");
-    const b = try TileId.parse("tknorm");
-    const c = try TileId.parse("tkdedu");
-    try std.testing.expect(a.eql(b));
-    try std.testing.expect(!a.eql(c));
+    try std.testing.expect(tile_ids.tknorm.eql(tile_ids.tknorm));
+    try std.testing.expect(!tile_ids.tknorm.eql(tile_ids.tkdedu));
 }
 
 test "TileHandle initialises in stopped state" {

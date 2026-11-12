@@ -9,7 +9,6 @@
 ///
 /// Doctor tests run against the actual host environment (fixture files,
 /// OS checks) rather than the sandboxed unit-test context.
-
 const std = @import("std");
 const shims = @import("../lib/shims.zig");
 const lane = @import("../lane.zig");

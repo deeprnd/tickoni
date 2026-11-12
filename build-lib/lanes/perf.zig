@@ -7,7 +7,6 @@
 /// These are performance guards, not correctness checks. They are intentionally
 /// separated from the integration lane so CI noise does not block correctness
 /// gates.
-
 const std = @import("std");
 const codec = @import("../lib/codec.zig");
 const firedancer = @import("../lib/firedancer.zig");
@@ -51,7 +50,7 @@ pub fn strategy(
                         .{ .name = "topologies", .module = perf_mods.shared.topologies },
                         .{ .name = "logger", .module = perf_mods.shared.logger },
                     },
-                })},
+                }) },
                 .{ .name = "util", .module = perf_mods.shared.util },
                 .{ .name = "topologies", .module = perf_mods.shared.topologies },
             },

@@ -14,6 +14,19 @@ pub const linux_ids = @import("linux_ids.zig");
 pub const sizes = @import("sizes.zig");
 pub const sandbox_defaults = @import("sandbox_defaults.zig");
 
+/// Convert a `[]const u8` slice to a null-terminated pointer suitable for
+/// C FFI. Caller supplies the buffer — the returned pointer is valid as long
+/// as the buffer outlives the call (never returns a dangling pointer).
+///
+/// Usage:
+///   var buf: [8]u8 = undefined;
+///   const z = util.toZ(&buf, some_slice);
+pub fn toZ(buf: []u8, s: []const u8) [*:0]const u8 {
+    @memcpy(buf[0..s.len], s);
+    buf[s.len] = 0;
+    return @ptrCast(&buf[0]);
+}
+
 /// Check whether a TCP port is already bound on localhost.
 /// Returns true if `bind()` fails (port in use or TIME_WAIT), false otherwise (port free).
 ///
@@ -96,7 +109,6 @@ pub fn nextWorkspaceName(buf: []u8) []const u8 {
 ///
 pub fn tmpDir() TmpDir {
     const io = std.testing.io;
-    const cwd = std.Io.Dir.cwd();
 
     const base_path = blk: {
         var buf: [1024]u8 = undefined;
@@ -107,18 +119,42 @@ pub fn tmpDir() TmpDir {
                 @panic("util.tmpDir: base path too long");
             break :blk buf[0..n.len];
         } else {
-            const n = std.fmt.bufPrint(&buf, ".zig-cache/tmp", .{}) catch
+            const n = std.fmt.bufPrint(&buf, "build/.zig-cache/tmp", .{}) catch
                 @panic("util.tmpDir: base path too long");
             break :blk buf[0..n.len];
         }
     };
 
-    // Create directory hierarchy following std.testing.tmpDir() pattern:
-    // cwd -> .zig-cache -> tmp -> unique_subdir
-    var cache_dir = cwd.createDirPathOpen(io, ".zig-cache", .{}) catch
-        @panic("util.tmpDir: failed to create .zig-cache");
-    const parent_dir = cache_dir.createDirPathOpen(io, "tmp", .{}) catch
+    // Create directory hierarchy: base_path (minus 'tmp') -> tmp -> unique_subdir
+    const parent_dir: std.Io.Dir = blk2: {
+        const last_slash = std.mem.lastIndexOfScalar(u8, base_path, '/') orelse
+            @panic("util.tmpDir: base_path has no slash");
+        const parent = base_path[0..last_slash];
+        if (parent.len > 0 and parent[0] == '/') {
+            break :blk2 std.Io.Dir.openDir(std.Io.Dir.cwd(), io, parent, .{
+                .access_sub_paths = true,
+            }) catch @panic("util.tmpDir: failed to open parent dir");
+        }
+        // Relative path: open each component progressively (openDir doesn't
+        // support multi-component relative paths)
+        var dir = std.Io.Dir.cwd();
+        var remaining = parent;
+        while (remaining.len > 0) {
+            const slash = std.mem.indexOfScalar(u8, remaining, '/') orelse {
+                dir = dir.createDirPathOpen(io, remaining, .{}) catch
+                    @panic("util.tmpDir: failed to open parent dir");
+                break;
+            };
+            const comp = remaining[0..slash];
+            dir = dir.createDirPathOpen(io, comp, .{}) catch
+                @panic("util.tmpDir: failed to open parent dir");
+            remaining = remaining[slash + 1 ..];
+        }
+        break :blk2 dir;
+    };
+    const tmp_dir = parent_dir.createDirPathOpen(io, "tmp", .{}) catch
         @panic("util.tmpDir: failed to create tmp dir");
+    const cache_dir = tmp_dir;
 
     // Generate unique subdirectory name (12 base64 chars from 12 random bytes)
     var random_bytes: [12]u8 = undefined;
@@ -126,7 +162,7 @@ pub fn tmpDir() TmpDir {
     var sub_path: [16]u8 = undefined;
     _ = std.base64.url_safe.Encoder.encode(&sub_path, &random_bytes);
 
-    const dir = parent_dir.createDirPathOpen(io, sub_path[0..12], .{}) catch
+    const dir = tmp_dir.createDirPathOpen(io, sub_path[0..12], .{}) catch
         @panic("util.tmpDir: failed to create temp directory");
 
     return .{

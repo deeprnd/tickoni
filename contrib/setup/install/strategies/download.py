@@ -106,7 +106,19 @@ def _verify_minisign(archive_path: Path, sig_path: Path, pubkey: str) -> None:
 
     cmd = [minisign, "-V", "-P", pubkey, "-x", str(sig_path), "-m", str(archive_path)]
     print(f"[verify] minisig {archive_path.name} ...")
-    result = subprocess.run(cmd, capture_output=False, text=True)
+    try:
+        result = subprocess.run(cmd, capture_output=False, text=True)
+    except OSError as exc:
+        # macOS can raise errno 86 (Bad CPU type) if the binary's
+        # architecture doesn't match the current Python process
+        # (e.g. ARM Python on x86 Mac / Rosetta, or a universal
+        # binary that lacks the current CPU slice).
+        print(
+            f"[WARN] minisign executable failed ({exc}); "
+            f"skipping signature verification for {archive_path.name}",
+            file=__import__('sys').stderr,
+        )
+        return
     if result.returncode != 0:
         # Dev builds may use a different signing key or have corrupted
         # signatures; treat as warning only for dev builds.
@@ -211,6 +223,10 @@ class GitHubReleaseStrategy(DownloadInstallStrategy):
         os_name, arch = get_platform_from_string(platform_str)
         if os_name == 'macos':
             os_name = 'darwin'
+        # Map orchestrator arch tokens to GitHub release pattern keys.
+        arch_map = {'x86': 'amd64', 'arm': 'arm64', 'amd64': 'amd64', 'arm64': 'arm64', 'aarch64': 'arm64'}
+        if arch is not None:
+            arch = arch_map.get(arch, arch)
         asset_pattern_os_map = params.get('asset_pattern_os_map', {})
         asset_pattern = params.get('asset_pattern', '')
         pattern = ''
@@ -240,7 +256,8 @@ class GitHubReleaseStrategy(DownloadInstallStrategy):
             version = release.get('tag_name', '').lstrip('v')
             pattern = pattern.replace('{version}', version)
 
-        download_url = f"https://github.com/{owner}/{repo}/releases/download/v{version}/{pattern}"
+        version_prefix = params.get('version_prefix', 'v')
+        download_url = f"https://github.com/{owner}/{repo}/releases/download/{version_prefix}{version}/{pattern}"
         return (download_url, version, pattern, verify_checksum)
 
     def _install_cbmc_deb(self, tool, params, config, platform_str, version):

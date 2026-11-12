@@ -63,10 +63,10 @@ This inventory is based on the tile registrations in
 against the actual tile implementations under `src/disco/`, `src/discof/`,
 `src/discoh/`, and `src/flamenco/accdb/`.
 
-The older fifteen-tile list in [`book/guide/tuning.md`](../../book/guide/tuning.md)
-is useful historical context, but it is not the complete map of the current
-full Firedancer application. `doc/organization.txt` is also only a directory
-guide; the tables below are source-backed.
+The older fifteen-tile list formerly kept at `book/guide/tuning.md` is useful
+historical context, but it is not the complete map of the current full
+Firedancer application. `doc/organization.txt` is also only a directory guide;
+the tables below are source-backed.
 
 ### Full Firedancer Tiles
 
@@ -168,7 +168,7 @@ financial meaning.
 | `metric` | Mostly generic, but assumes Firedancer metric layout and C topology | Useful model for `metric` Prometheus export and `fd_http_server` integration. | Keep metric workspace/rendering patterns; expose Tickoni metric names instead of validator metric schema. |
 | `diag` | Mixed: generic process diagnostics plus validator health checks | Useful model for `tkdiag` process, queue, crash, CPU, and interrupt diagnostics. | Minimal adaptation: remove validator-specific replay/tower/bundle checks and keep process/topology sampling. |
 | `fd_http_server` used by `metric`, `rpc`, and `gui` | Generic HTTP/WebSocket infrastructure, not itself a tile | Useful for `tkapi`, `metric`, and `tkdiag` HTTP surfaces. | Reuse the HTTP/WebSocket substrate, not Solana RPC or GUI schemas. |
-| `src/disco/topo` and `src/disco/stem` | Generic tile lifecycle/polling substrate | Useful for process lifecycle, workspace construction, link validation, bounded polling, and backpressure. | Use as lifecycle/backpressure reference material. Avoid adding Tickoni fields to upstream-hot `fd_topo.h`. |
+| `src/disco/topo` and `src/disco/stem` | Generic tile lifecycle/polling substrate | Useful for process lifecycle, workspace construction, link validation, bounded polling, and backpressure. | Reuse `fd_topo_run_tile` inside each Tickoni tile child process. Reuse `fd_stem.c` only through a tile-specific compile-time specialization; never share one generated stem runner across unrelated tile contexts. Avoid adding Tickoni fields to upstream-hot `fd_topo.h`. |
 | `src/tango` | Generic queue substrate | Core Tickoni shared-memory queue and flow-control substrate. | Reuse with Tickoni-owned link schemas. |
 | `src/util/sandbox` and generated seccomp pattern | Generic sandbox infrastructure with per-tile policies | Useful for tile isolation, file descriptor discipline, Landlock/seccomp, and crash-only operation. | Adapt per Tickoni tile class. |
 | `backtest`, `forkt`, benchmark tiles | Solana payloads, generic offline-run idea | Useful only as examples for replay/backtest command structure and test topologies. | Do not drop in; copy patterns for `tkrepl` and harness load tests. |
@@ -206,8 +206,8 @@ Tickoni should reuse stable systems substrate, not validator semantics.
 | `src/tango/fseq` or `src/tango/fctl` | Reliable consumer progress and producer backpressure |
 | `src/tango/cnc` | Tile boot, heartbeat, halt, and fail state |
 | `src/util/sandbox` | Process sandboxing on Linux only — namespaces, file descriptor checks, Landlock, and seccomp (see [platform-tiers.md](platform-tiers.md) for the step-by-step Linux-only breakdown and macOS/Windows equivalents) |
-| `src/disco/topo` | Reference for process lifecycle and workspace construction |
-| `src/disco/stem` | Reference for bounded polling loops and backpressure |
+| `src/disco/topo` | Reuse `fd_topo_run_tile` for lifecycle execution inside each supervisor-spawned tile child process |
+| `src/disco/stem` | Reuse only through tile-specific compile-time specializations for tiles such as `tkaudt` and `metric`; a generated runner is not a generic loop |
 | `src/disco/metrics` | Reference for low-overhead per-tile metrics; do not copy validator metric names as financial facts |
 | `src/waltz/http` | HTTP/WebSocket substrate for `tkapi`, `metric`, and diagnostics surfaces |
 | `net`, `sock`, `netlnk` tile implementations | Optional low-level network ingress/egress substrate when a Tickoni workflow proves it needs packet-tile performance |
@@ -235,7 +235,22 @@ Firedancer or vendored C headers. Avoid adding Tickoni fields to
 
 In Tickoni Linux full-runtime process mode, a tile is a supervisor-managed OS
 process with its own address space. Process mode is the only dispatch path;
-there is no thread-mode compatibility lane.
+there is no thread-mode compatibility lane. The supervisor uses lightweight
+Firedancer boot for logging and shared-memory setup, then starts one child with
+`std.process.spawn` for each configured tile.
+
+Each child uses full `fd_boot()` before calling `fd_topo_run_tile()`. Tickoni does
+not pass `--tile-cpus`, so Firedancer initializes a one-tile group: the child's
+calling thread becomes tile 0 and `fd_tile_private_boot()` creates no additional
+pthread. `fd_topo_run_tile()` then executes the selected tile lifecycle on that
+same child execution thread; it does not launch another tile process or thread.
+
+`FD_HAS_THREADS` is a Firedancer compile-time capability switch that changes
+facilities such as `FD_TL`; it is not a topology or launch-mode selector. Linux
+Tickoni shims therefore do not define `FD_HAS_THREADS=1`. They retain
+`FD_HAS_ATOMIC=1` because Firedancer atomics also cover different processes
+communicating through shared memory; this does not imply thread-per-tile
+execution.
 
 CPU placement is Tickoni-owned policy layered on top of the Firedancer
 substrate. Tickoni should support:
@@ -251,10 +266,11 @@ malformed CPU ids, and unavailable CPU ids fail closed. Shared-core placement is
 a lower-throughput placement mode and must be visible in metrics, diagnostics,
 or supervisor output.
 
-Process-mode topology tests should prove OS process identity, not only thread
-identity: one child PID or equivalent thread-group/process id per configured
-tile, tied back to the supervisor launch record. Shared CPU assignment does not
-change that process boundary.
+Process-mode topology tests should prove OS process identity: one distinct child
+PID per configured tile, tied back to the supervisor launch record. The fact
+that every process has a calling thread does not turn the topology into a
+thread-per-tile runtime, and shared CPU assignment does not change the process
+boundary.
 
 ### Shared-Memory Negative Cases
 
@@ -348,10 +364,12 @@ per-tile link arrays, or deliberately restrict process mode to single-link
 tiles and validate accordingly.
 
 The Firedancer comparison is instructive: `fd_stem.c` handles arbitrary fan-in
-at the callback level. Tickoni should not replicate that complexity in process
-mode — single-link per tile is the correct initial contract. If fan-in is
-needed, use tile aggregation patterns (dedupe before policy) rather than
-multi-input process tiles.
+at the callback level. Tickoni does not make stem the generic process
+orchestrator. A tile may opt into its own compile-time stem specialization when
+it needs Firedancer fragment polling, but the initial process contract remains
+single-link per tile and must be validated as such. If broader fan-in is needed,
+use tile aggregation patterns (dedupe before policy) or explicitly extend the
+launch contract rather than silently truncating links.
 
 ## Canonical Tickoni Source Tree
 
@@ -504,6 +522,9 @@ Per-platform tile launcher files (`topo_run_platform_*.c`) own pre-boot setup an
 | `topo_run_platform_linux.c` | Linux | `TK_PRE_BOOT_THREAD_NAME()` no-op | `fd_wksp_attach()` for each workspace |
 | `topo_run_platform_macos.c` | macOS | `pthread_setname_np()` for thread naming | `fd_wksp_attach()` for each workspace |
 | `topo_run_platform_windows.c` | Windows | No-op (Win32 default thread stack) | `fd_wksp_attach()` for each workspace |
+
+These hooks configure or name the calling thread inside an already-spawned tile
+process. They do not create a thread-mode topology or an additional tile thread.
 
 All three include `topo_run_platform_common.h`, which provides `tk_initialize_logging()` to eliminate ~33 lines of near-identical logging setup code per platform.
 

@@ -1125,7 +1125,9 @@ fd_log_private_boot( int  *   pargc,
     fd_log_private_sig_trap( SIGHUP    );
     fd_log_private_sig_trap( SIGILL    );
     fd_log_private_sig_trap( SIGQUIT   );
-    fd_log_private_sig_trap( SIGPIPE   );
+    /* SIGPIPE deliberately NOT trapped — let SIG_IGN or default handler apply.
+       The Firedancer log system overriding SIGPIPE with sig_abort breaks
+       supervisors and other processes that need to survive broken pipes. */
     fd_log_private_sig_trap( SIGSEGV   );
     fd_log_private_sig_trap( SIGUSR1   );
     fd_log_private_sig_trap( SIGUSR2   );
@@ -1243,7 +1245,9 @@ fd_log_private_boot_custom( ulong        app_id,
     fd_log_private_sig_trap( SIGHUP    );
     fd_log_private_sig_trap( SIGILL    );
     fd_log_private_sig_trap( SIGQUIT   );
-    fd_log_private_sig_trap( SIGPIPE   );
+    /* SIGPIPE deliberately NOT trapped — let SIG_IGN or default handler apply.
+       The Firedancer log system overriding SIGPIPE with sig_abort breaks
+       supervisors and other processes that need to survive broken pipes. */
     fd_log_private_sig_trap( SIGSEGV   );
     fd_log_private_sig_trap( SIGUSR1   );
     fd_log_private_sig_trap( SIGUSR2   );

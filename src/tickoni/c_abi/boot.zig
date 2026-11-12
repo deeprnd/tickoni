@@ -3,8 +3,9 @@
 /// Two boot paths exist:
 /// - `bootLite()` — version + log + shmem only. Used by the supervisor
 ///   which spawns tile child processes instead of running tile threads.
-/// - `boot()` — full boot including tile thread creation. Used by child
-///   tile processes that run stem_run() and need their own tile thread.
+/// - `boot()` — full boot including tile-subsystem initialization. Used by
+///   child tile processes; with no `--tile-cpus`, the calling thread becomes
+///   tile 0 and no additional pthread is created.
 ///
 /// Every process that touches fd_shmem/fd_wksp/fd_tango substrate calls
 /// its appropriate boot exactly once before using shared memory and
@@ -22,9 +23,8 @@ extern fn tk_boot(pargc: *c_int, pargv: *[*][*:0]u8) void;
 extern fn tk_halt() void;
 
 /// Lightweight boot: version + log + shmem only. Used by the supervisor
-/// and other bootstrap paths that spawn child tile processes instead of
-/// running tile threads in-process. Skips fd_tile_private_boot() which
-/// would create pthreads the supervisor never uses.
+/// and other bootstrap paths that spawn child tile processes. Skips
+/// fd_tile_private_boot() because the supervisor is not a tile process.
 pub fn bootLite(pargc: *c_int, pargv: *[*][*:0]u8) void {
     tk_boot_lite(pargc, pargv);
 }

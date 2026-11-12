@@ -16,6 +16,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const c_abi = @import("c_abi");
 const runtime = @import("runtime");
+const tile_ids = runtime.tile_ids;
 const supervisor_mod = @import("supervisor");
 const topologies = @import("topologies");
 const util = @import("util");
@@ -211,23 +212,27 @@ fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) !void {
         }
     }
     if (has_tile_crash) {
-        const logs_dir = try std.testing.allocator.dupe(u8, run_dir);
+        // Read log files for crash diagnostics.
+        const logs_dir = try std.fs.path.join(std.testing.allocator, &.{ run_dir, "logs" });
         defer std.testing.allocator.free(logs_dir);
-        const log_path = try std.testing.allocator.dupe(u8, std.fmt.allocPrint(
-            std.testing.allocator,
-            "{s}/logs",
-            .{run_dir},
-        ) catch unreachable);
-        defer std.testing.allocator.free(log_path);
-        const dir = std.Io.Dir.cwd().openDir(std.testing.io, log_path, .{}) catch unreachable;
+        const dir = std.Io.Dir.cwd().openDir(std.testing.io, logs_dir, .{ .iterate = true }) catch return;
         defer dir.close(std.testing.io);
-        var iter = dir.iterate();
-        while (try iter.next(std.testing.io)) |entry| {
-            const full_path = try std.fs.path.join(std.testing.allocator, &.{ run_dir, "logs", entry.name });
+        var it = std.Io.Dir.iterate(dir);
+        while (true) {
+            const result = it.next(std.testing.io) catch break;
+            const entry = result orelse break;
+            const name = entry.name;
+            const full_path = try std.fs.path.join(std.testing.allocator, &.{ logs_dir, name });
             defer std.testing.allocator.free(full_path);
-            const content = std.Io.Dir.cwd().readFileAlloc(std.testing.io, full_path, std.testing.allocator, .limited(65536)) catch "";
-            defer std.testing.allocator.free(content);
-            std.debug.print("  === {s} ===\n{s}\n  === end ===\n", .{ entry.name, content });
+            const content = std.Io.Dir.readFileAlloc(
+                std.Io.Dir.cwd(),
+                std.testing.io,
+                full_path,
+                std.testing.allocator,
+                .limited(65536),
+            ) catch continue;
+            std.debug.print("  === {s} ===\n{s}\n  === end ===\n", .{ name, content });
+            std.testing.allocator.free(content);
         }
         std.debug.panic("TileCrashed", .{});
     }
@@ -262,12 +267,13 @@ test "metric topology finalizes exact scratch requirements identically" {
     );
     defer child.deinit(std.testing.allocator);
 
-    const required = c_abi.topob.tickoniTileScratchRequirements("metric");
+    var metric_name_buf: [8]u8 = undefined;
+    const required = c_abi.topob.tickoniTileScratchRequirements(util.toZ(&metric_name_buf, tile_ids.metric.slice()));
     try std.testing.expect(required.alignment > 1);
     try std.testing.expect(required.footprint > 1);
 
-    const parent_obj_id = c_abi.topob.topoFindTile(parent.topo, "metric", 0);
-    const child_obj_id = c_abi.topob.topoFindTile(child.topo, "metric", 0);
+    const parent_obj_id = c_abi.topob.topoFindTile(parent.topo, util.toZ(&metric_name_buf, tile_ids.metric.slice()), 0);
+    const child_obj_id = c_abi.topob.topoFindTile(child.topo, util.toZ(&metric_name_buf, tile_ids.metric.slice()), 0);
     try std.testing.expect(parent_obj_id != c_abi.topob.not_found);
     try std.testing.expect(child_obj_id != c_abi.topob.not_found);
     try std.testing.expectEqual(parent_obj_id, child_obj_id);
@@ -309,9 +315,9 @@ test "metric topology finalizes exact scratch requirements identically" {
 test "metric topology preserves descriptor identity, CNC ownership, CPU placement, and zero links" {
     if (false) return error.SkipZigTest;
     const tiles = [_]runtime.tile.TileDescriptor{
-        .{ .id = 0, .name = runtime.tile.TileId.parse("tking") catch unreachable, .cpu_placement = .{ .exclusive = 2 } },
-        .{ .id = 1, .name = runtime.tile.TileId.parse("metric") catch unreachable, .cpu_placement = .{ .exclusive = 3 } },
-        .{ .id = 2, .name = runtime.tile.TileId.parse("tkdiag") catch unreachable, .cpu_placement = .{ .exclusive = 4 } },
+        .{ .id = 0, .name = tile_ids.tkings, .cpu_placement = .{ .exclusive = 2 } },
+        .{ .id = 1, .name = tile_ids.metric, .cpu_placement = .{ .exclusive = 3 } },
+        .{ .id = 2, .name = tile_ids.tkdiag, .cpu_placement = .{ .exclusive = 4 } },
     };
     const channels = [_]runtime.link.Channel{
         .{ .src_idx = 0, .dst_idx = 2, .depth = 64, .mtu = 128 },
@@ -321,11 +327,12 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
     var built = try runtime.topo_build.build(std.testing.allocator, topology, util.nextWorkspaceName(&ws_buf), 0);
     defer built.deinit(std.testing.allocator);
 
-    const tkings_id = c_abi.topob.topoFindTile(built.topo, "tking", 0);
+    var name_buf: [8]u8 = undefined;
+    const tkings_id = c_abi.topob.topoFindTile(built.topo, util.toZ(&name_buf, tile_ids.tkings.slice()), 0);
     try std.testing.expect(tkings_id != c_abi.topob.not_found);
-    const metric_id = c_abi.topob.topoFindTile(built.topo, "metric", 0);
+    const metric_id = c_abi.topob.topoFindTile(built.topo, util.toZ(&name_buf, tile_ids.metric.slice()), 0);
     try std.testing.expect(metric_id != c_abi.topob.not_found);
-    const diag_id = c_abi.topob.topoFindTile(built.topo, "tkdiag", 0);
+    const diag_id = c_abi.topob.topoFindTile(built.topo, util.toZ(&name_buf, tile_ids.tkdiag.slice()), 0);
     try std.testing.expect(diag_id != c_abi.topob.not_found);
     // CNC ownership verification is implicit in the CPU placement check.
     // Metric tile is a real polled observer — it should have one input link
@@ -364,7 +371,7 @@ test "metric_tile_integration: topology with metric builds and starts" {
     // Verify metric tile exists in topology
     var found_metric_tile = false;
     for (topo.tiles) |tile| {
-        if (std.mem.eql(u8, tile.name.slice(), "metric")) {
+        if (tile_ids.metric.eql(tile.name)) {
             found_metric_tile = true;
             break;
         }
@@ -376,7 +383,7 @@ test "metric_tile_integration: topology with metric builds and starts" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = 1000,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -425,7 +432,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -515,7 +522,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -568,7 +575,7 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -633,7 +640,7 @@ test "metric_tile_integration: workspace join completeness" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -700,7 +707,7 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -729,7 +736,7 @@ test "metric_tile_integration: CNC join verifies tile finds CNC object" {
 
     var metric_idx: ?usize = null;
     for (topo.tiles, 0..) |tile, i| {
-        if (std.mem.eql(u8, tile.name.slice(), "metric")) {
+        if (tile_ids.metric.eql(tile.name)) {
             metric_idx = i;
             break;
         }
@@ -772,7 +779,7 @@ test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
-        .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
@@ -870,7 +877,7 @@ test "metric_tile_integration: sequential pipeline runs on same port" {
         try sup.startPaymentPipelineProcess(std.testing.io, .{
             .run_dir = iter_run_dir,
             .event_count = event_count,
-            .tile_exe_path = "zig-out/bin/tickoni-supervisor",
+            .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
             .workspace_name = util.nextWorkspaceName(&ws_buf),
             .metric_port = port,
         });
@@ -895,6 +902,21 @@ test "metric_tile_integration: sequential pipeline runs on same port" {
         }
 
         const snap = sup.snapshotProcessMetrics();
+        // Diagnostic: dump per-tile state, exit codes, and raw snapshot values
+        std.debug.print("  [metric-test] iteration {d} diag:\\n", .{i + 1});
+        std.debug.print("  [metric-test]   produced={d} audited={d} metric_snapshots={d} boot_ts={d}\\n", .{
+            snap.produced, snap.audited, snap.metric_snapshots, snap.metric_boot_timestamp,
+        });
+        for (sup.monitor(), 0..) |h, j| {
+            if (h.state == .crashed) {
+                std.debug.print("  [metric-test]   tile[{d}] CRASHED: exit_code={d} reason={s}\\n", .{
+                    j, h.exit_code, @tagName(h.crashed_because),
+                });
+            } else {
+                std.debug.print("  [metric-test]   tile[{d}] state={s}\\n", .{ j, @tagName(h.state) });
+            }
+        }
+
         try std.testing.expectEqual(event_count, snap.audited);
         try std.testing.expect(snap.metric_snapshots > 0);
         try std.testing.expect(

@@ -24,6 +24,7 @@
 /// writeProcessConfig/readProcessConfig for where that lives instead.
 const std = @import("std");
 const tile = @import("tile.zig");
+const tile_ids = @import("tile_ids.zig");
 const cpu_placement = @import("cpu_placement.zig");
 const link = @import("link.zig");
 const util = @import("util");
@@ -156,7 +157,7 @@ test "LaunchSpec round-trips through a file" {
 
     const spec = try LaunchSpec.init(.{
         .tile_idx = 3,
-        .tile_id = try tile.TileId.parse("tkpoly"),
+        .tile_id = tile_ids.tkpoly,
         .cpu_placement = .{ .exclusive = 2 },
         .workspace_name = try link.WorkspaceName.parse("tkpay0"),
         .cnc_gaddr = 4096,
@@ -168,7 +169,7 @@ test "LaunchSpec round-trips through a file" {
 
     const read_back = try LaunchSpec.readFromFile(std.testing.io, tmp.dir, "tile.spec");
     try std.testing.expectEqual(@as(u32, 3), read_back.tile_idx);
-    try std.testing.expectEqualStrings("tkpoly", read_back.tile_id.slice());
+    try std.testing.expectEqualStrings(tile_ids.tkpoly.slice(), read_back.tile_id.slice());
     try std.testing.expectEqual(cpu_placement.CpuPlacement{ .exclusive = 2 }, read_back.cpu_placement);
     try std.testing.expectEqualStrings("tkpay0", read_back.workspace_name.slice());
     try std.testing.expectEqual(@as(usize, 4096), read_back.cnc_gaddr);
@@ -196,7 +197,7 @@ test "LaunchSpec readFromFile rejects a bad magic" {
 
     var spec = try LaunchSpec.init(.{
         .tile_idx = 0,
-        .tile_id = try tile.TileId.parse("tkings"),
+        .tile_id = tile_ids.tkings,
         .cpu_placement = .floating,
         .workspace_name = try link.WorkspaceName.parse("tkpay0"),
         .cnc_gaddr = 0,
@@ -214,7 +215,7 @@ test "LaunchSpec init rejects an over-long shmem path" {
     for (&too_long) |*c| c.* = 'a';
     try std.testing.expectError(error.ShmemPathTooLong, LaunchSpec.init(.{
         .tile_idx = 0,
-        .tile_id = try tile.TileId.parse("tkings"),
+        .tile_id = tile_ids.tkings,
         .cpu_placement = .floating,
         .workspace_name = try link.WorkspaceName.parse("tkpay0"),
         .cnc_gaddr = 0,
@@ -235,7 +236,7 @@ test "LaunchSpec init keeps every matching inbound channel, not just the last (f
 
     const spec = try LaunchSpec.init(.{
         .tile_idx = 2,
-        .tile_id = try tile.TileId.parse("tkaudt"),
+        .tile_id = tile_ids.tkaudt,
         .cpu_placement = .floating,
         .workspace_name = try link.WorkspaceName.parse("tkpay0"),
         .cnc_gaddr = 0,
@@ -263,7 +264,7 @@ test "LaunchSpec init keeps every matching outbound channel (fan-out)" {
 
     const spec = try LaunchSpec.init(.{
         .tile_idx = 0,
-        .tile_id = try tile.TileId.parse("tkings"),
+        .tile_id = tile_ids.tkings,
         .cpu_placement = .floating,
         .workspace_name = try link.WorkspaceName.parse("tkpay0"),
         .cnc_gaddr = 0,
@@ -289,7 +290,7 @@ test "LaunchSpec init fails closed when inbound links exceed max_links_per_tile"
 
     try std.testing.expectError(error.TooManyInLinks, LaunchSpec.init(.{
         .tile_idx = 5,
-        .tile_id = try tile.TileId.parse("tkaudt"),
+        .tile_id = tile_ids.tkaudt,
         .cpu_placement = .floating,
         .workspace_name = try link.WorkspaceName.parse("tkpay0"),
         .cnc_gaddr = 0,

@@ -198,16 +198,24 @@ void
 unprivileged_init( fd_topo_t const *      topo,
                    fd_topo_tile_t const * tile ) {
   FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init ENTER tile_id=%lu", tile->id ));
+  FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init checking topo ptr=%p", (void*)topo ));
+  FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init checking tile tile_obj_id=%lu", tile->tile_obj_id ));
   void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
+  FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init scratch ptr=%p", scratch ));
+  if( FD_UNLIKELY( !scratch ) )
+    FD_LOG_ERR(( "fd_metric_tile: scratch is NULL — bad tile_obj_id=%lu", tile->tile_obj_id ));
 
   FD_SCRATCH_ALLOC_INIT( l, scratch );
+  FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init scratch alloc init ok" ));
   fd_metric_ctx_t * ctx = FD_SCRATCH_ALLOC_APPEND( l, alignof( fd_metric_ctx_t ), sizeof( fd_metric_ctx_t ) );
+  FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init ctx alloc ok ctx=%p", (void*)ctx ));
 
   ctx->topo = topo;
   ctx->boot_ts = fd_log_wallclock_nanos();
   ctx->cnc = NULL;
 
   ulong scratch_top = FD_SCRATCH_ALLOC_FINI( l, scratch_align() );
+  FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init scratch fini top=%lu", scratch_top ));
   if( FD_UNLIKELY( scratch_top > (ulong)scratch + scratch_footprint( tile ) ) )
     FD_LOG_ERR(( "scratch overflow %lu %lu %lu", scratch_top - (ulong)scratch - scratch_footprint( tile ), scratch_top, (ulong)scratch + scratch_footprint( tile ) ));
 
@@ -275,7 +283,6 @@ populate_allowed_fds( fd_topo_t const *      topo,
 #define STEM_LAZY ((long)10e6) /* 10ms */
 
 #undef STEM_EXPORT
-#define STEM_EXPORT
 #define STEM_CALLBACK_CONTEXT_TYPE  fd_metric_ctx_t
 #define STEM_CALLBACK_CONTEXT_ALIGN alignof(fd_metric_ctx_t)
 
@@ -286,6 +293,15 @@ populate_allowed_fds( fd_topo_t const *      topo,
    (matches upstream behavior for Firedancer's native metric tile). */
 #define STEM_CALLBACK_SHOULD_SHUTDOWN( ctx ) \
   ( (ctx)->cnc && fd_cnc_signal_query( (fd_cnc_t *)(ctx)->cnc ) == FD_CNC_SIGNAL_HALT )
+
+/* Make stem_run static to avoid duplicate symbol with the Tickoni shim
+   files (tk_audit_stem.c). The test binary links both libfd_disco.a and
+   the shim files; both include fd_stem.c which generates stem_run.
+   By making the archive's version static, only the shim's stem_run
+   (with audit callbacks) appears in the test binary. */
+#ifndef STEM_EXPORT
+#define STEM_EXPORT static
+#endif
 
 #include "../stem/fd_stem.c"
 

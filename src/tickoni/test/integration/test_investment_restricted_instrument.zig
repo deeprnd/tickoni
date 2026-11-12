@@ -1,5 +1,5 @@
 const std = @import("std");
-const audit = @import("audit_tile");
+const audit = @import("audit");
 const basket_mod = @import("basket");
 const investment_audit = @import("investment_audit");
 const replay = @import("replay");
@@ -82,7 +82,7 @@ test "investment_restricted_instrument_integration: restricted ticker replay and
     try std.testing.expectEqual(audit.RecordType.policy_decision, std.meta.activeTag(audit_chain.events[4].payload));
     try std.testing.expectEqual(audit.RecordType.denial, std.meta.activeTag(audit_chain.events[5].payload));
     try std.testing.expectEqual(audit.RecordType.replay_result, std.meta.activeTag(audit_chain.events[6].payload));
-    try std.testing.expectEqual(audit.PolicyOutcome.deny, audit_chain.events[4].payload.policy_decision.outcome);
+    try std.testing.expectEqual(@as(u8, @backingInt(audit.PolicyOutcome.deny)), audit_chain.events[4].payload.policy_decision.outcome);
     try std.testing.expectEqualStrings("restricted_instrument", std.mem.sliceTo(&audit_chain.events[4].payload.policy_decision.failed_scope_dim, 0));
     try std.testing.expectEqualStrings("restricted_instrument", std.mem.sliceTo(&audit_chain.events[5].payload.denial.failed_scope_dim, 0));
     for (audit_chain.events) |event| {

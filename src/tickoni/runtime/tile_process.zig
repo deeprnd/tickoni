@@ -68,26 +68,21 @@ export fn tk_tile_privileged_init(topo: *anyopaque, tile: *anyopaque) callconv(.
     _ = tile;
     const topo_typed: *c_abi.topob.Topo = @ptrCast(topo);
     const laddr = c_abi.topob.topoObjLaddr(topo_typed, g_ctx.cnc_obj_id);
+    std.debug.print("[priv-init] cnc_obj_id={x} laddr={x}\n", .{ g_ctx.cnc_obj_id, @intFromPtr(laddr) });
     g_ctx.cnc = c_abi.cnc.cncJoin(laddr) orelse {
         const log = logger.get();
         log.err("tile_process", "tk_tile_privileged_init", "fd_cnc_join failed");
         std.process.exit(1);
     };
+    const sig_after_join = c_abi.cnc.signalQuery(g_ctx.cnc);
+    std.debug.print("[priv-init] signal_after_join={d}\n", .{sig_after_join});
     c_abi.cnc.heartbeat(g_ctx.cnc, util.process.monotonicNanos());
     // BOOT->RUN transition, but don't clobber an already-arrived HALT:
-    // pre-T4, this write was unconditional (documented as "callers must
-    // not request a stop before every tile has demonstrably reached
-    // RUN"), because the old direct LaunchSpec.cnc_gaddr join was fast
-    // enough that the race rarely mattered in practice. Rebuilding the
-    // whole topology before a tile can even join its cnc (v2.14.S8.T4)
-    // is much slower, especially for tiles with no pipeline work
-    // (tkrepl/tkmetr/tkdiag) that the supervisor's poll-for-real-progress
-    // callers have no reason to wait for — so a HALT sent while such a
-    // tile is still booting is no longer a rare edge case. Checking first
-    // costs nothing and makes the existing documented caveat fail safe
-    // instead of hanging forever.
     if (c_abi.cnc.signalQuery(g_ctx.cnc) != c_abi.cnc.signal_halt) {
         c_abi.cnc.signal(g_ctx.cnc, c_abi.cnc.signal_run);
+        std.debug.print("[priv-init] signal_set_to_RUN\n", .{});
+    } else {
+        std.debug.print("[priv-init] ALREADY_HALT skipping signal_set\n", .{});
     }
 }
 
@@ -108,6 +103,7 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
         log.err("tile_process", "tk_tile_run", "workspace not joined");
         std.process.exit(1);
     };
+    std.debug.print("[tile-run] WORK_START tile={s}\n", .{g_ctx.spec.tile_id.slice()});
 
     g_ctx.work(g_ctx.io, wksp, g_ctx.spec, g_ctx.cnc, g_ctx.allocator) catch |err| {
         const log = logger.get();
@@ -116,17 +112,34 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
         log.err("tile_process", "tk_tile_run", msg);
         std.process.exit(1);
     };
+    std.debug.print("[tile-run] WORK_EXIT tile={d}\n", .{g_ctx.spec.tile_idx});
+
+    std.debug.print("[tile-run] WORK_DONE tile={d} signal_halt={d} signal_run={d} signal_boot={d}\n", .{
+        g_ctx.spec.tile_idx,
+        c_abi.cnc.signal_halt,
+        c_abi.cnc.signal_run,
+        c_abi.cnc.signal_boot,
+    });
+    const sig_before = c_abi.cnc.signalQuery(g_ctx.cnc);
+    std.debug.print("[tile-run] signal_query_before_loop={d}\n", .{sig_before});
 
     while (true) {
         g_ctx.heartbeats += 1;
         if (g_ctx.spec.crash_after_heartbeats > 0 and @as(u64, g_ctx.heartbeats) >= g_ctx.spec.crash_after_heartbeats) {
             // Test-only crash-isolation hook (v2.14.S1.T12): exit without
             // a clean cnc transition, simulating an unexpected tile failure.
+            std.debug.print("[tile-run] CRASH_HOOK tile={d} heartbeats={d}\n", .{ g_ctx.spec.tile_idx, g_ctx.heartbeats });
             std.process.exit(1);
         }
 
         const sig = c_abi.cnc.signalQuery(g_ctx.cnc);
-        if (sig == c_abi.cnc.signal_halt) break;
+        if (sig == c_abi.cnc.signal_halt) {
+            std.debug.print("[tile-run] HALT_RECEIVED tile={d}\n", .{g_ctx.spec.tile_idx});
+            break;
+        }
+        if (g_ctx.heartbeats < 5) {
+            std.debug.print("[tile-run] heartbeat={d} sig={d}\n", .{ g_ctx.heartbeats, sig });
+        }
 
         util.process.sleepNanos(g_ctx.spec.heartbeat_interval_ns);
         c_abi.cnc.heartbeat(g_ctx.cnc, util.process.monotonicNanos());
@@ -144,21 +157,16 @@ export fn tk_tile_run(topo: *anyopaque, tile: *anyopaque) callconv(.c) void {
 /// RUN -> HALT -> BOOT transition returns 0. Failures inside the harness
 /// call itself exit the process directly (see tk_tile_run's doc comment).
 pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work: WorkFn) u8 {
+    std.debug.print("[tile-process] tile {d} run() ENTER spec_path={s}\n", .{ 0, spec_path });
     const spec = launch_spec.LaunchSpec.readFromFile(io, std.Io.Dir.cwd(), spec_path) catch |err| {
         std.debug.print("tile_process: failed to read launch spec {s}: {t}\n", .{ spec_path, err });
         return 1;
     };
+    std.debug.print("[tile-process] tile {d} spec read ok\n", .{spec.tile_idx});
 
-    boot.bootWithSyntheticArgv(spec.shmemPath(), "") catch |err| {
-        std.debug.print("tile_process: bootWithSyntheticArgv failed for tile {d}: {t}\n", .{ spec.tile_idx, err });
-        return 1;
-    };
-    var built_opt: ?topo_build.BuiltTopo = null;
-    defer {
-        c_abi.boot.haltForTileProcess();
-        if (built_opt) |*built| built.deinit(allocator);
-    }
-
+    // Read topology spec and build BEFORE boot. Firedancer's fd_boot() can
+    // interfere with Zig's page_allocator (mmap state), so topology build
+    // (which only touches in-memory topo structures) must happen first.
     var topology_spec_path_buf: [launch_spec.shmem_path_cap + 32]u8 = undefined;
     const topology_spec_path = std.fmt.bufPrint(&topology_spec_path_buf, "{s}/topology.spec", .{spec.shmemPath()}) catch {
         std.debug.print("tile_process: shmem path too long for tile {d}\n", .{spec.tile_idx});
@@ -171,12 +179,25 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     var tiles_buf: [topology_spec.max_tiles]tile_mod.TileDescriptor = undefined;
     var channels_buf: [topology_spec.max_channels]link_mod.Channel = undefined;
     const topo_desc = topo_spec.toTopology(&tiles_buf, &channels_buf);
+    std.debug.print("[tile-process] topo_desc: tile_cnt={d} chan_cnt={d} ws={s}\\n", .{ topo_desc.tiles.len, topo_desc.channels.len, spec.workspace_name.slice() });
+    std.debug.print("[tile-process] topo_spec: magic={x} version={d} tile_cnt={d} chan_cnt={d} ws={s}\n", .{ topo_spec.magic_field, topo_spec.version_field, topo_spec.tile_cnt, topo_spec.channel_cnt, topo_spec.workspace_name.slice() });
 
     const built = topo_build.build(allocator, topo_desc, spec.workspace_name.slice(), topo_spec.metric_port) catch |err| {
         std.debug.print("tile_process: failed to rebuild topology for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };
-    built_opt = built;
+    std.debug.print("[tile-process] tile {d} topology built, footprint pages={d}\n", .{ spec.tile_idx, c_abi.topob.topoWkspFootprint(built.topo, built.wksp_idx) / c_abi.wksp.shmem_normal_page_sz });
+    var built_opt: ?topo_build.BuiltTopo = built;
+    errdefer {
+        if (built_opt) |*b| b.deinit(allocator);
+        c_abi.boot.haltForTileProcess();
+    }
+
+    // Boot Firedancer AFTER topology build (avoids allocator interference)
+    boot.bootWithSyntheticArgv(spec.shmemPath(), "") catch |err| {
+        std.debug.print("tile_process: bootWithSyntheticArgv failed for tile {d}: {t}\n", .{ spec.tile_idx, err });
+        return 1;
+    };
 
     var tile_id_buf: [7]u8 = undefined;
     const id_slice = spec.tile_id.slice();
@@ -189,8 +210,10 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         std.debug.print("tile_process: tile {s} not found in rebuilt topology\n", .{id_slice});
         return 1;
     }
+    std.debug.print("[tile-process] tile {s} found at idx={d}\n", .{ id_slice, tile_idx });
     c_abi.topob.topoTileSetAllowShutdown(built.topo, tile_idx, true);
 
+    // Set up the global context before entering the run loop
     g_ctx = .{
         .spec = &spec,
         .wksp_idx = built.wksp_idx,
@@ -199,7 +222,10 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         .io = io,
         .allocator = allocator,
     };
+    std.debug.print("[tile-process] ctx set cnc_obj_id={x} wksp_idx={d} tile={s}\n", .{ g_ctx.cnc_obj_id, g_ctx.wksp_idx, id_slice });
+    std.debug.print("[tile-process] calling runTileSimple\n", .{});
 
     c_abi.topo_run.runTileSimple(built.topo, c_abi.topob.topoTilePtr(built.topo, tile_idx));
+    std.debug.print("[tile-process] runTileSimple returned\n", .{});
     return 0;
 }

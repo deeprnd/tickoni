@@ -55,6 +55,20 @@ The Tickoni-owned Zig runtime builds on Windows with the following conventions:
   substrate is linked
 - CI: Windows lanes run on `windows-2025` and `windows-11-arm` runners;
   demo conformance verifies deterministic fixture outputs match Linux
+- Tick counter width: Windows is LLP64, so `long` is 32-bit and
+  `fd_tickcount()` (`(long)rdtsc`) is a counter that wraps every ~1.4 s on
+  x86. Tick arithmetic must use `fd_tick_t` (64-bit on every target; plain
+  `long` on Linux/macOS) and `fd_tickcount_wide()`, both in
+  `src/util/fd_util_base.h`; `fd_stem.c` does. Otherwise `now + reload` /
+  `next - now` overflow, Debug-mode UBSan panics the stem tile
+  (`tkaudt`, `metric`), and it exits with code 3. No sanitizer or
+  `-fwrapv` flags are used to paper over this.
+- Workspace lookup by address: `fd_shmem_join_query_by_addr` returns `ENOENT`
+  on Windows, so `fd_wksp_containing()` always returns NULL there. Tile C code
+  must resolve a link's workspace through the topology
+  (`fd_topo_obj_wksp_base`, see `stk_derive_wksp` in
+  `src/tickoni/c_abi/shim/stem_helpers.h`) instead; otherwise `tkaudt`
+  rejects every fragment and its `audited` counter stays 0.
 
 CI expectations:
 

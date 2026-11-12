@@ -1,6 +1,7 @@
 const std = @import("std");
+const rt = @import("runtime");
 const adapter = @import("adapter");
-const audit = @import("audit_tile");
+const audit = @import("audit");
 const investment_fixture = @import("investment_fixture");
 const investment_audit = @import("investment_audit");
 const model = @import("model");
@@ -11,15 +12,6 @@ const tkagnt = @import("tkagnt");
 const tkcase = @import("tkcase");
 const tkdisp = @import("tkdisp");
 const tkpoly = @import("tkpoly");
-
-/// Helper to check if an env var is set.
-/// In Zig 0.17 env vars are only available via init.environ_map in main(),
-/// so we always return false here — hasEnv only gates a fixture generation
-/// test that is run via an explicit flag anyway.
-fn hasEnv(key: []const u8) bool {
-    _ = key;
-    return false;
-}
 
 /// Resolve a repo-relative path (starting with "src/") against the
 /// executable's location by walking up the tree to find the repo root
@@ -183,10 +175,10 @@ test "investment_replay_integration: allowed trade audit chain hashes are real a
     }
 
     // Tile ID at each sequence position must match the owning tile.
-    const expected_tile_ids = [investment_audit.allowed_trade_event_count][]const u8{
-        "tkings", "tknorm", "tkdedu", "tkcase", "tkpoly",
-        "tkmodl", "tkadpt", "tkadpt", "tkagnt", "tkadpt",
-        "tkpoly", "tkagnt", "tkpoly", "tkagnt", "tkrepl",
+    const expected_tile_ids = [_][]const u8{
+        rt.tile_ids.tkings.slice(), rt.tile_ids.tknorm.slice(), rt.tile_ids.tkdedu.slice(), rt.tile_ids.tkcase.slice(), rt.tile_ids.tkpoly.slice(),
+        rt.tile_ids.tkmodl.slice(), rt.tile_ids.tkadpt.slice(), rt.tile_ids.tkadpt.slice(), rt.tile_ids.tkagnt.slice(), rt.tile_ids.tkadpt.slice(),
+        rt.tile_ids.tkpoly.slice(), rt.tile_ids.tkagnt.slice(), rt.tile_ids.tkpoly.slice(), rt.tile_ids.tkagnt.slice(), rt.tile_ids.tkrepl.slice(),
     };
     for (chain.events, expected_tile_ids) |event, expected| {
         try std.testing.expectEqualStrings(expected, std.mem.sliceTo(&event.header.tile_id, 0));
@@ -292,8 +284,6 @@ test "investment_replay_integration: tamper detection reports first divergent ha
 }
 
 test "gen audit allowed trade jsonl" {
-    if (false) return error.SkipZigTest;
-    if (hasEnv("TK_GEN_FIXTURES") == false) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
     const thesis_id = thesis.computeThesisInputHash(input);
@@ -374,10 +364,10 @@ test "investment_replay_integration: audit jsonl hash chain is consistent" {
 
     const AuditLine = struct { run_id: u64, tile_id: []const u8, prev_hash: u64, record_hash: u64 };
 
-    const expected_tile_ids = [investment_audit.allowed_trade_event_count][]const u8{
-        "tkings", "tknorm", "tkdedu", "tkcase", "tkpoly",
-        "tkmodl", "tkadpt", "tkadpt", "tkagnt", "tkadpt",
-        "tkpoly", "tkagnt", "tkpoly", "tkagnt", "tkrepl",
+    const expected_tile_ids = [_][]const u8{
+        rt.tile_ids.tkings.slice(), rt.tile_ids.tknorm.slice(), rt.tile_ids.tkdedu.slice(), rt.tile_ids.tkcase.slice(), rt.tile_ids.tkpoly.slice(),
+        rt.tile_ids.tkmodl.slice(), rt.tile_ids.tkadpt.slice(), rt.tile_ids.tkadpt.slice(), rt.tile_ids.tkagnt.slice(), rt.tile_ids.tkadpt.slice(),
+        rt.tile_ids.tkpoly.slice(), rt.tile_ids.tkagnt.slice(), rt.tile_ids.tkpoly.slice(), rt.tile_ids.tkagnt.slice(), rt.tile_ids.tkrepl.slice(),
     };
 
     var lines = std.mem.tokenizeScalar(u8, raw, '\n');

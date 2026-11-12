@@ -1,6 +1,6 @@
 const std = @import("std");
 const adapter = @import("adapter");
-const audit = @import("audit_tile");
+const audit = @import("audit");
 const investment_audit = @import("investment_audit");
 const model = @import("model");
 const portfolio = @import("portfolio");
@@ -114,7 +114,7 @@ test "investment_blocked_limits_integration: oversized trade replay and audit re
     try std.testing.expectEqual(audit.RecordType.limit_check, std.meta.activeTag(audit_chain.events[9].payload));
     try std.testing.expectEqual(audit.RecordType.denial, std.meta.activeTag(audit_chain.events[10].payload));
     try std.testing.expectEqual(audit.RecordType.replay_result, std.meta.activeTag(audit_chain.events[11].payload));
-    try std.testing.expectEqual(audit.PolicyOutcome.deny, audit_chain.events[4].payload.policy_decision.outcome);
+    try std.testing.expectEqual(@as(u8, @backingInt(audit.PolicyOutcome.deny)), audit_chain.events[4].payload.policy_decision.outcome);
     try std.testing.expectEqual(audit.PolicyOutcome.deny, audit_chain.events[9].payload.limit_check.outcome);
     try std.testing.expectEqual(
         @as(u32, @backingInt(trade_ticket.BlockedReasonCode.per_order_notional_exceeded)),

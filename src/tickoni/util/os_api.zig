@@ -30,6 +30,10 @@ pub fn fflush() void {
     c.flushStderr();
 }
 
+pub fn ignoreSigpipe() void {
+    c.ignoreSigpipe();
+}
+
 pub fn setEnv(name: []const u8, value: []const u8) void {
     _ = c.setEnv(name.ptr, value.ptr, 1);
 }

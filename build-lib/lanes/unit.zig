@@ -3,9 +3,9 @@
 /// Collects compile steps in a `run_sequence` array, then chains them all
 /// sequentially via `shims.addPlainTestRunSeries`, avoiding Zig 0.17's
 /// protocol-mode `--listen=-` which blocks on stdin.
-
 const std = @import("std");
 const shims = @import("../lib/shims.zig");
+const codec = @import("../lib/codec.zig");
 const factory = @import("../factory.zig");
 const lane = @import("../lane.zig");
 const firedancer = @import("../lib/firedancer.zig");
@@ -54,6 +54,7 @@ pub fn strategy(
         .imports = &.{
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "logger", .module = shared.logger },
+            .{ .name = "util", .module = shared.util },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
     });
@@ -100,10 +101,10 @@ pub fn strategy(
         pa_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/c_abi/shim/os.c"} });
         pa_mod.addCMacro("TK_PROCESS_TEST", "1");
         switch (target.result.os.tag) {
-            .linux    => pa_mod.addCMacro("FD_HAS_LINUX",    "1"),
-            .macos    => pa_mod.addCMacro("FD_HAS_MACOS",    "1"),
-            .windows  => pa_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
-            else      => {},
+            .linux => pa_mod.addCMacro("FD_HAS_LINUX", "1"),
+            .macos => pa_mod.addCMacro("FD_HAS_MACOS", "1"),
+            .windows => pa_mod.addCMacro("FD_HAS_WINDOWS", "1"),
+            else => {},
         }
         if (target.result.os.tag == .windows) {
             pa_mod.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });
@@ -138,16 +139,9 @@ pub fn strategy(
     });
     run_count += 1;
 
-    // tier.zig — needs C source (compiler_version.c) and libc.
+    // tier.zig — shared.tier now owns compiler_version.c linkage.
     {
-        const tier_mod = b.createModule(.{
-            .root_source_file = b.path("src/tickoni/util/tier.zig"),
-            .target = target,
-            .optimize = optimize,
-        });
-        tier_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/util/compiler_version.c"} });
-        tier_mod.link_libc = true;
-        const tier_test = b.addTest(.{ .name = "test-tier", .root_module = tier_mod });
+        const tier_test = b.addTest(.{ .name = "test-tier", .root_module = shared.tier });
         run_sequence[run_count] = tier_test;
         run_count += 1;
     }
@@ -192,32 +186,47 @@ pub fn strategy(
 
     // === Tile tests with special linkage ===
 
-    // audit/mod.zig — needs audit_codec, audit_schema, fixture_audit_gen.
-    run_sequence[run_count] = tb.registerRunTest(.{
-        .name = "test-audit",
-        .source_file = "src/tickoni/tiles/audit/mod.zig",
+    // audit/mod.zig — needs audit_codec, audit_schema, audit_consts, fixture_audit_gen, runtime.
+    // audit_consts resolved via build-module (shared.audit_consts).
+    const audit_mod_root = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/codec/audit/mod.zig"),
+        .target = target,
+        .optimize = optimize,
         .imports = &.{
             .{ .name = "audit_codec", .module = shared.audit_codec },
             .{ .name = "audit_schema", .module = shared.audit_schema },
+            .{ .name = "audit_consts", .module = shared.audit_consts },
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+            .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
+            .{ .name = "runtime", .module = shared.runtime },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
     });
+    const test_audit = b.addTest(.{ .root_module = audit_mod_root });
+    codec.linkTickoniCodec(b, test_audit, fd_lib_dir);
+    firedancer.linkTickoniFiredancer(b, test_audit, fd_lib_dir);
+    run_sequence[run_count] = test_audit;
     run_count += 1;
 
-    // payment_pipeline/mod.zig — needs audit_tile, runtime, c_abi, logger, util.
-    run_sequence[run_count] = tb.registerRunTest(.{
-        .name = "test-payment-pipeline",
-        .source_file = "src/tickoni/tiles/payment_pipeline/mod.zig",
+    // payment_pipeline/mod.zig — needs audit, runtime, c_abi, logger, util.
+    // audit_consts resolved via build-module (shared.audit_consts).
+    const pp_mod_root = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/tiles/payment_pipeline/mod.zig"),
+        .target = target,
+        .optimize = optimize,
         .imports = &.{
-            .{ .name = "audit_tile", .module = tm.audit_tile },
+            .{ .name = "audit", .module = shared.audit },
             .{ .name = "runtime", .module = shared.runtime },
+            .{ .name = "audit_consts", .module = shared.audit_consts },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "logger", .module = shared.logger },
             .{ .name = "util", .module = shared.util },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
     });
+    const test_pp = b.addTest(.{ .root_module = pp_mod_root });
+    codec.linkTickoniCodec(b, test_pp, fd_lib_dir);
+    firedancer.linkTickoniFiredancer(b, test_pp, fd_lib_dir);
+    run_sequence[run_count] = test_pp;
     run_count += 1;
 
     // case/mod.zig — standalone.
@@ -236,7 +245,7 @@ pub fn strategy(
 
     // === V2.21.S3 modules ===
 
-    // version.zig — tier, audit_schema, build_options, compiler_version.c.
+    // version.zig — tier, audit_schema, build_options.
     {
         const v_mod = b.createModule(.{
             .root_source_file = b.path("src/tickoni/version.zig"),
@@ -248,8 +257,6 @@ pub fn strategy(
                 .{ .name = "build_options", .module = shared.version_opts.createModule() },
             },
         });
-        v_mod.addCSourceFiles(.{ .files = &.{"src/tickoni/util/compiler_version.c"} });
-        v_mod.link_libc = true;
         const v_test = b.addTest(.{ .name = "test-version", .root_module = v_mod });
         run_sequence[run_count] = v_test;
         run_count += 1;
@@ -374,14 +381,14 @@ pub fn strategy(
             .imports = &.{.{ .name = "util", .module = shared.util }},
         });
         logger_mod.addCSourceFiles(.{
-            .files = &.{ "src/tickoni/c_abi/shim/os.c" },
-            .flags = &.{ "-std=c17" },
+            .files = &.{"src/tickoni/c_abi/shim/os.c"},
+            .flags = &.{"-std=c17"},
         });
         switch (target.result.os.tag) {
-            .linux    => logger_mod.addCMacro("FD_HAS_LINUX",    "1"),
-            .macos    => logger_mod.addCMacro("FD_HAS_MACOS",    "1"),
-            .windows  => logger_mod.addCMacro("FD_HAS_WINDOWS",  "1"),
-            else      => {},
+            .linux => logger_mod.addCMacro("FD_HAS_LINUX", "1"),
+            .macos => logger_mod.addCMacro("FD_HAS_MACOS", "1"),
+            .windows => logger_mod.addCMacro("FD_HAS_WINDOWS", "1"),
+            else => {},
         }
         if (target.result.os.tag == .windows) {
             logger_mod.linkSystemLibrary("ws2_32", .{ .use_pkg_config = .no });

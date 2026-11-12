@@ -8,7 +8,6 @@ const modules = @import("modules.zig");
 
 pub const TestModules = struct {
     adapter_messages: *std.Build.Module,
-    audit_tile: *std.Build.Module,
     cards: *std.Build.Module,
     drift: *std.Build.Module,
     fixture_audit_gen: *std.Build.Module,
@@ -31,16 +30,6 @@ pub fn testModules(
         .root_source_file = b.path("src/tickoni/test/fixtures/fixture_audit_gen.zig"),
         .target = target,
         .optimize = optimize,
-    });
-    const audit_tile_mod = b.createModule(.{
-        .root_source_file = b.path("src/tickoni/tiles/audit/mod.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "audit_codec", .module = shared.audit_codec },
-            .{ .name = "audit_schema", .module = shared.audit_schema },
-            .{ .name = "fixture_audit_gen", .module = fixture_audit_gen_mod },
-        },
     });
     const fixture_portfolio_mod = b.createModule(.{
         .root_source_file = b.path("src/tickoni/test/fixtures/portfolio/fixture_portfolio.zig"),
@@ -136,7 +125,6 @@ pub fn testModules(
 
     return TestModules{
         .adapter_messages = adapter_messages_mod,
-        .audit_tile = audit_tile_mod,
         .cards = cards_mod,
         .drift = drift_mod,
         .fixture_audit_gen = fixture_audit_gen_mod,

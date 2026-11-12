@@ -1,35 +1,28 @@
 /* tk_metric_tile.c — Tickoni's metric tile implementation.
  *
- * Reuses Firedancer's fd_stem-based run loop (stem_run) with
- * fd_http_server for Prometheus /metrics endpoint.
+ * Reuses Firedancer's fd_metric_tile implementation and fd_http_server
+ * for the Prometheus /metrics endpoint.
  *
  * Linux-only: depends on symbols from fd_metric_tile.c (scratch_align,
- * scratch_footprint, privileged_init, unprivileged_init, stem_run,
+ * scratch_footprint, privileged_init, unprivileged_init, fd_tile_metric,
  * populate_allowed_seccomp, populate_allowed_fds).
  *
  * Design notes:
  *   • We #include disco/metrics/fd_metric_tile.h (header-only declarations)
- *     rather than the .c source file.  The .c file defines all the static
- *     helpers and the fd_topo_run_tile_t (fd_tile_metric) that Firedancer
- *     uses.
+ *     rather than the .c source file.
  *   • tk_metric_privileged_init / tk_metric_unprivileged_init invoke the
- *     now-exported privileged_init / unprivileged_init from
- *     fd_metric_tile.c (v2.23-m task 2), so we don't duplicate init logic.
- *   • stem_run is exported from fd_stem.c via STEM_EXPORT (v2.23-m task 2),
- *     so tk_metric_run delegates to stem_run instead of maintaining a
- *     custom polling loop.  stem_run internally calls our before_credit
- *     callback for HTTP polling.
+ *     exported Firedancer initialization callbacks.
+ *   • tk_metric_run delegates through fd_tile_metric.run so the metric tile
+ *     always uses the stem specialization generated with fd_metric_ctx_t and
+ *     the metric callbacks.
  *   • The metric tile is an observer — it has zero mcache/dcache links
  *     and zero fseq objects, so its .in_cnt is 0 and it never produces
- *     output to the pipeline.  stem_run handles in_cnt==0 correctly by
- *     skipping input/output polling and only running before_credit.
- *   • Shutdown: before calling stem_run, we find the CNC object, join it,
- *     and set ctx->cnc.  fd_metric_tile.c's STEM_CALLBACK_SHOULD_SHUTDOWN
- *     (defined in fd_metric_tile.c) checks ctx->cnc for HALT every
- *     iteration of stem_run.  When HALT arrives, STEM_CALLBACK_SHOULD_SHUTDOWN
- *     returns non-zero, stem_run sets tile->allow_shutdown=1 and exits.
+ *     output to the pipeline.
+ *   • Shutdown: before entering the run loop, we find the CNC object and set
+ *     ctx->cnc. fd_metric_tile.c's STEM_CALLBACK_SHOULD_SHUTDOWN checks it
+ *     for HALT on each stem iteration.
  *   • CNC lookup uses tk_topo_find_tile_obj() (v2.23-m task 3) instead of
- *     a raw strcmp scan.  Scratch footprint uses tk_metric_scratch_footprint()
+ *     a raw strcmp scan. Scratch footprint uses tk_metric_scratch_footprint()
  *     (v2.23-m task 4) so topob.c never needs the full fd_topo_run_tile_t.
  */
 
@@ -40,6 +33,7 @@
 #include "disco/metrics/fd_metric_tile.h"
 #include "../topo_run/tk_metric_tile.h"
 #include "../../tango/cnc/fd_cnc.h"
+#include "audit_schema.h"
 
 /* This macro mirrors the value defined in fd_metric_tile.c so that
    tk_metric_tile.c can reference it without including the .c source. */
@@ -91,9 +85,9 @@ tk_metric_scratch_align( void ) {
 static void
 tk_metric_privileged_init( fd_topo_t const *      topo,
                            fd_topo_tile_t const * tile ) {
-  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_privileged_init ENTER tile_id=%u", tile->id ));
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_privileged_init ENTER tile_id=%lu", tile->id ));
   privileged_init( topo, tile );
-  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_privileged_init EXIT tile_id=%u", tile->id ));
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_privileged_init EXIT tile_id=%lu", tile->id ));
 }
 
 /* ---------------------------------------------------------------------
@@ -104,9 +98,9 @@ tk_metric_privileged_init( fd_topo_t const *      topo,
 static void
 tk_metric_unprivileged_init( fd_topo_t const *      topo,
                              fd_topo_tile_t const * tile ) {
-  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_unprivileged_init ENTER tile_id=%u tile_obj_id=%lu", tile->id, tile->tile_obj_id ));
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_unprivileged_init ENTER tile_id=%lu tile_obj_id=%lu", tile->id, tile->tile_obj_id ));
   unprivileged_init( topo, tile );
-  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_unprivileged_init after unprivileged_init tile_id=%u", tile->id ));
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_unprivileged_init after unprivileged_init tile_id=%lu", tile->id ));
 
   /* Write boot_ts to CNC app-region immediately so the supervisor can
      read it without timing issues. Index 2 = metric_boot_timestamp
@@ -123,32 +117,28 @@ tk_metric_unprivileged_init( fd_topo_t const *      topo,
 }
 
 /* ---------------------------------------------------------------------
-   tk_metric_run — calls stem_run directly.
+   tk_metric_run — calls the metric tile's own stem specialization.
 
    The metric tile is an observer — it has zero mcache/dcache links
    and zero fseq objects, so its .in_cnt is 0 and it never produces
-   output to the pipeline.  stem_run handles in_cnt==0 correctly by
-   skipping input/output polling and only running before_credit.
+   output to the pipeline.
 
-   We set ctx->cnc before calling stem_run so stem_run's
-   STEM_CALLBACK_SHOULD_SHUTDOWN can detect HALT from the supervisor.  This
-   is the critical fix: without it, stem_run loops forever because
-   ctx->cnc is NULL and the shutdown callback always returns 0.
+   We set ctx->cnc before entering the run loop so its
+   STEM_CALLBACK_SHOULD_SHUTDOWN can detect HALT from the supervisor.
    --------------------------------------------------------------------- */
 
 static void
 tk_metric_run( fd_topo_t *      topo,
                fd_topo_tile_t * tile ) {
-  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_run ENTER tile_id=%u tile_obj_id=%lu", tile->id, tile->tile_obj_id ));
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_run ENTER tile_id=%lu tile_obj_id=%lu", tile->id, tile->tile_obj_id ));
 
-  /* ctx is the first object allocated from scratch (after privileged_init
-     and unprivileged_init).  We set ctx->cnc here so stem_run's
-     STEM_CALLBACK_SHOULD_SHUTDOWN can detect HALT from the supervisor. */
+  /* ctx is the first object allocated from scratch. We set ctx->cnc before
+     entering the metric stem so its shutdown callback can detect HALT. */
   void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
   fd_metric_ctx_t * ctx = (fd_metric_ctx_t *)scratch;
 
   /* DIAG: log that we reached tk_metric_run */
-  FD_LOG_NOTICE(( "tk_metric_run: entering, tile_id=%u tile_obj_id=%lu boot_ts=%lld",
+  FD_LOG_NOTICE(( "tk_metric_run: entering, tile_id=%lu tile_obj_id=%lu boot_ts=%lld",
                   tile->id, tile->tile_obj_id, (long long)ctx->boot_ts ));
 
   /* Find the CNC object for this tile and set ctx->cnc so
@@ -178,9 +168,18 @@ tk_metric_run( fd_topo_t *      topo,
     FD_LOG_NOTICE(( "tk_metric_run: cnc not found for tile, cnc_obj_id=ULONG_MAX" ));
   }
 
-  stem_run( topo, tile );
+  /* Use the metric tile's own stem specialization.  Its run callback is
+     generated in fd_metric_tile.c with metric context and callbacks; calling
+     another tile's stem specialization would reinterpret scratch and exit
+     under the wrong lifecycle rules. */
+  fd_tile_metric.run( topo, tile );
 
-  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_run EXIT tile_id=%u", tile->id ));
+  /* Signal to Firedancer dispatch (fd_topo_run_tile / tk_topo_run_tile)
+     that the tile exited cleanly. The dispatch resets allow_shutdown=0
+     before calling run(), then checks it after — crash if still 0. */
+  tile->allow_shutdown = 1;
+
+  FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_run EXIT tile_id=%lu", tile->id ));
 }
 
 /* ---------------------------------------------------------------------
@@ -201,7 +200,7 @@ tk_get_metric_run_tile( void ) {
    --------------------------------------------------------------------- */
 
 fd_topo_run_tile_t TK_METRIC_RUN = {
-  .name                     = "metric",
+  .name                     = TILE_ID_METRIC,
   .keep_host_networking     = 0,
   .allow_connect            = 0,
   .allow_renameat           = 0,

@@ -2,7 +2,6 @@
 ///
 /// CovShared/CovTm (Phase 0) have been replaced by the canonical
 /// `modules.Shared` and `test_modules.TestModules` types (Phase 5).
-
 const std = @import("std");
 const lane = @import("../lane.zig");
 const shims = @import("../lib/shims.zig");
@@ -114,11 +113,14 @@ pub fn strategy(
 
     tb.registerCov(.{
         .name = "test-audit",
-        .source_file = "src/tickoni/tiles/audit/mod.zig",
+        .source_file = "src/tickoni/codec/audit/mod.zig",
         .imports = &.{
             .{ .name = "audit_codec", .module = shared.audit_codec },
             .{ .name = "audit_schema", .module = shared.audit_schema },
+            .{ .name = "audit_consts", .module = shared.audit_consts },
+            .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "fixture_audit_gen", .module = tm.fixture_audit_gen },
+            .{ .name = "runtime", .module = shared.runtime },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true },
     }, cov_step);
@@ -127,8 +129,9 @@ pub fn strategy(
         .name = "test-payment-pipeline",
         .source_file = "src/tickoni/tiles/payment_pipeline/mod.zig",
         .imports = &.{
-            .{ .name = "audit_tile", .module = shared.audit_tile },
+            .{ .name = "audit", .module = shared.audit },
             .{ .name = "runtime", .module = shared.runtime },
+            .{ .name = "audit_consts", .module = shared.audit_consts },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "util", .module = shared.util },
             .{ .name = "logger", .module = shared.logger },

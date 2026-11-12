@@ -3,17 +3,34 @@
 /// Audit records are cross-tile contracts and part of replay compatibility.
 /// Keep the typed schema here; codecs in src/tickoni/codec/ provide concrete
 /// binary, protobuf, JSONL, and hash encodings over this schema.
-pub const audit_schema_version: u16 = 2;
+const std = @import("std");
+pub const c_schema = @import("audit_mod");
 
+pub const audit_schema_version: u16 = c_schema.AUDIT_SCHEMA_VERSION;
+
+// ─── Enums (Zig-only — values verified against C header via comptime) ───
+
+/// PolicyOutcome — authoritative in Zig, values mirrored from audit_schema.h.
+/// Comptime assertions below verify alignment with C constants (POLICY_ALLOW, etc.).
 pub const PolicyOutcome = enum(u8) {
-    allow,
-    deny,
-    require_approval,
-    malformed_drop,
-    duplicate_drop,
-    escalate,
-    require_more_evidence,
+    allow = 0,
+    deny = 1,
+    require_approval = 2,
+    malformed_drop = 3,
+    duplicate_drop = 4,
+    escalate = 5,
+    require_more_evidence = 6,
 };
+
+comptime {
+    std.debug.assert(@backingInt(PolicyOutcome.allow) == c_schema.POLICY_ALLOW);
+    std.debug.assert(@backingInt(PolicyOutcome.deny) == c_schema.POLICY_DENY);
+    std.debug.assert(@backingInt(PolicyOutcome.require_approval) == c_schema.POLICY_REQUIRE_APPROVAL);
+    std.debug.assert(@backingInt(PolicyOutcome.malformed_drop) == c_schema.POLICY_MALFORMED_DROP);
+    std.debug.assert(@backingInt(PolicyOutcome.duplicate_drop) == c_schema.POLICY_DUPLICATE_DROP);
+    std.debug.assert(@backingInt(PolicyOutcome.escalate) == c_schema.POLICY_ESCALATE);
+    std.debug.assert(@backingInt(PolicyOutcome.require_more_evidence) == c_schema.POLICY_REQUIRE_MORE_EVIDENCE);
+}
 
 pub const LimitType = enum(u8) {
     amount,
@@ -40,6 +57,37 @@ pub const RecordType = enum(u8) {
     case_creation = 13,
 };
 
+// ─── Layout assertion helper ───
+
+/// Check that two struct types have matching layout.
+/// Uses `@offsetOf` to verify field offsets at compile time (Zig 0.18+).
+fn layoutsMatch(comptime C: type, comptime Z: type, comptime field: []const u8) bool {
+    if (@sizeOf(C) != @sizeOf(Z)) return false;
+    const c_off = @offsetOf(C, field);
+    const z_off = @offsetOf(Z, field);
+    if (c_off != z_off) return false;
+    return true;
+}
+
+// ─── Structs from C schema (single authoritative source via translate-c) ───
+
+/// Re-export of AuditHeader from audit_schema.h.
+/// Layout alignment is enforced by the static_assert below.
+pub const Header = c_schema.AuditHeader;
+
+comptime {
+    std.debug.assert(layoutsMatch(c_schema.AuditHeader, Header, "schema_version"));
+}
+
+// Re-export PolicyDecisionPayload from C schema.
+pub const PolicyDecisionPayload = c_schema.PolicyDecisionPayload;
+
+comptime {
+    std.debug.assert(layoutsMatch(c_schema.PolicyDecisionPayload, PolicyDecisionPayload, "outcome"));
+}
+
+// ─── Zig-only payload structs (no C counterpart) ───
+
 pub const SourceEventPayload = struct {
     source_system: [16]u8,
     event_type: [32]u8,
@@ -50,20 +98,6 @@ pub const NormalizationPayload = struct {
     source_event_hash: u64,
     normalized_hash: u64,
     canonical_event_type: [32]u8,
-};
-
-pub const PolicyDecisionPayload = struct {
-    outcome: PolicyOutcome,
-    rule_id: u32,
-    failed_scope_dim: [32]u8,
-    source_event_hash: u64,
-    // Classification evidence: zero/empty when this decision is not a
-    // classification-scope decision (e.g. affordability or restricted-
-    // instrument denials).
-    catalog_schema_version: u32,
-    taxonomy_id: [32]u8,
-    taxonomy_version: u32,
-    classification_code: [32]u8,
 };
 
 pub const ModelCallPayload = struct {
@@ -150,27 +184,7 @@ pub const CaseCreationPayload = struct {
     total_allocated_cents: i64,
 };
 
-pub const Header = struct {
-    schema_version: u16,
-    run_id: u64,
-    seq: u64,
-    source_offset: u64,
-    tile_id: [6]u8,
-    logical_actor_id: u64,
-    policy_version: [32]u8,
-    capability_envelope_id: u128,
-    timestamp_ns: u64,
-    prev_hash: u64,
-    record_hash: u64,
-    // Runtime metadata: identifies the exact build/tier/manifest that produced
-    // this event. Carried through audit and replay so the entire lineage is
-    // verifiable.
-    version: [64]u8, // semver string, null-terminated
-    platform_tier: [64]u8, // e.g. "linux_full", "macos_retail"
-    isolation_tier: [64]u8, // e.g. "retail", "full"
-    release_digest: [64]u8, // git SHA or build digest
-    manifest_id: [64]u8, // which manifest was loaded (empty if none)
-};
+// ─── Zig AuditEvent (union-based, no C counterpart) ───
 
 pub const AuditEvent = struct {
     header: Header,

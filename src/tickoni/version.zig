@@ -15,6 +15,7 @@ pub const build_version_patch: u16 = build_opts.BUILD_VERSION_PATCH;
 pub const build_version_pre: []const u8 = build_opts.BUILD_VERSION_PRE;
 pub const build_git_sha: []const u8 = build_opts.BUILD_GIT_SHA;
 pub const build_id: []const u8 = build_opts.BUILD_ID;
+pub const build_zig_version: []const u8 = build_opts.BUILD_ZIG_VERSION;
 
 /// Format the semver release string into the caller-provided `buf`.
 /// The returned slice points into `buf` — the caller owns `buf` and
@@ -56,6 +57,11 @@ pub fn buildId() []const u8 {
 }
 
 /// VersionInfo struct — aggregates all version fields for serialization.
+///
+/// All fields are derived from build_options or runtime detection; no heap
+/// allocation is needed.  `formatVersionInfo` reads semver from build_opts
+/// directly (the same way `semver()` does), so this struct is zero-allocation
+/// and can be declared as `const`.
 pub const VersionInfo = struct {
     semver: []const u8 = "0.0.0-dev",
     build_id: []const u8 = "dev-0",
@@ -67,52 +73,44 @@ pub const VersionInfo = struct {
     policy_schema_version: u16 = 0,
     replay_schema_version: u16 = 0,
     manifest_version: u16 = 0,
-    manifest_version_str: ?[]const u8 = null,
-    compiler: []const u8 = "unknown",
+    manifest_version_str: []const u8 = "",
+    zig_compiler: []const u8 = "unknown",
+    c_compiler: []const u8 = "unknown",
 
-    pub fn init(gpa: std.mem.Allocator) !VersionInfo {
-        var buf: [64]u8 = undefined;
-        const sv = try semver(&buf);
+    /// Initialize VersionInfo from build_options and runtime detection.
+    /// Returns a const-stable struct — no heap allocation.
+    pub fn init() VersionInfo {
         const tier_mod = @import("tier");
-        const audit_mod = @import("audit_schema");
+        var buf: [64]u8 = undefined;
+        const sv = semver(&buf) catch "0.0.0-dev";
         return VersionInfo{
-            .semver = try gpa.dupe(u8, sv),
+            .semver = sv,
             .build_id = buildId(),
             .git_sha = gitRevision(),
             .os = tier_mod.detectOsString(),
             .arch = tier_mod.detectArchString(),
             .runtime_tier = tier_mod.tierName(tier_mod.detectTier()),
             .isolation_tier = isolationTierStr(),
-            .policy_schema_version = audit_mod.audit_schema_version,
-            .replay_schema_version = audit_mod.audit_schema_version,
+            .policy_schema_version = @as(u16, build_opts.AUDIT_SCHEMA_VERSION),
+            .replay_schema_version = @as(u16, build_opts.AUDIT_SCHEMA_VERSION),
             .manifest_version = 0,
-            .manifest_version_str = null,
-            .compiler = tier_mod.detectCompilerVersion(),
+            .manifest_version_str = "",
+            .zig_compiler = build_zig_version,
+            .c_compiler = tier_mod.detectCompilerVersion(),
         };
     }
 
-    pub fn setManifestVersion(self: *VersionInfo, gpa: std.mem.Allocator, version: ?[]const u8) !void {
-        if (self.manifest_version_str) |s| gpa.free(s);
-        self.manifest_version_str = null;
-        self.manifest_version = 0;
+    /// Set the manifest version string. Since VersionInfo is now
+    /// zero-allocation, this copies the string into the struct's field
+    /// — the caller must keep the source string alive.
+    pub fn setManifestVersion(self: *VersionInfo, version: ?[]const u8) void {
+        self.manifest_version_str = if (version) |v| v else "";
         if (version) |v| {
-            self.manifest_version_str = try gpa.dupe(u8, v);
-            // Parse major version component
             var it = std.mem.splitScalar(u8, v, '.');
-            const first = it.next() orelse return;
-            self.manifest_version = std.fmt.parseInt(u16, first, 10) catch 0;
+            self.manifest_version = std.fmt.parseInt(u16, it.next() orelse "0", 10) catch 0;
+        } else {
+            self.manifest_version = 0;
         }
-    }
-
-    pub fn deinit(self: *VersionInfo, gpa: std.mem.Allocator) void {
-        if (self.semver.len > 0) {
-            gpa.free(self.semver);
-        }
-        self.semver = "";
-        if (self.manifest_version_str) |s| {
-            gpa.free(s);
-        }
-        self.manifest_version_str = null;
     }
 };
 
@@ -148,12 +146,13 @@ pub fn formatVersionInfo(info: VersionInfo, writer: anytype) !void {
     try writer.print("Isolation Tier: {s}\n", .{info.isolation_tier});
     try writer.print("Policy Schema: {d}\n", .{info.policy_schema_version});
     try writer.print("Replay Schema: {d}\n", .{info.replay_schema_version});
-    if (info.manifest_version_str) |str| {
-        try writer.print("Manifest: {s}\n", .{str});
+    if (info.manifest_version_str.len > 0) {
+        try writer.print("Manifest: {s}\n", .{info.manifest_version_str});
     } else {
         try writer.print("Manifest: none\n", .{});
     }
-    try writer.print("Compiler: {s}\n", .{info.compiler});
+    try writer.print("Zig Compiler: {s}\n", .{info.zig_compiler});
+    try writer.print("C Compiler: {s}\n", .{info.c_compiler});
 }
 
 // ---------------------------------------------------------------------------
@@ -181,7 +180,8 @@ test "VersionInfo fields are non-empty" {
         .policy_schema_version = 2,
         .replay_schema_version = 2,
         .manifest_version = 1,
-        .compiler = "clang 15.0",
+        .zig_compiler = "zig 0.18.0",
+        .c_compiler = "clang 15.0",
     };
     try std.testing.expect(info.semver.len > 0);
     try std.testing.expect(info.build_id.len > 0);
@@ -190,7 +190,8 @@ test "VersionInfo fields are non-empty" {
     try std.testing.expect(info.arch.len > 0);
     try std.testing.expect(info.runtime_tier.len > 0);
     try std.testing.expect(info.isolation_tier.len > 0);
-    try std.testing.expect(info.compiler.len > 0);
+    try std.testing.expect(info.zig_compiler.len > 0);
+    try std.testing.expect(info.c_compiler.len > 0);
 }
 
 test "semver format validates major.minor.patch" {
@@ -248,7 +249,8 @@ test "formatVersionInfo contains all required fields" {
         .replay_schema_version = 2,
         .manifest_version = 1,
         .manifest_version_str = "1.0.0",
-        .compiler = "clang 15.0",
+        .zig_compiler = "zig 0.18.0",
+        .c_compiler = "clang 15.0",
     };
     var buf: [1024]u8 = undefined;
     var w = std.Io.Writer.fixed(&buf);
@@ -264,7 +266,8 @@ test "formatVersionInfo contains all required fields" {
     try std.testing.expect(std.mem.indexOf(u8, output, "Policy Schema: 2") != null);
     try std.testing.expect(std.mem.indexOf(u8, output, "Replay Schema: 2") != null);
     try std.testing.expect(std.mem.indexOf(u8, output, "Manifest: 1.0.0") != null);
-    try std.testing.expect(std.mem.indexOf(u8, output, "Compiler: clang 15.0") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "Zig Compiler: zig 0.18.0") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "C Compiler: clang 15.0") != null);
 }
 
 test "formatVersionInfo validates all Tier enum values" {
@@ -309,8 +312,9 @@ test "formatVersionInfo shows 'none' when manifest version is unset" {
         .policy_schema_version = 1,
         .replay_schema_version = 1,
         .manifest_version = 0,
-        .manifest_version_str = null,
-        .compiler = "clang 15.0",
+        .manifest_version_str = "",
+        .zig_compiler = "zig 0.18.0",
+        .c_compiler = "clang 15.0",
     };
     var buf: [1024]u8 = undefined;
     var w = std.Io.Writer.fixed(&buf);
@@ -321,14 +325,13 @@ test "formatVersionInfo shows 'none' when manifest version is unset" {
 }
 
 test "setManifestVersion parses and stores version" {
-    var info = VersionInfo.init(std.testing.allocator) catch unreachable;
-    info.setManifestVersion(std.testing.allocator, "3.2.1") catch unreachable;
+    var info = VersionInfo.init();
+    info.setManifestVersion("3.2.1");
     try std.testing.expectEqual(@as(u16, 3), info.manifest_version);
-    try std.testing.expectEqualStrings("3.2.1", info.manifest_version_str.?);
-    info.setManifestVersion(std.testing.allocator, null) catch unreachable;
+    try std.testing.expectEqualStrings("3.2.1", info.manifest_version_str);
+    info.setManifestVersion(null);
     try std.testing.expectEqual(@as(u16, 0), info.manifest_version);
-    try std.testing.expect(info.manifest_version_str == null);
-    info.deinit(std.testing.allocator);
+    try std.testing.expectEqualStrings("", info.manifest_version_str);
 }
 
 test "formatVersionInfo ends with newline" {
@@ -343,7 +346,8 @@ test "formatVersionInfo ends with newline" {
         .policy_schema_version = 1,
         .replay_schema_version = 1,
         .manifest_version = 1,
-        .compiler = "clang 15.0",
+        .zig_compiler = "zig 0.18.0",
+        .c_compiler = "clang 15.0",
     };
     var buf: [1024]u8 = undefined;
     var w = std.Io.Writer.fixed(&buf);

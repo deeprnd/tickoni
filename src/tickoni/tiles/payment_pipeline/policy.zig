@@ -4,20 +4,20 @@
 /// decision it makes.
 const std = @import("std");
 const runtime = @import("runtime.zig");
-const audit_sink = @import("audit_sink.zig");
+const tile_ids = @import("runtime").tile_ids;
 const logger = @import("logger");
 
 const PaymentPipelineState = runtime.PaymentPipelineState;
 
 pub fn runPolicy(state: *PaymentPipelineState) void {
     const log = logger.get();
-    log.enter("tkpoly", "runPolicy");
-    defer log.exit("tkpoly", "runPolicy");
+    log.enter(tile_ids.tkpoly.slice(), "runPolicy");
+    defer log.exit(tile_ids.tkpoly.slice(), "runPolicy");
 
     defer state.q_poly_audit.close();
 
     var offset: u64 = 0;
-    while (state.q_dedu_poly.pop(&state.stop)) |msg_in| {
+    while (state.q_dedu_poly.pop(&state.audit.stop)) |msg_in| {
         var msg = msg_in;
         msg.pipeline_hops += 1;
         offset += 1;
@@ -27,22 +27,22 @@ pub fn runPolicy(state: *PaymentPipelineState) void {
             // malformed source facts.
         } else if (msg.duplicate) {
             msg.decision = .duplicate_drop;
-            msg.decided_by = audit_sink.tile_id_tkpoly;
-            log.kvFmt("tkpoly", "runPolicy", "offset={d} decision=duplicate_drop account={d} idempotency_key={d}", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.idempotency_key });
+            msg.decided_by = tile_ids.tkpoly;
+            log.kvFmt(tile_ids.tkpoly.slice(), "runPolicy", "offset={d} decision=duplicate_drop account={d} idempotency_key={d}", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.idempotency_key });
         } else if (msg.raw.amount_cents > state.config.policy_limit_cents) {
             msg.decision = .deny;
-            msg.decided_by = audit_sink.tile_id_tkpoly;
+            msg.decided_by = tile_ids.tkpoly;
             _ = state.denied.fetchAdd(1, .release);
-            log.kvFmt("tkpoly", "runPolicy", "offset={d} decision=deny account={d} amount={d}c limit={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents, state.config.policy_limit_cents });
+            log.kvFmt(tile_ids.tkpoly.slice(), "runPolicy", "offset={d} decision=deny account={d} amount={d}c limit={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents, state.config.policy_limit_cents });
         } else {
             msg.decision = .allow;
-            msg.decided_by = audit_sink.tile_id_tkpoly;
+            msg.decided_by = tile_ids.tkpoly;
             _ = state.allowed.fetchAdd(1, .release);
-            log.kvFmt("tkpoly", "runPolicy", "offset={d} decision=allow account={d} amount={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents });
+            log.kvFmt(tile_ids.tkpoly.slice(), "runPolicy", "offset={d} decision=allow account={d} amount={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents });
         }
-        state.q_poly_audit.push(msg, &state.stop) catch break;
+        state.q_poly_audit.push(msg, &state.audit.stop) catch break;
     }
-    log.debug("tkpoly", "runPolicy", "done");
+    log.debug(tile_ids.tkpoly.slice(), "runPolicy", "done");
 }
 
 test "sandbox failure records crash diagnostics and stops policy" {
@@ -55,8 +55,8 @@ test "sandbox failure records crash diagnostics and stops policy" {
         .pipeline_hops = 1,
         .duplicate = false,
         .decision = .allow,
-        .decided_by = audit_sink.tile_id_tkdedu,
-    }, &state.stop);
+        .decided_by = tile_ids.tkdedu,
+    }, &state.audit.stop);
     state.q_dedu_poly.close();
     runPolicy(&state);
 }
