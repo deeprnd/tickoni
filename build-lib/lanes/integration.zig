@@ -90,6 +90,7 @@ pub fn strategy(
             "src/tickoni/test/integration/test_link_bounds.zig",
             "src/tickoni/test/integration/test_minimal_setup.zig",
             "src/tickoni/test/integration/test_tkaudt_integration.zig",
+            "src/tickoni/test/integration/test_tknorm_integration.zig",
         };
 
         for (infra_proc_files) |path| {
