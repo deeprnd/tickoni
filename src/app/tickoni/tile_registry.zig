@@ -182,11 +182,8 @@ pub const entries = [_]TileEntry{
         .out_cnt = 1,
     },
     .{
-        // tknorm migrated to fd_stem tile — lifecycle owned by
-        // TK_NORM_RUN's privileged_init / stem_run, not the process-mode
-        // callback path below.
         .id = tile_ids.tknorm,
-        .process_fn = null,
+        .process_fn = tkrnormProcess,
         .counters = &.{ .{ .idx = 0, .field = .normalized }, .{ .idx = 1, .field = .invalid } },
         .in_cnt = 1,
         .out_cnt = 1,
@@ -300,15 +297,15 @@ test "findById returns null for an unregistered id" {
 }
 
 test "process_fn is null for tiles with no process-mode role" {
-    inline for (.{ "tknorm", "tkrepl", "metric", "tkdiag" }) |name| {
+    inline for (.{ "tkrepl", "metric", "tkdiag" }) |name| {
         const tile_id = tile_ids.lookup(name) orelse unreachable;
         const entry = findById(tile_id).?;
         try std.testing.expectEqual(@as(?ProcessFn, null), entry.process_fn);
     }
 }
 
-test "process_fn is set for the 3 pipeline-stage tiles with runtime ownership" {
-    inline for (.{ "tkings", "tkdedu", "tkpoly" }) |name| {
+test "process_fn is set for the 4 pipeline-stage tiles" {
+    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly" }) |name| {
         const tile_id = tile_ids.lookup(name) orelse unreachable;
         const entry = findById(tile_id).?;
         try std.testing.expect(entry.process_fn != null);
@@ -475,9 +472,10 @@ test "T10.4 positive fan-in: channel array has 2 inbound links to tkaudt" {
 // ---------------------------------------------------------------------------
 
 test "validate rejects mismatched process callback for tiles with pipeline role" {
-    // Only tiles with runtime ownership need a process_fn.
-    // tkaudt and tknorm have migrated to fd_stem tile ownership.
-    inline for (.{ "tkings", "tkdedu", "tkpoly" }) |name| {
+    // Each of the 4 pipeline-stage tiles must have a non-null process_fn.
+    // tkaudt has migrated to an fd_stem tile and no longer uses the process
+    // callback path — it runs via TK_AUDIT_RUN instead.
+    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly" }) |name| {
         const tile_id = tile_ids.lookup(name) orelse unreachable;
         const entry = findById(tile_id).?;
         try std.testing.expect(entry.process_fn != null);
