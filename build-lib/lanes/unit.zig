@@ -24,7 +24,7 @@ pub fn strategy(
     const int_mods = factory.ModuleFactory.init(b, shared, tm, target, optimize).createIntModules(null);
 
     // Collect all compile steps for sequential run.
-    var run_sequence: [38]*std.Build.Step.Compile = undefined;
+    var run_sequence: [39]*std.Build.Step.Compile = undefined;
     var run_count: usize = 0;
 
     const tb = lane.TestBuilder{
@@ -240,6 +240,16 @@ pub fn strategy(
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-disp",
         .source_file = "src/tickoni/tiles/disp/mod.zig",
+    });
+    run_count += 1;
+
+    // === V2.21.S3 modules ===
+
+    // tknorm stem standalone test — needs firedancer linkage for fd_topo_run_tile_t.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-norm-stem-standalone",
+        .source_file = "src/tickoni/test/test_norm_stem_standalone.zig",
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
     });
     run_count += 1;
 
