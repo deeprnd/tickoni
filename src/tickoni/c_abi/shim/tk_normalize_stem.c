@@ -61,10 +61,11 @@ typedef struct {
     uint64_t event_count;
     int      input_exhausted;
 
-    /* Output chunk allocation (cyclic, safe due to flow control) */
-    ulong    out_chunk;       /* Output chunk index */
-    ulong    out_depth;       /* Output link depth (from topology) */
-    ulong    out_mtu;         /* Output link MTU (from topology) */
+    /* Output dcache allocation state */
+    void *   out_wksp;
+    ulong    out_chunk0;
+    ulong    out_wmark;
+    ulong    out_chunk;
 } tknorm_ctx_t;
 
 #define TKNORM_CTX_ALIGN alignof(tknorm_ctx_t)
@@ -154,20 +155,13 @@ tknorm_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     ctx->cnc = NULL;
     ctx->event_count = 0;
     ctx->input_exhausted = 0;
+    ctx->out_wksp = NULL;
+    ctx->out_chunk0 = 0;
+    ctx->out_wmark = 0;
     ctx->out_chunk = 0;
-    ctx->out_depth = 0;
-    ctx->out_mtu = 0;
 
     /* Derive workspace pointer from input mcache */
     ctx->wksp = stk_derive_wksp(topo, tile, 0);
-
-    /* Derive output link depth/mtu from the output link */
-    if (tile->out_cnt > 0) {
-        ulong out_link_id = tile->out_link_id[0];
-        fd_topo_link_t const * out_link = &topo->links[out_link_id];
-        ctx->out_depth = out_link->depth;
-        ctx->out_mtu   = out_link->mtu;
-    }
 
     /* Point output_msg at scratch block after context */
     ulong ctx_end = fd_ulong_align_up( (ulong)ctx + sizeof(tknorm_ctx_t), alignof(PaymentMessage) );
@@ -197,7 +191,20 @@ tknorm_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     /* Shared boilerplate: find CNC and set ctx->cnc */
     STK_UNPRIV_INIT(topo, tile, ctx);
 
-    FD_LOG_NOTICE(( "tknorm: unprivileged init tile_id=%lu cnc=%p", tile->id, ctx->cnc ));
+    if (FD_UNLIKELY(tile->out_cnt != 1UL))
+        FD_LOG_ERR(( "tknorm: expected exactly one output link, found %lu", tile->out_cnt ));
+    fd_topo_link_t const * out_link = &topo->links[tile->out_link_id[0]];
+    if (FD_UNLIKELY(!out_link->dcache || out_link->mtu < PAYMENT_MSG_SIZE))
+        FD_LOG_ERR(( "tknorm: invalid output dcache or mtu %lu", out_link->mtu ));
+    ctx->out_wksp = fd_topo_obj_wksp_base(topo, out_link->dcache_obj_id);
+    if (FD_UNLIKELY(!ctx->out_wksp))
+        FD_LOG_ERR(( "tknorm: output workspace is not joined" ));
+    ctx->out_chunk0 = fd_dcache_compact_chunk0(ctx->out_wksp, out_link->dcache);
+    ctx->out_wmark = fd_dcache_compact_wmark(ctx->out_wksp, out_link->dcache, out_link->mtu);
+    ctx->out_chunk = ctx->out_chunk0;
+
+    FD_LOG_NOTICE(( "tknorm: unprivileged init tile_id=%lu cnc=%p out_chunk0=%lu out_wmark=%lu",
+                    tile->id, ctx->cnc, ctx->out_chunk0, ctx->out_wmark ));
 }
 
 static void
@@ -260,21 +267,17 @@ tknorm_after_credit( tknorm_ctx_t *    ctx,
     (void)opt_poll_in;
 
     if (ctx->output_ready) {
-        /* Allocate from output dcache using cyclic allocation.
-           Safe because burst=1 and flow control guarantees tkdedu has
-           consumed the previous fragment before tknorm gets the next. */
-        if (ctx->out_depth > 0) {
-            ulong out_chunk = ctx->out_chunk % ctx->out_depth;
-            ctx->out_chunk += 1;
+        ulong out_chunk = ctx->out_chunk;
+        void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
+        memcpy(dst, ctx->output_msg, ctx->output_sz);
 
-            /* Copy output message to dcache slot */
-            void * dst = fd_wksp_laddr_fast(ctx->wksp, out_chunk * FD_CHUNK_ALIGN);
-            memcpy(dst, ctx->output_msg, ctx->output_sz);
-
-            /* Publish to output link 0 */
-            fd_stem_publish(stem, 0, 0, out_chunk, ctx->output_sz, 0, 0, 0);
-        }
-
+        fd_stem_publish(stem, 0UL, 0UL, out_chunk, ctx->output_sz, 0UL, 0UL, 0UL);
+        ctx->out_chunk = fd_dcache_compact_next(
+            out_chunk,
+            ctx->output_sz,
+            ctx->out_chunk0,
+            ctx->out_wmark
+        );
         ctx->output_ready = 0;
     }
 
@@ -295,6 +298,7 @@ tknorm_run_entry( fd_topo_t *      topo,
     ctx->cnc = fd_topo_obj_laddr( topo, cnc_obj_id );
 
     tknorm_run( topo, tile );  /* stem_run loop */
+    tile->allow_shutdown = 1;
 }
 
 /* ─── fd_topo_run_tile_t ─── */
