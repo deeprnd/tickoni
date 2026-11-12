@@ -409,6 +409,7 @@ tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_t
 #if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
 #include "../topo_run/tk_metric_tile.h"
 #include "../topo_run/tk_audit_stem.h"
+#include "../topo_run/tk_norm_stem.h"
 #include "audit_schema.h"
 #endif
 
@@ -419,6 +420,8 @@ tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {
     return tk_metric_scratch_footprint();
   if( strcmp( tile_name, TILE_ID_TKAUDT ) == 0 )
     return tk_audit_scratch_footprint();
+  if( strcmp( tile_name, TILE_ID_TKNORM ) == 0 )
+    return tknorm_tile_scratch_footprint();
 #endif
 return 1UL;
 }
@@ -437,6 +440,12 @@ tk_topob_tickoni_tile_scratch_requirements( char const * tile_name,
   if( strcmp( tile_name, TILE_ID_TKAUDT ) == 0 ) {
     ulong footprint = tk_audit_scratch_footprint();
     *alignment_out  = TKAUDT_CTX_ALIGN;
+    *footprint_out  = footprint;
+    return;
+  }
+  if( strcmp( tile_name, TILE_ID_TKNORM ) == 0 ) {
+    ulong footprint = tknorm_tile_scratch_footprint();
+    *alignment_out  = TKNORM_CTX_ALIGN;
     *footprint_out  = footprint;
     return;
   }
