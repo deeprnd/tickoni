@@ -227,27 +227,20 @@ pub fn build(
         std.debug.assert(c_abi.topob.topoValidateLinkExists(topo, linkNameZ(&link_name_buf, i)));
     }
 
-    // Register tiles: all non-metric tiles go into the app workspace.
-    // The metric tile (if present) goes into the "metric" workspace.
-    // Capture cpu placements and Firedancer index mapping during register
-    // so tile_infos can be built without looking up topo_desc after the build
-    // (topo_desc is a one-time input, not reused).
+    // Register tiles. All non-metric tiles go into the app workspace; the
+    // metric tile goes into the dedicated "metric" workspace. Resolve the
+    // descriptor-to-Firedancer index map after registration so later wiring
+    // does not depend on the order in which tiles were registered.
     const tile_placements = try allocator.alloc(cpu_placement.CpuPlacement, topo_desc.tiles.len);
     defer allocator.free(tile_placements);
     const cpu_idx_arr = try allocator.alloc(usize, topo_desc.tiles.len);
     defer allocator.free(cpu_idx_arr);
     const fd_tile_idx_by_desc = try allocator.alloc(usize, topo_desc.tiles.len);
     defer allocator.free(fd_tile_idx_by_desc);
-    var non_metric_count: usize = 0;
     for (topo_desc.tiles, 0..) |t, i| {
-        cpu_idx_arr[i] = tileCpuIdx(i, t.cpu_placement);
         tile_placements[i] = t.cpu_placement;
-        if (tile_ids.metric.eql(t.name)) {
-            fd_tile_idx_by_desc[i] = c_abi.topob.not_found;
-            continue;
-        }
-        fd_tile_idx_by_desc[i] = non_metric_count;
-        non_metric_count += 1;
+        if (tile_ids.metric.eql(t.name)) continue;
+
         var tile_name_buf: [16]u8 = undefined;
         log.kvFmt("topo_build", "build", "calling topobTile(id={s}, wksp={s})", .{ t.name.slice(), wksp_name_z });
         _ = c_abi.topob.topobTile(topo, util.toZ(&tile_name_buf, t.name.slice()), wksp_name_z, wksp_name_z, 0);
@@ -262,25 +255,19 @@ pub fn build(
         // Verify metric tile was registered.
         log.kvFmt("topo_build", "build", "topoValidateTileExists(metric)", .{});
         std.debug.assert(c_abi.topob.topoValidateTileExists(topo, util.toZ(&tile_name_buf, tile_ids.metric.slice())));
-        // Metric tile is always last in Firedancer order.
-        for (topo_desc.tiles, 0..) |t, d_idx| {
-            if (tile_ids.metric.eql(t.name)) {
-                fd_tile_idx_by_desc[d_idx] = non_metric_count;
-                break;
-            }
-        }
     }
 
-    if (has_metric_tile) {
-        var metric_name_buf: [16]u8 = undefined;
-        log.kvFmt("topo_build", "build", "calling topoFindTile(metric)", .{});
-        const metric_idx = c_abi.topob.topoFindTile(topo, util.toZ(&metric_name_buf, tile_ids.metric.slice()), 0);
-        if (metric_idx != c_abi.topob.not_found) {
-            metric_tile_idx = metric_idx;
-            log.kvFmt("topo_build", "build", "detected metric tile at idx={d}, metric_wksp={d}, metric_in_wksp={d}", .{ metric_tile_idx, metric_wksp_idx, metric_in_wksp_idx });
-        } else {
-            log.kvFmt("topo_build", "build", "metric tile NOT found in topology", .{});
-        }
+    for (topo_desc.tiles, 0..) |t, desc_idx| {
+        var tile_name_buf: [16]u8 = undefined;
+        const fd_idx = c_abi.topob.topoFindTile(topo, util.toZ(&tile_name_buf, t.name.slice()), 0);
+        std.debug.assert(fd_idx != c_abi.topob.not_found);
+        fd_tile_idx_by_desc[desc_idx] = fd_idx;
+        cpu_idx_arr[fd_idx] = tileCpuIdx(desc_idx, t.cpu_placement);
+        if (tile_ids.metric.eql(t.name)) metric_tile_idx = fd_idx;
+    }
+
+    if (metric_tile_idx != c_abi.topob.not_found) {
+        log.kvFmt("topo_build", "build", "detected metric tile at idx={d}, metric_wksp={d}, metric_in_wksp={d}", .{ metric_tile_idx, metric_wksp_idx, metric_in_wksp_idx });
     } else {
         log.kvFmt("topo_build", "build", "no metric tile in topology", .{});
     }
@@ -293,9 +280,10 @@ pub fn build(
     if (metric_tile_idx != c_abi.topob.not_found) {
         log.kvFmt("topo_build", "build", "calling topobTileIn(metric, metric_in, ch0..ch{d})", .{topo_desc.channels.len - 1});
         for (topo_desc.channels, 0..) |ch, i| {
-            // Skip channels where metric is already the explicit dst —
-            // that channel's input is wired in the per-channel loop below.
-            if (ch.dst_idx == metric_tile_idx) continue;
+            // Channel endpoints use descriptor indices, while metric_tile_idx
+            // is the Firedancer index after metric is moved to the end.
+            // Map the destination before comparing indices from the same space.
+            if (fd_tile_idx_by_desc[ch.dst_idx] == metric_tile_idx) continue;
             var tile_name_buf: [16]u8 = undefined;
             var link_name_buf: [8]u8 = undefined;
             const link_name_z = linkNameZ(&link_name_buf, i);
