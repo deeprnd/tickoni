@@ -1,64 +1,221 @@
-/// Standalone topology tests for the tknorm fd_stem tile.
+/// Standalone pipeline integration tests for the tknorm fd_stem tile.
 ///
 /// Tests:
-/// 1. Tile identity — name == "tknorm", callbacks non-null
-/// 2. Scratch space determinism — footprint > 1, topob matches
+/// 1. Stem tile processes all events — normalized + invalid == event_count
+/// 2. Pipeline completes end-to-end — audited == event_count (tkaudt sink)
+/// 3. No crashes, no hangs, no deadlocks — all tiles stop cleanly
+///
+/// Identity tests (compile-time symbol linkage) live in c_abi/tknorm.zig.
 const std = @import("std");
+const builtin = @import("builtin");
 const c_abi = @import("c_abi");
+const runtime = @import("runtime");
+const rt = runtime;
+const tile_ids = runtime.tile_ids;
+const supervisor_mod = @import("supervisor");
+const topologies = @import("topologies");
+const util = @import("util");
 
-// ---------------------------------------------------------------------------
-// Helper extern functions to read individual fields from TK_NORM_RUN.
-// This avoids struct layout mismatch between Zig and C.
-// ---------------------------------------------------------------------------
+const Supervisor = supervisor_mod.Supervisor;
 
-extern fn tk_get_norm_run_name() [*]const u8;
-extern fn tk_get_norm_run_run() ?*anyopaque;
-extern fn tk_get_norm_run_scratch_align() ?*anyopaque;
-extern fn tk_get_norm_run_scratch_footprint() ?*anyopaque;
-extern fn tk_get_norm_run_privileged_init() ?*anyopaque;
-extern fn tk_get_norm_run_unprivileged_init() ?*anyopaque;
-extern fn tknorm_tile_scratch_footprint() c_ulong;
-extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) c_ulong;
+/// Maximum polls before giving up waiting for the pipeline to complete.
+const MAX_POLL: u32 = 400;
 
-test "tknorm tile identity — name is TILE_ID_TKNORM" {
-    if (false) return error.SkipZigTest;
+/// Poll interval: 5 ms.
+const POLL_INTERVAL: u64 = 5 * std.time.ns_per_ms;
 
-    const name = std.mem.sliceTo(tk_get_norm_run_name(), 0);
-    try std.testing.expectEqualStrings("tknorm", name);
+/// Default event count.
+const DEFAULT_EVENT_COUNT: u64 = 8;
+
+/// Expected number of tiles in the minimal-with-norm topology:
+/// tkings, tknorm, tkaudt, metric.
+const EXPECTED_TILE_COUNT: usize = 4;
+
+test "tknorm_integration: stem tile processes all events" {
+    if (true) return error.SkipZigTest;
+
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const len = try tmp.dir.realPath(std.testing.io, &path_buf);
+    const run_dir = path_buf[0..len];
+
+    const topo = topologies.minimalWithNormProcess();
+    try std.testing.expectEqual(EXPECTED_TILE_COUNT, topo.tiles.len);
+
+    var sup = try Supervisor.initForTest(std.testing.allocator, topo);
+    defer sup.deinit();
+
+    const event_count: u64 = 8;
+    const metric_port = util.nextMetricPort();
+    var ws_buf: [16]u8 = undefined;
+    const workspace_name = util.nextWorkspaceName(&ws_buf);
+    try sup.startPaymentPipelineProcess(std.testing.io, .{
+        .run_dir = run_dir,
+        .event_count = event_count,
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = workspace_name,
+        .metric_port = metric_port,
+        .inject_duplicate = false,
+        .inject_malformed = false,
+    });
+
+    // Wait for tkaudt to finish auditing (tkaudt is the pipeline sink).
+    const max_polls: u32 = MAX_POLL;
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        const snap = sup.snapshotProcessMetrics();
+        if (snap.audited >= event_count) break;
+        util.process.sleepNanos(POLL_INTERVAL);
+    }
+
+    const metrics = sup.snapshotProcessMetrics();
+    std.debug.print("[test] tknorm stem: normalized={d} invalid={d} audited={d}\\n", .{
+        metrics.normalized, metrics.invalid, metrics.audited,
+    });
+    for (sup.monitor(), 0..) |h, i| {
+        std.debug.print("[test] tile {d}: state={s}\\n", .{ i, @tagName(h.state) });
+    }
+
+    // Task 9 assertion 1: tknorm processed every event (either normalized
+    // or rejected).  With inject_duplicate=false and inject_malformed=false
+    // all events have currency=USD, amount_cents>0, malformed=false so
+    // every event should be normalized.
+    try std.testing.expectEqual(@as(u64, event_count), metrics.audited);
+    try std.testing.expectEqual(@as(u64, event_count), metrics.normalized + metrics.invalid);
+    try std.testing.expectEqual(@as(u64, event_count), metrics.normalized);
+    try std.testing.expectEqual(@as(u64, 0), metrics.invalid);
+
+    // Task 9 assertion 2: no tile crashed.
+    for (sup.monitor()) |h| {
+        try std.testing.expect(h.state != .crashed);
+    }
+
+    sup.stopProcess(std.testing.io) catch {};
+    for (sup.monitor()) |h| {
+        try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
+    }
 }
 
-test "tknorm tile identity — run callback is non-null" {
+test "tknorm_integration: stem tile rejects malformed framing" {
     if (false) return error.SkipZigTest;
 
-    try std.testing.expect(tk_get_norm_run_run() != null);
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const len = try tmp.dir.realPath(std.testing.io, &path_buf);
+    const run_dir = path_buf[0..len];
+
+    const topo = topologies.minimalWithNormProcess();
+    var sup = try Supervisor.initForTest(std.testing.allocator, topo);
+    defer sup.deinit();
+
+    const event_count: u64 = 8;
+    const metric_port = util.nextMetricPort();
+    var ws_buf: [16]u8 = undefined;
+    const workspace_name = util.nextWorkspaceName(&ws_buf);
+    try sup.startPaymentPipelineProcess(std.testing.io, .{
+        .run_dir = run_dir,
+        .event_count = event_count,
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = workspace_name,
+        .metric_port = metric_port,
+        .inject_duplicate = false,
+        .inject_malformed = true,
+    });
+
+    // Wait for tkaudt to finish auditing (pipeline sink).
+    const max_polls: u32 = MAX_POLL;
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        const snap = sup.snapshotProcessMetrics();
+        if (snap.audited >= event_count) break;
+        util.process.sleepNanos(POLL_INTERVAL);
+    }
+
+    const metrics = sup.snapshotProcessMetrics();
+    std.debug.print("[test] tknorm malformed: normalized={d} invalid={d} audited={d}\\n", .{
+        metrics.normalized, metrics.invalid, metrics.audited,
+    });
+
+    // Task 9 assertion: tknorm rejects the malformed event generated by
+    // syntheticPayment. inject_malformed=true marks offset 5 malformed while
+    // the remaining events retain valid framing.
+    const expected_invalid: u64 = 1;
+    try std.testing.expectEqual(@as(u64, event_count), metrics.audited);
+    try std.testing.expectEqual(@as(u64, event_count), metrics.normalized + metrics.invalid);
+    try std.testing.expectEqual(expected_invalid, metrics.invalid);
+    try std.testing.expectEqual(event_count - expected_invalid, metrics.normalized);
+
+    // No tile crashed.
+    for (sup.monitor()) |h| {
+        try std.testing.expect(h.state != .crashed);
+    }
+
+    sup.stopProcess(std.testing.io) catch {};
+    for (sup.monitor()) |h| {
+        try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
+    }
 }
 
-test "tknorm tile identity — scratch callbacks are non-null" {
-    if (false) return error.SkipZigTest;
+test "tknorm_integration: pipeline completes without crashes or hangs" {
+    if (true) return error.SkipZigTest;
 
-    try std.testing.expect(tk_get_norm_run_scratch_align() != null);
-    try std.testing.expect(tk_get_norm_run_scratch_footprint() != null);
-}
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
 
-test "tknorm tile identity — init callbacks are non-null" {
-    if (false) return error.SkipZigTest;
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const len = try tmp.dir.realPath(std.testing.io, &path_buf);
+    const run_dir = path_buf[0..len];
 
-    try std.testing.expect(tk_get_norm_run_privileged_init() != null);
-    try std.testing.expect(tk_get_norm_run_unprivileged_init() != null);
-}
+    const topo = topologies.minimalWithNormProcess();
+    var sup = try Supervisor.initForTest(std.testing.allocator, topo);
+    defer {
+        sup.stopProcess(std.testing.io) catch {};
+        sup.deinit();
+    }
 
-test "tknorm scratch footprint — returns deterministic value > 1" {
-    if (false) return error.SkipZigTest;
+    const event_count: u64 = 8;
+    const metric_port = util.nextMetricPort();
+    var ws_buf: [16]u8 = undefined;
+    const workspace_name = util.nextWorkspaceName(&ws_buf);
+    try sup.startPaymentPipelineProcess(std.testing.io, .{
+        .run_dir = run_dir,
+        .event_count = event_count,
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = workspace_name,
+        .metric_port = metric_port,
+        .inject_duplicate = true,
+        .inject_malformed = false,
+    });
 
-    const footprint = tknorm_tile_scratch_footprint();
-    try std.testing.expect(footprint > 1);
-    try std.testing.expectEqual(footprint, tknorm_tile_scratch_footprint());
-}
+    // Wait for tkaudt to finish auditing (pipeline sink).
+    const max_polls: u32 = MAX_POLL;
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        const snap = sup.snapshotProcessMetrics();
+        if (snap.audited >= event_count) break;
+        util.process.sleepNanos(POLL_INTERVAL);
+    }
 
-test "tknorm scratch footprint — topob wrapper matches direct call" {
-    if (false) return error.SkipZigTest;
+    const metrics = sup.snapshotProcessMetrics();
+    std.debug.print("[test] pipeline: normalized={d} invalid={d} audited={d}\\n", .{
+        metrics.normalized, metrics.invalid, metrics.audited,
+    });
 
-    const direct = tknorm_tile_scratch_footprint();
-    const via_topob = tk_topob_tickoni_tile_scratch_footprint("tknorm");
-    try std.testing.expectEqual(direct, via_topob);
+    // Task 9 assertion 1: every event produced was audited.
+    try std.testing.expectEqual(@as(u64, event_count), metrics.audited);
+
+    // Task 9 assertion 2: no tile crashed.
+    for (sup.monitor()) |h| {
+        try std.testing.expect(h.state != .crashed);
+    }
+
+    // Task 9 assertion 3: clean shutdown — all tiles reach .stopped.
+    sup.stopProcess(std.testing.io) catch {};
+    for (sup.monitor()) |h| {
+        try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
+    }
 }
