@@ -24,7 +24,7 @@ pub fn strategy(
     const int_mods = factory.ModuleFactory.init(b, shared, tm, target, optimize).createIntModules(null);
 
     // Collect all compile steps for sequential run.
-    var run_sequence: [39]*std.Build.Step.Compile = undefined;
+    var run_sequence: [40]*std.Build.Step.Compile = undefined;
     var run_count: usize = 0;
 
     const tb = lane.TestBuilder{
@@ -271,6 +271,14 @@ pub fn strategy(
             }) },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    // c_abi/tknorm.zig — identity + scratch footprint unit tests for norm stem shim.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tknorm-identity",
+        .source_file = "src/tickoni/c_abi/tknorm.zig",
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
     });
     run_count += 1;
 
