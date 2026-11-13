@@ -2,7 +2,7 @@ const std = @import("std");
 const audit = @import("audit");
 const runtime = @import("runtime.zig");
 const ingest = @import("ingest.zig");
-const normalize = @import("normalize.zig");
+const normalize_seq = @import("normalize_seq.zig");
 const dedupe = @import("dedupe.zig");
 const policy = @import("policy.zig");
 const audit_stage = @import("audit_stage.zig");
@@ -19,7 +19,7 @@ pub const MetricSnapshot = runtime.MetricSnapshot;
 pub const DiagSnapshot = runtime.DiagSnapshot;
 pub const PaymentPipelineState = runtime.PaymentPipelineState;
 pub const runIngest = ingest.runIngest;
-pub const runNormalize = normalize.runNormalize;
+pub const runNormalizeSeq = normalize_seq.runNormalizeSeq;
 pub const runDedupe = dedupe.runDedupe;
 pub const runPolicy = policy.runPolicy;
 pub const runAudit = audit_stage.runAudit;
@@ -36,7 +36,7 @@ pub const validFraming = runtime.validFraming;
 fn runOneSequentialForTest(state: *PaymentPipelineState, raw: RawPayment) !void {
     try state.q_ing_norm.push(.{ .raw = raw, .pipeline_hops = 1 }, &state.audit.stop);
     state.q_ing_norm.close();
-    runNormalize(state);
+    runNormalizeSeq(state);
     runDedupe(state);
     runPolicy(state);
     runAudit(&state.audit, &state.audit.stop, &state.q_poly_audit);
@@ -73,7 +73,7 @@ test "Phase 0 rejects malformed payment framing" {
 test {
     _ = @import("runtime.zig");
     _ = @import("ingest.zig");
-    _ = @import("normalize.zig");
+    _ = @import("normalize_seq.zig");
     _ = @import("dedupe.zig");
     _ = @import("policy.zig");
     _ = @import("audit_stage.zig");
