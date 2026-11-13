@@ -9,7 +9,7 @@ Tickoni repository.
   <!-- badge:build:end -->
 
   <!-- badge:quality:start -->
-  <img alt="Quality" src="https://img.shields.io/badge/quality-failing-red?style=flat-square" />
+  <img alt="Quality" src="https://img.shields.io/badge/quality-passing-brightgreen?style=flat-square" />
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
@@ -41,7 +41,7 @@ Tickoni repository.
   <!-- badge:cov-fd:end -->
 
   <!-- badge:cov-tk:start -->
-  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-79.3%25-orange?style=flat-square" />
+  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-79.6%25-orange?style=flat-square" />
   <!-- badge:cov-tk:end -->
 </p>
 
