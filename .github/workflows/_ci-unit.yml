@@ -153,6 +153,9 @@ jobs:
           name: ${{ matrix.artifact-name }}
           path: .
 
+      - name: Restore executable permissions (artifact download strips +x)
+        run: chmod +x build/zig-out/bin/tickoni-supervisor
+
       - name: Install test tools (pytest)
         run: just setup-test-${{ matrix.platform }}
 

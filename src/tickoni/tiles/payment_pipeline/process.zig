@@ -127,36 +127,6 @@ pub fn runIngestProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, output
     rt.cnc_counters.appCounterWrite(cnc, 0, produced);
 }
 
-pub fn runNormalizeProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, input: *rt.link.Consumer, output: *rt.link.Producer, cnc: *c_abi.cnc.Cnc) void {
-    const cfg = process_cfg.pipeline;
-    var stop_flag = std.atomic.Value(bool).init(false);
-    var backpressure_waits = std.atomic.Value(u64).init(0);
-    var idle_polls = std.atomic.Value(u64).init(0);
-    var buf: [msg_size]u8 = undefined;
-
-    var normalized: u64 = 0;
-    var invalid: u64 = 0;
-    var i: u64 = 0;
-    while (i < cfg.event_count) : (i += 1) {
-        maybeBlockForTest(process_cfg, tile_idx, i);
-        if (halted(cnc)) break;
-        _ = input.consume(&buf, &idle_polls, &stop_flag, cnc) orelse break;
-        var msg = std.mem.bytesToValue(PaymentMessage, buf[0..msg_size]);
-        msg.pipeline_hops += 1;
-        msg.event_hash = payment_runtime.stableEventHash(msg.raw);
-        if (!payment_runtime.validFraming(msg.raw)) {
-            msg.decision = .malformed_drop;
-            msg.decided_by = tile_ids.tknorm;
-            invalid += 1;
-        } else {
-            normalized += 1;
-        }
-        output.publish(std.mem.asBytes(&msg), &backpressure_waits, &stop_flag, cnc) catch break;
-    }
-    rt.cnc_counters.appCounterWrite(cnc, 0, normalized);
-    rt.cnc_counters.appCounterWrite(cnc, 1, invalid);
-}
-
 pub fn runDedupeProcess(
     process_cfg: ProcessRuntimeConfig,
     tile_idx: u32,

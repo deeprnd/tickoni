@@ -195,6 +195,94 @@ pub fn minimalProcess() Topology {
     };
 }
 
+/// Minimal 4-tile topology for testing tknorm in the event pipeline:
+/// tkings → tknorm → tkaudt (+ metric observer).
+/// The metric tile is required so Firedancer's fd_topo_fill_tile sets
+/// tile_c->metrics to a non-NULL value for every tile.
+const minimal_with_norm_tiles = [_]TileDescriptor{
+    .{ .id = 0, .name = tile_ids.tkings },
+    .{ .id = 1, .name = tile_ids.tknorm },
+    .{ .id = 2, .name = tile_ids.tkaudt },
+    .{ .id = 3, .name = tile_ids.metric },
+};
+const minimal_with_norm_channels = [_]Channel{
+    .{
+        .src_idx = 0,
+        .dst_idx = 1,
+        .depth = 64,
+        .mtu = 128,
+        .backing = .tango_shm,
+        .reliability = .reliable,
+        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
+    },
+    .{
+        .src_idx = 1,
+        .dst_idx = 2,
+        .depth = 64,
+        .mtu = 128,
+        .backing = .tango_shm,
+        .reliability = .reliable,
+        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
+    },
+};
+
+/// Minimal 4-tile topology (tkings → tknorm → tkaudt + metric observer).
+pub fn minimalWithNormProcess() Topology {
+    return .{
+        .tiles = &minimal_with_norm_tiles,
+        .channels = &minimal_with_norm_channels,
+    };
+}
+
+/// Minimal 5-tile topology for testing tkdedu in the event pipeline:
+/// tkings → tknorm → tkdedu → tkaudt (+ metric observer).
+/// The metric tile is required so Firedancer's fd_topo_fill_tile sets
+/// tile_c->metrics to a non-NULL value for every tile.
+const minimal_with_dedu_tiles = [_]TileDescriptor{
+    .{ .id = 0, .name = tile_ids.tkings },
+    .{ .id = 1, .name = tile_ids.tknorm },
+    .{ .id = 2, .name = tile_ids.tkdedu },
+    .{ .id = 3, .name = tile_ids.tkaudt },
+    .{ .id = 4, .name = tile_ids.metric },
+};
+const minimal_with_dedu_channels = [_]Channel{
+    .{
+        .src_idx = 0,
+        .dst_idx = 1,
+        .depth = 64,
+        .mtu = 128,
+        .backing = .tango_shm,
+        .reliability = .reliable,
+        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
+    },
+    .{
+        .src_idx = 1,
+        .dst_idx = 2,
+        .depth = 64,
+        .mtu = 128,
+        .backing = .tango_shm,
+        .reliability = .reliable,
+        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
+    },
+    .{
+        .src_idx = 2,
+        .dst_idx = 3,
+        .depth = 64,
+        .mtu = 128,
+        .backing = .tango_shm,
+        .reliability = .reliable,
+        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
+    },
+};
+
+/// Minimal 5-tile topology (tkings → tknorm → tkdedu → tkaudt + metric observer).
+pub fn minimalWithDeduProcess() Topology {
+    return .{
+        .tiles = &minimal_with_dedu_tiles,
+        .channels = &minimal_with_dedu_channels,
+    };
+}
+
 test "paymentPipeline has Phase 0 product tiles and channels" {
     const topo = paymentPipeline();
     try std.testing.expectEqual(@as(usize, 8), topo.tiles.len);

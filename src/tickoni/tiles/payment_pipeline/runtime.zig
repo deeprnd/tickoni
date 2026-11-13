@@ -6,9 +6,10 @@
 /// append-only audit ordering, deterministic replay, metrics, diagnostics, and
 /// crash-only failure propagation.
 ///
-/// Each tile's own run loop lives in its own file (ingest.zig, normalize.zig,
-/// dedupe.zig, policy.zig, audit_stage.zig, replay.zig, metric.zig,
-/// diag.zig) — see finding 25 in
+/// Each tile's own run loop lives in its own file (ingest.zig, normalize_seq.zig
+/// for sequential tests, dedupe.zig, policy.zig, audit_stage.zig, replay.zig,
+/// metric.zig, diag.zig) and the production stem tile path
+/// (c_abi/shim/tk_normalize_stem.c) — see finding 25 in
 /// doc/strategy/roadmap/backlog/audits/tech_debt.md. This file owns the
 /// PaymentPipelineState every stage shares (queues, dedup table, audit log,
 /// atomics) plus config/message contracts and deterministic pure helpers

@@ -52,6 +52,18 @@ def test_linux_x86_build_and_test_recipes_pin_the_same_zig_cpu():
     assert "zig build install --prefix build/zig-out" not in workflow
 
 
+def test_build_zig_x86_target_query_pins_haswell_cpu():
+    build_zig = (REPO_ROOT / "build.zig").read_text(encoding="utf-8")
+
+    assert "safe_query.cpu_arch = .x86_64;" in build_zig
+    assert (
+        "safe_query.cpu_model = .{ .explicit = &std.Target.x86.cpu.haswell };"
+        in build_zig
+    )
+    assert "break :blk b.resolveTargetQuery(safe_query);" in build_zig
+    assert ".query = native_target.query" not in build_zig
+
+
 @pytest.mark.skipif(os.name != "nt", reason="requires a native Windows path")
 def test_build_accepts_windows_absolute_fd_library_path():
     fd_lib_dir = REPO_ROOT / "build" / "fd-tickoni-fd" / "lib"

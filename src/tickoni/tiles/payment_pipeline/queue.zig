@@ -41,7 +41,7 @@ pub fn BoundedQueue(comptime T: type) type {
                 if (stop.load(.acquire)) return error.Stopped;
                 // std.Thread.yield() error is an OS scheduling failure — retrying
                 // or aborting provides no benefit; the loop naturally slows and recovers.
-                std.Thread.yield() catch {};
+                std.Thread.yield() catch |err| std.log.err("yield: {any}", .{err});
             }
         }
 
@@ -59,7 +59,7 @@ pub fn BoundedQueue(comptime T: type) type {
                 if (stop.load(.acquire)) return null;
                 // std.Thread.yield() error is an OS scheduling failure — retrying
                 // or aborting provides no benefit; the loop naturally slows and recovers.
-                std.Thread.yield() catch {};
+                std.Thread.yield() catch |err| std.log.err("yield: {any}", .{err});
             }
         }
 

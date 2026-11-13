@@ -297,7 +297,7 @@ pub const Supervisor = struct {
             // or failed (e.g. UnresolvedChild). Clean up gracefully to prevent
             // the assert from crashing the test.  stopProcess doesn't actually
             // use the io parameter in this path, so undefined is safe.
-            _ = self.stopProcess(undefined) catch {};
+            _ = self.stopProcess(undefined) catch |err| std.log.err("deinit cleanup stop: {any}", .{err});
         }
         std.debug.assert(self.process_state == null);
         self.allocator.free(self.handles);
@@ -608,7 +608,7 @@ pub const Supervisor = struct {
         self.process_state = state;
         boot_needs_halt = false;
         // stopProcess is best-effort cleanup; outer error already discarded.
-        errdefer self.stopProcess(io) catch {};
+        errdefer self.stopProcess(io) catch |err| std.log.err("errdefer cleanup stop: {any}", .{err});
 
         // Resolve every tile's cnc content (created above by
         // topoWkspNew's cnc .new callback) into the gaddr-based form
@@ -743,10 +743,13 @@ pub const Supervisor = struct {
             var argv_count: usize = 3;
             argv_buf[0] = self_exe_path;
             argv_buf[2] = spec_path;
-            // Stem tiles (tkaudt) use the dedicated __stem-run path which
-            // skips Zig callbacks and dispatches straight to the tile's
+            // Stem tiles (tkaudt, tknorm, tkdedu) use the dedicated __stem-run path
+            // which skips Zig callbacks and dispatches straight to the tile's
             // fd_stem-based run loop. All other tiles use __tile-run.
-            if (rt.tile_ids.tkaudt.eql(tile.name)) {
+            if (rt.tile_ids.tkaudt.eql(tile.name) or
+                rt.tile_ids.tknorm.eql(tile.name) or
+                rt.tile_ids.tkdedu.eql(tile.name))
+            {
                 argv_buf[1] = "__stem-run";
             } else {
                 argv_buf[1] = "__tile-run";
@@ -761,6 +764,13 @@ pub const Supervisor = struct {
                 var buf: [21]u8 = undefined;
                 const s = std.fmt.bufPrint(&buf, "{d}", .{config.event_count}) catch &buf;
                 try env.put("TKAUDT_EVENT_COUNT", s);
+            }
+            // Pass event_count to the tkdedu stem tile so it can exit
+            // promptly when processed >= event_count.
+            if (rt.tile_ids.tkdedu.eql(tile.name)) {
+                var buf: [21]u8 = undefined;
+                const s = std.fmt.bufPrint(&buf, "{d}", .{config.event_count}) catch &buf;
+                try env.put("TKDEDU_EVENT_COUNT", s);
             }
             const child = try std.process.spawn(io, .{
                 .argv = argv_buf[0..argv_count],

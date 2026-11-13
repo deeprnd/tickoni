@@ -24,7 +24,7 @@ pub fn strategy(
     const int_mods = factory.ModuleFactory.init(b, shared, tm, target, optimize).createIntModules(null);
 
     // Collect all compile steps for sequential run.
-    var run_sequence: [38]*std.Build.Step.Compile = undefined;
+    var run_sequence: [42]*std.Build.Step.Compile = undefined;
     var run_count: usize = 0;
 
     const tb = lane.TestBuilder{
@@ -240,6 +240,54 @@ pub fn strategy(
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-disp",
         .source_file = "src/tickoni/tiles/disp/mod.zig",
+    });
+    run_count += 1;
+
+    // === V2.21.S3 modules ===
+
+    // tknorm integration test — needs firedancer linkage for fd_topo_run_tile_t,
+    // util module for tmpDir/process helpers, and supervisor/topologies for
+    // the full pipeline integration tests.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tknorm-integration",
+        .source_file = "src/tickoni/test/integration/test_tknorm_integration.zig",
+        .imports = &.{
+            .{ .name = "runtime", .module = shared.runtime },
+            .{ .name = "c_abi", .module = shared.c_abi },
+            .{ .name = "util", .module = shared.util },
+            .{ .name = "topologies", .module = shared.topologies },
+            .{ .name = "supervisor", .module = b.createModule(.{
+                .root_source_file = b.path("src/app/tickoni/supervisor.zig"),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{
+                    .{ .name = "runtime", .module = shared.runtime },
+                    .{ .name = "tiles", .module = shared.tiles },
+                    .{ .name = "c_abi", .module = shared.c_abi },
+                    .{ .name = "util", .module = shared.util },
+                    .{ .name = "topologies", .module = shared.topologies },
+                    .{ .name = "logger", .module = shared.logger },
+                },
+            }) },
+        },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    // c_abi/tknorm.zig — identity + scratch footprint unit tests for norm stem shim.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tknorm-identity",
+        .source_file = "src/tickoni/c_abi/tknorm.zig",
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    // c_abi/tkdedu.zig — identity + scratch footprint unit tests for dedu
+    // stem shim.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tkdedu-identity",
+        .source_file = "src/tickoni/c_abi/tkdedu.zig",
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
     });
     run_count += 1;
 
