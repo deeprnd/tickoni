@@ -32,7 +32,7 @@
 
 #include "disco/metrics/fd_metric_tile.h"
 #include "../topo_run/tk_metric_tile.h"
-#include "../../tango/cnc/fd_cnc.h"
+#include "../../../tango/cnc/fd_cnc.h"
 #include "audit_schema.h"
 
 /* This macro mirrors the value defined in fd_metric_tile.c so that
