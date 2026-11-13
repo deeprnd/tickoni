@@ -297,7 +297,7 @@ pub const Supervisor = struct {
             // or failed (e.g. UnresolvedChild). Clean up gracefully to prevent
             // the assert from crashing the test.  stopProcess doesn't actually
             // use the io parameter in this path, so undefined is safe.
-            _ = self.stopProcess(undefined) catch {};
+            _ = self.stopProcess(undefined) catch |err| std.log.err("deinit cleanup stop: {any}", .{err});
         }
         std.debug.assert(self.process_state == null);
         self.allocator.free(self.handles);
@@ -608,7 +608,7 @@ pub const Supervisor = struct {
         self.process_state = state;
         boot_needs_halt = false;
         // stopProcess is best-effort cleanup; outer error already discarded.
-        errdefer self.stopProcess(io) catch {};
+        errdefer self.stopProcess(io) catch |err| std.log.err("errdefer cleanup stop: {any}", .{err});
 
         // Resolve every tile's cnc content (created above by
         // topoWkspNew's cnc .new callback) into the gaddr-based form

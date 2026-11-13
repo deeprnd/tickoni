@@ -62,7 +62,7 @@ test "process_topology_integration: every tile is a distinct OS process parented
         std.debug.print("[test] tile {d}: state={s} pid={any}\n", .{ i, @tagName(h.state), h.pid });
     }
 
-    sup.stopProcess(std.testing.io) catch {};
+    sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     try std.testing.expectEqual(event_count, metrics.produced);
     try std.testing.expectEqual(event_count, metrics.audited);
     for (sup.monitor()) |h| {
@@ -101,7 +101,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
         .workspace_name = workspace_name,
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io) catch {};
+    errdefer sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
 
     const max_polls: u32 = 600;
     var poll: u32 = 0;
@@ -128,7 +128,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
         try std.testing.expect(h.state != rt.tile.TileState.stale);
     }
 
-    sup.stopProcess(std.testing.io) catch {};
+    sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     // After stopProcess, stale tiles are treated as cleanly stopped rather
     // than crashed — the stale classification happened before shutdown, and
     // the tile's crash/termination during stopProcess is a consequence of the
@@ -178,7 +178,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
     }
     const metrics = sup.snapshotProcessMetrics();
 
-    sup.stopProcess(std.testing.io) catch {};
+    sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
 
     try std.testing.expectEqual(rt.tile.TileState.crashed, sup.monitor()[tkrepl_idx].state);
     try std.testing.expectEqual(rt.tile.CrashReason.exit_code, sup.monitor()[tkrepl_idx].crashed_because);

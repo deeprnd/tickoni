@@ -94,16 +94,16 @@ fn serveLoop(server: *Server) void {
         server.mutex.unlock(server.io);
 
         if (std.mem.eql(u8, req.methodSlice(), "GET") and std.mem.eql(u8, req.pathSlice(), "/health")) {
-            support.respondText(&request, .ok, server.config.health_body) catch {};
+            support.respondText(&request, .ok, server.config.health_body) catch |err| std.log.err("mock respondText: {any}", .{err});
             continue;
         }
 
         if (std.mem.eql(u8, req.methodSlice(), "POST") and std.mem.eql(u8, req.pathSlice(), "/v1/chat/completions")) {
-            sendChatCompletion(&request, server.config) catch {};
+            sendChatCompletion(&request, server.config) catch |err| std.log.err("mock chatCompletion: {any}", .{err});
             continue;
         }
 
-        support.respondText(&request, .not_found, "not found") catch {};
+        support.respondText(&request, .not_found, "not found") catch |err| std.log.err("mock respondText: {any}", .{err});
     }
 }
 

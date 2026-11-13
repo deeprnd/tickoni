@@ -364,7 +364,7 @@ test "metric_tile_integration: topology with metric builds and starts" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io) catch {};
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
         sup.deinit();
     }
 
@@ -424,7 +424,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io) catch {};
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
         sup.deinit();
     }
 
@@ -514,7 +514,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io) catch {};
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
         sup.deinit();
     }
 
@@ -567,7 +567,7 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io) catch {};
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
         sup.deinit();
     }
 
@@ -632,7 +632,7 @@ test "metric_tile_integration: workspace join completeness" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io) catch {};
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
         sup.deinit();
     }
 
@@ -699,7 +699,7 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io) catch {};
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
         sup.deinit();
     }
 
@@ -771,7 +771,7 @@ test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io) catch {};
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
         sup.deinit();
     }
 
@@ -863,7 +863,7 @@ test "metric_tile_integration: sequential pipeline runs on same port" {
 
         var sup = try Supervisor.init(std.testing.allocator, topo);
         defer {
-            sup.stopProcess(std.testing.io) catch {};
+            sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
             sup.deinit();
         }
 
