@@ -332,7 +332,7 @@ test "gen audit allowed trade jsonl" {
     // safe: flush errors here only affect buffer persistence; content is already
     // written to the file's page cache, and downstream audit-jsonl tests will
     // fail if the file content is incorrect.
-    defer w.interface.flush() catch {};
+    defer w.interface.flush() catch |err| std.log.err("defer flush: {any}", .{err});
 
     for (chain.events) |event| {
         var line_buf: [4096]u8 = undefined;

@@ -67,7 +67,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io) catch {};
+    errdefer sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
 
     // Let the tile crash and metrics advance past the crash point.
     // Must actively reap exited children so the supervisor can update the
@@ -202,7 +202,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io) catch {};
+    errdefer sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
 
     // Wait for crash detection. Must actively reap exited children so the
     // supervisor can update the handle state to .crashed.
@@ -327,7 +327,7 @@ test "shutdown_reap: final timeout reap classifies still-running child as .unkno
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io) catch {};
+    errdefer sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
 
     // Wait for the stuck tile to be classified as stale.
     const max_polls: u32 = 600;
@@ -393,7 +393,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io) catch {};
+    errdefer sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
 
     // Wait for crash detection. Must actively reap exited children so the
     // supervisor can update the handle state to .crashed.
@@ -470,7 +470,7 @@ test "shutdown_reap: non-zero exit during grace → force-phase preserves .exite
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io) catch {};
+    errdefer sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
 
     // Wait for crash detection. Must actively reap exited children so the
     // supervisor can update the handle state to .crashed.

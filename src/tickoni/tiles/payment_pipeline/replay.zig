@@ -29,7 +29,7 @@ pub fn runReplay(state: *AuditState, config: PaymentPipelineConfig) void {
         }
         // std.Thread.yield() error is an OS scheduling failure — retrying
         // or aborting provides no benefit; the loop naturally slows and recovers.
-        std.Thread.yield() catch {};
+        std.Thread.yield() catch |err| std.log.err("yield: {any}", .{err});
     }
 
     state.external_effects_disabled.store(true, .release);

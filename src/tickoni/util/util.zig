@@ -190,7 +190,7 @@ pub const TmpDir = struct {
         if (keep == null or std.mem.sliceTo(keep.?, 0)[0] != '1') {
             // safe: cleanup only; primary operation completed, caller's path
             // already handles any failure via its own error path.
-            self.parent_dir.deleteTree(io, self.sub_path[0..12]) catch {};
+            self.parent_dir.deleteTree(io, self.sub_path[0..12]) catch |err| std.log.err("defer deleteTree: {any}", .{err});
         }
         self.parent_dir.close(io);
         self.cache_dir.close(io);

@@ -27,7 +27,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io) catch {};
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
         sup.deinit();
     }
 
@@ -123,7 +123,7 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
     const topo = topologies.paymentPipelineProcess();
     var sup = try Supervisor.init(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io) catch {};
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
         sup.deinit();
     }
 

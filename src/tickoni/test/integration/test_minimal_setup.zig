@@ -43,7 +43,7 @@ test "minimal_setup_integration: tkings → tkaudt + metric observer" {
         .workspace_name = workspace_name,
         .metric_port = port,
     });
-    errdefer sup.stopProcess(std.testing.io) catch {};
+    errdefer sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
 
     const supervisor_pid = c_abi.sandbox.getpid();
 
@@ -77,7 +77,7 @@ test "minimal_setup_integration: tkings → tkaudt + metric observer" {
     try std.testing.expectEqual(@as(u64, event_count), metrics.audited);
     try std.testing.expectEqual(@as(u64, event_count), metrics.produced);
 
-    sup.stopProcess(std.testing.io) catch {};
+    sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
     }
@@ -114,7 +114,7 @@ test "minimal_setup_integration: tkings → tknorm → tkaudt + metric observer"
         .metric_port = port,
         .verbose = true,
     });
-    errdefer sup.stopProcess(std.testing.io) catch {};
+    errdefer sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
 
     const supervisor_pid = c_abi.sandbox.getpid();
 
@@ -158,7 +158,7 @@ test "minimal_setup_integration: tkings → tknorm → tkaudt + metric observer"
     try std.testing.expectEqual(@as(u64, event_count), metrics.normalized);
     try std.testing.expectEqual(@as(u64, event_count), metrics.audited);
 
-    sup.stopProcess(std.testing.io) catch {};
+    sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
     }

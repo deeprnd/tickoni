@@ -237,7 +237,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
         for (floating_seen_pids[0..i]) |other| try std.testing.expect(other != pid);
         floating_seen_pids[i] = pid;
     }
-    floating_sup.stopProcess(std.testing.io) catch {};
+    floating_sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (floating_sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
         try std.testing.expectEqual(rt.tile.CrashReason.none, h.crashed_because);
@@ -280,7 +280,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
         for (shared_seen_pids[0..i]) |other| try std.testing.expect(other != pid);
         shared_seen_pids[i] = pid;
     }
-    shared_sup.stopProcess(std.testing.io) catch {};
+    shared_sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (shared_sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
         try std.testing.expectEqual(rt.tile.CrashReason.none, h.crashed_because);

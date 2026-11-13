@@ -168,7 +168,7 @@ pub fn runSystemSuite(
 fn writeConformanceJson(allocator: std.mem.Allocator, output_dir: []const u8, results: *const SuiteResults) !void {
     const cwd = std.Io.Dir.cwd();
     // safe: openDir below fails with clear error if dir already exists
-    std.Io.Dir.createDirPath(cwd, std.testing.io, output_dir) catch {};
+    std.Io.Dir.createDirPath(cwd, std.testing.io, output_dir) catch |err| std.log.err("defer createDirPath: {any}", .{err});
 
     const dir = try std.Io.Dir.cwd().openDir(std.testing.io, output_dir, .{});
     defer std.Io.Dir.close(dir, std.testing.io);
@@ -285,7 +285,7 @@ fn writeConformanceJson(allocator: std.mem.Allocator, output_dir: []const u8, re
     // safe: flush errors here only affect buffer persistence; content is already
     // written to the file's page cache, and test assertions below will fail the
     // test if the output file is incorrect.
-    defer w.interface.flush() catch {};
+    defer w.interface.flush() catch |err| std.log.err("defer flush: {any}", .{err});
     try w.interface.writeAll(top_json);
 
     std.debug.print("conformance: wrote 3 scenarios to {s}/conformance.json\n", .{output_dir});

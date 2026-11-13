@@ -92,7 +92,7 @@ test "tknorm_integration: stem tile processes all events" {
         try std.testing.expect(h.state != .crashed);
     }
 
-    sup.stopProcess(std.testing.io) catch {};
+    sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
     }
@@ -154,7 +154,7 @@ test "tknorm_integration: stem tile rejects malformed framing" {
         try std.testing.expect(h.state != .crashed);
     }
 
-    sup.stopProcess(std.testing.io) catch {};
+    sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
     }
@@ -173,7 +173,7 @@ test "tknorm_integration: pipeline completes without crashes or hangs" {
     const topo = topologies.minimalWithNormProcess();
     var sup = try Supervisor.initForTest(std.testing.allocator, topo);
     defer {
-        sup.stopProcess(std.testing.io) catch {};
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("defer teardown stop: {any}", .{err});
         sup.deinit();
     }
 
@@ -214,7 +214,7 @@ test "tknorm_integration: pipeline completes without crashes or hangs" {
     }
 
     // Task 9 assertion 3: clean shutdown — all tiles reach .stopped.
-    sup.stopProcess(std.testing.io) catch {};
+    sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
     }

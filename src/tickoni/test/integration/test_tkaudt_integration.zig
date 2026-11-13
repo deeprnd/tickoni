@@ -204,7 +204,7 @@ test "tkaudt_integration: Audit record allocation and counting stub" {
         try std.testing.expect(h.state != .crashed);
     }
 
-    sup.stopProcess(std.testing.io) catch {};
+    sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
     }
@@ -229,7 +229,7 @@ test "tkaudt_integration: Hash chain verification" {
     var sup = try Supervisor.initForTest(std.testing.allocator, topo);
     defer sup.deinit();
     var stopped = false;
-    defer if (!stopped) sup.stopProcess(std.testing.io) catch {};
+    defer if (!stopped) sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
 
     const event_count: u64 = DEFAULT_EVENT_COUNT;
     const metric_port = util.nextMetricPort();

@@ -20,7 +20,7 @@ pub fn runDiag(state: *PaymentPipelineState) void {
         }
         // std.Thread.yield() error is an OS scheduling failure — retrying
         // or aborting provides no benefit; the loop naturally slows and recovers.
-        std.Thread.yield() catch {};
+        std.Thread.yield() catch |err| std.log.err("yield: {any}", .{err});
     }
     _ = state.snapshotDiag();
     _ = state.diag_snapshots.fetchAdd(1, .release);
