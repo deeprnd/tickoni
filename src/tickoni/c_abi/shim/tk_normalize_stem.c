@@ -107,6 +107,7 @@ static void tknorm_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
    The Zig code uses AUDIT_INITIAL_HASH (0ULL) as seed, NOT the
    standard FNV offset basis.  Field order: idempotency_key(u64),
    account_id(u32), amount_cents(i64→u64 bitcast), currency(3 bytes). */
+/* ─── FNV-1a 64-bit hash (internal, used by DURING_FRAG) ─── */
 static uint64_t
 tknorm_stable_event_hash( RawPayment const * raw ) {
     uint64_t h = 0ULL;  /* AUDIT_INITIAL_HASH == 0 in audit_consts.h */
@@ -124,6 +125,12 @@ tknorm_stable_event_hash( RawPayment const * raw ) {
     for (int i = 0; i < 3; i++) { h ^= raw->currency[i]; h *= 0x100000001b3ULL; }
 
     return h;
+}
+
+/* ─── Exported wrapper for FFI unit tests ─── */
+uint64_t
+tknorm_stable_event_hash_compute( RawPayment const * raw ) {
+    return tknorm_stable_event_hash( raw );
 }
 
 /* ─── Scratch footprint ─── */
