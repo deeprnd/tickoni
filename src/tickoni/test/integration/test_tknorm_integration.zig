@@ -32,7 +32,7 @@ const DEFAULT_EVENT_COUNT: u64 = 8;
 const EXPECTED_TILE_COUNT: usize = 4;
 
 test "tknorm_integration: stem tile processes all events" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -161,7 +161,7 @@ test "tknorm_integration: stem tile rejects malformed framing" {
 }
 
 test "tknorm_integration: pipeline completes without crashes or hangs" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();

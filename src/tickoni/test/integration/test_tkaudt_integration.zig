@@ -150,7 +150,7 @@ comptime {
 // ===========================================================================
 
 test "tkaudt_integration: Audit record allocation and counting stub" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -215,7 +215,7 @@ test "tkaudt_integration: Audit record allocation and counting stub" {
 // ===========================================================================
 
 test "tkaudt_integration: Hash chain verification" {
-    if (true) return error.SkipZigTest;
+    if (false) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
