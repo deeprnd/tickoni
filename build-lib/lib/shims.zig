@@ -15,6 +15,7 @@ pub const shim_c_files = &.{
     "tile_run.c",
     "tk_audit_stem.c",
     "tk_normalize_stem.c",
+    "tk_dedu_stem.c",
     "ballet.c",
 };
 
