@@ -148,12 +148,12 @@ test "FNV-1a C hash differs for different inputs" {
     var fixture2 = makeFixture();
     fixture2.idempotency_key = 99;
     try std.testing.expect(tknorm_stable_event_hash_compute(&fixture1) !=
-                            tknorm_stable_event_hash_compute(&fixture2));
+        tknorm_stable_event_hash_compute(&fixture2));
 
     var fixture3 = makeFixture();
     fixture3.amount_cents = 9999;
     try std.testing.expect(tknorm_stable_event_hash_compute(&fixture1) !=
-                            tknorm_stable_event_hash_compute(&fixture3));
+        tknorm_stable_event_hash_compute(&fixture3));
 }
 
 test "FNV-1a C hash matches Zig stableEventHash" {
