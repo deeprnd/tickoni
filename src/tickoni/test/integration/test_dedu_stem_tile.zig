@@ -147,7 +147,7 @@ test "tkdedu_integration: pipeline completes without crashes or hangs" {
     // Task 12 assertion 1: every event produced was audited (duplicates
     // are silently removed — tkaudt only sees unique events).
     try std.testing.expectEqual(@as(u64, event_count), metrics.audited);
-    try std.testing.expect(@as(u64, 0) < metrics.duplicates, "at least one duplicate should exist with inject_duplicate=true");
+    try std.testing.expect(@as(u64, 0) < metrics.duplicates);
 
     // Task 12 assertion 2: no tile crashed.
     for (sup.monitor()) |h| {
