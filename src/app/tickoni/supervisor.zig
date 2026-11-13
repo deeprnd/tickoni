@@ -743,11 +743,12 @@ pub const Supervisor = struct {
             var argv_count: usize = 3;
             argv_buf[0] = self_exe_path;
             argv_buf[2] = spec_path;
-            // Stem tiles (tkaudt, tknorm) use the dedicated __stem-run path
+            // Stem tiles (tkaudt, tknorm, tkdedu) use the dedicated __stem-run path
             // which skips Zig callbacks and dispatches straight to the tile's
             // fd_stem-based run loop. All other tiles use __tile-run.
             if (rt.tile_ids.tkaudt.eql(tile.name) or
-                rt.tile_ids.tknorm.eql(tile.name))
+                rt.tile_ids.tknorm.eql(tile.name) or
+                rt.tile_ids.tkdedu.eql(tile.name))
             {
                 argv_buf[1] = "__stem-run";
             } else {
@@ -763,6 +764,13 @@ pub const Supervisor = struct {
                 var buf: [21]u8 = undefined;
                 const s = std.fmt.bufPrint(&buf, "{d}", .{config.event_count}) catch &buf;
                 try env.put("TKAUDT_EVENT_COUNT", s);
+            }
+            // Pass event_count to the tkdedu stem tile so it can exit
+            // promptly when processed >= event_count.
+            if (rt.tile_ids.tkdedu.eql(tile.name)) {
+                var buf: [21]u8 = undefined;
+                const s = std.fmt.bufPrint(&buf, "{d}", .{config.event_count}) catch &buf;
+                try env.put("TKDEDU_EVENT_COUNT", s);
             }
             const child = try std.process.spawn(io, .{
                 .argv = argv_buf[0..argv_count],
