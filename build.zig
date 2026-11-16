@@ -36,14 +36,21 @@ fn validateBuildPath(path: []const u8) ![]const u8 {
 pub fn build(b: *std.Build) void {
     const native_target = b.standardTargetOptions(.{});
     // Native CPU detection on certain x86_64 CPUs (e.g. icelake_server)
-    // produces enum values the C frontend (aro) rejects. Pin both the resolved
-    // target and its query to Haswell so artifacts remain portable across CI
-    // hosts while preserving the requested OS/ABI.
+    // produces enum values the C frontend (aro) rejects.  Construct a safe
+    // target that preserves native OS/ABI (for library resolution) but
+    // uses haswell CPU model (matches Firedancer x86_64 baseline).
     const target = if (native_target.result.cpu.arch == .x86_64) blk: {
-        var safe_query = native_target.query;
-        safe_query.cpu_arch = .x86_64;
-        safe_query.cpu_model = .{ .explicit = &std.Target.x86.cpu.haswell };
-        break :blk b.resolveTargetQuery(safe_query);
+        const safe_cpu = std.Target.x86.cpu.haswell.toCpu(.x86_64);
+        break :blk std.Build.ResolvedTarget{
+            .query = native_target.query,
+            .result = .{
+                .cpu = safe_cpu,
+                .os = native_target.result.os,
+                .abi = native_target.result.abi,
+                .ofmt = native_target.result.ofmt,
+                .dynamic_linker = native_target.result.dynamic_linker,
+            },
+        };
     } else native_target;
     const optimize = b.standardOptimizeOption(.{});
     const fd_lib_dir = validateBuildPath(b.option([]const u8, "fd-lib-dir", "Firedancer lib dir (default: build/fd-tickoni-fd/lib)") orelse "build/fd-tickoni-fd/lib") catch {
