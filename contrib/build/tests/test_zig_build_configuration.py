@@ -64,6 +64,39 @@ def test_build_zig_x86_target_query_pins_haswell_cpu():
     assert ".query = native_target.query" not in build_zig
 
 
+def test_linux_x86_shim_flags_match_firedancer_machine_profiles():
+    shims = (REPO_ROOT / "build-lib" / "lib" / "shims.zig").read_text(
+        encoding="utf-8"
+    )
+    gcc_profile = (
+        REPO_ROOT / "config" / "machine" / "linux_gcc_x86_64.mk"
+    ).read_text(encoding="utf-8")
+    clang_profile = (
+        REPO_ROOT / "config" / "machine" / "linux_clang_x86_64.mk"
+    ).read_text(encoding="utf-8")
+
+    linux_section = shims.split(".linux => switch (target.cpu.arch)", 1)[1].split(
+        ".macos =>", 1
+    )[0]
+    x86_section, fallback_section = linux_section.split("else =>", 1)
+    required_flags = (
+        "-DFD_HAS_INT128=1",
+        "-DFD_HAS_DOUBLE=1",
+        "-DFD_HAS_ALLOCA=1",
+        "-DFD_HAS_X86=1",
+        "-DFD_HAS_SSE=1",
+        "-DFD_HAS_AVX=1",
+    )
+
+    for flag in required_flags:
+        assert flag in gcc_profile
+        assert flag in clang_profile
+        assert f'"{flag}"' in x86_section
+
+    assert '"-DFD_HAS_X86=1"' not in fallback_section
+    assert '"-DFD_HAS_AVX=1"' not in fallback_section
+
+
 @pytest.mark.skipif(os.name != "nt", reason="requires a native Windows path")
 def test_build_accepts_windows_absolute_fd_library_path():
     fd_lib_dir = REPO_ROOT / "build" / "fd-tickoni-fd" / "lib"

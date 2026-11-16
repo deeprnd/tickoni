@@ -57,10 +57,18 @@ pub fn buildTriple(b: *std.Build, target: std.Build.ResolvedTarget) []const u8 {
 pub fn shimCFlagsFor(target: std.Target) []const []const u8 {
     const unaligned_style = "-DFD_UNALIGNED_ACCESS_STYLE=0";
     return switch (target.os.tag) {
-        .linux => &.{
-            "-std=c17",          "-U__BMI2__",         "-U__LZCNT__",
-            "-DFD_HAS_HOSTED=1", "-DFD_HAS_LINUX=1",   "-DFD_HAS_THREADS=1",
-            "-DFD_HAS_ATOMIC=1", "-DFD_HAS_OPENSSL=1", unaligned_style,
+        .linux => switch (target.cpu.arch) {
+            .x86_64 => &.{
+                "-std=c17",          "-U__BMI2__",         "-U__LZCNT__",       "-DFD_HAS_HOSTED=1",
+                "-DFD_HAS_LINUX=1",  "-DFD_HAS_THREADS=1", "-DFD_HAS_ATOMIC=1", "-DFD_HAS_OPENSSL=1",
+                "-DFD_HAS_INT128=1", "-DFD_HAS_DOUBLE=1",  "-DFD_HAS_ALLOCA=1", "-DFD_HAS_X86=1",
+                "-DFD_HAS_SSE=1",    "-DFD_HAS_AVX=1",     unaligned_style,
+            },
+            else => &.{
+                "-std=c17",          "-U__BMI2__",         "-U__LZCNT__",
+                "-DFD_HAS_HOSTED=1", "-DFD_HAS_LINUX=1",   "-DFD_HAS_THREADS=1",
+                "-DFD_HAS_ATOMIC=1", "-DFD_HAS_OPENSSL=1", unaligned_style,
+            },
         },
         .macos => &.{
             "-std=c17",          "-U__BMI2__",         "-U__LZCNT__",
