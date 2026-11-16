@@ -12,4 +12,5 @@ pub const wksp = @import("wksp.zig");
 pub const boot = @import("boot.zig");
 pub const topo_run = @import("topo_run.zig");
 pub const topob = @import("topob.zig");
+pub const tkdedu = @import("tkdedu.zig");
 pub const os = @import("os.zig");

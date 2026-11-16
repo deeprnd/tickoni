@@ -398,7 +398,7 @@ pub const Supervisor = struct {
         // Tickoni; see topob.zig's topoWkspSetPtr doc comment ("finding
         // 3") for the reused-layout-math/own-memory hybrid this drives.
         log.debug("supervisor", "startPaymentPipelineProcess", "building topology via topo_build.build");
-        var built_topo = try rt.topo_build.build(self.allocator, modified_topo, full_workspace_name, config.metric_port);
+        var built_topo = try rt.topo_build.build(self.allocator, modified_topo, full_workspace_name, config.metric_port, config.event_count);
         var built_topo_owned_by_state = false;
         errdefer if (!built_topo_owned_by_state) built_topo.deinit(self.allocator);
         log.kvFmt("supervisor", "startPaymentPipelineProcess", "topology built successfully, footprint={d} pages", .{c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx) / c_abi.wksp.shmem_normal_page_sz});
@@ -679,7 +679,7 @@ pub const Supervisor = struct {
         // config (see topology_spec.zig's module doc, "finding 5").
         const topology_spec_path = try std.fmt.allocPrint(self.allocator, "{s}/topology.spec", .{config.run_dir});
         defer self.allocator.free(topology_spec_path);
-        var topology_spec = try rt.topology_spec.TopologySpec.fromTopology(self.topo, config.metric_port);
+        var topology_spec = try rt.topology_spec.TopologySpec.fromTopology(self.topo, config.metric_port, config.event_count);
         std.debug.print("[sup-debug] TOPO_SPEC: sizeof={d} magic={x} version={d} tile_cnt={d} chan_cnt={d}\n", .{
             @sizeOf(rt.topology_spec.TopologySpec),
             topology_spec.magic_field,
@@ -764,13 +764,6 @@ pub const Supervisor = struct {
                 var buf: [21]u8 = undefined;
                 const s = std.fmt.bufPrint(&buf, "{d}", .{config.event_count}) catch &buf;
                 try env.put("TKAUDT_EVENT_COUNT", s);
-            }
-            // Pass event_count to the tkdedu stem tile so it can exit
-            // promptly when processed >= event_count.
-            if (rt.tile_ids.tkdedu.eql(tile.name)) {
-                var buf: [21]u8 = undefined;
-                const s = std.fmt.bufPrint(&buf, "{d}", .{config.event_count}) catch &buf;
-                try env.put("TKDEDU_EVENT_COUNT", s);
             }
             const child = try std.process.spawn(io, .{
                 .argv = argv_buf[0..argv_count],

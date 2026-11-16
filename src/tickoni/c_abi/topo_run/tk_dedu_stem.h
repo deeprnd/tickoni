@@ -22,6 +22,13 @@ extern fd_topo_run_tile_t const * tk_get_dedu_run_tile( void );
    fd_topo_tile_t pointer. */
 extern ulong tkdedu_tile_scratch_footprint( void );
 
+/* Set the dedupe table size for this process.  Must be called before any
+   footprint query, since it participates in workspace layout: the
+   supervisor and every child have to pass the same value (carried in
+   TopologySpec) or their object offsets diverge.  topo_build.build() is
+   the single call site. */
+extern void tkdedu_set_event_count( ulong event_count );
+
 /* Alignment constant for the dedu tile's scratch space. */
 #define TKDEDU_CTX_ALIGN 8
 
