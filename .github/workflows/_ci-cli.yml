@@ -77,6 +77,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Print CPU info
+        uses: ./.github/actions/cpu-info
+        with:
+          detail: summary
+
       - name: Install just
         uses: taiki-e/install-action@just
 

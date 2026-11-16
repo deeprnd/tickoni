@@ -24,6 +24,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Print CPU info
+        uses: ./.github/actions/cpu-info
+        with:
+          detail: summary
+
       - name: Create local main branch for diff-based quality scripts
         run: |
           git fetch origin main
