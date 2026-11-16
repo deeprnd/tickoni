@@ -320,7 +320,7 @@ FD_FN_CONST static inline int   fd_frag_meta_ctl_err ( ulong ctl ) { return (int
 FD_FN_CONST static inline __m128i
 fd_frag_meta_sse0( ulong seq,
                    ulong sig ) {
-  return _mm_set_epi64x( (long)sig, (long)seq ); /* Backward Intel ... sigh */
+  return _mm_set_epi64x( (long long)sig, (long long)seq ); /* Backward Intel ... sigh */
 }
 
 FD_FN_CONST static inline ulong fd_frag_meta_sse0_seq( __m128i sse0 ) { return (ulong)_mm_extract_epi64( sse0, 0 ); }
@@ -332,8 +332,8 @@ fd_frag_meta_sse1( ulong chunk,    /* Assumed 32-bit */
                    ulong ctl,      /* Assumed 16-bit */
                    ulong tsorig,   /* Assumed 32-bit */
                    ulong tspub ) { /* Assumed 32-bit */
-  return _mm_set_epi64x( (long)(tsorig | (tspub<<32)),
-                         (long)(chunk | (sz<<32) | (ctl<<48)) ); /* Backward Intel ... sigh */
+  return _mm_set_epi64x( (long long)(tsorig | (tspub<<32)),
+                         (long long)(chunk | (sz<<32) | (ctl<<48)) ); /* Backward Intel ... sigh */
 }
 
 FD_FN_CONST static inline ulong fd_frag_meta_sse1_chunk ( __m128i sse1 ) { return (ulong)(uint  )_mm_extract_epi32( sse1, 0 ); }
@@ -353,10 +353,10 @@ fd_frag_meta_avx( ulong seq,
                   ulong ctl,      /* Assumed 16-bit */
                   ulong tsorig,   /* Assumed 32-bit */
                   ulong tspub ) { /* Assumed 32-bit */
-  return (fd_frag_meta_v256_t){ (long)seq,
-                                (long)sig,
-                                (long)(chunk | (sz<<32) | (ctl<<48)),
-                                (long)(tsorig | (tspub<<32)) };
+  return (fd_frag_meta_v256_t){ (long long)seq,
+                                (long long)sig,
+                                (long long)(chunk | (sz<<32) | (ctl<<48)),
+                                (long long)(tsorig | (tspub<<32)) };
 }
 
 FD_FN_CONST static inline ulong fd_frag_meta_avx_seq   ( fd_frag_meta_v256_t avx ) { return (ulong)         avx[0];       }
