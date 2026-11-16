@@ -131,6 +131,14 @@ long tk_tempo_lazy_default( ulong cr_max ) { return fd_tempo_lazy_default( cr_ma
 ulong tk_tempo_async_min( long lazy, ulong event_cnt, float tick_per_ns ) { return fd_tempo_async_min( lazy, event_cnt, tick_per_ns ); }
 ulong tk_tempo_async_reload( ulong async_min ) { return fd_tempo_async_reload( tk_tempo_rng_tls(), async_min ); }
 
+/* Full-width tick counter that fd_stem's housekeeping timer runs on
+   (fd_util_base.h fd_tickcount_wide).  tk_tickcount_is_wallclock reports
+   whether this build uses the portable fallback (FD_TICKCOUNT_STYLE 0),
+   where a tick is defined as one ns of wallclock since the UNIX epoch. */
+int64_t tk_tickcount_wide( void ) { return (int64_t)fd_tickcount_wide(); }
+int tk_tickcount_is_wallclock( void ) { return FD_TICKCOUNT_STYLE==0; }
+int64_t tk_log_wallclock_nanos( void ) { return (int64_t)fd_log_wallclock_nanos(); }
+
 ulong tk_cnc_align( void ) { return fd_cnc_align(); }
 ulong tk_cnc_footprint( ulong app_sz ) { return fd_cnc_footprint( app_sz ); }
 static inline uint32_t tk_cnc_heartbeat_from_ns( int64_t now_ns ) {
