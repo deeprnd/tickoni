@@ -1342,7 +1342,9 @@ FD_STATIC_ASSERT( sizeof(fd_tick_t)==8UL, fd_tick_t_must_be_64_bit );
 
 #if FD_TICKCOUNT_STYLE==0 /* Portable fallback (slow).  Ticks at 1 ns / tick */
 
-#define fd_tickcount_wide() ((fd_tick_t)fd_log_wallclock())
+/* fd_log_wallclock_nanos, not fd_log_wallclock: the latter returns long,
+   which truncates to 32 bits on Windows and wraps every ~4.29 s. */
+#define fd_tickcount_wide() ((fd_tick_t)fd_log_wallclock_nanos())
 #define fd_tickcount()      fd_log_wallclock() /* TODO: fix ugly pre-log usage */
 
 #elif FD_TICKCOUNT_STYLE==1 /* RTDSC (fast) */
