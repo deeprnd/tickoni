@@ -36,7 +36,6 @@ pub fn buildTriple(b: *std.Build, target: std.Build.ResolvedTarget) []const u8 {
     };
     const abi_name = switch (target.result.abi) {
         .gnu => "gnu",
-        .gnuabi64 => "gnu",
         .musl => "musl",
         .msvc => "msvc",
         else => "",
