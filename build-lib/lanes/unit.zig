@@ -24,7 +24,7 @@ pub fn strategy(
     const int_mods = factory.ModuleFactory.init(b, shared, tm, target, optimize).createIntModules(null);
 
     // Collect all compile steps for sequential run.
-    var run_sequence: [42]*std.Build.Step.Compile = undefined;
+    var run_sequence: [48]*std.Build.Step.Compile = undefined;
     var run_count: usize = 0;
 
     const tb = lane.TestBuilder{
@@ -57,6 +57,38 @@ pub fn strategy(
             .{ .name = "util", .module = shared.util },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    // topology_spec.zig — the supervisor->child topology handoff contract
+    // (magic, version, metric_port, event_count). event_count feeds tkdedu's
+    // scratch footprint, so a silent change to this serialized shape makes
+    // parent and child derive different workspace layouts. Its in-file tests
+    // were previously unregistered and had rotted against the current std.Io
+    // API; they run here so the contract is covered at unit scope.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-topology-spec",
+        .source_file = "src/tickoni/runtime/topology_spec.zig",
+        .imports = &.{
+            .{ .name = "c_abi", .module = shared.c_abi },
+            .{ .name = "logger", .module = shared.logger },
+            .{ .name = "util", .module = shared.util },
+        },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    // file_io.zig — absolute-vs-relative path resolution for the binary
+    // spec/config round-trips (LaunchSpec, TopologySpec, ProcessConfig all
+    // sit on it). Also previously unregistered.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-file-io",
+        .source_file = "src/tickoni/runtime/file_io.zig",
+        .imports = &.{
+            .{ .name = "util", .module = shared.util },
+        },
+        // util.tmpDir reads ZIG_LOCAL_CACHE_DIR through c.getenv.
+        .linkage = .{ .needs_libc = true },
     });
     run_count += 1;
 
