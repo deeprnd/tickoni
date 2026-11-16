@@ -151,6 +151,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Print CPU info
+        uses: ./.github/actions/cpu-info
+        with:
+          detail: summary
+
       - name: Install just
         uses: taiki-e/install-action@just
 
