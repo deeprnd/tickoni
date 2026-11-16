@@ -55,13 +55,14 @@ runs:
           if [ "$DETAIL" = "full" ]; then
             powershell -NoProfile -Command "Get-CimInstance Win32_Processor | Format-List *"
           else
-            powershell -NoProfile -Command "
-              \$cpu = Get-CimInstance Win32_Processor
-              Write-Host \"Model:    $($cpu.Name)\"
-              Write-Host \"Cores:    $($cpu.NumberOfCores) x $([environment]::ProcessorCount) logical\"
-              Write-Host \"Max MHz:  $($cpu.MaxClockSpeed)\"
-              Write-Host \"L3 Cache: $([math]::Round(\$($cpu.L3CacheSize)/1MB, 1)) MB\"
-            "
+            ps1=$(mktemp /tmp/cpu-info-XXXXXX.ps1)
+            echo '$cpu = Get-CimInstance Win32_Processor' > "$ps1"
+            echo 'Write-Host "Model:    $($cpu.Name)"' >> "$ps1"
+            echo 'Write-Host "Cores:    $($cpu.NumberOfCores) x $([environment]::ProcessorCount) logical"' >> "$ps1"
+            echo 'Write-Host "Max MHz:  $($cpu.MaxClockSpeed)"' >> "$ps1"
+            echo 'Write-Host "L3 Cache: $([math]::Round($($cpu.L3CacheSize)/1MB, 1)) MB"' >> "$ps1"
+            powershell -NoProfile -File "$ps1"
+            rm -f "$ps1"
           fi
         else
           echo "Unknown OS: $os_name — running uname -a"
