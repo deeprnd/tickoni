@@ -26,7 +26,6 @@
 
 #include <string.h>
 #include <stddef.h>
-#include <stdlib.h>
 
 /* ─── Context ───
    tkdedu_ctx_t MUST be defined BEFORE STEM_CALLBACK_CONTEXT_TYPE
@@ -37,8 +36,11 @@ typedef struct {
     uint64_t duplicates;
     uint64_t processed;
 
-    /* Dedup state — scratch-allocated arrays */
+    /* Dedup state — scratch-allocated arrays.  seen_cap is the reserved
+       entry count that drives every scratch offset; it is NOT the
+       shutdown-gating event_count below (which may legitimately be 0). */
     uint64_t seen_count;
+    uint64_t seen_cap;
     uint64_t *seen_keys;
     uint64_t *seen_hashes;
 
@@ -110,23 +112,47 @@ static void tkdedu_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
    for topob.c so it never needs the full fd_topo_tile_t definition.
 */
 
+/* ─── Dedupe table size: explicit runtime layout parameter ───
+
+   The dedupe table size is a runtime value, so it has to reach BOTH
+   tkdedu_scratch_footprint_tile() — which the supervisor and every
+   child call while deriving the workspace layout — and
+   tkdedu_privileged_init().  It travels in TopologySpec and is pushed in
+   here by topo_build.build() before any footprint query, so the layout
+   the supervisor computes and the layout each child re-derives are
+   identical by construction.
+
+   This was previously read from the TKDEDU_EVENT_COUNT environment
+   variable in both places, which made workspace object offsets depend on
+   process environment: a child whose environment differed from the
+   supervisor's reserved a different footprint, shifting every object
+   after tkdedu's and corrupting its view of the workspace. */
+#define TKDEDU_DEFAULT_EVENT_COUNT 10000UL
+
+static ulong tkdedu_event_count_param = 0UL;
+
+void
+tkdedu_set_event_count( ulong event_count ) {
+    tkdedu_event_count_param = event_count;
+}
+
+/* Single resolution point for the reserved entry count.  The footprint
+   reservation and privileged_init's pointer arithmetic MUST agree, or
+   seen_hashes and output_msg land outside the reserved block. */
+static ulong
+tkdedu_layout_event_count( void ) {
+    return tkdedu_event_count_param ? tkdedu_event_count_param
+                                    : TKDEDU_DEFAULT_EVENT_COUNT;
+}
+
 static ulong
 tkdedu_scratch_footprint_tile( fd_topo_tile_t const * tile ) {
     (void)tile;
     /* Context + alignment */
     ulong footprint = fd_ulong_align_up( sizeof(tkdedu_ctx_t), TKDEDU_CTX_ALIGN );
 
-    /* Dedup arrays: N entries each (N determined at runtime from env).
-       Conservative estimate: default event_count = 10000 (matches
-       supervisor config). */
-    ulong event_count = 10000;
-    {
-        const char *env = getenv("TKDEDU_EVENT_COUNT");
-        if (env) {
-            event_count = strtoull(env, NULL, 10);
-            if (event_count == 0) event_count = 10000;
-        }
-    }
+    /* Dedup arrays: seen_cap entries each. */
+    ulong event_count = tkdedu_layout_event_count();
 
     /* seen_keys and seen_hashes follow aligned context */
     ulong arr_align = fd_ulong_align_up( footprint, alignof(uint64_t) );
@@ -152,6 +178,7 @@ tkdedu_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     ctx->duplicates = 0;
     ctx->processed = 0;
     ctx->seen_count = 0;
+    ctx->seen_cap = 0;
     ctx->output_ready = 0;
     ctx->cnc = NULL;
     ctx->event_count = 0;
@@ -164,23 +191,28 @@ tkdedu_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     /* Derive workspace pointer from input mcache */
     ctx->wksp = stk_derive_wksp(topo, tile, 0);
 
-    /* Read event_count from environment */
-    {
-        const char *env = getenv("TKDEDU_EVENT_COUNT");
-        if (env) {
-            ctx->event_count = strtoull(env, NULL, 10);
-            FD_LOG_NOTICE(( "tkdedu: event_count=%lu from env", (unsigned long)ctx->event_count ));
-        }
-    }
+    /* Shutdown gating count, as set by topo_build.build() from
+       TopologySpec.  0 means "no event-count gate"; the tile then stops
+       on CNC HALT only. */
+    ctx->event_count = tkdedu_event_count_param;
+
+    /* Reserved table size.  This, never ctx->event_count, drives every
+       scratch offset below, so the layout is byte-identical to the one
+       tkdedu_scratch_footprint_tile() reserved even when the gating
+       count is 0. */
+    ctx->seen_cap = tkdedu_layout_event_count();
+
+    FD_LOG_NOTICE(( "tkdedu: event_count=%lu seen_cap=%lu",
+                    (unsigned long)ctx->event_count, (unsigned long)ctx->seen_cap ));
 
     /* Allocate dedup arrays from scratch */
     ulong arr_align = fd_ulong_align_up( (ulong)ctx + sizeof(tkdedu_ctx_t), alignof(uint64_t) );
     uint64_t * arr = (uint64_t *)arr_align;
     ctx->seen_keys = arr;
-    ctx->seen_hashes = arr + ctx->event_count;
+    ctx->seen_hashes = arr + ctx->seen_cap;
 
     /* Point output_msg at scratch block after arrays */
-    ulong out_align = fd_ulong_align_up( (ulong)arr + sizeof(uint64_t) * ctx->event_count * 2,
+    ulong out_align = fd_ulong_align_up( (ulong)arr + sizeof(uint64_t) * ctx->seen_cap * 2,
                                           alignof(PaymentMessage) );
     ctx->output_msg = (PaymentMessage *)out_align;
 
@@ -252,6 +284,11 @@ tkdedu_during_frag( tkdedu_ctx_t * ctx,
         if (is_dup) {
             ctx->output_msg->duplicate = 1;
             ctx->duplicates += 1;
+        } else if (FD_UNLIKELY( ctx->seen_count >= ctx->seen_cap )) {
+            /* Fail closed: writing past seen_cap would corrupt the
+               scratch that follows the reserved dedupe table. */
+            FD_LOG_ERR(( "tkdedu: dedupe table full at %lu entries",
+                         (unsigned long)ctx->seen_cap ));
         } else {
             /* Remember this (key, hash) pair */
             ctx->seen_keys[ctx->seen_count] = ctx->output_msg->raw.idempotency_key;
@@ -267,8 +304,11 @@ tkdedu_during_frag( tkdedu_ctx_t * ctx,
     ctx->output_ready = 1;
     ctx->output_sz = PAYMENT_MSG_SIZE;
 
-    /* Shared boilerplate: progress publishing */
-    stk_publish_progress(ctx->cnc, ctx->processed);
+    /* Shared boilerplate: progress publishing.  CNC app slot 0 is mapped
+       to .duplicates for tkdedu in tile_registry.zig, so publish that
+       counter — ctx->processed is the shutdown gate's input, not a
+       metric the supervisor exposes. */
+    stk_publish_progress(ctx->cnc, ctx->duplicates);
 
     ctx->processed += 1;
 }

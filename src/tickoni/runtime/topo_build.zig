@@ -157,11 +157,23 @@ pub fn build(
     topo_desc: topology.Topology,
     workspace_name: []const u8,
     metric_port: u16,
+    event_count: u64,
 ) !BuiltTopo {
     std.debug.print("[topo-build] ENTER build workspace={s}\n", .{workspace_name});
     const log = logger.get();
     log.enter("topo_build", "build");
     defer log.exit("topo_build", "build");
+
+    // tkdedu's scratch footprint is a function of event_count, so it has to be
+    // pushed into the tile before any footprint query below. Both the
+    // supervisor and every self-exec'd child reach this with the same value
+    // (the supervisor from its run config, children from TopologySpec), which
+    // is what keeps the two layouts byte-identical. Previously the tile read
+    // this from the TKDEDU_EVENT_COUNT environment variable, so a child with a
+    // different environment reserved a different footprint and every object
+    // offset after tkdedu's shifted.
+    c_abi.tkdedu.setEventCount(event_count);
+    log.kvFmt("topo_build", "build", "tkdedu event_count={d}", .{event_count});
     const align_check = c_abi.topob.topoAlignof();
     std.debug.print("[topo-build] alignof={d} <= {d} check={}\n", .{ align_check, topo_alloc_align.toByteUnits(), align_check <= topo_alloc_align.toByteUnits() });
     const size = c_abi.topob.topoSizeof();
@@ -477,7 +489,7 @@ test "build produces a topology for the linear Phase 0 chain" {
     };
     const topo_desc = topology.Topology{ .tiles = &tiles, .channels = &channels };
 
-    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 0);
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 0, 0);
     defer built.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(usize, 5), built.cnc_obj_id.len);
@@ -510,7 +522,7 @@ test "build with metric tile populates metric_wksp_idx and metric_tile_idx" {
     };
     const topo_desc = topology.Topology{ .tiles = &tiles, .channels = &channels };
 
-    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 9091);
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 9091, 0);
     defer built.deinit(std.testing.allocator);
 
     // Metric workspace indices must be valid (not not_found).

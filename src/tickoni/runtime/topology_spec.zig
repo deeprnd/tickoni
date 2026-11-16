@@ -23,7 +23,7 @@ const logger = @import("logger");
 const tile_ids = tile_ids_mod;
 
 pub const magic: u32 = 0x544b5453; // "TKST"
-pub const version: u16 = 2;
+pub const version: u16 = 3;
 
 pub const max_tiles: usize = 8;
 pub const max_channels: usize = 8;
@@ -47,8 +47,16 @@ pub const TopologySpec = struct {
     channel_mtu: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
     workspace_name: link.WorkspaceName = std.mem.zeroes(link.WorkspaceName),
     metric_port: u16 = 7999,
+    /// Pipeline event count for this run.
+    ///
+    /// Carried here because it is a *topology layout* input, not just tile
+    /// behaviour: tkdedu's scratch footprint reserves `event_count` entries for
+    /// each of its `seen_keys`/`seen_hashes` arrays, so the supervisor and every
+    /// self-exec'd child must feed topo_build.build the same value or their
+    /// object offsets diverge. 0 selects the tile's default reservation.
+    event_count: u64 = 0,
 
-    pub fn fromTopology(topo: topology.Topology, metric_port: u16) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec {
+    pub fn fromTopology(topo: topology.Topology, metric_port: u16, event_count: u64) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec {
         const log = logger.get();
         log.enter("topology_spec", "TopologySpec.fromTopology");
         defer log.exit("topology_spec", "TopologySpec.fromTopology");
@@ -59,6 +67,7 @@ pub const TopologySpec = struct {
             .tile_cnt = @intCast(topo.tiles.len),
             .channel_cnt = @intCast(topo.channels.len),
             .metric_port = metric_port,
+            .event_count = event_count,
         };
         for (topo.tiles, 0..) |t, i| {
             spec.tile_id[i] = i;
@@ -140,9 +149,9 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
     defer tmp.cleanup();
 
     const tiles = [_]tile.TileDescriptor{
-        .{ .id = tile_ids.tkings, .name = tile_ids.tkings, .cpu_placement = .{ .exclusive = 0 } },
-        .{ .id = tile_ids.tknorm, .name = tile_ids.tknorm, .cpu_placement = .{ .shared = 1 } },
-        .{ .id = tile_ids.tkdedu, .name = tile_ids.tkdedu },
+        .{ .id = 0, .name = tile_ids.tkings, .cpu_placement = .{ .exclusive = 0 } },
+        .{ .id = 1, .name = tile_ids.tknorm, .cpu_placement = .{ .shared = 1 } },
+        .{ .id = 2, .name = tile_ids.tkdedu },
     };
     const channels = [_]link.Channel{
         .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = try link.WorkspaceName.parse("tkpay0") },
@@ -151,7 +160,7 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
     const topo = topology.Topology{ .tiles = &tiles, .channels = &channels };
 
     const port = util.nextMetricPort();
-    const spec = try TopologySpec.fromTopology(topo, port);
+    const spec = try TopologySpec.fromTopology(topo, port, 32);
     try spec.writeToFile(std.testing.io, tmp.dir, "topology.spec");
 
     const read_back = try TopologySpec.readFromFile(std.testing.io, tmp.dir, "topology.spec");
@@ -168,6 +177,11 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
     try std.testing.expectEqual(@as(u32, 0), rebuilt.channels[0].src_idx);
     try std.testing.expectEqual(@as(u32, 1), rebuilt.channels[0].dst_idx);
     try std.testing.expectEqualStrings("tkpay0", rebuilt.channels[0].workspace_name.slice());
+    // event_count must survive the round-trip: a child that reads back a
+    // different value than the supervisor wrote derives a different tkdedu
+    // scratch footprint, and every object offset after it shifts.
+    try std.testing.expectEqual(@as(u64, 32), read_back.event_count);
+    try std.testing.expectEqual(port, read_back.metric_port);
 }
 
 const topology_spec_max_tiles_for_test = max_tiles;
@@ -197,7 +211,21 @@ test "TopologySpec readFromFile rejects a bad magic" {
 test "TopologySpec fromTopology fails closed on too many tiles" {
     const port = util.nextMetricPort();
     var tiles: [max_tiles + 1]tile.TileDescriptor = undefined;
-    for (&tiles) |*t| t.* = .{ .id = tile_ids.tkfoo, .name = tile_ids.tkfoo, .cpu_placement = .floating };
+    for (&tiles, 0..) |*t, i| t.* = .{ .id = i, .name = tile_ids.tkings, .cpu_placement = .floating };
     const topo = topology.Topology{ .tiles = &tiles, .channels = &.{} };
-    try std.testing.expectError(error.TooManyTiles, TopologySpec.fromTopology(topo, port));
+    try std.testing.expectError(error.TooManyTiles, TopologySpec.fromTopology(topo, port, 0));
+}
+
+test "TopologySpec readFromFile fails closed on an unsupported version" {
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var spec = TopologySpec{ .tile_cnt = 0, .channel_cnt = 0 };
+    spec.version_field = version - 1;
+    try spec.writeToFile(std.testing.io, tmp.dir, "old_version.spec");
+
+    try std.testing.expectError(
+        error.TopologySpecUnsupportedVersion,
+        TopologySpec.readFromFile(std.testing.io, tmp.dir, "old_version.spec"),
+    );
 }

@@ -66,7 +66,7 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
     std.debug.print("[tile-main] stemRun: toTopology ok\n", .{});
 
     std.debug.print("[tile-main] stemRun: calling topo_build.build\n", .{});
-    const built = rt.topo_build.build(allocator, topo_desc, spec.workspace_name.slice(), topo_spec.metric_port) catch |err| {
+    const built = rt.topo_build.build(allocator, topo_desc, spec.workspace_name.slice(), topo_spec.metric_port, topo_spec.event_count) catch |err| {
         std.debug.print("tile_main: failed to rebuild topology for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
     };

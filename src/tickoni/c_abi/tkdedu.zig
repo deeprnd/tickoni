@@ -21,6 +21,7 @@ extern fn tk_get_dedu_run_scratch_footprint() ?*anyopaque;
 extern fn tk_get_dedu_run_privileged_init() ?*anyopaque;
 extern fn tk_get_dedu_run_unprivileged_init() ?*anyopaque;
 extern fn tkdedu_tile_scratch_footprint() usize;
+extern fn tkdedu_set_event_count(event_count: usize) void;
 extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
 
 // ---------------------------------------------------------------------------
@@ -67,6 +68,21 @@ pub fn deduScratchFootprint() usize {
     return tkdedu_tile_scratch_footprint();
 }
 
+/// Sets the dedupe table size for this process.
+///
+/// This value participates in workspace layout: `tkdedu_scratch_footprint_tile`
+/// reserves `event_count` entries for each of `seen_keys`/`seen_hashes`, and
+/// `privileged_init` derives its pointers from the same number. The supervisor
+/// and every self-exec'd child must therefore pass the identical value, or
+/// their object offsets diverge and children read the wrong addresses.
+/// `topo_build.build` is the single call site; it takes the value from
+/// `TopologySpec.event_count`, which is written once by the supervisor and read
+/// by every child. 0 selects the tile's built-in default reservation and
+/// disables the event-count shutdown gate.
+pub fn setEventCount(event_count: u64) void {
+    tkdedu_set_event_count(@intCast(event_count));
+}
+
 // ---------------------------------------------------------------------------
 // Identity tests — verify the C stem symbols are linked and accessible.
 // These are compile-time linkage checks; they do not require a running pipeline.
@@ -101,4 +117,26 @@ test "tkdedu scratch footprint — topob wrapper matches direct call" {
     const direct = tkdedu_tile_scratch_footprint();
     const via_topob = tk_topob_tickoni_tile_scratch_footprint("tkdedu");
     try std.testing.expectEqual(direct, via_topob);
+}
+
+test "tkdedu scratch footprint — tracks the event_count layout parameter" {
+    // Same parameter must yield the same reservation: this is what makes the
+    // supervisor's layout and a child's re-derived layout agree.
+    setEventCount(32);
+    const a = tkdedu_tile_scratch_footprint();
+    setEventCount(32);
+    try std.testing.expectEqual(a, tkdedu_tile_scratch_footprint());
+
+    // A larger table must reserve strictly more: two u64 arrays per entry.
+    setEventCount(64);
+    const b = tkdedu_tile_scratch_footprint();
+    try std.testing.expectEqual(a + 32 * 2 * @sizeOf(u64), b);
+}
+
+test "tkdedu scratch footprint — 0 selects the built-in default reservation" {
+    setEventCount(0);
+    const default_footprint = tkdedu_tile_scratch_footprint();
+    setEventCount(10_000);
+    try std.testing.expectEqual(default_footprint, tkdedu_tile_scratch_footprint());
+    setEventCount(0);
 }

@@ -253,6 +253,7 @@ test "metric topology finalizes exact scratch requirements identically" {
         topologies.paymentPipelineProcess(),
         util.nextWorkspaceName(&parent_ws),
         0,
+        0,
     );
     defer parent.deinit(std.testing.allocator);
 
@@ -263,6 +264,7 @@ test "metric topology finalizes exact scratch requirements identically" {
         std.testing.allocator,
         topologies.paymentPipelineProcess(),
         util.nextWorkspaceName(&child_ws),
+        0,
         0,
     );
     defer child.deinit(std.testing.allocator);
@@ -324,7 +326,7 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
     };
     const topology = runtime.topology.Topology{ .tiles = &tiles, .channels = &channels };
     var ws_buf: [16]u8 = undefined;
-    var built = try runtime.topo_build.build(std.testing.allocator, topology, util.nextWorkspaceName(&ws_buf), 0);
+    var built = try runtime.topo_build.build(std.testing.allocator, topology, util.nextWorkspaceName(&ws_buf), 0, 0);
     defer built.deinit(std.testing.allocator);
 
     var name_buf: [8]u8 = undefined;
