@@ -27,9 +27,9 @@ runs:
             cores=$(grep -c '^processor' /proc/cpuinfo)
             family=$(grep -m1 'cpu family' /proc/cpuinfo | cut -d: -f2 | xargs)
             model_num=$(grep -m1 'model' /proc/cpuinfo | cut -d: -f2 | xargs)
-            mhz=$(grep -m1 'cpu MHz' /proc/cpuinfo | cut -d: -f2 | xargs)
-            cache=$(grep -m1 'cache size' /proc/cpuinfo | cut -d: -f2 | xargs)
-            flags=$(grep -m1 'flags' /proc/cpuinfo | cut -d: -f2 | xargs | tr ' ' ',')
+            mhz=$({ grep -m1 'cpu MHz' /proc/cpuinfo || true; } | cut -d: -f2 | xargs)
+            cache=$({ grep -m1 'cache size' /proc/cpuinfo || true; } | cut -d: -f2 | xargs)
+            flags=$({ grep -m1 'flags' /proc/cpuinfo || true; } | cut -d: -f2 | xargs | tr ' ' ',')
             echo "Model:    $model"
             echo "Cores:    $cores"
             echo "Family:   $family / Model: $model_num"
