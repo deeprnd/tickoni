@@ -11,13 +11,12 @@ const firedancer = @import("lib/firedancer.zig");
 const topo_run = @import("lib/topo_run.zig");
 
 /// Build-time linkage flags for a test.
-pub const TestLinkage = packed struct(u8) {
+pub const TestLinkage = struct {
     needs_codec: bool = false,
     needs_firedancer: bool = false,
     needs_topo_run: bool = false,
     needs_tile_run: bool = false,
     needs_libc: bool = false,
-    _pad: u3 = 0,
 };
 
 /// Action to dispatch for a registered test.
