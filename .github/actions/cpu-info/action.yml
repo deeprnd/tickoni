@@ -23,13 +23,22 @@ runs:
           if [ "$DETAIL" = "full" ]; then
             cat /proc/cpuinfo
           else
+            set +e
             model=$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)
             cores=$(grep -c '^processor' /proc/cpuinfo)
             family=$(grep -m1 'cpu family' /proc/cpuinfo | cut -d: -f2 | xargs)
-            model_num=$(grep -m1 'model' /proc/cpuinfo | cut -d: -f2 | xargs)
+            model_num=$(grep -m1 ' model ' /proc/cpuinfo | cut -d: -f2 | xargs)
             mhz=$({ grep -m1 'cpu MHz' /proc/cpuinfo || true; } | cut -d: -f2 | xargs)
             cache=$({ grep -m1 'cache size' /proc/cpuinfo || true; } | cut -d: -f2 | xargs)
             flags=$({ grep -m1 'flags' /proc/cpuinfo || true; } | cut -d: -f2 | xargs | tr ' ' ',')
+            model=${model:-N/A}
+            cores=${cores:-N/A}
+            family=${family:-N/A}
+            model_num=${model_num:-N/A}
+            mhz=${mhz:-N/A}
+            cache=${cache:-N/A}
+            flags=${flags:-N/A}
+            set -e
             echo "Model:    $model"
             echo "Cores:    $cores"
             echo "Family:   $family / Model: $model_num"
