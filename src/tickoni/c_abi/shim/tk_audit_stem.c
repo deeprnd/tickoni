@@ -3,9 +3,17 @@
    Phase 1: wire the stem tile, verify it runs without crashing.
    Phase 3.2: build real audit events with hash chain (in-progress).
 
-   Stem tile behavior:
-   - DURING_FRAG: build AuditEvent from PaymentMessage, compute record_hash
-     via SipHash1-3, store in scratch ring buffer, update prev_hash chain
+   Stem tile behavior, per the fd_stem callback contract in stem_helpers.h:
+   - DURING_FRAG: validate framing and build the AuditEvent into the next,
+     still-uncommitted ring slot, leaving seq/prev_hash/record_hash unset.
+     Commits nothing: audit_count and prev_hash are untouched, so a fragment
+     fd_stem later abandons as an overrun leaves only an unobserved slot that
+     the next fragment overwrites.
+   - AFTER_FRAG: stamp seq and prev_hash, compute record_hash via SipHash1-3,
+     advance the hash chain and audit_count, bump counters, publish progress,
+     apply the event gate.  tkaudt is a sink (out_cnt == 0), so AFTER_FRAG
+     ends without a publish.
+   - AFTER_CREDIT: not defined — tkaudt has no fragment-independent work.
    - SHOULD_SHUTDOWN: exit on the supervisor's CNC HALT signal
 */
 
@@ -66,6 +74,10 @@ typedef struct {
        audited >= event_count, regardless of idle ticks. */
     uint64_t event_count;
     int32_t  input_exhausted;
+
+    /* Staging flag: set by DURING_FRAG once the record is built into the
+       uncommitted ring slot, cleared by AFTER_FRAG once it is committed. */
+    int32_t  stage_valid;
 } tk_audit_ctx_t;
 
 #define TKAUDT_CTX_ALIGN alignof(tk_audit_ctx_t)
@@ -85,6 +97,8 @@ static void tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t con
 static void tk_audit_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile );
 static void tk_audit_during_frag( tk_audit_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig,
                                    ulong chunk, ulong sz, ulong ctl );
+static void tk_audit_after_frag( tk_audit_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig,
+                                  ulong sz, ulong tsorig, ulong tspub, fd_stem_context_t * stem );
 static void tk_audit_run( fd_topo_t * topo, fd_topo_tile_t * tile );
 
 /* Generate an audit-specific static stem specialization. */
@@ -94,6 +108,7 @@ static void tk_audit_run( fd_topo_t * topo, fd_topo_tile_t * tile );
 #define STEM_CALLBACK_CONTEXT_TYPE  tk_audit_ctx_t
 #define STEM_CALLBACK_CONTEXT_ALIGN TKAUDT_CTX_ALIGN
 #define STEM_CALLBACK_DURING_FRAG   tk_audit_during_frag
+#define STEM_CALLBACK_AFTER_FRAG    tk_audit_after_frag
 #define STEM_CALLBACK_SHOULD_SHUTDOWN(ctx) \
   ( (ctx)->input_exhausted || \
     ( (ctx)->cnc && fd_cnc_signal_query( (fd_cnc_t *)(ctx)->cnc ) == FD_CNC_SIGNAL_HALT ) )
@@ -105,6 +120,7 @@ static void tk_audit_run( fd_topo_t * topo, fd_topo_tile_t * tile );
 #undef STEM_CALLBACK_CONTEXT_TYPE
 #undef STEM_CALLBACK_CONTEXT_ALIGN
 #undef STEM_CALLBACK_DURING_FRAG
+#undef STEM_CALLBACK_AFTER_FRAG
 #undef STEM_CALLBACK_SHOULD_SHUTDOWN
 
 /* ─── Scratch footprint ─── */
@@ -151,6 +167,19 @@ tkaudit_set_event_count( ulong event_count ) {
    This matches the tk_metric_tile.c pattern exactly.
 */
 
+/* The record array sits directly after the context in the tile's scratch
+   object.  This is the single definition of that offset: privileged_init uses
+   it to set ctx->audit_records, and the test accessors below use it to find
+   the array from a scratch base.  They cannot share ctx->audit_records —
+   that pointer is an address in the tile process, and the supervisor maps the
+   same workspace at a different base, so a cross-process read must recompute
+   the offset from its own scratch pointer. */
+static inline AuditEvent *
+tk_audit_records_of( tk_audit_ctx_t * ctx ) {
+    return (AuditEvent *)fd_ulong_align_up( (ulong)ctx + sizeof(tk_audit_ctx_t),
+                                            alignof(AuditEvent) );
+}
+
 static void
 tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     (void)topo;
@@ -167,6 +196,7 @@ tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     ctx->tile = tile;
     ctx->event_count = 0;
     ctx->input_exhausted = 0;
+    ctx->stage_valid = 0;
 
     /* Event count for shutdown gating (Phase 3.4).
        Set by topo_build.build() via tkaudit_set_event_count() —
@@ -177,8 +207,7 @@ tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
 
     /* Point audit_records at the scratch block that follows the context.
        This is the same memory region reserved by scratch_footprint_tile. */
-    ulong ctx_end = fd_ulong_align_up( (ulong)ctx + sizeof(tk_audit_ctx_t), alignof(AuditEvent) );
-    ctx->audit_records = (AuditEvent *)ctx_end;
+    ctx->audit_records = tk_audit_records_of( ctx );
 
     /* Derive workspace pointer from the tile's input link mcache. */
     ctx->wksp = stk_derive_wksp(topo, tile, 0);
@@ -291,27 +320,36 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
                       ulong            ctl ) {
     (void)in_idx; (void)seq; (void)sig; (void)ctl;
 
+    /* Clear first: fd_stem may skip AFTER_FRAG for this fragment (reading
+       overrun), and a stale stage_valid would let the next AFTER_FRAG commit
+       a record built from an abandoned fragment. */
+    ctx->stage_valid = 0;
+
     /* Shared boilerplate: empty check, size check, wksp check, chunk→gaddr */
     if( !stk_validate_frag(sz, PAYMENT_MSG_SIZE, ctx->wksp) )
         return;
     PaymentMessage const * msg = stk_chunk_to_gaddr(ctx->wksp, chunk);
 
-    /* Build AuditEvent in the next scratch slot. */
+    /* Bounds-check the staging target before writing to it. */
     if( ctx->audit_count >= TKAUDT_AUDIT_CAPACITY ) {
         FD_LOG_WARNING(( "tkaudt: audit ring buffer full at %lu", ctx->audit_count ));
         return;
     }
+
+    /* Build into the next ring slot, which is still uncommitted: audit_count
+       has not advanced, so nothing — not the Zig test harness, not a later
+       record's chain — observes this slot yet.  seq, prev_hash and
+       record_hash are deliberately left for AFTER_FRAG, so the chain is read
+       and advanced in one place. */
     AuditEvent * event = &ctx->audit_records[ctx->audit_count];
     memset( event, 0, sizeof(*event) );
 
     /* Populate header from available sources.
        PaymentMessage provides: source_offset, event_hash,
        decision, decided_by, pipeline_hops.
-       Fixed constants provide: run_id, logical_actor, policy_version.
-       header.seq is set from audit_count for ordering. */
+       Fixed constants provide: run_id, logical_actor, policy_version. */
     event->header.schema_version  = AUDIT_SCHEMA_VERSION;
     event->header.run_id          = AUDIT_RUN_ID;
-    event->header.seq             = ctx->audit_count;
     event->header.source_offset   = msg->raw.source_offset;
     memcpy( event->header.tile_id, msg->decided_by, sizeof(msg->decided_by) );
     event->header.logical_actor_id = AUDIT_LOGICAL_ACTOR;
@@ -319,8 +357,6 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
             sizeof(AUDIT_POLICY_VER) );
     event->header.capability_envelope_id = 0; /* stub: no envelope */
     event->header.timestamp_ns       = 0;
-    event->header.prev_hash          = ctx->prev_hash;
-    event->header.record_hash        = 0; /* set after hash computation */
     memset( event->header.version,       0, sizeof(event->header.version) );
     memset( event->header.platform_tier, 0, sizeof(event->header.platform_tier) );
     memset( event->header.isolation_tier, 0, sizeof(event->header.isolation_tier) );
@@ -335,16 +371,45 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
     event->policy_decision.source_event_hash = msg->event_hash;
     /* failed_scope_dim, taxonomy_id, etc. are zeroed by memset above. */
 
-    /* Compute record_hash and update chain. */
+    ctx->stage_valid = 1;
+}
+
+/* AFTER_FRAG is the commit point: the first callback fd_stem reaches after
+   its post-DURING_FRAG overrun re-check, so the only place the staged record
+   is known to have been built from an intact fragment.  Appending and
+   advancing prev_hash here is what keeps the chain over authenticated events
+   only — an append-only hash chain cannot withdraw a record built from a torn
+   read.  tkaudt is a sink, so there is no publish. */
+static void
+tk_audit_after_frag( tk_audit_ctx_t *    ctx,
+                     ulong               in_idx,
+                     ulong               seq,
+                     ulong               sig,
+                     ulong               sz,
+                     ulong               tsorig,
+                     ulong               tspub,
+                     fd_stem_context_t * stem ) {
+    (void)in_idx; (void)seq; (void)sig; (void)sz; (void)tsorig; (void)tspub; (void)stem;
+
+    if( !ctx->stage_valid )
+        return;
+    ctx->stage_valid = 0;
+
+    AuditEvent * event = &ctx->audit_records[ctx->audit_count];
+
+    /* Chain position and chain link, read and advanced together. */
+    event->header.seq       = ctx->audit_count;
+    event->header.prev_hash = ctx->prev_hash;
+
     event->header.record_hash = tk_audit_compute_record_hash( event );
     ctx->prev_hash            = event->header.record_hash;
 
-    /* Advance counter. */
+    /* Commit: the slot becomes observable only once audit_count advances. */
     ctx->audit_count += 1;
     ctx->audited += 1;
 
-    /* Event-count gating (Phase 3.4): exit promptly after processing
-       all expected events. */
+    /* Event-count gating: checked against the post-increment count so the
+       gate fires on the Nth fragment and the tile exits promptly. */
     STK_EVENT_EXHAUSTED(ctx, ctx->event_count, ctx->audited);
 
     /* Publish progress to CNC app[0] for supervisor snapshots. */
@@ -407,6 +472,88 @@ fd_topo_run_tile_t TK_AUDIT_RUN = {
     .run                      = tk_audit_run,
     .rlimit_file_cnt_fn       = NULL,
 };
+
+/* ─── Field accessors for tests ───
+
+   These keep the Zig side free of any tk_audit_ctx_t or AuditEvent layout
+   knowledge: this file owns its scratch layout and exposes individual
+   fields, so no Zig struct mirrors a C struct.  Same approach as
+   tk_dedu_stem.c and tk_normalize_stem.c.
+
+   The run-tile accessors match the tknorm/tkdedu set one for one.  The
+   record accessors abort on an out-of-range index instead of returning a
+   sentinel, because 0 is a legitimate value for seq and prev_hash and a
+   silent sentinel would turn a harness bug into a passing assertion. */
+
+char const *
+tk_get_audit_run_name( void ) {
+    return TK_AUDIT_RUN.name;
+}
+
+void *
+tk_get_audit_run_run( void ) {
+    return (void *)TK_AUDIT_RUN.run;
+}
+
+void *
+tk_get_audit_run_scratch_align( void ) {
+    return (void *)TK_AUDIT_RUN.scratch_align;
+}
+
+void *
+tk_get_audit_run_scratch_footprint( void ) {
+    return (void *)TK_AUDIT_RUN.scratch_footprint;
+}
+
+void *
+tk_get_audit_run_privileged_init( void ) {
+    return (void *)TK_AUDIT_RUN.privileged_init;
+}
+
+void *
+tk_get_audit_run_unprivileged_init( void ) {
+    return (void *)TK_AUDIT_RUN.unprivileged_init;
+}
+
+/* Committed record count.  Records beyond this index exist in scratch but
+   are uncommitted staging slots — see the DURING_FRAG/AFTER_FRAG split. */
+ulong
+tk_audit_record_count( void * scratch ) {
+    tk_audit_ctx_t * ctx = STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN);
+    return ctx->audit_count;
+}
+
+static AuditEvent const *
+tk_audit_record_at( void * scratch, ulong idx ) {
+    tk_audit_ctx_t * ctx = STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN);
+    if( FD_UNLIKELY( idx>=ctx->audit_count ) )
+        FD_LOG_ERR(( "tkaudt: audit record index %lu out of range (committed %lu)",
+                     idx, ctx->audit_count ));
+    /* Recompute from the caller's scratch base, not ctx->audit_records: the
+       supervisor reads this from a different process, where the tile's stored
+       pointer does not resolve. */
+    return &tk_audit_records_of( ctx )[idx];
+}
+
+ulong
+tk_audit_record_seq( void * scratch, ulong idx ) {
+    return tk_audit_record_at( scratch, idx )->header.seq;
+}
+
+ulong
+tk_audit_record_prev_hash( void * scratch, ulong idx ) {
+    return tk_audit_record_at( scratch, idx )->header.prev_hash;
+}
+
+ulong
+tk_audit_record_hash( void * scratch, ulong idx ) {
+    return tk_audit_record_at( scratch, idx )->header.record_hash;
+}
+
+uint
+tk_audit_record_schema_version( void * scratch, ulong idx ) {
+    return (uint)tk_audit_record_at( scratch, idx )->header.schema_version;
+}
 
 fd_topo_run_tile_t const *
 tk_get_audit_run_tile( void ) {

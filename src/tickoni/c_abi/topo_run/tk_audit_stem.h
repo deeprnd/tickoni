@@ -36,4 +36,25 @@ extern ulong tk_audit_scratch_footprint( void );
 /* Set event_count from topo_build.build() — called before any footprint queries. */
 extern void tkaudit_set_event_count( ulong event_count );
 
+/* Field accessors for standalone test — avoids Zig-C struct layout mismatch.
+   Matches the tknorm/tkdedu accessor set. */
+extern char const * tk_get_audit_run_name( void );
+extern void * tk_get_audit_run_run( void );
+extern void * tk_get_audit_run_scratch_align( void );
+extern void * tk_get_audit_run_scratch_footprint( void );
+extern void * tk_get_audit_run_privileged_init( void );
+extern void * tk_get_audit_run_unprivileged_init( void );
+
+/* Audit-record accessors for the integration test.  `scratch` is the tile's
+   scratch base (fd_topo_obj_laddr of its tile_obj_id); this file resolves the
+   context and record array from it, so no caller needs tk_audit_ctx_t or
+   AuditEvent layout.  tk_audit_record_count returns the COMMITTED count —
+   slots at or beyond it are uncommitted staging.  The field accessors abort
+   on an out-of-range index. */
+extern ulong tk_audit_record_count( void * scratch );
+extern ulong tk_audit_record_seq( void * scratch, ulong idx );
+extern ulong tk_audit_record_prev_hash( void * scratch, ulong idx );
+extern ulong tk_audit_record_hash( void * scratch, ulong idx );
+extern uint  tk_audit_record_schema_version( void * scratch, ulong idx );
+
 #endif /* __TK_AUDIT_STEM_H__ */
