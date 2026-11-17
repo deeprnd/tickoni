@@ -6,8 +6,23 @@ const std = @import("std");
 const runtime = @import("runtime.zig");
 const tile_ids = @import("runtime").tile_ids;
 const logger = @import("logger");
+const c_abi = @import("c_abi");
 
 const PaymentPipelineState = runtime.PaymentPipelineState;
+
+/// The decision chain is intentionally small and side-effect free so the
+/// process and stem implementations can prove the same financial result.
+pub fn decide(
+    incoming: runtime.PolicyDecision,
+    is_duplicate: bool,
+    amount_cents: i64,
+    policy_limit_cents: i64,
+) runtime.PolicyDecision {
+    if (incoming == .malformed_drop) return .malformed_drop;
+    if (is_duplicate) return .duplicate_drop;
+    if (amount_cents > policy_limit_cents) return .deny;
+    return .allow;
+}
 
 pub fn runPolicy(state: *PaymentPipelineState) void {
     const log = logger.get();
@@ -21,21 +36,22 @@ pub fn runPolicy(state: *PaymentPipelineState) void {
         var msg = msg_in;
         msg.pipeline_hops += 1;
         offset += 1;
-        if (msg.decision == .malformed_drop) {
+        const decision = decide(msg.decision, msg.duplicate, msg.raw.amount_cents, state.config.policy_limit_cents);
+        if (decision == .malformed_drop) {
             // tknorm already made this rejection decision; preserve it (and
             // its decided_by) for audit instead of silently dropping
             // malformed source facts.
-        } else if (msg.duplicate) {
-            msg.decision = .duplicate_drop;
+        } else if (decision == .duplicate_drop) {
+            msg.decision = decision;
             msg.decided_by = tile_ids.tkpoly;
             log.kvFmt(tile_ids.tkpoly.slice(), "runPolicy", "offset={d} decision=duplicate_drop account={d} idempotency_key={d}", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.idempotency_key });
-        } else if (msg.raw.amount_cents > state.config.policy_limit_cents) {
-            msg.decision = .deny;
+        } else if (decision == .deny) {
+            msg.decision = decision;
             msg.decided_by = tile_ids.tkpoly;
             _ = state.denied.fetchAdd(1, .release);
             log.kvFmt(tile_ids.tkpoly.slice(), "runPolicy", "offset={d} decision=deny account={d} amount={d}c limit={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents, state.config.policy_limit_cents });
         } else {
-            msg.decision = .allow;
+            msg.decision = decision;
             msg.decided_by = tile_ids.tkpoly;
             _ = state.allowed.fetchAdd(1, .release);
             log.kvFmt(tile_ids.tkpoly.slice(), "runPolicy", "offset={d} decision=allow account={d} amount={d}c", .{ msg.raw.source_offset, msg.raw.account_id, msg.raw.amount_cents });
@@ -59,4 +75,45 @@ test "sandbox failure records crash diagnostics and stops policy" {
     }, &state.audit.stop);
     state.q_dedu_poly.close();
     runPolicy(&state);
+}
+
+test "C policy helper preserves the Zig decision chain for signed boundaries" {
+    const Case = struct {
+        incoming: runtime.PolicyDecision,
+        duplicate: bool,
+        amount_cents: i64,
+        policy_limit_cents: i64,
+    };
+    const cases = [_]Case{
+        .{ .incoming = .malformed_drop, .duplicate = true, .amount_cents = std.math.maxInt(i64), .policy_limit_cents = std.math.minInt(i64) },
+        .{ .incoming = .allow, .duplicate = true, .amount_cents = std.math.maxInt(i64), .policy_limit_cents = std.math.minInt(i64) },
+        .{ .incoming = .allow, .duplicate = false, .amount_cents = 999, .policy_limit_cents = 1000 },
+        .{ .incoming = .allow, .duplicate = false, .amount_cents = 1000, .policy_limit_cents = 1000 },
+        .{ .incoming = .allow, .duplicate = false, .amount_cents = 1001, .policy_limit_cents = 1000 },
+        .{ .incoming = .allow, .duplicate = false, .amount_cents = -1, .policy_limit_cents = 0 },
+        .{ .incoming = .allow, .duplicate = false, .amount_cents = std.math.minInt(i64), .policy_limit_cents = std.math.maxInt(i64) },
+        .{ .incoming = .allow, .duplicate = false, .amount_cents = std.math.maxInt(i64), .policy_limit_cents = std.math.minInt(i64) },
+    };
+
+    for (cases) |case| {
+        const zig_outcome = decide(case.incoming, case.duplicate, case.amount_cents, case.policy_limit_cents);
+        try std.testing.expectEqual(
+            auditOutcome(zig_outcome),
+            c_abi.tkpoly.policyOutcome(
+                auditOutcome(case.incoming),
+                case.duplicate,
+                case.amount_cents,
+                case.policy_limit_cents,
+            ),
+        );
+    }
+}
+
+fn auditOutcome(decision: runtime.PolicyDecision) u8 {
+    return switch (decision) {
+        .allow => 0,
+        .deny => 1,
+        .malformed_drop => 3,
+        .duplicate_drop => 4,
+    };
 }
