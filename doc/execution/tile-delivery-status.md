@@ -130,6 +130,30 @@ tkapi
 tkexec
 ```
 
+## Stem Callback Contract Conformance
+
+The fd_stem callback contract is stated in
+[`contribution/tickoni.md`](contribution/tickoni.md) ("fd_stem Callback
+Contract") and restated at the top of `src/tickoni/c_abi/shim/stem_helpers.h`:
+`DURING_FRAG` stages, `AFTER_FRAG` commits and publishes, `AFTER_CREDIT` is
+only for fragment-independent work, and `STEM_BURST` equals the maximum
+publishes per stem iteration.
+
+| Tile | Shape | State | Note |
+|---|---|---|---|
+| `tknorm` | 1-in, 1-out | Conforms | Publishes in `AFTER_FRAG` only. |
+| `tkdedu` | 1-in, 1-out | Conforms | Publishes in `AFTER_FRAG` only. |
+| `tkaudt` | 1-in, 0-out | **Non-conforming** | Builds the `AuditEvent` into the committed ring and advances `prev_hash`/`audit_count` in `DURING_FRAG`, before fd_stem's overrun re-check. A torn frag can therefore poison the hash chain irreversibly. Fixing it needs a staging `AuditEvent` in ctx, which changes the scratch footprint — see [`plans/v2.NN-sXX-tkaudt-stem-contract.md`](plans/v2.NN-sXX-tkaudt-stem-contract.md). |
+| `tkmetr` | 0-in, 0-out | Out of scope | Delegates to upstream `fd_metric_tile.c`; Tickoni authors no callbacks for it. |
+
+Forward-looking plans written before the contract still prescribe publishing
+in `AFTER_CREDIT` and must not be followed verbatim for the publish point:
+`plans/v2.10-s14-fd-stem-migration.md`, `plans/v2.22-s5-fd-stem-migration.md`,
+`plans/v2.10-s14-tkdiag-fan-in.md`, `plans/v2.10-s14-tkrepl-capsule-io.md`,
+and the story `doc/strategy/roadmap/stories/v2.10-s14.md`. The contract wins;
+those documents need a product-owned pass before `tkpoly`, `tkings`, `tkrepl`,
+or `tkdiag` are migrated.
+
 ## Tile Synchronization Debt
 
 Once the new product topology is canonical:
