@@ -11,7 +11,8 @@ const tkdisp = @import("tkdisp");
 const tkpoly = @import("tkpoly");
 
 test "investment_allowed_trade_integration: tkcase tkdisp tkagnt build the allowed paper trade" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
     const thesis_id = thesis.computeThesisInputHash(input);
