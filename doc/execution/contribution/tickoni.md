@@ -271,7 +271,7 @@ Object offsets shift whenever a footprint, a link, or a tile is added, and
 `fd_scratch` smem (the metric tile) hard-requires 128 bytes.
 `tk_topo_validate_tile_scratch()` checks the finalized layout of every
 scratch-owning tile, not just metric's; it is exercised from
-`test_metric_tile_integration.zig`, alongside per-tile alignment tests in
+`test_tile_metric.zig`, alongside per-tile alignment tests in
 `c_abi/{tknorm,tkdedu,audit}.zig`.
 
 ### Process Mode And CPU Placement

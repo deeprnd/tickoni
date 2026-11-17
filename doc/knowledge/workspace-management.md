@@ -450,7 +450,7 @@ for the metric tile to reach a valid boot state (`boot_ts >= 1e18` and
 `metric_snapshots > 0`) before asserting. Pipeline tile CNC counters are valid
 as soon as the pipeline starts processing; metric tile CNC counters need the
 bootstrap window. The readiness poll loop in
-`test_metric_tile_integration.zig` (`boot_timestamp via CNC` test) demonstrates
+`test_tile_metric.zig` (`boot_timestamp via CNC` test) demonstrates
 the pattern:
 
 ```zig
