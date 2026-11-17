@@ -4,6 +4,7 @@
 const std = @import("std");
 const runtime = @import("runtime.zig");
 const tile_ids = @import("runtime").tile_ids;
+const test_build = @import("runtime").test_build.enabled;
 const logger = @import("logger");
 
 const PaymentPipelineState = runtime.PaymentPipelineState;
@@ -20,10 +21,11 @@ pub fn runIngest(state: *PaymentPipelineState) void {
     var offset: u64 = 0;
     while (offset < state.config.event_count) : (offset += 1) {
         if (state.audit.stop.load(.acquire)) break;
-        // Test-only sandbox-failure hook. @import("builtin").is_test is a
+        // Test-only sandbox-failure hook. runtime.test_build.enabled is a
         // compile-time constant; when false the entire inner branch is dead
-        // code eliminated.
-        if (@import("builtin").is_test) {
+        // code eliminated. It covers both thread mode (is_test) and the
+        // process-mode supervisor executable, which is_test alone does not.
+        if (test_build) {
             if (state.config.sandbox_fail_hook) |hook| {
                 hook(offset, state);
             }
