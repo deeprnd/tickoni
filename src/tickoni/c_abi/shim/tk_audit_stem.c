@@ -528,3 +528,33 @@ uint
 tk_audit_record_schema_version( void * scratch, ulong idx ) {
     return (uint)tk_audit_record_at( scratch, idx )->header.schema_version;
 }
+
+/* ─── Policy-decision field accessors ───
+
+   These expose individual fields of a committed policy-decision record
+   to the Zig test harness (and any supervisor-side inspection).  The C
+   side owns tk_audit_ctx_t / AuditEvent layout; nothing on this side
+   mirrors either struct.  Accessors recompute the record array offset
+   from their scratch pointer, so they work cross-process.
+
+   Matching Zig wrappers live in c_abi/audit.zig. */
+
+ulong
+tk_audit_record_source_offset( void * scratch, ulong idx ) {
+    return tk_audit_record_at( scratch, idx )->header.source_offset;
+}
+
+uint
+tk_audit_record_outcome( void * scratch, ulong idx ) {
+    return (uint)tk_audit_record_at( scratch, idx )->policy_decision.outcome;
+}
+
+void
+tk_audit_record_decided_by( void * scratch, ulong idx, uint8_t * dst ) {
+    memcpy( dst, tk_audit_record_at( scratch, idx )->header.tile_id, 6 );
+}
+
+ulong
+tk_audit_record_source_event_hash( void * scratch, ulong idx ) {
+    return tk_audit_record_at( scratch, idx )->policy_decision.source_event_hash;
+}
