@@ -32,7 +32,8 @@ const DEFAULT_EVENT_COUNT: u64 = 8;
 const EXPECTED_TILE_COUNT: usize = 4;
 
 test "tknorm_integration: stem tile processes all events" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -99,7 +100,8 @@ test "tknorm_integration: stem tile processes all events" {
 }
 
 test "tknorm_integration: stem tile rejects malformed framing" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -161,7 +163,8 @@ test "tknorm_integration: stem tile rejects malformed framing" {
 }
 
 test "tknorm_integration: pipeline completes without crashes or hangs" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -221,7 +224,8 @@ test "tknorm_integration: pipeline completes without crashes or hangs" {
 }
 
 test "tknorm_integration: CNC HALT stops tile cleanly" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -273,7 +277,8 @@ test "tknorm_integration: CNC HALT stops tile cleanly" {
 }
 
 test "tknorm_integration: sequential runs on same workspace" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -341,7 +346,8 @@ test "tknorm_integration: sequential runs on same workspace" {
 //
 // See the fd_stem Callback Contract in doc/execution/contribution/tickoni.md.
 test "tknorm_integration: the final event is published (event_count = 1)" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();

@@ -182,7 +182,8 @@ fn parsePrometheusMetric(body: []const u8, name: []const u8) ?u64 {
 }
 
 test "parsePrometheusMetric accepts counter total suffix" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     const body = "metric_bytes_read_total 42\n";
     try std.testing.expectEqual(@as(?u64, 42), parsePrometheusMetric(body, "metric_bytes_read"));
 }
@@ -243,7 +244,8 @@ fn expectNoCrashes(sup: *Supervisor, run_dir: []const u8) !void {
 // ---------------------------------------------------------------------------
 
 test "metric topology finalizes exact scratch requirements identically" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     const port = util.nextMetricPort();
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
 
@@ -319,7 +321,8 @@ test "metric topology finalizes exact scratch requirements identically" {
 // ---------------------------------------------------------------------------
 
 test "every scratch-owning tile object is laid out at its required alignment" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     var wksp_name: [16]u8 = undefined;
     var built = try runtime.topo_build.build(
@@ -370,7 +373,8 @@ test "every scratch-owning tile object is laid out at its required alignment" {
 // ---------------------------------------------------------------------------
 
 test "both scratch footprint accessors report one value per tile" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     // tickoniTileScratchFootprint is a footprint-only view of
     // tickoniTileScratchRequirements, and the C side delegates rather than
@@ -391,7 +395,8 @@ test "both scratch footprint accessors report one value per tile" {
 }
 
 test "metric topology preserves descriptor identity, CNC ownership, CPU placement, and zero links" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     const tiles = [_]runtime.tile.TileDescriptor{
         .{ .id = 0, .name = tile_ids.tkings, .cpu_placement = .{ .exclusive = 2 } },
         .{ .id = 1, .name = tile_ids.metric, .cpu_placement = .{ .exclusive = 3 } },
@@ -432,7 +437,8 @@ test "metric topology preserves descriptor identity, CNC ownership, CPU placemen
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: topology with metric builds and starts" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -494,7 +500,8 @@ test "metric_tile_integration: topology with metric builds and starts" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -586,7 +593,8 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: unknown path returns HTTP 404" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -641,7 +649,8 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: boot_timestamp is a valid large positive value" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -708,7 +717,8 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: workspace join completeness" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -777,7 +787,8 @@ test "metric_tile_integration: workspace join completeness" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -824,7 +835,8 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: CNC join verifies tile finds CNC object" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     const topo = topologies.paymentPipelineProcess();
 
     var metric_idx: ?usize = null;
@@ -850,7 +862,8 @@ test "metric_tile_integration: CNC join verifies tile finds CNC object" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
 
@@ -937,7 +950,8 @@ test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
 // ---------------------------------------------------------------------------
 
 test "metric_tile_integration: sequential pipeline runs on same port" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
