@@ -12,9 +12,10 @@
    finding 1). mcache/dcache/fseq/metrics below are reimplemented
    identically to that file's versions (they only touch generic
    tango/metrics primitives); "tile" and "cnc" are Tickoni-owned:
-   - "tile" has zero footprint/no .new — Phase 0 tiles need no fd_scratch
-     tile-local memory. Extend this (not fdctl_tile_run) if a future
-     tile needs scratch space.
+   - "tile" has no .new, and takes its footprint and alignment from the
+     "tickoni.scratch_align"/"tickoni.scratch_footprint" properties that
+     topo_build.zig publishes from each tile's own fd_topo_run_tile_t.
+     Extend this (not fdctl_tile_run) when a tile needs scratch space.
    - "cnc" is a new object type: fd_topob has no built-in concept of cnc,
      so this makes Tickoni's cnc-per-tile a real, offset-accounted
      fd_topob object instead of an ad hoc post-hoc wksp_alloc.
@@ -162,14 +163,14 @@ static fd_topo_obj_callbacks_t tk_obj_cb_metrics = {
 
 /* Tickoni-owned "tile" object footprint.
 
-   Phase 0 pipeline tiles need no fd_scratch tile-local memory, so their
-   footprint is 1UL (not zero — fd_topob_finish's NUMA-assignment step
-   requires every object to have a non-zero footprint).
+   Every tile that owns tile-local scratch — tknorm, tkdedu and tkaudt for
+   their context plus staging/dedupe/audit blocks, metric for fd_scratch smem
+   behind its fd_http_server — has its footprint published as the
+   "tickoni.scratch_footprint" property by topo_build.zig, from the tile's own
+   fd_topo_run_tile_t, and queried here.
 
-   The metric tile uses Firedancer's fd_stem-based run loop with
-   fd_http_server and needs ~32MB+ scratch.  Its scratch footprint is set
-   as a property ("tickoni.scratch_footprint") by topo_build.zig and
-   queried here instead. */
+   A tile with no scratch gets 1UL, not zero: fd_topob_finish's
+   NUMA-assignment step requires every object to have a non-zero footprint. */
 static ulong
 tile_footprint( fd_topo_t const * topo, fd_topo_obj_t const * obj ) {
   /* Find the tile that owns this "tile" object. */
@@ -186,9 +187,21 @@ tile_footprint( fd_topo_t const * topo, fd_topo_obj_t const * obj ) {
   return 1UL;
 }
 
+/* Tickoni-owned "tile" object alignment.
+
+   Mirrors tile_footprint(): topo_build.zig publishes the owning tile's
+   scratch alignment as the "tickoni.scratch_align" property, and
+   fd_topob_finish needs it here to place the object's workspace offset on
+   that boundary.  Returning a flat 1UL left every tile's context, scratch
+   arrays and fd_scratch smem (which hard-requires 128) aligned only by
+   accident of whatever objects happened to precede them.
+
+   Tiles that own no scratch carry no property and keep align 1. */
 static ulong
-tile_align( fd_topo_t const * topo FD_FN_UNUSED, fd_topo_obj_t const * obj FD_FN_UNUSED ) {
-  return 1UL;
+tile_align( fd_topo_t const * topo, fd_topo_obj_t const * obj ) {
+  ulong align = fd_pod_queryf_ulong(
+    topo->props, 0UL, "obj.%lu.%s", obj->id, "tickoni.scratch_align" );
+  return align ? align : 1UL;
 }
 
 static fd_topo_obj_callbacks_t tk_obj_cb_tile = {
@@ -414,21 +427,6 @@ tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_t
 #include "audit_schema.h"
 #endif
 
-ulong
-tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {
-#if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
-  if( strcmp( tile_name, TILE_ID_METRIC ) == 0 )
-    return tk_metric_scratch_footprint();
-  if( strcmp( tile_name, TILE_ID_TKAUDT ) == 0 )
-    return tk_audit_scratch_footprint();
-  if( strcmp( tile_name, TILE_ID_TKNORM ) == 0 )
-    return tknorm_tile_scratch_footprint();
-  if( strcmp( tile_name, TILE_ID_TKDEDU ) == 0 )
-    return tkdedu_tile_scratch_footprint();
-#endif
-return 1UL;
-}
-
 void
 tk_topob_tickoni_tile_scratch_requirements( char const * tile_name,
                                             ulong * alignment_out,
@@ -441,26 +439,37 @@ tk_topob_tickoni_tile_scratch_requirements( char const * tile_name,
     return;
   }
   if( strcmp( tile_name, TILE_ID_TKAUDT ) == 0 ) {
-    ulong footprint = tk_audit_scratch_footprint();
-    *alignment_out  = TKAUDT_CTX_ALIGN;
-    *footprint_out  = footprint;
+    *alignment_out  = tk_audit_scratch_align();
+    *footprint_out  = tk_audit_scratch_footprint();
     return;
   }
   if( strcmp( tile_name, TILE_ID_TKNORM ) == 0 ) {
-    ulong footprint = tknorm_tile_scratch_footprint();
-    *alignment_out  = TKNORM_CTX_ALIGN;
-    *footprint_out  = footprint;
+    *alignment_out  = tknorm_tile_scratch_align();
+    *footprint_out  = tknorm_tile_scratch_footprint();
     return;
   }
   if( strcmp( tile_name, TILE_ID_TKDEDU ) == 0 ) {
-    ulong footprint = tkdedu_tile_scratch_footprint();
-    *alignment_out  = TKDEDU_CTX_ALIGN;
-    *footprint_out  = footprint;
+    *alignment_out  = tkdedu_tile_scratch_align();
+    *footprint_out  = tkdedu_tile_scratch_footprint();
     return;
   }
 #endif
   *alignment_out = 1UL;
   *footprint_out = 1UL;
+}
+
+/* Footprint-only view of tk_topob_tickoni_tile_scratch_requirements(), for
+   callers that do not need the alignment.  It delegates rather than
+   re-deriving the value, so what a caller reads here is byte-identical to
+   what topo_build.zig publishes as the tickoni.scratch_footprint property.
+   Computing it separately gave two different answers for the metric tile,
+   whose reservation is wrapped in fd_scratch_smem_footprint(). */
+ulong
+tk_topob_tickoni_tile_scratch_footprint( char const * tile_name ) {
+  ulong alignment;
+  ulong footprint;
+  tk_topob_tickoni_tile_scratch_requirements( tile_name, &alignment, &footprint );
+  return footprint;
 }
 
 int
@@ -657,13 +666,16 @@ tk_topo_obj_footprint( void const * topo_, ulong tile_id ) {
   return fd_pod_queryf_ulong( topo->props, 0UL, "obj.%lu.%s", obj_id, "tickoni.scratch_footprint" );
 }
 
-/* Validate that every metric tile has a properly sized and aligned scratch
-   object. Checks that: (1) the tile owns a scratch object with the
-   tickoni.scratch_footprint property set, (2) that property is > 1UL, and
-   (3) the object offset satisfies the alignment requirement.
-   Only tiles with a non-default footprint property are considered. */
+/* Validate the finalized scratch layout of every tile that owns tile-local
+   scratch — tknorm, tkdedu, tkaudt and metric today, not the metric tile
+   alone.  For each tile whose tickoni.scratch_footprint property is set above
+   the 1UL default, checks that (1) tickoni.scratch_align is also set above
+   1UL and (2) fd_topob_finish placed the object on that alignment.
+
+   Returns 0 if any such tile fails, and also if no tile owns scratch at all,
+   which would mean the properties never reached the finalized topology. */
 int
-tk_topo_validate_metric_scratch( void const * topo_ ) {
+tk_topo_validate_tile_scratch( void const * topo_ ) {
   fd_topo_t const * topo = (fd_topo_t const *)topo_;
   int found = 0;
   for( ulong i = 0UL; i < topo->tile_cnt; i++ ) {
