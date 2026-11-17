@@ -33,6 +33,10 @@ extern fn tk_audit_record_seq(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_prev_hash(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_hash(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_schema_version(scratch: ?*anyopaque, idx: usize) c_uint;
+extern fn tk_audit_record_source_offset(scratch: ?*anyopaque, idx: usize) u64;
+extern fn tk_audit_record_outcome(scratch: ?*anyopaque, idx: usize) c_uint;
+extern fn tk_audit_record_decided_by(scratch: ?*anyopaque, idx: usize, dst: *[6]u8) void;
+extern fn tk_audit_record_source_event_hash(scratch: ?*anyopaque, idx: usize) u64;
 
 // ---------------------------------------------------------------------------
 // Public Zig wrappers.
@@ -126,6 +130,26 @@ pub fn recordSchemaVersion(scratch: ?*anyopaque, idx: usize) u16 {
     return @intCast(tk_audit_record_schema_version(scratch, idx));
 }
 
+/// `header.source_offset` of the committed record at `idx`.
+pub fn recordSourceOffset(scratch: ?*anyopaque, idx: usize) u64 {
+    return tk_audit_record_source_offset(scratch, idx);
+}
+
+/// `policy_decision.outcome` of the committed record at `idx`.
+pub fn recordOutcome(scratch: ?*anyopaque, idx: usize) u8 {
+    return @intCast(tk_audit_record_outcome(scratch, idx));
+}
+
+/// Copies 6-byte `header.tile_id` (decided_by producer) into `dst`.
+pub fn recordDecidedBy(scratch: ?*anyopaque, idx: usize, dst: *[6]u8) void {
+    tk_audit_record_decided_by(scratch, idx, dst);
+}
+
+/// `policy_decision.source_event_hash` of the committed record at `idx`.
+pub fn recordSourceEventHash(scratch: ?*anyopaque, idx: usize) u64 {
+    return tk_audit_record_source_event_hash(scratch, idx);
+}
+
 // ---------------------------------------------------------------------------
 // Re-export the translated C schema types (from audit_schema.h).
 /// These are the C-translated structs (AuditHeader, PolicyDecisionPayload,
@@ -144,29 +168,31 @@ pub const PolicyDecisionPayload = audit_schema.PolicyDecisionPayload;
 pub const RawPayment = audit_schema.RawPayment;
 pub const PaymentMessage = audit_schema.PaymentMessage;
 
-// Re-export the C enum values so consumers can match against them.
-pub const POLICY_ALLOW = audit_schema.POLICY_ALLOW;
-pub const POLICY_DENY = audit_schema.POLICY_DENY;
-pub const POLICY_REQUIRE_APPROVAL = audit_schema.POLICY_REQUIRE_APPROVAL;
-pub const POLICY_MALFORMED_DROP = audit_schema.POLICY_MALFORMED_DROP;
-pub const POLICY_DUPLICATE_DROP = audit_schema.POLICY_DUPLICATE_DROP;
-pub const POLICY_ESCALATE = audit_schema.POLICY_ESCALATE;
-pub const POLICY_REQUIRE_MORE_EVIDENCE = audit_schema.POLICY_REQUIRE_MORE_EVIDENCE;
+// Re-export the C enum values from audit_mod (translate-c from audit_schema.h)
+// so consumers can match against them.
+const audit_mod = @import("audit_mod");
+pub const POLICY_ALLOW = audit_mod.POLICY_ALLOW;
+pub const POLICY_DENY = audit_mod.POLICY_DENY;
+pub const POLICY_REQUIRE_APPROVAL = audit_mod.POLICY_REQUIRE_APPROVAL;
+pub const POLICY_MALFORMED_DROP = audit_mod.POLICY_MALFORMED_DROP;
+pub const POLICY_DUPLICATE_DROP = audit_mod.POLICY_DUPLICATE_DROP;
+pub const POLICY_ESCALATE = audit_mod.POLICY_ESCALATE;
+pub const POLICY_REQUIRE_MORE_EVIDENCE = audit_mod.POLICY_REQUIRE_MORE_EVIDENCE;
 
-pub const RECORD_SOURCE_EVENT = audit_schema.RECORD_SOURCE_EVENT;
-pub const RECORD_NORMALIZATION = audit_schema.RECORD_NORMALIZATION;
-pub const RECORD_POLICY_DECISION = audit_schema.RECORD_POLICY_DECISION;
-pub const RECORD_MODEL_CALL = audit_schema.RECORD_MODEL_CALL;
-pub const RECORD_FINANCIAL_ADAPTER_CALL = audit_schema.RECORD_FINANCIAL_ADAPTER_CALL;
-pub const RECORD_PROPOSAL = audit_schema.RECORD_PROPOSAL;
-pub const RECORD_DESTINATION_CHECK = audit_schema.RECORD_DESTINATION_CHECK;
-pub const RECORD_LIMIT_CHECK = audit_schema.RECORD_LIMIT_CHECK;
-pub const RECORD_APPROVAL_REQUIRED = audit_schema.RECORD_APPROVAL_REQUIRED;
-pub const RECORD_DENIAL = audit_schema.RECORD_DENIAL;
-pub const RECORD_TELEMETRY_CHECKPOINT = audit_schema.RECORD_TELEMETRY_CHECKPOINT;
-pub const RECORD_REPLAY_RESULT = audit_schema.RECORD_REPLAY_RESULT;
-pub const RECORD_DUPLICATION = audit_schema.RECORD_DUPLICATION;
-pub const RECORD_CASE_CREATION = audit_schema.RECORD_CASE_CREATION;
+pub const RECORD_SOURCE_EVENT = audit_mod.RECORD_SOURCE_EVENT;
+pub const RECORD_NORMALIZATION = audit_mod.RECORD_NORMALIZATION;
+pub const RECORD_POLICY_DECISION = audit_mod.RECORD_POLICY_DECISION;
+pub const RECORD_MODEL_CALL = audit_mod.RECORD_MODEL_CALL;
+pub const RECORD_FINANCIAL_ADAPTER_CALL = audit_mod.RECORD_FINANCIAL_ADAPTER_CALL;
+pub const RECORD_PROPOSAL = audit_mod.RECORD_PROPOSAL;
+pub const RECORD_DESTINATION_CHECK = audit_mod.RECORD_DESTINATION_CHECK;
+pub const RECORD_LIMIT_CHECK = audit_mod.RECORD_LIMIT_CHECK;
+pub const RECORD_APPROVAL_REQUIRED = audit_mod.RECORD_APPROVAL_REQUIRED;
+pub const RECORD_DENIAL = audit_mod.RECORD_DENIAL;
+pub const RECORD_TELEMETRY_CHECKPOINT = audit_mod.RECORD_TELEMETRY_CHECKPOINT;
+pub const RECORD_REPLAY_RESULT = audit_mod.RECORD_REPLAY_RESULT;
+pub const RECORD_DUPLICATION = audit_mod.RECORD_DUPLICATION;
+pub const RECORD_CASE_CREATION = audit_mod.RECORD_CASE_CREATION;
 
 test "getAuditRunTile returns non-null on supported platforms" {
     // On Linux with Firedancer built, the stem tile should be registered.

@@ -11,6 +11,7 @@
 #ifndef __TK_AUDIT_STEM_H__
 #define __TK_AUDIT_STEM_H__
 
+#include <stdint.h>
 #include "../../../disco/topo/fd_topo.h"
 
 /* Extern declaration — full definition lives in tk_audit_stem.c. */
@@ -57,5 +58,9 @@ extern ulong tk_audit_record_seq( void * scratch, ulong idx );
 extern ulong tk_audit_record_prev_hash( void * scratch, ulong idx );
 extern ulong tk_audit_record_hash( void * scratch, ulong idx );
 extern uint  tk_audit_record_schema_version( void * scratch, ulong idx );
+extern ulong tk_audit_record_source_offset( void * scratch, ulong idx );
+extern uint  tk_audit_record_outcome( void * scratch, ulong idx );
+extern void  tk_audit_record_decided_by( void * scratch, ulong idx, uint8_t * dst );
+extern ulong tk_audit_record_source_event_hash( void * scratch, ulong idx );
 
 #endif /* __TK_AUDIT_STEM_H__ */
