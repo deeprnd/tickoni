@@ -22,8 +22,11 @@ extern fd_topo_run_tile_t const * tk_get_norm_run_tile( void );
    fd_topo_tile_t pointer. */
 extern ulong tknorm_tile_scratch_footprint( void );
 
-/* Alignment constant for the norm tile's scratch space. */
-#define TKNORM_CTX_ALIGN 8
+/* Query the alignment of the norm tile's scratch object without needing the
+   fd_topo_run_tile_t definition.  Calls through TK_NORM_RUN.scratch_align, so
+   the topology builder and the tile cannot disagree: tk_normalize_stem.c
+   derives the value from alignof(tknorm_ctx_t) and owns it alone. */
+extern ulong tknorm_tile_scratch_align( void );
 
 /* Field accessors for standalone test — avoids Zig-C struct layout mismatch. */
 extern char const * tk_get_norm_run_name( void );

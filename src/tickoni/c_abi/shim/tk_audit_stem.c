@@ -123,10 +123,16 @@ static void tk_audit_run( fd_topo_t * topo, fd_topo_tile_t * tile );
 #undef STEM_CALLBACK_AFTER_FRAG
 #undef STEM_CALLBACK_SHOULD_SHUTDOWN
 
-/* ─── Scratch footprint ─── */
+/* ─── Scratch footprint and alignment ─── */
 
+/* Alignment of the whole tile scratch object: the context and the audit-record
+   ring both live in this one block, which tk_audit_scratch_footprint_tile()
+   lays out from offset 0, so the object's base must satisfy the strictest of
+   them.  Derived from the context struct rather than restated as a literal —
+   this is the single definition of tkaudt's scratch alignment, and topob.c
+   reads it back through tk_audit_scratch_align(). */
 static ulong
-tk_audit_scratch_align( void ) {
+tk_audit_scratch_align_tile( void ) {
     return TKAUDT_CTX_ALIGN;
 }
 
@@ -464,7 +470,7 @@ fd_topo_run_tile_t TK_AUDIT_RUN = {
     .max_event_sz             = NULL,
     .populate_allowed_seccomp = NULL,
     .populate_allowed_fds     = NULL,
-    .scratch_align            = tk_audit_scratch_align,
+    .scratch_align            = tk_audit_scratch_align_tile,
     .scratch_footprint        = tk_audit_scratch_footprint_tile,
     .loose_footprint          = NULL,
     .privileged_init          = tk_audit_privileged_init,
@@ -493,6 +499,15 @@ tk_get_audit_run_name( void ) {
 void *
 tk_get_audit_run_run( void ) {
     return (void *)TK_AUDIT_RUN.run;
+}
+
+/* Wrapper for topob.c: query the scratch object's alignment without needing
+   the fd_topo_run_tile_t definition.  Reads it back through the wired field
+   so the topology cannot be laid out on an alignment the tile does not
+   actually declare. */
+ulong
+tk_audit_scratch_align( void ) {
+    return TK_AUDIT_RUN.scratch_align();
 }
 
 void *

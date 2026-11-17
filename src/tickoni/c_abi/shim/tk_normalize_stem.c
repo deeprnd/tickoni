@@ -139,7 +139,25 @@ tknorm_stable_event_hash_compute( RawPayment const * raw ) {
     return tknorm_stable_event_hash( raw );
 }
 
-/* ─── Scratch footprint ─── */
+/* ─── Scratch footprint and alignment ───
+
+   STEM_CALLBACK generates STEM_(scratch_footprint)( ulong in_cnt, ... ) and
+   STEM_(scratch_align)( void ), but both describe fd_stem's own stack scratch
+   (the in[]/cr_avail[]/event-map block, aligned to FD_STEM_SCRATCH_ALIGN) —
+   not this tile's scratch object.  TK_NORM_RUN must describe the tile object,
+   so the tile-specific variants below are what it points at. */
+
+/* Alignment of the whole tile scratch object: the context and the output
+   PaymentMessage both live in this one block, which
+   tknorm_scratch_footprint_tile() lays out from offset 0, so the object's
+   base must satisfy the strictest of them.  Derived from the context struct
+   rather than restated as a literal — this is the single definition of
+   tknorm's scratch alignment, and topob.c reads it back through
+   tknorm_tile_scratch_align(). */
+static ulong
+tknorm_scratch_align_tile( void ) {
+    return TKNORM_CTX_ALIGN;
+}
 
 static ulong
 tknorm_scratch_footprint_tile( fd_topo_tile_t const * tile ) {
@@ -354,7 +372,7 @@ fd_topo_run_tile_t TK_NORM_RUN = {
     .max_event_sz             = NULL,
     .populate_allowed_seccomp = NULL,
     .populate_allowed_fds     = NULL,
-    .scratch_align            = tknorm_scratch_align,
+    .scratch_align            = tknorm_scratch_align_tile,
     .scratch_footprint        = tknorm_scratch_footprint_tile,
     .loose_footprint          = NULL,
     .privileged_init          = (void (*)(fd_topo_t const *, fd_topo_tile_t const *))tknorm_privileged_init,
@@ -374,6 +392,15 @@ tk_get_norm_run_tile( void ) {
 ulong
 tknorm_tile_scratch_footprint( void ) {
     return TK_NORM_RUN.scratch_footprint( NULL );
+}
+
+/* Wrapper for topob.c: query the scratch object's alignment without needing
+   the fd_topo_run_tile_t definition.  Reads it back through the wired field
+   so the topology cannot be laid out on an alignment the tile does not
+   actually declare. */
+ulong
+tknorm_tile_scratch_align( void ) {
+    return TK_NORM_RUN.scratch_align();
 }
 
 /* ─── Callbacks ─── */

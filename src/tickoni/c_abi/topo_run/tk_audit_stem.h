@@ -28,10 +28,11 @@ extern fd_topo_run_tile_t const * tk_get_audit_run_tile( void );
    accessor. */
 extern ulong tk_audit_scratch_footprint( void );
 
-/* The alignment for the audit tile's scratch space.
-   Matches TKAUDT_CTX_ALIGN in tk_audit_stem.c.
-   topob.c uses this to verify alignment parity. */
-#define TKAUDT_CTX_ALIGN 8
+/* Query the alignment of the audit tile's scratch object without needing the
+   fd_topo_run_tile_t definition.  Calls through TK_AUDIT_RUN.scratch_align, so
+   the topology builder and the tile cannot disagree: tk_audit_stem.c derives
+   the value from alignof(tk_audit_ctx_t) and owns it alone. */
+extern ulong tk_audit_scratch_align( void );
 
 /* Set event_count from topo_build.build() — called before any footprint queries. */
 extern void tkaudit_set_event_count( ulong event_count );
