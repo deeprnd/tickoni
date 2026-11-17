@@ -1,11 +1,14 @@
 /* tk_normalize_stem.c — Stem fd_stem tile for tknorm.
 
-   Tile behavior:
-   - DURING_FRAG: read PaymentMessage from input dcache, validate framing
-     (currency=USD, amount_cents>0, not malformed), compute stable
-     event hash, stamp decision/decided_by, track counters, set output_ready
-   - AFTER_CREDIT: if output_ready, publish to output dcache via
-     fd_stem_publish, reset output_ready
+   Follows the fd_stem callback contract in stem_helpers.h:
+   - DURING_FRAG: validate framing (currency=USD, amount_cents>0, not
+     malformed), copy the PaymentMessage out of the input dcache into the
+     staging buffer, compute the stable event hash, stamp decision/decided_by,
+     set stage_valid.  Stages only — no counters, no progress, no publish.
+   - AFTER_FRAG: bump the normalized/invalid counters from the staged
+     decision, publish to the output dcache via fd_stem_publish, publish
+     progress, apply the event gate.
+   - AFTER_CREDIT: not defined — tknorm has no fragment-independent work.
    - SHOULD_SHUTDOWN: CNC HALT + idle threshold + event_count exhaustion
 
    Uses stem_helpers.h for shared boilerplate:
@@ -37,9 +40,12 @@ typedef struct {
     uint64_t normalized;
     uint64_t invalid;
 
-    /* Output state (set in during_frag, consumed in after_credit) */
-    int      output_ready;
-    uint64_t output_sz;
+    /* Staging state (written in during_frag, committed in after_frag) */
+    int      stage_valid;
+    uint64_t stage_sz;
+
+    /* Pre-existing unused field; left in place to keep the scratch layout
+       and this struct's shape unchanged. */
     uint64_t output_chunk;
 
     /* Idle threshold tracking */
@@ -76,8 +82,6 @@ static void tknorm_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const
 static void tknorm_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile );
 static void tknorm_during_frag( tknorm_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig,
                                  ulong chunk, ulong sz, ulong ctl );
-static void tknorm_after_credit( tknorm_ctx_t * ctx, fd_stem_context_t * stem,
-                                 int * opt_poll_in, int * charge_busy );
 static void tknorm_after_frag( tknorm_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig,
                                 ulong sz, ulong tsorig, ulong tspub, fd_stem_context_t * stem );
 static void tknorm_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
@@ -89,7 +93,6 @@ static void tknorm_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #define STEM_CALLBACK_CONTEXT_TYPE        tknorm_ctx_t
 #define STEM_CALLBACK_CONTEXT_ALIGN       TKNORM_CTX_ALIGN
 #define STEM_CALLBACK_DURING_FRAG         tknorm_during_frag
-#define STEM_CALLBACK_AFTER_CREDIT        tknorm_after_credit
 #define STEM_CALLBACK_AFTER_FRAG          tknorm_after_frag
 #define STEM_CALLBACK_SHOULD_SHUTDOWN(ctx) \
   ( (ctx)->input_exhausted || \
@@ -103,7 +106,6 @@ static void tknorm_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #undef STEM_CALLBACK_CONTEXT_TYPE
 #undef STEM_CALLBACK_CONTEXT_ALIGN
 #undef STEM_CALLBACK_DURING_FRAG
-#undef STEM_CALLBACK_AFTER_CREDIT
 #undef STEM_CALLBACK_AFTER_FRAG
 #undef STEM_CALLBACK_SHOULD_SHUTDOWN
 
@@ -170,7 +172,7 @@ tknorm_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
 
     ctx->normalized = 0;
     ctx->invalid = 0;
-    ctx->output_ready = 0;
+    ctx->stage_valid = 0;
     ctx->idle_ticks = 0;
     ctx->cnc = NULL;
     ctx->event_count = 0;
@@ -235,12 +237,19 @@ tknorm_during_frag( tknorm_ctx_t * ctx,
                     ulong          ctl ) {
     (void)in_idx; (void)seq; (void)sig; (void)ctl;
 
+    /* Clear first: fd_stem may skip AFTER_FRAG for this fragment (reading
+       overrun), and a stale stage_valid would let the next AFTER_FRAG publish
+       an abandoned message. */
+    ctx->stage_valid = 0;
+
     /* Shared boilerplate: empty check, size check, wksp check, chunk→gaddr */
     if (!stk_validate_frag(sz, PAYMENT_MSG_SIZE, ctx->wksp))
         return;
     PaymentMessage const * msg_in = stk_chunk_to_gaddr(ctx->wksp, chunk);
 
-    /* Copy input to output buffer */
+    /* Stage the input.  Everything below this point is a pure function of
+       the staged copy; counters, progress and the publish are committed in
+       AFTER_FRAG, after fd_stem has confirmed the fragment was intact. */
     memcpy(ctx->output_msg, msg_in, sizeof(PaymentMessage));
 
     /* Validate framing: currency must be "USD", amount_cents > 0, not malformed */
@@ -255,67 +264,22 @@ tknorm_during_frag( tknorm_ctx_t * ctx,
     /* Stamp pipeline_hops */
     ctx->output_msg->pipeline_hops += 1;
 
-    if (!valid) {
-        ctx->output_msg->decision = (uint8_t)POLICY_MALFORMED_DROP;
-        memcpy(ctx->output_msg->decided_by, TILE_ID_TKNORM, sizeof(TILE_ID_TKNORM));
-        ctx->invalid += 1;
-    } else {
-        ctx->output_msg->decision = (uint8_t)POLICY_ALLOW;
-        memcpy(ctx->output_msg->decided_by, TILE_ID_TKNORM, sizeof(TILE_ID_TKNORM));
-        ctx->normalized += 1;
-    }
+    /* Stamp the verdict.  AFTER_FRAG reads it back off the staged message to
+       pick the counter, so no separate ctx flag is needed. */
+    ctx->output_msg->decision = valid ? (uint8_t)POLICY_ALLOW
+                                     : (uint8_t)POLICY_MALFORMED_DROP;
+    memcpy(ctx->output_msg->decided_by, TILE_ID_TKNORM, sizeof(TILE_ID_TKNORM));
 
-    /* Shared boilerplate: event-count gating */
-    STK_EVENT_EXHAUSTED(ctx, ctx->event_count, ctx->normalized + ctx->invalid);
-
-    /* Mark output ready */
-    ctx->output_ready = 1;
-    ctx->output_sz = PAYMENT_MSG_SIZE;
-    /* Chunk offset will be set in after_credit when we allocate from output dcache */
-
-    /* Publish the two registry-owned counters while the stem loop is live. */
-    if (ctx->cnc) {
-        ulong * app = (ulong *)fd_cnc_app_laddr((fd_cnc_t *)ctx->cnc);
-        if (app) {
-            app[0] = ctx->normalized;
-            app[1] = ctx->invalid;
-        }
-    }
+    ctx->stage_valid = 1;
+    ctx->stage_sz = PAYMENT_MSG_SIZE;
 }
 
-static void
-tknorm_after_credit( tknorm_ctx_t *      ctx,
-                     fd_stem_context_t * stem,
-                     int *               opt_poll_in,
-                     int *               charge_busy ) {
-    (void)opt_poll_in;
-
-    /* after_frag already publishes in every iteration (including the 100th
-       where the loop breaks). Only publish here for safety — if output_ready
-       is still set, after_frag didn't run (first iteration) or there was an
-       error. */
-    if (ctx->output_ready) {
-        ulong out_chunk = ctx->out_chunk;
-        void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
-        memcpy(dst, ctx->output_msg, ctx->output_sz);
-
-        fd_stem_publish(stem, 0UL, 0UL, out_chunk, ctx->output_sz, 0UL, 0UL, 0UL);
-        ctx->out_chunk = fd_dcache_compact_next(
-            out_chunk,
-            ctx->output_sz,
-            ctx->out_chunk0,
-            ctx->out_wmark
-        );
-        ctx->output_ready = 0;
-    }
-
-    *charge_busy = 0;
-}
-
-/* Publish output in AFTER_FRAG so the 100th event is published even when
-   the stem loop breaks at SHOULD_SHUTDOWN (AFTER_CREDIT never fires for
-   the last event). This fires after DURING_FRAG for every event, including
-   the final one, before the loop exits. */
+/* AFTER_FRAG is the commit point: the first callback fd_stem reaches after
+   its post-DURING_FRAG overrun re-check, so the only place the staged message
+   is known to be intact.  It is also the only publish path — publishing in
+   AFTER_CREDIT would drop the final event, because SHOULD_SHUTDOWN is
+   evaluated at the top of the stem loop and the event gate below fires on the
+   same iteration that stages that event. */
 static void
 tknorm_after_frag( tknorm_ctx_t *      ctx,
                    ulong               in_idx,
@@ -327,20 +291,35 @@ tknorm_after_frag( tknorm_ctx_t *      ctx,
                    fd_stem_context_t * stem ) {
     (void)in_idx; (void)seq; (void)sig; (void)sz; (void)tsorig; (void)tspub;
 
-    if (ctx->output_ready) {
-        ulong out_chunk = ctx->out_chunk;
-        void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
-        memcpy(dst, ctx->output_msg, ctx->output_sz);
+    if (!ctx->stage_valid)
+        return;
+    ctx->stage_valid = 0;
 
-        fd_stem_publish(stem, 0UL, 0UL, out_chunk, ctx->output_sz, 0UL, 0UL, 0UL);
-        ctx->out_chunk = fd_dcache_compact_next(
-            out_chunk,
-            ctx->output_sz,
-            ctx->out_chunk0,
-            ctx->out_wmark
-        );
-        ctx->output_ready = 0;
-    }
+    if (ctx->output_msg->decision == (uint8_t)POLICY_MALFORMED_DROP) ctx->invalid += 1;
+    else                                                             ctx->normalized += 1;
+
+    /* Publish the staged message. */
+    ulong out_chunk = ctx->out_chunk;
+    void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
+    memcpy(dst, ctx->output_msg, ctx->stage_sz);
+
+    /* (stem, out_idx, sig, chunk, sz, ctl, tsorig, tspub) */
+    fd_stem_publish(stem, 0UL, 0UL, out_chunk, ctx->stage_sz, 0UL, 0UL, 0UL);
+    ctx->out_chunk = fd_dcache_compact_next(
+        out_chunk,
+        ctx->stage_sz,
+        ctx->out_chunk0,
+        ctx->out_wmark
+    );
+
+    /* Publish the two registry-owned counters (tile_registry.zig maps
+       app[0]=normalized, app[1]=invalid for tknorm). */
+    stk_publish_progress(ctx->cnc, ctx->normalized);
+    stk_publish_progress_slot(ctx->cnc, 1UL, ctx->invalid);
+
+    /* Shared boilerplate: event-count gating, checked against the
+       post-increment total so the gate fires on the Nth fragment. */
+    STK_EVENT_EXHAUSTED(ctx, ctx->event_count, ctx->normalized + ctx->invalid);
 }
 
 /* ─── Run entry point ─── */

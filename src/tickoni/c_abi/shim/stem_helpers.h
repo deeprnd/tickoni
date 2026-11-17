@@ -14,6 +14,43 @@
 #ifndef __STEM_HELPERS_H__
 #define __STEM_HELPERS_H__
 
+/* ─── Callback contract (MANDATORY for every tk_*_stem.c) ───
+
+   fd_stem re-checks the input sequence number AFTER DURING_FRAG returns
+   (fd_stem.c, the `seq_test != seq_found` branch) and abandons the frag if
+   the producer overran the reader.  DURING_FRAG therefore runs on data that
+   may be torn, and anything it commits cannot be taken back.
+
+   1. DURING_FRAG stages, and nothing else.  Clear the staging-valid flag
+      first, validate via stk_validate_frag, copy out of the input dcache
+      into tile-local scratch, and compute only pure functions of that copy
+      (hashes, framing verdicts).  No counters, no table/ring writes, no
+      stk_publish_progress, no STK_EVENT_EXHAUSTED, no fd_stem_publish.
+
+   2. AFTER_FRAG commits.  It is the first callback reached after the overrun
+      re-check, so it is the only point at which the frag is known intact.
+      State mutation, counters, stk_publish_progress, STK_EVENT_EXHAUSTED and
+      fd_stem_publish all belong here.
+
+   3. AFTER_CREDIT is NOT defined unless the tile has frag-independent work
+      (a timer, a backlog drain).  Never as a second "safety" publish path:
+      SHOULD_SHUTDOWN is evaluated at the TOP of the stem loop, before
+      AFTER_CREDIT, so a tile that gates shutdown on its own progress and
+      publishes in AFTER_CREDIT silently drops its final event.
+
+   4. STEM_BURST == the maximum fd_stem_publish calls one loop iteration can
+      make.  The credit gate reserves exactly STEM_BURST slots per iteration;
+      a second publish in the same iteration spends a credit the tile does
+      not hold and can overrun the downstream consumer.
+
+   A sink tile (out_cnt == 0, e.g. tkaudt) follows the same contract and
+   simply ends AFTER_FRAG without publishing.  out_cnt alone decides the
+   shape of the tile, not which callbacks it happens to define.
+
+   Rationale and the full statement of this contract live in
+   doc/execution/contribution/tickoni.md, "fd_stem Callback Contract".
+*/
+
 #include "disco/topo/fd_topo.h"
 #include "util/wksp/fd_wksp.h"
 
@@ -80,7 +117,8 @@ stk_find_cnc(fd_topo_t const * topo, ulong tile_id) {
    input_exhausted field is accessible. The check is only 2 lines but is
    identical across all tiles.
 
-   Usage (in DURING_FRAG):
+   Usage (in AFTER_FRAG — never DURING_FRAG; see the callback contract at
+   the top of this header):
      STK_EVENT_EXHAUSTED(ctx, ctx->event_count, ctx->audited)
      STK_EVENT_EXHAUSTED(ctx, ctx->event_count, ctx->normalized + ctx->invalid)
 
@@ -112,19 +150,28 @@ stk_find_cnc(fd_topo_t const * topo, ulong tile_id) {
 
 /* ─── Progress publishing ───
 
-   Publish a progress value to CNC app[0]. Safe no-op if cnc is NULL.
+   Publish a progress value to a CNC app slot.  Safe no-op if cnc is NULL.
+   Slot ownership per tile is declared in tile_registry.zig; pass the slot
+   index that registry assigns rather than hand-rolling an app[] write, so a
+   tile with more than one counter still goes through this helper.
 
-   Usage (in DURING_FRAG):
-     stk_publish_progress(ctx->cnc, ctx->audited);
-     stk_publish_progress(ctx->cnc, ctx->normalized + ctx->invalid);
+   Usage (in AFTER_FRAG — never DURING_FRAG; see the callback contract at
+   the top of this header):
+     stk_publish_progress(ctx->cnc, ctx->audited);                   // app[0]
+     stk_publish_progress_slot(ctx->cnc, 1UL, ctx->invalid);         // app[1]
 */
 #include "tango/cnc/fd_cnc.h"
 
 static inline void
-stk_publish_progress(void * cnc, ulong value) {
+stk_publish_progress_slot(void * cnc, ulong slot, ulong value) {
     if (!cnc) return;
     ulong * app = (ulong *)fd_cnc_app_laddr((fd_cnc_t *)cnc);
-    if (app) app[0] = value;
+    if (app) app[slot] = value;
+}
+
+static inline void
+stk_publish_progress(void * cnc, ulong value) {
+    stk_publish_progress_slot(cnc, 0UL, value);
 }
 
 /* ─── DURING_FRAG validation preamble ───
