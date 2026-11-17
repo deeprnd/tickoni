@@ -124,6 +124,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .optimize = optimize,
         .imports = &.{
             .{ .name = "audit_schema", .module = audit_schema_mod },
+            .{ .name = "audit_mod", .module = audit_mod },
         },
     });
     // Wire c_abi_audit as an import of c_abi so c_abi.zig can do
