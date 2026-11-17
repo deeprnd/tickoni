@@ -126,7 +126,7 @@ test "process_fixture_parity: floating, shared-core, and exclusive-core CPU plac
     // CPU placement is a scheduling policy, not a correctness dimension: only
     // deterministic event-path counters must match. metric_snapshots counts
     // observer stem iterations, so it varies with child bootstrap and scheduler
-    // timing; its liveness contract is covered by test_metric_tile_integration.
+    // timing; its liveness contract is covered by test_tile_metric.
     try std.testing.expectEqual(floating_metrics.produced, shared_metrics.produced);
     try std.testing.expectEqual(floating_metrics.normalized, shared_metrics.normalized);
     try std.testing.expectEqual(floating_metrics.invalid, shared_metrics.invalid);
