@@ -33,4 +33,7 @@ extern void * tk_get_norm_run_scratch_footprint( void );
 extern void * tk_get_norm_run_privileged_init( void );
 extern void * tk_get_norm_run_unprivileged_init( void );
 
+/* Set event_count from topo_build.build() — called before any footprint queries. */
+extern void tknorm_set_event_count( ulong event_count );
+
 #endif /* __TK_NORM_STEM_H__ */
