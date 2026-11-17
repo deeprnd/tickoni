@@ -29,8 +29,11 @@ extern ulong tkdedu_tile_scratch_footprint( void );
    the single call site. */
 extern void tkdedu_set_event_count( ulong event_count );
 
-/* Alignment constant for the dedu tile's scratch space. */
-#define TKDEDU_CTX_ALIGN 8
+/* Query the alignment of the dedu tile's scratch object without needing the
+   fd_topo_run_tile_t definition.  Calls through TK_DEDU_RUN.scratch_align, so
+   the topology builder and the tile cannot disagree: tk_dedu_stem.c derives
+   the value from alignof(tkdedu_ctx_t) and owns it alone. */
+extern ulong tkdedu_tile_scratch_align( void );
 
 /* Field accessors for standalone test — avoids Zig-C struct layout mismatch. */
 extern char const * tk_get_dedu_run_name( void );

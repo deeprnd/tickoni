@@ -107,13 +107,29 @@ static void tkdedu_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #undef STEM_CALLBACK_AFTER_FRAG
 #undef STEM_CALLBACK_SHOULD_SHUTDOWN
 
-/* ─── Scratch footprint ───
+/* ─── Scratch footprint and alignment ───
 
-   STEM_CALLBACK generates STEM_(scratch_footprint)( ulong in_cnt, ... )
-   and STEM_(scratch_align)( void ).  We provide the tile-specific variant
-   (footprint_tile) and a no-argument wrapper (tile_scratch_footprint)
-   for topob.c so it never needs the full fd_topo_tile_t definition.
+   STEM_CALLBACK generates STEM_(scratch_footprint)( ulong in_cnt, ... ) and
+   STEM_(scratch_align)( void ), but both describe fd_stem's own stack scratch
+   (the in[]/cr_avail[]/event-map block, aligned to FD_STEM_SCRATCH_ALIGN) —
+   not this tile's scratch object.  TK_DEDU_RUN must describe the tile object,
+   so we provide tile-specific variants (scratch_align_tile,
+   scratch_footprint_tile) plus no-argument wrappers (tile_scratch_align,
+   tile_scratch_footprint) for topob.c, which never needs the full
+   fd_topo_tile_t definition.
 */
+
+/* Alignment of the whole tile scratch object: the context, the dedupe
+   arrays and the output PaymentMessage all live in this one block, and
+   tkdedu_scratch_footprint_tile() lays them out from offset 0, so the
+   object's base must satisfy the strictest of them.  Derived from the
+   context struct rather than restated as a literal — this is the single
+   definition of tkdedu's scratch alignment, and topob.c reads it back
+   through tkdedu_tile_scratch_align(). */
+static ulong
+tkdedu_scratch_align_tile( void ) {
+    return TKDEDU_CTX_ALIGN;
+}
 
 /* ─── Dedupe table size: explicit runtime layout parameter ───
 
@@ -392,7 +408,7 @@ fd_topo_run_tile_t TK_DEDU_RUN = {
     .max_event_sz             = NULL,
     .populate_allowed_seccomp = NULL,
     .populate_allowed_fds     = NULL,
-    .scratch_align            = tkdedu_scratch_align,
+    .scratch_align            = tkdedu_scratch_align_tile,
     .scratch_footprint        = tkdedu_scratch_footprint_tile,
     .loose_footprint          = NULL,
     .privileged_init          = (void (*)(fd_topo_t const *, fd_topo_tile_t const *))tkdedu_privileged_init,
@@ -412,6 +428,15 @@ tk_get_dedu_run_tile( void ) {
 ulong
 tkdedu_tile_scratch_footprint( void ) {
     return TK_DEDU_RUN.scratch_footprint( NULL );
+}
+
+/* Wrapper for topob.c: query the scratch object's alignment without needing
+   the fd_topo_run_tile_t definition.  Reads it back through the wired field
+   so the topology cannot be laid out on an alignment the tile does not
+   actually declare. */
+ulong
+tkdedu_tile_scratch_align( void ) {
+    return TK_DEDU_RUN.scratch_align();
 }
 
 /* Field accessors for integration/test_tkdedu_integration.zig.
