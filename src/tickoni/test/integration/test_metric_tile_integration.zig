@@ -391,6 +391,8 @@ test "metric_tile_integration: topology with metric builds and starts" {
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
+        .inject_malformed = false,
+        .duplicate = null,
     });
 
     const max_polls: u32 = 400;
@@ -440,6 +442,8 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
+        .inject_malformed = false,
+        .duplicate = null,
     });
 
     // Wait for the pipeline to finish processing.
@@ -530,6 +534,8 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
+        .inject_malformed = false,
+        .duplicate = null,
     });
 
     // Wait for pipeline to finish
@@ -583,6 +589,8 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
+        .inject_malformed = false,
+        .duplicate = null,
     });
 
     // Wait for pipeline to finish
@@ -648,6 +656,8 @@ test "metric_tile_integration: workspace join completeness" {
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
+        .inject_malformed = false,
+        .duplicate = null,
     });
 
     // Wait for the pipeline to finish processing.
@@ -715,6 +725,8 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
+        .inject_malformed = false,
+        .duplicate = null,
     });
 
     const max_polls: u32 = 400;
@@ -787,6 +799,8 @@ test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
+        .inject_malformed = false,
+        .duplicate = null,
     });
 
     // Wait for the pipeline to finish processing.
@@ -885,6 +899,8 @@ test "metric_tile_integration: sequential pipeline runs on same port" {
             .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
             .workspace_name = util.nextWorkspaceName(&ws_buf),
             .metric_port = port,
+            .inject_malformed = false,
+            .duplicate = null,
         });
 
         // Wait for the pipeline to finish processing.

@@ -57,8 +57,8 @@ test "tknorm_integration: stem tile processes all events" {
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-        .inject_duplicate = false,
         .inject_malformed = false,
+        .duplicate = null,
     });
 
     // Wait for tkaudt to finish auditing (tkaudt is the pipeline sink).
@@ -79,7 +79,7 @@ test "tknorm_integration: stem tile processes all events" {
     }
 
     // Task 9 assertion 1: tknorm processed every event (either normalized
-    // or rejected).  With inject_duplicate=false and inject_malformed=false
+    // or rejected).  With duplicate=null and inject_malformed=false
     // all events have currency=USD, amount_cents>0, malformed=false so
     // every event should be normalized.
     try std.testing.expectEqual(@as(u64, event_count), metrics.audited);
@@ -122,8 +122,8 @@ test "tknorm_integration: stem tile rejects malformed framing" {
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-        .inject_duplicate = false,
         .inject_malformed = true,
+        .duplicate = null,
     });
 
     // Wait for tkaudt to finish auditing (pipeline sink).
@@ -187,8 +187,8 @@ test "tknorm_integration: pipeline completes without crashes or hangs" {
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-        .inject_duplicate = true,
         .inject_malformed = false,
+        .duplicate = .{ .offset = 3, .source = 1 },
     });
 
     // Wait for tkaudt to finish auditing (pipeline sink).
@@ -247,8 +247,8 @@ test "tknorm_integration: CNC HALT stops tile cleanly" {
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-        .inject_duplicate = false,
         .inject_malformed = false,
+        .duplicate = null,
     });
 
     // Wait for at least 1 event to be processed before stopping.
@@ -304,8 +304,8 @@ test "tknorm_integration: sequential runs on same workspace" {
             .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
             .workspace_name = workspace_name,
             .metric_port = metric_port,
-            .inject_duplicate = false,
             .inject_malformed = false,
+            .duplicate = null,
         });
 
         // Wait for all events to be audited.
