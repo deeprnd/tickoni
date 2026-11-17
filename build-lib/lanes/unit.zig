@@ -282,7 +282,7 @@ pub fn strategy(
     // the full pipeline integration tests.
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-tknorm-integration",
-        .source_file = "src/tickoni/test/integration/test_tknorm_integration.zig",
+        .source_file = "src/tickoni/test/integration/test_tile_tknorm.zig",
         .imports = &.{
             .{ .name = "runtime", .module = shared.runtime },
             .{ .name = "c_abi", .module = shared.c_abi },
