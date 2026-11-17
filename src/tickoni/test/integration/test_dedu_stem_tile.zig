@@ -58,8 +58,8 @@ test "tkdedu_integration: stem tile processes all events" {
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-        .inject_duplicate = false,
         .inject_malformed = false,
+        .duplicate = null,
     });
 
     // Wait for tkaudt to finish auditing (tkaudt is the pipeline sink).
@@ -80,7 +80,7 @@ test "tkdedu_integration: stem tile processes all events" {
     }
 
     // Task 12 assertion 1: tkdedu received all produced events and tkaudt
-    // audited them. With inject_duplicate=false all events are unique so
+    // audited them. With duplicate=null all events are unique so
     // duplicates should be 0.
     try std.testing.expectEqual(@as(u64, event_count), metrics.audited);
     try std.testing.expectEqual(@as(u64, event_count), metrics.produced);
@@ -126,8 +126,8 @@ test "tkdedu_integration: pipeline completes without crashes or hangs" {
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-        .inject_duplicate = true,
         .inject_malformed = false,
+        .duplicate = .{ .offset = 3, .source = 1 },
     });
 
     // Wait for tkaudt to finish auditing (pipeline sink).
@@ -188,8 +188,8 @@ test "tkdedu_integration: CNC HALT stops tile cleanly" {
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-        .inject_duplicate = false,
         .inject_malformed = false,
+        .duplicate = null,
     });
 
     // Wait for at least 1 event to be processed before stopping.
@@ -245,8 +245,8 @@ test "tkdedu_integration: sequential runs on same workspace" {
             .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
             .workspace_name = workspace_name,
             .metric_port = metric_port,
-            .inject_duplicate = false,
             .inject_malformed = false,
+            .duplicate = null,
         });
 
         // Wait for all events to be audited.
