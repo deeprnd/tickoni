@@ -58,7 +58,7 @@ pub fn build(b: *std.Build) void {
     };
     const zig_version = zig_version_raw;
 
-    const shared = @import("build-lib/mod/modules.zig").modules(b, target, optimize, zig_version);
+    const shared = @import("build-lib/mod/modules.zig").modules(b, target, optimize, zig_version, build_tests);
     const tm = @import("build-lib/mod/test_modules.zig").testModules(b, target, optimize, shared);
 
     // Supervisor executable
