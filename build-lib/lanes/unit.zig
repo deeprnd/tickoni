@@ -323,6 +323,19 @@ pub fn strategy(
     });
     run_count += 1;
 
+    // c_abi/audit.zig — identity + scratch footprint unit tests for the audit
+    // stem shim, matching the tknorm/tkdedu registrations above. Needs
+    // audit_schema because the module re-exports the translate-c schema types.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tkaudt-identity",
+        .source_file = "src/tickoni/c_abi/audit.zig",
+        .imports = &.{
+            .{ .name = "audit_schema", .module = shared.audit_schema },
+        },
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
     // === V2.21.S3 modules ===
 
     // version.zig — tier, audit_schema, build_options.
