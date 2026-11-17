@@ -50,7 +50,7 @@
 # Each tile's bootstrap LaunchSpec carries: shmem_path, heartbeat_interval_ns,
 # crash_after_heartbeats (test hook), cpu_placement, in_cnt, in_link_id[],
 # out_cnt, out_link_id[]. Payment-pipeline-specific config (event_count,
-# policy_limit_cents, inject_duplicate, inject_malformed) is written to a
+# policy_limit_cents, duplicate, inject_malformed) is written to a
 # separate payment_pipeline.config file in run_dir, not mixed into the
 # generic bootstrap record.
 
@@ -225,5 +225,6 @@ heartbeat_stale_after_ns = 100000000  # 100ms (5x heartbeat interval)
 # stuck_after_messages: u64 — test-only, loop iterations before freeze
 # event_count: u64 — number of synthetic events to process
 # policy_limit_cents: i64 — policy decision threshold
-# inject_duplicate: bool — inject duplicate events for dedupe testing
+# duplicate: ?struct { offset: u64, source: u64 } — inject duplicate events
+# at `offset` using the key from `source` for dedupe testing (null = none)
 # inject_malformed: bool — inject malformed events for invalid-event testing
