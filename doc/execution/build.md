@@ -145,6 +145,44 @@ Standalone Zig test roots:
   - src/tickoni/tiles/payment_pipeline/mod.zig
 ```
 
+### FD_TICKCOUNT_STYLE (Firedancer tick counter selection)
+
+`FD_TICKCOUNT_STYLE` is a compile-time preprocessor macro from Firedancer's
+`src/util/fd_util_base.h` that selects which tick counter implementation the
+C code uses. It is set automatically by Firedancer's build based on target
+CPU features (`FD_HAS_X86` / `FD_HAS_ARM`).
+
+| Value | Implementation | When |
+|-------|---------------|------|
+| 0 | Portable: `fd_log_wallclock_nanos()` (wallclock since UNIX epoch, 1ns/tick) | No X86 or ARM detected |
+| 1 | RTDSC hardware timestamp counter | x86/x86_64 |
+| 2 | ARM `CNTVCT_EL0` virtual counter (~24 MHz on Apple M1) | ARM detected |
+
+**Not an antipattern.** It is a `#define` resolved at compile time — every
+process in the same build gets the same implementation, no env var, no
+runtime dispatch. The Doxyfile explicitly excludes it from documentation since
+it is an implementation detail, not an API.
+
+**Caveat: aarch64 builds can silently fall back to style 0.** If the
+`FD_HAS_ARM` feature macro is not defined for the target, the build falls
+through to the portable wallclock fallback. This matters for two reasons:
+
+1. **Performance:** RTDSC (style 1) is ~6-8 ns on x86.
+   `fd_log_wallclock_nanos()` (style 0) involves a syscall and is much
+   slower.
+2. **Tick semantics:** Style 0 makes "ticks" equal wallclock nanoseconds.
+   Style 1/2 makes ticks equal hardware counter values (CPU-clock-rate on
+   x86, 24 MHz on ARM). The stem tile's housekeeping timer uses these ticks
+   for scheduling deadlines (`STEM_LAZY = 10e6`). With style 0,
+   `10e6 ticks = 10ms wallclock`; with style 1, `10e6 ticks ≈ 0.4ms at
+   2.4 GHz`. The behavior changes.
+
+If you are on aarch64 and want style 2, ensure `FD_HAS_ARM` is defined in
+your build flags, or explicitly pass `-DFD_TICKCOUNT_STYLE=2` to the
+compiler. If you are on x86_64 and getting style 0, check why
+`FD_HAS_X86` is not defined — that indicates missing CPU feature detection
+in the build config.
+
 ## Structure
 
 The current build graph in [build.zig](../../build.zig) has three main parts:
