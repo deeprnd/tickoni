@@ -20,6 +20,7 @@ const queue = @import("queue.zig");
 const audit_sink = @import("audit_sink.zig");
 const audit_state = @import("audit_state.zig");
 const tile_ids = @import("runtime").tile_ids;
+const test_build = @import("runtime").test_build.enabled;
 
 pub const PolicyDecision = enum(u8) {
     allow,
@@ -47,9 +48,11 @@ pub const PaymentPipelineConfig = struct {
     /// Set to `null` (default) for no duplicate injection.
     duplicate: ?DuplicateConfig = null,
     inject_malformed: bool = false,
-    /// Optional test-only hook called at each offset. Use
-    /// `@import("builtin").is_test and hook != null` to gate the invocation so
-    /// the branch is dead code in production builds.
+    /// Optional test-only hook called at each offset. Gate the invocation on
+    /// `runtime.test_build.enabled and hook != null` so the branch is dead
+    /// code in production builds — never on `@import("builtin").is_test`,
+    /// which is false in the process-mode supervisor executable. See
+    /// src/tickoni/runtime/test_build.zig.
     sandbox_fail_hook: ?*const fn (offset: u64, state: *PaymentPipelineState) callconv(.c) void = null,
 };
 
@@ -274,9 +277,9 @@ pub const PaymentPipelineState = struct {
 pub fn syntheticPayment(config: PaymentPipelineConfig, offset: u64) RawPayment {
     // Test-only: when `duplicate` is set, events at `duplicate.offset` reuse
     // the idempotency_key and account_id of `duplicate.source`. The
-    // `is_test` gate ensures this branch is dead code in production builds.
+    // `test_build` gate ensures this branch is dead code in production builds.
     var canonical_offset: u64 = offset;
-    if (@import("builtin").is_test) {
+    if (test_build) {
         if (config.duplicate) |dup| {
             if (offset == dup.offset) canonical_offset = dup.source;
         }
