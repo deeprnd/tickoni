@@ -143,8 +143,15 @@ publishes per stem iteration.
 |---|---|---|---|
 | `tknorm` | 1-in, 1-out | Conforms | Publishes in `AFTER_FRAG` only. |
 | `tkdedu` | 1-in, 1-out | Conforms | Publishes in `AFTER_FRAG` only. |
-| `tkaudt` | 1-in, 0-out | **Non-conforming** | Builds the `AuditEvent` into the committed ring and advances `prev_hash`/`audit_count` in `DURING_FRAG`, before fd_stem's overrun re-check. A torn frag can therefore poison the hash chain irreversibly. Fixing it needs a staging `AuditEvent` in ctx, which changes the scratch footprint — see [`plans/v2.NN-sXX-tkaudt-stem-contract.md`](plans/v2.NN-sXX-tkaudt-stem-contract.md). |
+| `tkaudt` | 1-in, 0-out | Conforms | `DURING_FRAG` builds the record into the next, still-uncommitted ring slot; `AFTER_FRAG` stamps `seq`/`prev_hash`, hashes, and advances the chain and `audit_count`. Sink, so no publish. See [`plans/v2.NN-sXX-tkaudt-stem-contract.md`](plans/v2.NN-sXX-tkaudt-stem-contract.md). |
 | `tkmetr` | 0-in, 0-out | Out of scope | Delegates to upstream `fd_metric_tile.c`; Tickoni authors no callbacks for it. |
+
+All three Tickoni-authored tiles also follow the same test/FFI pattern (see
+[`contribution/tickoni.md`](contribution/tickoni.md), "Stem Tile Test And FFI
+Pattern"): the identical `tk_get_<tile>_run_*` accessor set in the tile's
+`.c`/`.h`, a `c_abi/<tile>.zig` FFI module (`c_abi/audit.zig` for tkaudt),
+and a unit-test registration in `build-lib/lanes/unit.zig`. No Zig struct
+mirrors a C struct.
 
 Forward-looking plans written before the contract still prescribe publishing
 in `AFTER_CREDIT` and must not be followed verbatim for the publish point:
