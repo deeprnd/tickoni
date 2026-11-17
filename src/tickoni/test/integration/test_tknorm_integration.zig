@@ -332,3 +332,62 @@ test "tknorm_integration: sequential runs on same workspace" {
         }
     }
 }
+
+// Contract regression: AFTER_FRAG is tknorm's only publish point, so the
+// final event is published even though SHOULD_SHUTDOWN breaks the stem loop
+// at its top — before AFTER_CREDIT would run. event_count = 1 makes the
+// only event the final one, so this fails outright if the publish ever moves
+// back to AFTER_CREDIT.
+//
+// See the fd_stem Callback Contract in doc/execution/contribution/tickoni.md.
+test "tknorm_integration: the final event is published (event_count = 1)" {
+    if (false) return error.SkipZigTest;
+
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const len = try tmp.dir.realPath(std.testing.io, &path_buf);
+    const run_dir = path_buf[0..len];
+
+    const topo = topologies.minimalWithNormProcess();
+    var sup = try Supervisor.initForTest(std.testing.allocator, topo);
+    defer {
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("defer teardown stop: {any}", .{err});
+        sup.deinit();
+    }
+
+    const event_count: u64 = 1;
+    const metric_port = util.nextMetricPort();
+    var ws_buf: [16]u8 = undefined;
+    const workspace_name = util.nextWorkspaceName(&ws_buf);
+    try sup.startPaymentPipelineProcess(std.testing.io, .{
+        .run_dir = run_dir,
+        .event_count = event_count,
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = workspace_name,
+        .metric_port = metric_port,
+        .inject_malformed = false,
+        .duplicate = null,
+    });
+
+    const max_polls: u32 = MAX_POLL;
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        const snap = sup.snapshotProcessMetrics();
+        if (snap.audited >= event_count) break;
+        util.process.sleepNanos(POLL_INTERVAL);
+    }
+
+    const metrics = sup.snapshotProcessMetrics();
+
+    // tkaudt auditing the single event proves tknorm published it.
+    try std.testing.expectEqual(@as(u64, 1), metrics.produced);
+    try std.testing.expectEqual(@as(u64, 1), metrics.normalized);
+    try std.testing.expectEqual(@as(u64, 1), metrics.audited);
+    try std.testing.expectEqual(@as(u64, 0), metrics.invalid);
+
+    for (sup.monitor()) |h| {
+        try std.testing.expect(h.state != .crashed);
+    }
+}

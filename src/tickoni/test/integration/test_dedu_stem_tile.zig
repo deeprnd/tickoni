@@ -147,7 +147,12 @@ test "tkdedu_integration: pipeline completes without crashes or hangs" {
     // Task 12 assertion 1: every event produced was audited (duplicates
     // are silently removed — tkaudt only sees unique events).
     try std.testing.expectEqual(@as(u64, event_count), metrics.audited);
-    try std.testing.expect(@as(u64, 0) < metrics.duplicates);
+
+    // Exactly one duplicate is injected (offset 3 reuses source 1's
+    // idempotency_key/account_id), so tkdedu must report exactly one. An
+    // inequality here would hide double-counting: the duplicate counter is
+    // committed once per intact fragment, in AFTER_FRAG.
+    try std.testing.expectEqual(@as(u64, 1), metrics.duplicates);
 
     // Task 12 assertion 2: no tile crashed.
     for (sup.monitor()) |h| {
@@ -274,4 +279,127 @@ test "tkdedu_integration: sequential runs on same workspace" {
             try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
         }
     }
+}
+
+// Contract regression: AFTER_FRAG is tkdedu's only publish point, so the
+// final event is published even though SHOULD_SHUTDOWN breaks the stem loop
+// at its top — before AFTER_CREDIT would run. event_count = 1 makes the
+// only event the final one, so this fails outright if the publish ever moves
+// back to AFTER_CREDIT.
+//
+// See the fd_stem Callback Contract in doc/execution/contribution/tickoni.md.
+test "tkdedu_integration: the final event is published (event_count = 1)" {
+    if (false) return error.SkipZigTest;
+
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const len = try tmp.dir.realPath(std.testing.io, &path_buf);
+    const run_dir = path_buf[0..len];
+
+    const topo = topologies.minimalWithDeduProcess();
+    var sup = try Supervisor.initForTest(std.testing.allocator, topo);
+    defer {
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("defer teardown stop: {any}", .{err});
+        sup.deinit();
+    }
+
+    const event_count: u64 = 1;
+    const metric_port = util.nextMetricPort();
+    var ws_buf: [16]u8 = undefined;
+    const workspace_name = util.nextWorkspaceName(&ws_buf);
+    try sup.startPaymentPipelineProcess(std.testing.io, .{
+        .run_dir = run_dir,
+        .event_count = event_count,
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = workspace_name,
+        .metric_port = metric_port,
+        .inject_malformed = false,
+        .duplicate = null,
+    });
+
+    const max_polls: u32 = MAX_POLL;
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        const snap = sup.snapshotProcessMetrics();
+        if (snap.audited >= event_count) break;
+        util.process.sleepNanos(POLL_INTERVAL);
+    }
+
+    const metrics = sup.snapshotProcessMetrics();
+
+    // tkdedu sits between tknorm and tkaudt, so tkaudt auditing the single
+    // event proves tkdedu published it.
+    try std.testing.expectEqual(@as(u64, 1), metrics.produced);
+    try std.testing.expectEqual(@as(u64, 1), metrics.normalized);
+    try std.testing.expectEqual(@as(u64, 1), metrics.audited);
+    try std.testing.expectEqual(@as(u64, 0), metrics.duplicates);
+    try std.testing.expectEqual(@as(u64, 0), metrics.invalid);
+
+    for (sup.monitor()) |h| {
+        try std.testing.expect(h.state != .crashed);
+    }
+}
+
+// Contract regression: tkdedu's event-count gate must fire on the Nth
+// fragment, not the (N+1)th. STK_EVENT_EXHAUSTED is evaluated against the
+// post-increment count, so the tile self-exits once it has forwarded every
+// expected event rather than spinning until the supervisor sends CNC HALT.
+//
+// Asserted on tile index 2 (tkdedu) of minimalWithDeduProcess, with no
+// stopProcess call before the assertion: a clean self-exit is reaped as
+// .stopped, while a tile still spinning in its stem loop keeps heartbeating
+// and stays .running.
+test "tkdedu_integration: self-exits on event-count exhaustion" {
+    if (false) return error.SkipZigTest;
+
+    const tkdedu_tile_idx: usize = 2;
+
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const len = try tmp.dir.realPath(std.testing.io, &path_buf);
+    const run_dir = path_buf[0..len];
+
+    const topo = topologies.minimalWithDeduProcess();
+    try std.testing.expectEqualStrings(
+        tile_ids.tkdedu.slice(),
+        topo.tiles[tkdedu_tile_idx].name.slice(),
+    );
+
+    var sup = try Supervisor.initForTest(std.testing.allocator, topo);
+    defer {
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("defer teardown stop: {any}", .{err});
+        sup.deinit();
+    }
+
+    const event_count: u64 = DEFAULT_EVENT_COUNT;
+    const metric_port = util.nextMetricPort();
+    var ws_buf: [16]u8 = undefined;
+    const workspace_name = util.nextWorkspaceName(&ws_buf);
+    try sup.startPaymentPipelineProcess(std.testing.io, .{
+        .run_dir = run_dir,
+        .event_count = event_count,
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = workspace_name,
+        .metric_port = metric_port,
+        .inject_malformed = false,
+        .duplicate = null,
+    });
+
+    // Wait for tkdedu to exit on its own — no stopProcess, no CNC HALT.
+    const max_polls: u32 = MAX_POLL;
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        sup.refreshProcessHealth();
+        if (sup.monitor()[tkdedu_tile_idx].state == rt.tile.TileState.stopped) break;
+        util.process.sleepNanos(POLL_INTERVAL);
+    }
+
+    const state = sup.monitor()[tkdedu_tile_idx].state;
+    std.debug.print("[test] tkdedu self-exit: state={s} after {d} polls\n", .{ @tagName(state), poll });
+
+    try std.testing.expectEqual(rt.tile.TileState.stopped, state);
 }
