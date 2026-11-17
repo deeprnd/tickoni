@@ -14,7 +14,7 @@
    Uses stem_helpers.h for shared boilerplate:
    STK_GET_CTX, stk_derive_wksp, STK_UNPRIV_INIT,
    stk_validate_frag, stk_chunk_to_gaddr, STK_EVENT_EXHAUSTED,
-   stk_publish_progress
+   stk_publish_counter
 */
 
 #define _GNU_SOURCE
@@ -314,8 +314,8 @@ tknorm_after_frag( tknorm_ctx_t *      ctx,
 
     /* Publish the two registry-owned counters (tile_registry.zig maps
        app[0]=normalized, app[1]=invalid for tknorm). */
-    stk_publish_progress(ctx->cnc, ctx->normalized);
-    stk_publish_progress_slot(ctx->cnc, 1UL, ctx->invalid);
+    stk_publish_counter(ctx->cnc, 0UL, ctx->normalized);
+    stk_publish_counter(ctx->cnc, 1UL, ctx->invalid);
 
     /* Shared boilerplate: event-count gating, checked against the
        post-increment total so the gate fires on the Nth fragment. */

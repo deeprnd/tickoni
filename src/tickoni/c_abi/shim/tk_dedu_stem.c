@@ -14,7 +14,7 @@
    Uses stem_helpers.h for shared boilerplate:
    STK_GET_CTX, stk_derive_wksp, STK_UNPRIV_INIT,
    stk_validate_frag, stk_chunk_to_gaddr, STK_EVENT_EXHAUSTED,
-   stk_publish_progress
+   stk_publish_counter
 */
 
 #define _GNU_SOURCE
@@ -348,11 +348,9 @@ tkdedu_after_frag( tkdedu_ctx_t *      ctx,
 
     ctx->processed += 1;
 
-    /* Shared boilerplate: progress publishing.  CNC app slot 0 is mapped
-       to .duplicates for tkdedu in tile_registry.zig, so publish that
-       counter — ctx->processed is the shutdown gate's input, not a
-       metric the supervisor exposes. */
-    stk_publish_progress(ctx->cnc, ctx->duplicates);
+    /* Shared boilerplate: counter publishing.  ctx->processed is the
+       shutdown gate's input, not a counter the supervisor exposes. */
+    stk_publish_counter(ctx->cnc, 0UL, ctx->duplicates);
 
     /* Shared boilerplate: event-count gating.  Checked against the
        post-increment count so the gate fires on the Nth fragment and the

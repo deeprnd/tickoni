@@ -181,7 +181,7 @@ that may be torn, and anything it commits cannot be taken back.
    the overrun re-check, so it is the only place a frag is known to be
    intact. Everything observable happens here: state mutation (dedupe table
    inserts, audit appends and hash-chain advances), counter increments,
-   `stk_publish_progress`, `STK_EVENT_EXHAUSTED`, and `fd_stem_publish`.
+   `stk_publish_counter`, `STK_EVENT_EXHAUSTED`, and `fd_stem_publish`.
 
 3. **`AFTER_CREDIT` is not defined** unless the tile has work that is not
    driven by an incoming fragment, such as a timer or a backlog drain. Do not
