@@ -9,6 +9,7 @@ const codec = @import("../lib/codec.zig");
 const factory = @import("../factory.zig");
 const lane = @import("../lane.zig");
 const firedancer = @import("../lib/firedancer.zig");
+const topo_run = @import("../lib/topo_run.zig");
 const shared_mod = @import("../mod/modules.zig");
 const test_mod = @import("../mod/test_modules.zig");
 
@@ -258,6 +259,7 @@ pub fn strategy(
     const test_pp = b.addTest(.{ .root_module = pp_mod_root });
     codec.linkTickoniCodec(b, test_pp, fd_lib_dir);
     firedancer.linkTickoniFiredancer(b, test_pp, fd_lib_dir);
+    topo_run.linkTickoniTopoRun(b, test_pp, fd_lib_dir);
     run_sequence[run_count] = test_pp;
     run_count += 1;
 
@@ -332,6 +334,16 @@ pub fn strategy(
         .imports = &.{
             .{ .name = "audit_schema", .module = shared.audit_schema },
         },
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    // c_abi/tkpoly.zig — identity + scratch footprint unit tests for the policy
+    // stem shim.  Needs firedancer linkage for fd_topo_run_tile_t, and topo_run
+    // linkage for the TK_POLICY_RUN descriptor.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tkpoly-identity",
+        .source_file = "src/tickoni/c_abi/tkpoly.zig",
         .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
     });
     run_count += 1;
