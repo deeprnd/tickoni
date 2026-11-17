@@ -28,11 +28,24 @@ pub const PolicyDecision = enum(u8) {
     duplicate_drop,
 };
 
+pub const DuplicateConfig = struct {
+    /// Inject a duplicate of the event at `source` at this stream `offset`.
+    /// The duplicate reuses the source event's `idempotency_key` and
+    /// `account_id` so `tkdedu` drops it.
+    offset: u64,
+    /// The event `offset` whose key/account to reuse for the duplicate.
+    source: u64,
+};
+
 pub const PaymentPipelineConfig = struct {
     event_count: u64 = 10_000,
     queue_depth: usize = 64,
     policy_limit_cents: i64 = 100_000,
-    inject_duplicate: bool = true,
+    /// Optional test-only duplicate injection. When set, the event at
+    /// `duplicate.offset` reuses the idempotency_key and account_id of the
+    /// event at `duplicate.source`, so `tkdedu` drops it as a duplicate.
+    /// Set to `null` (default) for no duplicate injection.
+    duplicate: ?DuplicateConfig = null,
     inject_malformed: bool = false,
     /// Optional test-only hook called at each offset. Use
     /// `@import("builtin").is_test and hook != null` to gate the invocation so
@@ -259,7 +272,15 @@ pub const PaymentPipelineState = struct {
 };
 
 pub fn syntheticPayment(config: PaymentPipelineConfig, offset: u64) RawPayment {
-    const canonical_offset: u64 = if (config.inject_duplicate and offset == 3) 1 else offset;
+    // Test-only: when `duplicate` is set, events at `duplicate.offset` reuse
+    // the idempotency_key and account_id of `duplicate.source`. The
+    // `is_test` gate ensures this branch is dead code in production builds.
+    var canonical_offset: u64 = offset;
+    if (@import("builtin").is_test) {
+        if (config.duplicate) |dup| {
+            if (offset == dup.offset) canonical_offset = dup.source;
+        }
+    }
     const amount: i64 = if (offset == 7) config.policy_limit_cents + 1 else @as(i64, @intCast(1_000 + canonical_offset));
     const malformed_offset: u64 = if (config.event_count == 0)
         0
@@ -323,7 +344,12 @@ fn hashByte(h: *u64, byte: u8) void {
 }
 
 test "stableEventHash is deterministic and ignores source offset" {
-    const cfg = PaymentPipelineConfig{};
+    const cfg = PaymentPipelineConfig{
+        .duplicate = .{ .offset = 3, .source = 1 },
+    };
+    // When duplicate is configured, offset 3 reuses source 1's key/account,
+    // so both events have identical idempotency_key and account_id, producing
+    // the same stableEventHash regardless of their source_offset.
     const a = syntheticPayment(cfg, 1);
     const b = syntheticPayment(cfg, 3);
     try std.testing.expectEqual(a.idempotency_key, b.idempotency_key);

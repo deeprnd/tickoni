@@ -36,12 +36,12 @@ pub const ProcessPipelineConfig = struct {
     stuck_tile_idx: ?u32 = null,
     stuck_after_messages: u64 = 0,
     /// Payment pipeline behavior for process-mode
-    /// (event_count, policy_limit_cents, inject_duplicate, inject_malformed).
+    /// (event_count, policy_limit_cents, duplicate, inject_malformed).
     /// Kept in ProcessPipelineConfig so process-mode runs have deterministic
     /// inputs.
     event_count: u64 = 10_000,
     policy_limit_cents: i64 = 100_000,
-    inject_duplicate: bool = true,
+    duplicate: ?tiles_mod.DuplicateConfig = null,
     inject_malformed: bool = false,
     /// Path to the tickoni-supervisor binary to self-exec per tile.
     /// Defaults to /proc/self/exe (correct when the running process IS
@@ -662,7 +662,7 @@ pub const Supervisor = struct {
             .pipeline = .{
                 .event_count = config.event_count,
                 .policy_limit_cents = config.policy_limit_cents,
-                .inject_duplicate = config.inject_duplicate,
+                .duplicate = config.duplicate,
                 .inject_malformed = config.inject_malformed,
             },
             .stuck_tile = if (config.stuck_tile_idx) |idx| .{

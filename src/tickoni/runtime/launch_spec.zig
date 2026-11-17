@@ -17,8 +17,8 @@
 /// `fd_topo_tile_t` shape). That indirection does not exist yet; these
 /// arrays instead carry already-resolved `LinkHandles` (mcache/dcache/fseq
 /// gaddrs), same as the single-link fields they replace. Payment-pipeline
-/// test config (event_count/policy_limit_cents/inject_duplicate/
-/// inject_malformed) is intentionally not a field here — this record stays
+/// test config (event_count/policy_limit_cents/duplicate/inject_malformed)
+/// is intentionally not a field here — this record stays
 /// generic bootstrap data (identity, CPU placement, workspace, cnc address,
 /// links, heartbeat); see tiles/payment_pipeline/process.zig's
 /// writeProcessConfig/readProcessConfig for where that lives instead.
