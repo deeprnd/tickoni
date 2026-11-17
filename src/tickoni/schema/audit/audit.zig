@@ -184,6 +184,35 @@ pub const CaseCreationPayload = struct {
     total_allocated_cents: i64,
 };
 
+// ─── Re-export C enum values (from audit_schema.h) ───
+// These are the C `static const uint64_t` values from audit_schema.h.
+// The Zig enum types (PolicyOutcome, RecordType) use matching backing values,
+// but the C ABI wrapper (c_abi/audit.zig) imports audit_schema expecting
+// these as top-level constants. Re-export here so the chain resolves.
+
+pub const POLICY_ALLOW: u64 = 0;
+pub const POLICY_DENY: u64 = 1;
+pub const POLICY_REQUIRE_APPROVAL: u64 = 2;
+pub const POLICY_MALFORMED_DROP: u64 = 3;
+pub const POLICY_DUPLICATE_DROP: u64 = 4;
+pub const POLICY_ESCALATE: u64 = 5;
+pub const POLICY_REQUIRE_MORE_EVIDENCE: u64 = 6;
+
+pub const RECORD_SOURCE_EVENT: u64 = 0;
+pub const RECORD_NORMALIZATION: u64 = 1;
+pub const RECORD_POLICY_DECISION: u64 = 2;
+pub const RECORD_MODEL_CALL: u64 = 3;
+pub const RECORD_FINANCIAL_ADAPTER_CALL: u64 = 4;
+pub const RECORD_PROPOSAL: u64 = 5;
+pub const RECORD_DESTINATION_CHECK: u64 = 6;
+pub const RECORD_LIMIT_CHECK: u64 = 7;
+pub const RECORD_APPROVAL_REQUIRED: u64 = 8;
+pub const RECORD_DENIAL: u64 = 9;
+pub const RECORD_TELEMETRY_CHECKPOINT: u64 = 10;
+pub const RECORD_REPLAY_RESULT: u64 = 11;
+pub const RECORD_DUPLICATION: u64 = 12;
+pub const RECORD_CASE_CREATION: u64 = 13;
+
 // ─── Zig AuditEvent (union-based, no C counterpart) ───
 
 pub const AuditEvent = struct {
