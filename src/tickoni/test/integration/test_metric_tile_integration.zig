@@ -291,7 +291,7 @@ test "metric topology finalizes exact scratch requirements identically" {
         @as(usize, 0),
         c_abi.topob.topoObjOffset(parent.topo, parent_obj_id) % required.alignment,
     );
-    try std.testing.expect(c_abi.topob.topoValidateMetricScratch(parent.topo));
+    try std.testing.expect(c_abi.topob.topoValidateTileScratch(parent.topo));
 
     try std.testing.expectEqual(parent.wksp_idx, child.wksp_idx);
     try std.testing.expectEqualSlices(runtime.topo_build.LinkObjIds, parent.link_obj_id, child.link_obj_id);
@@ -311,7 +311,83 @@ test "metric topology finalizes exact scratch requirements identically" {
         c_abi.topob.topoWkspFootprint(parent.topo, parent.wksp_idx),
         c_abi.topob.topoWkspFootprint(child.topo, child.wksp_idx),
     );
-    try std.testing.expect(c_abi.topob.topoValidateMetricScratch(child.topo));
+    try std.testing.expect(c_abi.topob.topoValidateTileScratch(child.topo));
+}
+
+// ---------------------------------------------------------------------------
+// Test: every scratch-owning tile object is laid out at its tile's alignment.
+// ---------------------------------------------------------------------------
+
+test "every scratch-owning tile object is laid out at its required alignment" {
+    if (false) return error.SkipZigTest;
+
+    var wksp_name: [16]u8 = undefined;
+    var built = try runtime.topo_build.build(
+        std.testing.allocator,
+        topologies.paymentPipelineProcess(),
+        util.nextWorkspaceName(&wksp_name),
+        0,
+        0,
+    );
+    defer built.deinit(std.testing.allocator);
+
+    // tknorm, tkdedu, tkaudt and metric each own tile-local scratch; the
+    // rest report footprint 1 and carry no alignment property.
+    const expected_scratch_owners: usize = 4;
+    var checked: usize = 0;
+
+    for (topologies.paymentPipelineProcess().tiles) |t| {
+        var name_buf: [8]u8 = undefined;
+        const name_z = util.toZ(&name_buf, t.name.slice());
+        const required = c_abi.topob.tickoniTileScratchRequirements(name_z);
+        if (required.footprint <= 1) continue;
+
+        try std.testing.expect(required.alignment > 1);
+
+        const tile_idx = c_abi.topob.topoFindTile(built.topo, name_z, 0);
+        try std.testing.expect(tile_idx != c_abi.topob.not_found);
+
+        // The C-side requirement must reach the finalized topology...
+        try std.testing.expectEqual(
+            required.alignment,
+            c_abi.topob.topoObjScratchAlign(built.topo, tile_idx),
+        );
+        // ...and fd_topob_finish must have placed the object on it, so the
+        // tile's context, its scratch arrays and fd_scratch's smem all land
+        // on the alignment their own code assumes.
+        try std.testing.expectEqual(
+            @as(usize, 0),
+            c_abi.topob.topoObjOffset(built.topo, tile_idx) % required.alignment,
+        );
+        checked += 1;
+    }
+
+    try std.testing.expectEqual(expected_scratch_owners, checked);
+}
+
+// ---------------------------------------------------------------------------
+// Test: the two scratch-footprint accessors cannot drift apart.
+// ---------------------------------------------------------------------------
+
+test "both scratch footprint accessors report one value per tile" {
+    if (false) return error.SkipZigTest;
+
+    // tickoniTileScratchFootprint is a footprint-only view of
+    // tickoniTileScratchRequirements, and the C side delegates rather than
+    // re-deriving. They used to compute the value independently, and for the
+    // metric tile — whose reservation is wrapped in fd_scratch_smem_footprint
+    // — the two expressions only coincide while the raw footprint happens to
+    // already be a multiple of 128. The topology is laid out from the
+    // requirements value alone, so a drift here is a silent mismatch between
+    // what a caller reads and what the workspace actually reserved.
+    for (topologies.paymentPipelineProcess().tiles) |t| {
+        var name_buf: [8]u8 = undefined;
+        const name_z = util.toZ(&name_buf, t.name.slice());
+        try std.testing.expectEqual(
+            c_abi.topob.tickoniTileScratchRequirements(name_z).footprint,
+            c_abi.topob.tickoniTileScratchFootprint(name_z),
+        );
+    }
 }
 
 test "metric topology preserves descriptor identity, CNC ownership, CPU placement, and zero links" {
