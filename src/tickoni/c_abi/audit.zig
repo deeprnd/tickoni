@@ -18,6 +18,21 @@ extern fn tk_get_audit_run_tile() ?*TopoRunTile;
 extern fn tk_audit_scratch_footprint() usize;
 extern fn tkaudit_set_event_count(event_count: usize) void;
 
+// Field accessors — the C file owns tk_audit_ctx_t and AuditEvent layout, so
+// nothing on this side mirrors either struct. Matches the tknorm/tkdedu set.
+extern fn tk_get_audit_run_name() [*:0]const u8;
+extern fn tk_get_audit_run_run() ?*anyopaque;
+extern fn tk_get_audit_run_scratch_align() ?*anyopaque;
+extern fn tk_get_audit_run_scratch_footprint() ?*anyopaque;
+extern fn tk_get_audit_run_privileged_init() ?*anyopaque;
+extern fn tk_get_audit_run_unprivileged_init() ?*anyopaque;
+
+extern fn tk_audit_record_count(scratch: ?*anyopaque) usize;
+extern fn tk_audit_record_seq(scratch: ?*anyopaque, idx: usize) u64;
+extern fn tk_audit_record_prev_hash(scratch: ?*anyopaque, idx: usize) u64;
+extern fn tk_audit_record_hash(scratch: ?*anyopaque, idx: usize) u64;
+extern fn tk_audit_record_schema_version(scratch: ?*anyopaque, idx: usize) c_uint;
+
 // ---------------------------------------------------------------------------
 // Public Zig wrappers.
 // ---------------------------------------------------------------------------
@@ -38,6 +53,71 @@ pub fn auditScratchFootprint() usize {
 /// Called by topo_build.build() before any topology queries.
 pub fn setEventCount(event_count: u64) void {
     tkaudit_set_event_count(@intCast(event_count));
+}
+
+/// Returns the tile name for tkaudt.
+pub fn getAuditRunName() [*:0]const u8 {
+    return tk_get_audit_run_name();
+}
+
+/// Returns the stem run callback pointer.
+pub fn getAuditRun() ?*anyopaque {
+    return tk_get_audit_run_run();
+}
+
+/// Returns the scratch align callback pointer.
+pub fn getAuditRunScratchAlign() ?*anyopaque {
+    return tk_get_audit_run_scratch_align();
+}
+
+/// Returns the scratch footprint callback pointer.
+pub fn getAuditRunScratchFootprint() ?*anyopaque {
+    return tk_get_audit_run_scratch_footprint();
+}
+
+/// Returns the privileged init callback pointer.
+pub fn getAuditRunPrivilegedInit() ?*anyopaque {
+    return tk_get_audit_run_privileged_init();
+}
+
+/// Returns the unprivileged init callback pointer.
+pub fn getAuditRunUnprivilegedInit() ?*anyopaque {
+    return tk_get_audit_run_unprivileged_init();
+}
+
+// ---------------------------------------------------------------------------
+// Audit-record inspection.
+//
+// `scratch` is the tkaudt tile's scratch base (topob.topoObjLaddr of its
+// tile_obj_id). The C side resolves the context and record array from it, so
+// this module never mirrors tk_audit_ctx_t or AuditEvent. recordCount returns
+// the COMMITTED count; the field readers abort on an out-of-range index
+// rather than returning a sentinel, since 0 is a legitimate seq/prev_hash.
+// ---------------------------------------------------------------------------
+
+/// Number of records committed to the hash chain so far.
+pub fn recordCount(scratch: ?*anyopaque) usize {
+    return tk_audit_record_count(scratch);
+}
+
+/// `header.seq` of the committed record at `idx`.
+pub fn recordSeq(scratch: ?*anyopaque, idx: usize) u64 {
+    return tk_audit_record_seq(scratch, idx);
+}
+
+/// `header.prev_hash` of the committed record at `idx`.
+pub fn recordPrevHash(scratch: ?*anyopaque, idx: usize) u64 {
+    return tk_audit_record_prev_hash(scratch, idx);
+}
+
+/// `header.record_hash` of the committed record at `idx`.
+pub fn recordHash(scratch: ?*anyopaque, idx: usize) u64 {
+    return tk_audit_record_hash(scratch, idx);
+}
+
+/// `header.schema_version` of the committed record at `idx`.
+pub fn recordSchemaVersion(scratch: ?*anyopaque, idx: usize) u16 {
+    return @intCast(tk_audit_record_schema_version(scratch, idx));
 }
 
 // ---------------------------------------------------------------------------
@@ -93,4 +173,30 @@ test "auditScratchFootprint returns a positive value" {
     // The footprint should be a reasonable positive value if the stem tile
     // is linked. On platforms without tk_audit_stem.c, this may be 0.
     _ = fp;
+}
+
+test "tkaudt tile identity — name is TILE_ID_TKAUDT" {
+    const name = getAuditRunName();
+    try std.testing.expectEqualStrings("tkaudt", std.mem.span(name));
+}
+
+test "tkaudt tile identity — run callback is non-null" {
+    try std.testing.expect(getAuditRun() != null);
+}
+
+test "tkaudt tile identity — scratch callbacks are non-null" {
+    try std.testing.expect(getAuditRunScratchAlign() != null);
+    try std.testing.expect(getAuditRunScratchFootprint() != null);
+}
+
+test "tkaudt tile identity — init callbacks are non-null" {
+    try std.testing.expect(getAuditRunPrivilegedInit() != null);
+    try std.testing.expect(getAuditRunUnprivilegedInit() != null);
+}
+
+test "tkaudt scratch footprint — returns deterministic value > 1" {
+    const first = auditScratchFootprint();
+    const second = auditScratchFootprint();
+    try std.testing.expectEqual(first, second);
+    try std.testing.expect(first > 1);
 }
