@@ -92,7 +92,8 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8, 
 }
 
 test "process_fixture_parity: floating, shared-core, and exclusive-core CPU placement all reach identical pipeline metrics" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp_floating = util.tmpDir();
     var floating_path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const floating_len = try tmp_floating.dir.realPath(std.testing.io, &floating_path_buf);
