@@ -116,6 +116,9 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
             .{ .name = "audit_schema", .module = audit_schema_mod },
         },
     });
+    // Wire c_abi_audit as an import of c_abi so c_abi.zig can do
+    // `pub const tkaudit = @import("c_abi_audit");`.
+    c_abi_mod.addImport("c_abi_audit", c_abi_audit_mod);
     const audit_mod_s = b.createModule(.{
         .root_source_file = b.path("src/tickoni/schema/audit/mod.zig"),
         .target = target,
