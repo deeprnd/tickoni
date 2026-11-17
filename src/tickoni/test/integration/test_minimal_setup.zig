@@ -15,7 +15,8 @@ const util = @import("util");
 const Supervisor = supervisor_mod.Supervisor;
 
 test "minimal_setup_integration: tkings → tkaudt + metric observer" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -84,7 +85,8 @@ test "minimal_setup_integration: tkings → tkaudt + metric observer" {
 }
 
 test "minimal_setup_integration: tkings → tknorm → tkaudt + metric observer" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -165,7 +167,8 @@ test "minimal_setup_integration: tkings → tknorm → tkaudt + metric observer"
 }
 
 test "minimal_setup_integration: tkings → tknorm → tkdedu → tkaudt + metric observer" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;

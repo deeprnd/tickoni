@@ -33,7 +33,8 @@ const DEFAULT_EVENT_COUNT: u64 = 8;
 const EXPECTED_TILE_COUNT: usize = 5;
 
 test "tkdedu_integration: stem tile processes all events" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -100,7 +101,8 @@ test "tkdedu_integration: stem tile processes all events" {
 }
 
 test "tkdedu_integration: pipeline completes without crashes or hangs" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -167,7 +169,8 @@ test "tkdedu_integration: pipeline completes without crashes or hangs" {
 }
 
 test "tkdedu_integration: CNC HALT stops tile cleanly" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -219,7 +222,8 @@ test "tkdedu_integration: CNC HALT stops tile cleanly" {
 }
 
 test "tkdedu_integration: sequential runs on same workspace" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -289,7 +293,8 @@ test "tkdedu_integration: sequential runs on same workspace" {
 //
 // See the fd_stem Callback Contract in doc/execution/contribution/tickoni.md.
 test "tkdedu_integration: the final event is published (event_count = 1)" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -352,7 +357,8 @@ test "tkdedu_integration: the final event is published (event_count = 1)" {
 // .stopped, while a tile still spinning in its stem loop keeps heartbeating
 // and stays .running.
 test "tkdedu_integration: self-exits on event-count exhaustion" {
-    if (false) return error.SkipZigTest;
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
 
     const tkdedu_tile_idx: usize = 2;
 
