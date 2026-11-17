@@ -320,10 +320,12 @@ pub fn build(
     log.kvFmt("topo_build", "build", "topobAutoLayout completed", .{});
 
     // Set per-tile scratch footprint and alignment properties so
-    // tile_footprint() / tile_align() in topob.c can query them.
-    // Only the metric tile has a non-default footprint; every other
-    // tile gets 1UL (which the property setter silently skips since
-    // 1UL == the default).
+    // tile_footprint() / tile_align() in topob.c can query them. Both come
+    // from the tile's own fd_topo_run_tile_t, so the object fd_topob_finish
+    // reserves is the one the tile's init actually carves up.
+    // tknorm, tkdedu, tkaudt and metric report a real footprint; a tile with
+    // no tile-local scratch reports 1UL and is skipped here, leaving it at
+    // the 1UL default both callbacks fall back to.
     const scratch_footprint_key: [*:0]const u8 = "tickoni.scratch_footprint";
     const scratch_align_key: [*:0]const u8 = "tickoni.scratch_align";
     for (topo_desc.tiles) |t| {

@@ -71,6 +71,7 @@ extern fn tk_topob_auto_layout(topo: *Topo, cpu_idx: [*]const usize) void;
 extern fn tk_topob_set_obj_property_ulong(topo: *Topo, obj_id: usize, key: [*:0]const u8, val: usize) void;
 extern fn tk_topob_set_tile_obj_property_ulong(topo: *Topo, tile_name: [*:0]const u8, tile_kind_id: usize, key: [*:0]const u8, val: usize) void;
 extern fn tk_topob_tickoni_tile_scratch_requirements(tile_name: [*:0]const u8, alignment: *usize, footprint: *usize) void;
+extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
 extern fn tk_topo_tile_obj_id(topo: *const Topo, tile_id: usize) usize;
 extern fn tk_topo_tile_set_metric_port(topo: *Topo, tile_id: usize, port: c_ushort) void;
 extern fn tk_topo_tile_cpu_idx(topo: *const Topo, tile_id: usize) usize;
@@ -80,7 +81,7 @@ extern fn tk_topo_link_consumer_cnt(topo: *const Topo, link_id: usize) usize;
 extern fn tk_topo_obj_offset(topo: *const Topo, tile_id: usize) usize;
 extern fn tk_topo_obj_footprint(topo: *const Topo, tile_id: usize) usize;
 extern fn tk_topo_obj_scratch_align(topo: *const Topo, tile_id: usize) usize;
-extern fn tk_topo_validate_metric_scratch(topo: *const Topo) c_int;
+extern fn tk_topo_validate_tile_scratch(topo: *const Topo) c_int;
 extern fn tk_topo_validate_tile_object_offsets(topo: *const Topo) c_int;
 extern fn tk_topo_validate_tile_exists(topo: *const Topo, tile_name: [*:0]const u8) c_int;
 extern fn tk_topo_validate_link_exists(topo: *const Topo, link_name: [*:0]const u8) c_int;
@@ -274,12 +275,19 @@ pub const ScratchRequirements = struct {
     footprint: usize,
 };
 
-/// Return C-owned scratch requirements for a named tile. Metric requirements
-/// come directly from TK_METRIC_RUN; generic tiles require one byte.
+/// Return C-owned scratch requirements for a named tile. Each tile's values
+/// come from its own fd_topo_run_tile_t; a tile with no tile-local scratch
+/// requires one byte at alignment one.
 pub fn tickoniTileScratchRequirements(tile_name: [*:0]const u8) ScratchRequirements {
     var requirements: ScratchRequirements = undefined;
     tk_topob_tickoni_tile_scratch_requirements(tile_name, &requirements.alignment, &requirements.footprint);
     return requirements;
+}
+
+/// Footprint-only view of `tickoniTileScratchRequirements`, for callers that
+/// do not need the alignment. The C side delegates, so the two always agree.
+pub fn tickoniTileScratchFootprint(tile_name: [*:0]const u8) usize {
+    return tk_topob_tickoni_tile_scratch_footprint(tile_name);
 }
 
 /// Return the scratch object id assigned by fd_topob_tile.
@@ -329,10 +337,12 @@ pub fn topoObjScratchAlign(topo: *const Topo, obj_id: usize) usize {
     return tk_topo_obj_scratch_align(topo, obj_id);
 }
 
-/// Verifies that every metric tile owns a sufficiently sized and aligned
-/// finalized scratch object.
-pub fn topoValidateMetricScratch(topo: *const Topo) bool {
-    return tk_topo_validate_metric_scratch(topo) != 0;
+/// Verifies that every tile owning tile-local scratch — tknorm, tkdedu,
+/// tkaudt and metric today — has a finalized scratch object placed on the
+/// alignment that tile requires. False if any such tile is misaligned, or if
+/// no tile reported scratch at all.
+pub fn topoValidateTileScratch(topo: *const Topo) bool {
+    return tk_topo_validate_tile_scratch(topo) != 0;
 }
 
 /// Returns true when every object referenced by every tile has been assigned
