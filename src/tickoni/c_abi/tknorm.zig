@@ -21,6 +21,7 @@ extern fn tk_get_norm_run_scratch_footprint() ?*anyopaque;
 extern fn tk_get_norm_run_privileged_init() ?*anyopaque;
 extern fn tk_get_norm_run_unprivileged_init() ?*anyopaque;
 extern fn tknorm_tile_scratch_footprint() usize;
+extern fn tknorm_tile_scratch_align() usize;
 extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
 extern fn tknorm_set_event_count(event_count: usize) void;
 
@@ -105,6 +106,26 @@ test "tknorm tile identity — run callback is non-null" {
 test "tknorm tile identity — scratch callbacks are non-null" {
     try std.testing.expect(tk_get_norm_run_scratch_align() != null);
     try std.testing.expect(tk_get_norm_run_scratch_footprint() != null);
+}
+
+test "tknorm scratch align — describes the context block, not fd_stem's stack scratch" {
+    // alignof(tknorm_ctx_t) == 8: the context holds u64s, pointers and ints,
+    // and PaymentMessage — which the same footprint carves out of the same
+    // block — is 8-aligned too.
+    //
+    // 128 (FD_STEM_SCRATCH_ALIGN) here means .scratch_align was wired to the
+    // STEM-generated tknorm_scratch_align() from fd_stem.c, which describes
+    // fd_stem's own stack scratch: a different block from the one
+    // .scratch_footprint reserves.  See "Tile Scratch Layout" in
+    // doc/execution/contribution/tickoni.md.
+    try std.testing.expectEqual(@as(usize, 8), tknorm_tile_scratch_align());
+}
+
+test "tknorm scratch align — footprint is a whole number of alignment units" {
+    try std.testing.expectEqual(
+        @as(usize, 0),
+        tknorm_tile_scratch_footprint() % tknorm_tile_scratch_align(),
+    );
 }
 
 test "tknorm tile identity — init callbacks are non-null" {

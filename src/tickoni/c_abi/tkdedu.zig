@@ -21,6 +21,7 @@ extern fn tk_get_dedu_run_scratch_footprint() ?*anyopaque;
 extern fn tk_get_dedu_run_privileged_init() ?*anyopaque;
 extern fn tk_get_dedu_run_unprivileged_init() ?*anyopaque;
 extern fn tkdedu_tile_scratch_footprint() usize;
+extern fn tkdedu_tile_scratch_align() usize;
 extern fn tkdedu_set_event_count(event_count: usize) void;
 extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
 
@@ -68,6 +69,12 @@ pub fn deduScratchFootprint() usize {
     return tkdedu_tile_scratch_footprint();
 }
 
+/// Returns the alignment (in bytes) of the tkdedu tile's scratch object —
+/// the block holding the context, the dedupe arrays and the output message.
+pub fn deduScratchAlign() usize {
+    return tkdedu_tile_scratch_align();
+}
+
 /// Sets the dedupe table size for this process.
 ///
 /// This value participates in workspace layout: `tkdedu_scratch_footprint_tile`
@@ -100,6 +107,30 @@ test "tkdedu tile identity — run callback is non-null" {
 test "tkdedu tile identity — scratch callbacks are non-null" {
     try std.testing.expect(tk_get_dedu_run_scratch_align() != null);
     try std.testing.expect(tk_get_dedu_run_scratch_footprint() != null);
+}
+
+test "tkdedu scratch align — describes the context block, not fd_stem's stack scratch" {
+    // alignof(tkdedu_ctx_t) == 8: the context holds u64s, pointers and ints,
+    // and PaymentMessage — which the same footprint carves out of the same
+    // block — is 8-aligned too.
+    //
+    // 128 (FD_STEM_SCRATCH_ALIGN) here means .scratch_align was wired to the
+    // STEM-generated tkdedu_scratch_align() from fd_stem.c, which describes
+    // fd_stem's own stack scratch: a different block from the one
+    // .scratch_footprint reserves.  See "Tile Scratch Layout" in
+    // doc/execution/contribution/tickoni.md.
+    try std.testing.expectEqual(@as(usize, 8), tkdedu_tile_scratch_align());
+}
+
+test "tkdedu scratch align — footprint is a whole number of alignment units" {
+    // The topology places the object on scratch_align and reserves
+    // scratch_footprint bytes; a footprint that is not a multiple of the
+    // alignment leaves the next object's offset depending on the slack.
+    setEventCount(0);
+    try std.testing.expectEqual(
+        @as(usize, 0),
+        tkdedu_tile_scratch_footprint() % tkdedu_tile_scratch_align(),
+    );
 }
 
 test "tkdedu tile identity — init callbacks are non-null" {

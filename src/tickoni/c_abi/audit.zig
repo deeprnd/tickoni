@@ -16,6 +16,7 @@ pub const TopoRunTile = opaque {};
 
 extern fn tk_get_audit_run_tile() ?*TopoRunTile;
 extern fn tk_audit_scratch_footprint() usize;
+extern fn tk_audit_scratch_align() usize;
 extern fn tkaudit_set_event_count(event_count: usize) void;
 
 // Field accessors — the C file owns tk_audit_ctx_t and AuditEvent layout, so
@@ -44,9 +45,14 @@ pub fn getAuditRunTile() ?*TopoRunTile {
 }
 
 /// Returns the scratch footprint (in bytes) for the audit tile.
-/// Matches TKAUDT_CTX_ALIGN in tk_audit_stem.c.
 pub fn auditScratchFootprint() usize {
     return tk_audit_scratch_footprint();
+}
+
+/// Returns the alignment (in bytes) of the audit tile's scratch object —
+/// the block holding the context and the audit-record ring.
+pub fn auditScratchAlign() usize {
+    return tk_audit_scratch_align();
 }
 
 /// Sets the event_count for the tkaudt stem tile's shutdown gate.
@@ -192,6 +198,23 @@ test "tkaudt tile identity — scratch callbacks are non-null" {
 test "tkaudt tile identity — init callbacks are non-null" {
     try std.testing.expect(getAuditRunPrivilegedInit() != null);
     try std.testing.expect(getAuditRunUnprivilegedInit() != null);
+}
+
+test "tkaudt scratch align — describes the context block, not fd_stem's stack scratch" {
+    // alignof(tk_audit_ctx_t) == 8, matching AuditEvent, which the same
+    // footprint carves out of the same block.  128 (FD_STEM_SCRATCH_ALIGN)
+    // here would mean .scratch_align was wired to the STEM-generated
+    // tkaudt_scratch_align() from fd_stem.c, which describes fd_stem's own
+    // stack scratch.  See "Tile Scratch Layout" in
+    // doc/execution/contribution/tickoni.md.
+    try std.testing.expectEqual(@as(usize, 8), tk_audit_scratch_align());
+}
+
+test "tkaudt scratch align — footprint is a whole number of alignment units" {
+    try std.testing.expectEqual(
+        @as(usize, 0),
+        tk_audit_scratch_footprint() % tk_audit_scratch_align(),
+    );
 }
 
 test "tkaudt scratch footprint — returns deterministic value > 1" {
