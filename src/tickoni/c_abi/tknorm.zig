@@ -22,6 +22,7 @@ extern fn tk_get_norm_run_privileged_init() ?*anyopaque;
 extern fn tk_get_norm_run_unprivileged_init() ?*anyopaque;
 extern fn tknorm_tile_scratch_footprint() usize;
 extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
+extern fn tknorm_set_event_count(event_count: usize) void;
 
 /// RawPayment layout — must match the C struct in audit_schema.h
 /// so FFI hash tests can construct identical inputs for both C and Zig.
@@ -79,6 +80,12 @@ pub fn getNormRunUnprivilegedInit() ?*anyopaque {
 /// Returns the scratch footprint (in bytes) for the tknorm tile.
 pub fn normScratchFootprint() usize {
     return tknorm_tile_scratch_footprint();
+}
+
+/// Sets the event_count for the tknorm stem tile's shutdown gate.
+/// Called by topo_build.build() before any topology queries.
+pub fn setEventCount(event_count: u64) void {
+    tknorm_set_event_count(@intCast(event_count));
 }
 
 // ---------------------------------------------------------------------------

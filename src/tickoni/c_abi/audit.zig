@@ -16,6 +16,7 @@ pub const TopoRunTile = opaque {};
 
 extern fn tk_get_audit_run_tile() ?*TopoRunTile;
 extern fn tk_audit_scratch_footprint() usize;
+extern fn tkaudit_set_event_count(event_count: usize) void;
 
 // ---------------------------------------------------------------------------
 // Public Zig wrappers.
@@ -31,6 +32,12 @@ pub fn getAuditRunTile() ?*TopoRunTile {
 /// Matches TKAUDT_CTX_ALIGN in tk_audit_stem.c.
 pub fn auditScratchFootprint() usize {
     return tk_audit_scratch_footprint();
+}
+
+/// Sets the event_count for the tkaudt stem tile's shutdown gate.
+/// Called by topo_build.build() before any topology queries.
+pub fn setEventCount(event_count: u64) void {
+    tkaudit_set_event_count(@intCast(event_count));
 }
 
 // ---------------------------------------------------------------------------

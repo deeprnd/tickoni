@@ -132,6 +132,15 @@ tk_audit_scratch_footprint( void ) {
     return tk_audit_scratch_footprint_tile( NULL );
 }
 
+/* ─── Event count setter (set by topo_build.build() before topology queries) ─── */
+
+static ulong tkaudit_event_count_param = 0UL;
+
+void
+tkaudit_set_event_count( ulong event_count ) {
+    tkaudit_event_count_param = event_count;
+}
+
 /* ─── Callbacks ───
 
    privileged_init / unprivileged_init match the Firedancer typedef
@@ -159,16 +168,12 @@ tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     ctx->event_count = 0;
     ctx->input_exhausted = 0;
 
-    /* Read event_count from environment (Phase 3.4).
-       Supervisor passes TKAUDT_EVENT_COUNT so the tile can exit
-       promptly after processing all events, without idle-threshold wait. */
-    {
-        const char *env = getenv("TKAUDT_EVENT_COUNT");
-        if (env) {
-            ctx->event_count = strtoull(env, NULL, 10);
-            FD_LOG_NOTICE(( "tkaudt: event_count=%lu from env", (unsigned long)ctx->event_count ));
-        }
-    }
+    /* Event count for shutdown gating (Phase 3.4).
+       Set by topo_build.build() via tkaudit_set_event_count() —
+       same C-param pattern as tkdedu to avoid the env var anti-pattern:
+       getenv() in privileged_init reads each child's own environment,
+       which can differ from the supervisor's. */
+    ctx->event_count = tkaudit_event_count_param;
 
     /* Point audit_records at the scratch block that follows the context.
        This is the same memory region reserved by scratch_footprint_tile. */

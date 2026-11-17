@@ -33,4 +33,7 @@ extern ulong tk_audit_scratch_footprint( void );
    topob.c uses this to verify alignment parity. */
 #define TKAUDT_CTX_ALIGN 8
 
+/* Set event_count from topo_build.build() — called before any footprint queries. */
+extern void tkaudit_set_event_count( ulong event_count );
+
 #endif /* __TK_AUDIT_STEM_H__ */
