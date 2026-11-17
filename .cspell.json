@@ -1051,7 +1051,14 @@
     "pipefd",
     "Respawns",
     "NEWPID",
-    "privs"
+    "privs",
+    "antipattern",
+    "CNTVCT",
+    "RTDSC",
+    "smem",
+    "pids",
+    "segfaulted",
+    "tkaudit"
   ],
   "ignorePaths": [
     "opt/",
