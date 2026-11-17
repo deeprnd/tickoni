@@ -30,7 +30,15 @@ pub const Shared = struct {
     tile_registry: *std.Build.Module,
 };
 
-pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, zig_version: []const u8) Shared {
+pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, zig_version: []const u8, build_tests: bool) Shared {
+    // Marks a test build for code that runs in the supervisor EXECUTABLE
+    // rather than in a test binary. `-Dtest=true` is what the test lanes
+    // build with (build.zig only registers them under that flag), so this is
+    // false for a plain production `just build`.
+    const test_build_opts = b.addOptions();
+    test_build_opts.addOption(bool, "TK_TEST_BUILD", build_tests);
+    const test_build_opts_mod = test_build_opts.createModule();
+
     const c_abi_mod = b.addModule("c_abi", .{
         .root_source_file = b.path("src/tickoni/c_abi/c_abi.zig"),
         .target = target,
@@ -60,6 +68,8 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
             .{ .name = "c_abi", .module = c_abi_mod },
             .{ .name = "util", .module = util_mod },
             .{ .name = "logger", .module = logger_mod },
+            // runtime/test_build.zig owns the project-wide test-build gate.
+            .{ .name = "build_options", .module = test_build_opts_mod },
         },
     });
     const topologies_named_mod = b.addModule("topologies", .{
