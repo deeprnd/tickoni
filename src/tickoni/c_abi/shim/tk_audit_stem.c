@@ -146,14 +146,6 @@ tk_audit_scratch_footprint_tile( fd_topo_tile_t const * tile ) {
     return footprint;
 }
 
-/* No-argument wrapper — delegates to tk_audit_scratch_footprint_tile( NULL ).
-   Provides a thin accessor for topob.c so it never needs the full
-   fd_topo_run_tile_t definition. */
-ulong
-tk_audit_scratch_footprint( void ) {
-    return tk_audit_scratch_footprint_tile( NULL );
-}
-
 /* ─── Event count setter (set by topo_build.build() before topology queries) ─── */
 
 static ulong tkaudit_event_count_param = 0UL;
@@ -479,56 +471,23 @@ fd_topo_run_tile_t TK_AUDIT_RUN = {
     .rlimit_file_cnt_fn       = NULL,
 };
 
-/* ─── Field accessors for tests ───
+STK_DEFINE_RUN_TILE_ACCESSORS(
+    tk_get_audit,
+    TK_AUDIT_RUN,
+    tk_audit_scratch_align,
+    tk_audit_scratch_footprint
+)
+
+/* ─── Audit record accessors for tests ───
 
    These keep the Zig side free of any tk_audit_ctx_t or AuditEvent layout
    knowledge: this file owns its scratch layout and exposes individual
    fields, so no Zig struct mirrors a C struct.  Same approach as
    tk_dedu_stem.c and tk_normalize_stem.c.
 
-   The run-tile accessors match the tknorm/tkdedu set one for one.  The
-   record accessors abort on an out-of-range index instead of returning a
+   The accessors abort on an out-of-range index instead of returning a
    sentinel, because 0 is a legitimate value for seq and prev_hash and a
    silent sentinel would turn a harness bug into a passing assertion. */
-
-char const *
-tk_get_audit_run_name( void ) {
-    return TK_AUDIT_RUN.name;
-}
-
-void *
-tk_get_audit_run_run( void ) {
-    return (void *)TK_AUDIT_RUN.run;
-}
-
-/* Wrapper for topob.c: query the scratch object's alignment without needing
-   the fd_topo_run_tile_t definition.  Reads it back through the wired field
-   so the topology cannot be laid out on an alignment the tile does not
-   actually declare. */
-ulong
-tk_audit_scratch_align( void ) {
-    return TK_AUDIT_RUN.scratch_align();
-}
-
-void *
-tk_get_audit_run_scratch_align( void ) {
-    return (void *)TK_AUDIT_RUN.scratch_align;
-}
-
-void *
-tk_get_audit_run_scratch_footprint( void ) {
-    return (void *)TK_AUDIT_RUN.scratch_footprint;
-}
-
-void *
-tk_get_audit_run_privileged_init( void ) {
-    return (void *)TK_AUDIT_RUN.privileged_init;
-}
-
-void *
-tk_get_audit_run_unprivileged_init( void ) {
-    return (void *)TK_AUDIT_RUN.unprivileged_init;
-}
 
 /* Committed record count.  Records beyond this index exist in scratch but
    are uncommitted staging slots — see the DURING_FRAG/AFTER_FRAG split. */
@@ -568,9 +527,4 @@ tk_audit_record_hash( void * scratch, ulong idx ) {
 uint
 tk_audit_record_schema_version( void * scratch, ulong idx ) {
     return (uint)tk_audit_record_at( scratch, idx )->header.schema_version;
-}
-
-fd_topo_run_tile_t const *
-tk_get_audit_run_tile( void ) {
-    return &TK_AUDIT_RUN;
 }

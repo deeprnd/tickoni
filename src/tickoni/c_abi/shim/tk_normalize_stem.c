@@ -381,58 +381,9 @@ fd_topo_run_tile_t TK_NORM_RUN = {
     .rlimit_file_cnt_fn       = NULL,
 };
 
-fd_topo_run_tile_t const *
-tk_get_norm_run_tile( void ) {
-    return &TK_NORM_RUN;
-}
-
-/* Wrapper for topob.c: query scratch footprint without needing a
-   fd_topo_tile_t pointer. Delegates to TK_NORM_RUN.scratch_footprint
-   to avoid conflicting with the STEM-generated macro function. */
-ulong
-tknorm_tile_scratch_footprint( void ) {
-    return TK_NORM_RUN.scratch_footprint( NULL );
-}
-
-/* Wrapper for topob.c: query the scratch object's alignment without needing
-   the fd_topo_run_tile_t definition.  Reads it back through the wired field
-   so the topology cannot be laid out on an alignment the tile does not
-   actually declare. */
-ulong
-tknorm_tile_scratch_align( void ) {
-    return TK_NORM_RUN.scratch_align();
-}
-
-/* ─── Callbacks ─── */
-
-/* Field accessors for integration/test_tknorm_integration.zig.
-   These avoid Zig-C struct layout mismatch by reading individual fields. */
-char const *
-tk_get_norm_run_name( void ) {
-    return TK_NORM_RUN.name;
-}
-
-void *
-tk_get_norm_run_run( void ) {
-    return (void *)TK_NORM_RUN.run;
-}
-
-void *
-tk_get_norm_run_scratch_align( void ) {
-    return (void *)TK_NORM_RUN.scratch_align;
-}
-
-void *
-tk_get_norm_run_scratch_footprint( void ) {
-    return (void *)TK_NORM_RUN.scratch_footprint;
-}
-
-void *
-tk_get_norm_run_privileged_init( void ) {
-    return (void *)TK_NORM_RUN.privileged_init;
-}
-
-void *
-tk_get_norm_run_unprivileged_init( void ) {
-    return (void *)TK_NORM_RUN.unprivileged_init;
-}
+STK_DEFINE_RUN_TILE_ACCESSORS(
+    tk_get_norm,
+    TK_NORM_RUN,
+    tknorm_tile_scratch_align,
+    tknorm_tile_scratch_footprint
+)

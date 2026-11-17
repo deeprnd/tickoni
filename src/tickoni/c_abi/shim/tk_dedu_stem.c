@@ -417,56 +417,9 @@ fd_topo_run_tile_t TK_DEDU_RUN = {
     .rlimit_file_cnt_fn       = NULL,
 };
 
-fd_topo_run_tile_t const *
-tk_get_dedu_run_tile( void ) {
-    return &TK_DEDU_RUN;
-}
-
-/* Wrapper for topob.c: query scratch footprint without needing a
-   fd_topo_tile_t pointer. Delegates to TK_DEDU_RUN.scratch_footprint
-   to avoid conflicting with the STEM-generated macro function. */
-ulong
-tkdedu_tile_scratch_footprint( void ) {
-    return TK_DEDU_RUN.scratch_footprint( NULL );
-}
-
-/* Wrapper for topob.c: query the scratch object's alignment without needing
-   the fd_topo_run_tile_t definition.  Reads it back through the wired field
-   so the topology cannot be laid out on an alignment the tile does not
-   actually declare. */
-ulong
-tkdedu_tile_scratch_align( void ) {
-    return TK_DEDU_RUN.scratch_align();
-}
-
-/* Field accessors for integration/test_tkdedu_integration.zig.
-   These avoid Zig-C struct layout mismatch by reading individual fields. */
-char const *
-tk_get_dedu_run_name( void ) {
-    return TK_DEDU_RUN.name;
-}
-
-void *
-tk_get_dedu_run_run( void ) {
-    return (void *)TK_DEDU_RUN.run;
-}
-
-void *
-tk_get_dedu_run_scratch_align( void ) {
-    return (void *)TK_DEDU_RUN.scratch_align;
-}
-
-void *
-tk_get_dedu_run_scratch_footprint( void ) {
-    return (void *)TK_DEDU_RUN.scratch_footprint;
-}
-
-void *
-tk_get_dedu_run_privileged_init( void ) {
-    return (void *)TK_DEDU_RUN.privileged_init;
-}
-
-void *
-tk_get_dedu_run_unprivileged_init( void ) {
-    return (void *)TK_DEDU_RUN.unprivileged_init;
-}
+STK_DEFINE_RUN_TILE_ACCESSORS(
+    tk_get_dedu,
+    TK_DEDU_RUN,
+    tkdedu_tile_scratch_align,
+    tkdedu_tile_scratch_footprint
+)

@@ -1,13 +1,14 @@
 /* stem_helpers.h — Shared Firedancer stem tile infrastructure helpers.
 
-   Reusable patterns extracted from tkaudt and consumed by tknorm (and future
-   stem tiles). Each helper is static inline — included in every translation
-   unit that needs it. No global state, no shared function table.
+   Reusable patterns extracted from the Tickoni stem tiles. Runtime helpers
+   are static inline; the run-tile accessor macro emits each tile's existing
+   external ABI definitions in its owning translation unit. No global state,
+   no shared function table.
 
    Tiles still define their own ctx struct, callbacks, and domain logic.
    This header provides the boilerplate that is identical across all
    Tickoni stem tiles: ctx retrieval, wksp derivation, CNC lookup,
-   event-count gating, and progress publishing.
+   event-count gating, progress publishing, and run-tile ABI accessors.
 
    Usage: #include "stem_helpers.h" at the top of each tk_*_stem.c file.
 */
@@ -207,5 +208,69 @@ static inline void *
 stk_chunk_to_gaddr(void * wksp, ulong chunk) {
     return fd_wksp_laddr_fast(wksp, chunk * FD_CHUNK_ALIGN);
 }
+
+/* ─── Run-tile ABI accessors ───
+
+   Define the read-only C ABI wrappers shared by Tickoni stem tiles.  Invoke
+   this once, after the tile's fd_topo_run_tile_t descriptor is defined.
+
+   The explicit scratch accessor names preserve the existing public ABI even
+   though the older tiles use different naming conventions.  Tile-specific
+   descriptor initialization, scratch layout, and runtime parameters remain
+   in the owning translation unit.
+
+   Usage:
+     STK_DEFINE_RUN_TILE_ACCESSORS(
+         tk_get_norm,
+         TK_NORM_RUN,
+         tknorm_tile_scratch_align,
+         tknorm_tile_scratch_footprint
+     )
+*/
+#define STK_DEFINE_RUN_TILE_ACCESSORS(api_prefix, run_descriptor, scratch_align_fn, scratch_footprint_fn) \
+    fd_topo_run_tile_t const *                                                                    \
+    api_prefix##_run_tile( void ) {                                                               \
+        return &(run_descriptor);                                                                 \
+    }                                                                                             \
+                                                                                                  \
+    ulong                                                                                         \
+    scratch_align_fn( void ) {                                                                    \
+        return (run_descriptor).scratch_align();                                                   \
+    }                                                                                             \
+                                                                                                  \
+    ulong                                                                                         \
+    scratch_footprint_fn( void ) {                                                                \
+        return (run_descriptor).scratch_footprint( NULL );                                         \
+    }                                                                                             \
+                                                                                                  \
+    char const *                                                                                  \
+    api_prefix##_run_name( void ) {                                                               \
+        return (run_descriptor).name;                                                             \
+    }                                                                                             \
+                                                                                                  \
+    void *                                                                                        \
+    api_prefix##_run_run( void ) {                                                                \
+        return (void *)(run_descriptor).run;                                                      \
+    }                                                                                             \
+                                                                                                  \
+    void *                                                                                        \
+    api_prefix##_run_scratch_align( void ) {                                                      \
+        return (void *)(run_descriptor).scratch_align;                                            \
+    }                                                                                             \
+                                                                                                  \
+    void *                                                                                        \
+    api_prefix##_run_scratch_footprint( void ) {                                                  \
+        return (void *)(run_descriptor).scratch_footprint;                                        \
+    }                                                                                             \
+                                                                                                  \
+    void *                                                                                        \
+    api_prefix##_run_privileged_init( void ) {                                                    \
+        return (void *)(run_descriptor).privileged_init;                                          \
+    }                                                                                             \
+                                                                                                  \
+    void *                                                                                        \
+    api_prefix##_run_unprivileged_init( void ) {                                                  \
+        return (void *)(run_descriptor).unprivileged_init;                                        \
+    }
 
 #endif /* __STEM_HELPERS_H__ */
