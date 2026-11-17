@@ -1,11 +1,14 @@
 /* tk_dedu_stem.c — Stem fd_stem tile for tkdedu.
 
-   Tile behavior:
-   - DURING_FRAG: read PaymentMessage from input dcache, copy to scratch,
-     increment pipeline_hops, skip dedup for malformed_drop, linear scan
-     seen_keys/seen_hashes for duplicate, mark + forward as-is
-   - AFTER_CREDIT: if output_ready, write to pre-computed output dcache slot,
-     publish to output dcache via fd_stem_publish, advance chunk, reset output_ready
+   Follows the fd_stem callback contract in stem_helpers.h:
+   - DURING_FRAG: validate framing, copy the PaymentMessage out of the input
+     dcache into the staging buffer, increment pipeline_hops, set stage_valid.
+     Stages only — no dedupe write, no counters, no progress, no publish.
+   - AFTER_FRAG: skip dedup for malformed_drop, linear scan
+     seen_keys/seen_hashes, mark duplicate or insert, write the staged message
+     to the pre-computed output dcache slot, publish via fd_stem_publish,
+     advance chunk, bump counters, publish progress, apply the event gate.
+   - AFTER_CREDIT: not defined — tkdedu has no fragment-independent work.
    - SHOULD_SHUTDOWN: CNC HALT + event_count exhaustion
 
    Uses stem_helpers.h for shared boilerplate:
@@ -44,9 +47,9 @@ typedef struct {
     uint64_t *seen_keys;
     uint64_t *seen_hashes;
 
-    /* Output state (set in during_frag, consumed in after_credit) */
-    int      output_ready;
-    uint64_t output_sz;
+    /* Staging state (written in during_frag, committed in after_frag) */
+    int      stage_valid;
+    uint64_t stage_sz;
 
     /* Output dcache allocation state (computed in unprivileged_init) */
     void *   out_wksp;
@@ -76,8 +79,6 @@ static void tkdedu_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const
 static void tkdedu_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile );
 static void tkdedu_during_frag( tkdedu_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig,
                                  ulong chunk, ulong sz, ulong ctl );
-static void tkdedu_after_credit( tkdedu_ctx_t * ctx, fd_stem_context_t * stem,
-                                 int * opt_poll_in, int * charge_busy );
 static void tkdedu_after_frag( tkdedu_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig,
                                 ulong sz, ulong tsorig, ulong tspub, fd_stem_context_t * stem );
 static void tkdedu_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
@@ -92,7 +93,6 @@ static void tkdedu_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #define STEM_CALLBACK_CONTEXT_TYPE        tkdedu_ctx_t
 #define STEM_CALLBACK_CONTEXT_ALIGN       TKDEDU_CTX_ALIGN
 #define STEM_CALLBACK_DURING_FRAG         tkdedu_during_frag
-#define STEM_CALLBACK_AFTER_CREDIT        tkdedu_after_credit
 #define STEM_CALLBACK_AFTER_FRAG          tkdedu_after_frag
 #define STEM_CALLBACK_SHOULD_SHUTDOWN(ctx) \
   ( (ctx)->input_exhausted || \
@@ -104,7 +104,6 @@ static void tkdedu_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #undef STEM_CALLBACK_CONTEXT_TYPE
 #undef STEM_CALLBACK_CONTEXT_ALIGN
 #undef STEM_CALLBACK_DURING_FRAG
-#undef STEM_CALLBACK_AFTER_CREDIT
 #undef STEM_CALLBACK_AFTER_FRAG
 #undef STEM_CALLBACK_SHOULD_SHUTDOWN
 
@@ -183,7 +182,7 @@ tkdedu_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     ctx->processed = 0;
     ctx->seen_count = 0;
     ctx->seen_cap = 0;
-    ctx->output_ready = 0;
+    ctx->stage_valid = 0;
     ctx->cnc = NULL;
     ctx->event_count = 0;
     ctx->input_exhausted = 0;
@@ -235,7 +234,7 @@ tkdedu_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     /* Shared boilerplate: find CNC and set ctx->cnc */
     STK_UNPRIV_INIT(topo, tile, ctx);
 
-    /* Compute output dcache workspace fields for after_credit publish.
+    /* Compute output dcache workspace fields for the after_frag publish.
        Matches the tknorm pattern: get the output link, find its dcache
        object, compute chunk0/wmark, start at chunk0. */
     if (FD_UNLIKELY(tile->out_cnt != 1UL))
@@ -264,14 +263,46 @@ tkdedu_during_frag( tkdedu_ctx_t * ctx,
                     ulong          ctl ) {
     (void)in_idx; (void)seq; (void)sig; (void)ctl;
 
+    /* Clear first: fd_stem may skip AFTER_FRAG for this fragment (reading
+       overrun), and a stale stage_valid would let the next AFTER_FRAG publish
+       an abandoned message. */
+    ctx->stage_valid = 0;
+
     /* Shared boilerplate: empty check, size check, wksp check, chunk→gaddr */
     if (!stk_validate_frag(sz, PAYMENT_MSG_SIZE, ctx->wksp))
         return;
     PaymentMessage const * msg_in = stk_chunk_to_gaddr(ctx->wksp, chunk);
 
-    /* Copy input to output buffer */
+    /* Stage the input.  Everything below this point is a pure function of
+       the staged copy; the dedupe table, counters and publish are committed
+       in AFTER_FRAG, after fd_stem has confirmed the fragment was intact. */
     memcpy(ctx->output_msg, msg_in, sizeof(PaymentMessage));
     ctx->output_msg->pipeline_hops += 1;
+
+    ctx->stage_valid = 1;
+    ctx->stage_sz = PAYMENT_MSG_SIZE;
+}
+
+/* AFTER_FRAG is the commit point: the first callback fd_stem reaches after
+   its post-DURING_FRAG overrun re-check, so the only place the staged message
+   is known to be intact.  It is also the only publish path — publishing in
+   AFTER_CREDIT would drop the final event, because SHOULD_SHUTDOWN is
+   evaluated at the top of the stem loop and the event gate below fires on the
+   same iteration that stages that event. */
+static void
+tkdedu_after_frag( tkdedu_ctx_t *      ctx,
+                   ulong               in_idx,
+                   ulong               seq,
+                   ulong               sig,
+                   ulong               sz,
+                   ulong               tsorig,
+                   ulong               tspub,
+                   fd_stem_context_t * stem ) {
+    (void)in_idx; (void)seq; (void)sig; (void)sz; (void)tsorig; (void)tspub;
+
+    if (!ctx->stage_valid)
+        return;
+    ctx->stage_valid = 0;
 
     /* Dedup check: skip for malformed_drop (tknorm already rejected it) */
     if (ctx->output_msg->decision != (uint8_t)POLICY_MALFORMED_DROP) {
@@ -301,79 +332,33 @@ tkdedu_during_frag( tkdedu_ctx_t * ctx,
         }
     }
 
-    /* Shared boilerplate: event-count gating */
-    STK_EVENT_EXHAUSTED(ctx, ctx->event_count, ctx->processed);
+    /* Publish the staged message, duplicate flag included. */
+    ulong out_chunk = ctx->out_chunk;
+    void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
+    memcpy(dst, ctx->output_msg, ctx->stage_sz);
 
-    /* Mark output ready */
-    ctx->output_ready = 1;
-    ctx->output_sz = PAYMENT_MSG_SIZE;
+    /* (stem, out_idx, sig, chunk, sz, ctl, tsorig, tspub) */
+    fd_stem_publish(stem, 0UL, 0UL, out_chunk, ctx->stage_sz, 0UL, 0UL, 0UL);
+    ctx->out_chunk = fd_dcache_compact_next(
+        out_chunk,
+        ctx->stage_sz,
+        ctx->out_chunk0,
+        ctx->out_wmark
+    );
+
+    ctx->processed += 1;
 
     /* Shared boilerplate: progress publishing.  CNC app slot 0 is mapped
        to .duplicates for tkdedu in tile_registry.zig, so publish that
-       counter — ctx->processed is the shutdown gate's input, not a
+       counter — ctx->processed is the shutdown gate's input, not a
        metric the supervisor exposes. */
     stk_publish_progress(ctx->cnc, ctx->duplicates);
 
-    ctx->processed += 1;
-}
-
-static void
-tkdedu_after_credit( tkdedu_ctx_t *      ctx,
-                     fd_stem_context_t * stem,
-                     int *               opt_poll_in,
-                     int *               charge_busy ) {
-    (void)opt_poll_in;
-
-    /* after_frag already publishes in every iteration (including the 100th
-       where the loop breaks). Only publish here for safety. */
-    if (ctx->output_ready) {
-        ulong out_chunk = ctx->out_chunk;
-        void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
-        memcpy(dst, ctx->output_msg, ctx->output_sz);
-
-        /* Publish to downstream: (stem, out_idx, sig, chunk, sz, ctl, tsorig, tspub) */
-        fd_stem_publish(stem, 0UL, 0UL, out_chunk, ctx->output_sz, 0UL, 0UL, 0UL);
-        ctx->out_chunk = fd_dcache_compact_next(
-            out_chunk,
-            ctx->output_sz,
-            ctx->out_chunk0,
-            ctx->out_wmark
-        );
-        ctx->output_ready = 0;
-    }
-
-    *charge_busy = 0;
-}
-
-/* Publish output in AFTER_FRAG so the last event is published even when
-   the stem loop breaks at SHOULD_SHUTDOWN (AFTER_CREDIT never fires for
-   the final event). This fires after DURING_FRAG for every event, including
-   the final one, before the loop exits. */
-static void
-tkdedu_after_frag( tkdedu_ctx_t *      ctx,
-                   ulong               in_idx,
-                   ulong               seq,
-                   ulong               sig,
-                   ulong               sz,
-                   ulong               tsorig,
-                   ulong               tspub,
-                   fd_stem_context_t * stem ) {
-    (void)in_idx; (void)seq; (void)sig; (void)sz; (void)tsorig; (void)tspub;
-
-    if (ctx->output_ready) {
-        ulong out_chunk = ctx->out_chunk;
-        void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
-        memcpy(dst, ctx->output_msg, ctx->output_sz);
-
-        fd_stem_publish(stem, 0UL, 0UL, out_chunk, ctx->output_sz, 0UL, 0UL, 0UL);
-        ctx->out_chunk = fd_dcache_compact_next(
-            out_chunk,
-            ctx->output_sz,
-            ctx->out_chunk0,
-            ctx->out_wmark
-        );
-        ctx->output_ready = 0;
-    }
+    /* Shared boilerplate: event-count gating.  Checked against the
+       post-increment count so the gate fires on the Nth fragment and the
+       tile self-exits, rather than waiting for an (N+1)th that never
+       arrives and only stopping on CNC HALT. */
+    STK_EVENT_EXHAUSTED(ctx, ctx->event_count, ctx->processed);
 }
 
 /* ─── Run entry point ─── */
