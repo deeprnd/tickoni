@@ -210,8 +210,8 @@ never mirrors a C struct to reach them.
 1. **Field accessors in the tile's `.c` file, declared in its
    `topo_run/tk_*_stem.h`.** The `fd_topo_run_tile_t` set is identical across
    tiles: `tk_get_<tile>_run_{name,run,scratch_align,scratch_footprint,
-   privileged_init,unprivileged_init}`, plus the tile's scratch-footprint and
-   `set_event_count` entry points. Tile state a test needs to inspect gets its
+   privileged_init,unprivileged_init}`, plus the tile's scratch-footprint,
+   scratch-align, and `set_event_count` entry points. Tile state a test needs to inspect gets its
    own accessors in the same file.
 2. **A `c_abi/<tile>.zig` FFI module** holding the `extern fn` declarations and
    thin Zig wrappers, registered as a unit-test root in
@@ -228,6 +228,51 @@ offsets from the scratch base the caller passes in. A pointer the tile stored
 in its context resolves only in the tile process: the supervisor maps the same
 workspace at a different base. Keep one definition of each offset formula in
 the tile's `.c` file and use it from both the tile's init and the accessors.
+
+### Tile Scratch Layout
+
+Two different blocks get called "scratch" around an `fd_stem` tile, and they do
+not share an alignment:
+
+- **`fd_stem`'s internal scratch** — the `in[]`, `cr_avail[]` and event-map
+  block `fd_stem` keeps on its own stack. `fd_stem.c` generates
+  `STEM_(scratch_align)` and `STEM_(scratch_footprint)` for it, aligned to
+  `FD_STEM_SCRATCH_ALIGN`. No Tickoni code sizes, places, or reads it.
+- **the tile scratch object** — the `tile` workspace object holding the tile's
+  context struct and every array the tile carves out of it (`seen_keys`,
+  `audit_records`, `output_msg`, `fd_scratch` smem). This is the block
+  `fd_topo_run_tile_t.scratch_align` and `.scratch_footprint` describe.
+
+A tile must therefore not point `.scratch_align` at the STEM-generated
+`<stem_name>_scratch_align`. That symbol resolves — `fd_stem.c` is included
+into the tile's translation unit — but it describes the wrong block, leaving
+the two fields of one `fd_topo_run_tile_t` talking about different memory. Each
+tile defines its own `<tile>_scratch_align_tile()` returning the same
+`TK*_CTX_ALIGN` that its `scratch_footprint` builds from.
+
+`TK*_CTX_ALIGN` has exactly one definition, in the tile's `.c` file, derived
+from the context struct itself (`alignof(<tile>_ctx_t)`). The topology builder
+does not restate it: `tk_topob_tickoni_tile_scratch_requirements()` reads it
+back through `<tile>_tile_scratch_align()` — a thin accessor that calls through
+the wired `.scratch_align` field, so a mis-wired field cannot hide behind a
+correct-looking constant — and publishes it as the `tickoni.scratch_align`
+property. `tile_align()` in `topob.c` returns that property so
+`fd_topob_finish` places the object on that boundary. Do not restate the
+alignment as a literal in the tile's header: a hardcoded `8` there
+under-aligns the object silently the day the context grows a wider member.
+
+The same rule holds for the footprint:
+`tk_topob_tickoni_tile_scratch_footprint()` is a footprint-only *view* of the
+requirements call and delegates to it, so no caller can read a reservation
+the workspace did not actually make.
+
+Alignment is not optional just because a layout happens to satisfy it today.
+Object offsets shift whenever a footprint, a link, or a tile is added, and
+`fd_scratch` smem (the metric tile) hard-requires 128 bytes.
+`tk_topo_validate_tile_scratch()` checks the finalized layout of every
+scratch-owning tile, not just metric's; it is exercised from
+`test_metric_tile_integration.zig`, alongside per-tile alignment tests in
+`c_abi/{tknorm,tkdedu,audit}.zig`.
 
 ### Process Mode And CPU Placement
 
