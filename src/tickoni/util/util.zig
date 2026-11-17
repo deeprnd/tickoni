@@ -54,13 +54,38 @@ pub fn validateNotUsedPort(port: u16) bool {
     return !portIsInUse(port);
 }
 
-/// Generate a random unprivileged port for integration tests.
+/// Generate a free unprivileged port for integration tests.
 ///
-/// Uses a simple counter seeded from getpid() to pick from
-/// [30000, 65535].  Each successive test call increments the counter,
-/// so successive calls never collide.  This eliminates TIME_WAIT port
-/// conflicts without OS-specific socket code.
+/// A counter seeded from getpid() picks a candidate in [30000, 65535] and
+/// each call advances it, so successive calls within one process never
+/// collide.  The pid seed alone is NOT sufficient across processes: the
+/// integration lane runs its test binaries sequentially
+/// (build-lib/lanes/integration.zig chains the run steps), consecutive
+/// binaries get nearby pids, and a single binary consumes one port per
+/// pipeline start — up to 12 in test_metric_tile_integration.zig.  Nearby
+/// seeds therefore produce OVERLAPPING ranges, and a candidate can still be
+/// held by a metric tile from an earlier binary (or sit in TIME_WAIT).
+///
+/// So each candidate is probed with `portIsInUse` and skipped when bound,
+/// which is what this function's contract has always been (see
+/// `portIsInUse` above: "used by nextMetricPort() to skip ports still in
+/// TIME_WAIT from a previous test run").  Binding the port is fatal for the
+/// metric tile — fd_metric_tile.c's listen failure is an FD_LOG_ERR, which
+/// aborts the tile and surfaces as a `.crashed` tile in otherwise unrelated
+/// supervisor tests — so handing out an occupied port fails the suite
+/// nondeterministically.
+///
+/// This probe leaves a TOCTOU window: the caller binds later, so a port that
+/// was free here can be taken in between.  The window is unavoidable without
+/// passing the bound socket down into the tile, and it is not the failure
+/// mode seen in practice (that one is a port still held for the whole
+/// lifetime of an earlier test's metric tile), which this does eliminate.
 var _metric_port_counter: u16 = 0;
+
+/// Bound on candidates probed before giving up.  Reaching it means ~1024
+/// consecutive ports are bound, which is an environment problem, not a
+/// collision this helper can retry its way out of.
+const metric_port_max_probes: u16 = 1024;
 
 pub fn nextMetricPort() u16 {
     const low: u16 = 30000;
@@ -71,10 +96,23 @@ pub fn nextMetricPort() u16 {
         _metric_port_counter = @as(u16, @intCast(c_abi.sandbox.getpid() & 0xFFFF));
     }
 
-    // Map into [low, low+span)
-    const port = @as(u32, low) + (_metric_port_counter % span);
-    _metric_port_counter += 1;
-    return @intCast(port);
+    var probes: u16 = 0;
+    while (probes < metric_port_max_probes) : (probes += 1) {
+        // Map into [low, low+span)
+        const port: u16 = @intCast(@as(u32, low) + (_metric_port_counter % span));
+        _metric_port_counter +%= 1;
+        // Re-seeding on a 0 counter is the sentinel above, so never leave it
+        // at 0 — that would redo the pid seed and replay this same range.
+        if (_metric_port_counter == 0) _metric_port_counter = 1;
+        if (!portIsInUse(port)) return port;
+    }
+
+    // Fail closed and loudly: silently returning a bound port would show up
+    // as an unrelated tile crash much later in the run.
+    std.debug.panic(
+        "nextMetricPort: no free port in [{d}, {d}] after {d} probes",
+        .{ @as(u32, low), @as(u32, low) + @as(u32, span) - 1, metric_port_max_probes },
+    );
 }
 
 /// Generate a unique workspace name for integration tests.
