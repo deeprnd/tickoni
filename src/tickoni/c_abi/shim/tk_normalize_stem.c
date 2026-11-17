@@ -78,6 +78,8 @@ static void tknorm_during_frag( tknorm_ctx_t * ctx, ulong in_idx, ulong seq, ulo
                                  ulong chunk, ulong sz, ulong ctl );
 static void tknorm_after_credit( tknorm_ctx_t * ctx, fd_stem_context_t * stem,
                                  int * opt_poll_in, int * charge_busy );
+static void tknorm_after_frag( tknorm_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig,
+                                ulong sz, ulong tsorig, ulong tspub, fd_stem_context_t * stem );
 static void tknorm_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 
 /* Generate a norm-specific static stem specialization. */
@@ -88,6 +90,7 @@ static void tknorm_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #define STEM_CALLBACK_CONTEXT_ALIGN       TKNORM_CTX_ALIGN
 #define STEM_CALLBACK_DURING_FRAG         tknorm_during_frag
 #define STEM_CALLBACK_AFTER_CREDIT        tknorm_after_credit
+#define STEM_CALLBACK_AFTER_FRAG          tknorm_after_frag
 #define STEM_CALLBACK_SHOULD_SHUTDOWN(ctx) \
   ( (ctx)->input_exhausted || \
     ( (ctx)->idle_ticks > 10000L ) || \
@@ -101,6 +104,7 @@ static void tknorm_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #undef STEM_CALLBACK_CONTEXT_ALIGN
 #undef STEM_CALLBACK_DURING_FRAG
 #undef STEM_CALLBACK_AFTER_CREDIT
+#undef STEM_CALLBACK_AFTER_FRAG
 #undef STEM_CALLBACK_SHOULD_SHUTDOWN
 
 /* ─── FNV-1a 64-bit hash — matches runtime.zig:stableEventHash exactly ───
@@ -145,6 +149,15 @@ tknorm_scratch_footprint_tile( fd_topo_tile_t const * tile ) {
     return footprint;
 }
 
+/* ─── Event count setter (set by topo_build.build() before topology queries) ─── */
+
+static ulong tknorm_event_count_param = 0UL;
+
+void
+tknorm_set_event_count( ulong event_count ) {
+    tknorm_event_count_param = event_count;
+}
+
 /* ─── Callbacks ─── */
 
 static void
@@ -174,14 +187,12 @@ tknorm_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     ulong ctx_end = fd_ulong_align_up( (ulong)ctx + sizeof(tknorm_ctx_t), alignof(PaymentMessage) );
     ctx->output_msg = (PaymentMessage *)ctx_end;
 
-    /* Read event_count from environment */
-    {
-        const char *env = getenv("TKNORM_EVENT_COUNT");
-        if (env) {
-            ctx->event_count = strtoull(env, NULL, 10);
-            FD_LOG_NOTICE(( "tknorm: event_count=%lu from env", (unsigned long)ctx->event_count ));
-        }
-    }
+    /* Event count for shutdown gating.
+       Set by topo_build.build() via tknorm_set_event_count() —
+       same C-param pattern as tkdedu to avoid the env var anti-pattern:
+       getenv() in privileged_init reads each child's own environment,
+       which can differ from the supervisor's. */
+    ctx->event_count = tknorm_event_count_param;
 
     FD_LOG_NOTICE(( "tknorm: privileged init ctx=%p output=%p wksp=%p",
                     ctx, ctx->output_msg, ctx->wksp ));
@@ -273,12 +284,16 @@ tknorm_during_frag( tknorm_ctx_t * ctx,
 }
 
 static void
-tknorm_after_credit( tknorm_ctx_t *    ctx,
+tknorm_after_credit( tknorm_ctx_t *      ctx,
                      fd_stem_context_t * stem,
                      int *               opt_poll_in,
                      int *               charge_busy ) {
     (void)opt_poll_in;
 
+    /* after_frag already publishes in every iteration (including the 100th
+       where the loop breaks). Only publish here for safety — if output_ready
+       is still set, after_frag didn't run (first iteration) or there was an
+       error. */
     if (ctx->output_ready) {
         ulong out_chunk = ctx->out_chunk;
         void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
@@ -295,6 +310,37 @@ tknorm_after_credit( tknorm_ctx_t *    ctx,
     }
 
     *charge_busy = 0;
+}
+
+/* Publish output in AFTER_FRAG so the 100th event is published even when
+   the stem loop breaks at SHOULD_SHUTDOWN (AFTER_CREDIT never fires for
+   the last event). This fires after DURING_FRAG for every event, including
+   the final one, before the loop exits. */
+static void
+tknorm_after_frag( tknorm_ctx_t *      ctx,
+                   ulong               in_idx,
+                   ulong               seq,
+                   ulong               sig,
+                   ulong               sz,
+                   ulong               tsorig,
+                   ulong               tspub,
+                   fd_stem_context_t * stem ) {
+    (void)in_idx; (void)seq; (void)sig; (void)sz; (void)tsorig; (void)tspub;
+
+    if (ctx->output_ready) {
+        ulong out_chunk = ctx->out_chunk;
+        void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
+        memcpy(dst, ctx->output_msg, ctx->output_sz);
+
+        fd_stem_publish(stem, 0UL, 0UL, out_chunk, ctx->output_sz, 0UL, 0UL, 0UL);
+        ctx->out_chunk = fd_dcache_compact_next(
+            out_chunk,
+            ctx->output_sz,
+            ctx->out_chunk0,
+            ctx->out_wmark
+        );
+        ctx->output_ready = 0;
+    }
 }
 
 /* ─── Run entry point ─── */
@@ -350,6 +396,8 @@ ulong
 tknorm_tile_scratch_footprint( void ) {
     return TK_NORM_RUN.scratch_footprint( NULL );
 }
+
+/* ─── Callbacks ─── */
 
 /* Field accessors for integration/test_tknorm_integration.zig.
    These avoid Zig-C struct layout mismatch by reading individual fields. */

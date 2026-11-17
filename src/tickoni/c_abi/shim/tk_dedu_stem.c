@@ -78,6 +78,8 @@ static void tkdedu_during_frag( tkdedu_ctx_t * ctx, ulong in_idx, ulong seq, ulo
                                  ulong chunk, ulong sz, ulong ctl );
 static void tkdedu_after_credit( tkdedu_ctx_t * ctx, fd_stem_context_t * stem,
                                  int * opt_poll_in, int * charge_busy );
+static void tkdedu_after_frag( tkdedu_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig,
+                                ulong sz, ulong tsorig, ulong tspub, fd_stem_context_t * stem );
 static void tkdedu_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 
 #define TKDEDU_CTX_ALIGN alignof(tkdedu_ctx_t)
@@ -91,6 +93,7 @@ static void tkdedu_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #define STEM_CALLBACK_CONTEXT_ALIGN       TKDEDU_CTX_ALIGN
 #define STEM_CALLBACK_DURING_FRAG         tkdedu_during_frag
 #define STEM_CALLBACK_AFTER_CREDIT        tkdedu_after_credit
+#define STEM_CALLBACK_AFTER_FRAG          tkdedu_after_frag
 #define STEM_CALLBACK_SHOULD_SHUTDOWN(ctx) \
   ( (ctx)->input_exhausted || \
     ( (ctx)->cnc && fd_cnc_signal_query( (fd_cnc_t *)(ctx)->cnc ) == FD_CNC_SIGNAL_HALT ) )
@@ -102,6 +105,7 @@ static void tkdedu_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #undef STEM_CALLBACK_CONTEXT_ALIGN
 #undef STEM_CALLBACK_DURING_FRAG
 #undef STEM_CALLBACK_AFTER_CREDIT
+#undef STEM_CALLBACK_AFTER_FRAG
 #undef STEM_CALLBACK_SHOULD_SHUTDOWN
 
 /* ─── Scratch footprint ───
@@ -320,12 +324,14 @@ tkdedu_after_credit( tkdedu_ctx_t *      ctx,
                      int *               charge_busy ) {
     (void)opt_poll_in;
 
+    /* after_frag already publishes in every iteration (including the 100th
+       where the loop breaks). Only publish here for safety. */
     if (ctx->output_ready) {
         ulong out_chunk = ctx->out_chunk;
         void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
         memcpy(dst, ctx->output_msg, ctx->output_sz);
 
-        /* Publish to tkpoly: (stem, out_idx, sig, chunk, sz, ctl, tsorig, tspub) */
+        /* Publish to downstream: (stem, out_idx, sig, chunk, sz, ctl, tsorig, tspub) */
         fd_stem_publish(stem, 0UL, 0UL, out_chunk, ctx->output_sz, 0UL, 0UL, 0UL);
         ctx->out_chunk = fd_dcache_compact_next(
             out_chunk,
@@ -337,6 +343,37 @@ tkdedu_after_credit( tkdedu_ctx_t *      ctx,
     }
 
     *charge_busy = 0;
+}
+
+/* Publish output in AFTER_FRAG so the last event is published even when
+   the stem loop breaks at SHOULD_SHUTDOWN (AFTER_CREDIT never fires for
+   the final event). This fires after DURING_FRAG for every event, including
+   the final one, before the loop exits. */
+static void
+tkdedu_after_frag( tkdedu_ctx_t *      ctx,
+                   ulong               in_idx,
+                   ulong               seq,
+                   ulong               sig,
+                   ulong               sz,
+                   ulong               tsorig,
+                   ulong               tspub,
+                   fd_stem_context_t * stem ) {
+    (void)in_idx; (void)seq; (void)sig; (void)sz; (void)tsorig; (void)tspub;
+
+    if (ctx->output_ready) {
+        ulong out_chunk = ctx->out_chunk;
+        void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
+        memcpy(dst, ctx->output_msg, ctx->output_sz);
+
+        fd_stem_publish(stem, 0UL, 0UL, out_chunk, ctx->output_sz, 0UL, 0UL, 0UL);
+        ctx->out_chunk = fd_dcache_compact_next(
+            out_chunk,
+            ctx->output_sz,
+            ctx->out_chunk0,
+            ctx->out_wmark
+        );
+        ctx->output_ready = 0;
+    }
 }
 
 /* ─── Run entry point ─── */
