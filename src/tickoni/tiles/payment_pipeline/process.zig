@@ -127,49 +127,6 @@ pub fn runIngestProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, output
     rt.cnc_counters.appCounterWrite(cnc, 0, produced);
 }
 
-pub fn runDedupeProcess(
-    process_cfg: ProcessRuntimeConfig,
-    tile_idx: u32,
-    input: *rt.link.Consumer,
-    output: *rt.link.Producer,
-    cnc: *c_abi.cnc.Cnc,
-    seen_keys: []u64,
-    seen_hashes: []u64,
-) void {
-    const cfg = process_cfg.pipeline;
-    var stop_flag = std.atomic.Value(bool).init(false);
-    var backpressure_waits = std.atomic.Value(u64).init(0);
-    var idle_polls = std.atomic.Value(u64).init(0);
-    var buf: [msg_size]u8 = undefined;
-    var seen_count: usize = 0;
-
-    var duplicates: u64 = 0;
-    var i: u64 = 0;
-    while (i < cfg.event_count) : (i += 1) {
-        maybeBlockForTest(process_cfg, tile_idx, i);
-        if (halted(cnc)) break;
-        _ = input.consume(&buf, &idle_polls, &stop_flag, cnc) orelse break;
-        var msg = std.mem.bytesToValue(PaymentMessage, buf[0..msg_size]);
-        msg.pipeline_hops += 1;
-        if (msg.decision != .malformed_drop and seenOrRemember(seen_keys, seen_hashes, &seen_count, msg)) {
-            msg.duplicate = true;
-            duplicates += 1;
-        }
-        output.publish(std.mem.asBytes(&msg), &backpressure_waits, &stop_flag, cnc) catch break;
-    }
-    rt.cnc_counters.appCounterWrite(cnc, 0, duplicates);
-}
-
-fn seenOrRemember(seen_keys: []u64, seen_hashes: []u64, seen_count: *usize, msg: PaymentMessage) bool {
-    for (seen_keys[0..seen_count.*], seen_hashes[0..seen_count.*]) |key, hash| {
-        if (key == msg.raw.idempotency_key and hash == msg.event_hash) return true;
-    }
-    seen_keys[seen_count.*] = msg.raw.idempotency_key;
-    seen_hashes[seen_count.*] = msg.event_hash;
-    seen_count.* += 1;
-    return false;
-}
-
 pub fn runPolicyProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, input: *rt.link.Consumer, output: *rt.link.Producer, cnc: *c_abi.cnc.Cnc) void {
     const cfg = process_cfg.pipeline;
     var stop_flag = std.atomic.Value(bool).init(false);

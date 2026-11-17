@@ -128,21 +128,6 @@ fn tkingsProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
     std.debug.print("[tkings] done producing\n", .{});
 }
 
-fn tkdeduProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
-    if (spec.in_cnt != 1 or spec.out_cnt != 1) return error.MissingLink;
-    var input = try rt.link.Consumer.join(wksp, spec.inLinks()[0]);
-    defer input.leave();
-    var output = try rt.link.Producer.join(wksp, spec.outLinks()[0]);
-    defer output.leave();
-    const cfg = try loadProcessConfig(io, spec);
-    const cap: usize = @intCast(cfg.pipeline.event_count);
-    const seen_keys = try allocator.alloc(u64, cap);
-    defer allocator.free(seen_keys);
-    const seen_hashes = try allocator.alloc(u64, cap);
-    defer allocator.free(seen_hashes);
-    tiles.process.runDedupeProcess(cfg, spec.tile_idx, &input, &output, cnc, seen_keys, seen_hashes);
-}
-
 fn tkpolyProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
     _ = allocator;
     if (spec.in_cnt != 1 or spec.out_cnt != 1) return error.MissingLink;
