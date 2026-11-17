@@ -162,6 +162,10 @@ under the wrong context type and crash after `fd_topo_run_tile()` initialization
 This specialization mismatch, not the absence of `FD_HAS_THREADS`, caused the
 `tkaudt`/`metric` runtime failure covered by `test-integration-tk-infra`.
 
+How a Tickoni-authored stem tile must be built — callbacks, scratch layout,
+counters, registration, and tests — is stated below under
+[fd_stem Tile Implementation Standard](#fd_stem-tile-implementation-standard).
+
 ## Non-Blocking I/O Discipline
 
 **All tile receive paths must use bounded polling. No tile may perform
@@ -323,6 +327,477 @@ is:
 3. The original tile polls the response queue with `FD_MCACHE_WAIT`.
 4. If the queue is empty, the tile continues to the next input or rechecks
    health/shutdown. It never blocks.
+
+## fd_stem Tile Implementation Standard
+
+Three Tickoni tiles are implemented as `fd_stem` specializations today:
+`tknorm` (`shim/tk_normalize_stem.c`), `tkdedu` (`shim/tk_dedu_stem.c`), and
+`tkaudt` (`shim/tk_audit_stem.c`). `metric` is an fd_stem tile too, but it
+delegates to upstream `fd_metric_tile.c` and Tickoni authors none of its
+callbacks.
+
+This section is the architecture-boundary standard for that tile shape: when
+to choose it, which callbacks a Tickoni tile may define, what must be true of
+its scratch, how it is observed, how it is tested, and which parts of the
+current implementation are known deviations rather than examples to copy.
+
+The callback-level statement of the stage/commit rule lives in
+[`../execution/contribution/tickoni.md`](../execution/contribution/tickoni.md)
+("fd_stem Callback Contract") and is restated at the top of
+`src/tickoni/c_abi/shim/stem_helpers.h`, next to the helpers that enforce it.
+Per-tile conformance is tracked in
+[`../execution/tile-delivery-status.md`](../execution/tile-delivery-status.md).
+This section does not restate those; it owns the surrounding decisions.
+
+### When A Tile Should Be An fd_stem Tile
+
+An fd_stem tile is the default for a tile whose entire job is *consume
+fragments from Tango links, transform, publish fragments*. It is the right
+choice when all of the following hold:
+
+- the tile's work is driven by incoming fragments on one or more `in` links,
+- per-fragment work is bounded, non-blocking, and allocation-free,
+- all per-tile state fits in a bounded, startup-allocated scratch object,
+- the tile needs Firedancer's flow control, credit accounting, overrun
+  detection, and link metrics rather than a hand-written loop.
+
+Keep a tile on the generic Tickoni callback path
+(`runtime/tile_process.zig` + a `tile_registry.zig` `process_fn`) when it is
+a source with no `in` links and an external driver (`tkings` today), when it
+must do blocking or syscall-heavy work behind the proxy pattern described
+under [Enforcement](#enforcement), or when it is an observer tile with no
+fragment flow (`tkdiag`).
+
+Mixing the two paths in one tile is not allowed. A tile is either an fd_stem
+tile — `process_fn = null` in the registry, booted through
+`tile_main.zig`'s `stemRun`, lifecycle owned by its `fd_topo_run_tile_t` —
+or a generic tile. There is no tile that has both a stem specialization and a
+process-mode callback.
+
+### Mandatory Shape
+
+Every Tickoni-authored stem tile is one `.c` file under
+`src/tickoni/c_abi/shim/` with this shape, in this order:
+
+1. **Context struct first.** `fd_stem.c` declares `ctx` using
+   `STEM_CALLBACK_CONTEXT_TYPE`, so the type must be complete before the
+   include. The context holds counters, staging state, resolved link
+   addresses, the CNC pointer, the event-count gate, and nothing that needs
+   an allocator.
+2. **Forward declarations** of every callback. All callbacks are `static`;
+   `fd_stem.c` expands calls to them inside its own translation unit, so a
+   non-static definition collides with its implicit declaration.
+3. **`STEM_*` macro block, then `#include "disco/stem/fd_stem.c"`, then
+   `#undef` of every macro defined.** One specialization per tile, entered
+   only by that tile — see [Stem Specialization
+   Ownership](#stem-specialization-ownership).
+4. **Tile-specific `scratch_align` / `scratch_footprint`** functions, plus
+   no-argument wrappers for `topob.c`.
+5. **Callbacks**, then the run entry, then the `fd_topo_run_tile_t`, then the
+   accessor set.
+
+Rules that hold for every such tile:
+
+- **`STEM_NAME` is the tile id.** The generated symbols (`tknorm_run`,
+  `tkdedu_run`, `tkaudt_run`) then name the tile they belong to, which is
+  what makes a wrong-specialization call visible at the call site.
+- **`STEM_BURST` equals the maximum `fd_stem_publish` calls one loop
+  iteration can make.** With publish confined to `AFTER_FRAG`, `1UL` is
+  correct by construction for a one-output tile and is what all three tiles
+  use. `fd_stem` validates `burst` against out-link depth at startup and
+  `FD_LOG_ERR`s on a mismatch, but it cannot detect a tile that publishes
+  more often than it declared.
+- **`STEM_LAZY` is explicit.** All three tiles use `((long)10e6)` — a 10 ms
+  housekeeping interval, which is what paces flow-control publication and
+  link-metric flushing. Do not leave it to the default; a tile whose
+  consumers need tighter credit turnaround states its own value and says why.
+- **`SHOULD_SHUTDOWN` composes exactly two kinds of term**: the tile's own
+  exhaustion flag (`ctx->input_exhausted`, set by `STK_EVENT_EXHAUSTED` in
+  `AFTER_FRAG`) and the supervisor's `FD_CNC_SIGNAL_HALT`. Both are cheap
+  reads; `fd_stem` evaluates this at the top of every iteration. Do not put
+  work, I/O, or state mutation in it.
+- **The run entry resolves the CNC, calls the generated `*_run`, then sets
+  `tile->allow_shutdown = 1`.** `fd_topo_run_tile` `FD_LOG_ERR`s when `run`
+  returns while that flag is clear, so setting it is how a tile declares that
+  returning was intentional. Note the per-tile comments claiming the harness
+  resets the flag before calling `run` are wrong — nothing clears it, and
+  `stemRun` pre-sets it (see Known Deviations).
+- **`.privileged_init` / `.unprivileged_init` are assigned without a cast.**
+  The Tickoni callback signature is already the Firedancer typedef. `tkaudt`
+  assigns them directly; `tknorm` and `tkdedu` cast, which would silently
+  accept a signature that no longer matches. New tiles follow `tkaudt`.
+
+### Callbacks: Which To Define, Which Not To
+
+| Callback | Use |
+|---|---|
+| `DURING_FRAG` | **Required.** Stage only: clear the staging flag, validate framing, copy the fragment out of the input dcache into tile-local scratch, compute pure functions of that copy. |
+| `AFTER_FRAG` | **Required.** Commit only: state mutation, counters, `stk_publish_counter`, `STK_EVENT_EXHAUSTED`, `fd_stem_publish`. |
+| `SHOULD_SHUTDOWN` | **Required.** Exhaustion flag + CNC HALT. |
+| `AFTER_CREDIT` | Only for work that is not driven by an incoming fragment — a timer, a backlog drain, a batch flush. Never as a second publish path. |
+| `BEFORE_FRAG` | Only for signature-based filtering, when a tile is wired to a link carrying fragments it must ignore. None of the three tiles needs it. |
+| `DURING_HOUSEKEEPING` / `METRICS_WRITE` | Not used today. See "Observability: CNC Counters, Not fd_metrics" below — a tile that accumulates high-rate counters locally should publish them here rather than per fragment. |
+| `BEFORE_CREDIT`, `RETURNABLE_FRAG`, `AFTER_POLL_OVERRUN` | Reserve for a stated need. `AFTER_POLL_OVERRUN` is the natural home for an overrun-visibility counter if one is added. |
+
+The split is not stylistic. `fd_stem` re-reads the input sequence number
+*after* `DURING_FRAG` returns and abandons the fragment — skipping
+`AFTER_FRAG` entirely — when the producer overran the reader
+(`src/disco/stem/fd_stem.c`, the `seq_test != seq_found` branch). Anything
+`DURING_FRAG` commits therefore has no withdrawal path. For `tkaudt` that
+would mean an append-only, hash-chained audit record derived from a torn
+read, with `prev_hash` already advanced — a direct violation of the audit
+invariant in `AGENTS.md`. For `tknorm`/`tkdedu` it would mean a published
+fragment, a counted event, or a dedupe-table entry for a fragment that was
+never really consumed.
+
+`AFTER_CREDIT` as a publish path is the second trap, and it is a
+liveness bug rather than a correctness one: `SHOULD_SHUTDOWN` runs at the
+*top* of the loop, so a tile whose own event-count gate fired during
+`AFTER_FRAG` never reaches the following iteration's `AFTER_CREDIT` and
+silently drops its last event. Publishing in `AFTER_FRAG` puts the publish in
+the same iteration as the fragment that triggered the gate.
+
+### Staging Discipline
+
+Each tile needs a place to stage that nothing else observes until
+`AFTER_FRAG` commits. Two patterns are in use, and both are acceptable:
+
+- **Scratch staging buffer** (`tknorm`, `tkdedu`): a scratch-allocated
+  `PaymentMessage` the tile owns, plus `stage_valid` / `stage_sz`.
+  `AFTER_FRAG` reads the verdict back off the staged message rather than
+  carrying a separate flag.
+- **Next uncommitted slot** (`tkaudt`): `DURING_FRAG` builds the record into
+  `audit_records[audit_count]` — the slot *past* the committed region — and
+  leaves `seq`, `prev_hash`, and `record_hash` unset. `AFTER_FRAG` stamps the
+  chain fields and then commits by incrementing `audit_count`. This needed no
+  extra scratch and therefore no footprint change, which is why it was chosen
+  over the staging buffer the plan first proposed.
+
+Required in both cases:
+
+- `stage_valid` is cleared as the **first statement** of `DURING_FRAG`, before
+  any validation can `return`. A stale flag lets the next `AFTER_FRAG` commit
+  an abandoned fragment.
+- `AFTER_FRAG` returns immediately when `stage_valid` is clear, and clears it
+  before doing anything else.
+- The committed boundary is a single scalar (`audit_count`, the publish
+  itself) that only `AFTER_FRAG` advances. Nothing reads past it — including
+  test accessors.
+
+### Scratch Layout And Footprint Discipline
+
+A stem tile's context, tables, and staging buffers all live in one scratch
+object that the topology reserves. The supervisor and every self-exec'd child
+rebuild the same topology independently, so both must derive a *byte-identical*
+layout or every object placed after the tile's shifts and the tile reads a
+corrupted workspace.
+
+- **`.scratch_align` and `.scratch_footprint` describe the tile object, never
+  `fd_stem`'s own stack scratch.** `fd_stem.c` generates
+  `STEM_(scratch_align)`/`STEM_(scratch_footprint)` for its in[]/cr_avail[]
+  block, aligned to `FD_STEM_SCRATCH_ALIGN`. Wiring those into the
+  `fd_topo_run_tile_t` is a layout bug; each tile provides
+  `*_scratch_align_tile` / `*_scratch_footprint_tile` instead. The unit test
+  that asserts `scratch_align() == 8` exists to catch exactly that
+  substitution.
+- **Alignment is derived, not restated.** `*_scratch_align_tile()` returns
+  `alignof(ctx_t)`, and `topob.c` reads it back through the wired
+  `.scratch_align` field so the builder cannot lay the object out on an
+  alignment the tile does not declare.
+- **Runtime layout parameters arrive by C setter, before any footprint
+  query.** `tkdedu`'s dedupe-table size is the one such parameter today.
+  `topo_build.build()` calls `c_abi.tkdedu.setEventCount()` (and the
+  `tknorm`/`tkaudt` equivalents) from the value in `TopologySpec`, which the
+  supervisor writes once and every child reads. **Environment variables must
+  never carry a layout parameter**: `getenv()` in `privileged_init` reads the
+  child's own environment, which can differ from the supervisor's. Removing
+  the last of those (`TKAUDT_EVENT_COUNT`) is part of this migration.
+- **One resolution point per derived size.** `tkdedu_layout_event_count()`
+  is the single function the footprint reservation and `privileged_init`'s
+  pointer arithmetic both call, so the reserved block and the pointers into
+  it cannot disagree. A gating count of 0 must still reserve the default
+  table — the gate and the layout are different concerns.
+- **`privileged_init` resolves link addresses and pointers; `unprivileged_init`
+  resolves the CNC and the output dcache.** Both re-derive from `topo` and
+  `tile`; neither allocates.
+- **Fail closed on an unexpected link shape.** `tknorm` and `tkdedu`
+  `FD_LOG_ERR` when `out_cnt != 1`, when the output link has no dcache, or
+  when its MTU is below the message size. A stem tile must not infer a link
+  shape it was not given.
+- **Derive the input workspace from the input link's mcache object**
+  (`stk_derive_wksp`), not from `fd_wksp_containing`: the latter depends on
+  `fd_shmem_join_query_by_addr`, which is hard-coded to `ENOENT` on Windows,
+  so every fragment was silently rejected there.
+- **`topob.c` is the registration point for scratch requirements.**
+  `tk_topob_tickoni_tile_scratch_requirements()` dispatches on tile id to the
+  tile's align/footprint wrappers, `topo_build.zig` publishes them as the
+  `tickoni.scratch_align`/`tickoni.scratch_footprint` pod properties, and
+  `tk_topo_validate_tile_scratch()` checks after `fd_topob_finish` that every
+  tile owning scratch was placed on its declared alignment.
+
+### Cross-Process Accessor Rules
+
+A stem tile's scratch lives in a shared workspace the supervisor also maps —
+at a *different base address*. Anything the supervisor or a test reads out of
+that scratch must therefore:
+
+- **recompute offsets from the scratch base the caller passes in**, never
+  follow a pointer the tile stored in its context. `tk_audit_records_of()` is
+  the single definition of the record-array offset and is used by both
+  `privileged_init` and the accessors; the first version of those accessors
+  read `ctx->audit_records` and segfaulted the integration test.
+- **expose named field accessors from the tile's own `.c` file**, so the C
+  file remains the only place that knows its layout. No Zig `extern struct`
+  may mirror a C struct to read tile state — the deleted `AuditContext` /
+  `AuditHeader` / `AuditRecord` mirrors in `test_tkaudt_integration.zig`,
+  hand-placed padding included, are the anti-pattern: they duplicated a
+  contract that already has one source of truth (the header, from which the
+  `audit_schema` module is generated by translate-c) and would have misread
+  records silently the moment a C field moved.
+- **abort on an out-of-range index rather than returning a sentinel.** `0` is
+  a legitimate `seq` and `prev_hash`, so a sentinel turns a harness bug into
+  a passing assertion.
+- **never read past the committed boundary.** `tk_audit_record_count()`
+  returns `audit_count`, not capacity; slots at or beyond it are staging.
+
+### Observability: CNC Counters, Not fd_metrics
+
+Stem tiles publish progress by writing `ulong` slots in their CNC app region
+through `stk_publish_counter`, from `AFTER_FRAG`. Slot ownership is declared
+once in `tile_registry.zig`'s `TileEntry.counters` and read back through that
+same schema by `supervisor.zig`; a tile passes the index the registry assigns
+rather than hand-rolling an `app[]` write. There is deliberately no slot-0
+convenience wrapper, because slot 0 names a different counter on every tile.
+
+These counters are **advisory progress and liveness, not evidence**. They are
+plain single-writer stores with no ordering guarantee relative to the state
+they describe, so a reader must treat a counter as a lower bound and poll to a
+threshold rather than assert on an instantaneous value. Financial evidence
+lives in the audit records and the replay capsule, never in a counter.
+
+Link-level metrics (`frag_consumed`, polling/reading overrun counters,
+backpressure) come from `fd_stem` itself and need no tile code.
+
+### Health And Lifecycle: Current Gap
+
+The generic tile path (`tile_process.zig`) joins its CNC in
+`privileged_init`, transitions `BOOT -> RUN`, heartbeats during the
+halt-wait loop, and signals `BOOT` again on clean exit. **Stem tiles do none
+of this.** `stemRun` dispatches straight into `fd_topo_run_tile`, and the
+three stem tiles' `privileged_init`/`unprivileged_init` only *read* the CNC
+— for `FD_CNC_SIGNAL_HALT` and for counter slots.
+
+The consequence is concrete: `supervisor.zig`'s `refreshProcessHealth`
+classifies heartbeat staleness only for a tile whose CNC signal reads `RUN`,
+so a stem tile is never eligible. Its health is process liveness alone, and a
+stem tile wedged inside its loop is indistinguishable from a healthy one.
+Shutdown and clean-exit detection still work — HALT is observed by
+`SHOULD_SHUTDOWN`, and a self-exit is reaped as `.stopped`.
+
+Target behavior: a stem tile publishes the same `BOOT -> RUN` transition and
+advances the CNC heartbeat from a `DURING_HOUSEKEEPING` callback, so the
+existing staleness model covers it. Until that exists, every statement about
+stem-tile health must say "process liveness", and a test must not read a stem
+tile's `.running` state as evidence that its loop is making progress.
+
+### Registration Checklist For A New Stem Tile
+
+A new stem tile is not complete until every one of these is updated. Each is
+a separate dispatch or list; none is derived from another.
+
+1. `src/tickoni/c_abi/shim/tk_<id>_stem.c` — the tile.
+2. `src/tickoni/c_abi/topo_run/tk_<id>_stem.h` — `extern` run tile, the
+   no-argument align/footprint wrappers, the `set_event_count` setter, the
+   `tk_get_<id>_run_*` accessor set, and any state accessors.
+3. `src/tickoni/c_abi/shim/topob.c` —
+   `tk_topob_tickoni_tile_scratch_requirements()` dispatch arm.
+4. `src/tickoni/c_abi/shim/tile_run.c` — `tile_is_<id>()` predicate and the
+   `tk_topo_run_tile_simple()` arm selecting `TK_<ID>_RUN`.
+5. `src/tickoni/c_abi/<id>.zig` — the FFI module: `extern fn` declarations,
+   thin Zig wrappers, and the identity/footprint unit tests.
+6. `src/tickoni/c_abi/c_abi.zig` and `build-lib/mod/modules.zig` — export and
+   wire that module.
+7. `build-lib/lib/shims.zig`, `build-lib/lib/topo_run.zig`,
+   `build-lib/lib/codec.zig` — add the `.c` file to the shim source lists.
+8. `build-lib/lanes/unit.zig` — register the FFI module as a unit-test root,
+   or its identity tests never run.
+9. `build-lib/lanes/integration.zig` — register the tile's integration test
+   file in the infra lane.
+10. `src/app/tickoni/tile_registry.zig` — `process_fn = null`, the counter
+    schema, and `in_cnt`/`out_cnt`.
+11. `src/tickoni/runtime/topo_build.zig` — the `setEventCount` call, if the
+    tile takes a runtime layout or gating parameter.
+
+That list is long because tile selection is open-coded twice in C
+(`topob.c`'s scratch-requirement dispatch and `tile_run.c`'s run-tile
+selection, both `strcmp` chains) alongside the Zig `tile_registry.zig` table
+that already exists for exactly this purpose, and because the shim source list
+is repeated in three build files. Reducing those to one source of truth is
+worthwhile work; it changes the registry's role, so it needs sign-off before
+it is attempted — see Engineering Principles in
+[`AGENTS.md`](../../AGENTS.md).
+
+### Test Standard
+
+A stem tile carries two test layers. Both are required; neither substitutes
+for the other.
+
+**Unit (`test-unit-tk`, via the tile's `c_abi/<id>.zig` module).** These are
+linkage and layout contracts, runnable without a pipeline:
+
+- tile identity: `name` equals the tile id; `run`, `scratch_align`,
+  `scratch_footprint`, `privileged_init`, `unprivileged_init` are non-null.
+- `scratch_align()` equals `alignof(ctx_t)` — the assertion that catches the
+  `FD_STEM_SCRATCH_ALIGN` substitution described above.
+- `scratch_footprint() % scratch_align() == 0`, so the next object's offset
+  does not depend on slack.
+- footprint determinism: the same layout parameter yields the same
+  reservation, a larger parameter reserves exactly the expected delta, and `0`
+  selects the documented default (`tkdedu`).
+- footprint parity with the `topob.c` dispatch
+  (`tk_topob_tickoni_tile_scratch_footprint("<id>")`), so the builder and the
+  tile cannot diverge.
+- any pure function the tile exports for parity checking — `tknorm`'s
+  `stable_event_hash_compute` against the Zig `stableEventHash`, field order
+  and seed included.
+
+**Integration (`test-integration-tk-infra`).** Real supervisor, real
+processes, real workspace. Beyond the baseline (all events flow, no tile
+crashes, CNC HALT stops the tile cleanly, sequential runs on one workspace),
+every stem tile carries these *contract regression* tests, which exist to fail
+if the callback split is ever undone:
+
+- **final-event-published, with `event_count = 1`.** The only event is the
+  final one, so a publish or commit moved back to `AFTER_CREDIT` fails
+  outright instead of losing one event in a thousand. Assert through the
+  downstream sink (`tkaudt` auditing the event proves the upstream tile
+  published it).
+- **exact counter equality, never an inequality.** `expectEqual(1,
+  metrics.duplicates)` with exactly one injected duplicate catches
+  double-counting; `expect(0 < duplicates)` does not.
+- **committed state equals its counter.** `tkaudt`'s record count must equal
+  `audited` exactly: both advance in `AFTER_FRAG`, so any drift means a
+  record was appended without its counter or a counter was bumped for a
+  fragment that produced no record.
+- **self-exit on event-count exhaustion**, asserted with no `stopProcess`
+  call before the assertion, so a clean self-exit (`.stopped`) is
+  distinguished from a tile still spinning.
+- **hash-chain shape** for a tile that chains: `prev_hash[0] == 0`,
+  `prev_hash[k] == record_hash[k-1]`, `seq[i] == i`, every `record_hash`
+  non-zero.
+
+Supporting discipline for these tests:
+
+- Read tile state only through the C accessors, with the scratch base from
+  `topoObjLaddr(topo, tile_obj_id)`, and read it **before** `stopProcess`,
+  which leaves every CNC join and detaches the workspace.
+- Take ports from `util.nextMetricPort()` and workspace names from
+  `util.nextWorkspaceName()`. The port helper probes each candidate because
+  the integration lane's binaries run sequentially with nearby pids and a
+  metric tile holds its port for its whole lifetime; handing out a bound port
+  surfaces as an unrelated `.crashed` tile.
+- Gate test-only injection on `runtime/test_build.zig`'s `enabled`, never on
+  `@import("builtin").is_test`. Process-mode tiles run inside the
+  `tickoni-supervisor` *executable*, where `is_test` is false, so
+  `is_test`-gated injection is silently dead in every process-mode test.
+- Describe injection as data, not as a boolean: `duplicate: ?DuplicateConfig`
+  (`{ offset, source }`) says which event duplicates which, which is what
+  lets the test assert an exact count. The replaced `inject_duplicate: bool`
+  hid that relationship in `syntheticPayment`.
+- A throwaway verification script is not a substitute. If a change seems to
+  need one, the system is missing a test — wire it to the right lane in
+  [`../execution/testing-tickoni.md`](../execution/testing-tickoni.md).
+
+**Not testable from the integration lane:** the overrun path itself. Reaching
+it requires a producer that violates `fd_stem` flow control. The guarantee
+rests on the callback contract and on the single commit point, not on a test,
+which is exactly why the split is stated as an invariant rather than left to
+review.
+
+### Known Deviations And Debt
+
+These are current-state facts about the three migrated tiles, recorded so they
+are not mistaken for the standard. None is a blocker for the migration; each
+needs a deliberate pass.
+
+- **`tkaudt` warns and drops when its record ring is full**
+  (`audit_count >= TKAUDT_AUDIT_CAPACITY`, 16384): `DURING_FRAG` logs
+  `FD_LOG_WARNING` and returns, so no record is written *and* `audited` stops
+  advancing, so `STK_EVENT_EXHAUSTED` never fires and the tile spins until
+  HALT. `tkdedu` in the same situation `FD_LOG_ERR`s and dies. For an
+  append-only audit chain, crash-only is the correct posture and
+  warn-and-drop is a fail-open on a resource bound; today's configured event
+  counts (10 000 default, 8 in tests) keep it latent. The two tiles must
+  agree, and the agreement should be fail-closed.
+- **`tkaudt` records are in-memory only.** The ring lives in tile scratch and
+  is never persisted; the append-only, hash-chained invariant holds for the
+  run, not across runs. Durable audit storage is a separate phase.
+- **`tknorm`'s `idle_ticks > 10000L` shutdown term is dead.** `idle_ticks` is
+  zeroed in `privileged_init` and never incremented, so the term can never
+  fire. Either increment it from a `DURING_HOUSEKEEPING`/`AFTER_CREDIT`
+  callback with a stated idle policy, or delete it — a shutdown condition
+  that cannot fire is worse than no condition, because it reads like one.
+- **Unused context fields.** `tile` is declared in `tknorm`/`tkdedu` and never
+  assigned (only `tkaudt` sets it). `tknorm`'s `output_chunk` is kept with a
+  comment about preserving the scratch layout, but the footprint is derived
+  from `sizeof(ctx_t)` by the same function the supervisor and every child
+  call, so removing the field changes the reservation consistently everywhere.
+  The stated reason does not hold.
+- **`tkdedu`'s `processed` is not exposed.** Its registry schema maps only
+  `app[0] = duplicates`, so the count that drives its shutdown gate is
+  invisible to the supervisor. Either publish it or document that the gate is
+  unobservable.
+- **Three parallel `set_event_count` globals** (`tkdedu_set_event_count`,
+  `tknorm_set_event_count`, `tkaudit_set_event_count`), identical in shape,
+  with only `tkdedu`'s affecting layout. This is the shared-value-with-one-
+  source-of-truth rule in `AGENTS.md` pointing at a single parameter-passing
+  mechanism.
+- **The `allow_shutdown` guard is pre-satisfied, so it never fires.** Both
+  boot paths set the flag before the harness call — `tile_main.zig`'s
+  `stemRun` for stem tiles, `tile_process.zig` for generic ones — and nothing
+  clears it, so `fd_topo_run_tile`'s "run loop returned" `FD_LOG_ERR` cannot
+  distinguish an intentional exit from an unexpected return out of the stem
+  loop. Each stem tile's trailing `tile->allow_shutdown = 1` is therefore
+  dead code, and the comments beside it in all three tiles describe harness
+  behavior (a reset before `run`) that does not exist. Whether the pre-set is
+  removed so the guard works again is an orchestration decision, not a
+  per-tile one.
+- **`tkdedu` dedupe is a linear scan** over `seen_count` entries per
+  fragment, i.e. O(n²) over a run. Correct and bounded, but not a throughput
+  design; a hash table is the obvious successor and changes no contract.
+- **Stale forward-looking plans.** Several plans written before the contract
+  still prescribe publishing in `AFTER_CREDIT`
+  (`plans/v2.10-s14-fd-stem-migration.md`,
+  `plans/v2.22-s5-fd-stem-migration.md`, `plans/v2.10-s14-tkdiag-fan-in.md`,
+  `plans/v2.10-s14-tkrepl-capsule-io.md`, and the story
+  `doc/strategy/roadmap/stories/v2.10-s14.md`). The contract wins; those
+  need a product-owned pass before `tkpoly`, `tkings`, `tkrepl`, or `tkdiag`
+  migrate. Tracked in
+  [`../execution/tile-delivery-status.md`](../execution/tile-delivery-status.md).
+- **`plans/v2.NN-sXX-tkaudt-stem-contract.md` overstates its verification.**
+  Its "Verification" item 1 claims a `_Static_assert` fails the build if
+  `tk_audit_ctx_t` grows; no such assert exists in `tk_audit_stem.c`. Its
+  "Files" entry also describes the test's `AuditContext` mirror gaining
+  `stage_valid`, which a later commit superseded by deleting the mirrors.
+  The code is correct; the plan's record of it is not.
+
+### Anti-Patterns
+
+- Committing anything in `DURING_FRAG` — a counter, a table write, a chain
+  advance, a publish.
+- Publishing in `AFTER_CREDIT` on a tile whose shutdown gate is its own
+  progress.
+- `STEM_BURST` smaller than the tile's real maximum publishes per iteration.
+- Wiring `fd_stem`'s generated `scratch_align`/`scratch_footprint` into the
+  `fd_topo_run_tile_t`.
+- Reading a layout parameter from the environment in `privileged_init`.
+- Restating a size, alignment, or offset in a second place instead of calling
+  the one function that owns it.
+- A Zig `extern struct` mirroring a C struct to read tile state.
+- Following a context-stored pointer from another process.
+- Entering another tile's generated `*_run`.
+- Asserting an inequality where the test knows the exact expected count.
+- Gating test-only code on `@import("builtin").is_test`.
 
 ## What Tickoni Reuses
 
