@@ -758,13 +758,6 @@ pub const Supervisor = struct {
                 argv_buf[3] = "--verbose";
                 argv_count = 4;
             }
-            // Pass event_count to the tkaudt stem tile so it can exit
-            // promptly when audited >= event_count (Phase 3.4).
-            if (rt.tile_ids.tkaudt.eql(tile.name)) {
-                var buf: [21]u8 = undefined;
-                const s = std.fmt.bufPrint(&buf, "{d}", .{config.event_count}) catch &buf;
-                try env.put("TKAUDT_EVENT_COUNT", s);
-            }
             const child = try std.process.spawn(io, .{
                 .argv = argv_buf[0..argv_count],
                 .environ_map = &env,
