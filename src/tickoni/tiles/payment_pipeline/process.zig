@@ -16,7 +16,7 @@
 /// instead of needing an explicit end-of-stream signal on the link.
 ///
 /// v2.14.S8.T2: these functions take a PaymentPipelineConfig by value
-/// instead of reading event_count/policy_limit_cents/inject_duplicate/
+/// instead of reading event_count/policy_limit_cents/duplicate/
 /// inject_malformed off a LaunchSpec — this file has no dependency on
 /// LaunchSpec's shape at all. The supervisor writes one shared config file
 /// per run (writeProcessConfig below); tile_registry.zig's process-mode
@@ -219,7 +219,7 @@ test "ProcessConfig round-trips through a file" {
         .pipeline = .{
             .event_count = 123,
             .policy_limit_cents = 45_600,
-            .inject_duplicate = true,
+            .duplicate = .{ .offset = 3, .source = 1 },
             .inject_malformed = true,
         },
         .stuck_tile = .{ .tile_idx = 2, .after_messages = 7, .sleep_ns = 1234 },
@@ -229,7 +229,12 @@ test "ProcessConfig round-trips through a file" {
     const read_back = try readProcessConfig(std.testing.io, tmp.dir, "payment_pipeline.config");
     try std.testing.expectEqual(@as(u64, 123), read_back.pipeline.event_count);
     try std.testing.expectEqual(@as(i64, 45_600), read_back.pipeline.policy_limit_cents);
-    try std.testing.expect(read_back.pipeline.inject_duplicate);
+    if (read_back.pipeline.duplicate) |dup| {
+        try std.testing.expectEqual(@as(u64, 3), dup.offset);
+        try std.testing.expectEqual(@as(u64, 1), dup.source);
+    } else {
+        try std.testing.expect(false);
+    }
     try std.testing.expect(read_back.pipeline.inject_malformed);
     try std.testing.expectEqual(@as(?u32, 2), if (read_back.stuck_tile) |hook| hook.tile_idx else null);
     try std.testing.expectEqual(@as(?u64, 7), if (read_back.stuck_tile) |hook| hook.after_messages else null);
