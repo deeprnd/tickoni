@@ -40,6 +40,11 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
+        // Duplicate injection is opt-in (ProcessPipelineConfig.duplicate
+        // defaults to null), so the duplicates == 1 expectation below has to
+        // request it explicitly: offset 3 reuses offset 1's idempotency_key
+        // and account_id, which gives them the same stableEventHash.
+        .duplicate = .{ .offset = 3, .source = 1 },
     });
 
     // Poll for the real completion signal (audited count reaches
@@ -90,9 +95,10 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
     try sup.stopProcess(std.testing.io);
 
     // Matches src/tickoni/tiles/payment_pipeline/runtime.zig's
-    // syntheticPayment for event_count=32 with default policy/injection
-    // config: offset 3 duplicates offset 1's idempotency key, offset 7
-    // exceeds the default policy_limit_cents. See the equivalent
+    // syntheticPayment for event_count=32 with the default policy limit and
+    // the duplicate injection requested above: offset 3 duplicates offset 1's
+    // idempotency key, offset 7 exceeds the default policy_limit_cents.
+    // 30 allowed + 1 denied + 1 duplicate = 32 audited. See the equivalent
     // thread-mode assertions in
     // src/app/tickoni/supervisor.zig's "Supervisor starts and stops
     // Phase 0 pipeline without crashes" test for the shared expectation
