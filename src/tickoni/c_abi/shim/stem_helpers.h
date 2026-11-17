@@ -25,11 +25,11 @@
       first, validate via stk_validate_frag, copy out of the input dcache
       into tile-local scratch, and compute only pure functions of that copy
       (hashes, framing verdicts).  No counters, no table/ring writes, no
-      stk_publish_progress, no STK_EVENT_EXHAUSTED, no fd_stem_publish.
+      stk_publish_counter, no STK_EVENT_EXHAUSTED, no fd_stem_publish.
 
    2. AFTER_FRAG commits.  It is the first callback reached after the overrun
       re-check, so it is the only point at which the frag is known intact.
-      State mutation, counters, stk_publish_progress, STK_EVENT_EXHAUSTED and
+      State mutation, counters, stk_publish_counter, STK_EVENT_EXHAUSTED and
       fd_stem_publish all belong here.
 
    3. AFTER_CREDIT is NOT defined unless the tile has frag-independent work
@@ -148,30 +148,31 @@ stk_find_cnc(fd_topo_t const * topo, ulong tile_id) {
             (ctx)->cnc = fd_topo_obj_laddr((fd_topo_t *)topo, _cnc_obj); \
     } while (0)
 
-/* ─── Progress publishing ───
+/* ─── Counter publishing ───
 
-   Publish a progress value to a CNC app slot.  Safe no-op if cnc is NULL.
-   Slot ownership per tile is declared in tile_registry.zig; pass the slot
-   index that registry assigns rather than hand-rolling an app[] write, so a
-   tile with more than one counter still goes through this helper.
+   Publish a tile counter to its CNC app slot.  Safe no-op if cnc is NULL.
+   Slot ownership per tile is declared in tile_registry.zig's
+   TileEntry.counters, and supervisor.zig reads each slot back through that
+   same schema — pass the index the registry assigns rather than
+   hand-rolling an app[] write.
+
+   There is deliberately no slot-0 convenience wrapper: slot 0 names a
+   different counter on every tile (produced for tkings, normalized for
+   tknorm, duplicates for tkdedu, audited for tkaudt), so each call site
+   states which slot it writes instead of leaving it implicit.
 
    Usage (in AFTER_FRAG — never DURING_FRAG; see the callback contract at
    the top of this header):
-     stk_publish_progress(ctx->cnc, ctx->audited);                   // app[0]
-     stk_publish_progress_slot(ctx->cnc, 1UL, ctx->invalid);         // app[1]
+     stk_publish_counter(ctx->cnc, 0UL, ctx->audited);               // app[0]
+     stk_publish_counter(ctx->cnc, 1UL, ctx->invalid);               // app[1]
 */
 #include "tango/cnc/fd_cnc.h"
 
 static inline void
-stk_publish_progress_slot(void * cnc, ulong slot, ulong value) {
+stk_publish_counter(void * cnc, ulong slot, ulong value) {
     if (!cnc) return;
     ulong * app = (ulong *)fd_cnc_app_laddr((fd_cnc_t *)cnc);
     if (app) app[slot] = value;
-}
-
-static inline void
-stk_publish_progress(void * cnc, ulong value) {
-    stk_publish_progress_slot(cnc, 0UL, value);
 }
 
 /* ─── DURING_FRAG validation preamble ───

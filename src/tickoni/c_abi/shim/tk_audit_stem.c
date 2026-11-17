@@ -413,7 +413,7 @@ tk_audit_after_frag( tk_audit_ctx_t *    ctx,
     STK_EVENT_EXHAUSTED(ctx, ctx->event_count, ctx->audited);
 
     /* Publish progress to CNC app[0] for supervisor snapshots. */
-    stk_publish_progress(ctx->cnc, ctx->audited);
+    stk_publish_counter(ctx->cnc, 0UL, ctx->audited);
 }
 
 /* ─── Run entry point ───
