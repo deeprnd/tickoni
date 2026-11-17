@@ -62,7 +62,7 @@ pub fn validateNotUsedPort(port: u16) bool {
 /// integration lane runs its test binaries sequentially
 /// (build-lib/lanes/integration.zig chains the run steps), consecutive
 /// binaries get nearby pids, and a single binary consumes one port per
-/// pipeline start — up to 12 in test_metric_tile_integration.zig.  Nearby
+/// pipeline start — up to 12 in test_tile_metric.zig.  Nearby
 /// seeds therefore produce OVERLAPPING ranges, and a candidate can still be
 /// held by a metric tile from an earlier binary (or sit in TIME_WAIT).
 ///
