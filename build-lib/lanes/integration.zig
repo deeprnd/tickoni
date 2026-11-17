@@ -81,7 +81,7 @@ pub fn strategy(
     if (register_infra) {
         // 1-7. Process-mode files share infra_imports.
         const infra_proc_files: []const []const u8 = &.{
-            "src/tickoni/test/integration/test_metric_tile_integration.zig",
+            "src/tickoni/test/integration/test_tile_metric.zig",
             "src/tickoni/test/integration/test_process_topology.zig",
             "src/tickoni/test/integration/test_process_pipeline.zig",
             "src/tickoni/test/integration/test_process_shutdown_reap.zig",
@@ -89,9 +89,9 @@ pub fn strategy(
             "src/tickoni/test/integration/test_process_fixture_parity.zig",
             "src/tickoni/test/integration/test_link_bounds.zig",
             "src/tickoni/test/integration/test_minimal_setup.zig",
-            "src/tickoni/test/integration/test_tkaudt_integration.zig",
-            "src/tickoni/test/integration/test_tknorm_integration.zig",
-            "src/tickoni/test/integration/test_dedu_stem_tile.zig",
+            "src/tickoni/test/integration/test_tile_tkaudt.zig",
+            "src/tickoni/test/integration/test_tile_tknorm.zig",
+            "src/tickoni/test/integration/test_tile_tkdedu.zig",
         };
 
         for (infra_proc_files) |path| {
