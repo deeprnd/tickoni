@@ -161,6 +161,47 @@ Tickoni change:
 
 If those answers are vague, do not add the code yet.
 
+### fd_stem Callback Contract
+
+Every Tickoni-authored `fd_stem` tile (`src/tickoni/c_abi/shim/tk_*_stem.c`)
+uses the same callback split. The split is not a style preference: `fd_stem`
+re-checks the input sequence number *after* `DURING_FRAG` returns
+(`fd_stem.c`, the `seq_test != seq_found` branch) and abandons the fragment
+when the producer overran the reader. `DURING_FRAG` therefore runs on data
+that may be torn, and anything it commits cannot be taken back.
+
+1. **`DURING_FRAG` stages, and nothing else.** Clear the staging-valid flag as
+   its first statement, validate the frag, copy it out of the input dcache
+   into tile-local scratch, and compute only pure functions of that copy
+   (hashes, framing verdicts). No counter increments, no table or ring-buffer
+   writes, no CNC progress publish, no shutdown gating, no
+   `fd_stem_publish`.
+
+2. **`AFTER_FRAG` commits.** It is the first callback `fd_stem` reaches after
+   the overrun re-check, so it is the only place a frag is known to be
+   intact. Everything observable happens here: state mutation (dedupe table
+   inserts, audit appends and hash-chain advances), counter increments,
+   `stk_publish_progress`, `STK_EVENT_EXHAUSTED`, and `fd_stem_publish`.
+
+3. **`AFTER_CREDIT` is not defined** unless the tile has work that is not
+   driven by an incoming fragment, such as a timer or a backlog drain. Do not
+   add it as a "safety" second publish path. `SHOULD_SHUTDOWN` is evaluated at
+   the *top* of the stem loop, before `AFTER_CREDIT`, so a tile that gates
+   shutdown on its own progress and publishes in `AFTER_CREDIT` never
+   publishes its final event — publish in `AFTER_FRAG` instead, which runs in
+   the same iteration as the `DURING_FRAG` that triggered the shutdown.
+
+4. **`STEM_BURST` must equal the maximum number of `fd_stem_publish` calls any
+   single loop iteration can make.** The credit gate reserves exactly
+   `STEM_BURST` slots per iteration; a second publish in the same iteration
+   spends a credit the tile does not hold and can overrun the downstream
+   consumer. With publish confined to `AFTER_FRAG`, `STEM_BURST (1UL)` is
+   correct by construction for a one-output tile.
+
+A sink tile (`out_cnt == 0`, such as `tkaudt`) follows the same contract; it
+simply ends `AFTER_FRAG` without a publish. The shape of the tile is decided
+by `out_cnt` alone, not by which callbacks it happens to define.
+
 ### Process Mode And CPU Placement
 
 For runtime hardening work, process isolation means separate OS processes, not
