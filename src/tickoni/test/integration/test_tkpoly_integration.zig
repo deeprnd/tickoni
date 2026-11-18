@@ -305,3 +305,100 @@ test "tkpoly_integration: positive event count naturally stops tkpoly after fina
     }
     try std.testing.expectEqual(rt.tile.TileState.stopped, sup.monitor()[3].state);
 }
+
+// P4.2 — Load the signed policy limit for the policy child.
+// N=4, limit=1001: offsets 0/1 (amount 1000/1001) allowed, offsets 2/3 (amount
+// 1002/1003) denied.  Proves the payment_pipeline.config handoff reaches a
+// real child process and that the signed limit setter is applied.
+test "tkpoly_integration: non-default limit in child allows 1000/1001 denies 1002/1003" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
+    const config = ProcessPipelineConfig{ .run_dir = run_dir, .event_count = 4, .policy_limit_cents = 1_001 };
+
+    var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
+    defer {
+        sup.stopProcess(std.testing.io) catch {};
+        sup.deinit();
+    }
+    try startPipeline(&sup, run_dir, config);
+    waitForAudit(&sup, config.event_count);
+
+    const metrics = sup.snapshotProcessMetrics();
+    try std.testing.expectEqual(@as(u64, 2), metrics.allowed);
+    try std.testing.expectEqual(@as(u64, 2), metrics.denied);
+    try std.testing.expectEqual(@as(u64, 4), metrics.audited);
+    try assertNoCrash(&sup);
+
+    // Verify exact outcome per offset: 0→allow, 1→allow, 2→deny, 3→deny.
+    try expectRecord(&sup, config, 0, c_abi.tkaudit.POLICY_ALLOW, tkpoly_id);
+    try expectRecord(&sup, config, 1, c_abi.tkaudit.POLICY_ALLOW, tkpoly_id);
+    try expectRecord(&sup, config, 2, c_abi.tkaudit.POLICY_DENY, tkpoly_id);
+    try expectRecord(&sup, config, 3, c_abi.tkaudit.POLICY_DENY, tkpoly_id);
+}
+
+// P4.4 — Prove configuration does not leak between runs.
+// Reuse one workspace name after clean teardown with limits 1001 and 999.
+// First run: 2 allowed/2 denied. Second run: 0 allowed/4 denied, with zero
+// carried counters or limit state.
+test "tkpoly_integration: configuration does not leak between runs" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
+    const workspace_name = "tkpay0"; // fixed workspace for both runs
+
+    // --- Run 1: limit=1001, N=4 → 2 allowed / 2 denied ---
+    const config1 = ProcessPipelineConfig{
+        .run_dir = run_dir,
+        .event_count = 4,
+        .policy_limit_cents = 1_001,
+        .workspace_name = workspace_name,
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = util.nextMetricPort(),
+    };
+
+    var sup1 = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
+    try sup1.startPaymentPipelineProcess(std.testing.io, config1);
+    waitForAudit(&sup1, config1.event_count);
+
+    const metrics1 = sup1.snapshotProcessMetrics();
+    try std.testing.expectEqual(@as(u64, 2), metrics1.allowed);
+    try std.testing.expectEqual(@as(u64, 2), metrics1.denied);
+    try std.testing.expectEqual(@as(u64, 4), metrics1.audited);
+    try assertNoCrash(&sup1);
+
+    // Full teardown: stop, deinit, clean up
+    sup1.stopProcess(std.testing.io) catch {};
+    sup1.deinit();
+
+    // --- Run 2: limit=999, N=4 → 0 allowed / 4 denied ---
+    // Reuse the same workspace name. The limit setter must be reset to 999,
+    // not carried over from the previous run's 1001.
+    const config2 = ProcessPipelineConfig{
+        .run_dir = run_dir,
+        .event_count = 4,
+        .policy_limit_cents = 999,
+        .workspace_name = workspace_name,
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .metric_port = util.nextMetricPort(),
+    };
+
+    var sup2 = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
+    try sup2.startPaymentPipelineProcess(std.testing.io, config2);
+    waitForAudit(&sup2, config2.event_count);
+
+    const metrics2 = sup2.snapshotProcessMetrics();
+    try std.testing.expectEqual(@as(u64, 0), metrics2.allowed);
+    try std.testing.expectEqual(@as(u64, 4), metrics2.denied);
+    try std.testing.expectEqual(@as(u64, 4), metrics2.audited);
+    try assertNoCrash(&sup2);
+
+    sup2.stopProcess(std.testing.io) catch {};
+    sup2.deinit();
+}
