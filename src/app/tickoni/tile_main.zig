@@ -16,6 +16,7 @@
 const std = @import("std");
 const rt = @import("runtime");
 const c_abi = @import("c_abi");
+const tiles = @import("tiles");
 const tile_registry = @import("tile_registry.zig");
 const logger = @import("logger");
 
@@ -102,6 +103,22 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
         std.debug.print("tile_main: tile {s} not found in rebuilt topology\n", .{id_slice});
         return 1;
     }
+    // tkpoly is the only stem tile with a behavior parameter outside
+    // TopologySpec: the signed policy limit lives in payment_pipeline.config,
+    // written by the supervisor next to topology.spec. Load it here, before
+    // the C harness runs — neither privileged_init nor a fragment callback
+    // may read a file. Fail closed: tk_policy_stem.c's privileged_init
+    // rejects an unconfigured limit rather than falling back to a default.
+    if (rt.tile_ids.tkpoly.eql(spec.tile_id)) {
+        loadPolicyLimit(io, &spec, topo_spec.event_count) catch |err| {
+            std.debug.print(
+                "tile_main: tkpoly policy limit handoff failed for tile {d}: {t}\n",
+                .{ spec.tile_idx, err },
+            );
+            return 1;
+        };
+    }
+
     std.debug.print("[tile-main] stemRun: topoFindTile ok, calling runTileSimple\n", .{});
     c_abi.topob.topoTileSetAllowShutdown(built.topo, tile_idx, true);
 
@@ -111,6 +128,40 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
     // this line is never reached and the crash output comes from the C side.
     std.debug.print("[tile-main] stemRun: runTileSimple returned\n", .{});
     return 0;
+}
+
+/// Reads the supervisor-written payment_pipeline.config beside this child's
+/// topology.spec and pushes its signed `policy_limit_cents` into
+/// tk_policy_stem.c through the C setter.
+///
+/// Requires the file and requires its pipeline event count to agree with the
+/// TopologySpec the same child rebuilt its topology from: a disagreement means
+/// the two halves of the handoff describe different runs, and the policy gate
+/// and the pipeline's event budget would diverge. There is no default-limit
+/// fallback — a financial limit this child could not read is a startup
+/// failure, not a value to guess.
+fn loadPolicyLimit(
+    io: std.Io,
+    spec: *const rt.launch_spec.LaunchSpec,
+    topology_event_count: u64,
+) !void {
+    var path_buf: [rt.launch_spec.shmem_path_cap + 32]u8 = undefined;
+    const path = try std.fmt.bufPrint(
+        &path_buf,
+        "{s}/payment_pipeline.config",
+        .{spec.shmemPath()},
+    );
+    // readProcessConfig owns the size/magic/version checks; this entrypoint
+    // does not re-decode the file.
+    const cfg = try tiles.process.readProcessConfig(io, std.Io.Dir.cwd(), path);
+    if (cfg.pipeline.event_count != topology_event_count) {
+        return error.PolicyConfigEventCountMismatch;
+    }
+    c_abi.tkpoly.setPolicyLimitCents(cfg.pipeline.policy_limit_cents);
+    std.debug.print(
+        "[tile-main] stemRun: tkpoly policy_limit_cents={d} event_count={d}\n",
+        .{ cfg.pipeline.policy_limit_cents, cfg.pipeline.event_count },
+    );
 }
 
 /// Dispatches the deterministic payment pipeline stage for this tile's
