@@ -118,6 +118,8 @@ fn expectRecord(
 }
 
 test "tkpoly_integration: equality at the signed limit allows" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -142,6 +144,8 @@ test "tkpoly_integration: equality at the signed limit allows" {
 }
 
 test "tkpoly_integration: signed amount above limit denies" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -165,6 +169,8 @@ test "tkpoly_integration: signed amount above limit denies" {
 }
 
 test "tkpoly_integration: malformed decision has precedence and keeps tknorm attribution" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -194,6 +200,8 @@ test "tkpoly_integration: malformed decision has precedence and keeps tknorm att
 }
 
 test "tkpoly_integration: duplicate has precedence over an amount denial" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -224,6 +232,8 @@ test "tkpoly_integration: duplicate has precedence over an amount denial" {
 }
 
 test "tkpoly_integration: combined branch evidence preserves sequence and chain" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -269,6 +279,8 @@ test "tkpoly_integration: combined branch evidence preserves sequence and chain"
 // tkpoly is routed through its stem descriptor, the assertion must pass
 // unchanged.
 test "tkpoly_integration: positive event count naturally stops tkpoly after final publication" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
