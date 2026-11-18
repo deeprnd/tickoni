@@ -120,16 +120,18 @@ tkpoly_set_policy_limit_cents( int64_t policy_limit_cents ) {
     tkpoly_policy_limit_configured = 1;
 }
 
-/* ─── Pure policy helper ─── */
+/* ─── Pure policy helper ───
+ *
+ * Branch precedence: malformed > duplicate > high-amount.
+ * High-amount check: signed comparison amount_cents > policy_limit_cents,
+ * matching the Zig decide() function exactly.
+ */
 
 uint8_t
 tkpoly_policy_helper( uint8_t  decision,
                       int      is_duplicate,
                       int64_t  amount_cents,
                       int64_t  policy_limit_cents ) {
-    /* Preserve the existing Zig branch order and signed comparison exactly.
-       In particular, a negative amount is not normalized and INT64_MIN never
-       flows through a negation. */
     if (decision == POLICY_MALFORMED_DROP)
         return POLICY_MALFORMED_DROP;
     if (is_duplicate)
