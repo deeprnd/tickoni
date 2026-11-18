@@ -189,8 +189,7 @@ test "tkpoly scratch footprint — fixed across behavior configuration" {
 // P2.4 — Pure policy helper unit tests.
 //
 // Branch precedence: malformed > duplicate > high-amount.
-// High-amount check: abs(amount) <= limit (signed comparison).
-// Negative limit: deny all positive amounts.
+// High-amount check: signed comparison amount_cents > limit.
 // ---------------------------------------------------------------------------
 
 // Import the C enum constants (translate-c from audit_schema.h).
@@ -226,14 +225,14 @@ test "tkpoly policy helper — limit-plus-one => DENY" {
     try std.testing.expectEqual(POLICY_DENY, got);
 }
 
-test "tkpoly policy helper — negative amount => abs(amount) checked" {
-    // -100 cents, limit 50 → abs(-100) = 100 > 50 → DENY
+test "tkpoly policy helper — negative amount => signed comparison" {
+    // -100 > 50 is false (negative < positive) → ALLOW
     const got = policyOutcome(POLICY_ALLOW, false, -100, 50);
-    try std.testing.expectEqual(POLICY_DENY, got);
+    try std.testing.expectEqual(POLICY_ALLOW, got);
 }
 
 test "tkpoly policy helper — negative amount within limit => ALLOW" {
-    // -30 cents, limit 50 → abs(-30) = 30 <= 50 → ALLOW
+    // -30 > 50 is false → ALLOW
     const got = policyOutcome(POLICY_ALLOW, false, -30, 50);
     try std.testing.expectEqual(POLICY_ALLOW, got);
 }
@@ -243,10 +242,10 @@ test "tkpoly policy helper — negative limit => deny positive amounts" {
     try std.testing.expectEqual(POLICY_DENY, got);
 }
 
-test "tkpoly policy helper — negative limit + zero amount => ALLOW" {
-    // Negative limit with amount 0: abs(0)=0, limit<0, amount=0 not >0 → ALLOW
+test "tkpoly policy helper — negative limit + zero amount => DENY" {
+    // 0 > -1 is true → DENY (signed comparison)
     const got = policyOutcome(POLICY_ALLOW, false, 0, -1);
-    try std.testing.expectEqual(POLICY_ALLOW, got);
+    try std.testing.expectEqual(POLICY_DENY, got);
 }
 
 test "tkpoly policy helper — signed extrema i64::MIN amount (overflow-safe)" {
@@ -284,8 +283,8 @@ test "tkpoly policy helper — duplicate overrides deny => DUPLICATE_DROP" {
 
 /// Pure Zig implementation of the tkpoly outcome chain.
 /// Branch precedence: malformed > duplicate > high-amount.
-/// High-amount check: abs(amount) <= limit (signed comparison).
-/// Negative limit: deny all positive amounts.
+/// High-amount check: signed comparison amount_cents > limit,
+/// matching the C helper exactly.
 pub fn policyOutcomeZig(
     incoming_decision: u8,
     is_duplicate: bool,
@@ -296,16 +295,7 @@ pub fn policyOutcomeZig(
     if (incoming_decision == POLICY_MALFORMED_DROP) return POLICY_MALFORMED_DROP;
     if (is_duplicate) return POLICY_DUPLICATE_DROP;
 
-    // Absolute value with overflow-safe handling.
-    var abs_amount: i64 = amount_cents;
-    if (abs_amount < 0) abs_amount = -abs_amount;
-
-    if (policy_limit_cents >= 0) {
-        if (abs_amount > policy_limit_cents) return POLICY_DENY;
-    } else {
-        // Negative limit: deny all positive amounts.
-        if (abs_amount > 0) return POLICY_DENY;
-    }
+    if (amount_cents > policy_limit_cents) return POLICY_DENY;
     return POLICY_ALLOW;
 }
 
