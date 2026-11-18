@@ -550,6 +550,17 @@ pub fn strategy(
     });
     run_count += 1;
 
+    // === tkpoly_bounded.zig tests (P5.1 — bounded tile context) ===
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tkpoly-bounded",
+        .source_file = "src/tickoni/tiles/policy/tkpoly_bounded.zig",
+        .imports = &.{
+            .{ .name = "c_abi", .module = shared.c_abi },
+        },
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
     // Top-level step: compile and run all TK unit tests sequentially.
     // Uses shims.addPlainTestRunSeries which avoids Zig 0.17 protocol-mode.
     const test_unit_tk_run = shims.addPlainTestRunSeries(b, run_sequence[0..run_count]);
