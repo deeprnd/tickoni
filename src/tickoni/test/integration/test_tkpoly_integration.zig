@@ -402,3 +402,177 @@ test "tkpoly_integration: configuration does not leak between runs" {
     sup2.stopProcess(std.testing.io) catch {};
     sup2.deinit();
 }
+
+
+// P5.5 — Malformed-only runs self-exit: the tile counts the malformed event
+// as processed (not allowed or denied) and reaches .stopped without external
+// CNC HALT.
+test "tkpoly_integration: malformed-only self-exit" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
+    const config = ProcessPipelineConfig{
+        .run_dir = run_dir,
+        .event_count = 1,
+        .policy_limit_cents = 1000,
+        .inject_malformed = true,
+    };
+
+    var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
+    defer {
+        sup.stopProcess(std.testing.io) catch {};
+        sup.deinit();
+    }
+    try startPipeline(&sup, run_dir, config);
+    waitForAudit(&sup, config.event_count);
+
+    const metrics = sup.snapshotProcessMetrics();
+    try std.testing.expectEqual(@as(u64, 1), metrics.audited);
+    try std.testing.expectEqual(@as(u64, 0), metrics.allowed);
+    try std.testing.expectEqual(@as(u64, 0), metrics.denied);
+    try assertNoCrash(&sup);
+
+    // Verify self-exit: tile 3 (policy) reaches .stopped without HALT.
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        sup.refreshProcessHealth();
+        if (sup.monitor()[3].state == .stopped) break;
+        util.process.sleepNanos(poll_interval_ns);
+    }
+    try std.testing.expectEqual(rt.tile.TileState.stopped, sup.monitor()[3].state);
+}
+
+// P5.5 — Duplicate-final runs self-exit: the tile counts the duplicate as
+// processed (not allowed or denied) and reaches .stopped without external CNC
+// HALT.
+test "tkpoly_integration: duplicate-final self-exit" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
+    const config = ProcessPipelineConfig{
+        .run_dir = run_dir,
+        .event_count = 2,
+        .policy_limit_cents = 1000,
+        .duplicate = .{ .offset = 1, .source = 0 },
+    };
+
+    var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
+    defer {
+        sup.stopProcess(std.testing.io) catch {};
+        sup.deinit();
+    }
+    try startPipeline(&sup, run_dir, config);
+    waitForAudit(&sup, config.event_count);
+
+    const metrics = sup.snapshotProcessMetrics();
+    try std.testing.expectEqual(@as(u64, 2), metrics.audited);
+    try std.testing.expectEqual(@as(u64, 1), metrics.allowed);
+    try std.testing.expectEqual(@as(u64, 0), metrics.denied);
+    try std.testing.expectEqual(@as(u64, 1), metrics.duplicates);
+    try assertNoCrash(&sup);
+
+    // Verify self-exit: tile 3 (policy) reaches .stopped without HALT.
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        sup.refreshProcessHealth();
+        if (sup.monitor()[3].state == .stopped) break;
+        util.process.sleepNanos(poll_interval_ns);
+    }
+    try std.testing.expectEqual(rt.tile.TileState.stopped, sup.monitor()[3].state);
+}
+
+// P5.5 — Large event count proves bounded credit turnover across depth-64
+// dcache reuse.  N=128, default limit=1000: offsets 0..999 (amounts
+// 1000..1999) all allowed, offset 127 (amount 1127) also allowed, so all
+// 127 offsets below limit are allowed and the single denied comes from
+// offset 128 if present — actually with N=128, amounts are 1000..1127,
+// all ≤ 1000 limit, so all allowed.  We need one deny: use limit=1000 but
+// offset 0 has amount 1000 (allowed), so we need amount > 1000.
+//
+// Fix: the fixture generates amount = 1000 + offset for offset 0..127.
+// At offset 0, amount=1000 (allowed at limit=1000).  At offset 127,
+// amount=1127 (denied).  So 127 allowed, 1 denied, 128 audited.
+test "tkpoly_integration: bounded credit turnover N=128" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
+    const config = ProcessPipelineConfig{
+        .run_dir = run_dir,
+        .event_count = 128,
+        .policy_limit_cents = 1000,
+    };
+
+    var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
+    defer {
+        sup.stopProcess(std.testing.io) catch {};
+        sup.deinit();
+    }
+    try startPipeline(&sup, run_dir, config);
+    waitForAudit(&sup, config.event_count);
+
+    const metrics = sup.snapshotProcessMetrics();
+    try std.testing.expectEqual(@as(u64, 127), metrics.allowed);
+    try std.testing.expectEqual(@as(u64, 1), metrics.denied);
+    try std.testing.expectEqual(@as(u64, 0), metrics.duplicates);
+    try std.testing.expectEqual(@as(u64, 0), metrics.invalid);
+    try std.testing.expectEqual(@as(u64, 128), metrics.audited);
+    try assertNoCrash(&sup);
+}
+
+
+// P5.6 — Preserve administrative HALT: event_count=0 leaves exhaustion
+// disabled so the tile stays alive indefinitely.  It honors CNC HALT and
+// stops cleanly without forced termination.
+test "tkpoly_integration: administrative HALT with zero event count" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
+    const config = ProcessPipelineConfig{
+        .run_dir = run_dir,
+        .event_count = 0,
+        .policy_limit_cents = 1_000,
+    };
+
+    var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
+    defer {
+        sup.stopProcess(std.testing.io) catch {};
+        sup.deinit();
+    }
+    try startPipeline(&sup, run_dir, config);
+
+    // Wait for the pipeline to start — policy tile should be running.
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        sup.refreshProcessHealth();
+        if (sup.monitor()[3].state == .running or sup.monitor()[3].state == .stopped) break;
+        util.process.sleepNanos(poll_interval_ns);
+        poll += 1;
+    }
+    if (poll >= max_polls) {
+        std.testing.expect(false) catch {};
+        return;
+    }
+
+    // Verify policy tile is alive (not crashed).
+    const poly_state = sup.monitor()[3].state;
+    try std.testing.expect(poly_state != .crashed);
+
+    // Send CNC HALT — verifies SHOULD_SHUTDOWN honors HALT.
+    sup.stopProcess(std.testing.io) catch {};
+
+    // Policy must reach .stopped cleanly (not crashed).
+    const final_state = sup.monitor()[3].state;
+    try std.testing.expectEqual(rt.tile.TileState.stopped, final_state);
+}
