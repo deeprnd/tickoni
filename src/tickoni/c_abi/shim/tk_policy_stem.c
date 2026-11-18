@@ -55,6 +55,9 @@ typedef struct {
     /* Workspace pointer for input dcache reads */
     void *wksp;
 
+    /* Input dcache depth (chunk bounds: valid range [0, in_depth)) */
+    ulong in_depth;
+
     /* Explicit behavior configuration copied at initialization. */
     int64_t policy_limit_cents;
 
@@ -185,6 +188,7 @@ tkpoly_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     ctx->cnc = NULL;
     ctx->event_count = 0;
     ctx->input_exhausted = 0;
+    ctx->in_depth = 0;
     if (FD_UNLIKELY(!tkpoly_policy_limit_configured))
         FD_LOG_ERR(( "tkpoly: policy limit was not configured" ));
     ctx->policy_limit_cents = tkpoly_policy_limit_param;
@@ -195,6 +199,11 @@ tkpoly_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     ctx->wksp = NULL;
 
     ctx->wksp = stk_derive_wksp(topo, tile, 0);
+
+    /* Resolve input dcache depth for chunk bounds checking in during_frag.
+       The depth field is on the link itself, shared by mcache and dcache. */
+    fd_topo_link_t const * in_link = &topo->links[tile->in_link_id[0]];
+    ctx->in_depth = in_link->depth;
 
     ctx->event_count = tkpoly_event_count_param;
 
@@ -261,6 +270,13 @@ tkpoly_during_frag( tkpoly_ctx_t * ctx,
 
     if (!stk_validate_frag(sz, PAYMENT_MSG_SIZE, ctx->wksp))
         return;
+
+    /* Chunk bounds: must be [0, in_depth).  Prevents out-of-bounds reads
+       from the input dcache when fd_stem delivers a corrupted or replayed
+       chunk index. */
+    if (FD_UNLIKELY(chunk >= ctx->in_depth))
+        return;
+
     PaymentMessage const * msg_in = stk_chunk_to_gaddr(ctx->wksp, chunk);
 
     /* Stage the input message */
