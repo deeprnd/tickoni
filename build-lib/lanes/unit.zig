@@ -25,7 +25,7 @@ pub fn strategy(
     const int_mods = factory.ModuleFactory.init(b, shared, tm, target, optimize).createIntModules(null);
 
     // Collect all compile steps for sequential run.
-    var run_sequence: [48]*std.Build.Step.Compile = undefined;
+    var run_sequence: [50]*std.Build.Step.Compile = undefined;
     var run_count: usize = 0;
 
     const tb = lane.TestBuilder{
@@ -578,6 +578,33 @@ pub fn strategy(
         // Create executable from the static library (re-exports the main)
         const test_exe = b.addExecutable(.{
             .name = "test-tkpoly-during-frag",
+            .root_module = test_lib.root_module,
+        });
+
+        run_sequence[run_count] = test_exe;
+        run_count += 1;
+    }
+
+    // === P6.1 dispatcher identity test ===
+    // C test that proves TK_POLICY_RUN resolves to a real policy tile
+    // descriptor: name == TILE_ID_TKPOLY, privileged_init != NULL,
+    // run != NULL. Links only tk_policy_stem.c (no topob.c or other shim deps).
+    {
+        const test_lib = codec.addTickoniShimLibrary(b, target, optimize,
+            "test-tile-dispatcher-lib", &.{
+            "src/tickoni/test/unit/test_tile_dispatcher.c",
+            "src/tickoni/test/unit/test_tile_dispatcher_stub.c",
+            "src/tickoni/c_abi/shim/tk_policy_stem.c",
+        });
+        test_lib.root_module.addIncludePath(b.path("src/tickoni/c_abi/shim"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/src"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/firedancer"));
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_disco.a", .{fd_lib_dir}) });
+
+        const test_exe = b.addExecutable(.{
+            .name = "test-tile-dispatcher",
             .root_module = test_lib.root_module,
         });
 
