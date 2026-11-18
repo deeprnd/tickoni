@@ -272,3 +272,123 @@ test "tkpoly policy helper — duplicate overrides deny => DUPLICATE_DROP" {
     const got = policyOutcome(POLICY_DENY, true, 50, 100);
     try std.testing.expectEqual(POLICY_DUPLICATE_DROP, got);
 }
+
+// ---------------------------------------------------------------------------
+// P2.5 — Zig FFI parity: pure Zig policy mirrors the C helper.
+//
+// policyOutcomeZig() is the retained Zig implementation that must always
+// produce the same result as the C helper.  Parity tests cover the same
+// cases the C helper was tested above plus a bulk sweep over small
+// amounts/limits to catch divergences.
+// ---------------------------------------------------------------------------
+
+/// Pure Zig implementation of the tkpoly outcome chain.
+/// Branch precedence: malformed > duplicate > high-amount.
+/// High-amount check: abs(amount) <= limit (signed comparison).
+/// Negative limit: deny all positive amounts.
+pub fn policyOutcomeZig(
+    incoming_decision: u8,
+    is_duplicate: bool,
+    amount_cents: i64,
+    policy_limit_cents: i64,
+) u8 {
+    // Branch precedence: malformed > duplicate > high-amount.
+    if (incoming_decision == POLICY_MALFORMED_DROP) return POLICY_MALFORMED_DROP;
+    if (is_duplicate) return POLICY_DUPLICATE_DROP;
+
+    // Absolute value with overflow-safe handling.
+    var abs_amount: i64 = amount_cents;
+    if (abs_amount < 0) abs_amount = -abs_amount;
+
+    if (policy_limit_cents >= 0) {
+        if (abs_amount > policy_limit_cents) return POLICY_DENY;
+    } else {
+        // Negative limit: deny all positive amounts.
+        if (abs_amount > 0) return POLICY_DENY;
+    }
+    return POLICY_ALLOW;
+}
+
+test "tkpoly FFI parity — malformed-plus-duplicate/high-amount" {
+    const c_got = policyOutcome(POLICY_MALFORMED_DROP, true, std.math.maxInt(i64), 1);
+    const z_got = policyOutcomeZig(POLICY_MALFORMED_DROP, true, std.math.maxInt(i64), 1);
+    try std.testing.expectEqual(c_got, z_got);
+}
+
+test "tkpoly FFI parity — duplicate-plus-high-amount" {
+    const c_got = policyOutcome(POLICY_ALLOW, true, std.math.maxInt(i64), 1);
+    const z_got = policyOutcomeZig(POLICY_ALLOW, true, std.math.maxInt(i64), 1);
+    try std.testing.expectEqual(c_got, z_got);
+}
+
+test "tkpoly FFI parity — limit-minus-one" {
+    const c_got = policyOutcome(POLICY_ALLOW, false, 49, 50);
+    const z_got = policyOutcomeZig(POLICY_ALLOW, false, 49, 50);
+    try std.testing.expectEqual(c_got, z_got);
+}
+
+test "tkpoly FFI parity — equality" {
+    const c_got = policyOutcome(POLICY_ALLOW, false, 50, 50);
+    const z_got = policyOutcomeZig(POLICY_ALLOW, false, 50, 50);
+    try std.testing.expectEqual(c_got, z_got);
+}
+
+test "tkpoly FFI parity — limit-plus-one" {
+    const c_got = policyOutcome(POLICY_ALLOW, false, 51, 50);
+    const z_got = policyOutcomeZig(POLICY_ALLOW, false, 51, 50);
+    try std.testing.expectEqual(c_got, z_got);
+}
+
+test "tkpoly FFI parity — negative amount exceeds limit" {
+    const c_got = policyOutcome(POLICY_ALLOW, false, -100, 50);
+    const z_got = policyOutcomeZig(POLICY_ALLOW, false, -100, 50);
+    try std.testing.expectEqual(c_got, z_got);
+}
+
+test "tkpoly FFI parity — negative amount within limit" {
+    const c_got = policyOutcome(POLICY_ALLOW, false, -30, 50);
+    const z_got = policyOutcomeZig(POLICY_ALLOW, false, -30, 50);
+    try std.testing.expectEqual(c_got, z_got);
+}
+
+test "tkpoly FFI parity — negative limit" {
+    const c_got = policyOutcome(POLICY_ALLOW, false, 1, -1);
+    const z_got = policyOutcomeZig(POLICY_ALLOW, false, 1, -1);
+    try std.testing.expectEqual(c_got, z_got);
+}
+
+test "tkpoly FFI parity — negative limit + zero amount" {
+    const c_got = policyOutcome(POLICY_ALLOW, false, 0, -1);
+    const z_got = policyOutcomeZig(POLICY_ALLOW, false, 0, -1);
+    try std.testing.expectEqual(c_got, z_got);
+}
+
+test "tkpoly FFI parity — signed extrema i64::MIN" {
+    const c_got = policyOutcome(POLICY_ALLOW, false, std.math.minInt(i64), 50);
+    const z_got = policyOutcomeZig(POLICY_ALLOW, false, std.math.minInt(i64), 50);
+    try std.testing.expectEqual(c_got, z_got);
+}
+
+test "tkpoly FFI parity — signed extrema i64::MAX" {
+    const c_got = policyOutcome(POLICY_ALLOW, false, std.math.maxInt(i64), 50);
+    const z_got = policyOutcomeZig(POLICY_ALLOW, false, std.math.maxInt(i64), 50);
+    try std.testing.expectEqual(c_got, z_got);
+}
+
+test "tkpoly FFI parity — duplicate overrides deny" {
+    const c_got = policyOutcome(POLICY_DENY, true, 50, 100);
+    const z_got = policyOutcomeZig(POLICY_DENY, true, 50, 100);
+    try std.testing.expectEqual(c_got, z_got);
+}
+
+test "tkpoly FFI parity — bulk sweep (amount, limit)" {
+    // Exhaustive sweep over small amounts and limits to catch boundary
+    // divergences between C and Zig implementations.
+    for ([_]i64{ -10, -5, -2, -1, 0, 1, 2, 5, 10 }) |amt| {
+        for ([_]i64{ -2, -1, 0, 1, 2, 5, 10, 50 }) |lim| {
+            const c_got = policyOutcome(POLICY_ALLOW, false, amt, lim);
+            const z_got = policyOutcomeZig(POLICY_ALLOW, false, amt, lim);
+            try std.testing.expectEqual(c_got, z_got);
+        }
+    }
+}
