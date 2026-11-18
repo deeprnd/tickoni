@@ -39,10 +39,21 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
     test_build_opts.addOption(bool, "TK_TEST_BUILD", build_tests);
     const test_build_opts_mod = test_build_opts.createModule();
 
+    // audit_mod must be created before c_abi_mod because c_abi imports it.
+    const audit_c_step = b.addTranslateC(.{
+        .root_source_file = b.path("src/tickoni/c_abi/shim/audit_schema.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const audit_mod = audit_c_step.createModule();
+
     const c_abi_mod = b.addModule("c_abi", .{
         .root_source_file = b.path("src/tickoni/c_abi/c_abi.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{
+            .{ .name = "audit_mod", .module = audit_mod },
+        },
     });
     const util_mod = b.addModule("util", .{
         .root_source_file = b.path("src/tickoni/util/util.zig"),
@@ -80,12 +91,6 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
             .{ .name = "runtime", .module = runtime_mod },
         },
     });
-    const audit_c_step = b.addTranslateC(.{
-        .root_source_file = b.path("src/tickoni/c_abi/shim/audit_schema.h"),
-        .target = target,
-        .optimize = optimize,
-    });
-    const audit_mod = audit_c_step.createModule();
     const audit_consts_mod = b.addModule("audit_consts", .{
         .root_source_file = b.path("src/tickoni/codec/audit/audit_consts.zig"),
         .target = target,
@@ -128,7 +133,8 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         },
     });
     // Wire c_abi_audit as an import of c_abi so c_abi.zig can do
-    // `pub const tkaudit = @import("c_abi_audit");`.
+    // `pub const tkaudit = @import("c_abi_audit");` and tkpoly.zig
+    // can do `const audit_mod = @import("audit_mod");`.
     c_abi_mod.addImport("c_abi_audit", c_abi_audit_mod);
     const audit_mod_s = b.createModule(.{
         .root_source_file = b.path("src/tickoni/schema/audit/mod.zig"),

@@ -340,10 +340,14 @@ pub fn strategy(
 
     // c_abi/tkpoly.zig — identity + scratch footprint unit tests for the policy
     // stem shim.  Needs firedancer linkage for fd_topo_run_tile_t, and topo_run
-    // linkage for the TK_POLICY_RUN descriptor.
+    // linkage for the TK_POLICY_RUN descriptor.  Also needs audit_mod for the
+    // C enum constants used by the policy helper tests.
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-tkpoly-identity",
         .source_file = "src/tickoni/c_abi/tkpoly.zig",
+        .imports = &.{
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+        },
         .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
     });
     run_count += 1;
