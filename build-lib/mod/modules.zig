@@ -28,6 +28,7 @@ pub const Shared = struct {
     portfolio: *std.Build.Module,
     tiles: *std.Build.Module,
     tile_registry: *std.Build.Module,
+    tkpoly_bounded: *std.Build.Module,
 };
 
 pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, zig_version: []const u8, build_tests: bool) Shared {
@@ -335,6 +336,16 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         },
     });
 
+    // Bounded tile context for tkpoly — P5.1 stem tile migration.
+    const tkpoly_bounded_mod = b.addModule("tkpoly_bounded", .{
+        .root_source_file = b.path("src/tickoni/tiles/policy/tkpoly_bounded.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "c_abi", .module = c_abi_mod },
+        },
+    });
+
     return Shared{
         .c_abi = c_abi_mod,
         .util = util_mod,
@@ -342,6 +353,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .runtime = runtime_mod,
         .topologies = topologies_named_mod,
         .tile_registry = tile_registry_mod,
+        .tkpoly_bounded = tkpoly_bounded_mod,
         .audit_schema = audit_schema_mod,
         .audit_consts = audit_consts_mod,
         .audit_mod = audit_mod,
