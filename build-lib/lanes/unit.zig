@@ -561,6 +561,30 @@ pub fn strategy(
     });
     run_count += 1;
 
+    // === tkpoly DURING_FRAG unit test (P5.2 — staging validation) ===
+    // C test that exercises DURING_FRAG: size validation, chunk bounds,
+    // and the invariant that invalid transport changes no counters/state.
+    // Uses a static library + executable pattern to avoid Zig root-module
+    // initialization issues with bare addExecutable(C-file).
+    {
+        const test_lib = codec.addTickoniShimLibrary(b, target, optimize,
+            "test-tkpoly-during-frag-lib", &.{"src/tickoni/test/unit/test_tkpoly_during_frag.c"});
+        test_lib.root_module.addIncludePath(b.path("src/tickoni/c_abi/shim"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/src"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/firedancer"));
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
+
+        // Create executable from the static library (re-exports the main)
+        const test_exe = b.addExecutable(.{
+            .name = "test-tkpoly-during-frag",
+            .root_module = test_lib.root_module,
+        });
+
+        run_sequence[run_count] = test_exe;
+        run_count += 1;
+    }
+
     // Top-level step: compile and run all TK unit tests sequentially.
     // Uses shims.addPlainTestRunSeries which avoids Zig 0.17 protocol-mode.
     const test_unit_tk_run = shims.addPlainTestRunSeries(b, run_sequence[0..run_count]);
