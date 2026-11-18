@@ -532,6 +532,24 @@ pub fn strategy(
     });
     run_count += 1;
 
+    // === tile_main.zig tests (P4.2/P4.3 — config handoff) ===
+    // tile_main.zig — tests for loadPolicyLimit (P4.3) and the tkpoly policy
+    // limit handoff path (P4.2). Needs firedancer linkage for topo_build,
+    // topo_run, boot, and the C ABI tkpoly setter.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tile-main",
+        .source_file = "src/app/tickoni/tile_main.zig",
+        .imports = &.{
+            .{ .name = "runtime", .module = shared.runtime },
+            .{ .name = "tiles", .module = shared.tiles },
+            .{ .name = "c_abi", .module = shared.c_abi },
+            .{ .name = "util", .module = shared.util },
+            .{ .name = "logger", .module = shared.logger },
+        },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
     // Top-level step: compile and run all TK unit tests sequentially.
     // Uses shims.addPlainTestRunSeries which avoids Zig 0.17 protocol-mode.
     const test_unit_tk_run = shims.addPlainTestRunSeries(b, run_sequence[0..run_count]);
