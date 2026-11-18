@@ -1,10 +1,17 @@
 /* tk_policy_stem.c — Stem fd_stem tile for tkpoly.
  *
- * Phase 2 owns the context layout, descriptor ABI, and pure policy helper.
- * Callbacks (DURING_FRAG / AFTER_FRAG) and init functions are added in
- * Task 5 when the full implementation is ready.
+ * Follows the fd_stem callback contract in stem_helpers.h:
+ * - DURING_FRAG: validate framing and copy the PaymentMessage out of the
+ *   input dcache into the staged copy. Stages only — no decision, no
+ *   counters, no progress, no publish.
+ * - AFTER_FRAG: increment hops, apply the preserved branch order
+ *   (malformed > duplicate > high-amount, signed), stamp tkpoly attribution
+ *   for owned decisions, publish once to the precomputed output chunk, bump
+ *   allowed/denied and processed, publish both CNC slots, then apply the
+ *   event gate.
+ * - AFTER_CREDIT: not defined — tkpoly has no fragment-independent work.
+ * - SHOULD_SHUTDOWN: event_count exhaustion + CNC HALT.
  *
- * Follows the fd_stem callback contract in stem_helpers.h.
  * Uses stem_helpers.h for shared boilerplate.
  */
 
@@ -161,7 +168,7 @@ tkpolicy_ctx_denied( void * scratch ) {
     return ctx->denied;
 }
 
-/* ─── Callbacks (minimal stubs — full impl in Task 5) ─── */
+/* ─── Callbacks ─── */
 
 static void
 tkpoly_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
@@ -203,10 +210,29 @@ tkpoly_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     tkpoly_ctx_t * ctx = STK_GET_CTX(tkpoly_ctx_t, scratch, TKPOLY_CTX_ALIGN);
 
     STK_UNPRIV_INIT(topo, tile, ctx);
+    if (FD_UNLIKELY(!ctx->cnc))
+        FD_LOG_ERR(( "tkpoly: CNC object not found for tile %lu", tile->id ));
 
-    /* Compute output dcache workspace fields */
+    /* Cardinality first: tkpoly consumes tkdedu's output and produces
+       tkaudt's input, so anything other than exactly one link each way is a
+       topology the policy contract does not describe.  Validate before
+       indexing the link arrays. */
+    if (FD_UNLIKELY(tile->in_cnt != 1UL))
+        FD_LOG_ERR(( "tkpoly: expected exactly one input link, found %lu", tile->in_cnt ));
     if (FD_UNLIKELY(tile->out_cnt != 1UL))
         FD_LOG_ERR(( "tkpoly: expected exactly one output link, found %lu", tile->out_cnt ));
+
+    /* The input workspace was derived in privileged_init from the input
+       mcache; a missing join there means every fragment would be silently
+       rejected by stk_validate_frag, so fail startup instead. */
+    if (FD_UNLIKELY(!ctx->wksp))
+        FD_LOG_ERR(( "tkpoly: input workspace is not joined" ));
+    fd_topo_link_t const * in_link = &topo->links[tile->in_link_id[0]];
+    if (FD_UNLIKELY(!in_link->dcache || in_link->mtu < PAYMENT_MSG_SIZE))
+        FD_LOG_ERR(( "tkpoly: invalid input dcache or mtu %lu", in_link->mtu ));
+
+    /* Compute the output dcache workspace fields once, so the per-fragment
+       path is one copy plus one publish.  Matches the tkdedu/tknorm pattern. */
     fd_topo_link_t const * out_link = &topo->links[tile->out_link_id[0]];
     if (FD_UNLIKELY(!out_link->dcache || out_link->mtu < PAYMENT_MSG_SIZE))
         FD_LOG_ERR(( "tkpoly: invalid output dcache or mtu %lu", out_link->mtu ));
@@ -217,8 +243,8 @@ tkpoly_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     ctx->out_wmark = fd_dcache_compact_wmark(ctx->out_wksp, out_link->dcache, out_link->mtu);
     ctx->out_chunk = ctx->out_chunk0;
 
-    FD_LOG_NOTICE(( "tkpoly: unprivileged init tile_id=%lu cnc=%p",
-                    tile->id, ctx->cnc ));
+    FD_LOG_NOTICE(( "tkpoly: unprivileged init tile_id=%lu cnc=%p out_chunk0=%lu out_wmark=%lu",
+                    tile->id, ctx->cnc, ctx->out_chunk0, ctx->out_wmark ));
 }
 
 static void
@@ -258,10 +284,44 @@ tkpoly_after_frag( tkpoly_ctx_t *      ctx,
         return;
     ctx->stage_valid = 0;
 
-    /* Publish the staged message */
+    PaymentMessage * msg = &ctx->staged_message;
+
+    /* One hop per consumed event, counted on the commit path so an
+       abandoned speculative read never inflates it. */
+    msg->pipeline_hops += 1;
+
+    uint8_t const outcome = tkpoly_policy_helper(
+        msg->decision,
+        (int)msg->duplicate,
+        msg->raw.amount_cents,
+        ctx->policy_limit_cents
+    );
+
+    /* The helper returns MALFORMED_DROP only for an incoming malformed_drop,
+       which tknorm already decided and attributed.  Preserving both is the
+       point: a malformed source fact still has to reach tkaudt carrying the
+       producer that rejected it. */
+    if (outcome != (uint8_t)POLICY_MALFORMED_DROP) {
+        msg->decision = outcome;
+        /* Exactly the six tile-id bytes.  TILE_ID_TKPOLY is a string
+           literal, so sizeof() would also copy its terminator one byte past
+           the field. */
+        memcpy(msg->decided_by, TILE_ID_TKPOLY, sizeof(msg->decided_by));
+
+        if (outcome == (uint8_t)POLICY_DENY)
+            ctx->denied += 1;
+        else if (outcome == (uint8_t)POLICY_ALLOW)
+            ctx->allowed += 1;
+        /* DUPLICATE_DROP is owned by tkpoly but is neither allowed nor
+           denied; tkdedu already counted it. */
+    }
+
+    /* Publish the decided message.  A financial rejection is still a valid
+       transport message, so every committed event is forwarded — allow, deny,
+       duplicate and malformed alike. */
     ulong out_chunk = ctx->out_chunk;
     void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
-    memcpy(dst, &ctx->staged_message, ctx->stage_sz);
+    memcpy(dst, msg, ctx->stage_sz);
 
     /* (stem, out_idx, sig, chunk, sz, ctl, tsorig, tspub) */
     fd_stem_publish(stem, 0UL, 0UL, out_chunk, ctx->stage_sz, 0UL, 0UL, 0UL);
@@ -274,9 +334,13 @@ tkpoly_after_frag( tkpoly_ctx_t *      ctx,
 
     ctx->processed += 1;
 
-    /* Counter publishing */
+    /* CNC slot schema from tile_registry.zig: app[0]=allowed, app[1]=denied. */
     stk_publish_counter(ctx->cnc, 0UL, ctx->allowed);
+    stk_publish_counter(ctx->cnc, 1UL, ctx->denied);
 
+    /* Gate on processed, never allowed+denied: duplicate and malformed events
+       count toward completion too, so the tile self-exits on the Nth
+       committed message instead of waiting for an (N+1)th that never comes. */
     STK_EVENT_EXHAUSTED(ctx, ctx->event_count, ctx->processed);
 }
 
