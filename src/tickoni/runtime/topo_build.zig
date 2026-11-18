@@ -175,13 +175,14 @@ pub fn build(
     c_abi.tkdedu.setEventCount(event_count);
     log.kvFmt("topo_build", "build", "tkdedu event_count={d}", .{event_count});
 
-    // tkaudt and tknorm event_count for shutdown gating.
+    // tkaudt, tknorm and tkpoly event_count for shutdown gating.
     // Unlike tkdedu (where event_count affects scratch footprint), these tiles
     // have fixed footprints. But we set event_count via the same C-param pattern
     // to avoid the env var anti-pattern: getenv() in privileged_init reads each
     // child's own environment, which can differ from the supervisor's.
     c_abi.tkaudit.setEventCount(event_count);
     c_abi.tknorm.setEventCount(event_count);
+    c_abi.tkpoly.setEventCount(event_count);
 
     const align_check = c_abi.topob.topoAlignof();
     std.debug.print("[topo-build] alignof={d} <= {d} check={}\n", .{ align_check, topo_alloc_align.toByteUnits(), align_check <= topo_alloc_align.toByteUnits() });

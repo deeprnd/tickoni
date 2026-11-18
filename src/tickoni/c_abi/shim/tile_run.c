@@ -54,6 +54,7 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
 #include "../topo_run/tk_audit_stem.h"
 #include "../topo_run/tk_norm_stem.h"
 #include "../topo_run/tk_dedu_stem.h"
+#include "../topo_run/tk_policy_stem.h"
 #endif
 
 /* Check if this tile should use the metric run tile. Compares tile name
@@ -114,6 +115,21 @@ tile_is_dedu( fd_topo_tile_t * tile ) {
   FD_LOG_NOTICE(( "tile_run: tile_is_dedu: tile->name=%s", tile->name ));
   int result = strcmp( tile->name, TILE_ID_TKDEDU ) == 0;
   FD_LOG_NOTICE(( "tile_run: tile_is_dedu EXIT tile->name=%s returning %d", tile->name, result ));
+  return result;
+}
+
+/* Check if this tile should use the policy stem run tile. Compares tile name
+   against TILE_ID_TKPOLY. */
+static int
+tile_is_policy( fd_topo_tile_t * tile ) {
+  FD_LOG_NOTICE(( "tile_run: tile_is_policy ENTER tile=%p", (void*)tile ));
+  if( !tile ) {
+    FD_LOG_NOTICE(( "tile_run: tile_is_policy EXIT tile=NULL returning 0" ));
+    return 0;
+  }
+  FD_LOG_NOTICE(( "tile_run: tile_is_policy: tile->name=%s", tile->name ));
+  int result = strcmp( tile->name, TILE_ID_TKPOLY ) == 0;
+  FD_LOG_NOTICE(( "tile_run: tile_is_policy EXIT tile->name=%s returning %d", tile->name, result ));
   return result;
 }
 
@@ -181,6 +197,8 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
     run_tile = &TK_METRIC_RUN;
   } else if( tile_is_norm( tile_c ) ) {
     run_tile = &TK_NORM_RUN;
+  } else if( tile_is_policy( tile_c ) ) {
+    run_tile = &TK_POLICY_RUN;
   } else {
     run_tile = &TK_TILE_RUN;
   }
@@ -189,6 +207,7 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
   (void)tile_is_audit;
   (void)tile_is_metric;
   (void)tile_is_norm;
+  (void)tile_is_policy;
   run_tile = &TK_TILE_RUN;
 #endif
 

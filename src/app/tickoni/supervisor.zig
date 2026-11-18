@@ -743,12 +743,13 @@ pub const Supervisor = struct {
             var argv_count: usize = 3;
             argv_buf[0] = self_exe_path;
             argv_buf[2] = spec_path;
-            // Stem tiles (tkaudt, tknorm, tkdedu) use the dedicated __stem-run path
+            // Stem tiles (tkaudt, tknorm, tkdedu, tkpoly) use the dedicated __stem-run path
             // which skips Zig callbacks and dispatches straight to the tile's
             // fd_stem-based run loop. All other tiles use __tile-run.
             if (rt.tile_ids.tkaudt.eql(tile.name) or
                 rt.tile_ids.tknorm.eql(tile.name) or
-                rt.tile_ids.tkdedu.eql(tile.name))
+                rt.tile_ids.tkdedu.eql(tile.name) or
+                rt.tile_ids.tkpoly.eql(tile.name))
             {
                 argv_buf[1] = "__stem-run";
             } else {
