@@ -156,19 +156,19 @@ tkpoly_policy_helper( uint8_t  decision,
 /* ─── Scratch-base counter readers ─── */
 
 ulong
-tkpolicy_ctx_processed( void * scratch ) {
+tkpoly_ctx_processed( void * scratch ) {
     tkpoly_ctx_t * ctx = (tkpoly_ctx_t *)scratch;
     return ctx->processed;
 }
 
 ulong
-tkpolicy_ctx_allowed( void * scratch ) {
+tkpoly_ctx_allowed( void * scratch ) {
     tkpoly_ctx_t * ctx = (tkpoly_ctx_t *)scratch;
     return ctx->allowed;
 }
 
 ulong
-tkpolicy_ctx_denied( void * scratch ) {
+tkpoly_ctx_denied( void * scratch ) {
     tkpoly_ctx_t * ctx = (tkpoly_ctx_t *)scratch;
     return ctx->denied;
 }
