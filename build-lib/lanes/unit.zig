@@ -50,6 +50,27 @@ pub fn strategy(
     });
     run_count += 1;
 
+    // app/topologies.zig — the concrete product topologies (payment pipeline,
+    // agent process graph for 1..11 tkmodl instances, investment workflow). These
+    // tests were only wired into the coverage lane, which does not run on every
+    // host; they run here so the graph shapes and link bounds are always checked.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-topologies",
+        .source_file = "src/app/tickoni/topologies.zig",
+        .imports = &.{
+            .{ .name = "runtime", .module = shared.runtime },
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+        },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-model-tier",
+        .source_file = "src/tickoni/runtime/model_tier.zig",
+    });
+    run_count += 1;
+
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-topo-build",
         .source_file = "src/tickoni/runtime/topo_build.zig",
@@ -71,6 +92,22 @@ pub fn strategy(
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-topology-spec",
         .source_file = "src/tickoni/runtime/topology_spec.zig",
+        .imports = &.{
+            .{ .name = "c_abi", .module = shared.c_abi },
+            .{ .name = "logger", .module = shared.logger },
+            .{ .name = "util", .module = shared.util },
+        },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    // launch_spec.zig — the supervisor->child launch handoff (identity,
+    // `(tile_id, tile_kind_id)`, link handle capacity). Its in-file tests were
+    // not registered in any lane; the per-tile 128-input/32-output capacity
+    // and the carried kind_id are contracts the tkagnt fan-in depends on.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-launch-spec",
+        .source_file = "src/tickoni/runtime/launch_spec.zig",
         .imports = &.{
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "logger", .module = shared.logger },
@@ -252,6 +289,8 @@ pub fn strategy(
             .{ .name = "audit", .module = shared.audit },
             .{ .name = "runtime", .module = shared.runtime },
             .{ .name = "audit_consts", .module = shared.audit_consts },
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+            .{ .name = "agent_decision", .module = shared.agent_decision },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "logger", .module = shared.logger },
             .{ .name = "util", .module = shared.util },
@@ -290,11 +329,53 @@ pub fn strategy(
     });
     run_count += 1;
 
-    // c_abi/tkagnt.zig — identity and scratch contract for the result-sink
-    // stem shim registered as tkagnt.
+    // c_abi/multipart.zig — Zig view of the multipart content wire contract:
+    // the approved bounds, header layout, and the canonical hash vector shared
+    // with test_multipart.c.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-multipart-wire",
+        .source_file = "src/tickoni/c_abi/multipart.zig",
+        .imports = &.{
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+        },
+    });
+    run_count += 1;
+
+    // tiles/agent/decision.zig — Zig-owned agent routing and classifier-result
+    // interpretation (pure, plain-data in/out) and the C hook table that
+    // applies it. Needs the runtime module for the model tier list and
+    // audit_mod for the shared hook types.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-agent-decision",
+        .source_file = "src/tickoni/tiles/agent/decision.zig",
+        .imports = &.{
+            .{ .name = "runtime", .module = shared.runtime },
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+        },
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    // c_abi/tkagnt.zig — identity, scratch contract and configuration
+    // validation for the agent-worker stem shim registered as tkagnt.
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-tkagnt-identity",
         .source_file = "src/tickoni/c_abi/tkagnt.zig",
+        .imports = &.{
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+        },
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    // c_abi/tkdisp.zig — identity and scratch contract for the terminal-result
+    // sink stem shim registered as tkdisp.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tkdisp-identity",
+        .source_file = "src/tickoni/c_abi/tkdisp.zig",
+        .imports = &.{
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+        },
         .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
     });
     run_count += 1;
@@ -607,8 +688,7 @@ pub fn strategy(
     // Uses a static library + executable pattern to avoid Zig root-module
     // initialization issues with bare addExecutable(C-file).
     {
-        const test_lib = codec.addTickoniShimLibrary(b, target, optimize,
-            "test-tkpoly-during-frag-lib", &.{"src/tickoni/test/unit/test_tkpoly_during_frag.c"});
+        const test_lib = codec.addTickoniShimLibrary(b, target, optimize, "test-tkpoly-during-frag-lib", &.{"src/tickoni/test/unit/test_tkpoly_during_frag.c"});
         test_lib.root_module.addIncludePath(b.path("src/tickoni/c_abi/shim"));
         test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/src"));
         test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/firedancer"));
@@ -631,8 +711,7 @@ pub fn strategy(
     // tkmodl_during_frag / tkmodl_after_frag: staging, bounds, wire-shape
     // rejection, and the abandoned-fragment (stale stage_valid) case.
     {
-        const test_lib = codec.addTickoniShimLibrary(b, target, optimize,
-            "test-tkmodl-during-frag-lib", &.{
+        const test_lib = codec.addTickoniShimLibrary(b, target, optimize, "test-tkmodl-during-frag-lib", &.{
             "src/tickoni/test/unit/test_tkmodl_during_frag.c",
             "src/tickoni/test/unit/test_tkmodl_during_frag_stub.c",
         });
@@ -654,13 +733,87 @@ pub fn strategy(
         run_count += 1;
     }
 
+    // === tkaudt DURING_FRAG unit test ===
+    // Compiles the real tile source into the test and drives the real
+    // tk_audit_during_frag / tk_audit_after_frag across two inputs with
+    // disjoint chunk ranges: the range check must use the fragment's own
+    // input. Reuses the tkmodl stub for tk_topo_find_tile_obj (never called).
+    {
+        const test_lib = codec.addTickoniShimLibrary(b, target, optimize, "test-tkaudt-during-frag-lib", &.{
+            "src/tickoni/test/unit/test_tkaudt_during_frag.c",
+            "src/tickoni/test/unit/test_tkmodl_during_frag_stub.c",
+        });
+        test_lib.root_module.addIncludePath(b.path("src/tickoni/c_abi/shim"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/src"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/firedancer"));
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_disco.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
+
+        const test_exe = b.addExecutable(.{
+            .name = "test-tkaudt-during-frag",
+            .root_module = test_lib.root_module,
+        });
+
+        run_sequence[run_count] = test_exe;
+        run_count += 1;
+    }
+
+    // === tkagnt admission / correlation unit test ===
+    // Compiles the real tile source into the test and drives the real
+    // before_frag / after_frag with multipart streams: admission, routing
+    // verdicts, correlation of results to the one pending dispatch, hash
+    // verification, and fail-closed handling of bad directives and streams.
+    {
+        const test_lib = codec.addTickoniShimLibrary(b, target, optimize, "test-tkagnt-correlation-lib", &.{
+            "src/tickoni/test/unit/test_tkagnt_correlation.c",
+            "src/tickoni/test/unit/test_tkmodl_during_frag_stub.c",
+        });
+        test_lib.root_module.addIncludePath(b.path("src/tickoni/c_abi/shim"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/src"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/firedancer"));
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_disco.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
+
+        const test_exe = b.addExecutable(.{
+            .name = "test-tkagnt-correlation",
+            .root_module = test_lib.root_module,
+        });
+
+        run_sequence[run_count] = test_exe;
+        run_count += 1;
+    }
+
+    // === multipart model-content framing test ===
+    // Pure protocol test of tk_multipart.h (bounded reassembly + sender):
+    // exact round trip across the framing boundaries and above the 16-bit fd
+    // fragment size, and fail-closed handling of every malformed stream.
+    {
+        const test_lib = codec.addTickoniShimLibrary(b, target, optimize, "test-multipart-lib", &.{"src/tickoni/test/unit/test_multipart.c"});
+        test_lib.root_module.addIncludePath(b.path("src/tickoni/c_abi/shim"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/src"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/firedancer"));
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
+
+        const test_exe = b.addExecutable(.{
+            .name = "test-multipart",
+            .root_module = test_lib.root_module,
+        });
+
+        run_sequence[run_count] = test_exe;
+        run_count += 1;
+    }
+
     // === P6.1 dispatcher identity test ===
     // C test that proves TK_POLICY_RUN resolves to a real policy tile
     // descriptor: name == TILE_ID_TKPOLY, privileged_init != NULL,
     // run != NULL. Links only tk_policy_stem.c (no topob.c or other shim deps).
     {
-        const test_lib = codec.addTickoniShimLibrary(b, target, optimize,
-            "test-tile-dispatcher-lib", &.{
+        const test_lib = codec.addTickoniShimLibrary(b, target, optimize, "test-tile-dispatcher-lib", &.{
             "src/tickoni/test/unit/test_tile_dispatcher.c",
             "src/tickoni/test/unit/test_tile_dispatcher_stub.c",
             "src/tickoni/c_abi/shim/tk_policy_stem.c",

@@ -132,6 +132,8 @@ pub fn strategy(
             .{ .name = "audit", .module = shared.audit },
             .{ .name = "runtime", .module = shared.runtime },
             .{ .name = "audit_consts", .module = shared.audit_consts },
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+            .{ .name = "agent_decision", .module = shared.agent_decision },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "util", .module = shared.util },
             .{ .name = "logger", .module = shared.logger },
@@ -252,6 +254,9 @@ pub fn strategy(
     tb.registerCov(.{
         .name = "test-topologies",
         .source_file = "src/app/tickoni/topologies.zig",
-        .imports = &.{.{ .name = "runtime", .module = shared.runtime }},
+        .imports = &.{
+            .{ .name = "runtime", .module = shared.runtime },
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+        },
     }, cov_step);
 }
