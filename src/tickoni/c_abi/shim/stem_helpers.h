@@ -8,7 +8,8 @@
    Tiles still define their own ctx struct, callbacks, and domain logic.
    This header provides the boilerplate that is identical across all
    Tickoni stem tiles: ctx retrieval, wksp derivation, CNC lookup,
-   event-count gating, progress publishing, and run-tile ABI accessors.
+   event-count gating, progress publishing, CNC liveness (RUN + heartbeat),
+   and run-tile ABI accessors.
 
    Usage: #include "stem_helpers.h" at the top of each tk_*_stem.c file.
 */
@@ -174,6 +175,59 @@ stk_publish_counter(void * cnc, ulong slot, ulong value) {
     if (!cnc) return;
     ulong * app = (ulong *)fd_cnc_app_laddr((fd_cnc_t *)cnc);
     if (app) app[slot] = value;
+}
+
+/* ─── CNC liveness (BOOT -> RUN + heartbeat) ───
+
+   The supervisor classifies a tile stale only when its CNC signal reads RUN
+   and its CNC heartbeat has not advanced within the stale threshold
+   (supervisor.zig, refreshProcessHealth).  A stem tile that does neither is
+   never eligible, so a wedged or stopped loop is indistinguishable from a
+   healthy one.  EVERY tk_*_stem.c therefore defines, as its housekeeping
+   callback, which fd_stem runs once per housekeeping event whether or not any
+   fragment or credit is available:
+
+     #define STEM_CALLBACK_DURING_HOUSEKEEPING(ctx) \
+         stk_cnc_liveness( (ctx)->cnc )
+
+   and #undefs it after including fd_stem.c.  Nothing else is needed: the first
+   call, which is the first loop iteration, also moves the CNC BOOT -> RUN.
+
+   Why RUN is signalled from the loop and not from the run entry: the stem's
+   own setup runs before its loop, and its first call to fd_tempo_tick_per_ns
+   calibrates the tick rate for about half a second.  RUN signalled earlier
+   would make the tile eligible for staleness during that setup, and it would
+   be classified stale against the 100 ms default before it ever looped.  From
+   the loop on, the gap between housekeeping events is below 4 * STEM_LAZY
+   (see doc/knowledge/tile-orchestration.md, "Health And Lifecycle").
+
+   The transition is a compare-and-swap from BOOT, so it never overwrites a
+   HALT that arrived while the tile was booting: the loop then sees the HALT at
+   its next SHOULD_SHUTDOWN check and exits.  The heartbeat is written first,
+   so the supervisor never sees RUN with a heartbeat from before the boot.
+
+   Clock and units: the CNC heartbeat is Tickoni's wrapping u32 milliseconds of
+   the monotonic clock, which is what the Zig supervisor compares against
+   (util.process.monotonicNanos).  The helper therefore reads
+   tk_monotonic_nanos() (os.c) and writes through tk_cnc_heartbeat (tango.c),
+   the same functions the Zig side uses.  Never call fd_cnc_heartbeat directly
+   or with fd_log_wallclock(): a different clock or unit makes the tile look
+   permanently stale or permanently fresh.
+
+   A safe no-op for a NULL cnc. */
+extern int64_t tk_monotonic_nanos( void );
+extern void    tk_cnc_heartbeat( fd_cnc_t * cnc, int64_t now_ns );
+
+static inline void
+stk_cnc_liveness(void * cnc) {
+    if (!cnc) return;
+    fd_cnc_t * c = (fd_cnc_t *)cnc;
+    tk_cnc_heartbeat(c, tk_monotonic_nanos());
+    if (fd_cnc_signal_query(c) == FD_CNC_SIGNAL_BOOT) {
+        ulong expected = FD_CNC_SIGNAL_BOOT;
+        __atomic_compare_exchange_n(&c->signal, &expected, FD_CNC_SIGNAL_RUN,
+                                    0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+    }
 }
 
 /* ─── DURING_FRAG validation preamble ───
