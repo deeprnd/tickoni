@@ -466,6 +466,8 @@
     "SIEM",
     "Sigstore",
     "SIGSYS",
+    "SIGSTOP",
+    "SIGCONT",
     "siphash",
     "skipif",
     "slist",
