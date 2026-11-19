@@ -18,6 +18,7 @@ const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const tile_registry = @import("tile_registry.zig");
 const config = @import("tile_main_config.zig");
+const model_instances = @import("model_instances.zig");
 const logger = @import("logger");
 
 pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) u8 {
@@ -65,6 +66,10 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
 
     const topo_desc = topo_spec.toTopology(&tiles_buf, &channels_buf);
     std.debug.print("[tile-main] stemRun: toTopology ok\n", .{});
+    spec.checkAgainst(topo_desc) catch |err| {
+        std.debug.print("tile_main: launch identity check failed for tile {d} ({s}#{d}): {t}\n", .{ spec.tile_idx, spec.tile_id.slice(), spec.tile_kind_id, err });
+        return 1;
+    };
 
     std.debug.print("[tile-main] stemRun: calling topo_build.build\n", .{});
     const built = rt.topo_build.build(allocator, topo_desc, spec.workspace_name.slice(), topo_spec.metric_port, topo_spec.event_count) catch |err| {
@@ -98,9 +103,9 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
     const tile_id_z: [*:0]const u8 = @ptrCast(&tile_id_buf);
 
     std.debug.print("[tile-main] stemRun: calling topoFindTile\n", .{});
-    const tile_idx = c_abi.topob.topoFindTile(built.topo, tile_id_z, 0);
+    const tile_idx = c_abi.topob.topoFindTile(built.topo, tile_id_z, spec.tile_kind_id);
     if (tile_idx == c_abi.topob.not_found) {
-        std.debug.print("tile_main: tile {s} not found in rebuilt topology\n", .{id_slice});
+        std.debug.print("tile_main: tile {s}#{d} not found in rebuilt topology\n", .{ id_slice, spec.tile_kind_id });
         return 1;
     }
     // tkpoly is the only stem tile with a behavior parameter outside
@@ -119,14 +124,41 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
         };
     }
 
-    // tkmodl's limits, allowlist and fixture table live in tkmodl.config.
-    // Same fail-closed rule as the policy limit: tk_model_stem.c's
-    // privileged_init rejects an unconfigured tile, and loadModelConfig
-    // installs nothing from a malformed or live-enabled file.
+    // tkmodl's limits, allowlist and fixture table live in this instance's own
+    // tkmodl.<kind_id>.config. Same fail-closed rule as the policy limit:
+    // tk_model_stem.c's privileged_init rejects an unconfigured tile, and
+    // loadModelConfig installs nothing from a missing, swapped, stale,
+    // malformed or live-enabled file.
     if (rt.tile_ids.tkmodl.eql(spec.tile_id)) {
-        config.loadModelConfig(io, &spec, null) catch |err| {
+        _ = config.loadModelConfig(io, &spec, model_instances.instanceCount(topo_desc), null, allocator) catch |err| {
             std.debug.print(
                 "tile_main: tkmodl config handoff failed for tile {d}: {t}\n",
+                .{ spec.tile_idx, err },
+            );
+            return 1;
+        };
+    }
+
+    // tkagnt: Zig owns its decisions. Register them and the tier-to-instance
+    // routes before the C harness runs; the tile refuses to start without them.
+    if (rt.tile_ids.tkagnt.eql(spec.tile_id)) {
+        config.loadAgentSetup(io, topo_desc, spec.shmemPath(), null) catch |err| {
+            std.debug.print(
+                "tile_main: tkagnt setup failed for tile {d}: {t}\n",
+                .{ spec.tile_idx, err },
+            );
+            return 1;
+        };
+    }
+
+    // tkdisp is a scheduler when the topology gives it an event source (tkcase):
+    // it then sends one request per event from the run's dispatch template, which
+    // must be installed before the C harness runs. As a pure terminal-result sink
+    // it needs nothing.
+    if (rt.tile_ids.tkdisp.eql(spec.tile_id) and hasTile(topo_desc, rt.tile_ids.tkcase)) {
+        config.loadDispatchTemplate(io, &spec, null, allocator) catch |err| {
+            std.debug.print(
+                "tile_main: tkdisp dispatch template handoff failed for tile {d}: {t}\n",
                 .{ spec.tile_idx, err },
             );
             return 1;
@@ -142,6 +174,13 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
     // this line is never reached and the crash output comes from the C side.
     std.debug.print("[tile-main] stemRun: runTileSimple returned\n", .{});
     return 0;
+}
+
+fn hasTile(topo: rt.topology.Topology, name: rt.tile.TileId) bool {
+    for (topo.tiles) |t| {
+        if (t.name.eql(name)) return true;
+    }
+    return false;
 }
 
 /// Dispatches the deterministic payment pipeline stage for this tile's

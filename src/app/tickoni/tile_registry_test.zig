@@ -19,14 +19,18 @@ const tiles = @import("tiles");
 /// helpers below build from only these.
 const phase0_tile_cnt = 8;
 
-test "registry has the 8 Phase 0 tiles followed by tkmodl and tkagnt" {
-    try std.testing.expectEqual(@as(usize, 10), entries.len);
+test "registry has the 8 Phase 0 tiles followed by tkmodl, tkagnt, tkdisp and the workflow placeholders" {
+    try std.testing.expectEqual(@as(usize, 14), entries.len);
     try std.testing.expect(entries[phase0_tile_cnt].id.eql(tile_ids.tkmodl));
     try std.testing.expect(entries[phase0_tile_cnt + 1].id.eql(tile_ids.tkagnt));
+    try std.testing.expect(entries[phase0_tile_cnt + 2].id.eql(tile_ids.tkdisp));
+    try std.testing.expect(entries[phase0_tile_cnt + 3].id.eql(tile_ids.tkcase));
+    try std.testing.expect(entries[phase0_tile_cnt + 4].id.eql(tile_ids.tktool));
+    try std.testing.expect(entries[phase0_tile_cnt + 5].id.eql(tile_ids.tkadpt));
 }
 
 test "findById finds every registered tile" {
-    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt", "tkrepl", "metric", "tkdiag", "tkmodl", "tkagnt" }) |name| {
+    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt", "tkrepl", "metric", "tkdiag", "tkmodl", "tkagnt", "tkdisp", "tkcase", "tktool", "tkadpt" }) |name| {
         const tile_id = tile_ids.lookup(name) orelse unreachable;
         try std.testing.expect(findById(tile_id) != null);
     }
@@ -38,7 +42,7 @@ test "findById returns null for an unregistered id" {
 }
 
 test "process_fn is null for tiles with no process-mode role" {
-    inline for (.{ "tknorm", "tkdedu", "tkpoly", "tkrepl", "metric", "tkdiag", "tkmodl", "tkagnt" }) |name| {
+    inline for (.{ "tknorm", "tkdedu", "tkpoly", "tkrepl", "metric", "tkdiag", "tkmodl", "tkagnt", "tkdisp", "tkcase", "tktool", "tkadpt" }) |name| {
         const tile_id = tile_ids.lookup(name) orelse unreachable;
         const entry = findById(tile_id).?;
         try std.testing.expectEqual(@as(?ProcessFn, null), entry.process_fn);
@@ -134,6 +138,128 @@ test "validate rejects a duplicate registered tile" {
     descriptors[1].name = descriptors[0].name;
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &.{} };
     try std.testing.expectError(error.DuplicateTopologyTile, validate(topo));
+}
+
+fn modelDescriptors(comptime n: usize, buf: *[n + 1]rt.tile.TileDescriptor) []const rt.tile.TileDescriptor {
+    buf[0] = .{ .id = 0, .name = tile_ids.tkaudt };
+    for (1..n + 1) |i| buf[i] = .{ .id = i, .name = tile_ids.tkmodl, .kind_id = @intCast(i - 1) };
+    return buf[0 .. n + 1];
+}
+
+test "tkmodl may repeat up to the supported maximum of 11 instances" {
+    var buf: [rt.model_tier.max_model_instances + 1]rt.tile.TileDescriptor = undefined;
+    const tiles_11 = modelDescriptors(rt.model_tier.max_model_instances, &buf);
+    try reg.validateInstances(.{ .tiles = tiles_11, .channels = &.{} });
+    try std.testing.expectEqual(@as(u8, rt.model_tier.max_model_instances), findById(tile_ids.tkmodl).?.max_instances);
+}
+
+test "validateInstances rejects a twelfth tkmodl instance" {
+    var buf: [rt.model_tier.max_model_instances + 2]rt.tile.TileDescriptor = undefined;
+    const tiles_12 = modelDescriptors(rt.model_tier.max_model_instances + 1, &buf);
+    try std.testing.expectError(error.TooManyTileInstances, reg.validateInstances(.{ .tiles = tiles_12, .channels = &.{} }));
+}
+
+test "validateInstances rejects non-compact or duplicate tkmodl identities" {
+    var buf: [3]rt.tile.TileDescriptor = undefined;
+    const two = modelDescriptors(2, &buf);
+    var sparse: [3]rt.tile.TileDescriptor = undefined;
+    @memcpy(&sparse, two);
+    sparse[2].kind_id = 2; // 0, 2: a gap
+    try std.testing.expectError(error.TileKindIdMismatch, reg.validateInstances(.{ .tiles = &sparse, .channels = &.{} }));
+
+    var duplicate: [3]rt.tile.TileDescriptor = undefined;
+    @memcpy(&duplicate, two);
+    duplicate[2].kind_id = 0;
+    try std.testing.expectError(error.DuplicateTileIdentity, reg.validateInstances(.{ .tiles = &duplicate, .channels = &.{} }));
+}
+
+test "validateInstances keeps every other tile single-instance" {
+    const dup = [_]rt.tile.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkaudt },
+        .{ .id = 1, .name = tile_ids.tkaudt, .kind_id = 1 },
+    };
+    try std.testing.expectError(error.DuplicateTopologyTile, reg.validateInstances(.{ .tiles = &dup, .channels = &.{} }));
+}
+
+test "fan-in tiles scale their expected links with the configured tkmodl count" {
+    const tkaudt = findById(tile_ids.tkaudt).?;
+    const tkagnt = findById(tile_ids.tkagnt).?;
+    const tkpoly = findById(tile_ids.tkpoly).?;
+    const tkdisp = findById(tile_ids.tkdisp).?;
+
+    // No tkmodl: the registry's base count applies, as before.
+    const no_models = [_]rt.tile.TileDescriptor{.{ .id = 0, .name = tile_ids.tkaudt }};
+    try std.testing.expectEqual(@as(usize, 1), reg.expectedInCnt(tkaudt, .{ .tiles = &no_models, .channels = &.{} }));
+
+    // N models plus one agent: tkaudt takes N model-audit links and the agent's
+    // audit link; tkagnt takes a request input and N results, and sends N
+    // requests plus its audit and terminal-result links.
+    var buf: [rt.model_tier.max_model_instances + 2]rt.tile.TileDescriptor = undefined;
+    inline for (.{ 1, 3, rt.model_tier.max_model_instances }) |n| {
+        buf[0] = .{ .id = 0, .name = tile_ids.tkagnt };
+        buf[1] = .{ .id = 1, .name = tile_ids.tkaudt };
+        for (0..n) |i| buf[2 + i] = .{ .id = 2 + i, .name = tile_ids.tkmodl, .kind_id = @intCast(i) };
+        const topo = rt.topology.Topology{ .tiles = buf[0 .. n + 2], .channels = &.{} };
+        try std.testing.expectEqual(@as(usize, n + 1), reg.expectedInCnt(tkaudt, topo));
+        try std.testing.expectEqual(@as(usize, n + 1), reg.expectedInCnt(tkagnt, topo));
+        try std.testing.expectEqual(@as(usize, n + 2), reg.expectedOutCnt(tkagnt, topo));
+        // Tiles that do not take model links keep their fixed counts.
+        try std.testing.expectEqual(@as(usize, 1), reg.expectedInCnt(tkpoly, topo));
+        try std.testing.expectEqual(@as(usize, 1), reg.expectedInCnt(tkdisp, topo));
+        try std.testing.expectEqual(@as(usize, 0), reg.expectedOutCnt(tkdisp, topo));
+    }
+}
+
+test "the full workflow's links follow from which placeholder tiles the topology configures" {
+    const tkaudt = findById(tile_ids.tkaudt).?;
+    const tkagnt = findById(tile_ids.tkagnt).?;
+    const tkdisp = findById(tile_ids.tkdisp).?;
+    const tkcase = findById(tile_ids.tkcase).?;
+    const tktool = findById(tile_ids.tktool).?;
+    const tkadpt = findById(tile_ids.tkadpt).?;
+
+    // One model: tkaudt takes the payment chain (tkpoly), the model, the agent,
+    // and one idle link each from tktool and tkadpt; tkagnt sends one more idle
+    // link to tktool; tkdisp becomes a scheduler (events and results in, the
+    // agent request link out).
+    const full = [_]rt.tile.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkcase },
+        .{ .id = 1, .name = tile_ids.tkpoly },
+        .{ .id = 2, .name = tile_ids.tkaudt },
+        .{ .id = 3, .name = tile_ids.tkdisp },
+        .{ .id = 4, .name = tile_ids.tkagnt },
+        .{ .id = 5, .name = tile_ids.tkmodl },
+        .{ .id = 6, .name = tile_ids.tktool },
+        .{ .id = 7, .name = tile_ids.tkadpt },
+    };
+    const topo = rt.topology.Topology{ .tiles = &full, .channels = &.{} };
+    try std.testing.expectEqual(@as(usize, 5), reg.expectedInCnt(tkaudt, topo));
+    try std.testing.expectEqual(@as(usize, 2), reg.expectedInCnt(tkagnt, topo));
+    try std.testing.expectEqual(@as(usize, 4), reg.expectedOutCnt(tkagnt, topo));
+    try std.testing.expectEqual(@as(usize, 2), reg.expectedInCnt(tkdisp, topo));
+    try std.testing.expectEqual(@as(usize, 1), reg.expectedOutCnt(tkdisp, topo));
+
+    // The placeholders' own shapes are fixed.
+    try std.testing.expectEqual(@as(u8, 1), tkcase.in_cnt);
+    try std.testing.expectEqual(@as(u8, 2), tkcase.out_cnt);
+    try std.testing.expectEqual(@as(u8, 1), tktool.in_cnt);
+    try std.testing.expectEqual(@as(u8, 2), tktool.out_cnt);
+    try std.testing.expectEqual(@as(u8, 1), tkadpt.in_cnt);
+    try std.testing.expectEqual(@as(u8, 1), tkadpt.out_cnt);
+
+    // Without tkcase the dispatcher stays a pure sink, and without tktool or
+    // tkadpt the audit fan-in and the agent's outputs are unchanged.
+    const agent_only = [_]rt.tile.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkdisp },
+        .{ .id = 1, .name = tile_ids.tkagnt },
+        .{ .id = 2, .name = tile_ids.tkaudt },
+        .{ .id = 3, .name = tile_ids.tkmodl },
+    };
+    const sink = rt.topology.Topology{ .tiles = &agent_only, .channels = &.{} };
+    try std.testing.expectEqual(@as(usize, 1), reg.expectedInCnt(tkdisp, sink));
+    try std.testing.expectEqual(@as(usize, 0), reg.expectedOutCnt(tkdisp, sink));
+    try std.testing.expectEqual(@as(usize, 2), reg.expectedInCnt(tkaudt, sink));
+    try std.testing.expectEqual(@as(usize, 3), reg.expectedOutCnt(tkagnt, sink));
 }
 
 test "launch mode is owned by the registry" {

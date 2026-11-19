@@ -47,6 +47,12 @@ pub const CounterField = enum {
     metric_backpressure_waits,
     diag_crashed_tile,
     diag_sandbox_failures,
+    // tkagnt agent-worker counters
+    agent_dispatched,
+    agent_results,
+    agent_denied,
+    agent_tokens,
+    agent_embeddings,
     // Index 2 on the metric tile's CNC app-region holds boot_ts
     // written by tk_metric_run after CNC join. Supervisor reads it via
     // metric_boot_timestamp to verify unprivileged_init ran.
@@ -71,6 +77,33 @@ pub const TileEntry = struct {
     /// id doesn't match.
     in_cnt: u8 = 0,
     out_cnt: u8 = 0,
+    /// Number of processes of this tile type a topology may configure, each
+    /// with a distinct compact `kind_id` (Topology.validateIdentities). Only
+    /// tkmodl is multi-instance; its per-instance link shape (in_cnt/out_cnt)
+    /// is checked for each descriptor separately.
+    max_instances: u8 = 1,
+    /// How the expected link counts follow from the configured tkmodl
+    /// instances. `.fixed` uses in_cnt/out_cnt as written.
+    cardinality: Cardinality = .fixed,
+};
+
+/// Link-count rule for a tile whose links depend on how many tkmodl instances a
+/// topology configures (N).
+pub const Cardinality = enum {
+    /// in_cnt / out_cnt as written.
+    fixed,
+    /// tkaudt: one model-audit link per tkmodl plus one agent-audit link per
+    /// tkagnt, one idle link per tktool and tkadpt, and the payment chain's link
+    /// from each tkpoly; with no tkmodl, `in_cnt` (the payment-pipeline chain end).
+    audit_fan_in,
+    /// tkagnt: one request input plus one result input per tkmodl; one request
+    /// output per tkmodl plus the audit and terminal-result outputs, and one idle
+    /// output to each tktool.
+    agent_fan,
+    /// tkdisp: a terminal-result sink (one input) when the topology has no
+    /// tkcase; a scheduler (an event input from tkcase and tkagnt's results in,
+    /// the agent request link out) when it has one.
+    disp_shape,
 };
 
 fn id(comptime s: []const u8) rt.tile.TileId {
@@ -190,6 +223,7 @@ pub const entries = [_]TileEntry{
         .process_fn = null,
         .counters = &.{.{ .idx = 0, .field = .audited }},
         .in_cnt = 1,
+        .cardinality = .audit_fan_in,
     },
     .{
         .id = tile_ids.tkrepl,
@@ -219,16 +253,63 @@ pub const entries = [_]TileEntry{
         .counters = &.{ .{ .idx = 0, .field = .allowed }, .{ .idx = 1, .field = .denied } },
         .in_cnt = 1,
         .out_cnt = 2,
+        .max_instances = rt.model_tier.max_model_instances,
     },
-    // tkagnt: bounded result-sink fd_stem observer for the tkmodl result link.
-    // Not an agent; its committed results are read from scratch, so it
-    // publishes no CNC counter slot.
+    // tkagnt: the agent worker. One agent-request input and one result input
+    // per configured tkmodl; one request output per tkmodl plus the audit
+    // (tkaudt) and terminal-result (tkdisp) outputs. Its counters are written
+    // by the tile; slots follow tk_agent_stem.c.
     .{
         .id = tile_ids.tkagnt,
         .launch_mode = .stem,
         .process_fn = null,
+        .counters = &.{
+            .{ .idx = 0, .field = .agent_dispatched },
+            .{ .idx = 1, .field = .agent_results },
+            .{ .idx = 2, .field = .agent_denied },
+            .{ .idx = 3, .field = .agent_tokens },
+            .{ .idx = 4, .field = .agent_embeddings },
+        },
+        .cardinality = .agent_fan,
+    },
+    // tkdisp: a bounded sink for tkagnt's terminal results, or, in the full
+    // workflow, the scheduler that also turns each event from tkcase into one
+    // agent request. Its committed results are read from scratch, so it
+    // publishes no CNC counter slot.
+    .{
+        .id = tile_ids.tkdisp,
+        .launch_mode = .stem,
+        .process_fn = null,
+        .counters = &.{},
+        .cardinality = .disp_shape,
+    },
+    // tkcase, tktool and tkadpt: config-driven placeholders of the full
+    // workflow (tk_pass_stem.c). They carry no case, tool or adapter logic:
+    // tkcase forwards each event to its two consumers, tktool and tkadpt are
+    // idle bounded consumers. Nothing is published on their audit links.
+    .{
+        .id = tile_ids.tkcase,
+        .launch_mode = .stem,
+        .process_fn = null,
         .counters = &.{},
         .in_cnt = 1,
+        .out_cnt = 2,
+    },
+    .{
+        .id = tile_ids.tktool,
+        .launch_mode = .stem,
+        .process_fn = null,
+        .counters = &.{},
+        .in_cnt = 1,
+        .out_cnt = 2,
+    },
+    .{
+        .id = tile_ids.tkadpt,
+        .launch_mode = .stem,
+        .process_fn = null,
+        .counters = &.{},
+        .in_cnt = 1,
+        .out_cnt = 1,
     },
 };
 
@@ -239,24 +320,65 @@ pub fn findById(tile_id: rt.tile.TileId) ?*const TileEntry {
     return null;
 }
 
+fn countTilesNamed(topo: rt.topology.Topology, name: rt.tile.TileId) usize {
+    var n: usize = 0;
+    for (topo.tiles) |t| {
+        if (t.name.eql(name)) n += 1;
+    }
+    return n;
+}
+
+/// Inbound links this entry expects for one descriptor of the topology.
+pub fn expectedInCnt(entry: *const TileEntry, topo: rt.topology.Topology) usize {
+    const models = countTilesNamed(topo, tile_ids.tkmodl);
+    return switch (entry.cardinality) {
+        .fixed => entry.in_cnt,
+        .audit_fan_in => if (models > 0)
+            models + countTilesNamed(topo, tile_ids.tkagnt) + countTilesNamed(topo, tile_ids.tktool) +
+                countTilesNamed(topo, tile_ids.tkadpt) + countTilesNamed(topo, tile_ids.tkpoly)
+        else
+            entry.in_cnt,
+        .agent_fan => 1 + models,
+        .disp_shape => if (countTilesNamed(topo, tile_ids.tkcase) > 0) 2 else 1,
+    };
+}
+
+/// Outbound links this entry expects for one descriptor of the topology.
+pub fn expectedOutCnt(entry: *const TileEntry, topo: rt.topology.Topology) usize {
+    return switch (entry.cardinality) {
+        .fixed, .audit_fan_in => entry.out_cnt,
+        .agent_fan => countTilesNamed(topo, tile_ids.tkmodl) + 2 + countTilesNamed(topo, tile_ids.tktool),
+        .disp_shape => if (countTilesNamed(topo, tile_ids.tkcase) > 0) 1 else 0,
+    };
+}
+
+/// Checks tile registration and instance identity: every tile is registered,
+/// only tiles with `max_instances > 1` repeat, and repeated tiles carry
+/// distinct compact `kind_id`s in descriptor order.
+pub fn validateInstances(topo: rt.topology.Topology) !void {
+    for (topo.tiles) |t| {
+        const entry = findById(t.name) orelse return error.UnregisteredTopologyTile;
+        const instances = countTilesNamed(topo, t.name);
+        if (instances > entry.max_instances) {
+            return if (entry.max_instances == 1) error.DuplicateTopologyTile else error.TooManyTileInstances;
+        }
+    }
+    try topo.validateIdentities();
+}
+
 /// Validates each configured tile against its registry entry and link shape.
 /// The registry can contain tiles absent from a particular topology.
 pub fn validate(topo: rt.topology.Topology) !void {
-    for (topo.tiles, 0..) |t, i| {
-        _ = findById(t.name) orelse return error.UnregisteredTopologyTile;
-        for (topo.tiles[0..i]) |previous| {
-            if (previous.name.eql(t.name)) return error.DuplicateTopologyTile;
-        }
-    }
+    try validateInstances(topo);
     for (topo.tiles, 0..) |t, i| {
         const entry = findById(t.name).?;
-        var in_cnt: u8 = 0;
-        var out_cnt: u8 = 0;
+        var in_cnt: usize = 0;
+        var out_cnt: usize = 0;
         for (topo.channels) |ch| {
             if (ch.dst_idx == i) in_cnt += 1;
             if (ch.src_idx == i) out_cnt += 1;
         }
-        if (in_cnt != entry.in_cnt or out_cnt != entry.out_cnt) return error.LinkCardinalityMismatch;
+        if (in_cnt != expectedInCnt(entry, topo) or out_cnt != expectedOutCnt(entry, topo)) return error.LinkCardinalityMismatch;
     }
 }
 

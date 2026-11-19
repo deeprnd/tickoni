@@ -9,6 +9,8 @@ const c_abi = @import("c_abi");
 const util = @import("util");
 const topologies = @import("topologies");
 const tile_registry = @import("tile_registry.zig");
+/// Per-instance tkmodl configuration set; tests build `ProcessPipelineConfig.model_configs` from it.
+pub const model_instances = @import("model_instances.zig");
 const logger = @import("logger");
 
 const Topology = rt.topology.Topology;
@@ -44,11 +46,17 @@ pub const ProcessPipelineConfig = struct {
     duplicate: ?tiles_mod.DuplicateConfig = null,
     inject_malformed: bool = false,
     /// Test-build tkmodl topologies: the tkings model-request stream and the
-    /// tkmodl runtime configuration (limits, allowlist, fixture table). The
-    /// supervisor writes the config beside payment_pipeline.config; a topology
-    /// containing tkmodl with no config makes that child fail closed.
+    /// per-instance tkmodl configuration set (tier, limits, allowlist, fixture
+    /// table). The set must match the topology's tkmodl tiles one-to-one; a
+    /// missing, duplicate or unmatched entry is refused before any workspace or
+    /// child exists. Files are written beside payment_pipeline.config.
     model_requests: ?tiles_mod.model_request_source.ModelRequestSource = null,
-    model_config: ?c_abi.tkmodl.TkModlRuntimeConfig = null,
+    model_configs: []const model_instances.InstanceConfig = &.{},
+    /// The full investment workflow: the fixed request template tkdisp sends for
+    /// each event it receives from tkcase (tier, scope and prompt come from here,
+    /// never from the event). Required when the topology has tkcase, and refused
+    /// when it does not: a template no tile will read is a misconfigured run.
+    dispatch_template: ?tiles_mod.model_request_source.ModelRequestSource = null,
     /// Path to the tickoni-supervisor binary to self-exec per tile.
     /// Defaults to /proc/self/exe (correct when the running process IS
     /// tickoni-supervisor). Callers that are not that binary — such as
@@ -206,6 +214,17 @@ fn resolvedHeartbeatStaleAfterNs(config: ProcessPipelineConfig) u64 {
     return resolvedHeartbeatIntervalNs(config, 5);
 }
 
+/// A topology with tkcase runs the full workflow, whose tkdisp needs a dispatch
+/// template; any other topology has no tile that would read one.
+fn validateDispatchTemplate(topo: Topology, template: ?tiles_mod.model_request_source.ModelRequestSource) !void {
+    var has_case = false;
+    for (topo.tiles) |t| {
+        if (t.name.eql(rt.tile_ids.tkcase)) has_case = true;
+    }
+    if (has_case and template == null) return error.MissingDispatchTemplate;
+    if (!has_case and template != null) return error.UnexpectedDispatchTemplate;
+}
+
 fn resolvedHeartbeatStaleAfterMs(config: ProcessPipelineConfig) !u32 {
     const stale_after_ns = resolvedHeartbeatStaleAfterNs(config);
     const stale_after_ms = stale_after_ns / std.time.ns_per_ms +
@@ -318,6 +337,10 @@ pub const Supervisor = struct {
         log.enter("supervisor", "startPaymentPipelineProcess");
         defer log.exit("supervisor", "startPaymentPipelineProcess");
         std.debug.assert(self.process_state == null);
+        // Refuse a topology whose tkmodl instances and configuration set do
+        // not match one-to-one before any workspace or child exists.
+        try model_instances.validate(config.model_configs, self.topo);
+        try validateDispatchTemplate(self.topo, config.dispatch_template);
         const heartbeat_stale_after_ms = try resolvedHeartbeatStaleAfterMs(config);
 
         // Fail closed on any tile pinned to a CPU id this process cannot
@@ -673,6 +696,7 @@ pub const Supervisor = struct {
                 .duplicate = config.duplicate,
                 .inject_malformed = config.inject_malformed,
                 .model_requests = config.model_requests,
+                .dispatch_template = config.dispatch_template,
             },
             .stuck_tile = if (config.stuck_tile_idx) |idx| .{
                 .tile_idx = idx,
@@ -680,14 +704,10 @@ pub const Supervisor = struct {
             } else null,
         }, io, std.Io.Dir.cwd(), payment_config_path);
 
-        // tkmodl's governance limits, allowlist and fixture table travel in
-        // their own file, read only by the tkmodl child (tile_main.zig's
-        // loadModelConfig) before the C harness runs.
-        if (config.model_config) |model_config| {
-            const model_config_path = try std.fmt.allocPrint(self.allocator, "{s}/{s}", .{ config.run_dir, c_abi.tkmodl.config_file_name });
-            defer self.allocator.free(model_config_path);
-            try c_abi.tkmodl.writeConfigFile(io, std.Io.Dir.cwd(), model_config_path, &model_config);
-        }
+        // Each tkmodl instance's governance limits, allowlist and fixture table
+        // travel in its own identity-bound file, read only by that child
+        // (tile_main_config.zig's loadModelConfig) before the C harness runs.
+        try model_instances.writeAll(io, std.Io.Dir.cwd(), config.run_dir, config.model_configs, self.topo);
 
         // v2.14.S8.T4: every self-exec'd child rebuilds this same topology
         // (topo_build.build) to get a real fd_topo_t to hand to
@@ -726,6 +746,7 @@ pub const Supervisor = struct {
             const spec = try rt.launch_spec.LaunchSpec.init(.{
                 .tile_idx = @intCast(i),
                 .tile_id = tile.name,
+                .tile_kind_id = tile.kind_id,
                 .cpu_placement = tile.cpu_placement,
                 .workspace_name = launch_workspace_name,
                 .cnc_gaddr = state.cnc_gaddrs[i],
@@ -1006,6 +1027,12 @@ pub const Supervisor = struct {
         diag_crash_count: u64 = 0,
         diag_sandbox_count: u64 = 0,
         metric_boot_timestamp: u64 = 0,
+        // tkagnt agent-worker counters
+        agent_dispatched: u64 = 0,
+        agent_results: u64 = 0,
+        agent_denied: u64 = 0,
+        agent_tokens: u64 = 0,
+        agent_embeddings: u64 = 0,
     };
 
     /// v2.14.S1.T14 visibility: the CPU placement layout validated at
@@ -1057,8 +1084,8 @@ pub const Supervisor = struct {
                                         .normalized => snap.normalized = v,
                                         .invalid => snap.invalid = v,
                                         .duplicates => snap.duplicates = v,
-                                        .allowed => snap.allowed = v,
-                                        .denied => snap.denied = v,
+                                        .allowed => snap.allowed += v,
+                                        .denied => snap.denied += v,
                                         .audited => snap.audited = v,
                                         .replay_checked => snap.replay_checked = v,
                                         .replay_match => snap.replay_match = v,
@@ -1067,6 +1094,11 @@ pub const Supervisor = struct {
                                         .diag_crashed_tile => snap.diag_crash_count = v,
                                         .diag_sandbox_failures => snap.diag_sandbox_count = v,
                                         .metric_boot_timestamp => snap.metric_boot_timestamp = v,
+                                        .agent_dispatched => snap.agent_dispatched = v,
+                                        .agent_results => snap.agent_results = v,
+                                        .agent_denied => snap.agent_denied = v,
+                                        .agent_tokens => snap.agent_tokens = v,
+                                        .agent_embeddings => snap.agent_embeddings = v,
                                     }
                                 }
                             }
@@ -1108,8 +1140,8 @@ pub const Supervisor = struct {
                                             .normalized => snap.normalized = v,
                                             .invalid => snap.invalid = v,
                                             .duplicates => snap.duplicates = v,
-                                            .allowed => snap.allowed = v,
-                                            .denied => snap.denied = v,
+                                            .allowed => snap.allowed += v,
+                                            .denied => snap.denied += v,
                                             .audited => snap.audited = v,
                                             .replay_checked => snap.replay_checked = v,
                                             .replay_match => snap.replay_match = v,
@@ -1118,6 +1150,11 @@ pub const Supervisor = struct {
                                             .diag_crashed_tile => snap.diag_crash_count = v,
                                             .diag_sandbox_failures => snap.diag_sandbox_count = v,
                                             .metric_boot_timestamp => snap.metric_boot_timestamp = v,
+                                            .agent_dispatched => snap.agent_dispatched = v,
+                                            .agent_results => snap.agent_results = v,
+                                            .agent_denied => snap.agent_denied = v,
+                                            .agent_tokens => snap.agent_tokens = v,
+                                            .agent_embeddings => snap.agent_embeddings = v,
                                         }
                                     }
                                 }
@@ -1149,8 +1186,8 @@ pub const Supervisor = struct {
                     .normalized => snap.normalized = v,
                     .invalid => snap.invalid = v,
                     .duplicates => snap.duplicates = v,
-                    .allowed => snap.allowed = v,
-                    .denied => snap.denied = v,
+                    .allowed => snap.allowed += v,
+                    .denied => snap.denied += v,
                     .audited => snap.audited = v,
                     .replay_checked => snap.replay_checked = v,
                     .replay_match => snap.replay_match = v,
@@ -1159,6 +1196,11 @@ pub const Supervisor = struct {
                     .diag_crashed_tile => snap.diag_crash_count = v,
                     .diag_sandbox_failures => snap.diag_sandbox_count = v,
                     .metric_boot_timestamp => snap.metric_boot_timestamp = v,
+                    .agent_dispatched => snap.agent_dispatched = v,
+                    .agent_results => snap.agent_results = v,
+                    .agent_denied => snap.agent_denied = v,
+                    .agent_tokens => snap.agent_tokens = v,
+                    .agent_embeddings => snap.agent_embeddings = v,
                 }
             }
         }
@@ -1183,6 +1225,11 @@ pub const Supervisor = struct {
         diag_crash_count: u64 = 0,
         diag_sandbox_count: u64 = 0,
         metric_boot_timestamp: u64 = 0,
+        agent_dispatched: u64 = 0,
+        agent_results: u64 = 0,
+        agent_denied: u64 = 0,
+        agent_tokens: u64 = 0,
+        agent_embeddings: u64 = 0,
     };
 
     /// Convert a plain ProcessMetricSnapshot into a timestamped version.
@@ -1241,8 +1288,8 @@ pub const Supervisor = struct {
                 .normalized => snap.normalized = v,
                 .invalid => snap.invalid = v,
                 .duplicates => snap.duplicates = v,
-                .allowed => snap.allowed = v,
-                .denied => snap.denied = v,
+                .allowed => snap.allowed += v,
+                .denied => snap.denied += v,
                 .audited => snap.audited = v,
                 .replay_checked => snap.replay_checked = v,
                 .replay_match => snap.replay_match = v,
@@ -1251,6 +1298,11 @@ pub const Supervisor = struct {
                 .diag_crashed_tile => snap.diag_crash_count = v,
                 .diag_sandbox_failures => snap.diag_sandbox_count = v,
                 .metric_boot_timestamp => snap.metric_boot_timestamp = v,
+                .agent_dispatched => snap.agent_dispatched = v,
+                .agent_results => snap.agent_results = v,
+                .agent_denied => snap.agent_denied = v,
+                .agent_tokens => snap.agent_tokens = v,
+                .agent_embeddings => snap.agent_embeddings = v,
             }
         }
         return snap;
@@ -1468,4 +1520,19 @@ fn removeLifecycleTestState(sup: *Supervisor) void {
     // deinit() asserts against. Just null the pointer and free raw bytes.
     sup.process_state = null;
     sup.allocator.free(std.mem.asBytes(state));
+}
+
+test "a dispatch template is required by the full workflow and refused elsewhere" {
+    const full = topologies.investmentWorkflow();
+    const agent_only = topologies.agentProcess(1);
+    try std.testing.expectError(error.MissingDispatchTemplate, validateDispatchTemplate(full, null));
+    try validateDispatchTemplate(full, .{});
+    try validateDispatchTemplate(agent_only, null);
+    try std.testing.expectError(error.UnexpectedDispatchTemplate, validateDispatchTemplate(agent_only, .{}));
+}
+
+test "the registry accepts the full investment workflow and the agent topologies" {
+    try tile_registry.validate(topologies.investmentWorkflow());
+    try tile_registry.validate(topologies.agentProcess(1));
+    try tile_registry.validate(topologies.agentProcess(3));
 }
