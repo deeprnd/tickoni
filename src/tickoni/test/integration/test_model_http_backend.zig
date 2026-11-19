@@ -1,4 +1,4 @@
-// Integration tests for tkmodl HTTP transport against a local OpenAI-compatible
+// Integration tests for the tkmodl HttpBackend protocol against a local OpenAI-compatible
 // mock server. These are deterministic transport proofs and do not require
 // llama.cpp or any live model endpoint.
 
@@ -56,18 +56,12 @@ fn makeAiInfraRequest(model_id: []const u8) model.ProviderRequest {
     };
 }
 
-fn requireMockServerOrSkip(io: std.Io) !void {
-    var probe = openai_mock.Server.init(io, .{}) catch return error.SkipZigTest;
-    probe.listener.deinit(io);
-}
-
 fn withMockBackend(
     allocator: std.mem.Allocator,
     test_fn: fn (allocator: std.mem.Allocator, backend: *model.Backend, server: *openai_mock.Server) anyerror!void,
 ) !void {
     var runtime = http_support.TestRuntime.init();
     defer runtime.deinit();
-    try requireMockServerOrSkip(runtime.io());
 
     var server = try openai_mock.Server.init(runtime.io(), .{
         .model_id = mock_model_id,
@@ -87,9 +81,7 @@ fn withMockBackend(
     try test_fn(allocator, &backend, &server);
 }
 
-test "model tile http: hello round-trip via mock server" {
-    const shouldSkip = false;
-    if (shouldSkip) return error.SkipZigTest;
+test "model http backend: hello round-trip via mock server" {
     try withMockBackend(std.testing.allocator, struct {
         fn run(allocator: std.mem.Allocator, backend: *model.Backend, server: *openai_mock.Server) !void {
             const req = model.ProviderRequest{
@@ -110,9 +102,7 @@ test "model tile http: hello round-trip via mock server" {
     }.run);
 }
 
-test "model tile http: thesis returns valid structured content from mock server" {
-    const shouldSkip = false;
-    if (shouldSkip) return error.SkipZigTest;
+test "model http backend: thesis returns valid structured content from mock server" {
     try withMockBackend(std.testing.allocator, struct {
         fn run(allocator: std.mem.Allocator, backend: *model.Backend, server: *openai_mock.Server) !void {
             const req = makeAiInfraRequest(mock_model_id);
@@ -172,9 +162,7 @@ test "model tile http: thesis returns valid structured content from mock server"
     }.run);
 }
 
-test "model tile http: two sequential calls both succeed against mock server" {
-    const shouldSkip = false;
-    if (shouldSkip) return error.SkipZigTest;
+test "model http backend: two sequential calls both succeed against mock server" {
     try withMockBackend(std.testing.allocator, struct {
         fn run(allocator: std.mem.Allocator, backend: *model.Backend, server: *openai_mock.Server) !void {
             const req = makeAiInfraRequest(mock_model_id);
@@ -190,13 +178,10 @@ test "model tile http: two sequential calls both succeed against mock server" {
     }.run);
 }
 
-test "model tile http: wrong endpoint fails closed with HttpStatusError" {
-    const shouldSkip = false;
-    if (shouldSkip) return error.SkipZigTest;
+test "model http backend: missing /v1 path prefix returns HttpStatusError (HTTP 404)" {
     const allocator = std.testing.allocator;
     var runtime = http_support.TestRuntime.init();
     defer runtime.deinit();
-    try requireMockServerOrSkip(runtime.io());
 
     var server = try openai_mock.Server.init(runtime.io(), .{
         .model_id = mock_model_id,
