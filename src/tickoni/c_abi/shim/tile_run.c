@@ -59,6 +59,7 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
 #include "../topo_run/tk_agent_stem.h"
 #include "../topo_run/tk_disp_stem.h"
 #include "../topo_run/tk_pass_stem.h"
+#include "../topo_run/tk_diag_stem.h"
 #endif
 
 /* Check if this tile should use the metric run tile. Compares tile name
@@ -172,6 +173,12 @@ tile_is_disp( fd_topo_tile_t * tile ) {
   return tile!=NULL && strcmp( tile->name, TILE_ID_TKDISP ) == 0;
 }
 
+/* Predicate that matches the tkdiag diagnostic observer tile. */
+static int
+tile_is_diag( fd_topo_tile_t * tile ) {
+  return tile!=NULL && strcmp( tile->name, TILE_ID_TKDIAG ) == 0;
+}
+
 static int const TK_PROCESS_MODE_SANDBOX_NONE = 0;
 static int const TK_KEEP_CONTROLLING_TERMINAL = 1;
 
@@ -250,6 +257,8 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
     run_tile = &TK_TOOL_RUN;
   } else if( tile_is_adpt( tile_c ) ) {
     run_tile = &TK_ADPT_RUN;
+  } else if( tile_is_diag( tile_c ) ) {
+    run_tile = &TK_DIAG_RUN;
   } else {
     run_tile = &TK_TILE_RUN;
   }
@@ -265,6 +274,7 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
   (void)tile_is_case;
   (void)tile_is_tool;
   (void)tile_is_adpt;
+  (void)tile_is_diag;
   run_tile = &TK_TILE_RUN;
 #endif
 
