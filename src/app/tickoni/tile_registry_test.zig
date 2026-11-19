@@ -267,7 +267,22 @@ test "launch mode is owned by the registry" {
     inline for (.{ tile_ids.tknorm, tile_ids.tkdedu, tile_ids.tkpoly, tile_ids.tkaudt }) |tile_id| {
         try std.testing.expectEqual(LaunchMode.stem, findById(tile_id).?.launch_mode);
     }
-    try std.testing.expectEqual(LaunchMode.tile, findById(tile_ids.tkdiag).?.launch_mode);
+    // tkdiag is a minimal fd_stem observer: the supervisor spawns it through
+    // __stem-run, and it has no process-mode callback.
+    const diag = findById(tile_ids.tkdiag).?;
+    try std.testing.expectEqual(LaunchMode.stem, diag.launch_mode);
+    try std.testing.expect(diag.process_fn == null);
+}
+
+test "tkdiag is a 0-in 0-out observer that owns CNC slots 0 and 1" {
+    const diag = findById(tile_ids.tkdiag).?;
+    try std.testing.expectEqual(@as(u8, 0), diag.in_cnt);
+    try std.testing.expectEqual(@as(u8, 0), diag.out_cnt);
+    try std.testing.expectEqual(@as(usize, 2), diag.counters.len);
+    try std.testing.expectEqual(@as(u8, 0), diag.counters[0].idx);
+    try std.testing.expectEqual(CounterField.diag_crashed_tile, diag.counters[0].field);
+    try std.testing.expectEqual(@as(u8, 1), diag.counters[1].idx);
+    try std.testing.expectEqual(CounterField.diag_sandbox_failures, diag.counters[1].field);
 }
 
 test "validate rejects a topology whose channel cardinality doesn't match the registry" {
