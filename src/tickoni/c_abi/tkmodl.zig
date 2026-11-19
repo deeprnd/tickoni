@@ -7,6 +7,7 @@
 /// come from the one C definition (audit_schema.h, via translate-c) — nothing
 /// here mirrors a C struct by hand.
 const std = @import("std");
+const stem_run = @import("stem_run.zig");
 const audit_mod = @import("audit_mod");
 
 pub const ModelRequestMsg = audit_mod.ModelRequestMsg;
@@ -18,13 +19,8 @@ pub const TkModlFixtureEntry = audit_mod.TkModlFixtureEntry;
 /// Opaque handle for fd_topo_run_tile_t. Only shim code knows the real layout.
 pub const TopoRunTile = opaque {};
 
-extern fn tk_get_model_run_name() [*:0]const u8;
-extern fn tk_get_model_run_tile() ?*TopoRunTile;
-extern fn tk_get_model_run_run() ?*anyopaque;
-extern fn tk_get_model_run_scratch_align() ?*anyopaque;
-extern fn tk_get_model_run_scratch_footprint() ?*anyopaque;
-extern fn tk_get_model_run_privileged_init() ?*anyopaque;
-extern fn tk_get_model_run_unprivileged_init() ?*anyopaque;
+const run_desc = stem_run.RunDescriptor("model", TopoRunTile);
+
 extern fn tkmodl_tile_scratch_footprint() usize;
 extern fn tkmodl_tile_scratch_align() usize;
 extern fn tkmodl_set_event_count(event_count: u64) void;
@@ -52,31 +48,31 @@ pub const config_version: u16 = audit_mod.TKMODL_CONFIG_VERSION;
 pub const wire_version: u16 = audit_mod.TKMODL_WIRE_VERSION;
 
 pub fn getModelRunName() [*:0]const u8 {
-    return tk_get_model_run_name();
+    return run_desc.name();
 }
 
 pub fn getModelRunTile() ?*TopoRunTile {
-    return tk_get_model_run_tile();
+    return run_desc.tile();
 }
 
 pub fn getModelRun() ?*anyopaque {
-    return tk_get_model_run_run();
+    return run_desc.run();
 }
 
 pub fn getModelRunScratchAlign() ?*anyopaque {
-    return tk_get_model_run_scratch_align();
+    return run_desc.scratchAlign();
 }
 
 pub fn getModelRunScratchFootprint() ?*anyopaque {
-    return tk_get_model_run_scratch_footprint();
+    return run_desc.scratchFootprint();
 }
 
 pub fn getModelRunPrivilegedInit() ?*anyopaque {
-    return tk_get_model_run_privileged_init();
+    return run_desc.privilegedInit();
 }
 
 pub fn getModelRunUnprivilegedInit() ?*anyopaque {
-    return tk_get_model_run_unprivileged_init();
+    return run_desc.unprivilegedInit();
 }
 
 pub fn modelScratchFootprint() usize {
@@ -188,15 +184,15 @@ fn baseConfig() TkModlRuntimeConfig {
 }
 
 test "tkmodl tile identity — name is TILE_ID_TKMODL" {
-    try std.testing.expectEqualStrings("tkmodl", std.mem.sliceTo(tk_get_model_run_name(), 0));
+    try std.testing.expectEqualStrings("tkmodl", std.mem.sliceTo(run_desc.name(), 0));
 }
 
 test "tkmodl tile identity — run, init and scratch callbacks are non-null" {
-    try std.testing.expect(tk_get_model_run_run() != null);
-    try std.testing.expect(tk_get_model_run_privileged_init() != null);
-    try std.testing.expect(tk_get_model_run_unprivileged_init() != null);
-    try std.testing.expect(tk_get_model_run_scratch_align() != null);
-    try std.testing.expect(tk_get_model_run_scratch_footprint() != null);
+    try std.testing.expect(run_desc.run() != null);
+    try std.testing.expect(run_desc.privilegedInit() != null);
+    try std.testing.expect(run_desc.unprivilegedInit() != null);
+    try std.testing.expect(run_desc.scratchAlign() != null);
+    try std.testing.expect(run_desc.scratchFootprint() != null);
 }
 
 test "tkmodl scratch align — describes the context block, not fd_stem's stack scratch" {

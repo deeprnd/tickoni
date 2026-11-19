@@ -95,6 +95,7 @@ pub fn strategy(
             "src/tickoni/test/integration/test_tile_tknorm.zig",
             "src/tickoni/test/integration/test_tile_tkdedu.zig",
             "src/tickoni/test/integration/test_tile_tkpoly.zig",
+            "src/tickoni/test/integration/test_tile_tkpoly_integration.zig",
             "src/tickoni/test/integration/test_tile_tkmodl.zig",
         };
 

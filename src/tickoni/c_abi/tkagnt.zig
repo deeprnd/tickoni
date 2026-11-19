@@ -3,16 +3,12 @@
 /// agent. Accessors take the tile object's scratch base and never return a
 /// child-process pointer.
 const std = @import("std");
+const stem_run = @import("stem_run.zig");
 
 pub const TopoRunTile = opaque {};
 
-extern fn tk_get_agent_sink_run_name() [*:0]const u8;
-extern fn tk_get_agent_sink_run_tile() ?*TopoRunTile;
-extern fn tk_get_agent_sink_run_run() ?*anyopaque;
-extern fn tk_get_agent_sink_run_scratch_align() ?*anyopaque;
-extern fn tk_get_agent_sink_run_scratch_footprint() ?*anyopaque;
-extern fn tk_get_agent_sink_run_privileged_init() ?*anyopaque;
-extern fn tk_get_agent_sink_run_unprivileged_init() ?*anyopaque;
+const run_desc = stem_run.RunDescriptor("agent_sink", TopoRunTile);
+
 extern fn tkagnt_tile_scratch_footprint() usize;
 extern fn tkagnt_tile_scratch_align() usize;
 extern fn tkagnt_set_event_count(event_count: u64) void;
@@ -31,11 +27,11 @@ extern fn tkagnt_result_model_id(scratch: ?*anyopaque, idx: usize, dst: *[32]u8)
 extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
 
 pub fn getRunName() [*:0]const u8 {
-    return tk_get_agent_sink_run_name();
+    return run_desc.name();
 }
 
 pub fn getRunTile() ?*TopoRunTile {
-    return tk_get_agent_sink_run_tile();
+    return run_desc.tile();
 }
 
 pub fn scratchFootprint() usize {
@@ -101,12 +97,12 @@ pub fn resultModelId(scratch: ?*anyopaque, idx: usize, dst: *[32]u8) void {
 }
 
 test "tkagnt sink identity — name is TILE_ID_TKAGNT with non-null callbacks" {
-    try std.testing.expectEqualStrings("tkagnt", std.mem.sliceTo(tk_get_agent_sink_run_name(), 0));
-    try std.testing.expect(tk_get_agent_sink_run_run() != null);
-    try std.testing.expect(tk_get_agent_sink_run_privileged_init() != null);
-    try std.testing.expect(tk_get_agent_sink_run_unprivileged_init() != null);
-    try std.testing.expect(tk_get_agent_sink_run_scratch_align() != null);
-    try std.testing.expect(tk_get_agent_sink_run_scratch_footprint() != null);
+    try std.testing.expectEqualStrings("tkagnt", std.mem.sliceTo(run_desc.name(), 0));
+    try std.testing.expect(run_desc.run() != null);
+    try std.testing.expect(run_desc.privilegedInit() != null);
+    try std.testing.expect(run_desc.unprivilegedInit() != null);
+    try std.testing.expect(run_desc.scratchAlign() != null);
+    try std.testing.expect(run_desc.scratchFootprint() != null);
 }
 
 test "tkagnt sink scratch — aligned, larger than the placeholder, topob parity" {
