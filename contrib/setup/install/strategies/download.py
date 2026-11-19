@@ -296,16 +296,16 @@ class GitHubReleaseStrategy(DownloadInstallStrategy):
         with tempfile.TemporaryDirectory() as tmpdir:
             result = _run_cmd(['curl', '-sSfL', 'https://api.github.com/repos/diffblue/cbmc/releases/latest'])
             if result.returncode != 0:
-                print(f"WARNING: could not fetch CBMC releases", file=__import__('sys').stderr)
-                return
+                print(f"ERROR: could not fetch CBMC releases", file=sys.stderr)
+                sys.exit(1)
             release = json.loads(result.stdout)
             assets = release.get('assets', [])
             matching = [a for a in assets if a['name'].startswith(prefix) and a['name'].endswith('-Linux.deb')]
             if not matching:
                 matching = [a for a in assets if a['name'].startswith(prefix) and a['name'].endswith('.deb')]
             if not matching:
-                print(f"WARNING: no matching CBMC asset found for {prefix}", file=__import__('sys').stderr)
-                return
+                print(f"ERROR: no matching CBMC asset found for {prefix}", file=sys.stderr)
+                sys.exit(1)
             url = matching[0]['browser_download_url']
             deb_path = Path(tmpdir) / 'cbmc.deb'
             self._download_file(url, deb_path)
@@ -314,13 +314,26 @@ class GitHubReleaseStrategy(DownloadInstallStrategy):
             litani_release = json.loads(litani_result.stdout) if litani_result.returncode == 0 else {'assets': []}
             litani_assets = litani_release.get('assets', [])
             litani_match = [a for a in litani_assets if a['name'].startswith('litani-') and a['name'].endswith('.deb')]
+            litani_path = None
             if litani_match:
                 litani_url = litani_match[0]['browser_download_url']
                 litani_path = Path(tmpdir) / 'litani.deb'
                 self._download_file(litani_url, litani_path)
-                _run_cmd(['sudo', 'apt-get', 'install', '-y', '--no-install-recommends', str(deb_path), str(litani_path), 'universal-ctags'])
-            else:
-                _run_cmd(['sudo', 'apt-get', 'install', '-y', '--no-install-recommends', str(deb_path), 'universal-ctags'])
+            # Use dpkg instead of apt-get: CBMC deb Recommends graphviz which
+            # transitively depends on libegl-mesa0, a package that is frequently
+            # unavailable on Ubuntu mirrors (404). dpkg installs only hard Depends
+            # (libc, libboost, libstdc++ etc.) and skips Recommends entirely.
+            dpkg_result = _run_cmd(['sudo', 'dpkg', '-i', str(deb_path)])
+            if dpkg_result.returncode != 0:
+                print(f"ERROR: dpkg install failed for CBMC", file=sys.stderr)
+                sys.exit(1)
+            if litani_path:
+                _run_cmd(['sudo', 'dpkg', '-i', str(litani_path)])
+            _run_cmd(['sudo', 'apt-get', 'install', '-y', '--fix-missing', '-f'])
+            _run_cmd(['sudo', 'apt-get', 'install', '-y', 'universal-ctags'])
+            if not shutil.which('cbmc'):
+                print(f"ERROR: cbmc binary not found after install", file=sys.stderr)
+                sys.exit(1)
 
 
 def _relocate_dir(src: Path, dest: str) -> None:
