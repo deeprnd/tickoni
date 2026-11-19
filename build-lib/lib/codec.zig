@@ -132,6 +132,8 @@ pub fn addTickoniSupervisorShimLibrary(
         "src/tickoni/c_abi/shim/tk_normalize_stem.c",
         "src/tickoni/c_abi/shim/tk_dedu_stem.c",
         "src/tickoni/c_abi/shim/tk_policy_stem.c",
+        "src/tickoni/c_abi/shim/tk_model_stem.c",
+        "src/tickoni/c_abi/shim/tk_agent_sink_stem.c",
     });
 }
 
