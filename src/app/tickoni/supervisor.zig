@@ -8,7 +8,8 @@ const tiles_mod = @import("tiles");
 const c_abi = @import("c_abi");
 const util = @import("util");
 const topologies = @import("topologies");
-const tile_registry = @import("tile_registry.zig");
+/// Launch-mode registry; integration tests select the stem tiles of a run from it.
+pub const tile_registry = @import("tile_registry.zig");
 /// Per-instance tkmodl configuration set; tests build `ProcessPipelineConfig.model_configs` from it.
 pub const model_instances = @import("model_instances.zig");
 const logger = @import("logger");
@@ -135,6 +136,18 @@ pub const ChildRecord = struct {
     reap_error_count: u32 = 0,
 };
 
+/// Firedancer tile index of each topology position, matched by `(name, kind_id)`.
+/// Caller owns the result.
+fn tileCncIndices(allocator: std.mem.Allocator, tiles: []const rt.tile.TileDescriptor, built: *const rt.topo_build.BuiltTopo) ![]usize {
+    const out = try allocator.alloc(usize, tiles.len);
+    errdefer allocator.free(out);
+    for (tiles, out) |t, *fd_idx| {
+        fd_idx.* = built.tileIdxByIdentity(t.identity());
+        if (fd_idx.* == c_abi.topob.not_found) return error.TileKindIdMismatch;
+    }
+    return out;
+}
+
 /// Supervisor-owned state for a running v2.14 process-mode pipeline.
 const ProcessState = struct {
     wksp: *c_abi.wksp.Wksp,
@@ -147,7 +160,16 @@ const ProcessState = struct {
     run_dir: []u8,
     cnc_gaddrs: []usize,
     /// Parent-side cnc joins, used to send the halt signal during stop.
+    /// Indexed by Firedancer tile index, like `cnc_gaddrs`, `suppress_cnc` and
+    /// `built_topo.tile_infos`; see `tile_cnc_idx`.
     cncs: []?*c_abi.cnc.Cnc,
+    /// Firedancer tile index of the tile at each topology position. `children`
+    /// and the supervisor's `handles` are indexed by topology position, but
+    /// topo_build moves the metric tile last, so the two orders differ (metric
+    /// and tkdiag swap) and reading `cncs[position]` would pair a tile's handle
+    /// with another tile's CNC. Every lookup that pairs a handle or child with
+    /// its CNC goes through this map.
+    tile_cnc_idx: []usize,
     children: []ChildRecord,
     heartbeat_stale_after_ms: u32,
     /// Grace period between requesting HALT and force-terminating tiles already
@@ -202,6 +224,7 @@ const ProcessState = struct {
         self.built_topo.deinit(allocator);
         allocator.free(self.cnc_gaddrs);
         allocator.free(self.cncs);
+        allocator.free(self.tile_cnc_idx);
         allocator.free(self.children);
         allocator.free(self.suppress_cnc);
         if (self.workspace_name.len > 0) allocator.free(self.workspace_name);
@@ -624,6 +647,7 @@ pub const Supervisor = struct {
             .run_dir = try self.allocator.dupe(u8, config.run_dir),
             .cnc_gaddrs = try self.allocator.alloc(usize, tile_cnt),
             .cncs = try self.allocator.alloc(?*c_abi.cnc.Cnc, tile_cnt),
+            .tile_cnc_idx = try tileCncIndices(self.allocator, self.topo.tiles, &built_topo),
             .children = try self.allocator.alloc(ChildRecord, tile_cnt),
             .heartbeat_stale_after_ms = heartbeat_stale_after_ms,
             .stop_grace_ns = resolvedStopGraceNs(config),
@@ -749,7 +773,7 @@ pub const Supervisor = struct {
                 .tile_kind_id = tile.kind_id,
                 .cpu_placement = tile.cpu_placement,
                 .workspace_name = launch_workspace_name,
-                .cnc_gaddr = state.cnc_gaddrs[i],
+                .cnc_gaddr = state.cnc_gaddrs[state.tile_cnc_idx[i]],
                 .shmem_path = config.run_dir,
                 .heartbeat_interval_ns = config.heartbeat_interval_ns,
                 .crash_after_heartbeats = if (i < config.crash_after_heartbeats.len) config.crash_after_heartbeats[i] else 0,
@@ -933,13 +957,14 @@ pub const Supervisor = struct {
         const tile_cnt = state.cncs.len;
         for (state.suppress_cnc[0..tile_cnt]) |*v| v.* = false;
         for (state.children[0..], 0..) |*record, i| {
+            const fd_idx = state.tile_cnc_idx[i];
             if (record.ownership != .owned) {
-                state.suppress_cnc[i] = true;
+                state.suppress_cnc[fd_idx] = true;
                 std.debug.print("[sup-refresh] tile {d}: ownership not owned, suppressing cnc\n", .{i});
                 continue;
             }
             const child = &(record.child orelse {
-                state.suppress_cnc[i] = true;
+                state.suppress_cnc[fd_idx] = true;
                 std.debug.print("[sup-refresh] tile {d}: no child ptr, suppressing cnc\n", .{i});
                 continue;
             });
@@ -948,27 +973,28 @@ pub const Supervisor = struct {
             switch (result) {
                 .running => {},
                 .observation => |observation| switch (observation) {
-                    .stopped => state.suppress_cnc[i] = true,
-                    .exited, .signaled => state.suppress_cnc[i] = true,
+                    .stopped => state.suppress_cnc[fd_idx] = true,
+                    .exited, .signaled => state.suppress_cnc[fd_idx] = true,
                 },
-                .no_child, .failed => state.suppress_cnc[i] = true,
+                .no_child, .failed => state.suppress_cnc[fd_idx] = true,
             }
             if (self.handles[i].state == .crashed) {
                 state.has_child_crashed = true;
-                state.suppress_cnc[i] = true;
+                state.suppress_cnc[fd_idx] = true;
                 std.debug.print("[sup-refresh] tile {d}: already crashed, suppressing cnc\n", .{i});
             }
         }
         // Read heartbeats from surviving tiles only — skip any tile whose
         // child has been reaped (crashed or stopped) so we never dereference
-        for (state.cncs, 0..) |maybe_cnc, i| {
-            const h = &self.handles[i];
-            std.debug.print("[sup-refresh] tile {d}: state={s} suppress={any}\n", .{ i, @tagName(h.state), state.suppress_cnc[i] });
+        for (self.handles, 0..) |*h, i| {
+            const fd_idx = state.tile_cnc_idx[i];
+            const maybe_cnc = state.cncs[fd_idx];
+            std.debug.print("[sup-refresh] tile {d}: state={s} suppress={any}\n", .{ i, @tagName(h.state), state.suppress_cnc[fd_idx] });
             if (h.state != .starting and h.state != .running) {
                 std.debug.print("[sup-refresh] tile {d}: not starting/running, skipping\n", .{i});
                 continue;
             }
-            if (state.suppress_cnc[i]) {
+            if (state.suppress_cnc[fd_idx]) {
                 std.debug.print("[sup-refresh] tile {d}: suppressed, skipping cnc read\n", .{i});
                 continue;
             }
@@ -1067,14 +1093,15 @@ pub const Supervisor = struct {
         const tile_cnt = state.cncs.len;
         for (state.suppress_cnc[0..tile_cnt]) |*v| v.* = false;
         for (state.children[0..], 0..) |*record, i| {
+            const fd_idx = state.tile_cnc_idx[i];
             if (record.ownership != .owned) {
-                state.suppress_cnc[i] = true;
+                state.suppress_cnc[fd_idx] = true;
                 // Tile was reaped before we polled it (fast-exit stem tiles).
                 // Read its final counter snapshot before suppressing the CNC.
                 if (record.terminal_observation) |obs| switch (obs) {
                     .exited, .signaled => {
-                        const tile_info = state.built_topo.tile_infos[i];
-                        if (state.cncs[i]) |cnc| {
+                        const tile_info = state.built_topo.tile_infos[fd_idx];
+                        if (state.cncs[fd_idx]) |cnc| {
                             const id = tile_info.tile_id;
                             if (tile_registry.findById(id)) |tile_entry| {
                                 for (tile_entry.counters) |c| {
@@ -1109,7 +1136,7 @@ pub const Supervisor = struct {
                 continue;
             }
             const child = &(record.child orelse {
-                state.suppress_cnc[i] = true;
+                state.suppress_cnc[fd_idx] = true;
                 std.debug.print("[snapshot] tile {d}: no child ptr, suppress\n", .{i});
                 continue;
             });
@@ -1122,15 +1149,15 @@ pub const Supervisor = struct {
                     // This captures final metrics before the tile is
                     // reaped (ownership = .reaped) and CNC suppressed.
                     switch (obs) {
-                        .stopped => state.suppress_cnc[i] = true,
+                        .stopped => state.suppress_cnc[fd_idx] = true,
                         .exited, .signaled => {
-                            state.suppress_cnc[i] = true;
+                            state.suppress_cnc[fd_idx] = true;
                             // Read the final counter snapshot before the
                             // tile's CNC is suppressed. The tile process
                             // has exited, but CNC shared memory is still
                             // mapped parent-side (not yet detached).
-                            const tile_info = state.built_topo.tile_infos[i];
-                            if (state.cncs[i]) |cnc| {
+                            const tile_info = state.built_topo.tile_infos[fd_idx];
+                            if (state.cncs[fd_idx]) |cnc| {
                                 const id = tile_info.tile_id;
                                 if (tile_registry.findById(id)) |tile_entry| {
                                     for (tile_entry.counters) |c| {
@@ -1162,9 +1189,9 @@ pub const Supervisor = struct {
                         },
                     }
                 },
-                .no_child, .failed => state.suppress_cnc[i] = true,
+                .no_child, .failed => state.suppress_cnc[fd_idx] = true,
             }
-            if (self.handles[i].state == .crashed) state.suppress_cnc[i] = true;
+            if (self.handles[i].state == .crashed) state.suppress_cnc[fd_idx] = true;
         }
         for (state.built_topo.tile_infos, 0..) |info, i| {
             if (state.suppress_cnc[i]) {
@@ -1262,8 +1289,9 @@ pub const Supervisor = struct {
     /// Read metrics for a single tile in process-mode.
     pub fn snapshotProcessMetricsForTile(self: *Supervisor, tile_idx: usize) !ProcessMetricSnapshot {
         const state = self.process_state orelse return error.NoProcessState;
-        const cnc = state.cncs[tile_idx] orelse return error.CncNotFound;
-        const info = state.built_topo.tile_infos[tile_idx];
+        const fd_idx = state.tile_cnc_idx[tile_idx];
+        const cnc = state.cncs[fd_idx] orelse return error.CncNotFound;
+        const info = state.built_topo.tile_infos[fd_idx];
         const entry = tile_registry.findById(info.tile_id) orelse return error.TileNotFound;
         var snap = ProcessMetricSnapshot{};
         // Guard: skip CNC reads for crashed/terminated children — same
@@ -1328,7 +1356,7 @@ pub const Supervisor = struct {
         for (state.children[0..], 0..) |*record, i| {
             if (record.ownership != .owned) continue;
             record.halt_timestamp = halt_time;
-            if (state.cncs[i]) |cnc| c_abi.cnc.signal(cnc, c_abi.cnc.signal_halt);
+            if (state.cncs[state.tile_cnc_idx[i]]) |cnc| c_abi.cnc.signal(cnc, c_abi.cnc.signal_halt);
         }
 
         const grace_deadline = self.process_operations.now() + @as(i64, @intCast(state.stop_grace_ns));
@@ -1471,6 +1499,8 @@ fn installLifecycleTestState(sup: *Supervisor) !*ProcessState {
     state.* = undefined;
     state.children = try sup.allocator.alloc(ChildRecord, tile_cnt);
     state.cncs = try sup.allocator.alloc(?*c_abi.cnc.Cnc, tile_cnt);
+    state.tile_cnc_idx = try sup.allocator.alloc(usize, tile_cnt);
+    for (state.tile_cnc_idx, 0..) |*v, i| v.* = i;
     state.cnc_gaddrs = try sup.allocator.alloc(usize, tile_cnt);
     state.suppress_cnc = try sup.allocator.alloc(bool, tile_cnt);
     state.stop_grace_ns = 0;
@@ -1520,6 +1550,54 @@ fn removeLifecycleTestState(sup: *Supervisor) void {
     // deinit() asserts against. Just null the pointer and free raw bytes.
     sup.process_state = null;
     sup.allocator.free(std.mem.asBytes(state));
+}
+
+fn tileIndexTestTopo(infos: []rt.topo_build.BuiltTopoTileInfo) rt.topo_build.BuiltTopo {
+    return .{
+        .buf = &.{},
+        .topo = @ptrFromInt(1),
+        .wksp_idx = 0,
+        .metric_wksp_idx = c_abi.topob.not_found,
+        .metric_in_wksp_idx = c_abi.topob.not_found,
+        .metric_tile_idx = c_abi.topob.not_found,
+        .metric_tile_obj_id = 0,
+        .cnc_obj_id = &.{},
+        .audit_watermark_obj_id = c_abi.topob.not_found,
+        .link_obj_id = &.{},
+        .tile_infos = infos,
+    };
+}
+
+test "tile CNC indices follow tile identity when the metric tile is moved last" {
+    // Topology order puts metric before tkdiag; topo_build registers metric
+    // last, so the Firedancer order swaps them. A tile's CNC is cncs[Firedancer
+    // index], never cncs[topology position].
+    const tiles = [_]rt.tile.TileDescriptor{
+        .{ .id = 0, .name = rt.tile_ids.tkings },
+        .{ .id = 1, .name = rt.tile_ids.metric },
+        .{ .id = 2, .name = rt.tile_ids.tkdiag },
+    };
+    var infos = [_]rt.topo_build.BuiltTopoTileInfo{
+        .{ .tile_id = rt.tile_ids.tkings, .kind_id = 0, .cpu_placement = .floating },
+        .{ .tile_id = rt.tile_ids.tkdiag, .kind_id = 0, .cpu_placement = .floating },
+        .{ .tile_id = rt.tile_ids.metric, .kind_id = 0, .cpu_placement = .floating },
+    };
+    const built = tileIndexTestTopo(&infos);
+    const got = try tileCncIndices(std.testing.allocator, &tiles, &built);
+    defer std.testing.allocator.free(got);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1 }, got);
+}
+
+test "tile CNC indices refuse a topology tile the built topology lacks" {
+    const tiles = [_]rt.tile.TileDescriptor{
+        .{ .id = 0, .name = rt.tile_ids.tkings },
+        .{ .id = 1, .name = rt.tile_ids.tkdiag },
+    };
+    var infos = [_]rt.topo_build.BuiltTopoTileInfo{
+        .{ .tile_id = rt.tile_ids.tkings, .kind_id = 0, .cpu_placement = .floating },
+    };
+    const built = tileIndexTestTopo(&infos);
+    try std.testing.expectError(error.TileKindIdMismatch, tileCncIndices(std.testing.allocator, &tiles, &built));
 }
 
 test "a dispatch template is required by the full workflow and refused elsewhere" {
