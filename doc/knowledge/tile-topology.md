@@ -312,7 +312,9 @@ processes to launch and how it knows their expected link cardinality:
 
 Option A is the chosen approach. No supervisor, process dispatcher, metrics
 reader, or test harness should recreate tile identity mappings independently.
-The tile registry in `topology.zig` owns that mapping.
+The tile registry in `src/app/tickoni/tile_registry.zig` owns that mapping.
+It selects the child launch mode by tile ID and validates each configured
+tile's link cardinality. A topology may omit a registered tile.
 
 ### Firedancer TILES[] Pattern (from 7-20-24.md audit)
 
