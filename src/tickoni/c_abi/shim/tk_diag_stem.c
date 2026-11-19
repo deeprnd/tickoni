@@ -1,12 +1,18 @@
 /* tk_diag_stem.c — tkdiag: the minimal observer fd_stem tile.
  *
  * tkdiag has 0 input links and 0 output links.  It owns no fragment I/O at all,
- * so it defines only BEFORE_CREDIT (no DURING_FRAG, AFTER_FRAG or AFTER_CREDIT)
- * and never publishes.  Unlike the metric tile it has no Firedancer backend to
- * delegate to, so the stem specialization below is its own.
+ * so it defines only BEFORE_CREDIT and DURING_HOUSEKEEPING (no DURING_FRAG,
+ * AFTER_FRAG or AFTER_CREDIT) and never publishes.  Unlike the metric tile it
+ * has no Firedancer backend to delegate to, so the stem specialization below
+ * is its own.
  *
- *   BEFORE_CREDIT    publishes the two diagnostic counters to this tile's CNC
- *                    app slots.
+ *   BEFORE_CREDIT       publishes the two diagnostic counters to this tile's
+ *                       CNC app slots.
+ *   DURING_HOUSEKEEPING advances the CNC heartbeat and, on the first call,
+ *                       moves the CNC BOOT -> RUN, so the supervisor classifies
+ *                       a wedged or stopped tkdiag stale like any other tile
+ *                       (stem_helpers.h, "CNC liveness").  Without it nothing
+ *                       distinguished a stuck spin loop from a healthy one.
  *   SHOULD_SHUTDOWN  CNC HALT only, like the metric tile (the other 0-input
  *                    observer).  There is no event count to exhaust, and an
  *                    iteration-count bound is not a duration: a 0-input stem
@@ -57,6 +63,7 @@ static void tkdiag_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #define STEM_LAZY                         ((long)10e6)
 #define STEM_CALLBACK_CONTEXT_TYPE        tkdiag_ctx_t
 #define STEM_CALLBACK_CONTEXT_ALIGN       TKDIAG_CTX_ALIGN
+#define STEM_CALLBACK_DURING_HOUSEKEEPING(ctx) stk_cnc_liveness( (ctx)->cnc )
 #define STEM_CALLBACK_BEFORE_CREDIT       tkdiag_before_credit
 #define STEM_CALLBACK_SHOULD_SHUTDOWN(ctx) \
   ( (ctx)->cnc && fd_cnc_signal_query( (fd_cnc_t *)(ctx)->cnc ) == FD_CNC_SIGNAL_HALT )
@@ -66,6 +73,7 @@ static void tkdiag_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #undef STEM_NAME
 #undef STEM_CALLBACK_CONTEXT_TYPE
 #undef STEM_CALLBACK_CONTEXT_ALIGN
+#undef STEM_CALLBACK_DURING_HOUSEKEEPING
 #undef STEM_CALLBACK_BEFORE_CREDIT
 #undef STEM_CALLBACK_SHOULD_SHUTDOWN
 

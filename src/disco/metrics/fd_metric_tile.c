@@ -213,6 +213,7 @@ unprivileged_init( fd_topo_t const *      topo,
   ctx->topo = topo;
   ctx->boot_ts = fd_log_wallclock_nanos();
   ctx->cnc = NULL;
+  ctx->liveness = NULL;
 
   ulong scratch_top = FD_SCRATCH_ALLOC_FINI( l, scratch_align() );
   FD_LOG_NOTICE(( "fd_metric_tile: unprivileged_init scratch fini top=%lu", scratch_top ));
@@ -288,6 +289,12 @@ populate_allowed_fds( fd_topo_t const *      topo,
 
 #define STEM_CALLBACK_BEFORE_CREDIT before_credit
 #define STEM_CALLBACK_METRICS_WRITE metrics_write
+
+/* Once per housekeeping event: let the embedding application advance the
+   tile's CNC liveness.  ctx->liveness is NULL for Firedancer's native metric
+   tile (and ctx->cnc with it), so this does nothing there. */
+#define STEM_CALLBACK_DURING_HOUSEKEEPING( ctx ) \
+  do { if( (ctx)->liveness ) (ctx)->liveness( (ctx)->cnc ); } while( 0 )
 
 /* Check CNC for HALT if ctx->cnc is set; otherwise never shut down
    (matches upstream behavior for Firedancer's native metric tile). */

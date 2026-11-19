@@ -176,6 +176,7 @@ static void tk_audit_run( fd_topo_t * topo, fd_topo_tile_t * tile );
 #define STEM_LAZY         ((long)10e6)
 #define STEM_CALLBACK_CONTEXT_TYPE  tk_audit_ctx_t
 #define STEM_CALLBACK_CONTEXT_ALIGN TKAUDT_CTX_ALIGN
+#define STEM_CALLBACK_DURING_HOUSEKEEPING(ctx) stk_cnc_liveness( (ctx)->cnc )
 #define STEM_CALLBACK_BEFORE_FRAG   tk_audit_before_frag
 #define STEM_CALLBACK_DURING_FRAG   tk_audit_during_frag
 #define STEM_CALLBACK_AFTER_FRAG    tk_audit_after_frag
@@ -189,6 +190,7 @@ static void tk_audit_run( fd_topo_t * topo, fd_topo_tile_t * tile );
 #undef STEM_NAME
 #undef STEM_CALLBACK_CONTEXT_TYPE
 #undef STEM_CALLBACK_CONTEXT_ALIGN
+#undef STEM_CALLBACK_DURING_HOUSEKEEPING
 #undef STEM_CALLBACK_BEFORE_FRAG
 #undef STEM_CALLBACK_DURING_FRAG
 #undef STEM_CALLBACK_AFTER_FRAG
