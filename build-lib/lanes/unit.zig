@@ -21,6 +21,7 @@ pub fn strategy(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     fd_lib_dir: []const u8,
+    exe_install: *std.Build.Step.InstallArtifact,
 ) void {
     const int_mods = factory.ModuleFactory.init(b, shared, tm, target, optimize).createIntModules(null);
 
@@ -316,7 +317,10 @@ pub fn strategy(
     // tknorm integration test — needs firedancer linkage for fd_topo_run_tile_t,
     // util module for tmpDir/process helpers, and supervisor/topologies for
     // the full pipeline integration tests.
-    run_sequence[run_count] = tb.registerRunTest(.{
+    // This test self-execs build/zig-out/bin/tickoni-supervisor as its tile
+    // processes, so the installed binary must be rebuilt first; otherwise a stale
+    // binary lays out the workspace differently from this freshly compiled parent.
+    const tknorm_integration = tb.registerRunTest(.{
         .name = "test-tknorm-integration",
         .source_file = "src/tickoni/test/integration/test_tile_tknorm.zig",
         .imports = &.{
@@ -340,6 +344,8 @@ pub fn strategy(
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
     });
+    tknorm_integration.step.dependOn(&exe_install.step);
+    run_sequence[run_count] = tknorm_integration;
     run_count += 1;
 
     // c_abi/tknorm.zig — identity + scratch footprint unit tests for norm stem shim.
@@ -637,6 +643,7 @@ pub fn strategy(
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_disco.a", .{fd_lib_dir}) });
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
+        codec.linkTickoniWindowsUuid(b, test_lib, fd_lib_dir);
 
         const test_exe = b.addExecutable(.{
             .name = "test-tkmodl-during-frag",
