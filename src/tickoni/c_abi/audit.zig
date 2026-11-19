@@ -37,6 +37,17 @@ extern fn tk_audit_record_source_offset(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_outcome(scratch: ?*anyopaque, idx: usize) c_uint;
 extern fn tk_audit_record_decided_by(scratch: ?*anyopaque, idx: usize, dst: *[6]u8) void;
 extern fn tk_audit_record_source_event_hash(scratch: ?*anyopaque, idx: usize) u64;
+extern fn tk_audit_record_type(scratch: ?*anyopaque, idx: usize) c_uint;
+extern fn tk_audit_record_capability_envelope(scratch: ?*anyopaque, idx: usize) u64;
+extern fn tk_audit_record_model_id(scratch: ?*anyopaque, idx: usize, dst: *[32]u8) void;
+extern fn tk_audit_record_model_prompt_hash(scratch: ?*anyopaque, idx: usize) u64;
+extern fn tk_audit_record_model_response_hash(scratch: ?*anyopaque, idx: usize) u64;
+extern fn tk_audit_record_model_token_estimate(scratch: ?*anyopaque, idx: usize) c_uint;
+extern fn tk_audit_record_model_policy_decision_id(scratch: ?*anyopaque, idx: usize) u64;
+extern fn tk_audit_record_model_replay_substitution_id(scratch: ?*anyopaque, idx: usize) u64;
+extern fn tk_audit_record_denial_reason_code(scratch: ?*anyopaque, idx: usize) c_uint;
+extern fn tk_audit_record_denial_failed_scope_dim(scratch: ?*anyopaque, idx: usize, dst: *[32]u8) void;
+extern fn tk_audit_record_copy(scratch: ?*anyopaque, idx: usize, dst: *anyopaque, dst_sz: usize) void;
 
 // ---------------------------------------------------------------------------
 // Public Zig wrappers.
@@ -148,6 +159,61 @@ pub fn recordDecidedBy(scratch: ?*anyopaque, idx: usize, dst: *[6]u8) void {
 /// `policy_decision.source_event_hash` of the committed record at `idx`.
 pub fn recordSourceEventHash(scratch: ?*anyopaque, idx: usize) u64 {
     return tk_audit_record_source_event_hash(scratch, idx);
+}
+
+/// `RecordType` discriminant of the committed record at `idx`.
+pub fn recordType(scratch: ?*anyopaque, idx: usize) u32 {
+    return tk_audit_record_type(scratch, idx);
+}
+
+/// Header capability-envelope id of the committed record at `idx`.
+pub fn recordCapabilityEnvelope(scratch: ?*anyopaque, idx: usize) u64 {
+    return tk_audit_record_capability_envelope(scratch, idx);
+}
+
+/// Copies a model_call record's model id (32 bytes). Aborts if the record at
+/// `idx` is not a model_call.
+pub fn recordModelId(scratch: ?*anyopaque, idx: usize, dst: *[32]u8) void {
+    tk_audit_record_model_id(scratch, idx, dst);
+}
+
+pub fn recordModelPromptHash(scratch: ?*anyopaque, idx: usize) u64 {
+    return tk_audit_record_model_prompt_hash(scratch, idx);
+}
+
+pub fn recordModelResponseHash(scratch: ?*anyopaque, idx: usize) u64 {
+    return tk_audit_record_model_response_hash(scratch, idx);
+}
+
+pub fn recordModelTokenEstimate(scratch: ?*anyopaque, idx: usize) u32 {
+    return tk_audit_record_model_token_estimate(scratch, idx);
+}
+
+pub fn recordModelPolicyDecisionId(scratch: ?*anyopaque, idx: usize) u64 {
+    return tk_audit_record_model_policy_decision_id(scratch, idx);
+}
+
+pub fn recordModelReplaySubstitutionId(scratch: ?*anyopaque, idx: usize) u64 {
+    return tk_audit_record_model_replay_substitution_id(scratch, idx);
+}
+
+/// A denial record's reason code. Aborts if the record is not a denial.
+pub fn recordDenialReasonCode(scratch: ?*anyopaque, idx: usize) u32 {
+    return tk_audit_record_denial_reason_code(scratch, idx);
+}
+
+/// Copies the whole committed record at `idx` into `dst`, using the same
+/// translate-c `AuditEvent` layout the C file compiled against. The C side
+/// aborts if `@sizeOf(AuditEvent)` disagrees.
+/// The translate-c (C-owned) committed-record layout `recordCopy` fills.
+pub const CAuditEvent = audit_mod.AuditEvent;
+
+pub fn recordCopy(scratch: ?*anyopaque, idx: usize, dst: *CAuditEvent) void {
+    tk_audit_record_copy(scratch, idx, dst, @sizeOf(audit_mod.AuditEvent));
+}
+
+pub fn recordDenialFailedScopeDim(scratch: ?*anyopaque, idx: usize, dst: *[32]u8) void {
+    tk_audit_record_denial_failed_scope_dim(scratch, idx, dst);
 }
 
 // ---------------------------------------------------------------------------

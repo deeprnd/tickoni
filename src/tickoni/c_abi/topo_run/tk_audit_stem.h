@@ -63,4 +63,21 @@ extern uint  tk_audit_record_outcome( void * scratch, ulong idx );
 extern void  tk_audit_record_decided_by( void * scratch, ulong idx, uint8_t * dst );
 extern ulong tk_audit_record_source_event_hash( void * scratch, ulong idx );
 
+/* tkmodl records (record_type RECORD_MODEL_CALL / RECORD_DENIAL).  The model
+   and denial accessors abort if the record at idx is not that type. */
+extern uint  tk_audit_record_type( void * scratch, ulong idx );
+extern ulong tk_audit_record_capability_envelope( void * scratch, ulong idx );
+extern void  tk_audit_record_model_id( void * scratch, ulong idx, uint8_t * dst );
+extern ulong tk_audit_record_model_prompt_hash( void * scratch, ulong idx );
+extern ulong tk_audit_record_model_response_hash( void * scratch, ulong idx );
+extern uint  tk_audit_record_model_token_estimate( void * scratch, ulong idx );
+extern ulong tk_audit_record_model_policy_decision_id( void * scratch, ulong idx );
+extern ulong tk_audit_record_model_replay_substitution_id( void * scratch, ulong idx );
+extern uint  tk_audit_record_denial_reason_code( void * scratch, ulong idx );
+extern void  tk_audit_record_denial_failed_scope_dim( void * scratch, ulong idx, uint8_t * dst );
+
+/* Whole-record copy (dst_sz must equal sizeof(AuditEvent)); lets a test feed
+   the committed record to the independent Zig hash. */
+extern void  tk_audit_record_copy( void * scratch, ulong idx, void * dst, ulong dst_sz );
+
 #endif /* __TK_AUDIT_STEM_H__ */
