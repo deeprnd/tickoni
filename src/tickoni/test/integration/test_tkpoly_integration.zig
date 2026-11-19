@@ -14,6 +14,9 @@ const ProcessPipelineConfig = supervisor_mod.ProcessPipelineConfig;
 
 const max_polls: u32 = 400;
 const poll_interval_ns: u64 = 5 * std.time.ns_per_ms;
+/// tkpoly's position in topologies.paymentPipelineProcess()'s tile list, and
+/// therefore its index into Supervisor.monitor().
+const policy_tile_idx: usize = 3;
 const tkpoly_id = [_]u8{ 't', 'k', 'p', 'o', 'l', 'y' };
 const tknorm_id = [_]u8{ 't', 'k', 'n', 'o', 'r', 'm' };
 
@@ -300,10 +303,10 @@ test "tkpoly_integration: positive event count naturally stops tkpoly after fina
     var poll: u32 = 0;
     while (poll < max_polls) : (poll += 1) {
         sup.refreshProcessHealth();
-        if (sup.monitor()[3].state == .stopped) break;
+        if (sup.monitor()[policy_tile_idx].state == .stopped) break;
         util.process.sleepNanos(poll_interval_ns);
     }
-    try std.testing.expectEqual(rt.tile.TileState.stopped, sup.monitor()[3].state);
+    try std.testing.expectEqual(rt.tile.TileState.stopped, sup.monitor()[policy_tile_idx].state);
 }
 
 // P4.2 — Load the signed policy limit for the policy child.
@@ -403,7 +406,6 @@ test "tkpoly_integration: configuration does not leak between runs" {
     sup2.deinit();
 }
 
-
 // P5.5 — Malformed-only runs self-exit: the tile counts the malformed event
 // as processed (not allowed or denied) and reaches .stopped without external
 // CNC HALT.
@@ -435,14 +437,14 @@ test "tkpoly_integration: malformed-only self-exit" {
     try std.testing.expectEqual(@as(u64, 0), metrics.denied);
     try assertNoCrash(&sup);
 
-    // Verify self-exit: tile 3 (policy) reaches .stopped without HALT.
+    // Verify self-exit: the policy tile reaches .stopped without HALT.
     var poll: u32 = 0;
     while (poll < max_polls) : (poll += 1) {
         sup.refreshProcessHealth();
-        if (sup.monitor()[3].state == .stopped) break;
+        if (sup.monitor()[policy_tile_idx].state == .stopped) break;
         util.process.sleepNanos(poll_interval_ns);
     }
-    try std.testing.expectEqual(rt.tile.TileState.stopped, sup.monitor()[3].state);
+    try std.testing.expectEqual(rt.tile.TileState.stopped, sup.monitor()[policy_tile_idx].state);
 }
 
 // P5.5 — Duplicate-final runs self-exit: the tile counts the duplicate as
@@ -477,27 +479,28 @@ test "tkpoly_integration: duplicate-final self-exit" {
     try std.testing.expectEqual(@as(u64, 1), metrics.duplicates);
     try assertNoCrash(&sup);
 
-    // Verify self-exit: tile 3 (policy) reaches .stopped without HALT.
+    // Verify self-exit: the policy tile reaches .stopped without HALT.
     var poll: u32 = 0;
     while (poll < max_polls) : (poll += 1) {
         sup.refreshProcessHealth();
-        if (sup.monitor()[3].state == .stopped) break;
+        if (sup.monitor()[policy_tile_idx].state == .stopped) break;
         util.process.sleepNanos(poll_interval_ns);
     }
-    try std.testing.expectEqual(rt.tile.TileState.stopped, sup.monitor()[3].state);
+    try std.testing.expectEqual(rt.tile.TileState.stopped, sup.monitor()[policy_tile_idx].state);
 }
 
 // P5.5 — Large event count proves bounded credit turnover across depth-64
-// dcache reuse.  N=128, default limit=1000: offsets 0..999 (amounts
-// 1000..1999) all allowed, offset 127 (amount 1127) also allowed, so all
-// 127 offsets below limit are allowed and the single denied comes from
-// offset 128 if present — actually with N=128, amounts are 1000..1127,
-// all ≤ 1000 limit, so all allowed.  We need one deny: use limit=1000 but
-// offset 0 has amount 1000 (allowed), so we need amount > 1000.
+// dcache reuse: N=128 publishes twice the link depth, so the output dcache
+// wraps at `fd_dcache_compact_next` and every chunk is reused.
 //
-// Fix: the fixture generates amount = 1000 + offset for offset 0..127.
-// At offset 0, amount=1000 (allowed at limit=1000).  At offset 127,
-// amount=1127 (denied).  So 127 allowed, 1 denied, 128 audited.
+// The fixture (runtime.zig:syntheticPayment) generates
+// amount_cents = 1000 + offset, except offset 7, which is always
+// policy_limit_cents + 1.  At the default limit (100_000) that makes offset
+// 7 the only event above the limit: 127 allowed, 1 denied, 128 audited.
+// The limit is deliberately left at its default here — overriding it to
+// 1000 would put offsets 1..127 above the limit and turn this into a
+// mass-denial case, which exercises the same transport but hides the
+// allow path's chunk reuse.
 test "tkpoly_integration: bounded credit turnover N=128" {
     const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
@@ -508,7 +511,6 @@ test "tkpoly_integration: bounded credit turnover N=128" {
     const config = ProcessPipelineConfig{
         .run_dir = run_dir,
         .event_count = 128,
-        .policy_limit_cents = 1000,
     };
 
     var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
@@ -528,10 +530,115 @@ test "tkpoly_integration: bounded credit turnover N=128" {
     try assertNoCrash(&sup);
 }
 
-
 // P5.6 — Preserve administrative HALT: event_count=0 leaves exhaustion
 // disabled so the tile stays alive indefinitely.  It honors CNC HALT and
 // stops cleanly without forced termination.
+// P6.2 — Prove the supervisor selects the stem dispatcher for a real tkpoly
+// child by reading /proc/{pid}/cmdline and finding "__stem-run" rather than
+// the generic "__tile-run" Zig-callback path.
+//
+// event_count = 0 on purpose: the stem event gate stays disabled, so tkpoly
+// runs until CNC HALT and is reliably alive for the whole probe.  Probing a
+// run with a positive event count races the tile's own exit — a correctly
+// migrated tkpoly self-exits on the final publication, after which cmdline
+// reads back empty (zombie) or the open fails (reaped), and neither outcome
+// says anything about which dispatcher was selected.
+//
+// Every probe failure fails the test.  Treating an unreadable cmdline as a
+// pass is what let this check assert nothing at all.
+test "tkpoly_integration: tkpoly child is launched through __stem-run" {
+    // /proc is Linux-only; P7.4 covers the other platforms through their own
+    // qualified CI recipes.
+    if (@import("builtin").target.os.tag != .linux) return error.SkipZigTest;
+
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
+    const config = ProcessPipelineConfig{
+        .run_dir = run_dir,
+        .event_count = 0,
+        .policy_limit_cents = 1_000,
+    };
+
+    var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
+    defer {
+        sup.stopProcess(std.testing.io) catch {};
+        sup.deinit();
+    }
+    try startPipeline(&sup, run_dir, config);
+
+    const pid = sup.monitor()[policy_tile_idx].pid orelse return error.PolicyChildHasNoPid;
+
+    var cmdline_path_buf: [64]u8 = undefined;
+    const cmdline_path = try std.fmt.bufPrint(&cmdline_path_buf, "/proc/{d}/cmdline", .{pid});
+
+    // std.process.spawn forks and then execs, so cmdline briefly still shows
+    // the supervisor's own argv.  Poll until the child's argv is visible.
+    var found_stem_run = false;
+    var found_tile_run = false;
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        if (readProcCmdline(cmdline_path)) |cmdline| {
+            var it = std.mem.splitScalar(u8, cmdline, 0);
+            while (it.next()) |arg| {
+                if (std.mem.eql(u8, arg, "__stem-run")) found_stem_run = true;
+                if (std.mem.eql(u8, arg, "__tile-run")) found_tile_run = true;
+            }
+            if (found_stem_run or found_tile_run) break;
+        }
+        util.process.sleepNanos(poll_interval_ns);
+    }
+
+    try std.testing.expect(found_stem_run);
+    try std.testing.expect(!found_tile_run);
+}
+
+/// Reads a /proc cmdline into a static buffer, returning the NUL-separated
+/// argv bytes.  Returns null when the entry cannot be read at all, which the
+/// caller retries rather than treating as a verdict.
+fn readProcCmdline(path: []const u8) ?[]const u8 {
+    const State = struct {
+        var buf: [4096]u8 = undefined;
+    };
+    var file = std.Io.Dir.cwd().openFile(std.testing.io, path, .{}) catch return null;
+    defer file.close(std.testing.io);
+    const len = file.readPositionalAll(std.testing.io, &State.buf, 0) catch return null;
+    if (len == 0) return null;
+    return State.buf[0..len];
+}
+
+// P6.2 — With a positive event count, tkpoly reaches .stopped on its own
+// after the final publication, with no CNC HALT from the supervisor.
+test "tkpoly_integration: positive event count naturally stops tkpoly at N=1" {
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
+    const config = ProcessPipelineConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 1_000 };
+
+    var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
+    defer {
+        sup.stopProcess(std.testing.io) catch {};
+        sup.deinit();
+    }
+    try startPipeline(&sup, run_dir, config);
+    waitForAudit(&sup, config.event_count);
+
+    const scratch = try auditScratch(&sup);
+    try std.testing.expectEqual(@as(u64, 1), sup.snapshotProcessMetrics().audited);
+    try std.testing.expectEqual(@as(usize, 1), c_abi.tkaudit.recordCount(scratch));
+    try std.testing.expectEqual(c_abi.tkaudit.POLICY_ALLOW, c_abi.tkaudit.recordOutcome(scratch, 0));
+
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        sup.refreshProcessHealth();
+        if (sup.monitor()[policy_tile_idx].state == .stopped) break;
+        util.process.sleepNanos(poll_interval_ns);
+    }
+    try std.testing.expectEqual(rt.tile.TileState.stopped, sup.monitor()[policy_tile_idx].state);
+}
+
 test "tkpoly_integration: administrative HALT with zero event count" {
     const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
@@ -556,7 +663,7 @@ test "tkpoly_integration: administrative HALT with zero event count" {
     var poll: u32 = 0;
     while (poll < max_polls) : (poll += 1) {
         sup.refreshProcessHealth();
-        if (sup.monitor()[3].state == .running or sup.monitor()[3].state == .stopped) break;
+        if (sup.monitor()[policy_tile_idx].state == .running or sup.monitor()[policy_tile_idx].state == .stopped) break;
         util.process.sleepNanos(poll_interval_ns);
         poll += 1;
     }
@@ -566,13 +673,177 @@ test "tkpoly_integration: administrative HALT with zero event count" {
     }
 
     // Verify policy tile is alive (not crashed).
-    const poly_state = sup.monitor()[3].state;
+    const poly_state = sup.monitor()[policy_tile_idx].state;
     try std.testing.expect(poly_state != .crashed);
 
     // Send CNC HALT — verifies SHOULD_SHUTDOWN honors HALT.
     sup.stopProcess(std.testing.io) catch {};
 
     // Policy must reach .stopped cleanly (not crashed).
-    const final_state = sup.monitor()[3].state;
+    const final_state = sup.monitor()[policy_tile_idx].state;
     try std.testing.expectEqual(rt.tile.TileState.stopped, final_state);
+}
+
+// P6.4 — Prove final counters survive child reaping.  After the policy tile
+// reaches .stopped naturally, call snapshotProcessMetrics() and read scratch
+// to verify that CNC counter snapshots and audit-record counts are identical
+// and consistent with the event-count budget.
+//
+// Verifies for every completed integration case:
+//   1. processed=N  (allowed+denied+duplicates+invalid = event_count)
+//   2. scratch record counts match CNC allowed/denied counters
+//   3. CNC audited = event_count
+//   4. no policy crash
+test "tkpoly_integration: final counters survive child reaping" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
+    // N=8 with mix: offset 0,1,2,4,6 allowed; offset 3 duplicate; offset 5 malformed; offset 7 deny
+    const config = ProcessPipelineConfig{
+        .run_dir = run_dir,
+        .event_count = 8,
+        .policy_limit_cents = 1_000,
+        .duplicate = .{ .offset = 3, .source = 1 },
+        .inject_malformed = true,
+    };
+
+    var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
+    defer {
+        sup.stopProcess(std.testing.io) catch {};
+        sup.deinit();
+    }
+    try startPipeline(&sup, run_dir, config);
+    waitForAudit(&sup, config.event_count);
+
+    // Wait for tkpoly to reach .stopped naturally.
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        sup.refreshProcessHealth();
+        if (sup.monitor()[policy_tile_idx].state == .stopped) break;
+        util.process.sleepNanos(poll_interval_ns);
+    }
+
+    // --- Read final CNC snapshots AFTER the child has reached .stopped ---
+    const snap = sup.snapshotProcessMetrics();
+
+    // --- 1. processed = event_count ---
+    const processed = snap.allowed + snap.denied + snap.duplicates + snap.invalid;
+    try std.testing.expectEqual(@as(u64, config.event_count), processed);
+
+    // --- 2. scratch record counts match CNC counters ---
+    const scratch = try auditScratch(&sup);
+    const scratch_count = c_abi.tkaudit.recordCount(scratch);
+    try std.testing.expectEqual(@as(usize, config.event_count), scratch_count);
+
+    // Count scratch outcomes by type.
+    var scratch_allowed: usize = 0;
+    var scratch_denied: usize = 0;
+    var scratch_dups: usize = 0;
+    var scratch_malformed: usize = 0;
+    for (0..scratch_count) |i| {
+        const outcome = c_abi.tkaudit.recordOutcome(scratch, @intCast(i));
+        if (outcome == c_abi.tkaudit.POLICY_ALLOW) scratch_allowed += 1;
+        if (outcome == c_abi.tkaudit.POLICY_DENY) scratch_denied += 1;
+        if (outcome == c_abi.tkaudit.POLICY_DUPLICATE_DROP) scratch_dups += 1;
+        if (outcome == c_abi.tkaudit.POLICY_MALFORMED_DROP) scratch_malformed += 1;
+    }
+
+    // CNC allowed/denied must match scratch counts.
+    try std.testing.expectEqual(@as(u64, @intCast(scratch_allowed)), snap.allowed);
+    try std.testing.expectEqual(@as(u64, @intCast(scratch_denied)), snap.denied);
+
+    // --- 3. CNC audited = event_count ---
+    try std.testing.expectEqual(@as(u64, config.event_count), snap.audited);
+
+    // --- 4. no policy crash ---
+    try assertNoCrash(&sup);
+    try std.testing.expectEqual(rt.tile.TileState.stopped, sup.monitor()[policy_tile_idx].state);
+}
+
+// P6.4 — Same reaping proof but with a single-event allow case (the simplest
+// fixture). Proves even minimal runs preserve counters after child exit.
+test "tkpoly_integration: final counters survive reaping — single allow" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
+    const config = ProcessPipelineConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 1_000 };
+
+    var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
+    defer {
+        sup.stopProcess(std.testing.io) catch {};
+        sup.deinit();
+    }
+    try startPipeline(&sup, run_dir, config);
+    waitForAudit(&sup, config.event_count);
+
+    // Wait for tkpoly to reach .stopped.
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        sup.refreshProcessHealth();
+        if (sup.monitor()[policy_tile_idx].state == .stopped) break;
+        util.process.sleepNanos(poll_interval_ns);
+    }
+
+    // Read final CNC snapshot after child exit.
+    const snap = sup.snapshotProcessMetrics();
+    try std.testing.expectEqual(@as(u64, 1), snap.allowed);
+    try std.testing.expectEqual(@as(u64, 0), snap.denied);
+    try std.testing.expectEqual(@as(u64, 1), snap.audited);
+
+    // Verify scratch matches.
+    const scratch = try auditScratch(&sup);
+    try std.testing.expectEqual(@as(usize, 1), c_abi.tkaudit.recordCount(scratch));
+    try std.testing.expectEqual(c_abi.tkaudit.POLICY_ALLOW, c_abi.tkaudit.recordOutcome(scratch, 0));
+
+    // No crash, state is stopped.
+    try assertNoCrash(&sup);
+    try std.testing.expectEqual(rt.tile.TileState.stopped, sup.monitor()[policy_tile_idx].state);
+}
+
+// P6.4 — Reaping proof with a single-event deny case.
+test "tkpoly_integration: final counters survive reaping — single deny" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
+    const config = ProcessPipelineConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 999 };
+
+    var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
+    defer {
+        sup.stopProcess(std.testing.io) catch {};
+        sup.deinit();
+    }
+    try startPipeline(&sup, run_dir, config);
+    waitForAudit(&sup, config.event_count);
+
+    // Wait for tkpoly to reach .stopped.
+    var poll: u32 = 0;
+    while (poll < max_polls) : (poll += 1) {
+        sup.refreshProcessHealth();
+        if (sup.monitor()[policy_tile_idx].state == .stopped) break;
+        util.process.sleepNanos(poll_interval_ns);
+    }
+
+    // Read final CNC snapshot after child exit.
+    const snap = sup.snapshotProcessMetrics();
+    try std.testing.expectEqual(@as(u64, 0), snap.allowed);
+    try std.testing.expectEqual(@as(u64, 1), snap.denied);
+    try std.testing.expectEqual(@as(u64, 1), snap.audited);
+
+    // Verify scratch matches.
+    const scratch = try auditScratch(&sup);
+    try std.testing.expectEqual(@as(usize, 1), c_abi.tkaudit.recordCount(scratch));
+    try std.testing.expectEqual(c_abi.tkaudit.POLICY_DENY, c_abi.tkaudit.recordOutcome(scratch, 0));
+
+    // No crash, state is stopped.
+    try assertNoCrash(&sup);
+    try std.testing.expectEqual(rt.tile.TileState.stopped, sup.monitor()[policy_tile_idx].state);
 }

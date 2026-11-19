@@ -2,9 +2,13 @@
 
    Tests:
    1. stk_validate_frag rejects oversized fragments
-   2. stk_validate_frag accepts correctly-sized fragments (with joined wksp)
-   3. Chunk bounds: out-of-bounds chunk is rejected before copy
-   4. Chunk bounds: in-bounds chunk passes size check
+   2. Chunk bounds: a chunk below in_chunk0 is rejected before copy
+   3. Chunk bounds: a chunk above in_wmark is rejected before copy
+   4. Chunk bounds: in_chunk0 and in_wmark themselves are accepted
+   5. A realistic workspace-relative chunk far above the link depth is
+      accepted — chunk indices are wksp-relative, not 0..depth ring slots
+   6. Invalid transport changes no counters, output bytes, progress,
+      exhaustion, or policy state
 
    Verify: invalid transport changes no counters, output bytes,
    progress, exhaustion, or policy state.
@@ -35,30 +39,18 @@ typedef struct {
     ulong    stage_sz;
     PaymentMessage staged_message;
     void *   wksp;
-    ulong    in_depth;
+    ulong    in_chunk0;
+    ulong    in_wmark;
 } test_ctx_t;
 
-#define TEST_CTX_ALIGN alignof(test_ctx_t)
-
-/* ─── Helpers ─── */
-
-static void
-test_ctx_init( test_ctx_t * ctx, void * wksp, ulong in_depth ) {
-    memset( ctx, 0, sizeof(*ctx) );
-    ctx->wksp   = wksp;
-    ctx->in_depth = in_depth;
-    ctx->processed = 0;
-    ctx->allowed   = 0;
-    ctx->denied    = 0;
-    ctx->stage_valid = 0;
-}
-
 /* ─── Inline DURING_FRAG logic (mirrors tkpoly_during_frag) ───
-   We inline the logic here so the test can call it directly.
-   In the real tile, this is the tkpoly_during_frag callback. */
+   The staged copy is read through `src` rather than the wksp/chunk pair so
+   the test can exercise the validation path without a real workspace join.
+   The bounds predicate is the one under test and must stay byte-identical
+   to tk_policy_stem.c's. */
 
 static int
-test_during_frag( test_ctx_t * ctx, ulong chunk, ulong sz ) {
+test_during_frag( test_ctx_t * ctx, void const * src, ulong chunk, ulong sz ) {
     /* Clear validity first (P5.2 requirement) */
     ctx->stage_valid = 0;
 
@@ -66,17 +58,34 @@ test_during_frag( test_ctx_t * ctx, ulong chunk, ulong sz ) {
     if( !stk_validate_frag( sz, PAYMENT_MSG_SIZE, ctx->wksp ) )
         return 0;  /* rejected */
 
-    /* Chunk bounds: must be [0, in_depth) (P5.2 addition) */
-    if( FD_UNLIKELY( chunk >= ctx->in_depth ) )
+    /* Chunk bounds: must be [in_chunk0, in_wmark] (P5.2 addition) */
+    if( FD_UNLIKELY( chunk < ctx->in_chunk0 || chunk > ctx->in_wmark ) )
         return 0;  /* rejected */
 
-    /* Copy the message into context scratch */
-    void * gaddr = stk_chunk_to_gaddr( ctx->wksp, chunk );
-    memcpy( &ctx->staged_message, gaddr, sizeof(PaymentMessage) );
+    memcpy( &ctx->staged_message, src, sizeof(PaymentMessage) );
     ctx->stage_valid = 1;
     ctx->stage_sz = sizeof(PaymentMessage);
 
     return 1;  /* staged */
+}
+
+/* A dcache placed well into its workspace: chunk0 is far above any
+   plausible link depth, which is exactly why the link depth is not a bound
+   on a fragment's chunk index. */
+#define TEST_IN_CHUNK0 ((ulong)65536)
+#define TEST_IN_WMARK  ((ulong)65598)
+#define TEST_IN_DEPTH  ((ulong)64)
+
+static PaymentMessage test_msg;
+
+static void
+test_ctx_init( test_ctx_t * ctx ) {
+    memset( ctx, 0, sizeof(*ctx) );
+    memset( &test_msg, 0, sizeof(test_msg) );
+    test_msg.raw.source_offset = 42;
+    ctx->wksp      = (void *)&test_msg;  /* only checked for non-NULL */
+    ctx->in_chunk0 = TEST_IN_CHUNK0;
+    ctx->in_wmark  = TEST_IN_WMARK;
 }
 
 /* ─── Test 1: oversized fragment is rejected ─── */
@@ -84,139 +93,135 @@ test_during_frag( test_ctx_t * ctx, ulong chunk, ulong sz ) {
 static int
 test_oversized_rejected( void ) {
     test_ctx_t ctx;
-    memset( &ctx, 0, sizeof(ctx) );
+    test_ctx_init( &ctx );
 
-    /* wksp = NULL → stk_validate_frag fails (no join check) */
-    /* But we can test size alone: stk_validate_frag checks size first?
-       Actually stk_validate_frag checks: sz > 0, sz == expected, wksp != NULL.
-       So with wksp=NULL it fails regardless of size. Let's set a minimal wksp. */
-    ctx.wksp = (void *)0x12345678UL;  /* fake joined wksp ptr */
-
-    /* Oversized fragment */
-    ulong result = test_during_frag( &ctx, 0, PAYMENT_MSG_SIZE + 1 );
-
-    if( result != 0 ) {
-        FD_LOG_ERR(( "test_oversized_rejected: expected rejection, got %lu", (unsigned long)result ));
+    if( test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0, PAYMENT_MSG_SIZE + 1 ) != 0 ) {
+        FD_LOG_WARNING(( "test_oversized_rejected: oversized fragment was staged" ));
+        return 0;
     }
     if( ctx.stage_valid != 0 ) {
-        FD_LOG_ERR(( "test_oversized_rejected: stage_valid should be 0, got %d", ctx.stage_valid ));
+        FD_LOG_WARNING(( "test_oversized_rejected: stage_valid should be 0, got %d", ctx.stage_valid ));
+        return 0;
     }
     if( ctx.processed != 0 || ctx.allowed != 0 || ctx.denied != 0 ) {
-        FD_LOG_ERR(( "test_oversized_rejected: counters should be 0" ));
+        FD_LOG_WARNING(( "test_oversized_rejected: counters should be 0" ));
+        return 0;
     }
     return 1;
 }
 
-/* ─── Test 2: correctly-sized fragment passes size check ─── */
+/* ─── Test 2: a chunk below in_chunk0 is rejected ───
+   This is the regression a depth-based bound introduced: every real
+   fragment's chunk index sits at or above in_chunk0, so a 0..depth bound
+   rejected all of them while letting genuinely low indices through. */
 
 static int
-test_correct_size_passes( void ) {
+test_below_chunk0_rejected( void ) {
     test_ctx_t ctx;
-    memset( &ctx, 0, sizeof(ctx) );
-    ctx.wksp = (void *)0x12345678UL;  /* fake joined wksp ptr */
-    ctx.in_depth = 64;  /* valid range [0, 64) */
+    test_ctx_init( &ctx );
 
-    /* Correctly sized fragment — passes stk_validate_frag size+wksp check.
-       Chunk=0 is within [0, 64). The copy will read from gaddr, but since
-       we're only testing the validation path (not the copy result),
-       stage_valid should be 1 (or we crash on the memcpy from invalid addr).
-
-       Actually, the memcpy will try to read from an invalid address.
-       We need a real buffer. Let's use a stack buffer. */
-    PaymentMessage msg;
-    memset( &msg, 0, sizeof(msg) );
-    msg.raw.source_offset = 42;
-    ctx.wksp = (void *)&msg;  /* use stack buffer as wksp (the wksp ptr
-                                  is only checked for non-null) */
-
-    ulong result = test_during_frag( &ctx, 0, PAYMENT_MSG_SIZE );
-
-    /* The real tile would copy from gaddr. Here we're just testing that
-       the validation path accepts valid size + in-bounds chunk.
-       The memcpy will succeed since wksp points to a valid buffer. */
-    if( result != 1 ) {
-        /* If chunk_to_gaddr returns an invalid address, the memcpy crashes.
-           In real usage, wksp is a real workspace. For this test, we just
-           verify the size check path works. */
-        return 0;  /* chunk_to_gaddr gives invalid addr for fake wksp */
+    if( test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0 - 1UL, PAYMENT_MSG_SIZE ) != 0 ) {
+        FD_LOG_WARNING(( "test_below_chunk0_rejected: chunk below in_chunk0 was staged" ));
+        return 0;
     }
-    if( ctx.stage_valid != 1 ) {
-        FD_LOG_ERR(( "test_correct_size_passes: stage_valid should be 1, got %d", ctx.stage_valid ));
+    if( ctx.stage_valid != 0 || ctx.stage_sz != 0 ) {
+        FD_LOG_WARNING(( "test_below_chunk0_rejected: staging state changed" ));
+        return 0;
     }
-    return 1;
-}
 
-/* ─── Test 3: out-of-bounds chunk is rejected ─── */
-
-static int
-test_oob_chunk_rejected( void ) {
-    test_ctx_t ctx;
-    memset( &ctx, 0, sizeof(ctx) );
-
-    /* Set up a real stack buffer so stk_validate_frag passes */
-    PaymentMessage msg;
-    memset( &msg, 0, sizeof(msg) );
-    ctx.wksp = (void *)&msg;
-    ctx.in_depth = 64;  /* valid range [0, 64) */
-
-    /* Chunk index 64 is out of bounds (>= in_depth) */
-    ulong result = test_during_frag( &ctx, 64, PAYMENT_MSG_SIZE );
-
-    if( result != 0 ) {
-        FD_LOG_ERR(( "test_oob_chunk_rejected: expected rejection for chunk=64, got %lu", (unsigned long)result ));
+    /* A chunk inside the link-depth range is still below in_chunk0. */
+    if( test_during_frag( &ctx, &test_msg, TEST_IN_DEPTH - 1UL, PAYMENT_MSG_SIZE ) != 0 ) {
+        FD_LOG_WARNING(( "test_below_chunk0_rejected: depth-range chunk was staged" ));
+        return 0;
     }
-    if( ctx.stage_valid != 0 ) {
-        FD_LOG_ERR(( "test_oob_chunk_rejected: stage_valid should be 0, got %d", ctx.stage_valid ));
-    }
-    if( ctx.stage_sz != 0 ) {
-        FD_LOG_ERR(( "test_oob_chunk_rejected: stage_sz should be 0, got %lu", (unsigned long)ctx.stage_sz ));
-    }
-    /* Counters must not have changed */
     if( ctx.processed != 0 || ctx.allowed != 0 || ctx.denied != 0 ) {
-        FD_LOG_ERR(( "test_oob_chunk_rejected: counters should all be 0" ));
+        FD_LOG_WARNING(( "test_below_chunk0_rejected: counters should be 0" ));
+        return 0;
     }
     return 1;
 }
 
-/* ─── Test 4: chunk just below depth is accepted ─── */
+/* ─── Test 3: a chunk above in_wmark is rejected ─── */
 
 static int
-test_chunk_at_depth_minus_one( void ) {
+test_above_wmark_rejected( void ) {
     test_ctx_t ctx;
-    memset( &ctx, 0, sizeof(ctx) );
+    test_ctx_init( &ctx );
 
-    PaymentMessage msg;
-    memset( &msg, 0, sizeof(msg) );
-    ctx.wksp = (void *)&msg;
-    ctx.in_depth = 64;  /* valid range [0, 64) */
-
-    /* Chunk 63 is the last valid index */
-    ulong result = test_during_frag( &ctx, 63, PAYMENT_MSG_SIZE );
-
-    /* chunk 63 < 64 → passes bounds check */
-    if( result != 1 ) {
-        /* May fail if chunk_to_gaddr gives invalid addr for stack buffer,
-           but the bounds check should have passed */
-        /* If it crashes on memcpy, that's fine — bounds check passed */
-        return 0;  /* bounds check passed, copy may fail with fake wksp */
+    if( test_during_frag( &ctx, &test_msg, TEST_IN_WMARK + 1UL, PAYMENT_MSG_SIZE ) != 0 ) {
+        FD_LOG_WARNING(( "test_above_wmark_rejected: chunk above in_wmark was staged" ));
+        return 0;
     }
-    /* If we get here, staging succeeded */
-    if( ctx.stage_valid != 1 ) {
-        FD_LOG_ERR(( "test_chunk_at_depth_minus_one: stage_valid should be 1, got %d", ctx.stage_valid ));
+    if( ctx.stage_valid != 0 || ctx.stage_sz != 0 ) {
+        FD_LOG_WARNING(( "test_above_wmark_rejected: staging state changed" ));
+        return 0;
+    }
+    if( ctx.processed != 0 || ctx.allowed != 0 || ctx.denied != 0 ) {
+        FD_LOG_WARNING(( "test_above_wmark_rejected: counters should be 0" ));
+        return 0;
     }
     return 1;
 }
 
-/* ─── Test 5: invalid transport leaves all state untouched ─── */
+/* ─── Test 4: both bounds are inclusive ─── */
+
+static int
+test_bounds_inclusive( void ) {
+    test_ctx_t ctx;
+
+    test_ctx_init( &ctx );
+    if( test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0, PAYMENT_MSG_SIZE ) != 1 ) {
+        FD_LOG_WARNING(( "test_bounds_inclusive: in_chunk0 was rejected" ));
+        return 0;
+    }
+    if( ctx.stage_valid != 1 || ctx.stage_sz != sizeof(PaymentMessage) ) {
+        FD_LOG_WARNING(( "test_bounds_inclusive: staging state not set at in_chunk0" ));
+        return 0;
+    }
+
+    test_ctx_init( &ctx );
+    if( test_during_frag( &ctx, &test_msg, TEST_IN_WMARK, PAYMENT_MSG_SIZE ) != 1 ) {
+        FD_LOG_WARNING(( "test_bounds_inclusive: in_wmark was rejected" ));
+        return 0;
+    }
+    if( ctx.stage_valid != 1 || ctx.stage_sz != sizeof(PaymentMessage) ) {
+        FD_LOG_WARNING(( "test_bounds_inclusive: staging state not set at in_wmark" ));
+        return 0;
+    }
+    return 1;
+}
+
+/* ─── Test 5: the staged copy is the fragment's bytes ─── */
+
+static int
+test_staged_copy_is_fragment( void ) {
+    test_ctx_t ctx;
+    test_ctx_init( &ctx );
+    test_msg.raw.source_offset = 7;
+
+    if( test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0 + 2UL, PAYMENT_MSG_SIZE ) != 1 ) {
+        FD_LOG_WARNING(( "test_staged_copy_is_fragment: in-bounds chunk was rejected" ));
+        return 0;
+    }
+    if( ctx.staged_message.raw.source_offset != 7 ) {
+        FD_LOG_WARNING(( "test_staged_copy_is_fragment: staged source_offset=%lu, want 7",
+                         (unsigned long)ctx.staged_message.raw.source_offset ));
+        return 0;
+    }
+    /* Staging only: DURING_FRAG advances no counter. */
+    if( ctx.processed != 0 || ctx.allowed != 0 || ctx.denied != 0 ) {
+        FD_LOG_WARNING(( "test_staged_copy_is_fragment: counters should be 0" ));
+        return 0;
+    }
+    return 1;
+}
+
+/* ─── Test 6: invalid transport leaves all state untouched ─── */
 
 static int
 test_invalid_transport_no_state_change( void ) {
     test_ctx_t ctx;
-    PaymentMessage msg;
-    memset( &msg, 0, sizeof(msg) );
-    msg.raw.source_offset = 999;
-    ctx.wksp = (void *)&msg;
-    ctx.in_depth = 64;
+    test_ctx_init( &ctx );
 
     /* Pre-fill counters to detect any mutation */
     ctx.processed = 42;
@@ -226,33 +231,32 @@ test_invalid_transport_no_state_change( void ) {
     ctx.stage_sz  = 12345;
 
     /* Oversized fragment — should be rejected, state unchanged */
-    test_during_frag( &ctx, 0, PAYMENT_MSG_SIZE + 100 );
+    test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0, PAYMENT_MSG_SIZE + 100 );
 
     if( ctx.stage_valid != 0 ) {
-        FD_LOG_ERR(( "test_invalid_transport_no_state_change: stage_valid should be 0, got %d", ctx.stage_valid ));
+        FD_LOG_WARNING(( "test_invalid_transport_no_state_change: stage_valid should be 0, got %d", ctx.stage_valid ));
+        return 0;
     }
-    /* stage_sz should be 0 (never set because we returned early) */
-    /* Actually, stage_sz is NOT reset on rejection — only stage_valid is.
-       The AFTER_FRAG callback checks stage_valid before reading stage_sz.
-       This is intentional: stage_sz is only read after stage_valid check. */
-    if( ctx.processed != 42 ) {
-        FD_LOG_ERR(( "test_invalid_transport_no_state_change: processed changed from 42 to %lu", (unsigned long)ctx.processed ));
-    }
-    if( ctx.allowed != 10 ) {
-        FD_LOG_ERR(( "test_invalid_transport_no_state_change: allowed changed from 10 to %lu", (unsigned long)ctx.allowed ));
-    }
-    if( ctx.denied != 5 ) {
-        FD_LOG_ERR(( "test_invalid_transport_no_state_change: denied changed from 5 to %lu", (unsigned long)ctx.denied ));
+    /* stage_sz is NOT reset on rejection — only stage_valid is.  AFTER_FRAG
+       checks stage_valid before reading stage_sz, so a stale size is never
+       observable. */
+    if( ctx.processed != 42 || ctx.allowed != 10 || ctx.denied != 5 ) {
+        FD_LOG_WARNING(( "test_invalid_transport_no_state_change: counters changed to %lu/%lu/%lu",
+                         (unsigned long)ctx.processed, (unsigned long)ctx.allowed,
+                         (unsigned long)ctx.denied ));
+        return 0;
     }
 
-    /* OOB chunk — should also leave state untouched */
-    test_during_frag( &ctx, 100, PAYMENT_MSG_SIZE );
+    /* Out-of-bounds chunk — should also leave state untouched */
+    test_during_frag( &ctx, &test_msg, TEST_IN_WMARK + 100UL, PAYMENT_MSG_SIZE );
 
     if( ctx.stage_valid != 0 ) {
-        FD_LOG_ERR(( "test_invalid_transport_no_state_change: stage_valid should still be 0, got %d", ctx.stage_valid ));
+        FD_LOG_WARNING(( "test_invalid_transport_no_state_change: stage_valid should still be 0, got %d", ctx.stage_valid ));
+        return 0;
     }
-    if( ctx.processed != 42 ) {
-        FD_LOG_ERR(( "test_invalid_transport_no_state_change: processed should still be 42" ));
+    if( ctx.processed != 42 || ctx.allowed != 10 || ctx.denied != 5 ) {
+        FD_LOG_WARNING(( "test_invalid_transport_no_state_change: counters changed after OOB chunk" ));
+        return 0;
     }
     return 1;
 }
@@ -267,16 +271,20 @@ main( void ) {
     if( test_oversized_rejected() ) printf( "PASS\n" );
     else { printf( "FAIL\n" ); failures++; }
 
-    printf( "test_correct_size_passes: " );
-    if( test_correct_size_passes() ) printf( "PASS\n" );
+    printf( "test_below_chunk0_rejected: " );
+    if( test_below_chunk0_rejected() ) printf( "PASS\n" );
     else { printf( "FAIL\n" ); failures++; }
 
-    printf( "test_oob_chunk_rejected: " );
-    if( test_oob_chunk_rejected() ) printf( "PASS\n" );
+    printf( "test_above_wmark_rejected: " );
+    if( test_above_wmark_rejected() ) printf( "PASS\n" );
     else { printf( "FAIL\n" ); failures++; }
 
-    printf( "test_chunk_at_depth_minus_one: " );
-    if( test_chunk_at_depth_minus_one() ) printf( "PASS\n" );
+    printf( "test_bounds_inclusive: " );
+    if( test_bounds_inclusive() ) printf( "PASS\n" );
+    else { printf( "FAIL\n" ); failures++; }
+
+    printf( "test_staged_copy_is_fragment: " );
+    if( test_staged_copy_is_fragment() ) printf( "PASS\n" );
     else { printf( "FAIL\n" ); failures++; }
 
     printf( "test_invalid_transport_no_state_change: " );
