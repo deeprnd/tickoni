@@ -159,6 +159,7 @@ publishes per stem iteration.
 | `tkagnt` (active agent worker) | 1+N in, N+2 out | Conforms | Admits requests (`BEFORE_FRAG` backpressure), asks the Zig-owned hooks (`decision.zig`) for routing and result interpretation, dispatches to the tkmodl instance serving the named tier, correlates results by ordinal, instance and model, and publishes only in `AFTER_CREDIT`: terminal results (after the audit watermark), audit records (admission order) and request fragments (`STEM_BURST` 4). One request, one dispatch, one result; no cascade. Drains on HALT. |
 | `tkdisp` (terminal-result sink or scheduler) | sink: 1-in, 0-out; scheduler: 2-in, 1-out | Conforms | Sink (agent topology): bounded consumer of `tkagnt`'s terminal-result link; stages and validates in `DURING_FRAG`, appends to a fixed ring in `AFTER_FRAG`; no decisions, no publish. Scheduler (full workflow, when a `tkcase` feeds it): `BEFORE_FRAG` leaves an event upstream while its 64-entry queue is full; `AFTER_FRAG` queues the event's source offset or appends a result; `AFTER_CREDIT` sends the next request's fragments (`STEM_BURST` 4) from the run's dispatch template, with only the run id taken from the event. No dispatch policy. |
 | `tkcase`, `tktool`, `tkadpt` (placeholders) | 1-in 2-out, 1-in 2-out, 1-in 1-out | Conforms | One stem implementation (`shim/tk_pass_stem.c`): `DURING_FRAG` validates and stages, `AFTER_FRAG` publishes (`STEM_BURST` 4). `tkcase` forwards each event unchanged to both consumers; `tktool` and `tkadpt` are idle bounded consumers that stop on HALT. No case, tool or adapter logic. |
+| `tkdiag` (minimal observer) | 0-in, 0-out | Conforms | One stem implementation (`shim/tk_diag_stem.c`) that defines only `BEFORE_CREDIT`: no fragment I/O, no publish (`STEM_BURST` 1, `out_cnt` 0), no `DURING_FRAG` or `AFTER_FRAG`. It is the sole writer of its CNC app slots 0 (`diag_crashed_tile`) and 1 (`diag_sandbox_failures`), which hold `0` placeholders until shared diagnostic state is wired in. `SHOULD_SHUTDOWN` is CNC HALT only, like `metric` (no event count to exhaust; an iteration-count bound would stop a spinning 0-input loop almost at once). No `/proc` reads, no file or network I/O. See [`plans/v2.NN-sXX-tkdiag-fd-stem-migration.md`](plans/v2.NN-sXX-tkdiag-fd-stem-migration.md). |
 | `tkmetr` | 0-in, 0-out | Out of scope | Delegates to upstream `fd_metric_tile.c`; Tickoni authors no callbacks for it. |
 
 All three Tickoni-authored tiles also follow the same test/FFI pattern (see
@@ -174,7 +175,9 @@ in `AFTER_CREDIT` and must not be followed verbatim for the publish point:
 `plans/v2.10-s14-tkdiag-fan-in.md`, `plans/v2.10-s14-tkrepl-capsule-io.md`,
 and the story `doc/strategy/roadmap/stories/v2.10-s14.md`. The contract wins;
 those documents need a product-owned pass before `tkpoly`, `tkings`, `tkrepl`,
-or `tkdiag` are migrated.
+or `tkdiag` fan-in are migrated. The `tkdiag` stem migration itself is not
+blocked by that: the minimal observer has no output link and so no publish
+point, and `plans/v2.10-s14-tkdiag-fan-in.md` stays unimplemented.
 
 ## Tile Synchronization Debt
 

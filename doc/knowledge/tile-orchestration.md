@@ -385,7 +385,13 @@ Keep a tile on the generic Tickoni callback path
 a source with no `in` links and an external driver (`tkings` today), when it
 must do blocking or syscall-heavy work behind the proxy pattern described
 under [Enforcement](#enforcement), or when it is an observer tile with no
-fragment flow (`tkdiag`).
+fragment flow. `tkdiag` was the one such observer on this list; the owner
+directed it onto `fd_stem` as a minimal observer (0-in, 0-out, `BEFORE_CREDIT`
+only, no fragment I/O) so that every Tickoni-authored tile shares one launch
+path and lifecycle. See
+[`plans/v2.NN-sXX-tkdiag-fd-stem-migration.md`](../execution/plans/v2.NN-sXX-tkdiag-fd-stem-migration.md).
+Fan-in diagnostics, OS-level metrics and an HTTP surface for `tkdiag` remain
+future work and are not authorized by that migration.
 
 Mixing the two paths in one tile is not allowed. A tile is either an fd_stem
 tile — `process_fn = null` in the registry, booted through
