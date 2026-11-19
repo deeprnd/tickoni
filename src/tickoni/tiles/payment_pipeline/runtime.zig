@@ -55,6 +55,12 @@ pub const PaymentPipelineConfig = struct {
     /// fixture/replay topologies). Honored only when `test_build.enabled`;
     /// production tkings rejects a config that sets it.
     model_requests: ?model_request_source.ModelRequestSource = null,
+    /// The request template the full workflow's tkdisp sends for every event it
+    /// receives: tier, scope and prompt come from here, never from the event.
+    /// Built from the first slot of the source (`buildAgentRequest` at offset 0);
+    /// tkdisp replaces only the run id. The synthetic source is the only author of
+    /// a template today, so this is honored only when `test_build.enabled`.
+    dispatch_template: ?model_request_source.ModelRequestSource = null,
     /// Optional test-only hook called at each offset. Gate the invocation on
     /// `runtime.test_build.enabled and hook != null` so the branch is dead
     /// code in production builds — never on `@import("builtin").is_test`,

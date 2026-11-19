@@ -28,6 +28,7 @@ const c_abi = @import("c_abi");
 const util = @import("util");
 const payment_runtime = @import("runtime.zig");
 const model_request_source = @import("model_request_source.zig");
+const audit_mod = @import("audit_mod");
 
 const PaymentMessage = payment_runtime.PaymentMessage;
 
@@ -45,7 +46,10 @@ fn halted(cnc: *c_abi.cnc.Cnc) bool {
 // ---------------------------------------------------------------------------
 
 pub const process_config_magic: u32 = 0x544b5043; // "TKPC"
-pub const process_config_version: u16 = 2;
+/// v4: ModelRequestSource carries per-slot tiers, the prompt/response shape and a
+/// test-only stream fault.
+/// v5: the pipeline config carries the full workflow's dispatch template.
+pub const process_config_version: u16 = 5;
 
 pub const StuckTileHook = struct {
     tile_idx: u32,
@@ -126,10 +130,11 @@ pub fn runIngestProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, output
     rt.cnc_counters.appCounterWrite(cnc, 0, produced);
 }
 
-/// Test-build model-request source for the tkmodl topologies: the tkings
-/// process publishes one `ModelRequestMsg` per offset instead of a payment
-/// event. Same bounded, backpressured publish path and counter as
-/// `runIngestProcess`.
+/// Test-build agent-request stream. When the process config carries a
+/// `ModelRequestSource`, the process publishes one agent request per offset
+/// instead of a payment event: a logical message (header plus prompt) sent as a
+/// contiguous multipart fragment stream, each fragment under the same bounded,
+/// backpressured publish path as `runIngestProcess`. Offset `n` is run `n+1`.
 pub fn runModelRequestSourceProcess(
     process_cfg: ProcessRuntimeConfig,
     tile_idx: u32,
@@ -144,13 +149,39 @@ pub fn runModelRequestSourceProcess(
     var stop_flag = std.atomic.Value(bool).init(false);
     var backpressure_waits = std.atomic.Value(u64).init(0);
 
+    // One message buffer, sized for the largest logical message.
+    const body_buf = std.heap.page_allocator.alloc(u8, c_abi.multipart.max_message_bytes) catch return;
+    defer std.heap.page_allocator.free(body_buf);
+
     var produced: u64 = 0;
     var offset: u64 = 0;
-    while (offset < cfg.event_count) : (offset += 1) {
+    send: while (offset < cfg.event_count) : (offset += 1) {
         maybeBlockForTest(process_cfg, tile_idx, produced);
         if (halted(cnc)) break;
-        const msg = model_request_source.buildRequest(source, offset);
-        output.publish(std.mem.asBytes(&msg), &backpressure_waits, &stop_flag, cnc) catch break;
+        const body = model_request_source.buildAgentRequest(source, offset, body_buf);
+        const hash = c_abi.multipart.messageHash(body);
+        const frags = c_abi.multipart.fragCount(body.len);
+        var frag: [c_abi.multipart.link_mtu]u8 = undefined;
+        const fault = if (offset == source.fault_offset) source.fault else .none;
+        for (0..frags) |idx| {
+            // A deliberately faulty producer, for the receiver's fail-closed tests.
+            switch (fault) {
+                .none => {},
+                .drop_middle => if (idx == 1) continue,
+                .omit_last => if (idx == frags - 1) continue,
+                .corrupt_payload => {},
+            }
+            const f = c_abi.multipart.writeFragment(&frag, .request, .agent_request, model_request_source.runIdAt(offset), offset + 1, body, hash, idx);
+            if (fault == .corrupt_payload and idx == 1) frag[c_abi.multipart.header_size + 1] ^= 0x5a;
+            output.publishFragment(
+                frag[0..f.sz],
+                audit_mod.TK_LINK_SIG_AGENT_REQUEST,
+                c_abi.multipart.ctlBits(f.som, f.eom),
+                &backpressure_waits,
+                &stop_flag,
+                cnc,
+            ) catch break :send;
+        }
         produced += 1;
     }
     rt.cnc_counters.appCounterWrite(cnc, 0, produced);
