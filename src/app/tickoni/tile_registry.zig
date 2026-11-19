@@ -5,8 +5,8 @@
 /// and process.zig's counter indices (positionally assumed, unowned).
 ///
 /// This registry follows Firedancer's TILES[] + one-dispatcher pattern: one
-/// array of TileEntry, looked up by TileId, that owns a tile's process-mode
-/// run callback and counter schema. Every
+/// array of TileEntry, looked up by TileId, that owns a tile's launch mode,
+/// process-mode run callback, and counter schema. Every
 /// consumer of tile identity reads from here instead of recreating the
 /// mapping.
 const std = @import("std");
@@ -55,8 +55,11 @@ pub const CounterField = enum {
 
 pub const CounterSchemaEntry = struct { idx: u8, field: CounterField };
 
+pub const LaunchMode = enum { tile, stem };
+
 pub const TileEntry = struct {
     id: rt.tile.TileId,
+    launch_mode: LaunchMode = .tile,
     /// Null for tiles with no process-mode pipeline role yet (tkrepl,
     /// metric, tkdiag) — see tiles/payment_pipeline/process.zig's module
     /// doc comment for that scope boundary.
@@ -132,11 +135,8 @@ fn tkingsProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
 // Registry.
 // ---------------------------------------------------------------------------
 
-/// Phase 0 tiles, in the order topologies.paymentPipeline() and
-/// ProcessPipelineConfig's [8]... arrays assume. Order matters only insofar
-/// as callers that spawn by topology index still get the right tile — the
-/// spawn/dispatch call sites below look up by id, not by this array's
-/// position, so a reordering here is harmless.
+/// Supported Phase 0 tiles. A configured topology may contain a subset in
+/// any order; launch and validation look up entries by tile identity.
 pub const entries = [_]TileEntry{
     .{
         .id = tile_ids.tkings,
@@ -149,6 +149,7 @@ pub const entries = [_]TileEntry{
     // callback path below.
     .{
         .id = tile_ids.tknorm,
+        .launch_mode = .stem,
         .process_fn = null,
         .counters = &.{ .{ .idx = 0, .field = .normalized }, .{ .idx = 1, .field = .invalid } },
         .in_cnt = 1,
@@ -159,6 +160,7 @@ pub const entries = [_]TileEntry{
     // callback path below.
     .{
         .id = tile_ids.tkdedu,
+        .launch_mode = .stem,
         .process_fn = null,
         .counters = &.{.{ .idx = 0, .field = .duplicates }},
         .in_cnt = 1,
@@ -166,6 +168,7 @@ pub const entries = [_]TileEntry{
     },
     .{
         .id = tile_ids.tkpoly,
+        .launch_mode = .stem,
         .process_fn = null,
         .counters = &.{ .{ .idx = 0, .field = .allowed }, .{ .idx = 1, .field = .denied } },
         .in_cnt = 1,
@@ -176,6 +179,7 @@ pub const entries = [_]TileEntry{
     // callback path below.
     .{
         .id = tile_ids.tkaudt,
+        .launch_mode = .stem,
         .process_fn = null,
         .counters = &.{.{ .idx = 0, .field = .audited }},
         .in_cnt = 1,
@@ -207,34 +211,17 @@ pub fn findById(tile_id: rt.tile.TileId) ?*const TileEntry {
     return null;
 }
 
-/// Kept for completeness/self-checks; the actual spawn/dispatch call sites
-/// use findById so behavior stays correct if a topology ever reorders
-/// tiles (see v2.14.S8.T1's acceptance criterion: lookups must be by id,
-/// not by position).
-pub fn findByIdx(idx: usize) *const TileEntry {
-    return &entries[idx];
-}
-
-/// Asserts a bijection between topo.tiles and this registry (every
-/// topology tile is registered, and every registered tile is present in
-/// the topology), and that each topology tile's actual channel cardinality
-/// matches its registry entry's expected in_cnt/out_cnt. Called once from
-/// Supervisor.init so the start path shares this check.
+/// Validates each configured tile against its registry entry and link shape.
+/// The registry can contain tiles absent from a particular topology.
 pub fn validate(topo: rt.topology.Topology) !void {
-    if (topo.tiles.len != entries.len) return error.TopologyTileCountMismatch;
-    for (topo.tiles) |t| {
-        const registered = for (entries) |e| {
-            if (t.name.eql(e.id)) break true;
-        } else false;
-        if (!registered) return error.UnregisteredTopologyTile;
-    }
-    for (&entries, 0..) |*e, i| {
-        const t = topo.tiles[i];
-        if (!t.name.eql(e.id)) return error.RegisteredTileMissingFromTopology;
-    }
-
     for (topo.tiles, 0..) |t, i| {
-        const entry = findByIdx(t.id); // proven present above
+        _ = findById(t.name) orelse return error.UnregisteredTopologyTile;
+        for (topo.tiles[0..i]) |previous| {
+            if (previous.name.eql(t.name)) return error.DuplicateTopologyTile;
+        }
+    }
+    for (topo.tiles, 0..) |t, i| {
+        const entry = findById(t.name).?;
         var in_cnt: u8 = 0;
         var out_cnt: u8 = 0;
         for (topo.channels) |ch| {
@@ -340,21 +327,36 @@ test "validate rejects a topology with an unregistered tile" {
     try std.testing.expectError(error.UnregisteredTopologyTile, validate(topo));
 }
 
-test "validate rejects a topology with the wrong tile count" {
+test "validate accepts a topology with fewer registered tiles" {
     var descriptors: [7]rt.tile.TileDescriptor = undefined;
     for (entries[0..7], 0..) |*e, i| descriptors[i] = .{ .id = i, .name = e.id };
-    const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &.{} };
-    try std.testing.expectError(error.TopologyTileCountMismatch, validate(topo));
+    const channels = channelsFromRegistry();
+    const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channels };
+    try validate(topo);
 }
 
-test "validate rejects a topology missing a registered tile even at the right count" {
-    // Same count (8) as the registry, but tkrnorm's slot is overwritten
-    // with a duplicate of tkings's id, so tkrnorm is absent from the
-    // topology while every present id is still individually registered.
+test "validate accepts a removed observer tile and reordered observers" {
+    var descriptors = descriptorsFromRegistry();
+    descriptors[5] = .{ .id = 5, .name = tile_ids.tkdiag };
+    descriptors[6] = .{ .id = 6, .name = tile_ids.tkrepl };
+    const channels = channelsFromRegistry();
+    const topo = rt.topology.Topology{ .tiles = descriptors[0..7], .channels = &channels };
+    try validate(topo);
+}
+
+test "validate rejects a duplicate registered tile" {
     var descriptors = descriptorsFromRegistry();
     descriptors[1].name = descriptors[0].name;
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &.{} };
-    try std.testing.expectError(error.RegisteredTileMissingFromTopology, validate(topo));
+    try std.testing.expectError(error.DuplicateTopologyTile, validate(topo));
+}
+
+test "launch mode is owned by the registry" {
+    try std.testing.expectEqual(LaunchMode.tile, findById(tile_ids.tkings).?.launch_mode);
+    inline for (.{ tile_ids.tknorm, tile_ids.tkdedu, tile_ids.tkpoly, tile_ids.tkaudt }) |tile_id| {
+        try std.testing.expectEqual(LaunchMode.stem, findById(tile_id).?.launch_mode);
+    }
+    try std.testing.expectEqual(LaunchMode.tile, findById(tile_ids.tkdiag).?.launch_mode);
 }
 
 test "validate rejects a topology whose channel cardinality doesn't match the registry" {
@@ -526,44 +528,30 @@ test "validate accepts tiles with zero links when registry expects zero" { // tk
     try std.testing.expectEqual(@as(u8, 0), entry.out_cnt);
 }
 
-// T10.12: explicit tests for duplicate tile ids at topology level and
-// "topology tile not in registry → reject" (already covered by
-// "unregistered topology tile" above, but this adds the duplicate-id variant
-// that the roadmap specifically calls out).
-// T10.12: explicit test for duplicate tile ids in topology — a topology
-// with two tiles sharing the same TileId must be rejected. This is the
-// dedicated duplicate-id test the story calls out (distinct from the
-// RegisteredTileMissingFromTopology test above that catches the same
-// scenario indirectly).
+// A duplicate identity is rejected independently of link cardinality.
 test "T10.12 validate rejects topology with duplicate tile ids" {
     var descriptors = descriptorsFromRegistry();
     // Overwrite index 2 (tkdedu) with the same name as index 0 (tkings).
     descriptors[2].name = descriptors[0].name;
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channelsFromRegistry() };
-    try std.testing.expectError(error.RegisteredTileMissingFromTopology, validate(topo));
+    try std.testing.expectError(error.DuplicateTopologyTile, validate(topo));
 }
 
-// T10.12: explicit test for topology tile not in registry — a topology
-// tile whose id doesn't match any registered tile id must be rejected.
-// This is the "standalone" test the story calls out (the existing
-// "unregistered tile" test above uses a non-existent tile id; this one
-// uses a valid registry tile id placed in the wrong tile's slot).
-test "T10.12 validate rejects topology tile not in registry" {
+test "T10.12 validate rejects a misplaced tile with incompatible links" {
     var descriptors = descriptorsFromRegistry();
-    // Put tkrnorm's name in tkings's slot — tkings (entries[0]) is now
-    // absent from the topology, so RegisteredTileMissingFromTopology.
-    descriptors[0].name = entries[1].id;
+    // Swapping tile identities without rewiring channels fails cardinality.
+    descriptors[0].name = tile_ids.tkrepl;
+    descriptors[5].name = tile_ids.tkings;
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channelsFromRegistry() };
-    try std.testing.expectError(error.RegisteredTileMissingFromTopology, validate(topo));
+    try std.testing.expectError(error.LinkCardinalityMismatch, validate(topo));
 }
 
-// T10.12: explicit test for registry entry with no matching topology tile.
-// A registry entry whose tile id is absent from the topology must be rejected.
-test "T10.12 validate rejects registry entry with no matching topology tile" { // Build a topology with only 7 of the 8 registered tiles (remove metric).
+test "T10.12 validate accepts a registry entry absent from topology" {
     var descriptors: [7]rt.tile.TileDescriptor = undefined;
     for (entries[0..7], 0..) |*e, i| descriptors[i] = .{ .id = i, .name = e.id };
-    const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &.{} };
-    try std.testing.expectError(error.TopologyTileCountMismatch, validate(topo));
+    const channels = channelsFromRegistry();
+    const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channels };
+    try validate(topo);
 }
 
 // T10.13: link-id-not-in-topology validation — a registry entry references
