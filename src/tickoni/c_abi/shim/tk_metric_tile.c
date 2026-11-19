@@ -34,6 +34,7 @@
 #include "../topo_run/tk_metric_tile.h"
 #include "../../../tango/cnc/fd_cnc.h"
 #include "audit_schema.h"
+#include "stem_helpers.h"
 
 /* This macro mirrors the value defined in fd_metric_tile.c so that
    tk_metric_tile.c can reference it without including the .c source. */
@@ -67,6 +68,15 @@ tk_metric_scratch_footprint( void ) {
   ulong result = TK_METRIC_RUN.scratch_footprint( NULL );
   FD_LOG_NOTICE(( "tk_metric_tile: tk_metric_scratch_footprint EXIT %lu", result ));
   return result;
+}
+
+/* Liveness hook installed in fd_metric_ctx_t.liveness: heartbeat the CNC and
+   move it BOOT -> RUN on the first housekeeping event, exactly as every
+   tk_*_stem.c does (stem_helpers.h, "CNC liveness").  fd_metric_tile.c is
+   shared with the native Firedancer binaries and cannot call this directly. */
+static void
+tk_metric_liveness( void * cnc ) {
+  stk_cnc_liveness( cnc );
 }
 
 static ulong
@@ -147,6 +157,7 @@ tk_metric_run( fd_topo_t *      topo,
   if( cnc_obj_id != ULONG_MAX ) {
     void * cnc_laddr = fd_topo_obj_laddr( topo, cnc_obj_id );
     ctx->cnc = cnc_laddr;
+    ctx->liveness = tk_metric_liveness;
 
     /* Write boot_ts to the CNC app-region so the supervisor can read it
        across the process boundary without needing to inspect scratch.

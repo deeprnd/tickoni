@@ -84,6 +84,7 @@ static void tkpoly_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #define STEM_LAZY                         ((long)10e6)
 #define STEM_CALLBACK_CONTEXT_TYPE        tkpoly_ctx_t
 #define STEM_CALLBACK_CONTEXT_ALIGN       TKPOLY_CTX_ALIGN
+#define STEM_CALLBACK_DURING_HOUSEKEEPING(ctx) stk_cnc_liveness( (ctx)->cnc )
 #define STEM_CALLBACK_DURING_FRAG         tkpoly_during_frag
 #define STEM_CALLBACK_AFTER_FRAG          tkpoly_after_frag
 #define STEM_CALLBACK_SHOULD_SHUTDOWN(ctx) \
@@ -95,6 +96,7 @@ static void tkpoly_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #undef STEM_NAME
 #undef STEM_CALLBACK_CONTEXT_TYPE
 #undef STEM_CALLBACK_CONTEXT_ALIGN
+#undef STEM_CALLBACK_DURING_HOUSEKEEPING
 #undef STEM_CALLBACK_DURING_FRAG
 #undef STEM_CALLBACK_AFTER_FRAG
 #undef STEM_CALLBACK_SHOULD_SHUTDOWN

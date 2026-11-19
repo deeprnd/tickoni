@@ -218,6 +218,7 @@ static void tkagnt_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #define STEM_LAZY                         ((long)10e6)
 #define STEM_CALLBACK_CONTEXT_TYPE        tkagnt_ctx_t
 #define STEM_CALLBACK_CONTEXT_ALIGN       TKAGNT_CTX_ALIGN
+#define STEM_CALLBACK_DURING_HOUSEKEEPING(ctx) stk_cnc_liveness( (ctx)->cnc )
 #define STEM_CALLBACK_BEFORE_FRAG         tkagnt_before_frag
 #define STEM_CALLBACK_DURING_FRAG         tkagnt_during_frag
 #define STEM_CALLBACK_AFTER_FRAG          tkagnt_after_frag
@@ -231,6 +232,7 @@ static void tkagnt_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #undef STEM_NAME
 #undef STEM_CALLBACK_CONTEXT_TYPE
 #undef STEM_CALLBACK_CONTEXT_ALIGN
+#undef STEM_CALLBACK_DURING_HOUSEKEEPING
 #undef STEM_CALLBACK_BEFORE_FRAG
 #undef STEM_CALLBACK_DURING_FRAG
 #undef STEM_CALLBACK_AFTER_FRAG
