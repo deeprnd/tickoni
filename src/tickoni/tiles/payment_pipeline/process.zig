@@ -27,10 +27,8 @@ const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const util = @import("util");
 const payment_runtime = @import("runtime.zig");
-const tile_ids = rt.tile_ids;
 
 const PaymentMessage = payment_runtime.PaymentMessage;
-const msg_size = @sizeOf(PaymentMessage);
 
 fn halted(cnc: *c_abi.cnc.Cnc) bool {
     const sig = c_abi.cnc.signalQuery(cnc);
@@ -125,44 +123,6 @@ pub fn runIngestProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, output
         produced += 1;
     }
     rt.cnc_counters.appCounterWrite(cnc, 0, produced);
-}
-
-pub fn runPolicyProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, input: *rt.link.Consumer, output: *rt.link.Producer, cnc: *c_abi.cnc.Cnc) void {
-    const cfg = process_cfg.pipeline;
-    var stop_flag = std.atomic.Value(bool).init(false);
-    var backpressure_waits = std.atomic.Value(u64).init(0);
-    var idle_polls = std.atomic.Value(u64).init(0);
-    var buf: [msg_size]u8 = undefined;
-
-    var allowed: u64 = 0;
-    var denied: u64 = 0;
-    var i: u64 = 0;
-    while (i < cfg.event_count) : (i += 1) {
-        maybeBlockForTest(process_cfg, tile_idx, i);
-        if (halted(cnc)) break;
-        _ = input.consume(&buf, &idle_polls, &stop_flag, cnc) orelse break;
-        var msg = std.mem.bytesToValue(PaymentMessage, buf[0..msg_size]);
-        msg.pipeline_hops += 1;
-        if (msg.decision == .malformed_drop) {
-            // tknorm already made this rejection decision; preserve it (and
-            // its decided_by) for audit instead of silently dropping
-            // malformed source facts.
-        } else if (msg.duplicate) {
-            msg.decision = .duplicate_drop;
-            msg.decided_by = tile_ids.tkpoly;
-        } else if (msg.raw.amount_cents > cfg.policy_limit_cents) {
-            msg.decision = .deny;
-            msg.decided_by = tile_ids.tkpoly;
-            denied += 1;
-        } else {
-            msg.decision = .allow;
-            msg.decided_by = tile_ids.tkpoly;
-            allowed += 1;
-        }
-        output.publish(std.mem.asBytes(&msg), &backpressure_waits, &stop_flag, cnc) catch break;
-    }
-    rt.cnc_counters.appCounterWrite(cnc, 0, allowed);
-    rt.cnc_counters.appCounterWrite(cnc, 1, denied);
 }
 
 // ---------------------------------------------------------------------------

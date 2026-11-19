@@ -283,6 +283,65 @@ pub fn minimalWithDeduProcess() Topology {
     };
 }
 
+/// Minimal 6-tile topology for testing tkpoly in the event pipeline:
+/// tkings → tknorm → tkdedu → tkpoly → tkaudt (+ metric observer).
+/// The metric tile is required so Firedancer's fd_topo_fill_tile sets
+/// tile_c->metrics to a non-NULL value for every tile.
+const minimal_with_poly_tiles = [_]TileDescriptor{
+    .{ .id = 0, .name = tile_ids.tkings },
+    .{ .id = 1, .name = tile_ids.tknorm },
+    .{ .id = 2, .name = tile_ids.tkdedu },
+    .{ .id = 3, .name = tile_ids.tkpoly },
+    .{ .id = 4, .name = tile_ids.tkaudt },
+    .{ .id = 5, .name = tile_ids.metric },
+};
+const minimal_with_poly_channels = [_]Channel{
+    .{
+        .src_idx = 0,
+        .dst_idx = 1,
+        .depth = 64,
+        .mtu = 128,
+        .backing = .tango_shm,
+        .reliability = .reliable,
+        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
+    },
+    .{
+        .src_idx = 1,
+        .dst_idx = 2,
+        .depth = 64,
+        .mtu = 128,
+        .backing = .tango_shm,
+        .reliability = .reliable,
+        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
+    },
+    .{
+        .src_idx = 2,
+        .dst_idx = 3,
+        .depth = 64,
+        .mtu = 128,
+        .backing = .tango_shm,
+        .reliability = .reliable,
+        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
+    },
+    .{
+        .src_idx = 3,
+        .dst_idx = 4,
+        .depth = 64,
+        .mtu = 128,
+        .backing = .tango_shm,
+        .reliability = .reliable,
+        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
+    },
+};
+
+/// Minimal 6-tile topology (tkings → tknorm → tkdedu → tkpoly → tkaudt + metric observer).
+pub fn minimalWithPolyProcess() Topology {
+    return .{
+        .tiles = &minimal_with_poly_tiles,
+        .channels = &minimal_with_poly_channels,
+    };
+}
+
 test "paymentPipeline has Phase 0 product tiles and channels" {
     const topo = paymentPipeline();
     try std.testing.expectEqual(@as(usize, 8), topo.tiles.len);

@@ -128,17 +128,6 @@ fn tkingsProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
     std.debug.print("[tkings] done producing\n", .{});
 }
 
-fn tkpolyProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
-    _ = allocator;
-    if (spec.in_cnt != 1 or spec.out_cnt != 1) return error.MissingLink;
-    var input = try rt.link.Consumer.join(wksp, spec.inLinks()[0]);
-    defer input.leave();
-    var output = try rt.link.Producer.join(wksp, spec.outLinks()[0]);
-    defer output.leave();
-    const cfg = try loadProcessConfig(io, spec);
-    tiles.process.runPolicyProcess(cfg, spec.tile_idx, &input, &output, cnc);
-}
-
 // ---------------------------------------------------------------------------
 // Registry.
 // ---------------------------------------------------------------------------
@@ -177,7 +166,7 @@ pub const entries = [_]TileEntry{
     },
     .{
         .id = tile_ids.tkpoly,
-        .process_fn = tkpolyProcess,
+        .process_fn = null,
         .counters = &.{ .{ .idx = 0, .field = .allowed }, .{ .idx = 1, .field = .denied } },
         .in_cnt = 1,
         .out_cnt = 1,
@@ -277,15 +266,17 @@ test "findById returns null for an unregistered id" {
 }
 
 test "process_fn is null for tiles with no process-mode role" {
-    inline for (.{ "tknorm", "tkdedu", "tkrepl", "metric", "tkdiag" }) |name| {
+    inline for (.{ "tknorm", "tkdedu", "tkpoly", "tkrepl", "metric", "tkdiag" }) |name| {
         const tile_id = tile_ids.lookup(name) orelse unreachable;
         const entry = findById(tile_id).?;
         try std.testing.expectEqual(@as(?ProcessFn, null), entry.process_fn);
     }
 }
 
-test "process_fn is set for the 2 pipeline-stage tiles" {
-    inline for (.{ "tkings", "tkpoly" }) |name| {
+test "process_fn is set for the pipeline tile with process-mode role" {
+    // Only tkings has a process-mode pipeline role.
+    // tkpoly migrated to fd_stem tile and runs via TKPOLY_STEM_RUN.
+    inline for (.{"tkings"}) |name| {
         const tile_id = tile_ids.lookup(name) orelse unreachable;
         const entry = findById(tile_id).?;
         try std.testing.expect(entry.process_fn != null);
@@ -452,16 +443,11 @@ test "T10.4 positive fan-in: channel array has 2 inbound links to tkaudt" {
 // ---------------------------------------------------------------------------
 
 test "validate rejects mismatched process callback for tiles with pipeline role" {
-    // Each of the 2 pipeline-stage tiles must have a non-null process_fn.
-    // tkaudt has migrated to an fd_stem tile and no longer uses the process
-    // callback path — it runs via TK_AUDIT_RUN instead.
-    // tknorm has also migrated to an fd_stem tile and runs via TK_NORM_RUN.
-    // tkdedu has migrated to an fd_stem tile and runs via TK_DEDU_RUN.
-    inline for (.{ "tkings", "tkpoly" }) |name| {
-        const tile_id = tile_ids.lookup(name) orelse unreachable;
-        const entry = findById(tile_id).?;
-        try std.testing.expect(entry.process_fn != null);
-    }
+    // Only tkings has a non-null process_fn.
+    // tkaudt, tknorm, tkdedu migrated to fd_stem tiles (TK_AUDIT_RUN, TK_NORM_RUN, TK_DEDU_RUN).
+    // tkpoly migrated to fd_stem tile and runs via TKPOLY_STEM_RUN.
+    const entry = findById(tile_ids.tkings).?;
+    try std.testing.expect(entry.process_fn != null);
 }
 
 // T10.15: provider-config validation tests — invalid CPU id, workspace name,
