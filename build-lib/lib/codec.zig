@@ -65,9 +65,11 @@ pub fn addTickoniSystemLibraries(b: *std.Build, step: *std.Build.Step.Compile, f
 
 /// Windows FD archives carry a libuuid.a default-library reference. The
 /// FD build creates this compatibility archive from libuuid_stub.c; add
-/// the archive explicitly for every Windows link.
+/// the archive explicitly for every Windows link, and add the lib dir to the
+/// search path so lld can resolve the bare `libuuid.a` default-lib reference.
 pub fn linkTickoniWindowsUuid(b: *std.Build, step: *std.Build.Step.Compile, fd_lib_dir: []const u8) void {
     if (step.root_module.resolved_target.?.result.os.tag != .windows) return;
+    step.root_module.addLibraryPath(buildPath(b, fd_lib_dir));
     step.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libuuid.a", .{fd_lib_dir}) });
 }
 

@@ -574,6 +574,7 @@ pub fn strategy(
         test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/firedancer"));
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
+        codec.linkTickoniWindowsUuid(b, test_lib, fd_lib_dir);
 
         // Create executable from the static library (re-exports the main)
         const test_exe = b.addExecutable(.{
@@ -602,9 +603,13 @@ pub fn strategy(
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_disco.a", .{fd_lib_dir}) });
+        codec.linkTickoniWindowsUuid(b, test_lib, fd_lib_dir);
 
+        // Do not name this exe "*dispatch*": Windows' installer-detection
+        // heuristic treats manifest-less exes containing "patch" as installers
+        // and refuses to spawn them without elevation.
         const test_exe = b.addExecutable(.{
-            .name = "test-tile-dispatcher",
+            .name = "test-tkdisp",
             .root_module = test_lib.root_module,
         });
 
