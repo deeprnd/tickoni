@@ -818,6 +818,7 @@
     "qmlcachegen",
     "qmllint",
     "rangeanalysis",
+    "reassembler",
     "recvmmsg",
     "reedsol",
     "refaddr",
