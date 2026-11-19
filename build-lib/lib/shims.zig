@@ -18,7 +18,9 @@ pub const shim_c_files = &.{
     "tk_dedu_stem.c",
     "tk_policy_stem.c",
     "tk_model_stem.c",
-    "tk_agent_sink_stem.c",
+    "tk_agent_stem.c",
+    "tk_disp_stem.c",
+    "tk_pass_stem.c",
     "ballet.c",
 };
 
