@@ -23,10 +23,13 @@ const logger = @import("logger");
 const tile_ids = tile_ids_mod;
 
 pub const magic: u32 = 0x544b5453; // "TKST"
-pub const version: u16 = 3;
+/// v4: per-tile `tile_kind_id`, capacity raised to 32 tiles / 64 channels for
+/// the tkagnt multi-tkmodl graph (see the tkagnt fd_stem migration plan,
+/// "Topology capacity and instance contract").
+pub const version: u16 = 4;
 
-pub const max_tiles: usize = 8;
-pub const max_channels: usize = 8;
+pub const max_tiles: usize = 32;
+pub const max_channels: usize = 64;
 
 pub const TopologySpec = struct {
     magic_field: u32 = magic,
@@ -34,6 +37,9 @@ pub const TopologySpec = struct {
     tile_cnt: u8,
     tile_id: [max_tiles]usize = std.mem.zeroes([max_tiles]usize),
     tile_dispatch_name: [max_tiles]tile.TileId = std.mem.zeroes([max_tiles]tile.TileId),
+    /// Instance ordinal among tiles sharing the same dispatch name; with the
+    /// name it is the tile's `(name, kind_id)` process identity.
+    tile_kind_id: [max_tiles]u8 = std.mem.zeroes([max_tiles]u8),
     tile_cpu_placement: [max_tiles]cpu_placement.CpuPlacement = blk: {
         var buf: [max_tiles]cpu_placement.CpuPlacement = undefined;
         var i: usize = 0;
@@ -72,6 +78,7 @@ pub const TopologySpec = struct {
         for (topo.tiles, 0..) |t, i| {
             spec.tile_id[i] = i;
             spec.tile_dispatch_name[i] = t.name;
+            spec.tile_kind_id[i] = t.kind_id;
             spec.tile_cpu_placement[i] = t.cpu_placement;
         }
         for (topo.channels, 0..) |ch, i| {
@@ -97,8 +104,9 @@ pub const TopologySpec = struct {
         for (0..self.tile_cnt) |i| {
             tiles_buf[i] = .{
                 .id = self.tile_id[i],
-                .name = self.tile_dispatch_name[self.tile_id[i]],
+                .name = self.tile_dispatch_name[i],
                 .cpu_placement = self.tile_cpu_placement[i],
+                .kind_id = self.tile_kind_id[i],
             };
         }
         for (0..self.channel_cnt) |i| {
@@ -112,6 +120,17 @@ pub const TopologySpec = struct {
             };
         }
         return .{ .tiles = tiles_buf[0..self.tile_cnt], .channels = channels_buf[0..self.channel_cnt] };
+    }
+
+    /// Fail-closed structural check shared by every reader: counts within
+    /// capacity, then the graph rules Topology.validate owns (unique
+    /// `(name, kind_id)` identities in descriptor order, channel endpoint
+    /// range, depth, workspace and CPU placement).
+    pub fn validate(self: *const TopologySpec) !void {
+        if (self.tile_cnt > max_tiles or self.channel_cnt > max_channels) return error.TopologySpecMalformed;
+        var tiles_buf: [max_tiles]tile.TileDescriptor = undefined;
+        var channels_buf: [max_channels]link.Channel = undefined;
+        try self.toTopology(&tiles_buf, &channels_buf).validate();
     }
 
     const fio = @import("file_io.zig");
@@ -135,7 +154,7 @@ pub const TopologySpec = struct {
         if (n != @sizeOf(TopologySpec)) return error.TopologySpecTruncated;
         if (spec.magic_field != magic) return error.TopologySpecBadMagic;
         if (spec.version_field != version) return error.TopologySpecUnsupportedVersion;
-        if (spec.tile_cnt > max_tiles or spec.channel_cnt > max_channels) return error.TopologySpecMalformed;
+        try spec.validate();
         return spec;
     }
 };
@@ -214,6 +233,191 @@ test "TopologySpec fromTopology fails closed on too many tiles" {
     for (&tiles, 0..) |*t, i| t.* = .{ .id = i, .name = tile_ids.tkings, .cpu_placement = .floating };
     const topo = topology.Topology{ .tiles = &tiles, .channels = &.{} };
     try std.testing.expectError(error.TooManyTiles, TopologySpec.fromTopology(topo, port, 0));
+}
+
+// The illustrative N-model agent graph from the tkagnt migration plan:
+// N+4 tiles and 1+3N channels (one agent-request link, then per model a
+// request, a result and a model-audit link). Tile order: tkings, tkagnt,
+// tkaudt, tkmodl kind 0..N-1, metric.
+const agent_graph_tile_cnt = 11 + 4;
+const agent_graph_channel_cnt = 1 + 3 * 11;
+const agent_graph_first_model_idx = 3;
+
+fn agentGraph(
+    tiles: *[agent_graph_tile_cnt]tile.TileDescriptor,
+    channels: *[agent_graph_channel_cnt]link.Channel,
+) !topology.Topology {
+    const wksp = try link.WorkspaceName.parse("tkpay0");
+    tiles[0] = .{ .id = 0, .name = tile_ids.tkings };
+    tiles[1] = .{ .id = 1, .name = tile_ids.tkagnt };
+    tiles[2] = .{ .id = 2, .name = tile_ids.tkaudt };
+    for (0..11) |m| {
+        tiles[agent_graph_first_model_idx + m] = .{
+            .id = agent_graph_first_model_idx + m,
+            .name = tile_ids.tkmodl,
+            .kind_id = @intCast(m),
+        };
+    }
+    tiles[agent_graph_tile_cnt - 1] = .{ .id = agent_graph_tile_cnt - 1, .name = tile_ids.metric };
+
+    channels[0] = .{ .src_idx = 0, .dst_idx = 1, .depth = 32, .mtu = 8192, .backing = .tango_shm, .workspace_name = wksp };
+    for (0..11) |m| {
+        const model_idx: u32 = @intCast(agent_graph_first_model_idx + m);
+        channels[1 + 3 * m + 0] = .{ .src_idx = 1, .dst_idx = model_idx, .depth = 32, .mtu = 8192, .backing = .tango_shm, .workspace_name = wksp };
+        channels[1 + 3 * m + 1] = .{ .src_idx = model_idx, .dst_idx = 2, .depth = 32, .mtu = 256, .backing = .tango_shm, .workspace_name = wksp };
+        channels[1 + 3 * m + 2] = .{ .src_idx = model_idx, .dst_idx = 1, .depth = 32, .mtu = 8192, .backing = .tango_shm, .workspace_name = wksp };
+    }
+    return .{ .tiles = tiles, .channels = channels };
+}
+
+test "TopologySpec round-trips the 11-model agent graph with each tkmodl kind_id" {
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var tiles: [agent_graph_tile_cnt]tile.TileDescriptor = undefined;
+    var channels: [agent_graph_channel_cnt]link.Channel = undefined;
+    const topo = try agentGraph(&tiles, &channels);
+    try topo.validate();
+
+    const spec = try TopologySpec.fromTopology(topo, util.nextMetricPort(), 8);
+    try spec.writeToFile(std.testing.io, tmp.dir, "agent.spec");
+    const read_back = try TopologySpec.readFromFile(std.testing.io, tmp.dir, "agent.spec");
+
+    var tiles_buf: [max_tiles]tile.TileDescriptor = undefined;
+    var channels_buf: [max_channels]link.Channel = undefined;
+    const rebuilt = read_back.toTopology(&tiles_buf, &channels_buf);
+    try rebuilt.validate();
+
+    try std.testing.expectEqual(@as(usize, agent_graph_tile_cnt), rebuilt.tiles.len);
+    try std.testing.expectEqual(@as(usize, agent_graph_channel_cnt), rebuilt.channels.len);
+    for (topo.tiles, rebuilt.tiles) |want, got| {
+        try std.testing.expect(want.name.eql(got.name));
+        try std.testing.expectEqual(want.kind_id, got.kind_id);
+    }
+    for (topo.channels, rebuilt.channels) |want, got| {
+        try std.testing.expectEqual(want.src_idx, got.src_idx);
+        try std.testing.expectEqual(want.dst_idx, got.dst_idx);
+        try std.testing.expectEqual(want.mtu, got.mtu);
+    }
+}
+
+test "TopologySpec holds the approved capacity of 32 tiles and 64 channels" {
+    try std.testing.expect(max_tiles >= 32);
+    try std.testing.expect(max_channels >= 64);
+
+    var tiles: [max_tiles]tile.TileDescriptor = undefined;
+    tiles[0] = .{ .id = 0, .name = tile_ids.tkings };
+    for (tiles[1..], 1..) |*t, i| t.* = .{ .id = i, .name = tile_ids.tkmodl, .kind_id = @intCast(i - 1) };
+    var channels: [max_channels]link.Channel = undefined;
+    for (&channels, 0..) |*ch, i| {
+        ch.* = .{
+            .src_idx = 0,
+            .dst_idx = @intCast(1 + i % (max_tiles - 1)),
+            .depth = 32,
+            .mtu = 256,
+            .backing = .tango_shm,
+            .workspace_name = try link.WorkspaceName.parse("tkpay0"),
+        };
+    }
+    const spec = try TopologySpec.fromTopology(.{ .tiles = &tiles, .channels = &channels }, util.nextMetricPort(), 0);
+    try std.testing.expectEqual(@as(u8, max_tiles), spec.tile_cnt);
+    try std.testing.expectEqual(@as(u8, max_channels), spec.channel_cnt);
+}
+
+test "TopologySpec fromTopology fails closed on too many channels" {
+    var tiles = [_]tile.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkings },
+        .{ .id = 1, .name = tile_ids.tknorm },
+    };
+    var channels: [max_channels + 1]link.Channel = undefined;
+    for (&channels) |*ch| ch.* = .{ .src_idx = 0, .dst_idx = 1, .depth = 32, .mtu = 64 };
+    try std.testing.expectError(
+        error.TooManyChannels,
+        TopologySpec.fromTopology(.{ .tiles = &tiles, .channels = &channels }, util.nextMetricPort(), 0),
+    );
+}
+
+test "TopologySpec toTopology rebuilds each name from its own array index" {
+    // tile_id[i] is the descriptor's positional id, not an index into the
+    // name table. A spec whose ids are permuted must still keep every name
+    // next to its own cpu placement and kind_id.
+    var spec = TopologySpec{ .tile_cnt = 3, .channel_cnt = 0 };
+    spec.tile_id[0] = 2;
+    spec.tile_id[1] = 0;
+    spec.tile_id[2] = 1;
+    spec.tile_dispatch_name[0] = tile_ids.tkings;
+    spec.tile_dispatch_name[1] = tile_ids.tkmodl;
+    spec.tile_dispatch_name[2] = tile_ids.tkmodl;
+    spec.tile_kind_id[1] = 0;
+    spec.tile_kind_id[2] = 1;
+
+    var tiles_buf: [max_tiles]tile.TileDescriptor = undefined;
+    var channels_buf: [max_channels]link.Channel = undefined;
+    const rebuilt = spec.toTopology(&tiles_buf, &channels_buf);
+
+    try std.testing.expect(rebuilt.tiles[0].name.eql(tile_ids.tkings));
+    try std.testing.expect(rebuilt.tiles[1].name.eql(tile_ids.tkmodl));
+    try std.testing.expect(rebuilt.tiles[2].name.eql(tile_ids.tkmodl));
+    try std.testing.expectEqual(@as(u8, 0), rebuilt.tiles[1].kind_id);
+    try std.testing.expectEqual(@as(u8, 1), rebuilt.tiles[2].kind_id);
+    try std.testing.expectEqual(@as(usize, 2), rebuilt.tiles[0].id);
+}
+
+test "TopologySpec readFromFile rejects a duplicate tile identity" {
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var spec = TopologySpec{ .tile_cnt = 2, .channel_cnt = 0 };
+    spec.tile_dispatch_name[0] = tile_ids.tkmodl;
+    spec.tile_dispatch_name[1] = tile_ids.tkmodl;
+    spec.tile_kind_id[0] = 0;
+    spec.tile_kind_id[1] = 0;
+    try spec.writeToFile(std.testing.io, tmp.dir, "dup.spec");
+
+    try std.testing.expectError(error.DuplicateTileIdentity, TopologySpec.readFromFile(std.testing.io, tmp.dir, "dup.spec"));
+}
+
+test "TopologySpec readFromFile rejects a kind_id gap" {
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var spec = TopologySpec{ .tile_cnt = 2, .channel_cnt = 0 };
+    spec.tile_dispatch_name[0] = tile_ids.tkmodl;
+    spec.tile_dispatch_name[1] = tile_ids.tkmodl;
+    spec.tile_kind_id[0] = 0;
+    spec.tile_kind_id[1] = 2;
+    try spec.writeToFile(std.testing.io, tmp.dir, "gap.spec");
+
+    try std.testing.expectError(error.TileKindIdMismatch, TopologySpec.readFromFile(std.testing.io, tmp.dir, "gap.spec"));
+}
+
+test "TopologySpec readFromFile rejects a channel endpoint beyond tile_cnt" {
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var spec = TopologySpec{ .tile_cnt = 2, .channel_cnt = 1 };
+    spec.tile_dispatch_name[0] = tile_ids.tkings;
+    spec.tile_dispatch_name[1] = tile_ids.tknorm;
+    spec.channel_src_idx[0] = 0;
+    spec.channel_dst_idx[0] = 2;
+    spec.channel_depth[0] = 32;
+    try spec.writeToFile(std.testing.io, tmp.dir, "endpoint.spec");
+
+    try std.testing.expectError(error.ChannelDstOutOfRange, TopologySpec.readFromFile(std.testing.io, tmp.dir, "endpoint.spec"));
+}
+
+test "TopologySpec readFromFile rejects counts above the capacity" {
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var spec = TopologySpec{ .tile_cnt = max_tiles, .channel_cnt = 0 };
+    spec.tile_cnt = @intCast(max_tiles);
+    // One past capacity cannot be expressed through fromTopology, so write
+    // the raw byte the way a corrupt or foreign file would carry it.
+    spec.channel_cnt = 255;
+    try spec.writeToFile(std.testing.io, tmp.dir, "counts.spec");
+
+    try std.testing.expectError(error.TopologySpecMalformed, TopologySpec.readFromFile(std.testing.io, tmp.dir, "counts.spec"));
 }
 
 test "TopologySpec readFromFile fails closed on an unsupported version" {

@@ -80,6 +80,21 @@ pub const Producer = struct {
         stop: *const std.atomic.Value(bool),
         cnc: ?*c_abi.cnc.Cnc,
     ) error{ Stopped, PayloadTooLarge }!void {
+        return self.publishFragment(payload, 0, 0, backpressure_waits, stop, cnc);
+    }
+
+    /// `publish` with an explicit fragment `sig` and control bits (`ctl`: SOM
+    /// bit 0, EOM bit 1), for a multipart message. A message larger than one
+    /// fragment is a contiguous run of these calls, each waiting for credit.
+    pub fn publishFragment(
+        self: *Producer,
+        payload: []const u8,
+        sig: u64,
+        ctl: u16,
+        backpressure_waits: *std.atomic.Value(u64),
+        stop: *const std.atomic.Value(bool),
+        cnc: ?*c_abi.cnc.Cnc,
+    ) error{ Stopped, PayloadTooLarge }!void {
         const fctl_ptr = self.fctlPtr();
         ready: while (true) {
             if (self.cr_avail >= c_abi.fctl.crBurst(fctl_ptr)) break :ready;
@@ -97,7 +112,7 @@ pub const Producer = struct {
         }
 
         const chunk = try self.writeSlot(payload);
-        c_abi.queue.mcachePublish(self.mcache, self.depth, self.next_seq, 0, chunk, @intCast(payload.len), 0, 0, 0);
+        c_abi.queue.mcachePublish(self.mcache, self.depth, self.next_seq, sig, chunk, @intCast(payload.len), ctl, 0, 0);
         self.next_seq += 1;
         self.cr_avail -= 1;
     }

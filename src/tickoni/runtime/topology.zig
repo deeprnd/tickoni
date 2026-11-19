@@ -5,6 +5,7 @@ const link = @import("link.zig");
 
 pub const TileId = tile.TileId;
 pub const TileDescriptor = tile.TileDescriptor;
+pub const TileIdentity = tile.TileIdentity;
 pub const CpuPlacement = cpu_placement.CpuPlacement;
 pub const WorkspaceName = link.WorkspaceName;
 pub const LinkBacking = link.LinkBacking;
@@ -24,6 +25,7 @@ pub const Topology = struct {
             // explicit empty-name detection via zeroed TileId.
             if (t.name.eql(.{})) return error.EmptyTileName;
         }
+        try self.validateIdentities();
         for (self.channels) |ch| {
             if (ch.src_idx >= self.tiles.len) return error.ChannelSrcOutOfRange;
             if (ch.dst_idx >= self.tiles.len) return error.ChannelDstOutOfRange;
@@ -36,6 +38,23 @@ pub const Topology = struct {
         }
         try cpu_placement.validateStatic(self.tiles);
     }
+
+    /// Each `(name, kind_id)` must be unique, and `kind_id` must equal the
+    /// number of earlier descriptors with the same name. That is the value
+    /// Firedancer assigns when topo_build registers the tiles in descriptor
+    /// order, so a mismatch would silently attribute a process to the wrong
+    /// instance.
+    pub fn validateIdentities(self: Topology) !void {
+        for (self.tiles, 0..) |t, i| {
+            var earlier_same_name: usize = 0;
+            for (self.tiles[0..i]) |previous| {
+                if (!previous.name.eql(t.name)) continue;
+                if (previous.kind_id == t.kind_id) return error.DuplicateTileIdentity;
+                earlier_same_name += 1;
+            }
+            if (t.kind_id != earlier_same_name) return error.TileKindIdMismatch;
+        }
+    }
 };
 
 // Shared synthetic tile ids for the validate() tests below, so the same id
@@ -46,6 +65,62 @@ const test_tile_baz = TileId.parse("tkbaz") catch unreachable;
 const test_name_foo = TileId.parse("foo") catch unreachable;
 const test_name_bar = TileId.parse("bar") catch unreachable;
 const test_name_baz = TileId.parse("baz") catch unreachable;
+
+test "validate accepts repeated tile names with compact kind ids in descriptor order" {
+    const topo = Topology{
+        .tiles = &.{
+            .{ .id = 0, .name = test_name_foo, .kind_id = 0 },
+            .{ .id = 1, .name = test_name_bar },
+            .{ .id = 2, .name = test_name_foo, .kind_id = 1 },
+            .{ .id = 3, .name = test_name_foo, .kind_id = 2 },
+        },
+        .channels = &.{},
+    };
+    try topo.validate();
+}
+
+test "validate rejects a duplicate (name, kind_id) identity" {
+    const topo = Topology{
+        .tiles = &.{
+            .{ .id = 0, .name = test_name_foo, .kind_id = 0 },
+            .{ .id = 1, .name = test_name_foo, .kind_id = 0 },
+        },
+        .channels = &.{},
+    };
+    try std.testing.expectError(error.DuplicateTileIdentity, topo.validate());
+}
+
+test "validate rejects a kind_id gap" {
+    const topo = Topology{
+        .tiles = &.{
+            .{ .id = 0, .name = test_name_foo, .kind_id = 0 },
+            .{ .id = 1, .name = test_name_foo, .kind_id = 2 },
+        },
+        .channels = &.{},
+    };
+    try std.testing.expectError(error.TileKindIdMismatch, topo.validate());
+}
+
+test "validate rejects kind ids that disagree with descriptor order" {
+    // Firedancer assigns kind_id by registration order, which is descriptor
+    // order. Declaring kind 1 before kind 0 would reattribute both processes.
+    const topo = Topology{
+        .tiles = &.{
+            .{ .id = 0, .name = test_name_foo, .kind_id = 1 },
+            .{ .id = 1, .name = test_name_foo, .kind_id = 0 },
+        },
+        .channels = &.{},
+    };
+    try std.testing.expectError(error.TileKindIdMismatch, topo.validate());
+}
+
+test "validate rejects a lone tile whose kind_id is not zero" {
+    const topo = Topology{
+        .tiles = &.{.{ .id = 0, .name = test_name_foo, .kind_id = 1 }},
+        .channels = &.{},
+    };
+    try std.testing.expectError(error.TileKindIdMismatch, topo.validate());
+}
 
 test "validate rejects non-power-of-two channel depth" {
     const topo = Topology{

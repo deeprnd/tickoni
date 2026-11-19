@@ -74,6 +74,9 @@ pub const LinkObjIds = struct {
 /// Per-tile metadata indexed by Firedancer tile idx.
 pub const BuiltTopoTileInfo = struct {
     tile_id: tile.TileId,
+    /// Instance ordinal among tiles sharing `tile_id`; with it, the Firedancer
+    /// `(name, kind_id)` identity of this tile.
+    kind_id: u8,
     cpu_placement: cpu_placement.CpuPlacement,
 };
 
@@ -92,6 +95,9 @@ pub const BuiltTopo = struct {
     metric_tile_obj_id: usize,
     /// Per-tile cnc object id, indexed by Firedancer tile idx.
     cnc_obj_id: []usize,
+    /// The committed-audit watermark fseq (tkaudt writes, tkagnt reads), or
+    /// `not_found` when the topology has no tkaudt+tkagnt pair.
+    audit_watermark_obj_id: usize,
     /// Per-channel object ids, indexed the same as Topology.channels.
     link_obj_id: []LinkObjIds,
     /// Per-tile metadata indexed by Firedancer tile idx, allocated and owned
@@ -127,10 +133,18 @@ pub const BuiltTopo = struct {
         }
     }
 
-    /// Returns the Firedancer index for a tile ID, or not_found.
+    /// Returns the Firedancer index of the first instance (kind_id 0) of a tile
+    /// ID, or not_found. Use tileIdxByIdentity for a tile type that can have
+    /// several processes, such as tkmodl.
     pub fn tileIdxById(self: *const BuiltTopo, tile_id: tile.TileId) usize {
+        return self.tileIdxByIdentity(.{ .name = tile_id, .kind_id = 0 });
+    }
+
+    /// Returns the Firedancer index for an exact `(name, kind_id)` identity, or
+    /// not_found.
+    pub fn tileIdxByIdentity(self: *const BuiltTopo, identity: tile.TileIdentity) usize {
         for (self.tile_infos, 0..) |info, i| {
-            if (info.tile_id.eql(tile_id)) return i;
+            if (info.tile_id.eql(identity.name) and info.kind_id == identity.kind_id) return i;
         }
         return c_abi.topob.not_found;
     }
@@ -164,6 +178,11 @@ pub fn build(
     log.enter("topo_build", "build");
     defer log.exit("topo_build", "build");
 
+    // Firedancer assigns kind_id by registration order, which below is
+    // descriptor order. A descriptor whose declared kind_id disagrees would be
+    // wired to, and launched as, a different instance than the one it names.
+    try topo_desc.validateIdentities();
+
     // tkdedu's scratch footprint is a function of event_count, so it has to be
     // pushed into the tile before any footprint query below. Both the
     // supervisor and every self-exec'd child reach this with the same value
@@ -185,6 +204,8 @@ pub fn build(
     c_abi.tkpoly.setEventCount(event_count);
     c_abi.tkmodl.setEventCount(event_count);
     c_abi.tkagnt.setEventCount(event_count);
+    c_abi.tkdisp.setEventCount(event_count);
+    c_abi.tkpass.setEventCount(event_count);
 
     const align_check = c_abi.topob.topoAlignof();
     std.debug.print("[topo-build] alignof={d} <= {d} check={}\n", .{ align_check, topo_alloc_align.toByteUnits(), align_check <= topo_alloc_align.toByteUnits() });
@@ -283,8 +304,9 @@ pub fn build(
 
     for (topo_desc.tiles, 0..) |t, desc_idx| {
         var tile_name_buf: [16]u8 = undefined;
-        const fd_idx = c_abi.topob.topoFindTile(topo, util.toZ(&tile_name_buf, t.name.slice()), 0);
-        std.debug.assert(fd_idx != c_abi.topob.not_found);
+        const fd_idx = c_abi.topob.topoFindTile(topo, util.toZ(&tile_name_buf, t.name.slice()), t.kind_id);
+        if (fd_idx == c_abi.topob.not_found) return error.TileKindIdMismatch;
+        if (c_abi.topob.topoTileKindId(topo, fd_idx) != t.kind_id) return error.TileKindIdMismatch;
         fd_tile_idx_by_desc[desc_idx] = fd_idx;
         cpu_idx_arr[fd_idx] = tileCpuIdx(desc_idx, t.cpu_placement);
         if (tile_ids.metric.eql(t.name)) metric_tile_idx = fd_idx;
@@ -336,8 +358,8 @@ pub fn build(
         const reqs = c_abi.topob.tickoniTileScratchRequirements(util.toZ(&tile_name_buf, t.name.slice()));
         if (reqs.footprint > 1) {
             log.kvFmt("topo_build", "build", "calling topobSetTileObjPropertyUlong({s}, footprint={d}, align={d})", .{ t.name.slice(), reqs.footprint, reqs.alignment });
-            c_abi.topob.topobSetTileObjPropertyUlong(topo, util.toZ(&tile_name_buf, t.name.slice()), 0, scratch_footprint_key, reqs.footprint);
-            c_abi.topob.topobSetTileObjPropertyUlong(topo, util.toZ(&tile_name_buf, t.name.slice()), 0, scratch_align_key, reqs.alignment);
+            c_abi.topob.topobSetTileObjPropertyUlong(topo, util.toZ(&tile_name_buf, t.name.slice()), t.kind_id, scratch_footprint_key, reqs.footprint);
+            c_abi.topob.topobSetTileObjPropertyUlong(topo, util.toZ(&tile_name_buf, t.name.slice()), t.kind_id, scratch_align_key, reqs.alignment);
         }
     }
 
@@ -369,25 +391,45 @@ pub fn build(
     }
     log.kvFmt("topo_build", "build", "done CNC loop (tile_cnt={d})", .{topo_desc.tiles.len});
 
+    // Committed-audit watermark: tkaudt stays a pure sink, so the barrier that
+    // tells tkagnt an audit record is committed is one single-writer fseq,
+    // not a return link. Created at a fixed position (after the CNCs, before
+    // the channel wiring) so parent and child lay it out identically.
+    var audit_watermark_obj_id: usize = c_abi.topob.not_found;
+    {
+        var audit_name_buf: [8]u8 = undefined;
+        var agent_name_buf: [8]u8 = undefined;
+        const audit_fd = c_abi.topob.topoFindTile(topo, util.toZ(&audit_name_buf, tile_ids.tkaudt.slice()), 0);
+        const agent_fd = c_abi.topob.topoFindTile(topo, util.toZ(&agent_name_buf, tile_ids.tkagnt.slice()), 0);
+        if (audit_fd != c_abi.topob.not_found and agent_fd != c_abi.topob.not_found) {
+            audit_watermark_obj_id = c_abi.topob.topobObj(topo, "fseq", wksp_name_z);
+            c_abi.topob.topobTileUses(topo, audit_fd, audit_watermark_obj_id, true);
+            c_abi.topob.topobTileUses(topo, agent_fd, audit_watermark_obj_id, false);
+            c_abi.topob.topobSetAuditWatermark(topo, audit_watermark_obj_id);
+        }
+    }
+
     const link_obj_id = try allocator.alloc(LinkObjIds, topo_desc.channels.len);
     errdefer allocator.free(link_obj_id);
     for (topo_desc.channels, 0..) |ch, i| {
         var src_name_buf: [8]u8 = undefined;
         var dst_name_buf: [8]u8 = undefined;
         var link_name_buf: [8]u8 = undefined;
-        const src_name_z = util.toZ(&src_name_buf, topo_desc.tiles[ch.src_idx].name.slice());
-        const dst_name_z = util.toZ(&dst_name_buf, topo_desc.tiles[ch.dst_idx].name.slice());
+        const src_desc = topo_desc.tiles[ch.src_idx];
+        const dst_desc = topo_desc.tiles[ch.dst_idx];
+        const src_name_z = util.toZ(&src_name_buf, src_desc.name.slice());
+        const dst_name_z = util.toZ(&dst_name_buf, dst_desc.name.slice());
         const link_name_z = linkNameZ(&link_name_buf, i);
-        log.kvFmt("topo_build", "build", "calling topobTileIn(dst={s}, wksp={s}, link=ch{d})", .{ dst_name_z, wksp_name_z, i });
-        const fseq_obj_id = c_abi.topob.topobTileIn(topo, dst_name_z, 0, wksp_name_z, link_name_z, 0, true, true);
+        log.kvFmt("topo_build", "build", "calling topobTileIn(dst={s}#{d}, wksp={s}, link=ch{d})", .{ dst_name_z, dst_desc.kind_id, wksp_name_z, i });
+        const fseq_obj_id = c_abi.topob.topobTileIn(topo, dst_name_z, dst_desc.kind_id, wksp_name_z, link_name_z, 0, true, true);
         log.kvFmt("topo_build", "build", "calling topobTileOut(src={s}, link=ch{d})", .{ src_name_z, i });
-        c_abi.topob.topobTileOut(topo, src_name_z, 0, link_name_z, 0);
+        c_abi.topob.topobTileOut(topo, src_name_z, src_desc.kind_id, link_name_z, 0);
         // Verify channel wiring: src tile has out_cnt >= 1, dst tile has in_cnt >= 1.
         // Catches stale src_idx/dst_idx that reference deleted tiles.
         log.kvFmt("topo_build", "build", "calling topoFindTile(src={s})", .{src_name_z});
-        const src_tile_id = c_abi.topob.topoFindTile(topo, src_name_z, 0);
+        const src_tile_id = c_abi.topob.topoFindTile(topo, src_name_z, src_desc.kind_id);
         log.kvFmt("topo_build", "build", "calling topoFindTile(dst={s})", .{dst_name_z});
-        const dst_tile_id = c_abi.topob.topoFindTile(topo, dst_name_z, 0);
+        const dst_tile_id = c_abi.topob.topoFindTile(topo, dst_name_z, dst_desc.kind_id);
         std.debug.assert(src_tile_id != c_abi.topob.not_found);
         std.debug.assert(dst_tile_id != c_abi.topob.not_found);
         log.kvFmt("topo_build", "build", "calling topoTileOutputCount(tile={d})", .{src_tile_id});
@@ -455,6 +497,7 @@ pub fn build(
             if (fd_idx == firedancer_idx) {
                 info.* = .{
                     .tile_id = tile_id,
+                    .kind_id = @intCast(c_abi.topob.topoTileKindId(topo, firedancer_idx)),
                     .cpu_placement = tile_placements[d_idx],
                 };
                 break;
@@ -471,6 +514,7 @@ pub fn build(
         .metric_tile_idx = metric_tile_idx,
         .metric_tile_obj_id = metric_tile_obj_id,
         .cnc_obj_id = cnc_obj_id,
+        .audit_watermark_obj_id = audit_watermark_obj_id,
         .link_obj_id = link_obj_id,
         .tile_infos = tile_infos,
     };
@@ -561,4 +605,228 @@ test "build accepts a metric-only topology without channel arithmetic" {
     try std.testing.expect(built.metric_tile_idx != c_abi.topob.not_found);
     try std.testing.expectEqual(@as(usize, 1), built.tile_infos.len);
     try std.testing.expectEqual(c_abi.topob.not_found, built.metric_in_wksp_idx);
+}
+
+// ---------------------------------------------------------------------------
+// Multi-instance (name, kind_id) identity — tkagnt fan-out graph
+// ---------------------------------------------------------------------------
+
+const topology_spec = @import("topology_spec.zig");
+
+const max_model_cnt = 11;
+
+/// tkings, tkagnt, tkaudt, then `n` tkmodl instances (kind 0..n-1). The
+/// metric tile goes last, or at descriptor index 3 when `metric_before_models`
+/// so Firedancer's index order (metric moved to the end) differs from the
+/// descriptor order that channel endpoints use.
+///
+/// Channels: tkings->tkagnt, then per model k: tkagnt->k (request), k->tkaudt
+/// (audit), k->tkagnt (result), i.e. 1+3n channels.
+fn modelGraph(
+    n: usize,
+    metric_before_models: bool,
+    tiles: *[max_model_cnt + 4]tile_mod.TileDescriptor,
+    channels: *[1 + 3 * max_model_cnt]link_mod.Channel,
+) !topology.Topology {
+    std.debug.assert(n >= 1 and n <= max_model_cnt);
+    const wksp = try link_mod.WorkspaceName.parse("tkpay0");
+    var t: usize = 0;
+    tiles[t] = .{ .id = t, .name = tile_ids.tkings };
+    t += 1;
+    tiles[t] = .{ .id = t, .name = tile_ids.tkagnt };
+    t += 1;
+    tiles[t] = .{ .id = t, .name = tile_ids.tkaudt };
+    t += 1;
+    if (metric_before_models) {
+        tiles[t] = .{ .id = t, .name = tile_ids.metric };
+        t += 1;
+    }
+    const model_base = t;
+    for (0..n) |k| {
+        tiles[t] = .{ .id = t, .name = tile_ids.tkmodl, .kind_id = @intCast(k) };
+        t += 1;
+    }
+    if (!metric_before_models) {
+        tiles[t] = .{ .id = t, .name = tile_ids.metric };
+        t += 1;
+    }
+    channels[0] = .{ .src_idx = 0, .dst_idx = 1, .depth = 32, .mtu = 8192, .backing = .tango_shm, .workspace_name = wksp };
+    for (0..n) |k| {
+        const m: u32 = @intCast(model_base + k);
+        channels[1 + 3 * k + 0] = .{ .src_idx = 1, .dst_idx = m, .depth = 32, .mtu = 8192, .backing = .tango_shm, .workspace_name = wksp };
+        channels[1 + 3 * k + 1] = .{ .src_idx = m, .dst_idx = 2, .depth = 32, .mtu = 256, .backing = .tango_shm, .workspace_name = wksp };
+        channels[1 + 3 * k + 2] = .{ .src_idx = m, .dst_idx = 1, .depth = 32, .mtu = 8192, .backing = .tango_shm, .workspace_name = wksp };
+    }
+    return .{ .tiles = tiles[0..t], .channels = channels[0 .. 1 + 3 * n] };
+}
+
+fn findInstance(built: *const BuiltTopo, k: usize) usize {
+    var name_buf: [8]u8 = undefined;
+    return c_abi.topob.topoFindTile(built.topo, util.toZ(&name_buf, tile_ids.tkmodl.slice()), k);
+}
+
+fn expectEveryModelWiredOnce(built: *const BuiltTopo, n: usize) !void {
+    var seen: [max_model_cnt]usize = undefined;
+    for (0..n) |k| {
+        const fd_idx = findInstance(built, k);
+        try std.testing.expect(fd_idx != c_abi.topob.not_found);
+        try std.testing.expectEqual(k, c_abi.topob.topoTileKindId(built.topo, fd_idx));
+        // One request in; one audit link and one result link out. Wiring every
+        // endpoint to kind 0 would pile all links on instance 0 instead.
+        try std.testing.expectEqual(@as(usize, 1), c_abi.topob.topoTileInputCount(built.topo, fd_idx));
+        try std.testing.expectEqual(@as(usize, 2), c_abi.topob.topoTileOutputCount(built.topo, fd_idx));
+        for (seen[0..k]) |previous| try std.testing.expect(previous != fd_idx);
+        seen[k] = fd_idx;
+
+        const info = built.tile_infos[fd_idx];
+        try std.testing.expect(info.tile_id.eql(tile_ids.tkmodl));
+        try std.testing.expectEqual(@as(u8, @intCast(k)), info.kind_id);
+        try std.testing.expectEqual(fd_idx, built.tileIdxByIdentity(.{ .name = tile_ids.tkmodl, .kind_id = @intCast(k) }));
+    }
+    var agent_buf: [8]u8 = undefined;
+    const agent = c_abi.topob.topoFindTile(built.topo, util.toZ(&agent_buf, tile_ids.tkagnt.slice()), 0);
+    try std.testing.expectEqual(1 + n, c_abi.topob.topoTileInputCount(built.topo, agent));
+    try std.testing.expectEqual(n, c_abi.topob.topoTileOutputCount(built.topo, agent));
+    var audit_buf: [8]u8 = undefined;
+    const audit = c_abi.topob.topoFindTile(built.topo, util.toZ(&audit_buf, tile_ids.tkaudt.slice()), 0);
+    try std.testing.expectEqual(n, c_abi.topob.topoTileInputCount(built.topo, audit));
+}
+
+test "build wires each tkmodl instance by its own (name, kind_id)" {
+    var tiles: [max_model_cnt + 4]tile_mod.TileDescriptor = undefined;
+    var channels: [1 + 3 * max_model_cnt]link_mod.Channel = undefined;
+    const topo_desc = try modelGraph(3, false, &tiles, &channels);
+
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 9091, 0);
+    defer built.deinit(std.testing.allocator);
+
+    try expectEveryModelWiredOnce(&built, 3);
+}
+
+test "build keeps nonzero tkmodl identities when metric precedes the models" {
+    var tiles: [max_model_cnt + 4]tile_mod.TileDescriptor = undefined;
+    var channels: [1 + 3 * max_model_cnt]link_mod.Channel = undefined;
+    const topo_desc = try modelGraph(3, true, &tiles, &channels);
+
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 9091, 0);
+    defer built.deinit(std.testing.allocator);
+
+    try expectEveryModelWiredOnce(&built, 3);
+    // Metric moved to the end of Firedancer's order: descriptor 3 is not
+    // Firedancer tile 3 any more, which is the case that breaks positional
+    // lookups.
+    try std.testing.expectEqual(built.tile_infos.len - 1, built.metric_tile_idx);
+}
+
+test "build accepts the 11-model maximum graph within the metric input ceiling" {
+    var tiles: [max_model_cnt + 4]tile_mod.TileDescriptor = undefined;
+    var channels: [1 + 3 * max_model_cnt]link_mod.Channel = undefined;
+    const topo_desc = try modelGraph(max_model_cnt, false, &tiles, &channels);
+    try std.testing.expectEqual(@as(usize, 15), topo_desc.tiles.len);
+    try std.testing.expectEqual(@as(usize, 34), topo_desc.channels.len);
+
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 9091, 0);
+    defer built.deinit(std.testing.allocator);
+
+    try expectEveryModelWiredOnce(&built, max_model_cnt);
+    // The metric observer takes one input per channel it is not already the
+    // destination of: all 34, well under Firedancer's 128-input ceiling.
+    const metric_in = c_abi.topob.topoTileInputCount(built.topo, built.metric_tile_idx);
+    try std.testing.expectEqual(@as(usize, 34), metric_in);
+    try std.testing.expect(metric_in <= 128);
+}
+
+test "build gives a sparse tkmodl selection the same layout in parent and child" {
+    // Parent builds from the supervisor's Topology; each child rebuilds from
+    // the TopologySpec round-trip. Every object offset must agree or the
+    // child maps a different tile's scratch.
+    var tiles: [max_model_cnt + 4]tile_mod.TileDescriptor = undefined;
+    var channels: [1 + 3 * max_model_cnt]link_mod.Channel = undefined;
+    const parent_desc = try modelGraph(2, true, &tiles, &channels);
+    var parent = try build(std.testing.allocator, parent_desc, "tkpay0", 9091, 4);
+    defer parent.deinit(std.testing.allocator);
+
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+    const spec = try topology_spec.TopologySpec.fromTopology(parent_desc, 9091, 4);
+    try spec.writeToFile(std.testing.io, tmp.dir, "topology.spec");
+    const read_back = try topology_spec.TopologySpec.readFromFile(std.testing.io, tmp.dir, "topology.spec");
+    var child_tiles: [topology_spec.max_tiles]tile_mod.TileDescriptor = undefined;
+    var child_channels: [topology_spec.max_channels]link_mod.Channel = undefined;
+    const child_desc = read_back.toTopology(&child_tiles, &child_channels);
+    var child = try build(std.testing.allocator, child_desc, "tkpay0", read_back.metric_port, read_back.event_count);
+    defer child.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(parent.tile_infos.len, child.tile_infos.len);
+    for (parent.tile_infos, child.tile_infos, 0..) |p, c, i| {
+        try std.testing.expect(p.tile_id.eql(c.tile_id));
+        try std.testing.expectEqual(p.kind_id, c.kind_id);
+        try std.testing.expectEqual(
+            c_abi.topob.topoObjOffset(parent.topo, parent.cnc_obj_id[i]),
+            c_abi.topob.topoObjOffset(child.topo, child.cnc_obj_id[i]),
+        );
+    }
+    for (parent.link_obj_id, child.link_obj_id) |p, c| {
+        try std.testing.expectEqual(
+            c_abi.topob.topoObjOffset(parent.topo, p.mcache_obj_id),
+            c_abi.topob.topoObjOffset(child.topo, c.mcache_obj_id),
+        );
+        try std.testing.expectEqual(
+            c_abi.topob.topoObjOffset(parent.topo, p.dcache_obj_id),
+            c_abi.topob.topoObjOffset(child.topo, c.dcache_obj_id),
+        );
+    }
+}
+
+test "build rejects kind ids that disagree with Firedancer registration order" {
+    const tiles = [_]tile_mod.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkmodl, .kind_id = 1 },
+        .{ .id = 1, .name = tile_ids.tkmodl, .kind_id = 0 },
+    };
+    const topo_desc = topology.Topology{ .tiles = &tiles, .channels = &.{} };
+    try std.testing.expectError(error.TileKindIdMismatch, build(std.testing.allocator, topo_desc, "tkpay0", 0, 0));
+}
+
+test "build creates one audit watermark shared by tkaudt (writer) and tkagnt (reader)" {
+    var tiles: [max_model_cnt + 4]tile_mod.TileDescriptor = undefined;
+    var channels: [1 + 3 * max_model_cnt]link_mod.Channel = undefined;
+    const topo_desc = try modelGraph(2, false, &tiles, &channels);
+
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 9091, 0);
+    defer built.deinit(std.testing.allocator);
+
+    const obj = c_abi.topob.topoAuditWatermarkObj(built.topo);
+    try std.testing.expect(obj != c_abi.topob.not_found);
+    try std.testing.expectEqual(obj, built.audit_watermark_obj_id);
+    // The object lives in the app workspace beside the links and CNCs.
+    try std.testing.expectEqual(built.wksp_idx, c_abi.topob.topoObjWkspId(built.topo, obj));
+}
+
+test "build creates no audit watermark without a tkagnt" {
+    const tiles = [_]tile_mod.TileDescriptor{
+        testTile(0, tile_ids.tkings.slice()),
+        testTile(1, tile_ids.tkaudt.slice()),
+    };
+    const channels = [_]link_mod.Channel{.{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 }};
+    const topo_desc = topology.Topology{ .tiles = &tiles, .channels = &channels };
+
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 0, 0);
+    defer built.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(c_abi.topob.not_found, c_abi.topob.topoAuditWatermarkObj(built.topo));
+    try std.testing.expectEqual(c_abi.topob.not_found, built.audit_watermark_obj_id);
+}
+
+test "build gives parent and child the same audit watermark layout" {
+    var tiles: [max_model_cnt + 4]tile_mod.TileDescriptor = undefined;
+    var channels: [1 + 3 * max_model_cnt]link_mod.Channel = undefined;
+    const topo_desc = try modelGraph(3, true, &tiles, &channels);
+    var parent = try build(std.testing.allocator, topo_desc, "tkpay0", 9091, 4);
+    defer parent.deinit(std.testing.allocator);
+    var child = try build(std.testing.allocator, topo_desc, "tkpay0", 9091, 4);
+    defer child.deinit(std.testing.allocator);
+    try std.testing.expectEqual(
+        c_abi.topob.topoObjOffset(parent.topo, parent.audit_watermark_obj_id),
+        c_abi.topob.topoObjOffset(child.topo, child.audit_watermark_obj_id),
+    );
 }

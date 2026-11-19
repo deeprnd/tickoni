@@ -30,6 +30,26 @@ pub fn createFile(
     return dir.createFile(io, sub_path, .{});
 }
 
+/// Create (or truncate) a file that only its owner can read or write (0600 where
+/// the platform has POSIX modes), for files that hold captured replay material.
+/// The mode is also applied to a file that already existed, so a stale file with
+/// wider access is narrowed rather than reused as it was.
+pub fn createOwnerOnlyFile(
+    io: std.Io,
+    dir: std.Io.Dir,
+    sub_path: []const u8,
+) !std.Io.File {
+    const Permissions = std.Io.File.Permissions;
+    const owner_only: Permissions = if (@hasDecl(Permissions, "fromMode")) Permissions.fromMode(0o600) else .default_file;
+    var file = if (sub_path.len > 0 and sub_path[0] == '/')
+        try std.Io.Dir.createFileAbsolute(io, sub_path, .{ .permissions = owner_only })
+    else
+        try dir.createFile(io, sub_path, .{ .permissions = owner_only });
+    errdefer file.close(io);
+    try file.setPermissions(io, owner_only);
+    return file;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -121,4 +141,23 @@ test "createFile resolves a relative path against the supplied dir" {
     var buf: [9]u8 = undefined;
     const n = try read_back.readPositionalAll(std.testing.io, &buf, 0);
     try std.testing.expectEqualStrings("rel_write", buf[0..n]);
+}
+
+test "createOwnerOnlyFile makes the file readable and writable by its owner only" {
+    if (!@hasDecl(std.Io.File.Permissions, "toMode")) return error.SkipZigTest;
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    // A file that already exists with wide access is narrowed, not reused as is.
+    var wide = try tmp.dir.createFile(std.testing.io, "stale", .{ .permissions = std.Io.File.Permissions.fromMode(0o666) });
+    try wide.setPermissions(std.testing.io, std.Io.File.Permissions.fromMode(0o666));
+    wide.close(std.testing.io);
+
+    inline for (.{ "fresh", "stale" }) |name| {
+        var file = try createOwnerOnlyFile(std.testing.io, tmp.dir, name);
+        try file.writePositionalAll(std.testing.io, "capture", 0);
+        const stat = try file.stat(std.testing.io);
+        file.close(std.testing.io);
+        try std.testing.expectEqual(@as(std.posix.mode_t, 0o600), stat.permissions.toMode() & 0o777);
+    }
 }
