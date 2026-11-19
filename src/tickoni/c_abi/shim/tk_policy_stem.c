@@ -55,8 +55,10 @@ typedef struct {
     /* Workspace pointer for input dcache reads */
     void *wksp;
 
-    /* Input dcache depth (chunk bounds: valid range [0, in_depth)) */
-    ulong in_depth;
+    /* Input dcache compact chunk bounds, workspace-relative: a valid
+       fragment's chunk index lies in [in_chunk0, in_wmark]. */
+    ulong    in_chunk0;
+    ulong    in_wmark;
 
     /* Explicit behavior configuration copied at initialization. */
     int64_t policy_limit_cents;
@@ -188,7 +190,8 @@ tkpoly_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     ctx->cnc = NULL;
     ctx->event_count = 0;
     ctx->input_exhausted = 0;
-    ctx->in_depth = 0;
+    ctx->in_chunk0 = 0;
+    ctx->in_wmark = 0;
     if (FD_UNLIKELY(!tkpoly_policy_limit_configured))
         FD_LOG_ERR(( "tkpoly: policy limit was not configured" ));
     ctx->policy_limit_cents = tkpoly_policy_limit_param;
@@ -199,11 +202,6 @@ tkpoly_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     ctx->wksp = NULL;
 
     ctx->wksp = stk_derive_wksp(topo, tile, 0);
-
-    /* Resolve input dcache depth for chunk bounds checking in during_frag.
-       The depth field is on the link itself, shared by mcache and dcache. */
-    fd_topo_link_t const * in_link = &topo->links[tile->in_link_id[0]];
-    ctx->in_depth = in_link->depth;
 
     ctx->event_count = tkpoly_event_count_param;
 
@@ -240,6 +238,13 @@ tkpoly_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     if (FD_UNLIKELY(!in_link->dcache || in_link->mtu < PAYMENT_MSG_SIZE))
         FD_LOG_ERR(( "tkpoly: invalid input dcache or mtu %lu", in_link->mtu ));
 
+    /* Compact chunk bounds for the input dcache, indexed relative to the
+       same workspace base that during_frag converts chunks against.  A
+       fragment's chunk index is workspace-relative, not a 0..depth ring
+       slot, so the link depth is not a bound on it. */
+    ctx->in_chunk0 = fd_dcache_compact_chunk0(ctx->wksp, in_link->dcache);
+    ctx->in_wmark  = fd_dcache_compact_wmark(ctx->wksp, in_link->dcache, in_link->mtu);
+
     /* Compute the output dcache workspace fields once, so the per-fragment
        path is one copy plus one publish.  Matches the tkdedu/tknorm pattern. */
     fd_topo_link_t const * out_link = &topo->links[tile->out_link_id[0]];
@@ -252,8 +257,9 @@ tkpoly_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     ctx->out_wmark = fd_dcache_compact_wmark(ctx->out_wksp, out_link->dcache, out_link->mtu);
     ctx->out_chunk = ctx->out_chunk0;
 
-    FD_LOG_NOTICE(( "tkpoly: unprivileged init tile_id=%lu cnc=%p out_chunk0=%lu out_wmark=%lu",
-                    tile->id, ctx->cnc, ctx->out_chunk0, ctx->out_wmark ));
+    FD_LOG_NOTICE(( "tkpoly: unprivileged init tile_id=%lu cnc=%p in_chunk0=%lu in_wmark=%lu out_chunk0=%lu out_wmark=%lu",
+                    tile->id, ctx->cnc, ctx->in_chunk0, ctx->in_wmark,
+                    ctx->out_chunk0, ctx->out_wmark ));
 }
 
 static void
@@ -271,10 +277,10 @@ tkpoly_during_frag( tkpoly_ctx_t * ctx,
     if (!stk_validate_frag(sz, PAYMENT_MSG_SIZE, ctx->wksp))
         return;
 
-    /* Chunk bounds: must be [0, in_depth).  Prevents out-of-bounds reads
-       from the input dcache when fd_stem delivers a corrupted or replayed
-       chunk index. */
-    if (FD_UNLIKELY(chunk >= ctx->in_depth))
+    /* Chunk bounds: must be [in_chunk0, in_wmark].  Prevents out-of-bounds
+       reads from the input dcache when fd_stem delivers a corrupted or
+       replayed chunk index. */
+    if (FD_UNLIKELY(chunk < ctx->in_chunk0 || chunk > ctx->in_wmark))
         return;
 
     PaymentMessage const * msg_in = stk_chunk_to_gaddr(ctx->wksp, chunk);
