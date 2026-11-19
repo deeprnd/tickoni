@@ -1073,16 +1073,16 @@ require deliberate Tickoni implementation or are explicitly not reused:
 
 5. **Tile registry** — `fd_topo_run_tile_t` serves as a per-tile registry. Tickoni
    implements this in `src/app/tickoni/tile_registry.zig` (not `topology.zig`).
-   The registry is keyed by tile ID and owns: process-mode run callback
+   The registry is keyed by tile ID and owns: child launch mode, process-mode run callback
    (`ProcessFn`), counter schema
    (`CounterSchemaEntry`), expected link cardinality (`in_cnt`/`out_cnt`),
    and diagnostics naming. Beyond lookup and cardinality, the registry also
    owns **process-mode dispatch wiring** (link-joining shape per tile — each
    process-mode entry function joins the correct consumer/producer links and
-   calls into the pipeline stage) and **topology-bijection validation**
-   (`validate()` checks that every topology tile is registered, every
-   registered tile appears in the topology, and per-tile channel counts match
-   the registry). No supervisor, process dispatcher, metrics reader, or test
+   calls into the pipeline stage) and **configured-topology validation**
+   (`validate()` checks that every configured tile is registered, identities
+   are unique, and per-tile channel counts match the registry). Registered
+   tiles may be absent from a topology. No supervisor, process dispatcher, metrics reader, or test
    harness should recreate these mappings.
 
 6. **Heartbeat semantics** — `cnc_update` / `FD_CNC_HEARTBEAT` — the pattern is
