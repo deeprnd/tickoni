@@ -136,7 +136,10 @@ pub fn strategy(
             .{ .name = "util", .module = shared.util },
             .{ .name = "logger", .module = shared.logger },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
+        // needs_topo_run brings in tk_policy_stem.c: policy.zig's parity test
+        // calls tkpoly_policy_helper over FFI, and needs_codec links only
+        // ballet.c.
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
     }, cov_step);
 
     tb.registerCov(.{

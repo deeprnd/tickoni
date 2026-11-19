@@ -92,7 +92,7 @@ pub fn strategy(
             "src/tickoni/test/integration/test_tile_tkaudt.zig",
             "src/tickoni/test/integration/test_tile_tknorm.zig",
             "src/tickoni/test/integration/test_tile_tkdedu.zig",
-            "src/tickoni/test/integration/test_tkpoly_integration.zig",
+            "src/tickoni/test/integration/test_tile_tkpoly.zig",
         };
 
         for (infra_proc_files) |path| {
