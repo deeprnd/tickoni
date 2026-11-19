@@ -89,6 +89,9 @@ extern fn tk_topo_validate_obj_in_wksp(topo: *const Topo, obj_type: [*:0]const u
 extern fn tk_topo_validate_workspace_joined(topo: *const Topo, wksp_idx: usize) c_int;
 extern fn tk_topob_debug_wksp_objs_internal(topo: *Topo) void;
 extern fn tk_topo_tile_name(topo: *const Topo, tile_id: usize) [*:0]const u8;
+extern fn tk_topo_tile_kind_id(topo: *const Topo, tile_id: usize) usize;
+extern fn tk_topob_set_audit_watermark(topo: *Topo, obj_id: usize) void;
+extern fn tk_topo_audit_watermark_obj(topo: *const Topo) usize;
 extern fn tk_topo_wksp_cnt(topo: *const Topo) usize;
 extern fn tk_topo_obj_wksp_id(topo: *const Topo, obj_id: usize) usize;
 
@@ -316,6 +319,24 @@ pub fn topoTileOutputCount(topo: *const Topo, tile_id: usize) usize {
 
 pub fn topoTileName(topo: *const Topo, tile_id: usize) [*:0]const u8 {
     return tk_topo_tile_name(topo, tile_id);
+}
+
+/// Firedancer's kind_id for a tile: its instance ordinal among tiles that
+/// share a name. std.math.maxInt(usize) for an out-of-range tile id.
+pub fn topoTileKindId(topo: *const Topo, tile_id: usize) usize {
+    return tk_topo_tile_kind_id(topo, tile_id);
+}
+
+/// Records the topology's committed-audit watermark object (an fseq written by
+/// tkaudt and read by tkagnt). Parent and child record it identically because
+/// both run topo_build.build.
+pub fn topobSetAuditWatermark(topo: *Topo, obj_id: usize) void {
+    tk_topob_set_audit_watermark(topo, obj_id);
+}
+
+/// Object id of the audit watermark, or `not_found` if the topology has none.
+pub fn topoAuditWatermarkObj(topo: *const Topo) usize {
+    return tk_topo_audit_watermark_obj(topo);
 }
 
 pub fn topoLinkConsumerCount(topo: *const Topo, link_id: usize) usize {

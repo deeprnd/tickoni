@@ -74,6 +74,12 @@ extern uint  tk_audit_record_model_token_estimate( void * scratch, ulong idx );
 extern ulong tk_audit_record_model_policy_decision_id( void * scratch, ulong idx );
 extern ulong tk_audit_record_model_replay_substitution_id( void * scratch, ulong idx );
 extern uint  tk_audit_record_denial_reason_code( void * scratch, ulong idx );
+extern ulong tk_audit_agent_committed( void * scratch );
+extern ulong tk_audit_rejected_count( void * scratch );
+extern ulong tk_audit_held_model_count( void * scratch );
+extern ulong tk_audit_held_agent_count( void * scratch );
+extern ulong tk_audit_record_proposal_hash( void * scratch, ulong idx );
+extern void  tk_audit_record_proposal_type( void * scratch, ulong idx, uint8_t * dst );
 extern void  tk_audit_record_denial_failed_scope_dim( void * scratch, ulong idx, uint8_t * dst );
 
 /* Whole-record copy (dst_sz must equal sizeof(AuditEvent)); lets a test feed

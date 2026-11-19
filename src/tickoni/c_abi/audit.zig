@@ -46,6 +46,12 @@ extern fn tk_audit_record_model_token_estimate(scratch: ?*anyopaque, idx: usize)
 extern fn tk_audit_record_model_policy_decision_id(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_model_replay_substitution_id(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_denial_reason_code(scratch: ?*anyopaque, idx: usize) c_uint;
+extern fn tk_audit_agent_committed(scratch: ?*anyopaque) usize;
+extern fn tk_audit_rejected_count(scratch: ?*anyopaque) usize;
+extern fn tk_audit_held_model_count(scratch: ?*anyopaque) usize;
+extern fn tk_audit_held_agent_count(scratch: ?*anyopaque) usize;
+extern fn tk_audit_record_proposal_hash(scratch: ?*anyopaque, idx: usize) u64;
+extern fn tk_audit_record_proposal_type(scratch: ?*anyopaque, idx: usize, dst: *[32]u8) void;
 extern fn tk_audit_record_denial_failed_scope_dim(scratch: ?*anyopaque, idx: usize, dst: *[32]u8) void;
 extern fn tk_audit_record_copy(scratch: ?*anyopaque, idx: usize, dst: *anyopaque, dst_sz: usize) void;
 
@@ -119,6 +125,32 @@ pub fn getAuditRunUnprivilegedInit() ?*anyopaque {
 /// Number of records committed to the hash chain so far.
 pub fn recordCount(scratch: ?*anyopaque) usize {
     return tk_audit_record_count(scratch);
+}
+
+/// Agent records committed (ordered mode: one per accepted agent run).
+pub fn agentCommitted(scratch: ?*anyopaque) usize {
+    return tk_audit_agent_committed(scratch);
+}
+
+/// Records tkaudt refused: late, duplicate, out of order, or no room to hold.
+pub fn rejectedCount(scratch: ?*anyopaque) usize {
+    return tk_audit_rejected_count(scratch);
+}
+
+pub fn heldModelCount(scratch: ?*anyopaque) usize {
+    return tk_audit_held_model_count(scratch);
+}
+
+pub fn heldAgentCount(scratch: ?*anyopaque) usize {
+    return tk_audit_held_agent_count(scratch);
+}
+
+pub fn recordProposalHash(scratch: ?*anyopaque, idx: usize) u64 {
+    return tk_audit_record_proposal_hash(scratch, idx);
+}
+
+pub fn recordProposalType(scratch: ?*anyopaque, idx: usize, dst: *[32]u8) void {
+    tk_audit_record_proposal_type(scratch, idx, dst);
 }
 
 /// `header.seq` of the committed record at `idx`.

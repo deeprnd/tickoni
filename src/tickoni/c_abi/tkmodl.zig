@@ -25,11 +25,14 @@ extern fn tkmodl_tile_scratch_footprint() usize;
 extern fn tkmodl_tile_scratch_align() usize;
 extern fn tkmodl_set_event_count(event_count: u64) void;
 extern fn tkmodl_configure(cfg: ?*const TkModlRuntimeConfig) c_int;
+extern fn tkmodl_set_fixture_content(key: u64, bytes: ?[*]const u8, len: u32) c_int;
 extern fn tkmodl_validate(cfg: *const TkModlRuntimeConfig, req: *const ModelRequestMsg, scope_dim_out: ?*[32]u8) u8;
+extern fn tkmodl_validate_embedding(cfg: *const TkModlRuntimeConfig, req: *const ModelRequestMsg, scope_dim_out: ?*[32]u8) u8;
 extern fn tkmodl_request_well_formed(req: *const ModelRequestMsg) c_int;
 extern fn tkmodl_ctx_processed(scratch: ?*anyopaque) usize;
 extern fn tkmodl_ctx_allowed(scratch: ?*anyopaque) usize;
 extern fn tkmodl_ctx_denied(scratch: ?*anyopaque) usize;
+extern fn tkmodl_ctx_dropped(scratch: ?*anyopaque) usize;
 extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
 
 /// Result of `configure`, mirroring the TKMODL_CFG_* codes.
@@ -40,12 +43,24 @@ pub const ConfigError = error{
     LiveProviderEnabled,
     AllowlistBound,
     FixtureBound,
+    /// No configured fixture has this key.
+    ContentNoFixture,
+    /// The content does not hash to the fixture's response_hash.
+    ContentHash,
+    /// Empty, over the message bound, or over the content store.
+    ContentBound,
+    ContentDuplicate,
     Unknown,
 };
 
 pub const config_magic: u32 = audit_mod.TKMODL_CONFIG_MAGIC;
 pub const config_version: u16 = audit_mod.TKMODL_CONFIG_VERSION;
 pub const wire_version: u16 = audit_mod.TKMODL_WIRE_VERSION;
+pub const fixture_cap: usize = audit_mod.TKMODL_FIXTURE_CAP;
+pub const content_store_bytes: usize = audit_mod.TKMODL_CONTENT_STORE_BYTES;
+/// One capture's bound: a result body is a ModelResultMsg plus the content, and
+/// a multipart message is at most `max_message_bytes`.
+pub const content_max_bytes: usize = audit_mod.TK_MP_MAX_MESSAGE_BYTES - @sizeOf(ModelResultMsg);
 
 pub fn getModelRunName() [*:0]const u8 {
     return run_desc.name();
@@ -100,6 +115,25 @@ pub fn configure(cfg: *const TkModlRuntimeConfig) ConfigError!void {
         4 => error.LiveProviderEnabled,
         5 => error.AllowlistBound,
         6 => error.FixtureBound,
+        7 => error.ContentNoFixture,
+        8 => error.ContentHash,
+        9 => error.ContentBound,
+        10 => error.ContentDuplicate,
+        else => error.Unknown,
+    };
+}
+
+/// Installs the captured response bytes for the fixture with this key, after
+/// `configure`. The bytes must hash (canonical multipart hash) to that
+/// fixture's response_hash; nothing is stored on error.
+pub fn setFixtureContent(key: u64, bytes: []const u8) ConfigError!void {
+    if (bytes.len > std.math.maxInt(u32)) return error.ContentBound;
+    return switch (tkmodl_set_fixture_content(key, bytes.ptr, @intCast(bytes.len))) {
+        0 => {},
+        7 => error.ContentNoFixture,
+        8 => error.ContentHash,
+        9 => error.ContentBound,
+        10 => error.ContentDuplicate,
         else => error.Unknown,
     };
 }
@@ -108,6 +142,11 @@ pub fn configure(cfg: *const TkModlRuntimeConfig) ConfigError!void {
 /// MODEL_DENY_MISSING_SCOPE, `scope_dim_out` receives the missing field name.
 pub fn validate(cfg: *const TkModlRuntimeConfig, req: *const ModelRequestMsg, scope_dim_out: ?*[32]u8) u8 {
     return tkmodl_validate(cfg, req, scope_dim_out);
+}
+
+/// Governance verdict for an embedding request (see tkmodl_validate_embedding).
+pub fn validateEmbedding(cfg: *const TkModlRuntimeConfig, req: *const ModelRequestMsg, scope_dim_out: ?*[32]u8) u8 {
+    return tkmodl_validate_embedding(cfg, req, scope_dim_out);
 }
 
 pub fn requestWellFormed(req: *const ModelRequestMsg) bool {
@@ -126,40 +165,10 @@ pub fn ctxDenied(scratch: ?*anyopaque) u64 {
     return tkmodl_ctx_denied(scratch);
 }
 
-/// Name of the supervisor-written configuration file, beside
-/// payment_pipeline.config and topology.spec.
-pub const config_file_name = "tkmodl.config";
-
-pub const ConfigFileError = error{ ConfigTruncated, ConfigTrailingBytes } || ConfigError;
-
-/// Writes `cfg` verbatim. Its own magic/version fields are the file's header.
-pub fn writeConfigFile(io: std.Io, dir: std.Io.Dir, sub_path: []const u8, cfg: *const TkModlRuntimeConfig) !void {
-    // std.Io.Dir treats an absolute sub_path as relative to `dir`; resolve it
-    // from the filesystem root instead (c_abi cannot import runtime/file_io).
-    var file = if (sub_path.len > 0 and sub_path[0] == '/')
-        try std.Io.Dir.createFileAbsolute(io, sub_path, .{})
-    else
-        try dir.createFile(io, sub_path, .{});
-    defer file.close(io);
-    try file.writePositionalAll(io, std.mem.asBytes(cfg), 0);
-}
-
-/// Reads and validates the configuration file, then installs it with
-/// `configure`. Fails closed: a missing, short, long, mis-versioned or
-/// live-enabled file installs nothing.
-pub fn loadConfigFile(io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !void {
-    var file = if (sub_path.len > 0 and sub_path[0] == '/')
-        try std.Io.Dir.openFileAbsolute(io, sub_path, .{})
-    else
-        try dir.openFile(io, sub_path, .{});
-    defer file.close(io);
-    var cfg: TkModlRuntimeConfig = undefined;
-    const buf = std.mem.asBytes(&cfg);
-    const n = try file.readPositionalAll(io, buf, 0);
-    if (n != buf.len) return error.ConfigTruncated;
-    var extra: [1]u8 = undefined;
-    if ((try file.readPositionalAll(io, &extra, buf.len)) != 0) return error.ConfigTrailingBytes;
-    try configure(&cfg);
+/// Requests dropped without governance: malformed or incomplete multipart
+/// streams, inconsistent identity, or a body that is not a request.
+pub fn ctxDropped(scratch: ?*anyopaque) u64 {
+    return tkmodl_ctx_dropped(scratch);
 }
 
 /// Copies `src` into a fixed-width NUL-padded wire field. Fails if the value

@@ -56,7 +56,9 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
 #include "../topo_run/tk_dedu_stem.h"
 #include "../topo_run/tk_policy_stem.h"
 #include "../topo_run/tk_model_stem.h"
-#include "../topo_run/tk_agent_sink_stem.h"
+#include "../topo_run/tk_agent_stem.h"
+#include "../topo_run/tk_disp_stem.h"
+#include "../topo_run/tk_pass_stem.h"
 #endif
 
 /* Check if this tile should use the metric run tile. Compares tile name
@@ -142,10 +144,32 @@ tile_is_model( fd_topo_tile_t * tile ) {
   return tile!=NULL && strcmp( tile->name, TILE_ID_TKMODL ) == 0;
 }
 
-/* Predicate that matches the tkagnt result-sink tile. */
+/* Predicate that matches the tkagnt agent-worker tile. */
 static int
-tile_is_agent_sink( fd_topo_tile_t * tile ) {
+tile_is_agent( fd_topo_tile_t * tile ) {
   return tile!=NULL && strcmp( tile->name, TILE_ID_TKAGNT ) == 0;
+}
+
+/* Predicates for the placeholder tiles of the investment workflow. */
+static int
+tile_is_case( fd_topo_tile_t * tile ) {
+  return tile!=NULL && strcmp( tile->name, TILE_ID_TKCASE ) == 0;
+}
+
+static int
+tile_is_tool( fd_topo_tile_t * tile ) {
+  return tile!=NULL && strcmp( tile->name, TILE_ID_TKTOOL ) == 0;
+}
+
+static int
+tile_is_adpt( fd_topo_tile_t * tile ) {
+  return tile!=NULL && strcmp( tile->name, TILE_ID_TKADPT ) == 0;
+}
+
+/* Predicate that matches the tkdisp terminal-result sink tile. */
+static int
+tile_is_disp( fd_topo_tile_t * tile ) {
+  return tile!=NULL && strcmp( tile->name, TILE_ID_TKDISP ) == 0;
 }
 
 static int const TK_PROCESS_MODE_SANDBOX_NONE = 0;
@@ -216,8 +240,16 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
     run_tile = &TK_POLICY_RUN;
   } else if( tile_is_model( tile_c ) ) {
     run_tile = &TK_MODEL_RUN;
-  } else if( tile_is_agent_sink( tile_c ) ) {
-    run_tile = &TK_AGENT_SINK_RUN;
+  } else if( tile_is_agent( tile_c ) ) {
+    run_tile = &TK_AGENT_RUN;
+  } else if( tile_is_disp( tile_c ) ) {
+    run_tile = &TK_DISP_RUN;
+  } else if( tile_is_case( tile_c ) ) {
+    run_tile = &TK_CASE_RUN;
+  } else if( tile_is_tool( tile_c ) ) {
+    run_tile = &TK_TOOL_RUN;
+  } else if( tile_is_adpt( tile_c ) ) {
+    run_tile = &TK_ADPT_RUN;
   } else {
     run_tile = &TK_TILE_RUN;
   }
@@ -228,7 +260,11 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
   (void)tile_is_norm;
   (void)tile_is_policy;
   (void)tile_is_model;
-  (void)tile_is_agent_sink;
+  (void)tile_is_agent;
+  (void)tile_is_disp;
+  (void)tile_is_case;
+  (void)tile_is_tool;
+  (void)tile_is_adpt;
   run_tile = &TK_TILE_RUN;
 #endif
 

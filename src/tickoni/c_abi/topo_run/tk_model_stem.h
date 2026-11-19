@@ -39,7 +39,17 @@ extern void tkmodl_set_event_count( uint64_t event_count );
 #define TKMODL_CFG_LIVE_PROVIDER      4
 #define TKMODL_CFG_ALLOWLIST_BOUND    5
 #define TKMODL_CFG_FIXTURE_BOUND      6
+/* Returned by tkmodl_set_fixture_content(). */
+#define TKMODL_CFG_CONTENT_NO_FIXTURE 7   /* no configured fixture has this key */
+#define TKMODL_CFG_CONTENT_HASH       8   /* content does not hash to the fixture's response_hash */
+#define TKMODL_CFG_CONTENT_BOUND      9   /* empty, over the message bound, or over the store */
+#define TKMODL_CFG_CONTENT_DUPLICATE  10  /* content already installed for this fixture */
 extern int tkmodl_configure( TkModlRuntimeConfig const * cfg );
+
+/* Installs the captured response bytes for the fixture with this key, after
+   tkmodl_configure().  The bytes must hash (canonical multipart hash) to the
+   fixture's response_hash; nothing is stored on error. */
+extern int tkmodl_set_fixture_content( uint64_t key, uint8_t const * bytes, uint32_t len );
 
 /* Pure governance helper: same branch order and zero/empty meanings as
    src/tickoni/tiles/model/validator.zig.  Returns a ModelDecision; for
@@ -49,7 +59,14 @@ extern uint8_t tkmodl_validate( TkModlRuntimeConfig const * cfg,
                                 ModelRequestMsg const *     req,
                                 uint8_t *                   scope_dim_out );
 
-/* Wire-shape check used by DURING_FRAG: version, replay_mode, and NUL
+/* The same governance for an embedding request: the model is checked against
+   the embedding allowlist, and the requested vector width must be non-zero and
+   within the allowed widths (MODEL_DENY_EMBEDDING_DIMENSION). */
+extern uint8_t tkmodl_validate_embedding( TkModlRuntimeConfig const * cfg,
+                                          ModelRequestMsg const *     req,
+                                          uint8_t *                   scope_dim_out );
+
+/* Wire-shape check of a reassembled request: version, replay_mode, and NUL
    termination of every fixed-width string field.  Returns 1 if well formed. */
 extern int tkmodl_request_well_formed( ModelRequestMsg const * req );
 
@@ -57,5 +74,6 @@ extern int tkmodl_request_well_formed( ModelRequestMsg const * req );
 extern ulong tkmodl_ctx_processed( void * scratch );
 extern ulong tkmodl_ctx_allowed( void * scratch );
 extern ulong tkmodl_ctx_denied( void * scratch );
+extern ulong tkmodl_ctx_dropped( void * scratch );
 
 #endif /* __TK_MODEL_STEM_H__ */
