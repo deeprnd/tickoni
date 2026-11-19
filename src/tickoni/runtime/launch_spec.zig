@@ -27,25 +27,33 @@ const tile = @import("tile.zig");
 const tile_ids = @import("tile_ids.zig");
 const cpu_placement = @import("cpu_placement.zig");
 const link = @import("link.zig");
+const topology = @import("topology.zig");
 const util = @import("util");
 const logger = @import("logger");
 
 pub const magic: u32 = 0x544b5350; // "TKSP"
-pub const version: u16 = 1;
+/// v2: carries the resolved `tile_kind_id` and raises the per-tile link
+/// capacity to the approved 128 inputs / 32 outputs.
+pub const version: u16 = 2;
 
 pub const shmem_path_cap: usize = 128;
 
-/// Phase 0 needs at most 2 inbound links for any one tile (e.g. an audit
-/// tile fed by both an ingest path and a policy path); 4 leaves headroom
-/// without an unbounded/heap-allocated array in a struct that gets
-/// round-tripped through raw bytes.
-pub const max_links_per_tile: usize = 4;
+/// Per-tile link capacity, matching Firedancer's own per-tile limits (128
+/// inputs, 32 outputs). The widest approved tile is tkagnt at the 11-model
+/// maximum, which needs 12+ inputs and 13+ outputs; capacity stays a bounded
+/// array because this struct is round-tripped through raw bytes.
+pub const max_in_links: usize = 128;
+pub const max_out_links: usize = 32;
 
 pub const LaunchSpec = struct {
     magic_field: u32 = magic,
     version_field: u16 = version,
     tile_idx: u32,
     tile_id: tile.TileId,
+    /// Instance ordinal of this process among tiles sharing `tile_id`. The
+    /// child resolves `(tile_id, tile_kind_id)` in its rebuilt topology and
+    /// fails closed if that tile is not the one it was launched as.
+    tile_kind_id: u8 = 0,
     cpu_placement: cpu_placement.CpuPlacement,
     workspace_name: link.WorkspaceName,
     /// Global address of this tile's pre-formatted cnc object inside
@@ -55,9 +63,9 @@ pub const LaunchSpec = struct {
     /// correctness link, e.g. tkings has no input and tkaudt has no output
     /// in the current 5-stage core chain.
     in_cnt: u8 = 0,
-    in_links: [max_links_per_tile]link.LinkHandles = std.mem.zeroes([max_links_per_tile]link.LinkHandles),
+    in_links: [max_in_links]link.LinkHandles = std.mem.zeroes([max_in_links]link.LinkHandles),
     out_cnt: u8 = 0,
-    out_links: [max_links_per_tile]link.LinkHandles = std.mem.zeroes([max_links_per_tile]link.LinkHandles),
+    out_links: [max_out_links]link.LinkHandles = std.mem.zeroes([max_out_links]link.LinkHandles),
     shmem_path_buf: [shmem_path_cap]u8 = std.mem.zeroes([shmem_path_cap]u8),
     shmem_path_len: u16,
     heartbeat_interval_ns: u64,
@@ -69,6 +77,7 @@ pub const LaunchSpec = struct {
     pub fn init(fields: struct {
         tile_idx: u32,
         tile_id: tile.TileId,
+        tile_kind_id: u8 = 0,
         cpu_placement: cpu_placement.CpuPlacement,
         workspace_name: link.WorkspaceName,
         cnc_gaddr: usize,
@@ -90,6 +99,7 @@ pub const LaunchSpec = struct {
         var spec = LaunchSpec{
             .tile_idx = fields.tile_idx,
             .tile_id = fields.tile_id,
+            .tile_kind_id = fields.tile_kind_id,
             .cpu_placement = fields.cpu_placement,
             .workspace_name = fields.workspace_name,
             .cnc_gaddr = fields.cnc_gaddr,
@@ -100,17 +110,32 @@ pub const LaunchSpec = struct {
         @memcpy(spec.shmem_path_buf[0..fields.shmem_path.len], fields.shmem_path);
         for (fields.channels, fields.link_handles) |ch, lh| {
             if (ch.dst_idx == fields.tile_idx) {
-                if (spec.in_cnt >= max_links_per_tile) return error.TooManyInLinks;
+                if (spec.in_cnt >= max_in_links) return error.TooManyInLinks;
                 spec.in_links[spec.in_cnt] = lh;
                 spec.in_cnt += 1;
             }
             if (ch.src_idx == fields.tile_idx) {
-                if (spec.out_cnt >= max_links_per_tile) return error.TooManyOutLinks;
+                if (spec.out_cnt >= max_out_links) return error.TooManyOutLinks;
                 spec.out_links[spec.out_cnt] = lh;
                 spec.out_cnt += 1;
             }
         }
         return spec;
+    }
+
+    /// The `(tile_id, tile_kind_id)` this process was launched as.
+    pub fn identity(self: *const LaunchSpec) tile.TileIdentity {
+        return .{ .name = self.tile_id, .kind_id = self.tile_kind_id };
+    }
+
+    /// Verifies that the topology this child rebuilt describes the process it
+    /// was launched as: `tile_idx` is a descriptor and that descriptor's
+    /// `(name, kind_id)` is this spec's identity. A mismatch means the
+    /// supervisor's launch record and topology handoff describe different
+    /// runs; the child must exit rather than run as another instance.
+    pub fn checkAgainst(self: *const LaunchSpec, topo: topology.Topology) error{ LaunchTileIdxOutOfRange, LaunchIdentityMismatch }!void {
+        if (self.tile_idx >= topo.tiles.len) return error.LaunchTileIdxOutOfRange;
+        if (!topo.tiles[self.tile_idx].identity().eql(self.identity())) return error.LaunchIdentityMismatch;
     }
 
     pub fn inLinks(self: *const LaunchSpec) []const link.LinkHandles {
@@ -143,6 +168,7 @@ pub const LaunchSpec = struct {
         if (spec.magic_field != magic) return error.LaunchSpecBadMagic;
         if (spec.version_field != version) return error.LaunchSpecUnsupportedVersion;
         if (spec.shmem_path_len > shmem_path_cap) return error.LaunchSpecMalformed;
+        if (spec.in_cnt > max_in_links or spec.out_cnt > max_out_links) return error.LaunchSpecMalformed;
         return spec;
     }
 };
@@ -280,9 +306,64 @@ test "LaunchSpec init keeps every matching outbound channel (fan-out)" {
     try std.testing.expectEqual(@as(u8, 0), spec.in_cnt);
 }
 
-test "LaunchSpec init fails closed when inbound links exceed max_links_per_tile" {
-    var channels: [max_links_per_tile + 1]link.Channel = undefined;
-    var handles: [max_links_per_tile + 1]link.LinkHandles = undefined;
+test "LaunchSpec holds the approved 128 inputs and 32 outputs per tile" {
+    try std.testing.expectEqual(@as(usize, 128), max_in_links);
+    try std.testing.expectEqual(@as(usize, 32), max_out_links);
+}
+
+test "LaunchSpec init keeps all 12 result inputs and 13 outputs of the widest tkagnt" {
+    // tkagnt at the 11-model maximum: 1 agent request + 11 model results in,
+    // 11 model requests + agent audit + terminal result out.
+    var channels: [25]link.Channel = undefined;
+    var handles: [25]link.LinkHandles = undefined;
+    for (0..12) |i| {
+        channels[i] = .{ .src_idx = @intCast(10 + i), .dst_idx = 1, .depth = 32, .mtu = 8192 };
+        handles[i] = .{ .mcache_gaddr = 1000 + i, .depth = 32, .mtu = 8192 };
+    }
+    for (0..13) |i| {
+        channels[12 + i] = .{ .src_idx = 1, .dst_idx = @intCast(30 + i), .depth = 32, .mtu = 8192 };
+        handles[12 + i] = .{ .mcache_gaddr = 2000 + i, .depth = 32, .mtu = 8192 };
+    }
+    const spec = try LaunchSpec.init(.{
+        .tile_idx = 1,
+        .tile_id = tile_ids.tkagnt,
+        .cpu_placement = .floating,
+        .workspace_name = try link.WorkspaceName.parse("tkpay0"),
+        .cnc_gaddr = 0,
+        .shmem_path = "/tmp",
+        .heartbeat_interval_ns = 1,
+        .channels = &channels,
+        .link_handles = &handles,
+    });
+    try std.testing.expectEqual(@as(u8, 12), spec.in_cnt);
+    try std.testing.expectEqual(@as(u8, 13), spec.out_cnt);
+    try std.testing.expectEqual(@as(usize, 1011), spec.inLinks()[11].mcache_gaddr);
+    try std.testing.expectEqual(@as(usize, 2012), spec.outLinks()[12].mcache_gaddr);
+}
+
+test "LaunchSpec carries the resolved tile kind_id through a file" {
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    const spec = try LaunchSpec.init(.{
+        .tile_idx = 9,
+        .tile_id = tile_ids.tkmodl,
+        .tile_kind_id = 6,
+        .cpu_placement = .floating,
+        .workspace_name = try link.WorkspaceName.parse("tkpay0"),
+        .cnc_gaddr = 0,
+        .shmem_path = "/tmp",
+        .heartbeat_interval_ns = 1,
+    });
+    try spec.writeToFile(std.testing.io, tmp.dir, "model6.spec");
+    const read_back = try LaunchSpec.readFromFile(std.testing.io, tmp.dir, "model6.spec");
+    try std.testing.expectEqual(@as(u8, 6), read_back.tile_kind_id);
+    try std.testing.expectEqualStrings(tile_ids.tkmodl.slice(), read_back.tile_id.slice());
+}
+
+test "LaunchSpec init fails closed when inbound links exceed max_in_links" {
+    var channels: [max_in_links + 1]link.Channel = undefined;
+    var handles: [max_in_links + 1]link.LinkHandles = undefined;
     for (&channels, &handles, 0..) |*ch, *lh, i| {
         ch.* = .{ .src_idx = @intCast(i + 10), .dst_idx = 5, .depth = 64, .mtu = 128 };
         lh.* = .{ .mcache_gaddr = i + 1, .dcache_gaddr = 0, .fseq_gaddr = 0, .depth = 64, .mtu = 128 };
@@ -299,4 +380,129 @@ test "LaunchSpec init fails closed when inbound links exceed max_links_per_tile"
         .channels = &channels,
         .link_handles = &handles,
     }));
+}
+
+test "LaunchSpec init fails closed when outbound links exceed max_out_links" {
+    var channels: [max_out_links + 1]link.Channel = undefined;
+    var handles: [max_out_links + 1]link.LinkHandles = undefined;
+    for (&channels, &handles, 0..) |*ch, *lh, i| {
+        ch.* = .{ .src_idx = 5, .dst_idx = @intCast(i + 10), .depth = 64, .mtu = 128 };
+        lh.* = .{ .mcache_gaddr = i + 1, .dcache_gaddr = 0, .fseq_gaddr = 0, .depth = 64, .mtu = 128 };
+    }
+
+    try std.testing.expectError(error.TooManyOutLinks, LaunchSpec.init(.{
+        .tile_idx = 5,
+        .tile_id = tile_ids.tkagnt,
+        .cpu_placement = .floating,
+        .workspace_name = try link.WorkspaceName.parse("tkpay0"),
+        .cnc_gaddr = 0,
+        .shmem_path = "/tmp",
+        .heartbeat_interval_ns = 1,
+        .channels = &channels,
+        .link_handles = &handles,
+    }));
+}
+
+test "LaunchSpec readFromFile rejects a link count above the capacity" {
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var spec = try LaunchSpec.init(.{
+        .tile_idx = 0,
+        .tile_id = tile_ids.tkings,
+        .cpu_placement = .floating,
+        .workspace_name = try link.WorkspaceName.parse("tkpay0"),
+        .cnc_gaddr = 0,
+        .shmem_path = "/tmp",
+        .heartbeat_interval_ns = 1,
+    });
+    spec.in_cnt = 255;
+    try spec.writeToFile(std.testing.io, tmp.dir, "in.spec");
+    try std.testing.expectError(error.LaunchSpecMalformed, LaunchSpec.readFromFile(std.testing.io, tmp.dir, "in.spec"));
+
+    spec.in_cnt = 0;
+    spec.out_cnt = max_out_links + 1;
+    try spec.writeToFile(std.testing.io, tmp.dir, "out.spec");
+    try std.testing.expectError(error.LaunchSpecMalformed, LaunchSpec.readFromFile(std.testing.io, tmp.dir, "out.spec"));
+}
+
+test "LaunchSpec readFromFile rejects a previous version" {
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var spec = try LaunchSpec.init(.{
+        .tile_idx = 0,
+        .tile_id = tile_ids.tkings,
+        .cpu_placement = .floating,
+        .workspace_name = try link.WorkspaceName.parse("tkpay0"),
+        .cnc_gaddr = 0,
+        .shmem_path = "/tmp",
+        .heartbeat_interval_ns = 1,
+    });
+    spec.version_field = version - 1;
+    try spec.writeToFile(std.testing.io, tmp.dir, "old.spec");
+    try std.testing.expectError(error.LaunchSpecUnsupportedVersion, LaunchSpec.readFromFile(std.testing.io, tmp.dir, "old.spec"));
+}
+
+test "LaunchSpec checkAgainst accepts the descriptor this process was launched as" {
+    const tiles = [_]tile.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkagnt },
+        .{ .id = 1, .name = tile_ids.tkmodl, .kind_id = 0 },
+        .{ .id = 2, .name = tile_ids.tkmodl, .kind_id = 1 },
+    };
+    const topo = topology.Topology{ .tiles = &tiles, .channels = &.{} };
+    const spec = try LaunchSpec.init(.{
+        .tile_idx = 2,
+        .tile_id = tile_ids.tkmodl,
+        .tile_kind_id = 1,
+        .cpu_placement = .floating,
+        .workspace_name = try link.WorkspaceName.parse("tkpay0"),
+        .cnc_gaddr = 0,
+        .shmem_path = "/tmp",
+        .heartbeat_interval_ns = 1,
+    });
+    try spec.checkAgainst(topo);
+}
+
+test "LaunchSpec checkAgainst rejects a swapped kind_id" {
+    // Launched as tkmodl#0 but descriptor 2 is tkmodl#1: running would attach
+    // this process to the other instance's links and config.
+    const tiles = [_]tile.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkagnt },
+        .{ .id = 1, .name = tile_ids.tkmodl, .kind_id = 0 },
+        .{ .id = 2, .name = tile_ids.tkmodl, .kind_id = 1 },
+    };
+    const topo = topology.Topology{ .tiles = &tiles, .channels = &.{} };
+    const spec = try LaunchSpec.init(.{
+        .tile_idx = 2,
+        .tile_id = tile_ids.tkmodl,
+        .tile_kind_id = 0,
+        .cpu_placement = .floating,
+        .workspace_name = try link.WorkspaceName.parse("tkpay0"),
+        .cnc_gaddr = 0,
+        .shmem_path = "/tmp",
+        .heartbeat_interval_ns = 1,
+    });
+    try std.testing.expectError(error.LaunchIdentityMismatch, spec.checkAgainst(topo));
+}
+
+test "LaunchSpec checkAgainst rejects a wrong tile name and an out-of-range index" {
+    const tiles = [_]tile.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkagnt },
+        .{ .id = 1, .name = tile_ids.tkmodl },
+    };
+    const topo = topology.Topology{ .tiles = &tiles, .channels = &.{} };
+    var spec = try LaunchSpec.init(.{
+        .tile_idx = 1,
+        .tile_id = tile_ids.tkaudt,
+        .cpu_placement = .floating,
+        .workspace_name = try link.WorkspaceName.parse("tkpay0"),
+        .cnc_gaddr = 0,
+        .shmem_path = "/tmp",
+        .heartbeat_interval_ns = 1,
+    });
+    try std.testing.expectError(error.LaunchIdentityMismatch, spec.checkAgainst(topo));
+
+    spec.tile_idx = 2;
+    try std.testing.expectError(error.LaunchTileIdxOutOfRange, spec.checkAgainst(topo));
 }

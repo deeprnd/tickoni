@@ -15,6 +15,7 @@ pub const topo_build = @import("topo_build.zig");
 pub const topology_spec = @import("topology_spec.zig");
 pub const file_io = @import("file_io.zig");
 pub const tile_ids = @import("tile_ids.zig");
+pub const model_tier = @import("model_tier.zig");
 /// The one gate for test-only code; see test_build.zig. Prefer
 /// `rt.test_build.enabled` over `@import("builtin").is_test`.
 pub const test_build = @import("test_build.zig");

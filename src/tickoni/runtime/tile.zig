@@ -32,6 +32,27 @@ pub const TileDescriptor = struct {
     /// Defaults to floating: existing thread-mode topologies do not pin
     /// CPUs. Process-mode topologies set this explicitly.
     cpu_placement: cpu_placement.CpuPlacement = .floating,
+    /// Instance ordinal among descriptors that share `name`: Firedancer's
+    /// per-name `fd_topo_tile_t.kind_id`. A descriptor's process identity is
+    /// `(name, kind_id)`. Firedancer assigns `kind_id` by registration order,
+    /// so Topology.validate requires this to equal the number of earlier
+    /// descriptors with the same name. Tile types with one process leave it 0.
+    kind_id: u8 = 0,
+
+    pub fn identity(self: TileDescriptor) TileIdentity {
+        return .{ .name = self.name, .kind_id = self.kind_id };
+    }
+};
+
+/// The `(name, kind_id)` pair that names exactly one tile process in a
+/// topology and in its rebuilt `fd_topo_t`.
+pub const TileIdentity = struct {
+    name: TileId,
+    kind_id: u8 = 0,
+
+    pub fn eql(self: TileIdentity, other: TileIdentity) bool {
+        return self.name.eql(other.name) and self.kind_id == other.kind_id;
+    }
 };
 
 pub const TileState = enum {

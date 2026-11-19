@@ -179,6 +179,10 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     var tiles_buf: [topology_spec.max_tiles]tile_mod.TileDescriptor = undefined;
     var channels_buf: [topology_spec.max_channels]link_mod.Channel = undefined;
     const topo_desc = topo_spec.toTopology(&tiles_buf, &channels_buf);
+    spec.checkAgainst(topo_desc) catch |err| {
+        std.debug.print("tile_process: launch identity check failed for tile {d} ({s}#{d}): {t}\n", .{ spec.tile_idx, spec.tile_id.slice(), spec.tile_kind_id, err });
+        return 1;
+    };
     std.debug.print("[tile-process] topo_desc: tile_cnt={d} chan_cnt={d} ws={s}\\n", .{ topo_desc.tiles.len, topo_desc.channels.len, spec.workspace_name.slice() });
     std.debug.print("[tile-process] topo_spec: magic={x} version={d} tile_cnt={d} chan_cnt={d} ws={s}\n", .{ topo_spec.magic_field, topo_spec.version_field, topo_spec.tile_cnt, topo_spec.channel_cnt, topo_spec.workspace_name.slice() });
 
@@ -205,9 +209,9 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     tile_id_buf[id_slice.len] = 0;
     const tile_id_z: [*:0]const u8 = @ptrCast(&tile_id_buf);
 
-    const tile_idx = c_abi.topob.topoFindTile(built.topo, tile_id_z, 0);
+    const tile_idx = c_abi.topob.topoFindTile(built.topo, tile_id_z, spec.tile_kind_id);
     if (tile_idx == c_abi.topob.not_found) {
-        std.debug.print("tile_process: tile {s} not found in rebuilt topology\n", .{id_slice});
+        std.debug.print("tile_process: tile {s}#{d} not found in rebuilt topology\n", .{ id_slice, spec.tile_kind_id });
         return 1;
     }
     std.debug.print("[tile-process] tile {s} found at idx={d}\n", .{ id_slice, tile_idx });
