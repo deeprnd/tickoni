@@ -34,9 +34,7 @@ pub fn main(init: std.process.Init) !void {
     } else {
         var stderr_buf: [512]u8 = undefined;
         var writer = std.Io.File.stderr().writer(init.io, &stderr_buf);
-        try writer.interface.print(
-            "error: unknown command '{s}'. Use 'tickoni --help' for usage.\n",
-            .{command});
+        try writer.interface.print("error: unknown command '{s}'. Use 'tickoni --help' for usage.\n", .{command});
         return error.UnknownCommand;
     }
 }
@@ -129,7 +127,7 @@ fn runTickoni(allocator: Allocator, io: Io, args: []const []const u8) anyerror!s
 
     const exit_code: i32 = switch (result.term) {
         .stopped => 0,
-        .signal => 128 + @as(i32, @intCast(@intFromEnum(result.term.signal))),
+        .signal => 128 + @as(i32, @intCast(@backingInt(result.term.signal))),
         .exited => |c| @as(i32, c),
         .unknown => 1,
     };
@@ -142,7 +140,7 @@ fn runTickoni(allocator: Allocator, io: Io, args: []const []const u8) anyerror!s
 }
 
 test "version output format" {
-    const result = runTickoni(std.testing.allocator, std.testing.io, &.{ "--version" }) catch |err| {
+    const result = runTickoni(std.testing.allocator, std.testing.io, &.{"--version"}) catch |err| {
         std.debug.print("\n[cli-integration] version test skipped: unable to locate tickoni binary ({s})\n", .{@errorName(err)});
         return error.SkipZigTest;
     };
@@ -225,7 +223,7 @@ test "bare invocation fail-closed" {
 }
 
 test "unknown command error" {
-    const result = runTickoni(std.testing.allocator, std.testing.io, &.{ "foobar" }) catch |err| {
+    const result = runTickoni(std.testing.allocator, std.testing.io, &.{"foobar"}) catch |err| {
         std.debug.print("\n[cli-integration] unknown command test skipped: ({s})\n", .{@errorName(err)});
         return error.SkipZigTest;
     };
