@@ -269,7 +269,7 @@ test "parse unknown command" {
 }
 
 test "parse bare invocation" {
-    var parsed = try makeParseArgs(&.{ "tickoni" }, std.testing.allocator);
+    var parsed = try makeParseArgs(&.{"tickoni"}, std.testing.allocator);
     defer parsed.arena.deinit();
     try std.testing.expect(!parsed.result.help);
     try std.testing.expectEqual(@as(u32, 0), parsed.result.version);

@@ -342,23 +342,23 @@ test "minimal_setup_integration: tkings → tknorm → tkdedu → tkpoly → tka
     }
 }
 
-test "minimal_setup_integration: tkings → tkmodl → tkaudt + tkagnt + metric observer" {
-    const shouldSkip = false;
-    if (shouldSkip) return error.SkipZigTest;
+test "minimal_setup_integration: tkings → tkagnt → tkmodl → tkaudt + tkdisp + metric observer" {
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const len = try tmp.dir.realPath(std.testing.io, &path_buf);
     const run_dir = path_buf[0..len];
 
-    // Minimal 5-tile topology: tkings → tkmodl → {tkaudt, tkagnt} + metric (observer only)
-    const topo = topologies.minimalWithModelProcess();
-    try std.testing.expectEqual(@as(usize, 5), topo.tiles.len);
+    // Minimal agent topology: tkings → tkagnt → tkmodl → {tkaudt, tkagnt}, and
+    // tkagnt → {tkaudt, tkdisp}, plus the metric observer.
+    const topo = topologies.agentProcess(1);
+    try std.testing.expectEqual(@as(usize, 6), topo.tiles.len);
     try std.testing.expectEqualStrings(tile_ids.tkings.slice(), topo.tiles[0].name.slice());
-    try std.testing.expectEqualStrings(tile_ids.tkmodl.slice(), topo.tiles[1].name.slice());
+    try std.testing.expectEqualStrings(tile_ids.tkagnt.slice(), topo.tiles[1].name.slice());
     try std.testing.expectEqualStrings(tile_ids.tkaudt.slice(), topo.tiles[2].name.slice());
-    try std.testing.expectEqualStrings(tile_ids.tkagnt.slice(), topo.tiles[3].name.slice());
-    try std.testing.expectEqualStrings(tile_ids.metric.slice(), topo.tiles[4].name.slice());
+    try std.testing.expectEqualStrings(tile_ids.tkdisp.slice(), topo.tiles[3].name.slice());
+    try std.testing.expectEqualStrings(tile_ids.tkmodl.slice(), topo.tiles[4].name.slice());
+    try std.testing.expectEqualStrings(tile_ids.metric.slice(), topo.tiles[5].name.slice());
 
     var sup = try Supervisor.initForTest(std.testing.allocator, topo);
     defer sup.deinit();
@@ -367,22 +367,39 @@ test "minimal_setup_integration: tkings → tkmodl → tkaudt + tkagnt + metric 
     const event_count: u64 = 8;
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
+
+    // One fixture-mode instance serving the `low` tier, with its captured
+    // responses.
+    const source = mrs.ModelRequestSource{};
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const scratch = try a.alloc(u8, mrs.scratchBytes(source.shape) + 64);
+    const contents = try a.alloc(supervisor_mod.model_instances.FixtureContent, source.shape.fixtures);
+    for (contents, 0..) |*c, i| {
+        const buf = try a.alloc(u8, mrs.scratchBytes(source.shape));
+        const n = mrs.fillResponse(buf, .llm, i, source.shape);
+        c.* = .{ .key = mrs.fixtureKey(i), .bytes = buf[0..n] };
+    }
+    const model_configs = [_]supervisor_mod.model_instances.InstanceConfig{
+        .{ .kind_id = 0, .tier = .low, .config = mrs.fixtureConfig(.llm, source.shape, scratch), .contents = contents },
+    };
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = port,
-        .model_requests = mrs.ModelRequestSource{},
-        .model_config = mrs.runtimeConfig(),
+        .model_requests = source,
+        .model_configs = &model_configs,
     });
     errdefer sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
 
     const supervisor_pid = c_abi.sandbox.getpid();
 
-    // Verify exactly 5 child processes, parented by the supervisor
-    try std.testing.expectEqual(@as(usize, 5), sup.monitor().len);
-    var seen_pids: [5]std.process.Child.Id = undefined;
+    // Verify exactly 6 child processes, parented by the supervisor
+    try std.testing.expectEqual(@as(usize, 6), sup.monitor().len);
+    var seen_pids: [6]std.process.Child.Id = undefined;
     for (sup.monitor(), 0..) |h, i| {
         const child_id = h.pid orelse return error.MissingPid;
         for (seen_pids[0..i]) |other| try std.testing.expect(other != child_id);
@@ -392,27 +409,30 @@ test "minimal_setup_integration: tkings → tkmodl → tkaudt + tkagnt + metric 
         try std.testing.expectEqual(supervisor_pid, ppid);
     }
 
-    // Wait for tkmodl and tkaudt to finish processing.
-    const max_polls: u32 = 600;
+    // Wait for the agent to deliver every terminal result. One tkmodl record and
+    // one agent record are audited per run.
+    const max_polls: u32 = 1200;
     var poll: u32 = 0;
     var metrics = sup.snapshotProcessMetrics();
     while (poll < max_polls) : (poll += 1) {
         metrics = sup.snapshotProcessMetrics();
-        if (metrics.produced >= event_count and metrics.audited >= event_count) break;
+        if (metrics.produced >= event_count and metrics.audited >= 2 * event_count) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
     metrics = sup.snapshotProcessMetrics();
-    std.debug.print("[test] metrics: produced={d} allowed={d} denied={d} audited={d}\n", .{
+    std.debug.print("[test] metrics: produced={d} allowed={d} denied={d} audited={d} dispatched={d}\n", .{
         metrics.produced,
         metrics.allowed,
         metrics.denied,
         metrics.audited,
+        metrics.agent_dispatched,
     });
 
     try std.testing.expectEqual(event_count, metrics.produced);
     try std.testing.expectEqual(event_count, metrics.allowed);
     try std.testing.expectEqual(@as(u64, 0), metrics.denied);
-    try std.testing.expectEqual(event_count, metrics.audited);
+    try std.testing.expectEqual(2 * event_count, metrics.audited);
+    try std.testing.expectEqual(event_count, metrics.agent_dispatched);
 
     sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (sup.monitor()) |h| {

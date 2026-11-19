@@ -336,13 +336,23 @@ Three Tickoni tiles are implemented as `fd_stem` specializations today:
 delegates to upstream `fd_metric_tile.c` and Tickoni authors none of its
 callbacks.
 
-Two further stem tiles exist for the model gateway, recorded here as verified
+Three further stem tiles exist for the agent path, recorded here as verified
 facts rather than as part of the list above: `tkmodl` (`shim/tk_model_stem.c`),
 **fixture/replay only** — it has no provider I/O and rejects a live-provider
 configuration, so the non-blocking-provider rule for `tkmodl` below is not yet
-exercised — and a bounded result sink registered as `tkagnt`
-(`shim/tk_agent_sink_stem.c`), which observes the `tkmodl` result link and is
-not the agent tile. Both run only in `minimalWithModelProcess()`; see
+exercised; `tkagnt` (`shim/tk_agent_stem.c`), the active agent worker that
+admits requests, routes them through Zig-owned hooks, dispatches to the `tkmodl`
+instance that serves the requested tier, correlates results and delivers one
+terminal result per accepted request after its audit record is committed; and
+`tkdisp` (`shim/tk_disp_stem.c`), the bounded sink for those terminal results,
+which in the full workflow is also the scheduler that sends one agent request
+per event from a run-configured template. The full workflow also runs
+`tkcase`, `tktool` and `tkadpt` as placeholder stem tiles (`shim/tk_pass_stem.c`:
+`tkcase` forwards, the other two are idle) with no case, tool or adapter logic.
+All run in the agent process topology `agentProcess(n)` (1 to 11 `tkmodl`
+instances) and in `investmentWorkflow()`; see
+[`plans/v2.NN-sXX-tkagnt-fd-stem-migration-done.md`](../execution/plans/v2.NN-sXX-tkagnt-fd-stem-migration-done.md)
+and
 [`plans/v2.NN-sXX-tkmodl-fd-stem-migration-done.md`](../execution/plans/v2.NN-sXX-tkmodl-fd-stem-migration-done.md).
 
 This section is the architecture-boundary standard for that tile shape: when
