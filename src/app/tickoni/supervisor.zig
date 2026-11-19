@@ -330,6 +330,7 @@ pub const Supervisor = struct {
         // same Tango shared-memory region.  Linux PIDs fit in 6 digits;
         // macOS uses 32-bit PIDs but in practice stay under 6 digits.
         const base_workspace_name = if (config.workspace_name) |wn| wn else blk: {
+            if (self.topo.channels.len == 0) return error.MissingWorkspaceName;
             const raw = self.topo.channels[0].workspace_name.slice();
             if (raw.len == 0) return error.MissingWorkspaceName;
             break :blk raw;
@@ -340,6 +341,7 @@ pub const Supervisor = struct {
         const pid_str = std.fmt.bufPrint(&pid_buf, "{d}", .{my_pid}) catch "0";
         var full_wname_buf: [64]u8 = undefined;
         const full_workspace_name = if (config.workspace_name) |_| base_workspace_name else try std.fmt.bufPrint(&full_wname_buf, "{s}-{s}", .{ base_workspace_name, pid_str });
+        const launch_workspace_name = try rt.link.WorkspaceName.parse(full_workspace_name);
 
         // Copy channels and update workspace_name for every tango_shm link.
         const channels_copy = try self.allocator.alloc(rt.link.Channel, self.topo.channels.len);
@@ -709,7 +711,7 @@ pub const Supervisor = struct {
                 .tile_idx = @intCast(i),
                 .tile_id = tile.name,
                 .cpu_placement = tile.cpu_placement,
-                .workspace_name = channels_copy[0].workspace_name,
+                .workspace_name = launch_workspace_name,
                 .cnc_gaddr = state.cnc_gaddrs[i],
                 .shmem_path = config.run_dir,
                 .heartbeat_interval_ns = config.heartbeat_interval_ns,
@@ -743,18 +745,11 @@ pub const Supervisor = struct {
             var argv_count: usize = 3;
             argv_buf[0] = self_exe_path;
             argv_buf[2] = spec_path;
-            // Stem tiles (tkaudt, tknorm, tkdedu, tkpoly) use the dedicated __stem-run path
-            // which skips Zig callbacks and dispatches straight to the tile's
-            // fd_stem-based run loop. All other tiles use __tile-run.
-            if (rt.tile_ids.tkaudt.eql(tile.name) or
-                rt.tile_ids.tknorm.eql(tile.name) or
-                rt.tile_ids.tkdedu.eql(tile.name) or
-                rt.tile_ids.tkpoly.eql(tile.name))
-            {
-                argv_buf[1] = "__stem-run";
-            } else {
-                argv_buf[1] = "__tile-run";
-            }
+            const entry = tile_registry.findById(tile.name) orelse return error.UnregisteredTile;
+            argv_buf[1] = switch (entry.launch_mode) {
+                .stem => "__stem-run",
+                .tile => "__tile-run",
+            };
             if (config.verbose) {
                 argv_buf[3] = "--verbose";
                 argv_count = 4;

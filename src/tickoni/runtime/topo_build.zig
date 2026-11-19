@@ -226,8 +226,8 @@ pub fn build(
     // metric is present, so links and tiles route correctly for all topologies.
     if (has_metric_tile) log.kvFmt("topo_build", "build", "calling topobWksp(metric)", .{});
     const metric_wksp_idx: usize = if (has_metric_tile) c_abi.topob.topobWksp(topo, c_abi.wksp.wksp_name_metric) else c_abi.topob.not_found;
-    if (has_metric_tile) log.kvFmt("topo_build", "build", "calling topobWksp(metric_in)", .{});
-    const metric_in_wksp_idx: usize = if (has_metric_tile) c_abi.topob.topobWksp(topo, c_abi.wksp.wksp_name_metric_in) else c_abi.topob.not_found;
+    if (has_metric_tile and topo_desc.channels.len > 0) log.kvFmt("topo_build", "build", "calling topobWksp(metric_in)", .{});
+    const metric_in_wksp_idx: usize = if (has_metric_tile and topo_desc.channels.len > 0) c_abi.topob.topobWksp(topo, c_abi.wksp.wksp_name_metric_in) else c_abi.topob.not_found;
     var metric_tile_idx: usize = c_abi.topob.not_found;
 
     // Links first, then tiles, then metric tile wiring (so in_cnt is
@@ -300,7 +300,7 @@ pub fn build(
     // Only wire observer inputs for channels where metric is NOT already
     // the explicit destination (line 354-390 handles the explicit dst).
     if (metric_tile_idx != c_abi.topob.not_found) {
-        log.kvFmt("topo_build", "build", "calling topobTileIn(metric, metric_in, ch0..ch{d})", .{topo_desc.channels.len - 1});
+        log.kvFmt("topo_build", "build", "wiring {d} candidate metric inputs", .{topo_desc.channels.len});
         for (topo_desc.channels, 0..) |ch, i| {
             // Channel endpoints use descriptor indices, while metric_tile_idx
             // is the Firedancer index after metric is moved to the end.
@@ -549,4 +549,14 @@ test "build with metric tile populates metric_wksp_idx and metric_tile_idx" {
     const metric_id = tile_ids.metric;
     const found_idx = built.tileIdxById(metric_id);
     try std.testing.expectEqual(built.metric_tile_idx, found_idx);
+}
+
+test "build accepts a metric-only topology without channel arithmetic" {
+    const tiles = [_]tile_mod.TileDescriptor{testTile(0, tile_ids.metric.slice())};
+    const topo_desc = topology.Topology{ .tiles = &tiles, .channels = &.{} };
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 9091, 0);
+    defer built.deinit(std.testing.allocator);
+    try std.testing.expect(built.metric_tile_idx != c_abi.topob.not_found);
+    try std.testing.expectEqual(@as(usize, 1), built.tile_infos.len);
+    try std.testing.expectEqual(c_abi.topob.not_found, built.metric_in_wksp_idx);
 }
