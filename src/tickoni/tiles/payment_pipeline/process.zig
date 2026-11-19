@@ -27,6 +27,7 @@ const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const util = @import("util");
 const payment_runtime = @import("runtime.zig");
+const model_request_source = @import("model_request_source.zig");
 
 const PaymentMessage = payment_runtime.PaymentMessage;
 
@@ -44,7 +45,7 @@ fn halted(cnc: *c_abi.cnc.Cnc) bool {
 // ---------------------------------------------------------------------------
 
 pub const process_config_magic: u32 = 0x544b5043; // "TKPC"
-pub const process_config_version: u16 = 1;
+pub const process_config_version: u16 = 2;
 
 pub const StuckTileHook = struct {
     tile_idx: u32,
@@ -119,6 +120,36 @@ pub fn runIngestProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, output
         if (halted(cnc)) break;
         const raw = payment_runtime.syntheticPayment(cfg, offset);
         const msg = PaymentMessage{ .raw = raw, .pipeline_hops = 1 };
+        output.publish(std.mem.asBytes(&msg), &backpressure_waits, &stop_flag, cnc) catch break;
+        produced += 1;
+    }
+    rt.cnc_counters.appCounterWrite(cnc, 0, produced);
+}
+
+/// Test-build model-request source for the tkmodl topologies: the tkings
+/// process publishes one `ModelRequestMsg` per offset instead of a payment
+/// event. Same bounded, backpressured publish path and counter as
+/// `runIngestProcess`.
+pub fn runModelRequestSourceProcess(
+    process_cfg: ProcessRuntimeConfig,
+    tile_idx: u32,
+    output: *rt.link.Producer,
+    cnc: *c_abi.cnc.Cnc,
+) error{ModelRequestSourceRequiresTestBuild}!void {
+    const source = process_cfg.pipeline.model_requests orelse return;
+    // The request source is a test fixture, never a production ingest path.
+    if (!rt.test_build.enabled) return error.ModelRequestSourceRequiresTestBuild;
+
+    const cfg = process_cfg.pipeline;
+    var stop_flag = std.atomic.Value(bool).init(false);
+    var backpressure_waits = std.atomic.Value(u64).init(0);
+
+    var produced: u64 = 0;
+    var offset: u64 = 0;
+    while (offset < cfg.event_count) : (offset += 1) {
+        maybeBlockForTest(process_cfg, tile_idx, produced);
+        if (halted(cnc)) break;
+        const msg = model_request_source.buildRequest(source, offset);
         output.publish(std.mem.asBytes(&msg), &backpressure_waits, &stop_flag, cnc) catch break;
         produced += 1;
     }

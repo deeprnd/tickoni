@@ -11,6 +11,7 @@ const diag = @import("diag.zig");
 
 pub const audit_sink = @import("audit_sink.zig");
 pub const process = @import("process.zig");
+pub const model_request_source = @import("model_request_source.zig");
 pub const DuplicateConfig = runtime.DuplicateConfig;
 pub const PolicyDecision = runtime.PolicyDecision;
 pub const PaymentPipelineConfig = runtime.PaymentPipelineConfig;
@@ -81,4 +82,5 @@ test {
     _ = @import("replay.zig");
     _ = @import("diag.zig");
     _ = @import("process.zig");
+    _ = @import("model_request_source.zig");
 }
