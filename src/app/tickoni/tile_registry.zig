@@ -126,6 +126,13 @@ fn tkingsProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
     var output = try rt.link.Producer.join(wksp, spec.outLinks()[0]);
     defer output.leave();
     const cfg = try loadProcessConfig(io, spec);
+    if (cfg.pipeline.model_requests != null) {
+        // Test-build model-request stream for the tkmodl topologies.
+        std.debug.print("[tkings] producing model requests (event_count={d})...\n", .{cfg.pipeline.event_count});
+        try tiles.process.runModelRequestSourceProcess(cfg, spec.tile_idx, &output, cnc);
+        std.debug.print("[tkings] done producing\n", .{});
+        return;
+    }
     std.debug.print("[tkings] producing events (event_count={d})...\n", .{cfg.pipeline.event_count});
     tiles.process.runIngestProcess(cfg, spec.tile_idx, &output, cnc);
     std.debug.print("[tkings] done producing\n", .{});
@@ -202,6 +209,27 @@ pub const entries = [_]TileEntry{
         .id = tile_ids.tkdiag,
         .counters = &.{ .{ .idx = 0, .field = .diag_crashed_tile }, .{ .idx = 1, .field = .diag_sandbox_failures } },
     },
+    // tkmodl: fd_stem tile, fixture/replay only (no provider I/O). One request
+    // link in; an audit link (tkaudt) and a result link (tkagnt) out.
+    // Slots 0/1 are allowed (served from a captured result) and denied.
+    .{
+        .id = tile_ids.tkmodl,
+        .launch_mode = .stem,
+        .process_fn = null,
+        .counters = &.{ .{ .idx = 0, .field = .allowed }, .{ .idx = 1, .field = .denied } },
+        .in_cnt = 1,
+        .out_cnt = 2,
+    },
+    // tkagnt: bounded result-sink fd_stem observer for the tkmodl result link.
+    // Not an agent; its committed results are read from scratch, so it
+    // publishes no CNC counter slot.
+    .{
+        .id = tile_ids.tkagnt,
+        .launch_mode = .stem,
+        .process_fn = null,
+        .counters = &.{},
+        .in_cnt = 1,
+    },
 };
 
 pub fn findById(tile_id: rt.tile.TileId) ?*const TileEntry {
@@ -236,12 +264,19 @@ pub fn validate(topo: rt.topology.Topology) !void {
 // Tests
 // ---------------------------------------------------------------------------
 
-test "registry has exactly the 8 Phase 0 tiles" {
-    try std.testing.expectEqual(@as(usize, 8), entries.len);
+/// Number of leading registry entries that form the Phase 0 payment pipeline
+/// plus observers; tkmodl and tkagnt follow them. The positional topology
+/// helpers below build from only these.
+const phase0_tile_cnt = 8;
+
+test "registry has the 8 Phase 0 tiles followed by tkmodl and tkagnt" {
+    try std.testing.expectEqual(@as(usize, 10), entries.len);
+    try std.testing.expect(entries[phase0_tile_cnt].id.eql(tile_ids.tkmodl));
+    try std.testing.expect(entries[phase0_tile_cnt + 1].id.eql(tile_ids.tkagnt));
 }
 
 test "findById finds every registered tile" {
-    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt", "tkrepl", "metric", "tkdiag" }) |name| {
+    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt", "tkrepl", "metric", "tkdiag", "tkmodl", "tkagnt" }) |name| {
         const tile_id = tile_ids.lookup(name) orelse unreachable;
         try std.testing.expect(findById(tile_id) != null);
     }
@@ -253,7 +288,7 @@ test "findById returns null for an unregistered id" {
 }
 
 test "process_fn is null for tiles with no process-mode role" {
-    inline for (.{ "tknorm", "tkdedu", "tkpoly", "tkrepl", "metric", "tkdiag" }) |name| {
+    inline for (.{ "tknorm", "tkdedu", "tkpoly", "tkrepl", "metric", "tkdiag", "tkmodl", "tkagnt" }) |name| {
         const tile_id = tile_ids.lookup(name) orelse unreachable;
         const entry = findById(tile_id).?;
         try std.testing.expectEqual(@as(?ProcessFn, null), entry.process_fn);
@@ -297,7 +332,7 @@ test "expected link cardinality matches the linear Phase 0 chain" {
 
 fn descriptorsFromRegistry() [8]rt.tile.TileDescriptor {
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
-    for (&entries, 0..) |*e, i| descriptors[i] = .{ .id = i, .name = e.id };
+    for (entries[0..phase0_tile_cnt], 0..) |*e, i| descriptors[i] = .{ .id = i, .name = e.id };
     return descriptors;
 }
 
@@ -470,7 +505,7 @@ test "validate rejects topology with empty tile name" { // Overwrite tile 0 with
 
 test "validate topology rejects duplicate CPU exclusive placement" { // Two tiles with the same exclusive CPU id should fail topo.validate().
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
-    for (&entries, 0..) |*e, i| {
+    for (entries[0..phase0_tile_cnt], 0..) |*e, i| {
         descriptors[i] = .{ .id = i, .name = e.id, .cpu_placement = .{ .exclusive = 0 } };
     }
     // Give all tiles the same exclusive CPU — topology.validate() will reject.
@@ -480,7 +515,7 @@ test "validate topology rejects duplicate CPU exclusive placement" { // Two tile
 
 test "validate topology rejects shared placement without explicit shared mode" {
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
-    for (&entries, 0..) |*e, i| {
+    for (entries[0..phase0_tile_cnt], 0..) |*e, i| {
         descriptors[i] = .{ .id = i, .name = e.id, .cpu_placement = .{ .exclusive = 0 } };
     }
     // Two tiles with exclusive=0 should conflict.
@@ -580,7 +615,7 @@ test "T10.15 validate topology rejects CPU id at upper u16 boundary" { // A tile
     // This test verifies that topology.validate() passes through to the
     // runtime validate() which rejects out-of-range ids.
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
-    for (&entries, 0..) |*e, i| {
+    for (entries[0..phase0_tile_cnt], 0..) |*e, i| {
         if (i == 0) {
             // Give tkings an extreme CPU id that exceeds the CpuSet capacity.
             // cpu_placement.validateStatic() doesn't check range (that's the
@@ -606,7 +641,7 @@ test "T10.15 cpu_placement.validate rejects extreme CPU id as malformed" { // Th
         break :blk a;
     }; // CPU 0-1023 available
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
-    for (&entries, 0..) |*e, i| {
+    for (entries[0..phase0_tile_cnt], 0..) |*e, i| {
         if (i == 0) {
             descriptors[i] = .{ .id = i, .name = e.id, .cpu_placement = .{ .exclusive = 65535 } };
         } else {
@@ -634,7 +669,7 @@ test "T10.15 validate rejects tango_shm channel with empty workspace name" { // 
 // (no CPU pinning, no conflict), while exclusive on the same CPU fails.
 test "T10.15 validate accepts floating placement mode" {
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
-    for (&entries, 0..) |*e, i| {
+    for (entries[0..phase0_tile_cnt], 0..) |*e, i| {
         descriptors[i] = .{ .id = i, .name = e.id, .cpu_placement = .floating };
     }
     const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channelsFromRegistry() };
@@ -645,7 +680,7 @@ test "T10.15 validate accepts floating placement mode" {
 // colliding on the same CPU must be rejected by topology.validate().
 test "T10.15 validate rejects exclusive and shared colliding on same CPU" {
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
-    for (&entries, 0..) |*e, i| {
+    for (entries[0..phase0_tile_cnt], 0..) |*e, i| {
         if (i == 0) {
             descriptors[i] = .{ .id = i, .name = e.id, .cpu_placement = .{ .exclusive = 2 } };
         } else {
@@ -665,7 +700,7 @@ test "T10.15 cpu_placement.validate rejects CPU id not in available set" { // Si
     @memset(&cpus, 0);
     cpus[0] = 1; // only CPU 0
     var descriptors: [8]rt.tile.TileDescriptor = undefined;
-    for (&entries, 0..) |*e, i| {
+    for (entries[0..phase0_tile_cnt], 0..) |*e, i| {
         if (i == 0) {
             // Pin tkings to CPU 1, which is not in the available set.
             descriptors[i] = .{ .id = i, .name = e.id, .cpu_placement = .{ .exclusive = 1 } };

@@ -120,6 +120,20 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
         };
     }
 
+    // tkmodl's limits, allowlist and fixture table live in tkmodl.config.
+    // Same fail-closed rule as the policy limit: tk_model_stem.c's
+    // privileged_init rejects an unconfigured tile, and loadModelConfig
+    // installs nothing from a malformed or live-enabled file.
+    if (rt.tile_ids.tkmodl.eql(spec.tile_id)) {
+        loadModelConfig(io, &spec, null) catch |err| {
+            std.debug.print(
+                "tile_main: tkmodl config handoff failed for tile {d}: {t}\n",
+                .{ spec.tile_idx, err },
+            );
+            return 1;
+        };
+    }
+
     std.debug.print("[tile-main] stemRun: topoFindTile ok, calling runTileSimple\n", .{});
     c_abi.topob.topoTileSetAllowShutdown(built.topo, tile_idx, true);
 
@@ -166,6 +180,23 @@ fn loadPolicyLimit(
         "[tile-main] stemRun: tkpoly policy_limit_cents={d} event_count={d}\n",
         .{ cfg.pipeline.policy_limit_cents, cfg.pipeline.event_count },
     );
+}
+
+/// Reads the supervisor-written tkmodl.config beside this child's
+/// topology.spec and installs it in the C tile. `dir` defaults to cwd (tests
+/// pass a temp dir).
+fn loadModelConfig(
+    io: std.Io,
+    spec: *const rt.launch_spec.LaunchSpec,
+    dir: ?std.Io.Dir,
+) !void {
+    var path_buf: [rt.launch_spec.shmem_path_cap + 32]u8 = undefined;
+    const path = if (spec.shmemPath().len > 0)
+        try std.fmt.bufPrint(&path_buf, "{s}/{s}", .{ spec.shmemPath(), c_abi.tkmodl.config_file_name })
+    else
+        try std.fmt.bufPrint(&path_buf, "{s}", .{c_abi.tkmodl.config_file_name});
+    try c_abi.tkmodl.loadConfigFile(io, dir orelse std.Io.Dir.cwd(), path);
+    std.debug.print("[tile-main] stemRun: tkmodl config loaded from {s}\n", .{path});
 }
 
 // ---------------------------------------------------------------------------
@@ -332,4 +363,94 @@ fn runPipelineStage(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_s
     log.debug("tile_main", "runPipelineStage", "tile found in registry");
     const process_fn = entry.process_fn orelse return;
     try process_fn(io, wksp, spec, cnc, allocator);
+}
+
+// ---------------------------------------------------------------------------
+// tkmodl.config handoff — fail closed (same contract as the policy limit):
+// a missing, short, long, mis-magic'd, mis-versioned, or live-enabled file
+// installs nothing and the child exits nonzero before the C harness runs.
+// ---------------------------------------------------------------------------
+
+fn modelSpec() !rt.launch_spec.LaunchSpec {
+    return rt.launch_spec.LaunchSpec.init(.{
+        .tile_idx = 0,
+        .tile_id = rt.tile_ids.tkmodl,
+        .cpu_placement = .floating,
+        .workspace_name = try rt.link.WorkspaceName.parse("tkpay0"),
+        .cnc_gaddr = 0,
+        .shmem_path = "",
+        .heartbeat_interval_ns = 1,
+    });
+}
+
+fn writeModelConfigBytes(tmp: anytype, bytes: []const u8) !void {
+    var file = try tmp.dir.createFile(std.testing.io, c_abi.tkmodl.config_file_name, .{});
+    defer file.close(std.testing.io);
+    try file.writePositionalAll(std.testing.io, bytes, 0);
+}
+
+fn validModelConfig() c_abi.tkmodl.TkModlRuntimeConfig {
+    var cfg = std.mem.zeroes(c_abi.tkmodl.TkModlRuntimeConfig);
+    cfg.magic = c_abi.tkmodl.config_magic;
+    cfg.version = c_abi.tkmodl.config_version;
+    return cfg;
+}
+
+test "tile_main: loadModelConfig accepts a valid tkmodl.config" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const spec = try modelSpec();
+    const cfg = validModelConfig();
+    try writeModelConfigBytes(&tmp, std.mem.asBytes(&cfg));
+    try loadModelConfig(std.testing.io, &spec, tmp.dir);
+}
+
+test "tile_main: loadModelConfig fails on a missing file" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const spec = try modelSpec();
+    try std.testing.expectError(error.FileNotFound, loadModelConfig(std.testing.io, &spec, tmp.dir));
+}
+
+test "tile_main: loadModelConfig fails on a truncated file" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const spec = try modelSpec();
+    const cfg = validModelConfig();
+    try writeModelConfigBytes(&tmp, std.mem.asBytes(&cfg)[0..16]);
+    try std.testing.expectError(error.ConfigTruncated, loadModelConfig(std.testing.io, &spec, tmp.dir));
+}
+
+test "tile_main: loadModelConfig fails on trailing bytes" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const spec = try modelSpec();
+    const cfg = validModelConfig();
+    var bytes: [@sizeOf(c_abi.tkmodl.TkModlRuntimeConfig) + 1]u8 = undefined;
+    @memcpy(bytes[0..@sizeOf(c_abi.tkmodl.TkModlRuntimeConfig)], std.mem.asBytes(&cfg));
+    bytes[bytes.len - 1] = 0;
+    try writeModelConfigBytes(&tmp, &bytes);
+    try std.testing.expectError(error.ConfigTrailingBytes, loadModelConfig(std.testing.io, &spec, tmp.dir));
+}
+
+test "tile_main: loadModelConfig fails on bad magic, bad version, and a live provider" {
+    const spec = try modelSpec();
+
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    var cfg = validModelConfig();
+    cfg.magic = 0xdeadbeef;
+    try writeModelConfigBytes(&tmp, std.mem.asBytes(&cfg));
+    try std.testing.expectError(error.BadMagic, loadModelConfig(std.testing.io, &spec, tmp.dir));
+
+    cfg = validModelConfig();
+    cfg.version = c_abi.tkmodl.config_version + 1;
+    try writeModelConfigBytes(&tmp, std.mem.asBytes(&cfg));
+    try std.testing.expectError(error.BadVersion, loadModelConfig(std.testing.io, &spec, tmp.dir));
+
+    cfg = validModelConfig();
+    cfg.live_provider_enabled = 1;
+    try writeModelConfigBytes(&tmp, std.mem.asBytes(&cfg));
+    try std.testing.expectError(error.LiveProviderEnabled, loadModelConfig(std.testing.io, &spec, tmp.dir));
 }

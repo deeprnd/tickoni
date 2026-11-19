@@ -283,6 +283,59 @@ pub fn minimalWithDeduProcess() Topology {
     };
 }
 
+/// Minimal 5-tile topology for the fixture/replay-only tkmodl gateway:
+/// tkings (test-build model-request source) -> tkmodl -> {tkaudt audit link,
+/// tkagnt result link}, plus the metric observer. tkmodl's outputs are bound
+/// by consumer identity, so channel order below is not load-bearing.
+/// Link bounds are the ones recorded in the tkmodl migration decision record:
+/// request depth 32 / MTU 1024, audit depth 32 / MTU 256, result depth 32 /
+/// MTU 256. The wire records' sizes are asserted against these MTUs in
+/// c_abi/tkmodl.zig.
+const minimal_with_model_tiles = [_]TileDescriptor{
+    .{ .id = 0, .name = tile_ids.tkings },
+    .{ .id = 1, .name = tile_ids.tkmodl },
+    .{ .id = 2, .name = tile_ids.tkaudt },
+    .{ .id = 3, .name = tile_ids.tkagnt },
+    .{ .id = 4, .name = tile_ids.metric },
+};
+const minimal_with_model_channels = [_]Channel{
+    .{
+        .src_idx = 0,
+        .dst_idx = 1,
+        .depth = 32,
+        .mtu = 1024,
+        .backing = .tango_shm,
+        .reliability = .reliable,
+        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
+    },
+    .{
+        .src_idx = 1,
+        .dst_idx = 2,
+        .depth = 32,
+        .mtu = 256,
+        .backing = .tango_shm,
+        .reliability = .reliable,
+        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
+    },
+    .{
+        .src_idx = 1,
+        .dst_idx = 3,
+        .depth = 32,
+        .mtu = 256,
+        .backing = .tango_shm,
+        .reliability = .reliable,
+        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
+    },
+};
+
+/// Minimal 5-tile topology (tkings -> tkmodl -> tkaudt + tkagnt + metric).
+pub fn minimalWithModelProcess() Topology {
+    return .{
+        .tiles = &minimal_with_model_tiles,
+        .channels = &minimal_with_model_channels,
+    };
+}
+
 /// Minimal 6-tile topology for testing tkpoly in the event pipeline:
 /// tkings → tknorm → tkdedu → tkpoly → tkaudt (+ metric observer).
 /// The metric tile is required so Firedancer's fd_topo_fill_tile sets
