@@ -239,8 +239,13 @@ pub const entries = [_]TileEntry{
         .in_cnt = 0,
         .out_cnt = 0,
     },
+    // tkdiag migrated to fd_stem tile — lifecycle owned by
+    // TK_DIAG_RUN's privileged_init / stem_run, not the process-mode
+    // callback path. A 0-in, 0-out observer: tk_diag_stem.c is the sole
+    // writer of these two slots.
     .{
         .id = tile_ids.tkdiag,
+        .launch_mode = .stem,
         .counters = &.{ .{ .idx = 0, .field = .diag_crashed_tile }, .{ .idx = 1, .field = .diag_sandbox_failures } },
     },
     // tkmodl: fd_stem tile, fixture/replay only (no provider I/O). One request
