@@ -28,7 +28,7 @@ pub fn registerTestLanes(
     cli_exe_install: *std.Build.Step.InstallArtifact,
 ) void {
     // Unit tests (no top-level "test" step — run test-unit-tk instead)
-    build_lane.strategy(b, shared, tm, target, optimize, fd_lib_dir);
+    build_lane.strategy(b, shared, tm, target, optimize, fd_lib_dir, exe_install);
 
     // CLI lane — unit tests + integration tests.
     cli_lane.strategy(b, target, optimize, fd_lib_dir, shared, cli_exe_install);

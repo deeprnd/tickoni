@@ -55,6 +55,8 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
 #include "../topo_run/tk_norm_stem.h"
 #include "../topo_run/tk_dedu_stem.h"
 #include "../topo_run/tk_policy_stem.h"
+#include "../topo_run/tk_model_stem.h"
+#include "../topo_run/tk_agent_sink_stem.h"
 #endif
 
 /* Check if this tile should use the metric run tile. Compares tile name
@@ -133,6 +135,19 @@ tile_is_policy( fd_topo_tile_t * tile ) {
   return result;
 }
 
+/* Predicate that matches the tkmodl tile by comparing the tile name against
+   TILE_ID_TKMODL. */
+static int
+tile_is_model( fd_topo_tile_t * tile ) {
+  return tile!=NULL && strcmp( tile->name, TILE_ID_TKMODL ) == 0;
+}
+
+/* Predicate that matches the tkagnt result-sink tile. */
+static int
+tile_is_agent_sink( fd_topo_tile_t * tile ) {
+  return tile!=NULL && strcmp( tile->name, TILE_ID_TKAGNT ) == 0;
+}
+
 static int const TK_PROCESS_MODE_SANDBOX_NONE = 0;
 static int const TK_KEEP_CONTROLLING_TERMINAL = 1;
 
@@ -199,6 +214,10 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
     run_tile = &TK_NORM_RUN;
   } else if( tile_is_policy( tile_c ) ) {
     run_tile = &TK_POLICY_RUN;
+  } else if( tile_is_model( tile_c ) ) {
+    run_tile = &TK_MODEL_RUN;
+  } else if( tile_is_agent_sink( tile_c ) ) {
+    run_tile = &TK_AGENT_SINK_RUN;
   } else {
     run_tile = &TK_TILE_RUN;
   }
@@ -208,6 +227,8 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
   (void)tile_is_metric;
   (void)tile_is_norm;
   (void)tile_is_policy;
+  (void)tile_is_model;
+  (void)tile_is_agent_sink;
   run_tile = &TK_TILE_RUN;
 #endif
 

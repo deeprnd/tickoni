@@ -43,6 +43,12 @@ pub const ProcessPipelineConfig = struct {
     policy_limit_cents: i64 = 100_000,
     duplicate: ?tiles_mod.DuplicateConfig = null,
     inject_malformed: bool = false,
+    /// Test-build tkmodl topologies: the tkings model-request stream and the
+    /// tkmodl runtime configuration (limits, allowlist, fixture table). The
+    /// supervisor writes the config beside payment_pipeline.config; a topology
+    /// containing tkmodl with no config makes that child fail closed.
+    model_requests: ?tiles_mod.model_request_source.ModelRequestSource = null,
+    model_config: ?c_abi.tkmodl.TkModlRuntimeConfig = null,
     /// Path to the tickoni-supervisor binary to self-exec per tile.
     /// Defaults to /proc/self/exe (correct when the running process IS
     /// tickoni-supervisor). Callers that are not that binary — such as
@@ -666,12 +672,22 @@ pub const Supervisor = struct {
                 .policy_limit_cents = config.policy_limit_cents,
                 .duplicate = config.duplicate,
                 .inject_malformed = config.inject_malformed,
+                .model_requests = config.model_requests,
             },
             .stuck_tile = if (config.stuck_tile_idx) |idx| .{
                 .tile_idx = idx,
                 .after_messages = config.stuck_after_messages,
             } else null,
         }, io, std.Io.Dir.cwd(), payment_config_path);
+
+        // tkmodl's governance limits, allowlist and fixture table travel in
+        // their own file, read only by the tkmodl child (tile_main.zig's
+        // loadModelConfig) before the C harness runs.
+        if (config.model_config) |model_config| {
+            const model_config_path = try std.fmt.allocPrint(self.allocator, "{s}/{s}", .{ config.run_dir, c_abi.tkmodl.config_file_name });
+            defer self.allocator.free(model_config_path);
+            try c_abi.tkmodl.writeConfigFile(io, std.Io.Dir.cwd(), model_config_path, &model_config);
+        }
 
         // v2.14.S8.T4: every self-exec'd child rebuilds this same topology
         // (topo_build.build) to get a real fd_topo_t to hand to

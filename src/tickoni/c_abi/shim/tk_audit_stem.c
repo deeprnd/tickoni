@@ -239,7 +239,7 @@ tk_audit_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile 
 
    Field order (must match hash.zig exactly):
      schema_version, run_id, seq, source_offset, tile_id,
-     logical_actor_id, policy_version, capability_envelope_id_le,
+     logical_actor_id, policy_version, capability_envelope_id (u64),
      prev_hash, version, platform_tier, isolation_tier,
      release_digest, manifest_id, record_type, payload fields
 */
@@ -249,10 +249,13 @@ tk_audit_compute_record_hash( AuditEvent * event ) {
 
     fd_siphash13_init( sip, AUDIT_HASH_K0, AUDIT_HASH_K1 );
 
-    /* Header fields — these map 1:1 to wire.Header fields.
-       capability_envelope_id_le: the C struct stores a u64, wire stores
-       a [16]u8 LE.  For the stub we hash the u64 as-is (identity for
-       values < 2^64, zero-extended on the wire side). */
+    /* Header fields — these map 1:1 to wire.Header fields (the C
+       AuditHeader is the wire header). capability_envelope_id is a u64 in
+       that header and codec/audit/hash.zig hashes its 8 bytes, so C does the
+       same.  An earlier version hashed a 16-byte zero-extended layout that no
+       longer exists on the wire, which made every C record hash differ from
+       the Zig codec's (owner-approved correction; see the tkmodl migration
+       plan). */
     fd_siphash13_append( sip, (uchar *)&event->header.schema_version, sizeof(event->header.schema_version) );
     fd_siphash13_append( sip, (uchar *)&event->header.run_id,          sizeof(event->header.run_id) );
     fd_siphash13_append( sip, (uchar *)&event->header.seq,             sizeof(event->header.seq) );
@@ -260,16 +263,8 @@ tk_audit_compute_record_hash( AuditEvent * event ) {
     fd_siphash13_append( sip, event->header.tile_id,                   sizeof(event->header.tile_id) );
     fd_siphash13_append( sip, (uchar *)&event->header.logical_actor_id,sizeof(event->header.logical_actor_id) );
     fd_siphash13_append( sip, event->header.policy_version,            sizeof(event->header.policy_version) );
-    /* capability_envelope_id_le — C stores u64, wire stores [16]u8.
-       Hash the full 16-byte wire layout by treating the u64 as 8 bytes
-       of LE and 8 zero bytes (wire zero-extends the u128 -> [16]u8). */
-    {
-        uint8_t le16[16];
-        ulong   cap_id = event->header.capability_envelope_id;
-        memcpy( le16, &cap_id, 8 );
-        memset( le16 + 8, 0, 8 );
-        fd_siphash13_append( sip, le16, sizeof(le16) );
-    }
+    fd_siphash13_append( sip, (uchar *)&event->header.capability_envelope_id,
+                         sizeof(event->header.capability_envelope_id) );
     fd_siphash13_append( sip, (uchar *)&event->header.prev_hash,       sizeof(event->header.prev_hash) );
     fd_siphash13_append( sip, event->header.version,                   sizeof(event->header.version) );
     fd_siphash13_append( sip, event->header.platform_tier,             sizeof(event->header.platform_tier) );
@@ -280,30 +275,61 @@ tk_audit_compute_record_hash( AuditEvent * event ) {
     /* Discriminant — matches wire.Event.record_type (u8). */
     fd_siphash13_append( sip, (uchar *)&event->record_type, sizeof(event->record_type) );
 
-    /* Payload for policy_decision (record_type == 2).
-       Matches wire.PolicyDecisionPayload field order:
-         outcome(u8), rule_id(u32), failed_scope_dim(32),
-         source_event_hash(u64), catalog_schema_version(u32),
-         taxonomy_id(32), taxonomy_version(u32),
-         classification_code(32).  Hash outcome as u8 (backing size
-       of PolicyOutcome enum) to match wire.PolicyDecisionPayload. */
-    uint8_t outcome_u8 = (uint8_t)event->policy_decision.outcome;
+    switch( event->record_type ) {
+    case RECORD_MODEL_CALL: {
+        /* Matches hash.zig case 3 (wire.ModelCallPayload field order). */
+        WireModelCallPayload const * p = &event->model_call;
+        fd_siphash13_append( sip, p->model_id,                  sizeof(p->model_id) );
+        fd_siphash13_append( sip, (uchar *)&p->prompt_hash,     sizeof(p->prompt_hash) );
+        fd_siphash13_append( sip, (uchar *)&p->response_hash,   sizeof(p->response_hash) );
+        fd_siphash13_append( sip, (uchar *)&p->token_estimate,  sizeof(p->token_estimate) );
+        fd_siphash13_append( sip, (uchar *)&p->retry_count,     sizeof(p->retry_count) );
+        fd_siphash13_append( sip, p->actor_role,                sizeof(p->actor_role) );
+        fd_siphash13_append( sip, p->workflow,                  sizeof(p->workflow) );
+        fd_siphash13_append( sip, (uchar *)&p->policy_decision_id,    sizeof(p->policy_decision_id) );
+        fd_siphash13_append( sip, (uchar *)&p->replay_substitution_id, sizeof(p->replay_substitution_id) );
+        break;
+    }
+    case RECORD_DENIAL: {
+        /* Matches hash.zig case 9 (wire.DenialPayload field order). */
+        WireDenialPayload const * p = &event->denial;
+        fd_siphash13_append( sip, p->action_class,                 sizeof(p->action_class) );
+        fd_siphash13_append( sip, (uchar *)&p->reason_code,        sizeof(p->reason_code) );
+        fd_siphash13_append( sip, p->failed_scope_dim,             sizeof(p->failed_scope_dim) );
+        fd_siphash13_append( sip, (uchar *)&p->catalog_schema_version, sizeof(p->catalog_schema_version) );
+        fd_siphash13_append( sip, p->taxonomy_id,                  sizeof(p->taxonomy_id) );
+        fd_siphash13_append( sip, (uchar *)&p->taxonomy_version,   sizeof(p->taxonomy_version) );
+        fd_siphash13_append( sip, p->classification_code,          sizeof(p->classification_code) );
+        break;
+    }
+    default: {
+        /* Payload for policy_decision (record_type == 2).
+           Matches wire.PolicyDecisionPayload field order:
+             outcome(u8), rule_id(u32), failed_scope_dim(32),
+             source_event_hash(u64), catalog_schema_version(u32),
+             taxonomy_id(32), taxonomy_version(u32),
+             classification_code(32).  Hash outcome as u8 (backing size
+           of PolicyOutcome enum) to match wire.PolicyDecisionPayload. */
+        uint8_t outcome_u8 = (uint8_t)event->policy_decision.outcome;
 
-    fd_siphash13_append( sip, &outcome_u8, sizeof(outcome_u8) );
-    fd_siphash13_append( sip, (uchar *)&event->policy_decision.rule_id,
-                         sizeof(event->policy_decision.rule_id) );
-    fd_siphash13_append( sip, event->policy_decision.failed_scope_dim,
-                         sizeof(event->policy_decision.failed_scope_dim) );
-    fd_siphash13_append( sip, (uchar *)&event->policy_decision.source_event_hash,
-                         sizeof(event->policy_decision.source_event_hash) );
-    fd_siphash13_append( sip, (uchar *)&event->policy_decision.catalog_schema_version,
-                         sizeof(event->policy_decision.catalog_schema_version) );
-    fd_siphash13_append( sip, event->policy_decision.taxonomy_id,
-                         sizeof(event->policy_decision.taxonomy_id) );
-    fd_siphash13_append( sip, (uchar *)&event->policy_decision.taxonomy_version,
-                         sizeof(event->policy_decision.taxonomy_version) );
-    fd_siphash13_append( sip, event->policy_decision.classification_code,
-                         sizeof(event->policy_decision.classification_code) );
+        fd_siphash13_append( sip, &outcome_u8, sizeof(outcome_u8) );
+        fd_siphash13_append( sip, (uchar *)&event->policy_decision.rule_id,
+                             sizeof(event->policy_decision.rule_id) );
+        fd_siphash13_append( sip, event->policy_decision.failed_scope_dim,
+                             sizeof(event->policy_decision.failed_scope_dim) );
+        fd_siphash13_append( sip, (uchar *)&event->policy_decision.source_event_hash,
+                             sizeof(event->policy_decision.source_event_hash) );
+        fd_siphash13_append( sip, (uchar *)&event->policy_decision.catalog_schema_version,
+                             sizeof(event->policy_decision.catalog_schema_version) );
+        fd_siphash13_append( sip, event->policy_decision.taxonomy_id,
+                             sizeof(event->policy_decision.taxonomy_id) );
+        fd_siphash13_append( sip, (uchar *)&event->policy_decision.taxonomy_version,
+                             sizeof(event->policy_decision.taxonomy_version) );
+        fd_siphash13_append( sip, event->policy_decision.classification_code,
+                             sizeof(event->policy_decision.classification_code) );
+        break;
+    }
+    }
 
     return fd_siphash13_fini( sip );
 }
@@ -316,17 +342,23 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
                       ulong            chunk,
                       ulong            sz,
                       ulong            ctl ) {
-    (void)in_idx; (void)seq; (void)sig; (void)ctl;
+    (void)in_idx; (void)seq; (void)ctl;
 
     /* Clear first: fd_stem may skip AFTER_FRAG for this fragment (reading
        overrun), and a stale stage_valid would let the next AFTER_FRAG commit
        a record built from an abandoned fragment. */
     ctx->stage_valid = 0;
 
-    /* Shared boilerplate: empty check, size check, wksp check, chunk→gaddr */
-    if( !stk_validate_frag(sz, PAYMENT_MSG_SIZE, ctx->wksp) )
+    /* The audit link's sig says what record it carries.  Anything other than
+       the payment-pipeline sig or a tkmodl record sig is not a record this
+       tile knows how to audit: reject it rather than guess. */
+    int is_model = ( sig==TK_LINK_SIG_MODEL_CALL || sig==TK_LINK_SIG_MODEL_DENIAL );
+    if( FD_UNLIKELY( !is_model && sig!=TK_LINK_SIG_PAYMENT ) )
         return;
-    PaymentMessage const * msg = stk_chunk_to_gaddr(ctx->wksp, chunk);
+
+    /* Shared boilerplate: empty check, size check, wksp check, chunk→gaddr */
+    if( !stk_validate_frag(sz, is_model ? sizeof(ModelAuditMsg) : PAYMENT_MSG_SIZE, ctx->wksp) )
+        return;
 
     /* Bounds-check the staging target before writing to it. */
     if( ctx->audit_count >= TKAUDT_AUDIT_CAPACITY ) {
@@ -342,28 +374,50 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
     AuditEvent * event = &ctx->audit_records[ctx->audit_count];
     memset( event, 0, sizeof(*event) );
 
+    event->header.schema_version  = AUDIT_SCHEMA_VERSION;
+    event->header.run_id          = AUDIT_RUN_ID;
+    event->header.logical_actor_id = AUDIT_LOGICAL_ACTOR;
+    event->header.timestamp_ns    = 0;
+    /* version, platform_tier, isolation_tier, release_digest and manifest_id
+       stay zero from the memset above. */
+
+    if( is_model ) {
+        ModelAuditMsg const * msg = stk_chunk_to_gaddr(ctx->wksp, chunk);
+        ModelAuditMsg m;
+        memcpy( &m, msg, sizeof(m) );   /* one copy: validate and build from it */
+        if( m.version!=TKMODL_WIRE_VERSION ||
+            (ulong)m.record_type!=sig )
+            return;
+
+        event->header.run_id          = m.run_id;
+        event->header.source_offset   = m.request_id;
+        memcpy( event->header.tile_id, TILE_ID_TKMODL, sizeof(event->header.tile_id) );
+        memcpy( event->header.policy_version, m.policy_version,
+                sizeof(event->header.policy_version) );
+        event->header.capability_envelope_id = m.capability_envelope_hash;
+        event->record_type = m.record_type;
+        if( m.record_type==RECORD_MODEL_CALL )
+            event->model_call = m.payload.model_call;
+        else
+            event->denial = m.payload.denial;
+        ctx->stage_valid = 1;
+        return;
+    }
+
+    PaymentMessage const * msg = stk_chunk_to_gaddr(ctx->wksp, chunk);
+
     /* Populate header from available sources.
        PaymentMessage provides: source_offset, event_hash,
        decision, decided_by, pipeline_hops.
        Fixed constants provide: run_id, logical_actor, policy_version. */
-    event->header.schema_version  = AUDIT_SCHEMA_VERSION;
-    event->header.run_id          = AUDIT_RUN_ID;
     event->header.source_offset   = msg->raw.source_offset;
     memcpy( event->header.tile_id, msg->decided_by, sizeof(msg->decided_by) );
-    event->header.logical_actor_id = AUDIT_LOGICAL_ACTOR;
     memcpy( event->header.policy_version, AUDIT_POLICY_VER,
             sizeof(AUDIT_POLICY_VER) );
     event->header.capability_envelope_id = 0; /* stub: no envelope */
-    event->header.timestamp_ns       = 0;
-    memset( event->header.version,       0, sizeof(event->header.version) );
-    memset( event->header.platform_tier, 0, sizeof(event->header.platform_tier) );
-    memset( event->header.isolation_tier, 0, sizeof(event->header.isolation_tier) );
-    memset( event->header.release_digest, 0, sizeof(event->header.release_digest) );
-    memset( event->header.manifest_id,   0, sizeof(event->header.manifest_id) );
 
     /* Populate payload — this is a policy_decision record. */
     event->record_type       = RECORD_POLICY_DECISION;
-    memset( &event->policy_decision, 0, sizeof(event->policy_decision) );
     event->policy_decision.outcome         = (PolicyOutcome)msg->decision;
     event->policy_decision.rule_id         = 0; /* stub */
     event->policy_decision.source_event_hash = msg->event_hash;
@@ -557,4 +611,89 @@ tk_audit_record_decided_by( void * scratch, ulong idx, uint8_t * dst ) {
 ulong
 tk_audit_record_source_event_hash( void * scratch, ulong idx ) {
     return tk_audit_record_at( scratch, idx )->policy_decision.source_event_hash;
+}
+
+/* ─── Model-call / denial record accessors ───
+
+   Same contract as the policy-decision accessors above: copy out of a
+   committed record, recompute the array offset from the caller's scratch
+   base, never return a child-process pointer.  Reading a variant that the
+   record does not hold is a harness bug, so each accessor aborts on a
+   record-type mismatch rather than reinterpreting union bytes. */
+
+uint
+tk_audit_record_type( void * scratch, ulong idx ) {
+    return (uint)tk_audit_record_at( scratch, idx )->record_type;
+}
+
+ulong
+tk_audit_record_capability_envelope( void * scratch, ulong idx ) {
+    return tk_audit_record_at( scratch, idx )->header.capability_envelope_id;
+}
+
+static WireModelCallPayload const *
+tk_audit_model_call_at( void * scratch, ulong idx ) {
+    AuditEvent const * e = tk_audit_record_at( scratch, idx );
+    if( FD_UNLIKELY( e->record_type!=RECORD_MODEL_CALL ) )
+        FD_LOG_ERR(( "tkaudt: record %lu is type %u, not model_call", idx, (uint)e->record_type ));
+    return &e->model_call;
+}
+
+static WireDenialPayload const *
+tk_audit_denial_at( void * scratch, ulong idx ) {
+    AuditEvent const * e = tk_audit_record_at( scratch, idx );
+    if( FD_UNLIKELY( e->record_type!=RECORD_DENIAL ) )
+        FD_LOG_ERR(( "tkaudt: record %lu is type %u, not denial", idx, (uint)e->record_type ));
+    return &e->denial;
+}
+
+void
+tk_audit_record_model_id( void * scratch, ulong idx, uint8_t * dst ) {
+    memcpy( dst, tk_audit_model_call_at( scratch, idx )->model_id, TKMODL_MODEL_ID_LEN );
+}
+
+ulong
+tk_audit_record_model_prompt_hash( void * scratch, ulong idx ) {
+    return tk_audit_model_call_at( scratch, idx )->prompt_hash;
+}
+
+ulong
+tk_audit_record_model_response_hash( void * scratch, ulong idx ) {
+    return tk_audit_model_call_at( scratch, idx )->response_hash;
+}
+
+uint
+tk_audit_record_model_token_estimate( void * scratch, ulong idx ) {
+    return (uint)tk_audit_model_call_at( scratch, idx )->token_estimate;
+}
+
+ulong
+tk_audit_record_model_policy_decision_id( void * scratch, ulong idx ) {
+    return tk_audit_model_call_at( scratch, idx )->policy_decision_id;
+}
+
+ulong
+tk_audit_record_model_replay_substitution_id( void * scratch, ulong idx ) {
+    return tk_audit_model_call_at( scratch, idx )->replay_substitution_id;
+}
+
+uint
+tk_audit_record_denial_reason_code( void * scratch, ulong idx ) {
+    return (uint)tk_audit_denial_at( scratch, idx )->reason_code;
+}
+
+void
+tk_audit_record_denial_failed_scope_dim( void * scratch, ulong idx, uint8_t * dst ) {
+    memcpy( dst, tk_audit_denial_at( scratch, idx )->failed_scope_dim, TKMODL_SCOPE_DIM_LEN );
+}
+
+/* Copy a committed record out whole, for cross-implementation hash checks.
+   `dst_sz` must equal sizeof(AuditEvent) — a mismatch means the caller's
+   translate-c layout drifted from this file's, so abort rather than copy a
+   truncated or over-long record. */
+void
+tk_audit_record_copy( void * scratch, ulong idx, void * dst, ulong dst_sz ) {
+    if( FD_UNLIKELY( dst_sz!=sizeof(AuditEvent) ) )
+        FD_LOG_ERR(( "tkaudt: record copy size %lu != AuditEvent size %lu", dst_sz, (ulong)sizeof(AuditEvent) ));
+    memcpy( dst, tk_audit_record_at( scratch, idx ), sizeof(AuditEvent) );
 }

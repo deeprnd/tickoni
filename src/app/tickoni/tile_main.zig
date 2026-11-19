@@ -16,10 +16,9 @@
 const std = @import("std");
 const rt = @import("runtime");
 const c_abi = @import("c_abi");
-const tiles = @import("tiles");
 const tile_registry = @import("tile_registry.zig");
+const config = @import("tile_main_config.zig");
 const logger = @import("logger");
-const util = @import("util");
 
 pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) u8 {
     const log = logger.get();
@@ -111,9 +110,23 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
     // may read a file. Fail closed: tk_policy_stem.c's privileged_init
     // rejects an unconfigured limit rather than falling back to a default.
     if (rt.tile_ids.tkpoly.eql(spec.tile_id)) {
-        loadPolicyLimit(io, &spec, topo_spec.event_count, null) catch |err| {
+        config.loadPolicyLimit(io, &spec, topo_spec.event_count, null) catch |err| {
             std.debug.print(
                 "tile_main: tkpoly policy limit handoff failed for tile {d}: {t}\n",
+                .{ spec.tile_idx, err },
+            );
+            return 1;
+        };
+    }
+
+    // tkmodl's limits, allowlist and fixture table live in tkmodl.config.
+    // Same fail-closed rule as the policy limit: tk_model_stem.c's
+    // privileged_init rejects an unconfigured tile, and loadModelConfig
+    // installs nothing from a malformed or live-enabled file.
+    if (rt.tile_ids.tkmodl.eql(spec.tile_id)) {
+        config.loadModelConfig(io, &spec, null) catch |err| {
+            std.debug.print(
+                "tile_main: tkmodl config handoff failed for tile {d}: {t}\n",
                 .{ spec.tile_idx, err },
             );
             return 1;
@@ -129,187 +142,6 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
     // this line is never reached and the crash output comes from the C side.
     std.debug.print("[tile-main] stemRun: runTileSimple returned\n", .{});
     return 0;
-}
-
-/// Reads the supervisor-written payment_pipeline.config beside this child's
-/// topology.spec and pushes its signed `policy_limit_cents` into
-/// tk_policy_stem.c through the C setter.
-///
-/// Requires the file and requires its pipeline event count to agree with the
-/// TopologySpec the same child rebuilt its topology from: a disagreement means
-/// the two halves of the handoff describe different runs, and the policy gate
-/// and the pipeline's event budget would diverge. There is no default-limit
-/// fallback — a financial limit this child could not read is a startup
-/// failure, not a value to guess.
-///
-/// `dir` defaults to std.Io.Dir.cwd() — tests can pass a temp-dir handle
-/// instead, since the unit-test std library is minimal and lacks cwd().
-fn loadPolicyLimit(
-    io: std.Io,
-    spec: *const rt.launch_spec.LaunchSpec,
-    topology_event_count: u64,
-    dir: ?std.Io.Dir,
-) !void {
-    var path_buf: [rt.launch_spec.shmem_path_cap + 32]u8 = undefined;
-    const path = if (spec.shmemPath().len > 0)
-        try std.fmt.bufPrint(&path_buf, "{s}/payment_pipeline.config", .{spec.shmemPath()})
-    else
-        try std.fmt.bufPrint(&path_buf, "payment_pipeline.config", .{});
-    // readProcessConfig owns the size/magic/version checks; this entrypoint
-    // does not re-decode the file.
-    const cfg = try tiles.process.readProcessConfig(io, dir orelse std.Io.Dir.cwd(), path);
-    if (cfg.pipeline.event_count != topology_event_count) {
-        return error.PolicyConfigEventCountMismatch;
-    }
-    c_abi.tkpoly.setPolicyLimitCents(cfg.pipeline.policy_limit_cents);
-    std.debug.print(
-        "[tile-main] stemRun: tkpoly policy_limit_cents={d} event_count={d}\n",
-        .{ cfg.pipeline.policy_limit_cents, cfg.pipeline.event_count },
-    );
-}
-
-// ---------------------------------------------------------------------------
-// P4.3 — Fail closed on invalid configuration handoff.
-// ---------------------------------------------------------------------------
-//
-// These tests use a simple string path (no temp-dir realpath) because the
-// unit-test std library is minimal: no fs.cwd / realPath.  The shmem_path
-// is only used for string concatenation in loadPolicyLimit, not for real
-// filesystem access — the test writes the config file via tmp.dir which
-// uses std.testing.tmpDir.
-
-test "tile_main: loadPolicyLimit fails on missing config file" {
-    var tmp = std.testing.tmpDir(.{});
-    defer tmp.cleanup();
-
-    const spec = try rt.launch_spec.LaunchSpec.init(.{
-        .tile_idx = 0,
-        .tile_id = rt.tile_ids.tkings,
-        .cpu_placement = .floating,
-        .workspace_name = try rt.link.WorkspaceName.parse("tkpay0"),
-        .cnc_gaddr = 0,
-        .shmem_path = "",
-        .heartbeat_interval_ns = 1,
-    });
-
-    // loadPolicyLimit must fail — no config file exists at shmem_path.
-    try std.testing.expectError(error.FileNotFound, loadPolicyLimit(
-        std.testing.io,
-        &spec,
-        4,
-        tmp.dir,
-    ));
-}
-
-test "tile_main: loadPolicyLimit fails on truncated config file" {
-    var tmp = std.testing.tmpDir(.{});
-    defer tmp.cleanup();
-
-    const spec = try rt.launch_spec.LaunchSpec.init(.{
-        .tile_idx = 0,
-        .tile_id = rt.tile_ids.tkings,
-        .cpu_placement = .floating,
-        .workspace_name = try rt.link.WorkspaceName.parse("tkpay0"),
-        .cnc_gaddr = 0,
-        .shmem_path = "",
-        .heartbeat_interval_ns = 1,
-    });
-
-    // Write a truncated config (only 4 bytes of a ~56-byte struct).
-    var file = try tmp.dir.createFile(std.testing.io, "payment_pipeline.config", .{});
-    try file.writePositionalAll(std.testing.io, &[_]u8{ 0x54, 0x4b, 0x50, 0x43 }, 0);
-    file.close(std.testing.io);
-
-    try std.testing.expectError(error.ProcessConfigTruncated, loadPolicyLimit(
-        std.testing.io,
-        &spec,
-        4,
-        tmp.dir,
-    ));
-}
-
-test "tile_main: loadPolicyLimit fails on bad magic in config file" {
-    var tmp = std.testing.tmpDir(.{});
-    defer tmp.cleanup();
-
-    var file_struct = tiles.process.ProcessConfigFile{};
-    file_struct.magic_field = 0xdeadbeef;
-    var file = try tmp.dir.createFile(std.testing.io, "payment_pipeline.config", .{});
-    try file.writePositionalAll(std.testing.io, std.mem.asBytes(&file_struct), 0);
-    file.close(std.testing.io);
-
-    const spec = try rt.launch_spec.LaunchSpec.init(.{
-        .tile_idx = 0,
-        .tile_id = rt.tile_ids.tkings,
-        .cpu_placement = .floating,
-        .workspace_name = try rt.link.WorkspaceName.parse("tkpay0"),
-        .cnc_gaddr = 0,
-        .shmem_path = "",
-        .heartbeat_interval_ns = 1,
-    });
-
-    try std.testing.expectError(error.ProcessConfigBadMagic, loadPolicyLimit(
-        std.testing.io,
-        &spec,
-        4,
-        tmp.dir,
-    ));
-}
-
-test "tile_main: loadPolicyLimit fails on unsupported version in config file" {
-    var tmp = std.testing.tmpDir(.{});
-    defer tmp.cleanup();
-
-    var file_struct = tiles.process.ProcessConfigFile{};
-    file_struct.version_field = 0;
-    var file = try tmp.dir.createFile(std.testing.io, "payment_pipeline.config", .{});
-    try file.writePositionalAll(std.testing.io, std.mem.asBytes(&file_struct), 0);
-    file.close(std.testing.io);
-
-    const spec = try rt.launch_spec.LaunchSpec.init(.{
-        .tile_idx = 0,
-        .tile_id = rt.tile_ids.tkings,
-        .cpu_placement = .floating,
-        .workspace_name = try rt.link.WorkspaceName.parse("tkpay0"),
-        .cnc_gaddr = 0,
-        .shmem_path = "",
-        .heartbeat_interval_ns = 1,
-    });
-
-    try std.testing.expectError(error.ProcessConfigUnsupportedVersion, loadPolicyLimit(
-        std.testing.io,
-        &spec,
-        4,
-        tmp.dir,
-    ));
-}
-
-test "tile_main: loadPolicyLimit fails on mismatched event count" {
-    var tmp = std.testing.tmpDir(.{});
-    defer tmp.cleanup();
-
-    const spec = try rt.launch_spec.LaunchSpec.init(.{
-        .tile_idx = 0,
-        .tile_id = rt.tile_ids.tkings,
-        .cpu_placement = .floating,
-        .workspace_name = try rt.link.WorkspaceName.parse("tkpay0"),
-        .cnc_gaddr = 0,
-        .shmem_path = "",
-        .heartbeat_interval_ns = 1,
-    });
-
-    // Config says 4 events — mismatched with topology's 100.
-    const cfg = tiles.process.ProcessRuntimeConfig{
-        .pipeline = .{ .event_count = 4, .policy_limit_cents = 1_000 },
-    };
-    try tiles.process.writeProcessConfig(cfg, std.testing.io, tmp.dir, "payment_pipeline.config");
-
-    try std.testing.expectError(error.PolicyConfigEventCountMismatch, loadPolicyLimit(
-        std.testing.io,
-        &spec,
-        100, // topology says 100 events, config says 4
-        tmp.dir,
-    ));
 }
 
 /// Dispatches the deterministic payment pipeline stage for this tile's
@@ -332,4 +164,9 @@ fn runPipelineStage(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_s
     log.debug("tile_main", "runPipelineStage", "tile found in registry");
     const process_fn = entry.process_fn orelse return;
     try process_fn(io, wksp, spec, cnc, allocator);
+}
+
+test {
+    // Pull the config-handoff tests into the test-tile-main lane.
+    _ = config;
 }

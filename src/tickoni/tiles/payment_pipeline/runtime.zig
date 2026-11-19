@@ -38,6 +38,8 @@ pub const DuplicateConfig = struct {
     source: u64,
 };
 
+const model_request_source = @import("model_request_source.zig");
+
 pub const PaymentPipelineConfig = struct {
     event_count: u64 = 10_000,
     queue_depth: usize = 64,
@@ -48,6 +50,11 @@ pub const PaymentPipelineConfig = struct {
     /// Set to `null` (default) for no duplicate injection.
     duplicate: ?DuplicateConfig = null,
     inject_malformed: bool = false,
+    /// Optional test-only model-request stream. When set, the tkings process
+    /// emits tkmodl request records instead of payment events (the tkmodl
+    /// fixture/replay topologies). Honored only when `test_build.enabled`;
+    /// production tkings rejects a config that sets it.
+    model_requests: ?model_request_source.ModelRequestSource = null,
     /// Optional test-only hook called at each offset. Gate the invocation on
     /// `runtime.test_build.enabled and hook != null` so the branch is dead
     /// code in production builds — never on `@import("builtin").is_test`,

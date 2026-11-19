@@ -63,6 +63,8 @@ pub fn strategy(
     const infra_imports = [_]std.Build.Module.Import{
         .{ .name = "runtime", .module = int_mods.shared_runtime },
         .{ .name = "c_abi", .module = int_mods.shared_c_abi },
+        .{ .name = "tiles", .module = int_mods.shared_tiles },
+        .{ .name = "audit", .module = int_mods.shared_audit },
         .{ .name = "util", .module = int_mods.shared_util },
         .{ .name = "supervisor", .module = int_mods.supervisor_named_mod },
         .{ .name = "topologies", .module = int_mods.shared_topologies },
@@ -93,6 +95,8 @@ pub fn strategy(
             "src/tickoni/test/integration/test_tile_tknorm.zig",
             "src/tickoni/test/integration/test_tile_tkdedu.zig",
             "src/tickoni/test/integration/test_tile_tkpoly.zig",
+            "src/tickoni/test/integration/test_tile_tkpoly_integration.zig",
+            "src/tickoni/test/integration/test_tile_tkmodl.zig",
         };
 
         for (infra_proc_files) |path| {
@@ -131,10 +135,10 @@ pub fn strategy(
         });
         firedancer.linkTickoniFiredancer(b, mock_servers_test, fd_lib_dir);
 
-        const model_tile_http_test = b.addTest(.{
+        const model_http_backend_test = b.addTest(.{
             .root_module = b.createModule(.{
                 .root_source_file = b.path(
-                    "src/tickoni/test/integration/test_model_tile_http.zig",
+                    "src/tickoni/test/integration/test_model_http_backend.zig",
                 ),
                 .target = target,
                 .optimize = optimize,
@@ -145,12 +149,12 @@ pub fn strategy(
                 },
             }),
         });
-        codec.linkTickoniCodec(b, model_tile_http_test, fd_lib_dir);
-        firedancer.linkTickoniFiredancer(b, model_tile_http_test, fd_lib_dir);
+        codec.linkTickoniCodec(b, model_http_backend_test, fd_lib_dir);
+        firedancer.linkTickoniFiredancer(b, model_http_backend_test, fd_lib_dir);
 
         test_runs[test_run_count] = shims.addPlainTestRunSeries(
             b,
-            &.{ mock_servers_test, model_tile_http_test },
+            &.{ mock_servers_test, model_http_backend_test },
         );
         test_run_count += 1;
     }

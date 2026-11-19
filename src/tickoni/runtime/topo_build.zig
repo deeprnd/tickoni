@@ -183,6 +183,8 @@ pub fn build(
     c_abi.tkaudit.setEventCount(event_count);
     c_abi.tknorm.setEventCount(event_count);
     c_abi.tkpoly.setEventCount(event_count);
+    c_abi.tkmodl.setEventCount(event_count);
+    c_abi.tkagnt.setEventCount(event_count);
 
     const align_check = c_abi.topob.topoAlignof();
     std.debug.print("[topo-build] alignof={d} <= {d} check={}\n", .{ align_check, topo_alloc_align.toByteUnits(), align_check <= topo_alloc_align.toByteUnits() });
