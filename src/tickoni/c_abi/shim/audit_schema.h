@@ -13,6 +13,8 @@
 #include <stdint.h>
 
 #include "audit_consts.h"
+#include "tk_multipart_wire.h"
+#include "tk_agent_hooks.h"
 
 /* ─── Tile IDs ─── */
 
@@ -281,6 +283,7 @@ enum {
     MODEL_DENY_RETRY_LIMIT              = 7,
     MODEL_DENY_LIVE_PROVIDER_DISABLED   = 8,
     MODEL_DENY_REPLAY_SUBSTITUTION_MISSING = 9,
+    MODEL_DENY_EMBEDDING_DIMENSION      = 10,  /* embedding width missing, not allowed, or not the capture's */
 };
 
 #define TKMODL_REPLAY_MODE_LIVE    0
@@ -302,7 +305,7 @@ typedef struct {
     uint32_t  max_context_tokens;     /* 64 */
     uint32_t  max_output_tokens;      /* 68 */
     uint32_t  timeout_ms;             /* 72 */
-    uint32_t  _pad1;                  /* 76 */
+    uint32_t  embedding_dimensions;   /* 76 - requested vector width in f32 elements; 0 for chat */
     uint8_t   model_id[TKMODL_MODEL_ID_LEN];                    /* 80 */
     uint8_t   actor_role[TKMODL_ROLE_LEN];                      /* 112 */
     uint8_t   workflow[TKMODL_WORKFLOW_LEN];                    /* 128 */
@@ -351,16 +354,24 @@ typedef struct {
 
 /* ─── tkmodl runtime configuration (supervisor -> tkmodl child handoff) ───
 
-   Read by the tkmodl child from `tkmodl.config` and passed to the C tile
-   through tkmodl_configure().  This tile is fixture/replay only, so
+   Read by each tkmodl child from its own `tkmodl.<kind_id>.config` (an
+   identity-bound header followed by this struct; see
+   src/app/tickoni/model_instances.zig) and passed to the C tile through
+   tkmodl_configure().  This tile is fixture/replay only, so
    live_provider_enabled must be zero: the tile rejects a configuration that
    enables a live provider.  Zero limits and an empty allowlist keep the
    validator.zig meaning (no enforcement / no restriction). */
 
 #define TKMODL_CONFIG_MAGIC          0x544b4d43u  /* "TKMC" */
-#define TKMODL_CONFIG_VERSION        1
+#define TKMODL_CONFIG_VERSION        2
 #define TKMODL_MAX_ALLOWED_MODELS    16
 #define TKMODL_FIXTURE_CAP           16
+#define TKMODL_MAX_EMBEDDING_DIMENSIONS 8
+
+/* Captured response bytes for the fixture table live in a bounded per-process
+   store, outside the audit record.  A single capture is also bounded by the
+   multipart message ceiling less the result header. */
+enum { TKMODL_CONTENT_STORE_BYTES = 512*1024 };
 
 /* One captured model result, resolved by replay_substitution_id. */
 typedef struct {
@@ -385,9 +396,16 @@ typedef struct {
     uint32_t  per_run_token_budget;   /* 20 - 0 = no enforcement */
     uint8_t   hard_max_retry_count;   /* 24 - 0 = no enforcement */
     uint8_t   fixture_count;          /* 25 - <= TKMODL_FIXTURE_CAP */
-    uint8_t   _pad[6];                /* 26 */
-    uint8_t   allowed_model_ids[TKMODL_MAX_ALLOWED_MODELS][TKMODL_MODEL_ID_LEN]; /* 32 */
+    uint8_t   allowed_embedding_model_count;     /* 26 - <= TKMODL_MAX_ALLOWED_MODELS; 0 = no restriction */
+    uint8_t   allowed_embedding_dimension_count; /* 27 - <= TKMODL_MAX_EMBEDDING_DIMENSIONS; 0 = no restriction */
+    uint8_t   _pad[4];                /* 28 */
+    uint8_t   allowed_model_ids[TKMODL_MAX_ALLOWED_MODELS][TKMODL_MODEL_ID_LEN]; /* 32 - chat/completion models */
     TkModlFixtureEntry fixtures[TKMODL_FIXTURE_CAP];
+    /* Embedding governance: the embedding model allowlist and the vector widths
+       (f32 elements) this instance may serve. A request is governed against
+       these, not the chat allowlist, when it is an embedding request. */
+    uint8_t   allowed_embedding_model_ids[TKMODL_MAX_ALLOWED_MODELS][TKMODL_MODEL_ID_LEN];
+    uint32_t  allowed_embedding_dimensions[TKMODL_MAX_EMBEDDING_DIMENSIONS];
 } TkModlRuntimeConfig;
 
 _Static_assert( sizeof(TkModlFixtureEntry)==72UL, "TkModlFixtureEntry ABI drift" );
@@ -404,6 +422,7 @@ typedef struct {
     union {
         PolicyDecisionPayload policy_decision;
         WireModelCallPayload  model_call;
+        WireProposalPayload   proposal;
         WireDenialPayload     denial;
     };
 } AuditEvent;
@@ -415,5 +434,7 @@ _Static_assert( offsetof(ModelRequestMsg, model_id)==80UL, "ModelRequestMsg.mode
 _Static_assert( sizeof(ModelResultMsg)==136UL, "ModelResultMsg wire size drift" );
 _Static_assert( offsetof(ModelResultMsg, model_id)==72UL, "ModelResultMsg.model_id ABI drift" );
 _Static_assert( offsetof(ModelAuditMsg, payload)==64UL, "ModelAuditMsg.payload ABI drift" );
+
+#include "tk_agent_wire.h"
 
 #endif /* __AUDIT_SCHEMA_H__ */

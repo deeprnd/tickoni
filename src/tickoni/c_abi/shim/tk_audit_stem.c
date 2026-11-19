@@ -40,6 +40,7 @@
 /* We need access to the topo helper function.
    tk_topo_run_tile.c declares tk_topo_find_tile_obj as an extern. */
 extern ulong tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_type );
+extern ulong tk_topo_audit_watermark_obj( fd_topo_t const * topo );
 
 /* ─── Context ───
 
@@ -47,6 +48,21 @@ extern ulong tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char 
    macro expansion in fd_stem.c. fd_stem.c uses this type to declare
    'ctx' in its stem_run function, so it must be a complete type at
    the point of the #include. */
+/* Most inputs one tkaudt may have: Firedancer's per-tile input limit
+   (FD_TOPO_MAX_TILE_IN_LINKS), also Tickoni's LaunchSpec input capacity. */
+#define TKAUDT_MAX_INPUTS 128UL
+
+/* Records held for ordering: model records waiting for their agent record,
+   and agent records waiting for their model record.  The approved bound for
+   the audit reorder buffer. */
+#define TKAUDT_HOLD 64UL
+
+/* TOOL and ADAPTER inputs come from the tktool and tkadpt placeholders of the full
+   workflow.  No tool or adapter audit record exists yet, so these links are bound
+   (the topology declares them) and carry nothing: a fragment that arrives on one
+   is not audited. */
+enum { TKAUDT_ROLE_PAYMENT = 0, TKAUDT_ROLE_MODEL = 1, TKAUDT_ROLE_AGENT = 2, TKAUDT_ROLE_IDLE = 3 };
+
 typedef struct {
     /* Audit state */
     uint64_t audited;           /* Total fragments processed */
@@ -78,6 +94,58 @@ typedef struct {
     /* Staging flag: set by DURING_FRAG once the record is built into the
        uncommitted ring slot, cleared by AFTER_FRAG once it is committed. */
     int32_t  stage_valid;
+
+    /* Per-input fragment bounds.  tkaudt is a fan-in sink (the payment link
+       plus one model-audit link per tkmodl instance), and each input has its
+       own dcache, so each has its own chunk range: a chunk that is valid for
+       one input can lie outside another's.  Every input shares the one
+       workspace in `wksp` (unprivileged_init rejects any input that does
+       not), which is what lets a single base pointer resolve every chunk. */
+    ulong    in_cnt;
+    ulong    in_chunk0[TKAUDT_MAX_INPUTS];
+    ulong    in_wmark[TKAUDT_MAX_INPUTS];
+
+    /* What each input carries, bound by producer identity at init (not by sig
+       alone): a payment-pipeline link, a tkmodl model-audit link, or the
+       tkagnt agent-audit link. */
+    uint8_t  in_role[TKAUDT_MAX_INPUTS];
+
+    /* Ordered mode (the topology has an agent input).  Model records are held
+       until the agent record with the same agent_seq arrives, and records are
+       committed per admission ordinal: the model record (if any), then the
+       agent record.  The committed sequence then does not depend on the order
+       in which model completions reach tkaudt.  Without an agent input every
+       record commits on arrival, as before. */
+    int      ordered;
+    uint64_t next_agent_seq;      /* admission ordinal to commit next; starts at 1 */
+    uint64_t agent_committed;     /* agent records committed */
+    /* Event order (ordered mode with a payment-pipeline input).  The chain is one
+       sequence in event order: for event n, its payment record, then (if the run
+       has one) its model record, then its agent record.  Payment records arrive
+       in event order and agent runs are admitted in event order, so the n-th of
+       each belong together.  A payment record is taken only once the agent record
+       of the previous event is committed (BEFORE_FRAG), and an agent record is
+       committed only once the payment record of its own event is. */
+    int      has_payment_input;   /* a payment-pipeline link feeds an ordered tkaudt */
+    uint64_t payment_committed;   /* payment records committed (ordered mode) */
+    uint64_t rejected;            /* records refused: late, duplicate, out of order, or no room */
+
+    /* Committed-order watermark (fseq, single writer).  Holds the admission
+       ordinal of the last agent record committed; ULONG_MAX before the first.
+       NULL when the topology has no watermark. */
+    ulong *  watermark;
+
+    /* The record DURING_FRAG built, awaiting AFTER_FRAG. */
+    uint8_t  stage_role;
+    uint64_t stage_seq;           /* model: request_id; agent: agent_seq */
+    uint8_t  stage_has_model;     /* agent: a model record precedes it */
+    AuditEvent stage;
+
+    ulong    model_held_cnt;
+    ulong    agent_held_cnt;
+    ulong    agent_held_head;
+    struct { int valid; uint64_t seq; AuditEvent ev; }                      model_held[TKAUDT_HOLD];
+    struct { uint64_t seq; uint8_t has_model; AuditEvent ev; }              agent_held[TKAUDT_HOLD];
 } tk_audit_ctx_t;
 
 #define TKAUDT_CTX_ALIGN alignof(tk_audit_ctx_t)
@@ -95,6 +163,7 @@ typedef struct {
    calls them directly. */
 static void tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile );
 static void tk_audit_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile );
+static int  tk_audit_before_frag( tk_audit_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig );
 static void tk_audit_during_frag( tk_audit_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig,
                                    ulong chunk, ulong sz, ulong ctl );
 static void tk_audit_after_frag( tk_audit_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig,
@@ -107,6 +176,7 @@ static void tk_audit_run( fd_topo_t * topo, fd_topo_tile_t * tile );
 #define STEM_LAZY         ((long)10e6)
 #define STEM_CALLBACK_CONTEXT_TYPE  tk_audit_ctx_t
 #define STEM_CALLBACK_CONTEXT_ALIGN TKAUDT_CTX_ALIGN
+#define STEM_CALLBACK_BEFORE_FRAG   tk_audit_before_frag
 #define STEM_CALLBACK_DURING_FRAG   tk_audit_during_frag
 #define STEM_CALLBACK_AFTER_FRAG    tk_audit_after_frag
 #define STEM_CALLBACK_SHOULD_SHUTDOWN(ctx) \
@@ -119,6 +189,7 @@ static void tk_audit_run( fd_topo_t * topo, fd_topo_tile_t * tile );
 #undef STEM_NAME
 #undef STEM_CALLBACK_CONTEXT_TYPE
 #undef STEM_CALLBACK_CONTEXT_ALIGN
+#undef STEM_CALLBACK_BEFORE_FRAG
 #undef STEM_CALLBACK_DURING_FRAG
 #undef STEM_CALLBACK_AFTER_FRAG
 #undef STEM_CALLBACK_SHOULD_SHUTDOWN
@@ -195,6 +266,7 @@ tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     ctx->event_count = 0;
     ctx->input_exhausted = 0;
     ctx->stage_valid = 0;
+    ctx->next_agent_seq = 1UL;
 
     /* Event count for shutdown gating (Phase 3.4).
        Set by topo_build.build() via tkaudit_set_event_count() —
@@ -216,15 +288,59 @@ tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
 
 static void
 tk_audit_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
-    (void)topo;
-    (void)tile;
-
     /* ctx lives in scratch. MUST match stem_run's alignment. */
     void * scratch = fd_topo_obj_laddr( (fd_topo_t *)topo, tile->tile_obj_id );
     tk_audit_ctx_t * ctx = STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN);
 
     /* Find the CNC for this tile and set ctx->cnc for shutdown detection. */
     STK_UNPRIV_INIT(topo, tile, ctx);
+
+    /* Per-input fragment bounds.  Fail closed: an input in another workspace
+       could not be resolved through ctx->wksp, and a missing dcache has no
+       range to check against. */
+    if( FD_UNLIKELY( !ctx->wksp ) )
+        FD_LOG_ERR(( "tkaudt: input workspace is not joined" ));
+    if( FD_UNLIKELY( tile->in_cnt<1UL || tile->in_cnt>TKAUDT_MAX_INPUTS ) )
+        FD_LOG_ERR(( "tkaudt: expected 1..%lu input links, found %lu", TKAUDT_MAX_INPUTS, tile->in_cnt ));
+    for( ulong i=0UL; i<tile->in_cnt; i++ ) {
+        fd_topo_link_t const * in_link = &topo->links[ tile->in_link_id[i] ];
+        if( FD_UNLIKELY( stk_derive_wksp( topo, tile, i )!=ctx->wksp ) )
+            FD_LOG_ERR(( "tkaudt: input %lu is not in the workspace shared with input 0", i ));
+        if( FD_UNLIKELY( !in_link->dcache || !in_link->mtu ) )
+            FD_LOG_ERR(( "tkaudt: input %lu has no dcache or mtu", i ));
+        ctx->in_chunk0[i] = fd_dcache_compact_chunk0( ctx->wksp, in_link->dcache );
+        ctx->in_wmark[i]  = fd_dcache_compact_wmark ( ctx->wksp, in_link->dcache, in_link->mtu );
+    }
+    ctx->in_cnt = tile->in_cnt;
+
+    /* Bind each input to its producer's identity. */
+    for( ulong i=0UL; i<tile->in_cnt; i++ ) {
+        char const * producer = NULL;
+        for( ulong t=0UL; t<topo->tile_cnt && !producer; t++ ) {
+            fd_topo_tile_t const * other = &topo->tiles[t];
+            for( ulong o=0UL; o<other->out_cnt; o++ )
+                if( other->out_link_id[o]==tile->in_link_id[i] ) { producer = other->name; break; }
+        }
+        if( producer && strcmp( producer, TILE_ID_TKMODL )==0 )      ctx->in_role[i] = TKAUDT_ROLE_MODEL;
+        else if( producer && strcmp( producer, TILE_ID_TKAGNT )==0 ) ctx->in_role[i] = TKAUDT_ROLE_AGENT;
+        else if( producer && ( strcmp( producer, TILE_ID_TKTOOL )==0 ||
+                               strcmp( producer, TILE_ID_TKADPT )==0 ) ) ctx->in_role[i] = TKAUDT_ROLE_IDLE;
+        else                                                         ctx->in_role[i] = TKAUDT_ROLE_PAYMENT;
+        if( ctx->in_role[i]==TKAUDT_ROLE_AGENT ) ctx->ordered = 1;
+    }
+    for( ulong i=0UL; i<tile->in_cnt; i++ )
+        if( ctx->in_role[i]==TKAUDT_ROLE_PAYMENT ) ctx->has_payment_input = 1;
+
+    /* Publish the committed-order watermark when the topology declares one. */
+    ulong wm_obj = tk_topo_audit_watermark_obj( topo );
+    if( wm_obj!=ULONG_MAX ) {
+        ctx->watermark = fd_fseq_join( fd_topo_obj_laddr( (fd_topo_t *)topo, wm_obj ) );
+        if( FD_UNLIKELY( !ctx->watermark ) )
+            FD_LOG_ERR(( "tkaudt: cannot join the audit watermark" ));
+        fd_fseq_update( ctx->watermark, ULONG_MAX );   /* nothing committed yet */
+    }
+    if( FD_UNLIKELY( ctx->ordered && !ctx->watermark ) )
+        FD_LOG_ERR(( "tkaudt: an agent audit input requires the audit watermark object" ));
 
     FD_LOG_NOTICE(( "tkaudt: stem tile unprivileged init, tile_id=%lu cnc=%p",
                     tile->id, ctx->cnc ));
@@ -290,6 +406,14 @@ tk_audit_compute_record_hash( AuditEvent * event ) {
         fd_siphash13_append( sip, (uchar *)&p->replay_substitution_id, sizeof(p->replay_substitution_id) );
         break;
     }
+    case RECORD_PROPOSAL: {
+        /* Matches hash.zig case 5 (wire.ProposalPayload field order). */
+        WireProposalPayload const * p = &event->proposal;
+        fd_siphash13_append( sip, p->proposal_type,                sizeof(p->proposal_type) );
+        fd_siphash13_append( sip, (uchar *)&p->proposal_hash,      sizeof(p->proposal_hash) );
+        fd_siphash13_append( sip, (uchar *)&p->approval_state,     sizeof(p->approval_state) );
+        break;
+    }
     case RECORD_DENIAL: {
         /* Matches hash.zig case 9 (wire.DenialPayload field order). */
         WireDenialPayload const * p = &event->denial;
@@ -334,6 +458,22 @@ tk_audit_compute_record_hash( AuditEvent * event ) {
     return fd_siphash13_fini( sip );
 }
 
+/* Event order: the payment record of event n is left queued upstream (return -1:
+   lossless backpressure, nothing is dropped) until the agent record of event n-1
+   is committed, so the chain reads payment, model, agent for one event before
+   the next event's payment record.  Every other input, and every topology
+   without both a payment chain and agent runs, is taken as it arrives. */
+static int
+tk_audit_before_frag( tk_audit_ctx_t * ctx,
+                      ulong            in_idx,
+                      ulong            seq,
+                      ulong            sig ) {
+    (void)seq; (void)sig;
+    if( FD_LIKELY( !ctx->ordered || !ctx->has_payment_input ) ) return 0;
+    if( in_idx>=ctx->in_cnt || ctx->in_role[in_idx]!=TKAUDT_ROLE_PAYMENT ) return 0;
+    return ctx->payment_committed > ctx->agent_committed ? -1 : 0;
+}
+
 static void
 tk_audit_during_frag( tk_audit_ctx_t * ctx,
                       ulong            in_idx,
@@ -342,36 +482,42 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
                       ulong            chunk,
                       ulong            sz,
                       ulong            ctl ) {
-    (void)in_idx; (void)seq; (void)ctl;
+    (void)seq; (void)ctl;
 
     /* Clear first: fd_stem may skip AFTER_FRAG for this fragment (reading
        overrun), and a stale stage_valid would let the next AFTER_FRAG commit
        a record built from an abandoned fragment. */
     ctx->stage_valid = 0;
 
-    /* The audit link's sig says what record it carries.  Anything other than
-       the payment-pipeline sig or a tkmodl record sig is not a record this
-       tile knows how to audit: reject it rather than guess. */
-    int is_model = ( sig==TK_LINK_SIG_MODEL_CALL || sig==TK_LINK_SIG_MODEL_DENIAL );
-    if( FD_UNLIKELY( !is_model && sig!=TK_LINK_SIG_PAYMENT ) )
+    /* The chunk is only meaningful against the input it arrived on: reject an
+       unknown input, and a chunk outside that input's own dcache range,
+       before dereferencing it. */
+    if( FD_UNLIKELY( in_idx>=ctx->in_cnt ) )
+        return;
+    if( FD_UNLIKELY( chunk<ctx->in_chunk0[in_idx] || chunk>ctx->in_wmark[in_idx] ) )
         return;
 
-    /* Shared boilerplate: empty check, size check, wksp check, chunk→gaddr */
-    if( !stk_validate_frag(sz, is_model ? sizeof(ModelAuditMsg) : PAYMENT_MSG_SIZE, ctx->wksp) )
-        return;
-
-    /* Bounds-check the staging target before writing to it. */
-    if( ctx->audit_count >= TKAUDT_AUDIT_CAPACITY ) {
-        FD_LOG_WARNING(( "tkaudt: audit ring buffer full at %lu", ctx->audit_count ));
-        return;
+    /* What the link carries is fixed by who produces it; the fragment's sig
+       must agree, and anything else is a record this tile does not audit. */
+    uint8_t role = ctx->in_role[in_idx];
+    if( FD_UNLIKELY( role==TKAUDT_ROLE_IDLE ) ) return;    /* no record type is defined for it yet */
+    int is_model = ( role==TKAUDT_ROLE_MODEL );
+    int is_agent = ( role==TKAUDT_ROLE_AGENT );
+    if( is_model ) {
+        if( FD_UNLIKELY( sig!=TK_LINK_SIG_MODEL_CALL && sig!=TK_LINK_SIG_MODEL_DENIAL ) ) return;
+    } else if( is_agent ) {
+        if( FD_UNLIKELY( sig!=TK_LINK_SIG_AGENT_AUDIT ) ) return;
+    } else {
+        if( FD_UNLIKELY( sig!=TK_LINK_SIG_PAYMENT ) ) return;
     }
 
-    /* Build into the next ring slot, which is still uncommitted: audit_count
-       has not advanced, so nothing — not the Zig test harness, not a later
-       record's chain — observes this slot yet.  seq, prev_hash and
-       record_hash are deliberately left for AFTER_FRAG, so the chain is read
-       and advanced in one place. */
-    AuditEvent * event = &ctx->audit_records[ctx->audit_count];
+    ulong want = is_model ? sizeof(ModelAuditMsg) : is_agent ? sizeof(TkAgentAuditMsg) : (ulong)PAYMENT_MSG_SIZE;
+    if( !stk_validate_frag( sz, want, ctx->wksp ) )
+        return;
+
+    /* Build into the single staging event: nothing observes it until
+       AFTER_FRAG commits or holds it. */
+    AuditEvent * event = &ctx->stage;
     memset( event, 0, sizeof(*event) );
 
     event->header.schema_version  = AUDIT_SCHEMA_VERSION;
@@ -380,6 +526,10 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
     event->header.timestamp_ns    = 0;
     /* version, platform_tier, isolation_tier, release_digest and manifest_id
        stay zero from the memset above. */
+
+    ctx->stage_role      = role;
+    ctx->stage_seq       = 0UL;
+    ctx->stage_has_model = 0;
 
     if( is_model ) {
         ModelAuditMsg const * msg = stk_chunk_to_gaddr(ctx->wksp, chunk);
@@ -400,7 +550,30 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
             event->model_call = m.payload.model_call;
         else
             event->denial = m.payload.denial;
+        ctx->stage_seq   = m.request_id;
         ctx->stage_valid = 1;
+        return;
+    }
+
+    if( is_agent ) {
+        TkAgentAuditMsg a;
+        memcpy( &a, stk_chunk_to_gaddr(ctx->wksp, chunk), sizeof(a) );
+        if( a.version!=TK_AGENT_WIRE_VERSION ) return;
+        if( a.record_type!=RECORD_PROPOSAL && a.record_type!=RECORD_DENIAL ) return;
+        if( a.agent_seq==0UL ) return;
+
+        event->header.run_id          = a.run_id;
+        event->header.source_offset   = a.agent_seq;
+        memcpy( event->header.tile_id, TILE_ID_TKAGNT, sizeof(event->header.tile_id) );
+        memcpy( event->header.policy_version, a.policy_version,
+                sizeof(event->header.policy_version) );
+        event->header.capability_envelope_id = a.capability_envelope_hash;
+        event->record_type = a.record_type;
+        if( a.record_type==RECORD_PROPOSAL ) event->proposal = a.payload.proposal;
+        else                                 event->denial   = a.payload.denial;
+        ctx->stage_seq       = a.agent_seq;
+        ctx->stage_has_model = a.has_model_record ? 1 : 0;
+        ctx->stage_valid     = 1;
         return;
     }
 
@@ -426,6 +599,62 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
     ctx->stage_valid = 1;
 }
 
+/* Appends one event to the hash chain.  The slot becomes observable only once
+   audit_count advances. */
+static int
+tk_audit_commit( tk_audit_ctx_t * ctx, AuditEvent const * src ) {
+    if( FD_UNLIKELY( ctx->audit_count >= TKAUDT_AUDIT_CAPACITY ) ) {
+        FD_LOG_WARNING(( "tkaudt: audit ring buffer full at %lu", ctx->audit_count ));
+        ctx->rejected += 1;
+        return 0;
+    }
+    AuditEvent * event = &ctx->audit_records[ctx->audit_count];
+    *event = *src;
+
+    /* Chain position and chain link, read and advanced together. */
+    event->header.seq       = ctx->audit_count;
+    event->header.prev_hash = ctx->prev_hash;
+
+    event->header.record_hash = tk_audit_compute_record_hash( event );
+    ctx->prev_hash            = event->header.record_hash;
+
+    ctx->audit_count += 1;
+    ctx->audited += 1;
+    return 1;
+}
+
+/* Commits, in admission order, every agent record whose model record (if it
+   has one) is present.  Stops at the first one still waiting. */
+static void
+tk_audit_drain( tk_audit_ctx_t * ctx ) {
+    while( ctx->agent_held_cnt ) {
+        ulong head = ctx->agent_held_head;
+        uint64_t seq = ctx->agent_held[head].seq;
+
+        /* Event order: this event's payment record comes first. */
+        if( ctx->has_payment_input && ctx->payment_committed<seq ) return;
+
+        if( ctx->agent_held[head].has_model ) {
+            ulong m = TKAUDT_HOLD;
+            for( ulong i=0UL; i<TKAUDT_HOLD; i++ )
+                if( ctx->model_held[i].valid && ctx->model_held[i].seq==seq ) { m = i; break; }
+            if( m==TKAUDT_HOLD ) return;            /* wait for the model record */
+            tk_audit_commit( ctx, &ctx->model_held[m].ev );
+            ctx->model_held[m].valid = 0;
+            ctx->model_held_cnt -= 1UL;
+        }
+        tk_audit_commit( ctx, &ctx->agent_held[head].ev );
+        ctx->agent_committed += 1UL;
+        ctx->next_agent_seq   = seq+1UL;
+        /* Publish only after the record is appended and chained: the watermark
+           means "every record up to this admission ordinal is committed". */
+        fd_fseq_update( ctx->watermark, seq );
+
+        ctx->agent_held_head = (head+1UL) % TKAUDT_HOLD;
+        ctx->agent_held_cnt -= 1UL;
+    }
+}
+
 /* AFTER_FRAG is the commit point: the first callback fd_stem reaches after
    its post-DURING_FRAG overrun re-check, so the only place the staged record
    is known to have been built from an intact fragment.  Appending and
@@ -447,22 +676,57 @@ tk_audit_after_frag( tk_audit_ctx_t *    ctx,
         return;
     ctx->stage_valid = 0;
 
-    AuditEvent * event = &ctx->audit_records[ctx->audit_count];
+    if( ctx->stage_role==TKAUDT_ROLE_PAYMENT || !ctx->ordered ) {
+        /* Arrival order is the order: a single deterministic producer chain,
+           or no agent to order against.  (With both, BEFORE_FRAG has already
+           held this record back until the previous event's agent record is
+           committed: see the event-order note in the context.) */
+        if( tk_audit_commit( ctx, &ctx->stage ) && ctx->stage_role==TKAUDT_ROLE_PAYMENT )
+            ctx->payment_committed += 1UL;
+    } else if( ctx->stage_role==TKAUDT_ROLE_MODEL ) {
+        /* A record for an ordinal already committed (or an absent one) is late:
+           its agent record said no model record would come, or it is a replay. */
+        ulong free_slot = TKAUDT_HOLD;
+        int dup = 0;
+        for( ulong i=0UL; i<TKAUDT_HOLD; i++ ) {
+            if( !ctx->model_held[i].valid ) { if( free_slot==TKAUDT_HOLD ) free_slot = i; }
+            else if( ctx->model_held[i].seq==ctx->stage_seq ) dup = 1;
+        }
+        if( ctx->stage_seq<ctx->next_agent_seq || dup || free_slot==TKAUDT_HOLD ) {
+            ctx->rejected += 1UL;
+        } else {
+            ctx->model_held[free_slot].valid = 1;
+            ctx->model_held[free_slot].seq   = ctx->stage_seq;
+            ctx->model_held[free_slot].ev    = ctx->stage;
+            ctx->model_held_cnt += 1UL;
+        }
+    } else {
+        /* Agent records are produced in admission order with contiguous
+           ordinals; anything else is a protocol violation, refused rather than
+           reordered by arrival. */
+        ulong expect = ctx->next_agent_seq + ctx->agent_held_cnt;
+        if( ctx->stage_seq!=expect || ctx->agent_held_cnt>=TKAUDT_HOLD ) {
+            ctx->rejected += 1UL;
+        } else {
+            ulong tail = (ctx->agent_held_head + ctx->agent_held_cnt) % TKAUDT_HOLD;
+            ctx->agent_held[tail].seq       = ctx->stage_seq;
+            ctx->agent_held[tail].has_model = ctx->stage_has_model;
+            ctx->agent_held[tail].ev        = ctx->stage;
+            ctx->agent_held_cnt += 1UL;
+        }
+    }
+    if( ctx->ordered ) tk_audit_drain( ctx );
 
-    /* Chain position and chain link, read and advanced together. */
-    event->header.seq       = ctx->audit_count;
-    event->header.prev_hash = ctx->prev_hash;
-
-    event->header.record_hash = tk_audit_compute_record_hash( event );
-    ctx->prev_hash            = event->header.record_hash;
-
-    /* Commit: the slot becomes observable only once audit_count advances. */
-    ctx->audit_count += 1;
-    ctx->audited += 1;
-
-    /* Event-count gating: checked against the post-increment count so the
-       gate fires on the Nth fragment and the tile exits promptly. */
-    STK_EVENT_EXHAUSTED(ctx, ctx->event_count, ctx->audited);
+    /* Event-count gating: in ordered mode an agent run is the unit (one per
+       accepted request), and when a payment chain also feeds this tile its
+       records must all be in as well; otherwise the record count.  Checked after
+       the commit so the gate fires on the Nth unit and the tile exits promptly. */
+    uint64_t gate = ctx->audited;
+    if( ctx->ordered ) {
+        gate = ctx->agent_committed;
+        if( ctx->has_payment_input && ctx->payment_committed<gate ) gate = ctx->payment_committed;
+    }
+    STK_EVENT_EXHAUSTED(ctx, ctx->event_count, gate);
 
     /* Publish progress to CNC app[0] for supervisor snapshots. */
     stk_publish_counter(ctx->cnc, 0UL, ctx->audited);
@@ -685,6 +949,46 @@ tk_audit_record_denial_reason_code( void * scratch, ulong idx ) {
 void
 tk_audit_record_denial_failed_scope_dim( void * scratch, ulong idx, uint8_t * dst ) {
     memcpy( dst, tk_audit_denial_at( scratch, idx )->failed_scope_dim, TKMODL_SCOPE_DIM_LEN );
+}
+
+/* Ordered-mode state, for tests: agent records committed, records refused
+   (late, duplicate, out of order, or no room), and the held-record counts. */
+ulong
+tk_audit_agent_committed( void * scratch ) {
+    return STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN)->agent_committed;
+}
+
+ulong
+tk_audit_rejected_count( void * scratch ) {
+    return STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN)->rejected;
+}
+
+ulong
+tk_audit_held_model_count( void * scratch ) {
+    return STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN)->model_held_cnt;
+}
+
+ulong
+tk_audit_held_agent_count( void * scratch ) {
+    return STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN)->agent_held_cnt;
+}
+
+static WireProposalPayload const *
+tk_audit_proposal_at( void * scratch, ulong idx ) {
+    AuditEvent const * e = tk_audit_record_at( scratch, idx );
+    if( FD_UNLIKELY( e->record_type!=RECORD_PROPOSAL ) )
+        FD_LOG_ERR(( "tkaudt: record %lu is type %u, not proposal", idx, (uint)e->record_type ));
+    return &e->proposal;
+}
+
+ulong
+tk_audit_record_proposal_hash( void * scratch, ulong idx ) {
+    return tk_audit_proposal_at( scratch, idx )->proposal_hash;
+}
+
+void
+tk_audit_record_proposal_type( void * scratch, ulong idx, uint8_t * dst ) {
+    memcpy( dst, tk_audit_proposal_at( scratch, idx )->proposal_type, 32 );
 }
 
 /* Copy a committed record out whole, for cross-implementation hash checks.

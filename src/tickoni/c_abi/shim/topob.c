@@ -398,6 +398,24 @@ tk_topob_set_tile_obj_property_ulong( void * topo, char const * tile_name,
                         "obj.%lu.%s", t->tiles[ tile_id ].tile_obj_id, key );
 }
 
+/* The committed-audit watermark: one fseq object, written only by tkaudt and
+   read by the tiles that must not publish before an audit record is committed
+   (tkagnt).  It is a topology-level object, not one of a tile's link fseqs, so
+   it cannot be found by "first fseq the tile uses"; its object id is recorded
+   in the topology props under a fixed key, which parent and child rebuild
+   identically.  ULONG_MAX when the topology has none. */
+#define TK_AUDIT_WATERMARK_KEY "tickoni.audit_watermark"
+
+void
+tk_topob_set_audit_watermark( void * topo, ulong obj_id ) {
+  fd_pod_insert_ulong( ((fd_topo_t *)topo)->props, TK_AUDIT_WATERMARK_KEY, obj_id );
+}
+
+ulong
+tk_topo_audit_watermark_obj( fd_topo_t const * topo ) {
+  return fd_pod_query_ulong( topo->props, TK_AUDIT_WATERMARK_KEY, ULONG_MAX );
+}
+
 /* Topology helper: find the object ID of the first object of type
    `obj_type` that belongs to the given tile (i.e. is listed in the
    tile's uses_obj_id[]).  Returns ULONG_MAX if not found.
@@ -426,7 +444,9 @@ tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_t
 #include "../topo_run/tk_dedu_stem.h"
 #include "../topo_run/tk_policy_stem.h"
 #include "../topo_run/tk_model_stem.h"
-#include "../topo_run/tk_agent_sink_stem.h"
+#include "../topo_run/tk_agent_stem.h"
+#include "../topo_run/tk_disp_stem.h"
+#include "../topo_run/tk_pass_stem.h"
 #include "audit_schema.h"
 #endif
 
@@ -469,6 +489,18 @@ tk_topob_tickoni_tile_scratch_requirements( char const * tile_name,
   if( strcmp( tile_name, TILE_ID_TKAGNT ) == 0 ) {
     *alignment_out  = tkagnt_tile_scratch_align();
     *footprint_out  = tkagnt_tile_scratch_footprint();
+    return;
+  }
+  if( strcmp( tile_name, TILE_ID_TKDISP ) == 0 ) {
+    *alignment_out  = tkdisp_tile_scratch_align();
+    *footprint_out  = tkdisp_tile_scratch_footprint();
+    return;
+  }
+  if( strcmp( tile_name, TILE_ID_TKCASE ) == 0 ||
+      strcmp( tile_name, TILE_ID_TKTOOL ) == 0 ||
+      strcmp( tile_name, TILE_ID_TKADPT ) == 0 ) {
+    *alignment_out  = tkpass_tile_scratch_align();
+    *footprint_out  = tkpass_tile_scratch_footprint();
     return;
   }
 #endif
@@ -779,6 +811,17 @@ char const *
 tk_topo_tile_name( void const * topo_, ulong tile_id ) {
   fd_topo_t const * topo = (fd_topo_t const *)topo_;
   return tile_id<topo->tile_cnt ? topo->tiles[ tile_id ].name : NULL;
+}
+
+/* Return the Firedancer-assigned kind_id of a tile (its instance ordinal among
+   tiles sharing the same name).  Used by topo_build.zig to verify that a
+   Tickoni descriptor's declared kind_id is the one Firedancer assigned, so a
+   (name, kind_id) pair always names the process it was launched as.  Returns
+   ULONG_MAX for an out-of-range tile id. */
+ulong
+tk_topo_tile_kind_id( void const * topo_, ulong tile_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  return tile_id<topo->tile_cnt ? topo->tiles[ tile_id ].kind_id : ULONG_MAX;
 }
 
 /* Return the workspace id for an object.
