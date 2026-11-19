@@ -4,6 +4,7 @@
 /// footprint, field accessors) as extern declarations with Zig-native wrapper
 /// functions. This module is the FFI boundary for the tkpoly stem tile.
 const std = @import("std");
+const stem_run = @import("stem_run.zig");
 
 // ---------------------------------------------------------------------------
 // Extern declarations — from c_abi/shim/tk_policy_stem.c
@@ -13,13 +14,8 @@ const std = @import("std");
 /// Opaque handle for fd_topo_run_tile_t. Only shim code knows the real layout.
 pub const TopoRunTile = opaque {};
 
-extern fn tk_get_policy_run_name() [*:0]const u8;
-extern fn tk_get_policy_run_tile() ?*TopoRunTile;
-extern fn tk_get_policy_run_run() ?*anyopaque;
-extern fn tk_get_policy_run_scratch_align() ?*anyopaque;
-extern fn tk_get_policy_run_scratch_footprint() ?*anyopaque;
-extern fn tk_get_policy_run_privileged_init() ?*anyopaque;
-extern fn tk_get_policy_run_unprivileged_init() ?*anyopaque;
+const run_desc = stem_run.RunDescriptor("policy", TopoRunTile);
+
 extern fn tkpoly_tile_scratch_footprint() usize;
 extern fn tkpoly_tile_scratch_align() usize;
 extern fn tkpoly_set_policy_limit_cents(policy_limit_cents: i64) void;
@@ -38,37 +34,37 @@ extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usiz
 
 /// Returns the tile name for tkpoly.
 pub fn getPolicyRunName() [*:0]const u8 {
-    return tk_get_policy_run_name();
+    return run_desc.name();
 }
 
 /// Returns a pointer to the TK_POLICY_RUN tile descriptor.
 pub fn getPolicyRunTile() ?*TopoRunTile {
-    return tk_get_policy_run_tile();
+    return run_desc.tile();
 }
 
 /// Returns the stem run callback pointer.
 pub fn getPolicyRun() ?*anyopaque {
-    return tk_get_policy_run_run();
+    return run_desc.run();
 }
 
 /// Returns the scratch align callback pointer.
 pub fn getPolicyRunScratchAlign() ?*anyopaque {
-    return tk_get_policy_run_scratch_align();
+    return run_desc.scratchAlign();
 }
 
 /// Returns the scratch footprint callback pointer.
 pub fn getPolicyRunScratchFootprint() ?*anyopaque {
-    return tk_get_policy_run_scratch_footprint();
+    return run_desc.scratchFootprint();
 }
 
 /// Returns the privileged init callback pointer.
 pub fn getPolicyRunPrivilegedInit() ?*anyopaque {
-    return tk_get_policy_run_privileged_init();
+    return run_desc.privilegedInit();
 }
 
 /// Returns the unprivileged init callback pointer.
 pub fn getPolicyRunUnprivilegedInit() ?*anyopaque {
-    return tk_get_policy_run_unprivileged_init();
+    return run_desc.unprivilegedInit();
 }
 
 /// Returns the scratch footprint (in bytes) for the tkpoly tile.
@@ -118,17 +114,17 @@ pub fn policyOutcome(
 // ---------------------------------------------------------------------------
 
 test "tkpoly tile identity — name is TILE_ID_TKPOLY" {
-    const name = std.mem.sliceTo(tk_get_policy_run_name(), 0);
+    const name = std.mem.sliceTo(run_desc.name(), 0);
     try std.testing.expectEqualStrings("tkpoly", name);
 }
 
 test "tkpoly tile identity — run callback is non-null" {
-    try std.testing.expect(tk_get_policy_run_run() != null);
+    try std.testing.expect(run_desc.run() != null);
 }
 
 test "tkpoly tile identity — scratch callbacks are non-null" {
-    try std.testing.expect(tk_get_policy_run_scratch_align() != null);
-    try std.testing.expect(tk_get_policy_run_scratch_footprint() != null);
+    try std.testing.expect(run_desc.scratchAlign() != null);
+    try std.testing.expect(run_desc.scratchFootprint() != null);
 }
 
 test "tkpoly scratch align — describes the context block, not fd_stem's stack scratch" {
@@ -155,8 +151,8 @@ test "tkpoly scratch align — footprint is a whole number of alignment units" {
 }
 
 test "tkpoly tile identity — init callbacks are non-null" {
-    try std.testing.expect(tk_get_policy_run_privileged_init() != null);
-    try std.testing.expect(tk_get_policy_run_unprivileged_init() != null);
+    try std.testing.expect(run_desc.privilegedInit() != null);
+    try std.testing.expect(run_desc.unprivilegedInit() != null);
 }
 
 test "tkpoly scratch footprint — returns deterministic value > 1" {
