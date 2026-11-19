@@ -25,7 +25,7 @@ pub fn strategy(
     const int_mods = factory.ModuleFactory.init(b, shared, tm, target, optimize).createIntModules(null);
 
     // Collect all compile steps for sequential run.
-    var run_sequence: [50]*std.Build.Step.Compile = undefined;
+    var run_sequence: [64]*std.Build.Step.Compile = undefined;
     var run_count: usize = 0;
 
     const tb = lane.TestBuilder{
@@ -274,6 +274,40 @@ pub fn strategy(
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-disp",
         .source_file = "src/tickoni/tiles/disp/mod.zig",
+    });
+    run_count += 1;
+
+    // c_abi/tkmodl.zig — identity, fixed scratch, wire layout, and
+    // configuration contract unit tests for the fixture/replay model stem shim.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tkmodl-identity",
+        .source_file = "src/tickoni/c_abi/tkmodl.zig",
+        .imports = &.{
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+        },
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    // c_abi/tkagnt.zig — identity and scratch contract for the result-sink
+    // stem shim registered as tkagnt.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tkagnt-identity",
+        .source_file = "src/tickoni/c_abi/tkagnt.zig",
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    // tiles/model/validator_parity.zig — C governance helper vs the retained Zig
+    // validator, branch by branch.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-model-validator-parity",
+        .source_file = "src/tickoni/tiles/model/validator_parity.zig",
+        .imports = &.{
+            .{ .name = "c_abi", .module = shared.c_abi },
+            .{ .name = "model_messages", .module = tm.model_messages },
+        },
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
     });
     run_count += 1;
 
@@ -579,6 +613,33 @@ pub fn strategy(
         // Create executable from the static library (re-exports the main)
         const test_exe = b.addExecutable(.{
             .name = "test-tkpoly-during-frag",
+            .root_module = test_lib.root_module,
+        });
+
+        run_sequence[run_count] = test_exe;
+        run_count += 1;
+    }
+
+    // === tkmodl DURING_FRAG unit test ===
+    // Compiles the real tile source into the test and drives the real
+    // tkmodl_during_frag / tkmodl_after_frag: staging, bounds, wire-shape
+    // rejection, and the abandoned-fragment (stale stage_valid) case.
+    {
+        const test_lib = codec.addTickoniShimLibrary(b, target, optimize,
+            "test-tkmodl-during-frag-lib", &.{
+            "src/tickoni/test/unit/test_tkmodl_during_frag.c",
+            "src/tickoni/test/unit/test_tkmodl_during_frag_stub.c",
+        });
+        test_lib.root_module.addIncludePath(b.path("src/tickoni/c_abi/shim"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/src"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/firedancer"));
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_disco.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
+
+        const test_exe = b.addExecutable(.{
+            .name = "test-tkmodl-during-frag",
             .root_module = test_lib.root_module,
         });
 
