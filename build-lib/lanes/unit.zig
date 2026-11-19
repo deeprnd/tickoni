@@ -380,6 +380,15 @@ pub fn strategy(
     });
     run_count += 1;
 
+    // c_abi/tkdiag.zig — identity and scratch contract for the minimal observer
+    // stem shim registered as tkdiag (0-in, 0-out).
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tkdiag-identity",
+        .source_file = "src/tickoni/c_abi/tkdiag.zig",
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
     // tiles/model/validator_parity.zig — C governance helper vs the retained Zig
     // validator, branch by branch.
     run_sequence[run_count] = tb.registerRunTest(.{
