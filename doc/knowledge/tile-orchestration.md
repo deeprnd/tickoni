@@ -336,6 +336,15 @@ Three Tickoni tiles are implemented as `fd_stem` specializations today:
 delegates to upstream `fd_metric_tile.c` and Tickoni authors none of its
 callbacks.
 
+Two further stem tiles exist for the model gateway, recorded here as verified
+facts rather than as part of the list above: `tkmodl` (`shim/tk_model_stem.c`),
+**fixture/replay only** — it has no provider I/O and rejects a live-provider
+configuration, so the non-blocking-provider rule for `tkmodl` below is not yet
+exercised — and a bounded result sink registered as `tkagnt`
+(`shim/tk_agent_sink_stem.c`), which observes the `tkmodl` result link and is
+not the agent tile. Both run only in `minimalWithModelProcess()`; see
+[`plans/v2.NN-sXX-tkmodl-fd-stem-migration-done.md`](../execution/plans/v2.NN-sXX-tkmodl-fd-stem-migration-done.md).
+
 This section is the architecture-boundary standard for that tile shape: when
 to choose it, which callbacks a Tickoni tile may define, what must be true of
 its scratch, how it is observed, how it is tested, and which parts of the
