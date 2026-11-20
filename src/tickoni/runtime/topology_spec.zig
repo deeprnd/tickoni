@@ -26,7 +26,10 @@ pub const magic: u32 = 0x544b5453; // "TKST"
 /// v4: per-tile `tile_kind_id`, capacity raised to 32 tiles / 64 channels for
 /// the tkagnt multi-tkmodl graph (see the tkagnt fd_stem migration plan,
 /// "Topology capacity and instance contract").
-pub const version: u16 = 4;
+/// v5: per-channel `reliability`. The diagnostic fan-in links are lossy
+/// (unreliable consumers), and a child that rebuilt them reliable would wire a
+/// different consumer than the supervisor did.
+pub const version: u16 = 5;
 
 pub const max_tiles: usize = 32;
 pub const max_channels: usize = 64;
@@ -51,6 +54,8 @@ pub const TopologySpec = struct {
     channel_dst_idx: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
     channel_depth: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
     channel_mtu: [max_channels]u32 = std.mem.zeroes([max_channels]u32),
+    /// `link.LinkReliability` ordinal: 0 reliable, 1 lossy.
+    channel_reliability: [max_channels]u8 = std.mem.zeroes([max_channels]u8),
     workspace_name: link.WorkspaceName = std.mem.zeroes(link.WorkspaceName),
     metric_port: u16 = 7999,
     /// Pipeline event count for this run.
@@ -86,6 +91,7 @@ pub const TopologySpec = struct {
             spec.channel_dst_idx[i] = ch.dst_idx;
             spec.channel_depth[i] = ch.depth;
             spec.channel_mtu[i] = ch.mtu;
+            spec.channel_reliability[i] = @backingInt(ch.reliability);
             if (i == 0) {
                 if (ch.workspace_name.isEmpty()) return error.MissingWorkspaceName;
                 spec.workspace_name = ch.workspace_name;
@@ -116,6 +122,8 @@ pub const TopologySpec = struct {
                 .depth = self.channel_depth[i],
                 .mtu = self.channel_mtu[i],
                 .backing = .tango_shm,
+                // validate() rejects any code that is not a LinkReliability.
+                .reliability = @fromBackingInt(@intCast(self.channel_reliability[i])),
                 .workspace_name = self.workspace_name,
             };
         }
@@ -128,6 +136,9 @@ pub const TopologySpec = struct {
     /// range, depth, workspace and CPU placement).
     pub fn validate(self: *const TopologySpec) !void {
         if (self.tile_cnt > max_tiles or self.channel_cnt > max_channels) return error.TopologySpecMalformed;
+        for (self.channel_reliability[0..self.channel_cnt]) |code| {
+            if (std.enums.fromInt(link.LinkReliability, code) == null) return error.TopologySpecMalformed;
+        }
         var tiles_buf: [max_tiles]tile.TileDescriptor = undefined;
         var channels_buf: [max_channels]link.Channel = undefined;
         try self.toTopology(&tiles_buf, &channels_buf).validate();
@@ -204,6 +215,50 @@ test "TopologySpec round-trips through a file for the linear Phase 0 chain" {
 }
 
 const topology_spec_max_tiles_for_test = max_tiles;
+
+test "TopologySpec round-trips each channel's reliability, so a child rebuilds the parent's consumers" {
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    const wksp = try link.WorkspaceName.parse("tkpay0");
+    const tiles = [_]tile.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkings },
+        .{ .id = 1, .name = tile_ids.tknorm },
+        .{ .id = 2, .name = tile_ids.tkdiag },
+    };
+    const channels = [_]link.Channel{
+        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .reliability = .reliable, .workspace_name = wksp },
+        .{ .src_idx = 0, .dst_idx = 2, .depth = 64, .mtu = 128, .backing = .tango_shm, .reliability = .lossy, .workspace_name = wksp },
+        .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 128, .backing = .tango_shm, .reliability = .lossy, .workspace_name = wksp },
+    };
+    const topo = topology.Topology{ .tiles = &tiles, .channels = &channels };
+
+    const spec = try TopologySpec.fromTopology(topo, util.nextMetricPort(), 0);
+    try spec.writeToFile(std.testing.io, tmp.dir, "reliability.spec");
+    const read_back = try TopologySpec.readFromFile(std.testing.io, tmp.dir, "reliability.spec");
+    try read_back.validate();
+
+    var tiles_buf: [topology_spec_max_tiles_for_test]tile.TileDescriptor = undefined;
+    var channels_buf: [max_channels]link.Channel = undefined;
+    const rebuilt = read_back.toTopology(&tiles_buf, &channels_buf);
+    try std.testing.expectEqual(@as(usize, 3), rebuilt.channels.len);
+    for (channels, rebuilt.channels) |want, got| try std.testing.expectEqual(want.reliability, got.reliability);
+}
+
+test "TopologySpec validate rejects an unknown channel reliability code" {
+    const wksp = try link.WorkspaceName.parse("tkpay0");
+    const tiles = [_]tile.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkings },
+        .{ .id = 1, .name = tile_ids.tknorm },
+    };
+    const channels = [_]link.Channel{
+        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = wksp },
+    };
+    var spec = try TopologySpec.fromTopology(.{ .tiles = &tiles, .channels = &channels }, util.nextMetricPort(), 0);
+    try spec.validate();
+    spec.channel_reliability[0] = 2;
+    try std.testing.expectError(error.TopologySpecMalformed, spec.validate());
+}
 
 test "TopologySpec readFromFile rejects a truncated file" {
     var tmp = util.tmpDir();

@@ -391,6 +391,25 @@ pub fn build(
     }
     log.kvFmt("topo_build", "build", "done CNC loop (tile_cnt={d})", .{topo_desc.tiles.len});
 
+    // The diagnostics tile observes the whole topology, as Firedancer's diag tile
+    // does: it reads every other tile's metrics region (the tile's status and pid,
+    // and where it writes the tile's OS-level metrics) and, to learn the replay
+    // result, tkrepl's CNC. Declaring the use is what makes its process join the
+    // workspaces holding them. These add no objects, so parent and child still
+    // lay the topology out identically.
+    {
+        var diag_name_buf: [8]u8 = undefined;
+        const diag_fd = c_abi.topob.topoFindTile(topo, util.toZ(&diag_name_buf, tile_ids.tkdiag.slice()), 0);
+        if (diag_fd != c_abi.topob.not_found) {
+            for (topo_desc.tiles, 0..) |t, desc_idx| {
+                const fd_idx = fd_tile_idx_by_desc[desc_idx];
+                if (fd_idx == diag_fd) continue;
+                c_abi.topob.topobTileUses(topo, diag_fd, c_abi.topob.topoTileMetricsObjId(topo, fd_idx), true);
+                if (tile_ids.tkrepl.eql(t.name)) c_abi.topob.topobTileUses(topo, diag_fd, cnc_obj_id[fd_idx], false);
+            }
+        }
+    }
+
     // Committed-audit watermark: tkaudt stays a pure sink, so the barrier that
     // tells tkagnt an audit record is committed is one single-writer fseq,
     // not a return link. Created at a fixed position (after the CNCs, before
@@ -421,7 +440,10 @@ pub fn build(
         const dst_name_z = util.toZ(&dst_name_buf, dst_desc.name.slice());
         const link_name_z = linkNameZ(&link_name_buf, i);
         log.kvFmt("topo_build", "build", "calling topobTileIn(dst={s}#{d}, wksp={s}, link=ch{d})", .{ dst_name_z, dst_desc.kind_id, wksp_name_z, i });
-        const fseq_obj_id = c_abi.topob.topobTileIn(topo, dst_name_z, dst_desc.kind_id, wksp_name_z, link_name_z, 0, true, true);
+        // A lossy channel is an unreliable consumer: its producer never waits on
+        // it. Only telemetry links are lossy (link/types.zig, LinkReliability).
+        const reliable = ch.reliability == .reliable;
+        const fseq_obj_id = c_abi.topob.topobTileIn(topo, dst_name_z, dst_desc.kind_id, wksp_name_z, link_name_z, 0, reliable, true);
         log.kvFmt("topo_build", "build", "calling topobTileOut(src={s}, link=ch{d})", .{ src_name_z, i });
         c_abi.topob.topobTileOut(topo, src_name_z, src_desc.kind_id, link_name_z, 0);
         // Verify channel wiring: src tile has out_cnt >= 1, dst tile has in_cnt >= 1.
@@ -829,4 +851,125 @@ test "build gives parent and child the same audit watermark layout" {
         c_abi.topob.topoObjOffset(parent.topo, parent.audit_watermark_obj_id),
         c_abi.topob.topoObjOffset(child.topo, child.audit_watermark_obj_id),
     );
+}
+
+// ---------------------------------------------------------------------------
+// Link reliability — the diagnostic fan-in links are unreliable consumers
+// (plans/v2.10-s14-tkdiag-fan-in.md, "Resolved Design" 1)
+// ---------------------------------------------------------------------------
+
+/// tkings(0) tknorm(1) tkdedu(2) tkpoly(3) tkaudt(4) metric(5) tkdiag(6): the
+/// four reliable pipeline links, then one lossy diagnostic link from each
+/// pipeline tile into tkdiag. Diagnostic links are appended after the pipeline
+/// links, so each producer's diagnostic output is its last output.
+fn fanInTopology(tiles: *[7]tile_mod.TileDescriptor, channels: *[9]link_mod.Channel) !topology.Topology {
+    const wksp = try link_mod.WorkspaceName.parse("tkpay0");
+    const names = [_]tile.TileId{ tile_ids.tkings, tile_ids.tknorm, tile_ids.tkdedu, tile_ids.tkpoly, tile_ids.tkaudt, tile_ids.metric, tile_ids.tkdiag };
+    for (names, 0..) |name, i| tiles[i] = .{ .id = i, .name = name };
+    for (0..4) |i| {
+        channels[i] = .{ .src_idx = @intCast(i), .dst_idx = @intCast(i + 1), .depth = 64, .mtu = 128, .backing = .tango_shm, .reliability = .reliable, .workspace_name = wksp };
+    }
+    for (0..5) |i| {
+        channels[4 + i] = .{ .src_idx = @intCast(i), .dst_idx = 6, .depth = 64, .mtu = 128, .backing = .tango_shm, .reliability = .lossy, .workspace_name = wksp };
+    }
+    return .{ .tiles = tiles, .channels = channels };
+}
+
+fn tileByName(built: *const BuiltTopo, id: tile.TileId) usize {
+    var buf: [8]u8 = undefined;
+    return c_abi.topob.topoFindTile(built.topo, util.toZ(&buf, id.slice()), 0);
+}
+
+test "build wires a lossy channel as an unreliable consumer and a reliable channel as a reliable one" {
+    var tiles: [7]tile_mod.TileDescriptor = undefined;
+    var channels: [9]link_mod.Channel = undefined;
+    const topo_desc = try fanInTopology(&tiles, &channels);
+
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 9091, 0);
+    defer built.deinit(std.testing.allocator);
+
+    // tkdiag: five inputs, every one unreliable, none of them an output of its own.
+    const diag = tileByName(&built, tile_ids.tkdiag);
+    try std.testing.expect(diag != c_abi.topob.not_found);
+    try std.testing.expectEqual(@as(usize, 5), c_abi.topob.topoTileInputCount(built.topo, diag));
+    try std.testing.expectEqual(@as(usize, 0), c_abi.topob.topoTileOutputCount(built.topo, diag));
+    for (0..5) |i| try std.testing.expect(!c_abi.topob.topoTileInReliable(built.topo, diag, i));
+
+    // The pipeline stays reliable: tknorm's one input comes from tkings.
+    const norm = tileByName(&built, tile_ids.tknorm);
+    try std.testing.expectEqual(@as(usize, 1), c_abi.topob.topoTileInputCount(built.topo, norm));
+    try std.testing.expect(c_abi.topob.topoTileInReliable(built.topo, norm, 0));
+    const audit = tileByName(&built, tile_ids.tkaudt);
+    try std.testing.expect(c_abi.topob.topoTileInReliable(built.topo, audit, 0));
+}
+
+test "build gives each diagnostic producer its diagnostic link as its last output" {
+    var tiles: [7]tile_mod.TileDescriptor = undefined;
+    var channels: [9]link_mod.Channel = undefined;
+    const topo_desc = try fanInTopology(&tiles, &channels);
+
+    var built = try build(std.testing.allocator, topo_desc, "tkpay0", 9091, 0);
+    defer built.deinit(std.testing.allocator);
+
+    // Pipeline output plus the diagnostic output, except the sink.
+    const expected_out = [_]struct { id: tile.TileId, out: usize }{
+        .{ .id = tile_ids.tkings, .out = 2 },
+        .{ .id = tile_ids.tknorm, .out = 2 },
+        .{ .id = tile_ids.tkdedu, .out = 2 },
+        .{ .id = tile_ids.tkpoly, .out = 2 },
+        .{ .id = tile_ids.tkaudt, .out = 1 },
+    };
+    for (expected_out) |e| {
+        const idx = tileByName(&built, e.id);
+        try std.testing.expectEqual(e.out, c_abi.topob.topoTileOutputCount(built.topo, idx));
+    }
+    // The metric tile still observes every link, the diagnostic ones included.
+    try std.testing.expectEqual(@as(usize, 9), c_abi.topob.topoTileInputCount(built.topo, built.metric_tile_idx));
+}
+
+// ---------------------------------------------------------------------------
+// tkdiag observes every tile, as Firedancer's diag tile does
+// ---------------------------------------------------------------------------
+
+test "build lets tkdiag reach every other tile's metrics region and tkrepl's CNC" {
+    const wksp = try link_mod.WorkspaceName.parse("tkpay0");
+    const names = [_]tile.TileId{ tile_ids.tkings, tile_ids.tknorm, tile_ids.tkaudt, tile_ids.tkrepl, tile_ids.metric, tile_ids.tkdiag };
+    var tiles: [names.len]tile_mod.TileDescriptor = undefined;
+    for (names, 0..) |name, i| tiles[i] = .{ .id = i, .name = name };
+    const channels = [_]link_mod.Channel{
+        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = wksp },
+        .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = wksp },
+    };
+    var built = try build(std.testing.allocator, .{ .tiles = &tiles, .channels = &channels }, "tkpay0", 9091, 0);
+    defer built.deinit(std.testing.allocator);
+
+    const diag = tileByName(&built, tile_ids.tkdiag);
+    try std.testing.expect(diag != c_abi.topob.not_found);
+    for ([_]tile.TileId{ tile_ids.tkings, tile_ids.tknorm, tile_ids.tkaudt, tile_ids.tkrepl, tile_ids.metric }) |other| {
+        const idx = tileByName(&built, other);
+        try std.testing.expect(idx != c_abi.topob.not_found);
+        const metrics_obj = c_abi.topob.topoTileMetricsObjId(built.topo, idx);
+        try std.testing.expect(c_abi.topob.topoTileUsesObj(built.topo, diag, metrics_obj));
+    }
+    // tkdiag also reads tkrepl's CNC for the replay result.
+    const repl = tileByName(&built, tile_ids.tkrepl);
+    try std.testing.expect(c_abi.topob.topoTileUsesObj(built.topo, diag, built.cnc_obj_id[repl]));
+    // And only tkrepl's: a CNC is a tile's own control surface.
+    const norm = tileByName(&built, tile_ids.tknorm);
+    try std.testing.expect(!c_abi.topob.topoTileUsesObj(built.topo, diag, built.cnc_obj_id[norm]));
+}
+
+test "build without tkdiag adds no cross-tile access" {
+    const wksp = try link_mod.WorkspaceName.parse("tkpay0");
+    const names = [_]tile.TileId{ tile_ids.tkings, tile_ids.tkaudt, tile_ids.metric };
+    var tiles: [names.len]tile_mod.TileDescriptor = undefined;
+    for (names, 0..) |name, i| tiles[i] = .{ .id = i, .name = name };
+    const channels = [_]link_mod.Channel{
+        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = wksp },
+    };
+    var built = try build(std.testing.allocator, .{ .tiles = &tiles, .channels = &channels }, "tkpay0", 9091, 0);
+    defer built.deinit(std.testing.allocator);
+    const ings = tileByName(&built, tile_ids.tkings);
+    const audt = tileByName(&built, tile_ids.tkaudt);
+    try std.testing.expect(!c_abi.topob.topoTileUsesObj(built.topo, ings, c_abi.topob.topoTileMetricsObjId(built.topo, audt)));
 }

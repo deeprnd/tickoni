@@ -117,6 +117,15 @@ pub const Producer = struct {
         self.cr_avail -= 1;
     }
 
+    /// Fragments published and not yet consumed, at most the link depth. A
+    /// consumer that has not published its position yet (the topology creates the
+    /// fseq at the maximum sequence) has consumed nothing.
+    pub fn backlog(self: *const Producer) u64 {
+        const consumer_seq = c_abi.fseq.fseqQuery(self.fseq);
+        const lag = if (consumer_seq == std.math.maxInt(u64)) self.next_seq else self.next_seq -% consumer_seq;
+        return @min(lag, self.depth);
+    }
+
     pub fn publishLossy(self: *Producer, payload: []const u8, dropped: *std.atomic.Value(u64)) error{PayloadTooLarge}!void {
         const consumer_seq = c_abi.fseq.fseqQuery(self.fseq);
         const lag = self.next_seq -% consumer_seq;
