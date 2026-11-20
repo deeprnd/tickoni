@@ -21,6 +21,21 @@ extern ulong tkings_tile_scratch_footprint( void );
 typedef void (*tkings_payment_generator_t)( uint64_t offset, PaymentMessage * out );
 extern void tkings_set_event_count( uint64_t event_count );
 extern void tkings_set_payment_generator( tkings_payment_generator_t generator );
+
+/* Test-only agent-request source, the alternative to the payment generator
+   (exactly one is installed).  The tile publishes one logical agent request
+   per offset as a multipart fragment stream (shim/tk_multipart.h) instead of
+   one payment fragment.  Zig owns the message and the fault injection:
+
+   - the builder returns the length of the request for stream `offset`, sets
+     `*msg` to its bytes (Zig-owned, valid until the next call) and `*run_id`
+     to the request's run id; it returns 0 if it cannot build one;
+   - the optional fragment hook sees every fragment just before it is
+     published, may edit it in place, and returns nonzero to withhold it (a
+     deliberately faulty producer, for the receiver's fail-closed tests). */
+typedef ulong (*tkings_request_builder_t)( uint64_t offset, uint8_t const ** msg, uint64_t * run_id );
+typedef int   (*tkings_fragment_hook_t)( uint64_t offset, uint32_t frag_idx, uint32_t frag_cnt, uint8_t * frag, ulong sz );
+extern void tkings_set_request_source( tkings_request_builder_t builder, tkings_fragment_hook_t hook );
 extern void tkings_set_stuck_hook( uint64_t after_messages, uint64_t sleep_ns );
 extern void tkings_set_crash_after_heartbeats( uint32_t heartbeat_count );
 

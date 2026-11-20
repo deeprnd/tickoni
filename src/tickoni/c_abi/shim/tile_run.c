@@ -73,13 +73,13 @@ tile_is_ingest( fd_topo_tile_t * tile ) {
    tile_name_sz). */
 static int
 tile_is_metric( fd_topo_tile_t * tile ) {
-  FD_LOG_NOTICE(( "tile_run: tile_is_metric ENTER tile=%p", (void*)tile ));
+  FD_LOG_DEBUG(( "tile_run: tile_is_metric ENTER tile=%p", (void*)tile ));
   if( !tile ) {
-    FD_LOG_NOTICE(( "tile_run: tile_is_metric EXIT tile=NULL returning 0" ));
+    FD_LOG_DEBUG(( "tile_run: tile_is_metric EXIT tile=NULL returning 0" ));
     return 0;
   }
   int result = strcmp( tile->name, TILE_ID_METRIC ) == 0;
-  FD_LOG_NOTICE(( "tile_run: tile_is_metric EXIT tile->name=%s returning %d", tile->name, result ));
+  FD_LOG_DEBUG(( "tile_run: tile_is_metric EXIT tile->name=%s returning %d", tile->name, result ));
   return result;
 }
 
@@ -88,14 +88,14 @@ tile_is_metric( fd_topo_tile_t * tile ) {
    audit stem tile). */
 static int
 tile_is_audit( fd_topo_tile_t * tile ) {
-  FD_LOG_NOTICE(( "tile_run: tile_is_audit ENTER tile=%p", (void*)tile ));
+  FD_LOG_DEBUG(( "tile_run: tile_is_audit ENTER tile=%p", (void*)tile ));
   if( !tile ) {
-    FD_LOG_NOTICE(( "tile_run: tile_is_audit EXIT tile=NULL returning 0" ));
+    FD_LOG_DEBUG(( "tile_run: tile_is_audit EXIT tile=NULL returning 0" ));
     return 0;
   }
-  FD_LOG_NOTICE(( "tile_run: tile_is_audit: tile->name=%s", tile->name ));
+  FD_LOG_DEBUG(( "tile_run: tile_is_audit: tile->name=%s", tile->name ));
   int result = strcmp( tile->name, TILE_ID_TKAUDT ) == 0;
-  FD_LOG_NOTICE(( "tile_run: tile_is_audit EXIT tile->name=%s returning %d", tile->name, result ));
+  FD_LOG_DEBUG(( "tile_run: tile_is_audit EXIT tile->name=%s returning %d", tile->name, result ));
   return result;
 }
 
@@ -103,14 +103,14 @@ tile_is_audit( fd_topo_tile_t * tile ) {
    against TILE_ID_TKNORM. */
 static int
 tile_is_norm( fd_topo_tile_t * tile ) {
-  FD_LOG_NOTICE(( "tile_run: tile_is_norm ENTER tile=%p", (void*)tile ));
+  FD_LOG_DEBUG(( "tile_run: tile_is_norm ENTER tile=%p", (void*)tile ));
   if( !tile ) {
-    FD_LOG_NOTICE(( "tile_run: tile_is_norm EXIT tile=NULL returning 0" ));
+    FD_LOG_DEBUG(( "tile_run: tile_is_norm EXIT tile=NULL returning 0" ));
     return 0;
   }
-  FD_LOG_NOTICE(( "tile_run: tile_is_norm: tile->name=%s", tile->name ));
+  FD_LOG_DEBUG(( "tile_run: tile_is_norm: tile->name=%s", tile->name ));
   int result = strcmp( tile->name, TILE_ID_TKNORM ) == 0;
-  FD_LOG_NOTICE(( "tile_run: tile_is_norm EXIT tile->name=%s returning %d", tile->name, result ));
+  FD_LOG_DEBUG(( "tile_run: tile_is_norm EXIT tile->name=%s returning %d", tile->name, result ));
   return result;
 }
 
@@ -118,14 +118,14 @@ tile_is_norm( fd_topo_tile_t * tile ) {
    against TILE_ID_TKDEDU. */
 static int
 tile_is_dedu( fd_topo_tile_t * tile ) {
-  FD_LOG_NOTICE(( "tile_run: tile_is_dedu ENTER tile=%p", (void*)tile ));
+  FD_LOG_DEBUG(( "tile_run: tile_is_dedu ENTER tile=%p", (void*)tile ));
   if( !tile ) {
-    FD_LOG_NOTICE(( "tile_run: tile_is_dedu EXIT tile=NULL returning 0" ));
+    FD_LOG_DEBUG(( "tile_run: tile_is_dedu EXIT tile=NULL returning 0" ));
     return 0;
   }
-  FD_LOG_NOTICE(( "tile_run: tile_is_dedu: tile->name=%s", tile->name ));
+  FD_LOG_DEBUG(( "tile_run: tile_is_dedu: tile->name=%s", tile->name ));
   int result = strcmp( tile->name, TILE_ID_TKDEDU ) == 0;
-  FD_LOG_NOTICE(( "tile_run: tile_is_dedu EXIT tile->name=%s returning %d", tile->name, result ));
+  FD_LOG_DEBUG(( "tile_run: tile_is_dedu EXIT tile->name=%s returning %d", tile->name, result ));
   return result;
 }
 
@@ -133,14 +133,14 @@ tile_is_dedu( fd_topo_tile_t * tile ) {
    against TILE_ID_TKPOLY. */
 static int
 tile_is_policy( fd_topo_tile_t * tile ) {
-  FD_LOG_NOTICE(( "tile_run: tile_is_policy ENTER tile=%p", (void*)tile ));
+  FD_LOG_DEBUG(( "tile_run: tile_is_policy ENTER tile=%p", (void*)tile ));
   if( !tile ) {
-    FD_LOG_NOTICE(( "tile_run: tile_is_policy EXIT tile=NULL returning 0" ));
+    FD_LOG_DEBUG(( "tile_run: tile_is_policy EXIT tile=NULL returning 0" ));
     return 0;
   }
-  FD_LOG_NOTICE(( "tile_run: tile_is_policy: tile->name=%s", tile->name ));
+  FD_LOG_DEBUG(( "tile_run: tile_is_policy: tile->name=%s", tile->name ));
   int result = strcmp( tile->name, TILE_ID_TKPOLY ) == 0;
-  FD_LOG_NOTICE(( "tile_run: tile_is_policy EXIT tile->name=%s returning %d", tile->name, result ));
+  FD_LOG_DEBUG(( "tile_run: tile_is_policy EXIT tile->name=%s returning %d", tile->name, result ));
   return result;
 }
 
@@ -236,16 +236,12 @@ tk_topo_run_tile_simple_uses_upstream( void ) {
 #endif
 }
 
-static void
-tk_topo_run_tile_simple_mode( void * topo, void * tile, int process_mode ) {
+void
+tk_topo_run_tile_simple( void * topo, void * tile ) {
   fd_topo_tile_t * tile_c = (fd_topo_tile_t *)tile;
   fd_topo_run_tile_t * run_tile;
 #if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
-  /* The model-request fixture enters through __tile-run. All other tile
-     identities retain the normal dispatcher, including direct metric tests. */
-  if( process_mode && tile_is_ingest( tile_c ) ) {
-    run_tile = &TK_TILE_RUN;
-  } else if( tile_is_ingest( tile_c ) ) {
+  if( tile_is_ingest( tile_c ) ) {
     run_tile = &TK_INGEST_RUN;
   } else if( tile_is_dedu( tile_c ) ) {
     run_tile = &TK_DEDU_RUN;
@@ -275,7 +271,6 @@ tk_topo_run_tile_simple_mode( void * topo, void * tile, int process_mode ) {
     run_tile = &TK_TILE_RUN;
   }
 #else
-  (void)process_mode;
   (void)tile_is_ingest;
   (void)tile_is_dedu;
   (void)tile_is_audit;
@@ -292,12 +287,12 @@ tk_topo_run_tile_simple_mode( void * topo, void * tile, int process_mode ) {
   run_tile = &TK_TILE_RUN;
 #endif
 
-  FD_LOG_NOTICE(( "tile_run: calling fd_topo_run_tile, run_tile=%p", (void*)run_tile ));
+  FD_LOG_DEBUG(( "tile_run: calling fd_topo_run_tile, run_tile=%p", (void*)run_tile ));
   fd_topo_t *topo_c = (fd_topo_t *)topo;
-  FD_LOG_NOTICE(( "tile_run: tile->id=%lu name=%s in_cnt=%lu",
+  FD_LOG_DEBUG(( "tile_run: tile->id=%lu name=%s in_cnt=%lu",
     tile_c->id, tile_c->name, tile_c->in_cnt ));
   for( ulong j=0UL; j < tile_c->in_cnt; j++ ) {
-    FD_LOG_NOTICE(( "tile_run:   in_link[%lu] fseq_obj_id=%lu",
+    FD_LOG_DEBUG(( "tile_run:   in_link[%lu] fseq_obj_id=%lu",
       j, tile_c->in_link_fseq_obj_id[j] ));
   }
 
@@ -307,7 +302,7 @@ tk_topo_run_tile_simple_mode( void * topo, void * tile, int process_mode ) {
                     FD_TOPO_CORE_DUMP_LEVEL_REGULAR,
                     (uint)getuid(), (uint)getgid(), /* allow_fd */ -1,
                     run_tile );
-  FD_LOG_NOTICE(( "tile_run: fd_topo_run_tile returned (tile_name=%s)", tile_c->name ));
+  FD_LOG_DEBUG(( "tile_run: fd_topo_run_tile returned (tile_name=%s)", tile_c->name ));
 #elif FD_HAS_MACOS
   tk_topo_run_tile( topo, tile,
                     TK_PROCESS_MODE_SANDBOX_NONE, TK_KEEP_CONTROLLING_TERMINAL,
@@ -321,15 +316,5 @@ tk_topo_run_tile_simple_mode( void * topo, void * tile, int process_mode ) {
                     0U, 0U, /* allow_fd */ -1,
                     run_tile );
 #endif
-  FD_LOG_NOTICE(( "tile_run: tk_topo_run_tile_simple EXIT" ));
-}
-
-void
-tk_topo_run_tile_simple( void * topo, void * tile ) {
-  tk_topo_run_tile_simple_mode( topo, tile, 0 );
-}
-
-void
-tk_topo_run_tile_process_simple( void * topo, void * tile ) {
-  tk_topo_run_tile_simple_mode( topo, tile, 1 );
+  FD_LOG_DEBUG(( "tile_run: tk_topo_run_tile_simple EXIT" ));
 }
