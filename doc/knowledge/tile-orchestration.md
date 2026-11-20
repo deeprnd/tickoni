@@ -390,8 +390,14 @@ directed it onto `fd_stem` as a minimal observer (0-in, 0-out, `BEFORE_CREDIT`
 only, no fragment I/O) so that every Tickoni-authored tile shares one launch
 path and lifecycle. See
 [`plans/v2.NN-sXX-tkdiag-fd-stem-migration.md`](../execution/plans/v2.NN-sXX-tkdiag-fd-stem-migration.md).
-Fan-in diagnostics, OS-level metrics and an HTTP surface for `tkdiag` remain
-future work and are not authorized by that migration.
+The owner has since had the whole of that migration's future work done, in
+[`plans/v2.10-s14-tkdiag-fan-in.md`](../execution/plans/v2.10-s14-tkdiag-fan-in.md),
+modelled on Firedancer's diag tile: in the payment process topology `tkdiag`
+takes one unreliable diagnostic link from each of `tkings`, `tknorm`, `tkdedu`,
+`tkpoly` and `tkaudt`; it watches every tile's process and writes each tile's
+OS-level metrics into that tile's metrics region; it reads tkrepl's replay
+result; and it publishes nothing and opens no socket. Its metrics are served by
+the metric tile, as Firedancer serves its diag tile's.
 
 Mixing the two paths in one tile is not allowed. A tile is either an fd_stem
 tile — `process_fn = null` in the registry, booted through
@@ -676,7 +682,8 @@ power of two not above `STEM_LAZY / event_cnt` (`fd_tempo_async_min`,
 `fd_tempo_async_reload`). The order is reshuffled each cycle, so two
 housekeeping events can be nearly two cycles apart: the gap between heartbeats
 stays below `4 * STEM_LAZY` plus the longest callback (below `2 * STEM_LAZY`
-for a tile with no links, such as `tkdiag`) and averages about `STEM_LAZY`.
+for a tile with no links, such as `tkdiag` in a topology without diagnostic
+links) and averages about `STEM_LAZY`.
 Every Tickoni stem tile sets
 `STEM_LAZY` to 10 ms, so the worst gap is about 40 ms. The supervisor's default
 stale threshold is 100 ms (five times the 20 ms heartbeat interval), which
@@ -877,11 +884,13 @@ needs a deliberate pass.
 - **Stale forward-looking plans.** Several plans written before the contract
   still prescribe publishing in `AFTER_CREDIT`
   (`plans/v2.10-s14-fd-stem-migration.md`,
-  `plans/v2.22-s5-fd-stem-migration.md`, `plans/v2.10-s14-tkdiag-fan-in.md`,
+  `plans/v2.22-s5-fd-stem-migration.md`,
   `plans/v2.10-s14-tkrepl-capsule-io.md`, and the story
   `doc/strategy/roadmap/stories/v2.10-s14.md`). The contract wins; those
-  need a product-owned pass before `tkpoly`, `tkings`, `tkrepl`, or `tkdiag`
-  migrate. Tracked in
+  need a product-owned pass before `tkpoly`, `tkings` or `tkrepl` migrate.
+  `plans/v2.10-s14-tkdiag-fan-in.md` had the same defect and got that pass
+  before it was implemented (its "Resolved Design" supersedes its sketches).
+  Tracked in
   [`../execution/tile-delivery-status.md`](../execution/tile-delivery-status.md).
 - **`plans/v2.NN-sXX-tkaudt-stem-contract.md` overstates its verification.**
   Its "Verification" item 1 claims a `_Static_assert` fails the build if
