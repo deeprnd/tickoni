@@ -183,20 +183,20 @@ that may be torn, and anything it commits cannot be taken back.
    inserts, audit appends and hash-chain advances), counter increments,
    `stk_publish_counter`, `STK_EVENT_EXHAUSTED`, and `fd_stem_publish`.
 
-3. **`AFTER_CREDIT` is not defined** unless the tile has work that is not
-   driven by an incoming fragment, such as a timer or a backlog drain. Do not
-   add it as a "safety" second publish path. `SHOULD_SHUTDOWN` is evaluated at
-   the *top* of the stem loop, before `AFTER_CREDIT`, so a tile that gates
-   shutdown on its own progress and publishes in `AFTER_CREDIT` never
-   publishes its final event — publish in `AFTER_FRAG` instead, which runs in
-   the same iteration as the `DURING_FRAG` that triggered the shutdown.
+3. **`AFTER_CREDIT` is for work independent of an incoming fragment.** Do not
+   add it as a second publish path on a consumer tile: `SHOULD_SHUTDOWN` runs
+   at the top of the loop and could skip a staged final fragment. A consumer
+   commits in `AFTER_FRAG`. Producer-only `tkings` has no input fragment; it
+   stages in `BEFORE_CREDIT`, publishes in `AFTER_CREDIT` when reliable output
+   credit is available, and sets exhaustion only after that publish.
 
 4. **`STEM_BURST` must equal the maximum number of `fd_stem_publish` calls any
    single loop iteration can make.** The credit gate reserves exactly
    `STEM_BURST` slots per iteration; a second publish in the same iteration
    spends a credit the tile does not hold and can overrun the downstream
-   consumer. With publish confined to `AFTER_FRAG`, `STEM_BURST (1UL)` is
-   correct by construction for a one-output tile.
+   consumer. The diagnostic output is unreliable and draws no credit;
+   `STEM_BURST (1UL)` covers one pipeline publish per iteration for `tkings`
+   and the one-output consumer tiles.
 
 A sink tile (`out_cnt == 0`, such as `tkaudt`) follows the same contract; it
 simply ends `AFTER_FRAG` without a publish. The shape of the tile is decided
