@@ -306,6 +306,7 @@
     "Landlock",
     "LDFLAGS",
     "libc",
+    "libboost",
     "libcrypto",
     "libdebuginfod",
     "libdw",
