@@ -189,7 +189,7 @@ supersedes its code sketches (publish in `AFTER_FRAG`, an unreliable link, a
 128-byte fragment). `tkings` now uses `fd_stem` for the synthetic payment
 source under the S15 producer-only exception: it publishes the reliable
 pipeline fragment and then the diagnostic fragment in `AFTER_CREDIT`. The
-test-only model-request source is deferred.
+test-only model-request source stays on the process callback path.
 
 ## Tile Synchronization Debt
 
