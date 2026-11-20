@@ -53,6 +53,10 @@ class Tile(Enum):
     BENCHS = 106
     GUIH = 107
 
+    # Tickoni-owned tile kinds start at 200, clear of the values Firedancer
+    # allocates upstream.
+    TKDIAG = 200
+
 class MetricType(Enum):
     COUNTER = 0
     GAUGE = 1

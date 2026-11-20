@@ -402,6 +402,7 @@ EXAMPLES
     <counter name="PageFaultMajor" summary="Major page faults" />
     <counter name="PageFaultMinor" summary="Minor page faults" />
     <gauge name="Status" summary="0=booting, 1=running, 2=shutdown" />
+    <gauge name="ResidentBytes" summary="Resident memory of the tile process in bytes (Linux: resident set from /proc, macOS: resident size, Windows: working set), written by the diagnostics tile" />
     <gauge name="HeartbeatTimestampNanos" summary="Last UNIX timestamp the tile heartbeated, in nanoseconds" />
     <gauge name="InBackpressure" summary="Whether the tile is currently backpressured, 1 or 0" />
     <counter name="Backpressure" summary="Times the tile waited for one or more consumers to catch up to resume publishing" />
@@ -1719,6 +1720,21 @@ EXAMPLES
     <counter name="DeviceIrqUndesired" summary="Number of device hard IRQs that stole CPU time from fixed tiles" />
     <counter name="Softirq" enum="Softirq" summary="Number of soft-IRQs across all CPUs" />
     <counter name="SoftirqUndesired" enum="Softirq" summary="Number of soft-IRQs that stole CPU time from fixed tiles" />
+</tile>
+
+<tile name="tkdiag">
+    <gauge name="TilesReporting" summary="Pipeline tiles with an accepted diagnostic fragment" />
+    <gauge name="CrashedTiles" summary="Tiles that died without a clean shutdown, or whose latest diagnostic fragment reports a fatal fault" />
+    <gauge name="SandboxFailures" summary="Tiles that died before reaching the running state, that is during boot or sandbox entry" />
+    <gauge name="ReplayChecked" summary="1 once tkrepl has finished its replay check, else 0" />
+    <gauge name="ReplayMatch" summary="1 if the finished replay matched the audited chain, else 0" />
+    <gauge name="TotalErrors" summary="Sum of the latest per-tile error counts reported in diagnostic fragments" />
+    <gauge name="TotalAuditRecords" summary="Largest audit record count any tile reports in a diagnostic fragment" />
+    <gauge name="TotalBackpressureWaits" summary="Sum of the latest per-tile backpressure counts reported in diagnostic fragments" />
+    <gauge name="MaxQueueDepth" summary="Largest input backlog, in fragments, any tile reports in a diagnostic fragment" />
+
+    <counter name="FragmentsAccepted" summary="Diagnostic fragments accepted into the aggregation" />
+    <counter name="FragmentsRejected" summary="Diagnostic fragments refused: malformed, wrong sender, stale or duplicate, or unreadable" />
 </tile>
 
 <tile name="genesi">
