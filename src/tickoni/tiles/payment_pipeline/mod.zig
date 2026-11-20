@@ -63,6 +63,19 @@ test "payment tile stages audit and replay one valid payment sequentially" {
     try std.testing.expect(state.audit.external_effects_disabled.load(.seq_cst));
 }
 
+test "payment replay detects a changed audited event" {
+    var state = try PaymentPipelineState.init(std.testing.allocator, .{ .event_count = 1, .queue_depth = 1 });
+    defer state.deinit();
+    try runOneSequentialForTest(&state, syntheticPayment(state.config, 0));
+    try std.testing.expect(state.audit.replay_match.load(.seq_cst));
+
+    state.audit.audit.records[0].header.record_hash ^= 1;
+    runReplay(&state.audit, state.config);
+    try std.testing.expect(!state.audit.replay_match.load(.seq_cst));
+    try std.testing.expectEqual(@as(u64, 1), state.audit.replay_divergences.load(.seq_cst));
+    try std.testing.expect(state.audit.external_effects_disabled.load(.seq_cst));
+}
+
 test "Phase 0 rejects malformed payment framing" {
     var state = try PaymentPipelineState.init(std.testing.allocator, .{ .event_count = 1, .queue_depth = 1, .inject_malformed = true });
     defer state.deinit();

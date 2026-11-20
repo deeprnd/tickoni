@@ -133,8 +133,8 @@ pub fn runIngestProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, output
 }
 
 /// tkings' side of the diagnostic fan-in (plans/v2.10-s14-tkdiag-fan-in.md).
-/// tkings is a generic-path Zig tile, not an fd_stem tile, so it cannot use
-/// stem_diag.h's `fd_stem_publish`; it sends the same 128-byte fragment, built
+/// This superseded process-mode path cannot use stem_diag.h's
+/// `fd_stem_publish`; it sends the same 128-byte fragment, built
 /// from the one definition in shim/tk_diag_fragment.h, over the same unreliable
 /// link with `Producer.publishLossy`. Best effort by design: the link never
 /// backpressures tkings, and a full link overwrites its oldest fragment.
