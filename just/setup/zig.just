@@ -16,6 +16,9 @@ setup-zig:
       *) echo "unsupported host platform for setup-zig: {{ os }}-{{ arch }}" >&2; exit 1 ;;
     esac
 
+setup-zig-force:
+    {{ python }} contrib/setup/orchestrator.py zig --skip-idempotency --platform {{ os }}-{{ arch }}
+
 setup-zig-linux-x86:
     {{ python }} contrib/setup/orchestrator.py zig --platform {{ os }}-{{ arch }}
 

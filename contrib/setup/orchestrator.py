@@ -99,9 +99,17 @@ class Orchestrator:
         resolved = self.resolver.resolve(categories)
         tools = self.resolver.collect(resolved, self.config['categories'], self.config['tools'])
         tools = [t for t in tools if matches_platform(t, platform_str)]
+        requested_tools = {
+            name
+            for category in categories
+            for name in self.config['categories'].get(category, {}).get('tools', [])
+        }
         results = []
         for tool in tools:
-            result = self._install_tool(tool, platform_str, dry_run, skip_idempotency)
+            result = self._install_tool(
+                tool, platform_str, dry_run,
+                skip_idempotency and tool['name'] in requested_tools,
+            )
             results.append(result)
             if tool['name'] == 'dotenv' and result['status'] in ('installed', 'already_installed'):
                 _load_local_env()
@@ -139,7 +147,10 @@ class Orchestrator:
 
         try:
             strategy = get_strategy(method)
-            strategy.execute(tool, self.config, platform_str, dry_run=False)
+            if method == 'install_zig':
+                strategy.execute(tool, self.config, platform_str, dry_run=False, skip_idempotency=skip_idempotency)
+            else:
+                strategy.execute(tool, self.config, platform_str, dry_run=False)
             return {'tool': name, 'status': 'installed'}
         except KeyError as e:
             print(f"ERROR: unknown install_method '{method}' for {name}", file=sys.stderr)
@@ -160,7 +171,7 @@ def main():
     parser.add_argument('--deps', help='Show resolved dependency graph for a category')
     parser.add_argument('--list', help='List all tools in a category')
     parser.add_argument('--dry-run', action='store_true', help='Preview without installing')
-    parser.add_argument('--skip-idempotency', action='store_true', help='Skip idempotency checks — reinstall all tools')
+    parser.add_argument('--skip-idempotency', action='store_true', help='Reinstall tools in requested categories; check dependencies normally')
     parser.add_argument('--platform', help='Platform string from contrib/platform.sh (e.g. linux-x86, macos-arm)')
 
     args = parser.parse_args()
@@ -200,7 +211,10 @@ def main():
     os.environ['TK_OS'] = plat.split('-')[0]
     os.environ['TK_ARCH'] = plat.split('-')[1]
 
-    results = orch.setup(requested, plat, dry_run=args.dry_run, skip_idempotency=skip_idempotency)
+    results = orch.setup(
+        requested, plat, dry_run=args.dry_run,
+        skip_idempotency=skip_idempotency,
+    )
 
     if not args.dry_run:
         ok = sum(1 for r in results if r['status'] in ('installed', 'already_installed'))

@@ -201,3 +201,21 @@ def test_already_installed_tool_logs_explicit_skip(capsys):
     assert result == {"tool": "ccache", "status": "already_installed"}
     assert "[SKIP] ccache (already installed)" in capsys.readouterr().out
     get_strategy.assert_not_called()
+
+
+def test_skip_idempotency_reinstalls_zig_but_keeps_dependencies_idempotent():
+    cfg = json.loads((setup_dir / "tool-versions.json").read_text())
+    strategy = Mock()
+    check = Mock()
+    check.is_satisfied.return_value = True
+
+    with patch("orchestrator.build_check", return_value=check), \
+         patch("orchestrator.get_strategy", return_value=strategy) as get_strategy:
+        results = Orchestrator(cfg).setup(
+            ["zig"], "windows-arm", dry_run=False, skip_idempotency=True,
+        )
+
+    assert all(r["status"] == "already_installed" for r in results[:-1])
+    assert results[-1] == {"tool": "zig", "status": "installed"}
+    get_strategy.assert_called_once_with("install_zig")
+    assert strategy.execute.call_args.kwargs["skip_idempotency"] is True
