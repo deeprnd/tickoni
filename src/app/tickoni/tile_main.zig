@@ -208,7 +208,7 @@ fn runPipelineStage(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_s
 
     const entry = tile_registry.findById(spec.tile_id) orelse return error.UnregisteredTile;
     log.debug("tile_main", "runPipelineStage", "tile found in registry");
-    const process_fn = entry.process_fn orelse return;
+    const process_fn = entry.process_fn orelse entry.test_source_fn orelse return;
     try process_fn(io, wksp, spec, cnc, allocator);
 }
 
