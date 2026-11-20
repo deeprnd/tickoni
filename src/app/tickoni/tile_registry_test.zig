@@ -42,20 +42,10 @@ test "findById returns null for an unregistered id" {
 }
 
 test "process_fn is null for tiles with no process-mode role" {
-    inline for (.{ "tknorm", "tkdedu", "tkpoly", "tkrepl", "metric", "tkdiag", "tkmodl", "tkagnt", "tkdisp", "tkcase", "tktool", "tkadpt" }) |name| {
+    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkrepl", "metric", "tkdiag", "tkmodl", "tkagnt", "tkdisp", "tkcase", "tktool", "tkadpt" }) |name| {
         const tile_id = tile_ids.lookup(name) orelse unreachable;
         const entry = findById(tile_id).?;
         try std.testing.expectEqual(@as(?ProcessFn, null), entry.process_fn);
-    }
-}
-
-test "process_fn is set for the pipeline tile with process-mode role" {
-    // Only tkings has a process-mode pipeline role.
-    // tkpoly migrated to fd_stem tile and runs via TKPOLY_STEM_RUN.
-    inline for (.{"tkings"}) |name| {
-        const tile_id = tile_ids.lookup(name) orelse unreachable;
-        const entry = findById(tile_id).?;
-        try std.testing.expect(entry.process_fn != null);
     }
 }
 
@@ -263,7 +253,7 @@ test "the full workflow's links follow from which placeholder tiles the topology
 }
 
 test "launch mode is owned by the registry" {
-    try std.testing.expectEqual(LaunchMode.tile, findById(tile_ids.tkings).?.launch_mode);
+    try std.testing.expectEqual(LaunchMode.stem, findById(tile_ids.tkings).?.launch_mode);
     inline for (.{ tile_ids.tknorm, tile_ids.tkdedu, tile_ids.tkpoly, tile_ids.tkaudt }) |tile_id| {
         try std.testing.expectEqual(LaunchMode.stem, findById(tile_id).?.launch_mode);
     }
@@ -476,12 +466,9 @@ test "T10.4 positive fan-in: channel array has 2 inbound links to tkaudt" {
 // adapter-manifest validation tests.
 // ---------------------------------------------------------------------------
 
-test "validate rejects mismatched process callback for tiles with pipeline role" {
-    // Only tkings has a non-null process_fn.
-    // tkaudt, tknorm, tkdedu migrated to fd_stem tiles (TK_AUDIT_RUN, TK_NORM_RUN, TK_DEDU_RUN).
-    // tkpoly migrated to fd_stem tile and runs via TKPOLY_STEM_RUN.
+test "tkings has no process callback after stem migration" {
     const entry = findById(tile_ids.tkings).?;
-    try std.testing.expect(entry.process_fn != null);
+    try std.testing.expectEqual(@as(?ProcessFn, null), entry.process_fn);
 }
 
 // T10.15: provider-config validation tests — invalid CPU id, workspace name,

@@ -108,6 +108,13 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
         std.debug.print("tile_main: tile {s}#{d} not found in rebuilt topology\n", .{ id_slice, spec.tile_kind_id });
         return 1;
     }
+    if (rt.tile_ids.tkings.eql(spec.tile_id)) {
+        if (rt.test_build.enabled) c_abi.tkings.setCrashAfterHeartbeats(spec.crash_after_heartbeats);
+        config.loadIngestConfig(io, &spec, topo_spec.event_count, null) catch |err| {
+            std.debug.print("tile_main: tkings source config failed for tile {d}: {t}\n", .{ spec.tile_idx, err });
+            return 1;
+        };
+    }
     // tkpoly is the only stem tile with a behavior parameter outside
     // TopologySpec: the signed policy limit lives in payment_pipeline.config,
     // written by the supervisor beside topology.spec. Load it here, before
