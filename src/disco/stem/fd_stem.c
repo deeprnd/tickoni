@@ -623,6 +623,7 @@ STEM_(run1)( ulong                        in_cnt,
        and during_frag being issued with incorrect arguments, but not
        after_frag. */
     ulong seq_found = FD_VOLATILE_CONST( this_in_mline->seq );
+    FD_HW_MFENCE_LD(); /* seq is the acquire: sig must not be satisfied ahead of it (weakly ordered CPUs) */
     ulong sig       = FD_VOLATILE_CONST( this_in_mline->sig );
 #endif
     (void)sig;
@@ -685,7 +686,7 @@ STEM_(run1)( ulong                        in_cnt,
        control.  Since we can cheaply detect if there are
        misconfigurations (should be an L1 cache hit / predictable branch
        in the properly configured case), we do so anyway. */
-    FD_COMPILER_MFENCE();
+    FD_HW_MFENCE_LD();
 #if FD_HAS_AVX
     ulong chunk    = fd_frag_meta_avx_chunk ( yline ); (void)chunk;
     ulong sz       = fd_frag_meta_avx_sz    ( yline ); (void)sz;
