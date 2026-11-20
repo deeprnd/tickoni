@@ -910,7 +910,7 @@ tkagnt_after_credit( tkagnt_ctx_t *      ctx,
         tkagnt_run_t * r = tkagnt_run_at( ctx, ctx->term_seq );
         if( r->state!=RUN_AUDITED ) break;
         ulong wm = fd_fseq_query( ctx->watermark );
-        if( wm==ULONG_MAX || wm<r->agent_seq ) break;     /* not committed yet */
+        if( wm==TK_AUDIT_WATERMARK_NONE || wm<r->agent_seq ) break;     /* not committed yet */
         TkAgentResultMsg m;
         tkagnt_build_result( r, &m );
         tkagnt_publish_one( ctx, stem, ctx->term_out, TK_LINK_SIG_AGENT_RESULT, &m, sizeof(m) );

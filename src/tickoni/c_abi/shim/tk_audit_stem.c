@@ -337,7 +337,7 @@ tk_audit_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile 
         ctx->watermark = fd_fseq_join( fd_topo_obj_laddr( (fd_topo_t *)topo, wm_obj ) );
         if( FD_UNLIKELY( !ctx->watermark ) )
             FD_LOG_ERR(( "tkaudt: cannot join the audit watermark" ));
-        fd_fseq_update( ctx->watermark, ULONG_MAX );   /* nothing committed yet */
+        fd_fseq_update( ctx->watermark, TK_AUDIT_WATERMARK_NONE );   /* nothing committed yet */
     }
     if( FD_UNLIKELY( ctx->ordered && !ctx->watermark ) )
         FD_LOG_ERR(( "tkaudt: an agent audit input requires the audit watermark object" ));
