@@ -112,7 +112,7 @@ fn maybeBlockForTest(process_cfg: ProcessRuntimeConfig, tile_idx: u32, completed
 // Pipeline stages.
 // ---------------------------------------------------------------------------
 
-pub fn runIngestProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, output: *rt.link.Producer, cnc: *c_abi.cnc.Cnc) void {
+pub fn runIngestProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, output: *rt.link.Producer, diag: ?*DiagSender, cnc: *c_abi.cnc.Cnc) void {
     const cfg = process_cfg.pipeline;
     var stop_flag = std.atomic.Value(bool).init(false);
     var backpressure_waits = std.atomic.Value(u64).init(0);
@@ -126,9 +126,54 @@ pub fn runIngestProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, output
         const msg = PaymentMessage{ .raw = raw, .pipeline_hops = 1 };
         output.publish(std.mem.asBytes(&msg), &backpressure_waits, &stop_flag, cnc) catch break;
         produced += 1;
+        // After the pipeline publish, with the counters just committed.
+        if (diag) |d| d.send(produced, backpressure_waits.load(.acquire), output.backlog());
     }
     rt.cnc_counters.appCounterWrite(cnc, 0, produced);
 }
+
+/// tkings' side of the diagnostic fan-in (plans/v2.10-s14-tkdiag-fan-in.md).
+/// tkings is a generic-path Zig tile, not an fd_stem tile, so it cannot use
+/// stem_diag.h's `fd_stem_publish`; it sends the same 128-byte fragment, built
+/// from the one definition in shim/tk_diag_fragment.h, over the same unreliable
+/// link with `Producer.publishLossy`. Best effort by design: the link never
+/// backpressures tkings, and a full link overwrites its oldest fragment.
+pub const DiagSender = struct {
+    link: *rt.link.Producer,
+    /// The sender's tile index as it knows it: its topology position, which is
+    /// also its Firedancer index because tkings precedes the metric tile, the
+    /// only tile topo_build reorders. tkdiag refuses a fragment whose identity
+    /// disagrees with the input's producer (visible in its rejected counter).
+    tile_idx: u32,
+    seq: u64 = 0,
+    max_queue_depth: u64 = 0,
+    /// Fragments that overwrote one tkdiag had not read yet. Not exported:
+    /// tkdiag's own overrun metrics are the observable side.
+    overwritten: std.atomic.Value(u64) = std.atomic.Value(u64).init(0),
+
+    pub fn init(link: *rt.link.Producer, tile_idx: u32) error{DiagLinkTooSmall}!DiagSender {
+        if (link.mtu < @sizeOf(audit_mod.diag_fragment_t)) return error.DiagLinkTooSmall;
+        return .{ .link = link, .tile_idx = tile_idx };
+    }
+
+    /// `backlog` is the pipeline link's current backlog (fragments tkings has
+    /// published that its consumer has not read); the sender keeps the peak.
+    pub fn send(self: *DiagSender, events_processed: u64, backpressure_waits: u64, backlog: u64) void {
+        self.seq += 1;
+        self.max_queue_depth = @max(self.max_queue_depth, backlog);
+        var f = std.mem.zeroes(audit_mod.diag_fragment_t);
+        f.tile_id = self.tile_idx;
+        f.tile_type = audit_mod.TK_DIAG_TYPE_INGEST;
+        f.seq = self.seq;
+        f.timestamp_ns = @intCast(util.process.monotonicNanos());
+        f.events_processed = events_processed;
+        f.backpressure_waits = backpressure_waits;
+        f.max_queue_depth = self.max_queue_depth;
+        // init() checked that a fragment fits the link's MTU, the only way
+        // publishLossy can fail.
+        self.link.publishLossy(std.mem.asBytes(&f), &self.overwritten) catch unreachable;
+    }
+};
 
 /// Test-build agent-request stream. When the process config carries a
 /// `ModelRequestSource`, the process publishes one agent request per offset
