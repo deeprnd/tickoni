@@ -56,12 +56,12 @@ class ZigInstallStrategy(InstallStrategy):
         options = version_entry.get('options', {})
         return options.get('minisign_key', '')
 
-    def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool) -> None:
+    def execute(self, tool: dict, config: dict, platform_str: str, dry_run: bool, skip_idempotency: bool = False) -> None:
         self._tool = tool
         self._config = config
         version_ref = tool['parameters'].get('version_ref')
         install_root = tool['parameters'].get('install_root', os.path.expanduser('~/.local'))
-        user_path = tool['parameters'].get('user_path', False)
+        user_path = tool['parameters'].get('user_path', platform_str.startswith('windows'))
 
         version = resolve_version(config, version_ref)
         if not version:
@@ -81,7 +81,7 @@ class ZigInstallStrategy(InstallStrategy):
             print(f"  [DRY-RUN] Would install zig {version} (target={target}) to {install_root}")
             return
 
-        self._install(version, target, install_root, user_path, platform_str)
+        self._install(version, target, install_root, user_path, platform_str, skip_idempotency=skip_idempotency)
 
     @staticmethod
     def _github_path_already_written(gh_path: str, install_dir_str: str) -> bool:
@@ -95,11 +95,11 @@ class ZigInstallStrategy(InstallStrategy):
             pass
         return False
 
-    def _install(self, version: str, target: str, install_root: str, user_path: bool, platform_str: str) -> None:
+    def _install(self, version: str, target: str, install_root: str, user_path: bool, platform_str: str, skip_idempotency: bool = False) -> None:
         """Core Zig installation logic."""
         # Check if zig is already installed and on PATH.
         existing_path = shutil.which('zig')
-        if existing_path:
+        if existing_path and not skip_idempotency:
             install_dir = Path(existing_path).resolve().parent
             install_dir_str = str(install_dir)
             gh_path = os.environ.get("GITHUB_PATH")
@@ -199,6 +199,11 @@ class ZigInstallStrategy(InstallStrategy):
 
         # Install
         install_dir = Path(os.path.expandvars(install_root)) / source_dir.name
+        if skip_idempotency and existing_path and platform_str.startswith('windows'):
+            existing_dir = Path(existing_path).resolve().parent
+            # Replace portable distributions, never a shared bin directory.
+            if existing_dir.name.startswith(f"zig-{target}-") and (existing_dir / "lib").is_dir():
+                install_dir = existing_dir
         if install_dir.exists():
             shutil.rmtree(install_dir)
         install_dir.mkdir(parents=True, exist_ok=True)
@@ -215,6 +220,21 @@ class ZigInstallStrategy(InstallStrategy):
         # In-process PATH modification so subsequent tools in this process find zig
         os.environ['PATH'] = f"{install_dir_str}{os.pathsep}{os.environ['PATH']}"
 
+        active_path = shutil.which('zig')
+        if not active_path:
+            print("ERROR: installed Zig is not on PATH", file=sys.stderr)
+            sys.exit(1)
+        result = subprocess.run(
+            [active_path, "version"], capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode != 0 or result.stdout.strip() != version:
+            print(
+                f"ERROR: Zig version mismatch at {active_path}: expected {version}, "
+                f"got {result.stdout.strip()!r}; {result.stderr.strip()}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        print(f"[verify] {active_path} version={version}")
         print(f"[done] zig version={version} target={target} install_dir={install_dir}")
 
     def _write_env_file(self, install_dir: Path):
@@ -285,7 +305,7 @@ class ZigInstallStrategy(InstallStrategy):
             )
             subprocess.run(["powershell.exe", "-NoProfile", "-Command", ps], check=True)
             print(f"[user-path] prepend {install_dir}")
-        if not gh_path:
+        if not gh_path and not user_path:
             self._write_env_file(install_dir)
 
     def _handle_posix_path(self, install_dir: Path):

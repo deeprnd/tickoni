@@ -31,6 +31,14 @@ and their Firedancer system dependencies.
 After `just setup-all` the
 rest of the `justfile` works without any further configuration.
 
+Use `just setup-zig-force` to reinstall the configured Zig version. It checks
+dependencies normally and forces only Zig, even when Zig is already on PATH.
+The underlying `--skip-idempotency` flag applies to tools in explicitly
+requested categories; dependencies keep their normal installation checks.
+On Windows, forced setup replaces an existing portable Zig distribution in
+place so existing terminals keep working with their current PATH. Setup verifies
+the version of the compiler resolved through PATH before reporting success.
+
 Useful local tools for full gates:
 
 - `codeql`
