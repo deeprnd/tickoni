@@ -236,12 +236,16 @@ tk_topo_run_tile_simple_uses_upstream( void ) {
 #endif
 }
 
-void
-tk_topo_run_tile_simple( void * topo, void * tile ) {
+static void
+tk_topo_run_tile_simple_mode( void * topo, void * tile, int process_mode ) {
   fd_topo_tile_t * tile_c = (fd_topo_tile_t *)tile;
   fd_topo_run_tile_t * run_tile;
 #if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
-  if( tile_is_ingest( tile_c ) ) {
+  /* The model-request fixture enters through __tile-run. All other tile
+     identities retain the normal dispatcher, including direct metric tests. */
+  if( process_mode && tile_is_ingest( tile_c ) ) {
+    run_tile = &TK_TILE_RUN;
+  } else if( tile_is_ingest( tile_c ) ) {
     run_tile = &TK_INGEST_RUN;
   } else if( tile_is_dedu( tile_c ) ) {
     run_tile = &TK_DEDU_RUN;
@@ -271,6 +275,7 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
     run_tile = &TK_TILE_RUN;
   }
 #else
+  (void)process_mode;
   (void)tile_is_ingest;
   (void)tile_is_dedu;
   (void)tile_is_audit;
@@ -317,4 +322,14 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
                     run_tile );
 #endif
   FD_LOG_NOTICE(( "tile_run: tk_topo_run_tile_simple EXIT" ));
+}
+
+void
+tk_topo_run_tile_simple( void * topo, void * tile ) {
+  tk_topo_run_tile_simple_mode( topo, tile, 0 );
+}
+
+void
+tk_topo_run_tile_process_simple( void * topo, void * tile ) {
+  tk_topo_run_tile_simple_mode( topo, tile, 1 );
 }
