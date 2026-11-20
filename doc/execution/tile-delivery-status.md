@@ -72,7 +72,7 @@ The Firedancer-style topology answers for current links are:
 | `tkrepl` replay path | `tkrepl` owns replay comparison and external-effects-disabled mode. | Reads completed audit records and regenerates deterministic synthetic events. | Replay reads audit after `tkaudt` signals completion; no producer mutates audit during compare. | Same event envelope as the main path. | Reliable comparison; reports divergence instead of mutating state. | Replay never invokes external effects; mismatch increments divergence count; shutdown exits after comparison or crash signal. | Replay checked, replay match, divergence count. |
 | `tkmetr` telemetry | `tkmetr` owns metric snapshots. | Atomic counters and queue-watermark reads in `PaymentPipelineState`. | All tiles publish counters; `tkmetr` reads snapshots. | No correctness queue in the spike. | Observational; future telemetry may be lossy with counted drops. | Shutdown takes a final snapshot. | Produced, normalized, invalid, duplicates, allowed, denied, audited, depth, waits, max latency hops. |
 | `tkdiag` diagnostics | `tkdiag` owns diagnostic aggregation: the latest fragment per pipeline tile, the observation of every tile's process, and the replay result it reads. | The 5 diagnostic links below (payment process topology only); every tile's metrics region (status, pid, and where it writes OS-level metrics); tkrepl's CNC app slots 0 and 1. The in-process spike's `PaymentPipelineState` fields remain the thread-mode runtime's. | Tiles publish diagnostics; `tkdiag` receives and aggregates them and watches the processes. | One fragment per processed event per producer; `tkdiag` keeps one per input. | Observational; best effort. A tile found dead is counted (and logged) by `tkdiag`; the supervisor still owns crash handling. | `tkdiag` stops on CNC HALT, or once tkrepl publishes `replay_checked`. A crashed producer publishes nothing, so its death is seen from its process and its `TILE_STATUS`, not from a fragment. | CNC slots 0 to 4 (tiles that died or reported a fault, tiles that died before they ran, tiles reporting, fragments accepted and rejected) and the `tkdiag` metrics kind at `/metrics`. |
-| `tkings`, `tknorm`, `tkdedu`, `tkpoly`, `tkaudt` `-> tkdiag` (payment process topology) | Each producer owns its own diagnostic fragment (`shim/tk_diag_fragment.h`: cumulative counters of that tile only); `tkdiag` owns aggregation. | Tango shared-memory workspace `tkpay0`, links appended after the pipeline links so each is its producer's last output. | One fragment per processed event, single producer, single consumer (`tkdiag`). `tkings` sends it with `Producer.publishLossy`; the four stem tiles with `fd_stem_publish` in `AFTER_FRAG`. | 64 entries / 128-byte fragment. | **Unreliable** (`LinkReliability.lossy`): the consumer is wired unreliable, so a producer never waits on `tkdiag`. | The producer overwrites the oldest fragment; `tkdiag`'s fd_stem counts the overrun and resyncs. Latest-wins is the intended semantics. Crash-only: no restart inside a run. Shutdown is independent of `tkdiag`, which stops on CNC HALT only. | `tkdiag` CNC slots 2 to 4 (tiles reporting, fragments accepted, fragments rejected) and fd_stem link metrics. See [`plans/v2.10-s14-tkdiag-fan-in.md`](plans/v2.10-s14-tkdiag-fan-in.md). |
+| `tkings`, `tknorm`, `tkdedu`, `tkpoly`, `tkaudt` `-> tkdiag` (payment process topology) | Each producer owns its own diagnostic fragment (`shim/tk_diag_fragment.h`: cumulative counters of that tile only); `tkdiag` owns aggregation. | Tango shared-memory workspace `tkpay0`, links appended after the pipeline links so each is its producer's last output. | One fragment per processed event, single producer, single consumer (`tkdiag`). All five stem tiles use `fd_stem_publish`: `tkings` in `AFTER_CREDIT`, the four consumers in `AFTER_FRAG`. | 64 entries / 128-byte fragment. | **Unreliable** (`LinkReliability.lossy`): the consumer is wired unreliable, so a producer never waits on `tkdiag`. | The producer overwrites the oldest fragment; `tkdiag`'s fd_stem counts the overrun and resyncs. Latest-wins is the intended semantics. Crash-only: no restart inside a run. Shutdown is independent of `tkdiag`, which stops on CNC HALT only. | `tkdiag` CNC slots 2 to 4 (tiles reporting, fragments accepted, fragments rejected) and fd_stem link metrics. See [`plans/v2.10-s14-tkdiag-fan-in.md`](plans/v2.10-s14-tkdiag-fan-in.md). |
 
 ### Cross-Platform Shmem and Workspace Shim (V2.10.S15)
 
@@ -170,7 +170,7 @@ and moves the CNC `BOOT -> RUN` on its first loop iteration, from
 tile `.stale` exactly as it does a generic-path tile. See [`knowledge/tile-orchestration.md`](../knowledge/tile-orchestration.md),
 "Health And Lifecycle", for the clock, units and the staleness budget.
 
-All three Tickoni-authored tiles also follow the same test/FFI pattern (see
+The Tickoni-authored stem tiles follow the same test/FFI pattern (see
 [`contribution/tickoni.md`](contribution/tickoni.md), "Stem Tile Test And FFI
 Pattern"): the identical `tk_get_<tile>_run_*` accessor set in the tile's
 `.c`/`.h`, a `c_abi/<tile>.zig` FFI module (`c_abi/audit.zig` for tkaudt),
@@ -182,13 +182,14 @@ in `AFTER_CREDIT` and must not be followed verbatim for the publish point:
 `plans/v2.10-s14-fd-stem-migration.md`, `plans/v2.22-s5-fd-stem-migration.md`,
 `plans/v2.10-s14-tkrepl-capsule-io.md`, and the story
 `doc/strategy/roadmap/stories/v2.10-s14.md`. The contract wins; those
-documents need a product-owned pass before `tkpoly`, `tkings` or `tkrepl`
+documents need a product-owned pass before `tkpoly` or `tkrepl`
 are migrated. `plans/v2.10-s14-tkdiag-fan-in.md` had the same defect and was
 given that pass before it was implemented: its "Resolved Design" section
 supersedes its code sketches (publish in `AFTER_FRAG`, an unreliable link, a
-128-byte fragment). `tkings` is still a generic-path Zig tile, so it sends its
-diagnostic fragment with `Producer.publishLossy`; moving it onto `fd_stem` is a
-separate decision.
+128-byte fragment). `tkings` now uses `fd_stem` for the synthetic payment
+source under the S15 producer-only exception: it publishes the reliable
+pipeline fragment and then the diagnostic fragment in `AFTER_CREDIT`. The
+test-only model-request source is deferred.
 
 ## Tile Synchronization Debt
 
