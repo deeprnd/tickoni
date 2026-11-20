@@ -192,7 +192,7 @@ fn hasTile(topo: rt.topology.Topology, name: rt.tile.TileId) bool {
 
 /// Dispatches the deterministic payment pipeline stage for this tile's
 /// role and runs it to completion (bounded by the shared payment-pipeline
-/// config's event_count — see tile_registry.zig's loadProcessConfig). Runs
+/// config's event_count). Runs
 /// before the heartbeat/halt-wait loop above so the supervisor's stop
 /// sequence (signal every cnc to halt, wait for exit) stays uniform
 /// whether or not a tile has pipeline work.
@@ -208,7 +208,7 @@ fn runPipelineStage(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_s
 
     const entry = tile_registry.findById(spec.tile_id) orelse return error.UnregisteredTile;
     log.debug("tile_main", "runPipelineStage", "tile found in registry");
-    const process_fn = entry.process_fn orelse entry.test_source_fn orelse return;
+    const process_fn = entry.process_fn orelse return;
     try process_fn(io, wksp, spec, cnc, allocator);
 }
 

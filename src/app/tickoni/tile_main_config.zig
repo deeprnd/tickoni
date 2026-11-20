@@ -14,6 +14,11 @@ const model_instances = @import("model_instances.zig");
 
 var ingest_config: tiles.PaymentPipelineConfig = .{};
 
+/// The test-only request source's message buffer, handed to the C tile by
+/// pointer: sized for the largest logical message in test builds and empty
+/// otherwise, so a production binary carries no such buffer.
+var request_buf: [if (rt.test_build.enabled) c_abi.multipart.max_message_bytes else 0]u8 = @splat(0);
+
 fn generatePayment(offset: u64, out: *c_abi.tkings.PaymentMessage) callconv(.c) void {
     const raw = tiles.syntheticPayment(ingest_config, offset);
     out.* = .{
@@ -33,8 +38,34 @@ fn generatePayment(offset: u64, out: *c_abi.tkings.PaymentMessage) callconv(.c) 
     };
 }
 
-/// Installs the already validated, Zig-owned synthetic payment generator in
-/// the tkings child before Firedancer calls its privileged init callback.
+fn buildRequest(offset: u64, msg: *[*]const u8, run_id: *u64) callconv(.c) usize {
+    const source = ingest_config.model_requests orelse return 0;
+    const body = tiles.model_request_source.buildAgentRequest(source, offset, &request_buf);
+    msg.* = body.ptr;
+    run_id.* = tiles.model_request_source.runIdAt(offset);
+    return body.len;
+}
+
+/// The deliberately faulty producer: at the configured offset, withholds or
+/// corrupts one fragment of the request stream so the receiver's fail-closed
+/// handling is exercised by a real faulty sender.
+fn injectFault(offset: u64, frag_idx: u32, frag_cnt: u32, frag: [*]u8, sz: usize) callconv(.c) c_int {
+    const source = ingest_config.model_requests orelse return 0;
+    if (offset != source.fault_offset) return 0;
+    switch (source.fault) {
+        .none => {},
+        .drop_middle => if (frag_idx == 1) return 1,
+        .omit_last => if (frag_idx == frag_cnt - 1) return 1,
+        .corrupt_payload => if (frag_idx == 1 and sz > c_abi.multipart.header_size + 1) {
+            frag[c_abi.multipart.header_size + 1] ^= 0x5a;
+        },
+    }
+    return 0;
+}
+
+/// Installs the already validated, Zig-owned source in the tkings child before
+/// Firedancer calls its privileged init callback: the synthetic payment
+/// generator, or, in test builds only, the agent-request source.
 pub fn loadIngestConfig(io: std.Io, spec: *const rt.launch_spec.LaunchSpec, topology_event_count: u64, dir: ?std.Io.Dir) !void {
     var path_buf: [rt.launch_spec.shmem_path_cap + 32]u8 = undefined;
     const path = if (spec.shmemPath().len > 0)
@@ -43,14 +74,18 @@ pub fn loadIngestConfig(io: std.Io, spec: *const rt.launch_spec.LaunchSpec, topo
         try std.fmt.bufPrint(&path_buf, "payment_pipeline.config", .{});
     const cfg = try tiles.process.readProcessConfig(io, dir orelse std.Io.Dir.cwd(), path);
     if (cfg.pipeline.event_count != topology_event_count) return error.IngestConfigEventCountMismatch;
-    if (cfg.pipeline.model_requests != null) return error.ModelRequestSourceNotMigrated;
+    if (cfg.pipeline.model_requests != null and !rt.test_build.enabled) return error.ModelRequestSourceRequiresTestBuild;
     if (rt.test_build.enabled) {
         if (cfg.stuck_tile) |hook| {
             if (hook.tile_idx == spec.tile_idx) c_abi.tkings.setStuckHook(hook.after_messages, hook.sleep_ns);
         }
     }
     ingest_config = cfg.pipeline;
-    c_abi.tkings.setPaymentGenerator(generatePayment);
+    if (cfg.pipeline.model_requests) |source| {
+        c_abi.tkings.setRequestSource(buildRequest, if (source.fault == .none) null else injectFault);
+    } else {
+        c_abi.tkings.setPaymentGenerator(generatePayment);
+    }
 }
 
 /// Reads the supervisor-written payment_pipeline.config beside this child's
@@ -326,6 +361,99 @@ test "tile_main_config: loadPolicyLimit fails on mismatched event count" {
         100, // topology says 100 events, config says 4
         tmp.dir,
     ));
+}
+
+// ---------------------------------------------------------------------------
+// tkings source handoff — the payment generator or, in test builds, the
+// agent-request source. The C tile only calls these Zig functions; what they
+// build and what they withhold is decided and checked here.
+// ---------------------------------------------------------------------------
+
+fn ingestSpec() !rt.launch_spec.LaunchSpec {
+    return rt.launch_spec.LaunchSpec.init(.{
+        .tile_idx = 0,
+        .tile_id = rt.tile_ids.tkings,
+        .cpu_placement = .floating,
+        .workspace_name = try rt.link.WorkspaceName.parse("tkpay0"),
+        .cnc_gaddr = 0,
+        .shmem_path = "",
+        .heartbeat_interval_ns = 1,
+    });
+}
+
+test "tile_main_config: loadIngestConfig fails on mismatched event count" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const spec = try ingestSpec();
+    const cfg = tiles.process.ProcessRuntimeConfig{ .pipeline = .{ .event_count = 4 } };
+    try tiles.process.writeProcessConfig(cfg, std.testing.io, tmp.dir, "payment_pipeline.config");
+
+    try std.testing.expectError(error.IngestConfigEventCountMismatch, loadIngestConfig(std.testing.io, &spec, 100, tmp.dir));
+}
+
+test "tile_main_config: loadIngestConfig accepts the request source in a test build" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const spec = try ingestSpec();
+    const cfg = tiles.process.ProcessRuntimeConfig{
+        .pipeline = .{ .event_count = 4, .model_requests = .{ .fault = .omit_last, .fault_offset = 2 } },
+    };
+    try tiles.process.writeProcessConfig(cfg, std.testing.io, tmp.dir, "payment_pipeline.config");
+
+    try loadIngestConfig(std.testing.io, &spec, 4, tmp.dir);
+    try std.testing.expect(ingest_config.model_requests != null);
+}
+
+test "tile_main_config: the request source builds exactly the source's requests" {
+    const mrs = tiles.model_request_source;
+    var source = mrs.ModelRequestSource{ .pattern_len = 2 };
+    source.pattern[1] = .missing_budget;
+    const saved = ingest_config;
+    defer ingest_config = saved;
+    ingest_config = .{ .model_requests = source };
+
+    var want_buf: [1024]u8 = undefined;
+    for ([_]u64{ 0, 1, 2, 7 }) |offset| {
+        var msg: [*]const u8 = undefined;
+        var run_id: u64 = 0;
+        const len = buildRequest(offset, &msg, &run_id);
+        try std.testing.expectEqualSlices(u8, mrs.buildAgentRequest(source, offset, &want_buf), msg[0..len]);
+        try std.testing.expectEqual(mrs.runIdAt(offset), run_id);
+    }
+}
+
+test "tile_main_config: injectFault touches only the configured offset and fragment" {
+    const header = c_abi.multipart.header_size;
+    const saved = ingest_config;
+    defer ingest_config = saved;
+    var frag: [128]u8 = @splat(0);
+
+    // No fault: every fragment goes out untouched.
+    ingest_config = .{ .model_requests = .{} };
+    try std.testing.expectEqual(@as(c_int, 0), injectFault(0, 1, 4, &frag, frag.len));
+    try std.testing.expectEqual(@as(u8, 0), frag[header + 1]);
+
+    // drop_middle withholds fragment 1 of the faulty offset, nothing else.
+    ingest_config = .{ .model_requests = .{ .fault = .drop_middle, .fault_offset = 3 } };
+    try std.testing.expectEqual(@as(c_int, 0), injectFault(2, 1, 4, &frag, frag.len));
+    try std.testing.expectEqual(@as(c_int, 0), injectFault(3, 0, 4, &frag, frag.len));
+    try std.testing.expectEqual(@as(c_int, 1), injectFault(3, 1, 4, &frag, frag.len));
+    try std.testing.expectEqual(@as(c_int, 0), injectFault(3, 3, 4, &frag, frag.len));
+
+    // omit_last withholds only the final fragment.
+    ingest_config = .{ .model_requests = .{ .fault = .omit_last, .fault_offset = 3 } };
+    try std.testing.expectEqual(@as(c_int, 0), injectFault(3, 2, 4, &frag, frag.len));
+    try std.testing.expectEqual(@as(c_int, 1), injectFault(3, 3, 4, &frag, frag.len));
+    try std.testing.expectEqual(@as(c_int, 0), injectFault(4, 3, 4, &frag, frag.len));
+
+    // corrupt_payload sends fragment 1 with one payload byte flipped.
+    ingest_config = .{ .model_requests = .{ .fault = .corrupt_payload, .fault_offset = 3 } };
+    try std.testing.expectEqual(@as(c_int, 0), injectFault(3, 0, 4, &frag, frag.len));
+    try std.testing.expectEqual(@as(u8, 0), frag[header + 1]);
+    try std.testing.expectEqual(@as(c_int, 0), injectFault(2, 1, 4, &frag, frag.len));
+    try std.testing.expectEqual(@as(u8, 0), frag[header + 1]);
+    try std.testing.expectEqual(@as(c_int, 0), injectFault(3, 1, 4, &frag, frag.len));
+    try std.testing.expectEqual(@as(u8, 0x5a), frag[header + 1]);
 }
 
 // ---------------------------------------------------------------------------
