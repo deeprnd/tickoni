@@ -1,8 +1,11 @@
-/* Shared C/FFI declarations for the tkdiag minimal observer fd_stem
-   specialization.  tkdiag has 0 input links and 0 output links, so there is no
-   tile state to inspect: the tile object and context stay private to
-   tk_diag_stem.c, and the only observable outputs are the tile's two CNC app
-   slots, read by the supervisor through tile_registry.zig.
+/* Shared C/FFI declarations for the tkdiag diagnostics fd_stem specialization.
+   tkdiag takes one unreliable diagnostic input link from each pipeline tile and
+   has no output link; the tile object and context stay private to
+   tk_diag_stem.c, and the observable outputs are the tile's CNC app slots 0 to
+   4, read by the supervisor through tile_registry.zig, and the `tkdiag` metrics
+   kind plus the per-tile OS metrics it writes, served by the metric tile.  The
+   fragment format, aggregation and liveness rules are in
+   shim/tk_diag_fragment.h.
 
    Both tile_run.c (process-mode dispatcher) and topob.c (topology builder)
    reference these symbols. */

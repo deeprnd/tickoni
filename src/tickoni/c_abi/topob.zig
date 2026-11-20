@@ -77,6 +77,9 @@ extern fn tk_topo_tile_set_metric_port(topo: *Topo, tile_id: usize, port: c_usho
 extern fn tk_topo_tile_cpu_idx(topo: *const Topo, tile_id: usize) usize;
 extern fn tk_topo_tile_in_cnt(topo: *const Topo, tile_id: usize) usize;
 extern fn tk_topo_tile_out_cnt(topo: *const Topo, tile_id: usize) usize;
+extern fn tk_topo_tile_in_reliable(topo: *const Topo, tile_id: usize, in_idx: usize) c_int;
+extern fn tk_topo_tile_metrics_obj_id(topo: *const Topo, tile_id: usize) usize;
+extern fn tk_topo_tile_uses_obj(topo: *const Topo, tile_id: usize, obj_id: usize) c_int;
 extern fn tk_topo_link_consumer_cnt(topo: *const Topo, link_id: usize) usize;
 extern fn tk_topo_obj_offset(topo: *const Topo, tile_id: usize) usize;
 extern fn tk_topo_obj_footprint(topo: *const Topo, tile_id: usize) usize;
@@ -324,6 +327,23 @@ pub fn topoTileInputCount(topo: *const Topo, tile_id: usize) usize {
 
 pub fn topoTileOutputCount(topo: *const Topo, tile_id: usize) usize {
     return tk_topo_tile_out_cnt(topo, tile_id);
+}
+
+/// Object id of a tile's metrics region, indexed by Firedancer tile index.
+pub fn topoTileMetricsObjId(topo: *const Topo, tile_id: usize) usize {
+    return tk_topo_tile_metrics_obj_id(topo, tile_id);
+}
+
+/// Whether the tile declared use of the object (so its process can reach it).
+pub fn topoTileUsesObj(topo: *const Topo, tile_id: usize, obj_id: usize) bool {
+    return tk_topo_tile_uses_obj(topo, tile_id, obj_id) != 0;
+}
+
+/// Whether the tile's `in_idx`th input is a reliable consumer (flow-controlled
+/// by its producer) rather than an unreliable one. False for an out-of-range
+/// index. Used by tests and wiring checks.
+pub fn topoTileInReliable(topo: *const Topo, tile_id: usize, in_idx: usize) bool {
+    return tk_topo_tile_in_reliable(topo, tile_id, in_idx) != 0;
 }
 
 pub fn topoTileName(topo: *const Topo, tile_id: usize) [*:0]const u8 {
