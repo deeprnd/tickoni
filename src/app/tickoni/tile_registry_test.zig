@@ -274,15 +274,121 @@ test "launch mode is owned by the registry" {
     try std.testing.expect(diag.process_fn == null);
 }
 
-test "tkdiag is a 0-in 0-out observer that owns CNC slots 0 and 1" {
+test "tkdiag is the diagnostic collector: no pipeline links, no output, CNC slots 0 to 4" {
     const diag = findById(tile_ids.tkdiag).?;
+    try std.testing.expectEqual(reg.DiagRole.collector, diag.diag);
+    // Its inputs are the diagnostic links, which are not counted in in_cnt.
     try std.testing.expectEqual(@as(u8, 0), diag.in_cnt);
     try std.testing.expectEqual(@as(u8, 0), diag.out_cnt);
-    try std.testing.expectEqual(@as(usize, 2), diag.counters.len);
-    try std.testing.expectEqual(@as(u8, 0), diag.counters[0].idx);
-    try std.testing.expectEqual(CounterField.diag_crashed_tile, diag.counters[0].field);
-    try std.testing.expectEqual(@as(u8, 1), diag.counters[1].idx);
-    try std.testing.expectEqual(CounterField.diag_sandbox_failures, diag.counters[1].field);
+    const expected = [_]CounterField{
+        .diag_crashed_tile,
+        .diag_sandbox_failures,
+        .diag_tiles_reporting,
+        .diag_fragments_accepted,
+        .diag_fragments_rejected,
+    };
+    try std.testing.expectEqual(expected.len, diag.counters.len);
+    for (expected, 0..) |field, i| {
+        try std.testing.expectEqual(@as(u8, @intCast(i)), diag.counters[i].idx);
+        try std.testing.expectEqual(field, diag.counters[i].field);
+    }
+}
+
+test "exactly tkings, tknorm, tkdedu, tkpoly and tkaudt are diagnostic producers" {
+    const producers = [_]rt.tile.TileId{ tile_ids.tkings, tile_ids.tknorm, tile_ids.tkdedu, tile_ids.tkpoly, tile_ids.tkaudt };
+    for (&entries) |*e| {
+        var is_producer = false;
+        for (producers) |p| {
+            if (p.eql(e.id)) is_producer = true;
+        }
+        try std.testing.expectEqual(is_producer, e.diag == .producer);
+        // Only tkdiag collects.
+        try std.testing.expectEqual(e.id.eql(tile_ids.tkdiag), e.diag == .collector);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Diagnostic fan-in links (plans/v2.10-s14-tkdiag-fan-in.md)
+//
+// paymentPipelineProcess() shape: tkings(0) tknorm(1) tkdedu(2) tkpoly(3)
+// tkaudt(4) tkrepl(5) metric(6) tkdiag(7); channels 0..3 are the pipeline, 4..8
+// the diagnostic links of tkings..tkaudt into tkdiag.
+// ---------------------------------------------------------------------------
+
+const diag_idx: u32 = 7;
+
+fn diagLink(src: u32) rt.link.Channel {
+    return .{ .src_idx = src, .dst_idx = diag_idx, .depth = 64, .mtu = 128, .reliability = .lossy };
+}
+
+fn fanInChannels() [9]rt.link.Channel {
+    const base = channelsFromRegistry();
+    return .{ base[0], base[1], base[2], base[3], diagLink(0), diagLink(1), diagLink(2), diagLink(3), diagLink(4) };
+}
+
+test "validate accepts the payment process topology with five diagnostic links" {
+    var descriptors = descriptorsFromRegistry();
+    const channels = fanInChannels();
+    try validate(.{ .tiles = &descriptors, .channels = &channels });
+}
+
+test "validate accepts diagnostic links from only some producers" {
+    var descriptors = descriptorsFromRegistry();
+    const base = channelsFromRegistry();
+    const channels = [_]rt.link.Channel{ base[0], base[1], base[2], base[3], diagLink(4) };
+    try validate(.{ .tiles = &descriptors, .channels = &channels });
+}
+
+test "validate still checks a producer's pipeline links when it also has a diagnostic link" {
+    var descriptors = descriptorsFromRegistry();
+    const base = channelsFromRegistry();
+    // tknorm's pipeline link to tkdedu is missing: its diagnostic link must not
+    // be mistaken for the pipeline output.
+    const channels = [_]rt.link.Channel{ base[0], base[2], base[3], diagLink(1) };
+    try std.testing.expectError(error.LinkCardinalityMismatch, validate(.{ .tiles = &descriptors, .channels = &channels }));
+}
+
+test "validate rejects a diagnostic link from a tile that is not a diagnostic producer" {
+    var descriptors = descriptorsFromRegistry();
+    var channels = fanInChannels();
+    channels[8] = diagLink(5); // tkrepl
+    try std.testing.expectError(error.LinkCardinalityMismatch, validate(.{ .tiles = &descriptors, .channels = &channels }));
+}
+
+test "validate rejects two diagnostic links from one producer" {
+    var descriptors = descriptorsFromRegistry();
+    const base = comptime fanInChannels();
+    const channels = base ++ [_]rt.link.Channel{diagLink(1)};
+    try std.testing.expectError(error.LinkCardinalityMismatch, validate(.{ .tiles = &descriptors, .channels = &channels }));
+}
+
+test "validate rejects a link out of tkdiag" {
+    var descriptors = descriptorsFromRegistry();
+    const base = comptime fanInChannels();
+    const channels = base ++ [_]rt.link.Channel{.{ .src_idx = diag_idx, .dst_idx = 4, .depth = 64, .mtu = 128, .reliability = .lossy }};
+    try std.testing.expectError(error.LinkCardinalityMismatch, validate(.{ .tiles = &descriptors, .channels = &channels }));
+}
+
+test "validate rejects a reliable diagnostic link: diagnostics must never backpressure the pipeline" {
+    var descriptors = descriptorsFromRegistry();
+    var channels = fanInChannels();
+    channels[5].reliability = .reliable;
+    try std.testing.expectError(error.DiagLinkMustBeLossy, validate(.{ .tiles = &descriptors, .channels = &channels }));
+}
+
+test "validate rejects a diagnostic link listed before its producer's pipeline link" {
+    // A process tile finds its diagnostic output as its last output link.
+    var descriptors = descriptorsFromRegistry();
+    const base = channelsFromRegistry();
+    const channels = [_]rt.link.Channel{ base[0], diagLink(1), base[1], base[2], base[3] };
+    try std.testing.expectError(error.DiagLinkNotLast, validate(.{ .tiles = &descriptors, .channels = &channels }));
+}
+
+test "a reliable link between ordinary tiles is unaffected by the diagnostic rules" {
+    var descriptors = descriptorsFromRegistry();
+    const channels = channelsFromRegistry();
+    for (channels) |ch| try std.testing.expectEqual(rt.link.LinkReliability.reliable, ch.reliability);
+    try validate(.{ .tiles = &descriptors, .channels = &channels });
 }
 
 test "validate rejects a topology whose channel cardinality doesn't match the registry" {
