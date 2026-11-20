@@ -360,8 +360,7 @@ pub const Supervisor = struct {
         log.enter("supervisor", "startPaymentPipelineProcess");
         defer log.exit("supervisor", "startPaymentPipelineProcess");
         std.debug.assert(self.process_state == null);
-        // S15 migrates payment ingestion only. The test-only model-request
-        // source still runs through its process callback.
+        // The model-request source is a test fixture of the tkings stem tile.
         if (config.model_requests != null and !rt.test_build.enabled) return error.ModelRequestSourceRequiresTestBuild;
         // Refuse a topology whose tkmodl instances and configuration set do
         // not match one-to-one before any workspace or child exists.
@@ -711,9 +710,9 @@ pub const Supervisor = struct {
         // Payment-pipeline test config is identical for every tile in the
         // run, so it's written once here rather than duplicated into each
         // tile's own LaunchSpec (v2.14.S8.T2: keeps that generic bootstrap
-        // record free of payment-pipeline-specific fields). Tile processes
-        // read it back via tile_registry.zig's loadProcessConfig, which
-        // derives this same path from their LaunchSpec's shmemPath().
+        // record free of payment-pipeline-specific fields). Stem children
+        // read it back via tile_main_config.zig's loaders, which derive this
+        // same path from their LaunchSpec's shmemPath().
         const payment_config_path = try std.fmt.allocPrint(self.allocator, "{s}/payment_pipeline.config", .{config.run_dir});
         defer self.allocator.free(payment_config_path);
         try tiles_mod.process.writeProcessConfig(.{
@@ -810,7 +809,7 @@ pub const Supervisor = struct {
             argv_buf[0] = self_exe_path;
             argv_buf[2] = spec_path;
             const entry = tile_registry.findById(tile.name) orelse return error.UnregisteredTile;
-            argv_buf[1] = switch (tile_registry.launchModeFor(entry, config.model_requests != null)) {
+            argv_buf[1] = switch (entry.launch_mode) {
                 .stem => "__stem-run",
                 .tile => "__tile-run",
             };

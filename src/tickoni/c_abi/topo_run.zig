@@ -53,8 +53,6 @@ extern fn tk_topo_run_tile(
 /// upstream fd_topo_run_tile(); non-Linux dispatches to Tickoni's shim.
 /// sandbox=0, current process's own uid/gid, regular core dumps.
 extern fn tk_topo_run_tile_simple(topo: *Topo, tile: *TopoTile) void;
-/// Preserves the process callback for the test-only tkings model source.
-extern fn tk_topo_run_tile_process_simple(topo: *Topo, tile: *TopoTile) void;
 extern fn tk_topo_run_tile_simple_uses_upstream() c_int;
 
 // ---------------------------------------------------------------------------
@@ -95,10 +93,6 @@ pub fn topoRunTile(
 
 pub fn runTileSimple(topo: *Topo, tile: *TopoTile) void {
     tk_topo_run_tile_simple(topo, tile);
-}
-
-pub fn runTileProcess(topo: *Topo, tile: *TopoTile) void {
-    tk_topo_run_tile_process_simple(topo, tile);
 }
 
 pub fn runTileSimpleUsesUpstream() bool {

@@ -12,7 +12,6 @@
 const std = @import("std");
 const rt = @import("runtime");
 const c_abi = @import("c_abi");
-const tiles = @import("tiles");
 const tile_ids = rt.tile_ids;
 
 /// Process-mode run callback: joins this tile's links from the launch spec
@@ -80,8 +79,6 @@ pub const TileEntry = struct {
     /// metric, tkdiag) — see tiles/payment_pipeline/process.zig's module
     /// doc comment for that scope boundary.
     process_fn: ?ProcessFn = null,
-    /// Test-only model-request source for tkings. Payment events use fd_stem.
-    test_source_fn: ?ProcessFn = null,
     counters: []const CounterSchemaEntry = &.{},
     /// Expected link cardinality (v2.14.S8 registry responsibility).
     /// v2.14.S8.T2 wires these into real validation: validate(topo) below
@@ -125,68 +122,6 @@ fn id(comptime s: []const u8) rt.tile.TileId {
     return tile_ids.lookup(s) orelse unreachable;
 }
 
-/// Reads the payment-pipeline test config the supervisor wrote once for
-/// the whole run (see supervisor.zig's startPaymentPipelineProcess), from
-/// the path convention "<shmem_path>/payment_pipeline.config" — sibling to
-/// this tile's own LaunchSpec file, derived from spec.shmemPath() rather
-/// than carried as a LaunchSpec field (v2.14.S8.T2 keeps that record
-/// payment-pipeline-agnostic).
-fn loadProcessConfig(io: std.Io, spec: *const rt.launch_spec.LaunchSpec) !tiles.process.ProcessRuntimeConfig {
-    var path_buf: [rt.launch_spec.shmem_path_cap + 32]u8 = undefined;
-    const path = try std.fmt.bufPrint(&path_buf, "{s}/payment_pipeline.config", .{spec.shmemPath()});
-    const file = try rt.file_io.openFile(io, std.Io.Dir.cwd(), path);
-    defer file.close(io);
-    var file_struct: tiles.process.ProcessConfigFile = undefined;
-    const buf = std.mem.asBytes(&file_struct);
-    const n = try file.readPositionalAll(io, buf, 0);
-    if (n != @sizeOf(tiles.process.ProcessConfigFile)) return error.ProcessConfigTruncated;
-    if (file_struct.magic_field != tiles.process.process_config_magic) return error.ProcessConfigBadMagic;
-    if (file_struct.version_field != tiles.process.process_config_version) return error.ProcessConfigUnsupportedVersion;
-    const stuck_str = if (file_struct.cfg.stuck_tile) |h| blk: {
-        var id_buf: [32]u8 = undefined;
-        break :blk std.fmt.bufPrint(&id_buf, "{d}", .{h.tile_idx}) catch "unknown";
-    } else "null";
-    std.log.warn(
-        "tile {d}: loaded process config, stuck_tile={s}, event_count={d}",
-        .{
-            spec.tile_idx,
-            stuck_str,
-            file_struct.cfg.pipeline.event_count,
-        },
-    );
-    return file_struct.cfg;
-}
-
-// ---------------------------------------------------------------------------
-// Process-mode dispatch wrappers.
-//
-// Each wrapper owns the link-joining shape for its tile (which of
-// input/output it expects) and calls into the pure pipeline-stage logic in
-// tiles.process. Moved here from tile_main.zig's if/else dispatch so this
-// file is the actual single source of truth, not just a lookup table
-// pointing back at scattered per-tile logic.
-// ---------------------------------------------------------------------------
-
-fn tkingsModelSourceProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
-    _ = allocator;
-    std.debug.print("[tkings] joining output link...\n", .{});
-    // One pipeline output; an optional diagnostic output is unused by this
-    // test-only source.
-    if (spec.out_cnt < 1 or spec.out_cnt > 2) return error.MissingOutputLink;
-    var output = try rt.link.Producer.join(wksp, spec.outLinks()[0]);
-    defer output.leave();
-    const cfg = try loadProcessConfig(io, spec);
-    if (cfg.pipeline.model_requests == null) return error.ModelRequestSourceMissing;
-    std.debug.print("[tkings] producing model requests (event_count={d})...\n", .{cfg.pipeline.event_count});
-    try tiles.process.runModelRequestSourceProcess(cfg, spec.tile_idx, &output, cnc);
-    std.debug.print("[tkings] done producing\n", .{});
-}
-
-pub fn launchModeFor(entry: *const TileEntry, model_requests: bool) LaunchMode {
-    if (model_requests and entry.test_source_fn != null) return .tile;
-    return entry.launch_mode;
-}
-
 // ---------------------------------------------------------------------------
 // Registry.
 // ---------------------------------------------------------------------------
@@ -198,7 +133,6 @@ pub const entries = [_]TileEntry{
         .id = tile_ids.tkings,
         .launch_mode = .stem,
         .process_fn = null,
-        .test_source_fn = tkingsModelSourceProcess,
         .counters = &.{.{ .idx = 0, .field = .produced }},
         .out_cnt = 1,
         .diag = .producer,
