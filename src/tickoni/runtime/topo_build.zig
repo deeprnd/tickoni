@@ -199,6 +199,7 @@ pub fn build(
     // have fixed footprints. But we set event_count via the same C-param pattern
     // to avoid the env var anti-pattern: getenv() in privileged_init reads each
     // child's own environment, which can differ from the supervisor's.
+    c_abi.tkings.setEventCount(event_count);
     c_abi.tkaudit.setEventCount(event_count);
     c_abi.tknorm.setEventCount(event_count);
     c_abi.tkpoly.setEventCount(event_count);
