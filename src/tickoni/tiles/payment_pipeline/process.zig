@@ -1,42 +1,19 @@
-/// v2.14.S1 process-mode payment pipeline stage orchestration: runs inside
-/// each tile's own process (dispatched from src/app/tickoni/tile_registry.zig),
-/// reading/writing Tango shared-memory links (src/tickoni/runtime/link.zig)
-/// instead of the thread-mode heap ring
-/// (src/tickoni/tiles/payment_pipeline/queue.zig's BoundedQueue). The pure
-/// decision logic — hashing, framing validation, dedup comparison, policy
-/// decision, audit record building — is reused unchanged from
-/// src/tickoni/tiles/payment_pipeline/{runtime,audit_sink}.zig; only the
-/// transport and state ownership differ from thread mode. Dedup state
-/// (tkdedu) and the audit log (tkaudt) are local to that tile's own
-/// process now, not a struct shared across tiles.
+/// v2.14.S1 process-mode payment-pipeline run configuration: the single
+/// file the supervisor writes once per run (writeProcessConfig below) and
+/// every stem tile reads before its C harness starts (readProcessConfig,
+/// via src/app/tickoni/tile_main_config.zig). The decision logic itself —
+/// hashing, framing validation, dedup comparison, policy decision, audit
+/// record building — lives in runtime.zig/audit_sink.zig and the stem
+/// shims; this file owns only the config handoff.
 ///
-/// The pipeline is deterministic and bounded (cfg.event_count messages
-/// flow through every stage — normalization/dedupe/policy mark and
-/// forward rather than drop), so consumers loop exactly event_count times
-/// instead of needing an explicit end-of-stream signal on the link.
-///
-/// v2.14.S8.T2: these functions take a PaymentPipelineConfig by value
-/// instead of reading event_count/policy_limit_cents/duplicate/
-/// inject_malformed off a LaunchSpec — this file has no dependency on
-/// LaunchSpec's shape at all. The supervisor writes one shared config file
-/// per run (writeProcessConfig below); tile_registry.zig's process-mode
-/// wrappers read it (readProcessConfig) and pass the result in here.
+/// v2.14.S8.T2: the config carries a PaymentPipelineConfig by value instead
+/// of reading event_count/policy_limit_cents/duplicate/inject_malformed off
+/// a LaunchSpec — this file has no dependency on LaunchSpec's shape at all.
 ///
 const std = @import("std");
 const rt = @import("runtime");
-const c_abi = @import("c_abi");
 const util = @import("util");
 const payment_runtime = @import("runtime.zig");
-const model_request_source = @import("model_request_source.zig");
-const audit_mod = @import("audit_mod");
-
-const PaymentMessage = payment_runtime.PaymentMessage;
-
-fn halted(cnc: *c_abi.cnc.Cnc) bool {
-    const sig = c_abi.cnc.signalQuery(cnc);
-    std.debug.print("[halted] signal={d} halt={d} result={s}\n", .{ sig, c_abi.cnc.signal_halt, if (sig == c_abi.cnc.signal_halt) "true" else "false" });
-    return sig == c_abi.cnc.signal_halt;
-}
 
 // ---------------------------------------------------------------------------
 // Payment-pipeline process-mode config: round-tripped through a single file
@@ -49,7 +26,8 @@ pub const process_config_magic: u32 = 0x544b5043; // "TKPC"
 /// v4: ModelRequestSource carries per-slot tiers, the prompt/response shape and a
 /// test-only stream fault.
 /// v5: the pipeline config carries the full workflow's dispatch template.
-pub const process_config_version: u16 = 5;
+/// v6: the pipeline config no longer carries the thread-mode ingest sandbox-failure hook.
+pub const process_config_version: u16 = 6;
 
 pub const StuckTileHook = struct {
     tile_idx: u32,
@@ -88,148 +66,6 @@ pub fn readProcessConfig(io: std.Io, dir: std.Io.Dir, sub_path: []const u8) !Pro
     if (file_struct.magic_field != process_config_magic) return error.ProcessConfigBadMagic;
     if (file_struct.version_field != process_config_version) return error.ProcessConfigUnsupportedVersion;
     return file_struct.cfg;
-}
-
-fn sleepNanos(ns: u64) void {
-    util.os_api.sleepNanos(ns);
-}
-
-fn maybeBlockForTest(process_cfg: ProcessRuntimeConfig, tile_idx: u32, completed_messages: u64) void {
-    const hook = process_cfg.stuck_tile orelse return;
-    if (hook.tile_idx != tile_idx or completed_messages < hook.after_messages) return;
-    std.log.warn(
-        "stuck_tile hook triggered: tile_idx={d}, after_messages={d}, sleep_ns={d} — entering infinite block",
-        .{
-            hook.tile_idx,
-            hook.after_messages,
-            hook.sleep_ns,
-        },
-    );
-    while (true) sleepNanos(hook.sleep_ns);
-}
-
-// ---------------------------------------------------------------------------
-// Pipeline stages.
-// ---------------------------------------------------------------------------
-
-pub fn runIngestProcess(process_cfg: ProcessRuntimeConfig, tile_idx: u32, output: *rt.link.Producer, diag: ?*DiagSender, cnc: *c_abi.cnc.Cnc) void {
-    const cfg = process_cfg.pipeline;
-    var stop_flag = std.atomic.Value(bool).init(false);
-    var backpressure_waits = std.atomic.Value(u64).init(0);
-
-    var produced: u64 = 0;
-    var offset: u64 = 0;
-    while (offset < cfg.event_count) : (offset += 1) {
-        maybeBlockForTest(process_cfg, tile_idx, produced);
-        if (halted(cnc)) break;
-        const raw = payment_runtime.syntheticPayment(cfg, offset);
-        const msg = PaymentMessage{ .raw = raw, .pipeline_hops = 1 };
-        output.publish(std.mem.asBytes(&msg), &backpressure_waits, &stop_flag, cnc) catch break;
-        produced += 1;
-        // After the pipeline publish, with the counters just committed.
-        if (diag) |d| d.send(produced, backpressure_waits.load(.acquire), output.backlog());
-    }
-    rt.cnc_counters.appCounterWrite(cnc, 0, produced);
-}
-
-/// tkings' side of the diagnostic fan-in (plans/v2.10-s14-tkdiag-fan-in.md).
-/// This superseded process-mode path cannot use stem_diag.h's
-/// `fd_stem_publish`; it sends the same 128-byte fragment, built
-/// from the one definition in shim/tk_diag_fragment.h, over the same unreliable
-/// link with `Producer.publishLossy`. Best effort by design: the link never
-/// backpressures tkings, and a full link overwrites its oldest fragment.
-pub const DiagSender = struct {
-    link: *rt.link.Producer,
-    /// The sender's tile index as it knows it: its topology position, which is
-    /// also its Firedancer index because tkings precedes the metric tile, the
-    /// only tile topo_build reorders. tkdiag refuses a fragment whose identity
-    /// disagrees with the input's producer (visible in its rejected counter).
-    tile_idx: u32,
-    seq: u64 = 0,
-    max_queue_depth: u64 = 0,
-    /// Fragments that overwrote one tkdiag had not read yet. Not exported:
-    /// tkdiag's own overrun metrics are the observable side.
-    overwritten: std.atomic.Value(u64) = std.atomic.Value(u64).init(0),
-
-    pub fn init(link: *rt.link.Producer, tile_idx: u32) error{DiagLinkTooSmall}!DiagSender {
-        if (link.mtu < @sizeOf(audit_mod.diag_fragment_t)) return error.DiagLinkTooSmall;
-        return .{ .link = link, .tile_idx = tile_idx };
-    }
-
-    /// `backlog` is the pipeline link's current backlog (fragments tkings has
-    /// published that its consumer has not read); the sender keeps the peak.
-    pub fn send(self: *DiagSender, events_processed: u64, backpressure_waits: u64, backlog: u64) void {
-        self.seq += 1;
-        self.max_queue_depth = @max(self.max_queue_depth, backlog);
-        var f = std.mem.zeroes(audit_mod.diag_fragment_t);
-        f.tile_id = self.tile_idx;
-        f.tile_type = audit_mod.TK_DIAG_TYPE_INGEST;
-        f.seq = self.seq;
-        f.timestamp_ns = @intCast(util.process.monotonicNanos());
-        f.events_processed = events_processed;
-        f.backpressure_waits = backpressure_waits;
-        f.max_queue_depth = self.max_queue_depth;
-        // init() checked that a fragment fits the link's MTU, the only way
-        // publishLossy can fail.
-        self.link.publishLossy(std.mem.asBytes(&f), &self.overwritten) catch unreachable;
-    }
-};
-
-/// Test-build agent-request stream. When the process config carries a
-/// `ModelRequestSource`, the process publishes one agent request per offset
-/// instead of a payment event: a logical message (header plus prompt) sent as a
-/// contiguous multipart fragment stream, each fragment under the same bounded,
-/// backpressured publish path as `runIngestProcess`. Offset `n` is run `n+1`.
-pub fn runModelRequestSourceProcess(
-    process_cfg: ProcessRuntimeConfig,
-    tile_idx: u32,
-    output: *rt.link.Producer,
-    cnc: *c_abi.cnc.Cnc,
-) error{ModelRequestSourceRequiresTestBuild}!void {
-    const source = process_cfg.pipeline.model_requests orelse return;
-    // The request source is a test fixture, never a production ingest path.
-    if (!rt.test_build.enabled) return error.ModelRequestSourceRequiresTestBuild;
-
-    const cfg = process_cfg.pipeline;
-    var stop_flag = std.atomic.Value(bool).init(false);
-    var backpressure_waits = std.atomic.Value(u64).init(0);
-
-    // One message buffer, sized for the largest logical message.
-    const body_buf = std.heap.page_allocator.alloc(u8, c_abi.multipart.max_message_bytes) catch return;
-    defer std.heap.page_allocator.free(body_buf);
-
-    var produced: u64 = 0;
-    var offset: u64 = 0;
-    send: while (offset < cfg.event_count) : (offset += 1) {
-        maybeBlockForTest(process_cfg, tile_idx, produced);
-        if (halted(cnc)) break;
-        const body = model_request_source.buildAgentRequest(source, offset, body_buf);
-        const hash = c_abi.multipart.messageHash(body);
-        const frags = c_abi.multipart.fragCount(body.len);
-        var frag: [c_abi.multipart.link_mtu]u8 = undefined;
-        const fault = if (offset == source.fault_offset) source.fault else .none;
-        for (0..frags) |idx| {
-            // A deliberately faulty producer, for the receiver's fail-closed tests.
-            switch (fault) {
-                .none => {},
-                .drop_middle => if (idx == 1) continue,
-                .omit_last => if (idx == frags - 1) continue,
-                .corrupt_payload => {},
-            }
-            const f = c_abi.multipart.writeFragment(&frag, .request, .agent_request, model_request_source.runIdAt(offset), offset + 1, body, hash, idx);
-            if (fault == .corrupt_payload and idx == 1) frag[c_abi.multipart.header_size + 1] ^= 0x5a;
-            output.publishFragment(
-                frag[0..f.sz],
-                audit_mod.TK_LINK_SIG_AGENT_REQUEST,
-                c_abi.multipart.ctlBits(f.som, f.eom),
-                &backpressure_waits,
-                &stop_flag,
-                cnc,
-            ) catch break :send;
-        }
-        produced += 1;
-    }
-    rt.cnc_counters.appCounterWrite(cnc, 0, produced);
 }
 
 // ---------------------------------------------------------------------------

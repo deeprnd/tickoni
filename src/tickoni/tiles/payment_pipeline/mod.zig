@@ -1,7 +1,6 @@
 const std = @import("std");
 const audit = @import("audit");
 const runtime = @import("runtime.zig");
-const ingest = @import("ingest.zig");
 const normalize_seq = @import("normalize_seq.zig");
 const dedupe = @import("dedupe.zig");
 const policy = @import("policy.zig");
@@ -22,7 +21,6 @@ pub const PaymentMessage = runtime.PaymentMessage;
 pub const MetricSnapshot = runtime.MetricSnapshot;
 pub const DiagSnapshot = runtime.DiagSnapshot;
 pub const PaymentPipelineState = runtime.PaymentPipelineState;
-pub const runIngest = ingest.runIngest;
 pub const runNormalizeSeq = normalize_seq.runNormalizeSeq;
 pub const runDedupe = dedupe.runDedupe;
 pub const runPolicy = policy.runPolicy;
@@ -89,7 +87,6 @@ test "Phase 0 rejects malformed payment framing" {
 
 test {
     _ = @import("runtime.zig");
-    _ = @import("ingest.zig");
     _ = @import("normalize_seq.zig");
     _ = @import("dedupe.zig");
     _ = @import("policy.zig");
