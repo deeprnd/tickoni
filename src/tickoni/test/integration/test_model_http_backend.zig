@@ -82,6 +82,9 @@ fn withMockBackend(
 }
 
 test "model http backend: hello round-trip via mock server" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     try withMockBackend(std.testing.allocator, struct {
         fn run(allocator: std.mem.Allocator, backend: *model.Backend, server: *openai_mock.Server) !void {
             const req = model.ProviderRequest{
@@ -103,6 +106,9 @@ test "model http backend: hello round-trip via mock server" {
 }
 
 test "model http backend: thesis returns valid structured content from mock server" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     try withMockBackend(std.testing.allocator, struct {
         fn run(allocator: std.mem.Allocator, backend: *model.Backend, server: *openai_mock.Server) !void {
             const req = makeAiInfraRequest(mock_model_id);
@@ -163,6 +169,9 @@ test "model http backend: thesis returns valid structured content from mock serv
 }
 
 test "model http backend: two sequential calls both succeed against mock server" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     try withMockBackend(std.testing.allocator, struct {
         fn run(allocator: std.mem.Allocator, backend: *model.Backend, server: *openai_mock.Server) !void {
             const req = makeAiInfraRequest(mock_model_id);
@@ -179,6 +188,9 @@ test "model http backend: two sequential calls both succeed against mock server"
 }
 
 test "model http backend: missing /v1 path prefix returns HttpStatusError (HTTP 404)" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     const allocator = std.testing.allocator;
     var runtime = http_support.TestRuntime.init();
     defer runtime.deinit();

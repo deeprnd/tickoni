@@ -457,6 +457,8 @@ fn singleSource(kind: mrs.RequestKind, tier: Tier, shape: mrs.Shape) mrs.ModelRe
 // ---------------------------------------------------------------------------
 
 test "tkagnt_tile: requests to one model complete with attributed, audited terminal results" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     const event_count: u64 = 8;
     const specs = [_]InstanceSpec{.{ .kind_id = 0, .tier = .low }};
     const source = singleSource(.valid_replay, .low, .{});
@@ -484,6 +486,8 @@ test "tkagnt_tile: requests to one model complete with attributed, audited termi
 }
 
 test "tkagnt_tile: every model denial is audited, answered once, and carries its reason" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     const pattern = [_]mrs.RequestKind{
         .valid_replay,
         .missing_budget,
@@ -524,6 +528,8 @@ test "tkagnt_tile: every model denial is audited, answered once, and carries its
 }
 
 test "tkagnt_tile: a classifier result is interpreted and its confidence reported as it is" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     const event_count: u64 = 6; // fixtures cycle low/medium/high confidence
     const specs = [_]InstanceSpec{.{ .kind_id = 0, .tier = .classifier_fast }};
     const source = singleSource(.valid_replay, .classifier_fast, .{});
@@ -550,6 +556,8 @@ test "tkagnt_tile: a classifier result is interpreted and its confidence reporte
 }
 
 test "tkagnt_tile: an embedding request returns its vector and is counted" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     const event_count: u64 = 4;
     const specs = [_]InstanceSpec{.{ .kind_id = 0, .tier = .embedding }};
     const source = singleSource(.valid_replay, .embedding, .{ .response_bytes = 4096 });
@@ -567,6 +575,8 @@ test "tkagnt_tile: an embedding request returns its vector and is counted" {
 }
 
 test "tkagnt_tile: a sparse set of tiers serves its own requests and denies an absent tier without a model call" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     // Three configured instances: kind 0 classifier_fast, 1 embedding, 2 max.
     // The stream cycles through those and `high`, which is not configured.
     const specs = [_]InstanceSpec{
@@ -603,6 +613,8 @@ test "tkagnt_tile: a sparse set of tiers serves its own requests and denies an a
 }
 
 test "tkagnt_tile: all eleven tiers run at once with per-instance attribution" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     var specs: [11]InstanceSpec = undefined;
     for (&specs, 0..) |*s, k| s.* = .{ .kind_id = @intCast(k), .tier = @fromBackingInt(@intCast(k)) };
     var source = mrs.ModelRequestSource{ .pattern_len = 11 };
@@ -626,6 +638,8 @@ test "tkagnt_tile: all eleven tiers run at once with per-instance attribution" {
 }
 
 test "tkagnt_tile: a prompt and a response each above 65535 bytes cross every link intact" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     // 100,000 bytes is 13 fragments each way and above the 16-bit fd size.
     const shape = mrs.Shape{ .prompt_bytes = 100_000, .response_bytes = 100_000, .fixtures = 2 };
     try std.testing.expect(shape.prompt_bytes > c_abi.multipart.fd_sz_ceiling);
@@ -646,6 +660,8 @@ test "tkagnt_tile: a prompt and a response each above 65535 bytes cross every li
 }
 
 test "tkagnt_tile: messages near the 256 KiB ceiling are exact and the audit records carry hashes only" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     // The prompt and the response each fill most of the multipart ceiling
     // (33 fragments, more than the link depth of 32).
     const shape = mrs.Shape{ .prompt_bytes = 260_000, .response_bytes = 260_000, .fixtures = 2 };
@@ -672,6 +688,8 @@ test "tkagnt_tile: messages near the 256 KiB ceiling are exact and the audit rec
 }
 
 test "tkagnt_tile: more requests than slots, credits and link depth are back-pressured, never dropped" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     // 24 requests of 100,000-byte prompts against 4 request slots and links
     // 32 fragments deep: the source must be held back, not the requests lost.
     const shape = mrs.Shape{ .prompt_bytes = 100_000, .response_bytes = 2_000, .fixtures = 2 };
@@ -688,6 +706,8 @@ test "tkagnt_tile: more requests than slots, credits and link depth are back-pre
 }
 
 test "tkagnt_tile: link credits and dcache chunks turn over without loss or duplication" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     // 96 requests over links 32 fragments deep: three turnovers per link.
     const event_count: u64 = 96;
     const specs = [_]InstanceSpec{.{ .kind_id = 0, .tier = .low }};
@@ -702,6 +722,8 @@ test "tkagnt_tile: link credits and dcache chunks turn over without loss or dupl
 }
 
 test "tkagnt_tile: the same accepted requests and captures commit the same audit chain on every run" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     // Replay determinism at the audit layer: two independent runs of the same
     // requests against the same captures commit identical chain heads, even
     // though model processes and arrival times differ between the runs.
@@ -732,6 +754,8 @@ test "tkagnt_tile: the same accepted requests and captures commit the same audit
 }
 
 test "tkagnt_tile: an administrative HALT with nothing in flight stops every tile cleanly" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     // event_count = 0 disables the event gates, so the agent waits for work
     // until the supervisor's CNC HALT; it must stop cleanly with nothing owed.
     const specs = [_]InstanceSpec{.{ .kind_id = 0, .tier = .low }};
@@ -754,6 +778,8 @@ test "tkagnt_tile: an administrative HALT with nothing in flight stops every til
 }
 
 test "tkagnt_tile: a HALT mid-run drains every accepted request into one audited terminal result" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     // Many large requests, halted while some are in flight. Whatever tkagnt had
     // accepted when it saw the HALT must end in a terminal result (completed, or
     // failed as shutdown) and an audit record; nothing accepted is lost.
@@ -815,6 +841,8 @@ fn haltTile(sup: *Supervisor, tile_idx: usize) !void {
 }
 
 test "tkagnt_tile: no terminal result is published ahead of its audit commit" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     // Stop tkaudt, the only tile that advances the committed-order watermark.
     // The agent keeps admitting, dispatching and resolving runs, but it must not
     // publish a terminal result for any run whose audit record is not committed:
@@ -848,6 +876,8 @@ test "tkagnt_tile: no terminal result is published ahead of its audit commit" {
 }
 
 test "tkagnt_tile: a model that stops answering ends each run in an audited timeout" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     // The only tkmodl is stopped before the requests can be answered (or just
     // after the first). Each unanswered run must still end in one terminal
     // result and one agent audit record, with no model record to wait for.
@@ -893,6 +923,8 @@ test "tkagnt_tile: a model that stops answering ends each run in an audited time
 }
 
 test "tkagnt_tile: a faulty request stream is dropped whole and the requests around it are unaffected" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     // A real faulty producer: tkings loses a fragment, corrupts one, or never
     // sends the last. The faulty request is never accepted -- no run, no audit
     // record, no terminal result -- and every other request completes in order.
@@ -953,6 +985,8 @@ test "tkagnt_tile: a faulty request stream is dropped whole and the requests aro
 }
 
 test "tkagnt_tile: embedding governance denies a model or vector width the instance does not serve" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     // An embedding instance serves one model at one width. A request for another
     // width, or for a model outside the embedding allowlist, is denied before any
     // vector is produced: audited, never truncated or padded.
@@ -982,6 +1016,8 @@ test "tkagnt_tile: embedding governance denies a model or vector width the insta
 }
 
 test "tkagnt_tile: a HALT while a request is half-reassembled drains cleanly and admits nothing partial" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     // The last request's final fragment is never sent, so tkagnt is left holding
     // a half-reassembled message when it is halted (the partial-message timeout
     // is longer than this test waits). It must drain the accepted requests, drop
@@ -1012,6 +1048,8 @@ test "tkagnt_tile: a HALT while a request is half-reassembled drains cleanly and
 }
 
 test "tkagnt_tile: the full investment workflow turns each event into one audited agent run" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     const event_count: u64 = 6;
     const specs = [_]InstanceSpec{.{ .kind_id = 0, .tier = .low }};
     const template = singleSource(.valid_replay, .low, .{});
@@ -1104,6 +1142,8 @@ test "tkagnt_tile: the full investment workflow turns each event into one audite
 }
 
 test "tkagnt_tile: the full workflow commits the same event-ordered chain on every run" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
     const event_count: u64 = 6;
     const specs = [_]InstanceSpec{.{ .kind_id = 0, .tier = .low }};
     const template = singleSource(.valid_replay, .low, .{});

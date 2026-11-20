@@ -122,6 +122,9 @@ fn expectRecord(
 }
 
 test "tkpoly_integration: equality at the signed limit allows" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -146,6 +149,9 @@ test "tkpoly_integration: equality at the signed limit allows" {
 }
 
 test "tkpoly_integration: signed amount above limit denies" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -169,6 +175,9 @@ test "tkpoly_integration: signed amount above limit denies" {
 }
 
 test "tkpoly_integration: malformed decision has precedence and keeps tknorm attribution" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -198,6 +207,9 @@ test "tkpoly_integration: malformed decision has precedence and keeps tknorm att
 }
 
 test "tkpoly_integration: duplicate has precedence over an amount denial" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -228,6 +240,9 @@ test "tkpoly_integration: duplicate has precedence over an amount denial" {
 }
 
 test "tkpoly_integration: combined branch evidence preserves sequence and chain" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -273,6 +288,9 @@ test "tkpoly_integration: combined branch evidence preserves sequence and chain"
 // tkpoly is routed through its stem descriptor, the assertion must pass
 // unchanged.
 test "tkpoly_integration: positive event count naturally stops tkpoly after final publication" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -303,6 +321,9 @@ test "tkpoly_integration: positive event count naturally stops tkpoly after fina
 // 1002/1003) denied.  Proves the payment_pipeline.config handoff reaches a
 // real child process and that the signed limit setter is applied.
 test "tkpoly_integration: non-default limit in child allows 1000/1001 denies 1002/1003" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -335,6 +356,9 @@ test "tkpoly_integration: non-default limit in child allows 1000/1001 denies 100
 // First run: 2 allowed/2 denied. Second run: 0 allowed/4 denied, with zero
 // carried counters or limit state.
 test "tkpoly_integration: configuration does not leak between runs" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -395,6 +419,9 @@ test "tkpoly_integration: configuration does not leak between runs" {
 // as processed (not allowed or denied) and reaches .stopped without external
 // CNC HALT.
 test "tkpoly_integration: malformed-only self-exit" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -434,6 +461,9 @@ test "tkpoly_integration: malformed-only self-exit" {
 // processed (not allowed or denied) and reaches .stopped without external CNC
 // HALT.
 test "tkpoly_integration: duplicate-final self-exit" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -483,6 +513,9 @@ test "tkpoly_integration: duplicate-final self-exit" {
 // mass-denial case, which exercises the same transport but hides the
 // allow path's chunk reuse.
 test "tkpoly_integration: bounded credit turnover N=128" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -526,6 +559,9 @@ test "tkpoly_integration: bounded credit turnover N=128" {
 // Every probe failure fails the test.  Treating an unreadable cmdline as a
 // pass is what let this check assert nothing at all.
 test "tkpoly_integration: tkpoly child is launched through __stem-run" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     // /proc is Linux-only; P7.4 covers the other platforms through their own
     // qualified CI recipes.
     if (@import("builtin").target.os.tag != .linux) return error.SkipZigTest;
@@ -590,6 +626,9 @@ fn readProcCmdline(path: []const u8) ?[]const u8 {
 // P6.2 — With a positive event count, tkpoly reaches .stopped on its own
 // after the final publication, with no CNC HALT from the supervisor.
 test "tkpoly_integration: positive event count naturally stops tkpoly at N=1" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -619,6 +658,9 @@ test "tkpoly_integration: positive event count naturally stops tkpoly at N=1" {
 }
 
 test "tkpoly_integration: administrative HALT with zero event count" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -671,6 +713,9 @@ test "tkpoly_integration: administrative HALT with zero event count" {
 //   3. CNC audited = event_count
 //   4. no policy crash
 test "tkpoly_integration: final counters survive child reaping" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -740,6 +785,9 @@ test "tkpoly_integration: final counters survive child reaping" {
 // P6.4 — Same reaping proof but with a single-event allow case (the simplest
 // fixture). Proves even minimal runs preserve counters after child exit.
 test "tkpoly_integration: final counters survive reaping — single allow" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -780,6 +828,9 @@ test "tkpoly_integration: final counters survive reaping — single allow" {
 
 // P6.4 — Reaping proof with a single-event deny case.
 test "tkpoly_integration: final counters survive reaping — single deny" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -870,6 +921,9 @@ fn runAndCaptureChain(run_dir: []const u8, config: ProcessPipelineConfig) ![repl
 }
 
 test "tkpoly_integration: identical input yields an identical audit chain across runs" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
