@@ -12,6 +12,47 @@ const c_abi = @import("c_abi");
 const tiles = @import("tiles");
 const model_instances = @import("model_instances.zig");
 
+var ingest_config: tiles.PaymentPipelineConfig = .{};
+
+fn generatePayment(offset: u64, out: *c_abi.tkings.PaymentMessage) callconv(.c) void {
+    const raw = tiles.syntheticPayment(ingest_config, offset);
+    out.* = .{
+        .raw = .{
+            .source_offset = raw.source_offset,
+            .idempotency_key = raw.idempotency_key,
+            .amount_cents = raw.amount_cents,
+            .account_id = raw.account_id,
+            .currency = raw.currency,
+            .malformed = @intFromBool(raw.malformed),
+        },
+        .event_hash = 0,
+        .pipeline_hops = 1,
+        .duplicate = 0,
+        .decision = 0,
+        .decided_by = .{ 0, 0, 0, 0, 0, 0 },
+    };
+}
+
+/// Installs the already validated, Zig-owned synthetic payment generator in
+/// the tkings child before Firedancer calls its privileged init callback.
+pub fn loadIngestConfig(io: std.Io, spec: *const rt.launch_spec.LaunchSpec, topology_event_count: u64, dir: ?std.Io.Dir) !void {
+    var path_buf: [rt.launch_spec.shmem_path_cap + 32]u8 = undefined;
+    const path = if (spec.shmemPath().len > 0)
+        try std.fmt.bufPrint(&path_buf, "{s}/payment_pipeline.config", .{spec.shmemPath()})
+    else
+        try std.fmt.bufPrint(&path_buf, "payment_pipeline.config", .{});
+    const cfg = try tiles.process.readProcessConfig(io, dir orelse std.Io.Dir.cwd(), path);
+    if (cfg.pipeline.event_count != topology_event_count) return error.IngestConfigEventCountMismatch;
+    if (cfg.pipeline.model_requests != null) return error.ModelRequestSourceNotMigrated;
+    if (rt.test_build.enabled) {
+        if (cfg.stuck_tile) |hook| {
+            if (hook.tile_idx == spec.tile_idx) c_abi.tkings.setStuckHook(hook.after_messages, hook.sleep_ns);
+        }
+    }
+    ingest_config = cfg.pipeline;
+    c_abi.tkings.setPaymentGenerator(generatePayment);
+}
+
 /// Reads the supervisor-written payment_pipeline.config beside this child's
 /// topology.spec and pushes its signed `policy_limit_cents` into
 /// tk_policy_stem.c through the C setter.

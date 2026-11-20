@@ -360,6 +360,9 @@ pub const Supervisor = struct {
         log.enter("supervisor", "startPaymentPipelineProcess");
         defer log.exit("supervisor", "startPaymentPipelineProcess");
         std.debug.assert(self.process_state == null);
+        // S15 migrates the payment source only. Refuse the test-only model
+        // source before creating a workspace or spawning an incompatible stem.
+        if (config.model_requests != null) return error.ModelRequestSourceNotMigrated;
         // Refuse a topology whose tkmodl instances and configuration set do
         // not match one-to-one before any workspace or child exists.
         try model_instances.validate(config.model_configs, self.topo);

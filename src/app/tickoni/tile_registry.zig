@@ -202,7 +202,8 @@ fn tkingsProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
 pub const entries = [_]TileEntry{
     .{
         .id = tile_ids.tkings,
-        .process_fn = tkingsProcess,
+        .launch_mode = .stem,
+        .process_fn = null,
         .counters = &.{.{ .idx = 0, .field = .produced }},
         .out_cnt = 1,
         .diag = .producer,
