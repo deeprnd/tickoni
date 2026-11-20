@@ -20,6 +20,7 @@
 #include "firedancer.h"
 #include "audit_schema.h"
 #include "tickoni/c_abi/shim/stem_helpers.h"
+#include "tickoni/c_abi/shim/stem_diag.h"
 #include "tickoni/c_abi/topo_run/tk_policy_stem.h"
 
 #include "disco/topo/fd_topo.h"
@@ -66,6 +67,9 @@ typedef struct {
     /* Event count gating */
     uint64_t event_count;
     int      input_exhausted;
+
+    /* Optional diagnostic link to tkdiag (stem_diag.h) */
+    stk_diag_out_t diag;
 } tkpoly_ctx_t;
 
 /* Forward declarations */
@@ -224,12 +228,12 @@ tkpoly_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
 
     /* Cardinality first: tkpoly consumes tkdedu's output and produces
        tkaudt's input, so anything other than exactly one link each way is a
-       topology the policy contract does not describe.  Validate before
-       indexing the link arrays. */
+       topology the policy contract does not describe.  The one exception is
+       the optional diagnostic link to tkdiag, which must be the last output.
+       Validate before indexing the link arrays. */
     if (FD_UNLIKELY(tile->in_cnt != 1UL))
         FD_LOG_ERR(( "tkpoly: expected exactly one input link, found %lu", tile->in_cnt ));
-    if (FD_UNLIKELY(tile->out_cnt != 1UL))
-        FD_LOG_ERR(( "tkpoly: expected exactly one output link, found %lu", tile->out_cnt ));
+    stk_diag_out_init(&ctx->diag, topo, tile, 1UL);
 
     /* The input workspace was derived in privileged_init from the input
        mcache; a missing join there means every fragment would be silently
@@ -302,7 +306,7 @@ tkpoly_after_frag( tkpoly_ctx_t *      ctx,
                    ulong               tsorig,
                    ulong               tspub,
                    fd_stem_context_t * stem ) {
-    (void)in_idx; (void)seq; (void)sig; (void)sz; (void)tsorig; (void)tspub;
+    (void)sig; (void)sz; (void)tsorig; (void)tspub;
 
     if (!ctx->stage_valid)
         return;
@@ -361,6 +365,10 @@ tkpoly_after_frag( tkpoly_ctx_t *      ctx,
     /* CNC slot schema from tile_registry.zig: app[0]=allowed, app[1]=denied. */
     stk_publish_counter(ctx->cnc, 0UL, ctx->allowed);
     stk_publish_counter(ctx->cnc, 1UL, ctx->denied);
+
+    /* Diagnostic fragment: the cumulative counters just committed.  It goes to
+       an unreliable link, so it draws no credit and STEM_BURST stays 1. */
+    stk_diag_publish(&ctx->diag, stem, in_idx, seq, ctx->processed, ctx->denied, 0UL);
 
     /* Gate on processed, never allowed+denied: duplicate and malformed events
        count toward completion too, so the tile self-exits on the Nth
