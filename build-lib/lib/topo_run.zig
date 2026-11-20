@@ -26,11 +26,18 @@ fn addTickoniTopoRunShims(b: *std.Build, step: *std.Build.Step.Compile) void {
         .windows => "src/tickoni/c_abi/shim/topo_run_platform_windows.c",
         else => "src/tickoni/c_abi/shim/topo_run_platform_linux.c",
     };
+    // The per-process OS statistics probe tkdiag publishes per-tile metrics from.
+    const os_stats_file = switch (target_info.os.tag) {
+        .macos => "src/tickoni/c_abi/shim/tk_os_stats_macos.c",
+        .windows => "src/tickoni/c_abi/shim/tk_os_stats_windows.c",
+        else => "src/tickoni/c_abi/shim/tk_os_stats_linux.c",
+    };
 
     step.root_module.addCSourceFiles(.{
         .files = &.{
             "src/tickoni/c_abi/shim/topo_run.c",
             topo_run_platform_file,
+            os_stats_file,
             "src/tickoni/c_abi/shim/topob.c",
             "src/tickoni/c_abi/shim/tk_metric_tile.c",
             "src/tickoni/c_abi/shim/tk_audit_stem.c",
