@@ -469,6 +469,11 @@ test "T10.4 positive fan-in: channel array has 2 inbound links to tkaudt" {
 test "tkings has no process callback after stem migration" {
     const entry = findById(tile_ids.tkings).?;
     try std.testing.expectEqual(@as(?ProcessFn, null), entry.process_fn);
+    try std.testing.expect(entry.test_source_fn != null);
+    try std.testing.expectEqual(LaunchMode.stem, reg.launchModeFor(entry, false));
+    try std.testing.expectEqual(LaunchMode.tile, reg.launchModeFor(entry, true));
+    const norm = findById(tile_ids.tknorm).?;
+    try std.testing.expectEqual(LaunchMode.stem, reg.launchModeFor(norm, true));
 }
 
 // T10.15: provider-config validation tests — invalid CPU id, workspace name,

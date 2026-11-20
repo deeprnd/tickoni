@@ -80,6 +80,8 @@ pub const TileEntry = struct {
     /// metric, tkdiag) — see tiles/payment_pipeline/process.zig's module
     /// doc comment for that scope boundary.
     process_fn: ?ProcessFn = null,
+    /// Test-only model-request source for tkings. Payment events use fd_stem.
+    test_source_fn: ?ProcessFn = null,
     counters: []const CounterSchemaEntry = &.{},
     /// Expected link cardinality (v2.14.S8 registry responsibility).
     /// v2.14.S8.T2 wires these into real validation: validate(topo) below
@@ -165,32 +167,24 @@ fn loadProcessConfig(io: std.Io, spec: *const rt.launch_spec.LaunchSpec) !tiles.
 // pointing back at scattered per-tile logic.
 // ---------------------------------------------------------------------------
 
-fn tkingsProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
+fn tkingsModelSourceProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
     _ = allocator;
     std.debug.print("[tkings] joining output link...\n", .{});
-    // One pipeline output, plus the optional diagnostic link to tkdiag. validate()
-    // guarantees that a second output is that link and comes last.
+    // One pipeline output; an optional diagnostic output is unused by this
+    // test-only source.
     if (spec.out_cnt < 1 or spec.out_cnt > 2) return error.MissingOutputLink;
     var output = try rt.link.Producer.join(wksp, spec.outLinks()[0]);
     defer output.leave();
-    var diag_link: ?rt.link.Producer = null;
-    defer if (diag_link) |*d| d.leave();
-    var diag_sender: ?tiles.process.DiagSender = null;
-    if (spec.out_cnt == 2) {
-        diag_link = try rt.link.Producer.join(wksp, spec.outLinks()[1]);
-        diag_sender = try tiles.process.DiagSender.init(&diag_link.?, spec.tile_idx);
-    }
     const cfg = try loadProcessConfig(io, spec);
-    if (cfg.pipeline.model_requests != null) {
-        // Test-build model-request stream for the tkmodl topologies.
-        std.debug.print("[tkings] producing model requests (event_count={d})...\n", .{cfg.pipeline.event_count});
-        try tiles.process.runModelRequestSourceProcess(cfg, spec.tile_idx, &output, cnc);
-        std.debug.print("[tkings] done producing\n", .{});
-        return;
-    }
-    std.debug.print("[tkings] producing events (event_count={d})...\n", .{cfg.pipeline.event_count});
-    tiles.process.runIngestProcess(cfg, spec.tile_idx, &output, if (diag_sender) |*d| d else null, cnc);
+    if (cfg.pipeline.model_requests == null) return error.ModelRequestSourceMissing;
+    std.debug.print("[tkings] producing model requests (event_count={d})...\n", .{cfg.pipeline.event_count});
+    try tiles.process.runModelRequestSourceProcess(cfg, spec.tile_idx, &output, cnc);
     std.debug.print("[tkings] done producing\n", .{});
+}
+
+pub fn launchModeFor(entry: *const TileEntry, model_requests: bool) LaunchMode {
+    if (model_requests and entry.test_source_fn != null) return .tile;
+    return entry.launch_mode;
 }
 
 // ---------------------------------------------------------------------------
@@ -204,6 +198,7 @@ pub const entries = [_]TileEntry{
         .id = tile_ids.tkings,
         .launch_mode = .stem,
         .process_fn = null,
+        .test_source_fn = tkingsModelSourceProcess,
         .counters = &.{.{ .idx = 0, .field = .produced }},
         .out_cnt = 1,
         .diag = .producer,
