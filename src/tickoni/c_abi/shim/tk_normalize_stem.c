@@ -7,7 +7,8 @@
      set stage_valid.  Stages only — no counters, no progress, no publish.
    - AFTER_FRAG: bump the normalized/invalid counters from the staged
      decision, publish to the output dcache via fd_stem_publish, publish
-     progress, apply the event gate.
+     progress, publish the diagnostic fragment to tkdiag when the topology
+     wires one (stem_diag.h), apply the event gate.
    - AFTER_CREDIT: not defined — tknorm has no fragment-independent work.
    - SHOULD_SHUTDOWN: CNC HALT + idle threshold + event_count exhaustion
 
@@ -22,6 +23,7 @@
 #include "firedancer.h"
 #include "audit_schema.h"
 #include "tickoni/c_abi/shim/stem_helpers.h"
+#include "tickoni/c_abi/shim/stem_diag.h"
 
 #include "disco/topo/fd_topo.h"
 #include "util/wksp/fd_wksp.h"
@@ -72,6 +74,9 @@ typedef struct {
     ulong    out_chunk0;
     ulong    out_wmark;
     ulong    out_chunk;
+
+    /* Optional diagnostic link to tkdiag (stem_diag.h) */
+    stk_diag_out_t diag;
 } tknorm_ctx_t;
 
 #define TKNORM_CTX_ALIGN alignof(tknorm_ctx_t)
@@ -231,8 +236,8 @@ tknorm_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     /* Shared boilerplate: find CNC and set ctx->cnc */
     STK_UNPRIV_INIT(topo, tile, ctx);
 
-    if (FD_UNLIKELY(tile->out_cnt != 1UL))
-        FD_LOG_ERR(( "tknorm: expected exactly one output link, found %lu", tile->out_cnt ));
+    /* One pipeline output (index 0), plus the optional diagnostic link last. */
+    stk_diag_out_init(&ctx->diag, topo, tile, 1UL);
     fd_topo_link_t const * out_link = &topo->links[tile->out_link_id[0]];
     if (FD_UNLIKELY(!out_link->dcache || out_link->mtu < PAYMENT_MSG_SIZE))
         FD_LOG_ERR(( "tknorm: invalid output dcache or mtu %lu", out_link->mtu ));
@@ -309,7 +314,7 @@ tknorm_after_frag( tknorm_ctx_t *      ctx,
                    ulong               tsorig,
                    ulong               tspub,
                    fd_stem_context_t * stem ) {
-    (void)in_idx; (void)seq; (void)sig; (void)sz; (void)tsorig; (void)tspub;
+    (void)sig; (void)sz; (void)tsorig; (void)tspub;
 
     if (!ctx->stage_valid)
         return;
@@ -336,6 +341,10 @@ tknorm_after_frag( tknorm_ctx_t *      ctx,
        app[0]=normalized, app[1]=invalid for tknorm). */
     stk_publish_counter(ctx->cnc, 0UL, ctx->normalized);
     stk_publish_counter(ctx->cnc, 1UL, ctx->invalid);
+
+    /* Diagnostic fragment: the cumulative counters just committed.  It goes to
+       an unreliable link, so it draws no credit and STEM_BURST stays 1. */
+    stk_diag_publish(&ctx->diag, stem, in_idx, seq, ctx->normalized + ctx->invalid, ctx->invalid, 0UL);
 
     /* Shared boilerplate: event-count gating, checked against the
        post-increment total so the gate fires on the Nth fragment. */

@@ -436,5 +436,6 @@ _Static_assert( offsetof(ModelResultMsg, model_id)==72UL, "ModelResultMsg.model_
 _Static_assert( offsetof(ModelAuditMsg, payload)==64UL, "ModelAuditMsg.payload ABI drift" );
 
 #include "tk_agent_wire.h"
+#include "tk_diag_fragment.h"
 
 #endif /* __AUDIT_SCHEMA_H__ */

@@ -803,6 +803,38 @@ tk_topo_tile_in_cnt( void const * topo_, ulong tile_id ) {
   return tile_id<topo->tile_cnt ? topo->tiles[ tile_id ].in_cnt : 0UL;
 }
 
+/* Object id of a tile's metrics region (ULONG_MAX for an out-of-range tile).
+   tkdiag declares use of every other tile's metrics region, as Firedancer's
+   diag tile does, so it can read each tile's status and write its OS-level
+   metrics. */
+ulong
+tk_topo_tile_metrics_obj_id( void const * topo_, ulong tile_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  return tile_id<topo->tile_cnt ? topo->tiles[ tile_id ].metrics_obj_id : ULONG_MAX;
+}
+
+/* Whether a tile declared use of an object.  Used by tests to verify what a
+   tile can reach. */
+int
+tk_topo_tile_uses_obj( void const * topo_, ulong tile_id, ulong obj_id ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  if( tile_id>=topo->tile_cnt ) return 0;
+  fd_topo_tile_t const * tile = &topo->tiles[ tile_id ];
+  for( ulong i=0UL; i<tile->uses_obj_cnt; i++ )
+    if( tile->uses_obj_id[ i ]==obj_id ) return 1;
+  return 0;
+}
+
+/* Whether a tile's in_idx'th input is a reliable consumer (flow-controlled by
+   its producer).  0 for an unreliable one and for an out-of-range tile or
+   index.  Used by tests to verify that lossy channels are wired unreliable. */
+int
+tk_topo_tile_in_reliable( void const * topo_, ulong tile_id, ulong in_idx ) {
+  fd_topo_t const * topo = (fd_topo_t const *)topo_;
+  if( tile_id>=topo->tile_cnt || in_idx>=topo->tiles[ tile_id ].in_cnt ) return 0;
+  return topo->tiles[ tile_id ].in_link_reliable[ in_idx ] ? 1 : 0;
+}
+
 /* Return the CPU index for a tile.
    Used by topo_build.zig to verify CPU placement. */
 ulong
