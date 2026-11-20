@@ -14,6 +14,7 @@ pub const shim_c_files = &.{
     "topob.c",
     "tile_run.c",
     "tk_audit_stem.c",
+    "tk_ingest_stem.c",
     "tk_normalize_stem.c",
     "tk_dedu_stem.c",
     "tk_policy_stem.c",
@@ -125,7 +126,7 @@ pub fn addPlainTestRunSeries(
 ) *std.Build.Step.Run {
     if (test_compiles.len == 0) unreachable;
 
-    var runs: [64]*std.Build.Step.Run = undefined;
+    var runs: [65]*std.Build.Step.Run = undefined;
     var i: usize = 0;
     while (i < test_compiles.len) : (i += 1) {
         runs[i] = b.addRunFile(test_compiles[i].getEmittedBin());

@@ -42,8 +42,8 @@ pub const LaneKind = enum {
     domain,
 };
 
-/// Max possible run count across all lane kinds (all=24: 17 infra + 7 domain).
-const max_run_count: usize = 24;
+/// Max possible run count across all lane kinds (all=25: 18 infra + 7 domain).
+const max_run_count: usize = 25;
 
 /// Register integration tests for the requested lane kind.
 pub fn strategy(
@@ -101,18 +101,19 @@ pub fn strategy(
             "src/tickoni/test/integration/test_tile_metric.zig",
             "src/tickoni/test/integration/test_process_topology.zig",
             "src/tickoni/test/integration/test_process_pipeline.zig",
+            "src/tickoni/test/integration/test_tile_tkings.zig",
             "src/tickoni/test/integration/test_process_shutdown_reap.zig",
             "src/tickoni/test/integration/test_process_cpu_placement.zig",
             "src/tickoni/test/integration/test_process_fixture_parity.zig",
             "src/tickoni/test/integration/test_link_bounds.zig",
-            "src/tickoni/test/integration/test_minimal_setup.zig",
             "src/tickoni/test/integration/test_tile_tkaudt.zig",
             "src/tickoni/test/integration/test_tile_tknorm.zig",
             "src/tickoni/test/integration/test_tile_tkdedu.zig",
             "src/tickoni/test/integration/test_tile_tkpoly.zig",
+            "src/tickoni/test/integration/test_tile_tkdiag.zig",
+            "src/tickoni/test/integration/test_minimal_setup.zig",
             "src/tickoni/test/integration/test_tile_tkmodl.zig",
             "src/tickoni/test/integration/test_tile_tkagnt.zig",
-            "src/tickoni/test/integration/test_tile_tkdiag.zig",
             "src/tickoni/test/integration/test_stem_heartbeat.zig",
         };
 
