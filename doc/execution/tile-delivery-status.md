@@ -153,6 +153,7 @@ publishes per stem iteration.
 
 | Tile | Shape | State | Note |
 |---|---|---|---|
+| `tkings` (synthetic source) | 0-in, 1-out (+ optional diagnostic link) | Conforms (producer-only exception) | The only producer-only stem tile, so it has no `DURING_FRAG` or `AFTER_FRAG`. `BEFORE_CREDIT` only stages (the next payment, or the next agent request), because `fd_stem` runs it before the reliable output's credit check; `AFTER_CREDIT` publishes one fragment (`STEM_BURST` 1), then the counter and the lossy diagnostic fragment, and sets exhaustion only after the final publish. A zero event count leaves the tile idle until CNC HALT. Two sources, exactly one installed by the Zig child before the harness runs: the payment generator (`syntheticPayment`), or, in test builds only, the agent-request source (multipart `TkAgentRequestHdr` + prompt stream to `tkagnt`; Zig builds each request and injects stream faults through a per-fragment hook, the C tile stays generic; no diagnostic fragment). The test-only crash and stuck hooks live in the same context struct, as in the other stem tiles. See [`plans/v2.10-s15-tkings-fd-stem-migration.md`](plans/v2.10-s15-tkings-fd-stem-migration.md). |
 | `tknorm` | 1-in, 1-out (+ optional diagnostic link) | Conforms | Publishes in `AFTER_FRAG` only, the diagnostic fragment after the pipeline publish (`STEM_BURST` stays 1: the unreliable diagnostic link draws no credit). |
 | `tkdedu` | 1-in, 1-out (+ optional diagnostic link) | Conforms | Publishes in `AFTER_FRAG` only, the diagnostic fragment after the pipeline publish (`STEM_BURST` stays 1). |
 | `tkaudt` | 1-in, 0-out (+ optional diagnostic link) | Conforms | `DURING_FRAG` builds the record into the next, still-uncommitted ring slot; `AFTER_FRAG` stamps `seq`/`prev_hash`, hashes, and advances the chain and `audit_count`. Sink: no pipeline publish; its only publish is the optional diagnostic fragment, last in `AFTER_FRAG`. See [`plans/v2.NN-sXX-tkaudt-stem-contract.md`](plans/v2.NN-sXX-tkaudt-stem-contract.md). With an agent input it also orders the chain (see the event-ordered chain row); in a topology with a payment chain and agent runs its `BEFORE_FRAG` holds the next payment record back until the previous agent record is committed. |
@@ -163,7 +164,7 @@ publishes per stem iteration.
 | `tkdiag` (diagnostics and fan-in collector) | N-in (one unreliable diagnostic link per pipeline tile), 0-out | Conforms | One stem implementation (`shim/tk_diag_stem.c`), modelled on Firedancer's diag tile. `BEFORE_CREDIT` (every 100 ms, never sleeping) reads each tile's `/proc` statistics through `shim/tk_os_stats.h` into that tile's metrics region, applies the liveness rule (process gone while `TILE_STATUS` is not "shutdown": a crash, logged once) and reads tkrepl's CNC for the replay result. `DURING_FRAG` bounds-checks the chunk and size and stages a copy of the fragment; `AFTER_FRAG` offers it to the aggregation (`tkdiag_agg_accept` in `shim/tk_diag_fragment.h`: shape, sender identity bound from the topology, strictly increasing `seq`). `METRICS_WRITE` publishes the `tkdiag` metrics kind; CNC slots 0 to 4 for the supervisor. No publish (`STEM_BURST` 1, `out_cnt` 0), no `AFTER_CREDIT`, no socket: the metric tile serves its metrics. Plus the shared `DURING_HOUSEKEEPING` heartbeat. Fails closed on an output link, a reliable input, an input whose producer is not a diagnostic producer, or two inputs of one producer type; with no input links it still observes the tiles. `SHOULD_SHUTDOWN` is CNC HALT or tkrepl's `replay_checked`. `/proc` descriptors are opened in `privileged_init` and listed in `populate_allowed_fds`; no seccomp policy yet. See [`plans/v2.10-s14-tkdiag-fan-in.md`](plans/v2.10-s14-tkdiag-fan-in.md). |
 | `tkmetr` | 0-in, 0-out | Conforms (liveness only) | Delegates to `fd_metric_tile.c`; Tickoni authors no fragment callbacks for it. The file is also linked into the native Firedancer binaries, so liveness is a NULL-by-default hook, `fd_metric_ctx_t.liveness`, that `shim/tk_metric_tile.c` sets to `stk_cnc_liveness`; native Firedancer leaves it NULL and is unchanged. It runs its stem loop under `__tile-run` (launch mode `tile` in the registry) and never took the generic path's `RUN` and heartbeat, so the supervisor never stale-checked it. |
 
-Every stem tile above (all nine `tk_*_stem.c` files) and the metric tile advance the CNC heartbeat,
+Every stem tile above (all ten `tk_*_stem.c` files) and the metric tile advance the CNC heartbeat,
 and moves the CNC `BOOT -> RUN` on its first loop iteration, from
 `STEM_CALLBACK_DURING_HOUSEKEEPING` (`stk_cnc_liveness` in
 `shim/stem_helpers.h`), so the supervisor classifies a wedged or stopped stem
@@ -186,10 +187,11 @@ documents need a product-owned pass before `tkpoly` or `tkrepl`
 are migrated. `plans/v2.10-s14-tkdiag-fan-in.md` had the same defect and was
 given that pass before it was implemented: its "Resolved Design" section
 supersedes its code sketches (publish in `AFTER_FRAG`, an unreliable link, a
-128-byte fragment). `tkings` now uses `fd_stem` for the synthetic payment
-source under the S15 producer-only exception: it publishes the reliable
-pipeline fragment and then the diagnostic fragment in `AFTER_CREDIT`. The
-test-only model-request source stays on the process callback path.
+128-byte fragment). `tkings` uses `fd_stem` for both of its sources (the synthetic payment
+source and the test-only model-request source) under the S15 producer-only
+exception: it stages in `BEFORE_CREDIT` and publishes in `AFTER_CREDIT`. No tile
+has a process-mode source any more; `tkings` has no `process_fn`, and the
+registry has no test-source override.
 
 ## Tile Synchronization Debt
 
