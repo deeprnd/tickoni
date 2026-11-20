@@ -7,7 +7,9 @@
    - AFTER_FRAG: skip dedup for malformed_drop, linear scan
      seen_keys/seen_hashes, mark duplicate or insert, write the staged message
      to the pre-computed output dcache slot, publish via fd_stem_publish,
-     advance chunk, bump counters, publish progress, apply the event gate.
+     advance chunk, bump counters, publish progress, publish the diagnostic
+     fragment to tkdiag when the topology wires one (stem_diag.h), apply the
+     event gate.
    - AFTER_CREDIT: not defined — tkdedu has no fragment-independent work.
    - SHOULD_SHUTDOWN: CNC HALT + event_count exhaustion
 
@@ -22,6 +24,7 @@
 #include "firedancer.h"
 #include "audit_schema.h"
 #include "tickoni/c_abi/shim/stem_helpers.h"
+#include "tickoni/c_abi/shim/stem_diag.h"
 
 #include "disco/topo/fd_topo.h"
 #include "util/wksp/fd_wksp.h"
@@ -72,6 +75,9 @@ typedef struct {
     /* Event count gating */
     uint64_t event_count;
     int      input_exhausted;
+
+    /* Optional diagnostic link to tkdiag (stem_diag.h) */
+    stk_diag_out_t diag;
 } tkdedu_ctx_t;
 
 /* Forward declarations */
@@ -255,8 +261,8 @@ tkdedu_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     /* Compute output dcache workspace fields for the after_frag publish.
        Matches the tknorm pattern: get the output link, find its dcache
        object, compute chunk0/wmark, start at chunk0. */
-    if (FD_UNLIKELY(tile->out_cnt != 1UL))
-        FD_LOG_ERR(( "tkdedu: expected exactly one output link, found %lu", tile->out_cnt ));
+    /* One pipeline output (index 0), plus the optional diagnostic link last. */
+    stk_diag_out_init(&ctx->diag, topo, tile, 1UL);
     fd_topo_link_t const * out_link = &topo->links[tile->out_link_id[0]];
     if (FD_UNLIKELY(!out_link->dcache || out_link->mtu < PAYMENT_MSG_SIZE))
         FD_LOG_ERR(( "tkdedu: invalid output dcache or mtu %lu", out_link->mtu ));
@@ -316,7 +322,7 @@ tkdedu_after_frag( tkdedu_ctx_t *      ctx,
                    ulong               tsorig,
                    ulong               tspub,
                    fd_stem_context_t * stem ) {
-    (void)in_idx; (void)seq; (void)sig; (void)sz; (void)tsorig; (void)tspub;
+    (void)sig; (void)sz; (void)tsorig; (void)tspub;
 
     if (!ctx->stage_valid)
         return;
@@ -339,7 +345,12 @@ tkdedu_after_frag( tkdedu_ctx_t *      ctx,
             ctx->duplicates += 1;
         } else if (FD_UNLIKELY( ctx->seen_count >= ctx->seen_cap )) {
             /* Fail closed: writing past seen_cap would corrupt the
-               scratch that follows the reserved dedupe table. */
+               scratch that follows the reserved dedupe table.  This is a fatal
+               fault the tile detects itself, so it says so to tkdiag with a
+               final fragment before it aborts (a tile killed from outside
+               cannot; tkdiag sees that from the process). */
+            stk_diag_fault(&ctx->diag);
+            stk_diag_publish(&ctx->diag, stem, in_idx, seq, ctx->processed, ctx->duplicates, 0UL);
             FD_LOG_ERR(( "tkdedu: dedupe table full at %lu entries",
                          (unsigned long)ctx->seen_cap ));
         } else {
@@ -369,6 +380,10 @@ tkdedu_after_frag( tkdedu_ctx_t *      ctx,
     /* Shared boilerplate: counter publishing.  ctx->processed is the
        shutdown gate's input, not a counter the supervisor exposes. */
     stk_publish_counter(ctx->cnc, 0UL, ctx->duplicates);
+
+    /* Diagnostic fragment: the cumulative counters just committed.  It goes to
+       an unreliable link, so it draws no credit and STEM_BURST stays 1. */
+    stk_diag_publish(&ctx->diag, stem, in_idx, seq, ctx->processed, ctx->duplicates, 0UL);
 
     /* Shared boilerplate: event-count gating.  Checked against the
        post-increment count so the gate fires on the Nth fragment and the

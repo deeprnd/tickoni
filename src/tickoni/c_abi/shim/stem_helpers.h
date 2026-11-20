@@ -41,12 +41,17 @@
       publishes in AFTER_CREDIT silently drops its final event.
 
    4. STEM_BURST == the maximum fd_stem_publish calls one loop iteration can
-      make.  The credit gate reserves exactly STEM_BURST slots per iteration;
-      a second publish in the same iteration spends a credit the tile does
-      not hold and can overrun the downstream consumer.
+      make to any ONE reliable output link.  The credit gate reserves exactly
+      STEM_BURST slots per iteration; a second publish to the same reliable
+      link in the same iteration spends a credit the tile does not hold and
+      can overrun the downstream consumer.  Credits are accounted per output
+      and only for outputs that have a reliable consumer (fd_stem_publish), so
+      a publish to an UNRELIABLE output, such as the diagnostic link to tkdiag
+      (stem_diag.h), draws none and does not raise STEM_BURST.
 
-   A sink tile (out_cnt == 0, e.g. tkaudt) follows the same contract and
-   simply ends AFTER_FRAG without publishing.  out_cnt alone decides the
+   A sink tile (no pipeline output, e.g. tkaudt) follows the same contract and
+   simply ends AFTER_FRAG without a pipeline publish; its only publish is the
+   optional diagnostic fragment.  The pipeline output count alone decides the
    shape of the tile, not which callbacks it happens to define.
 
    Rationale and the full statement of this contract live in
