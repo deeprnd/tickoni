@@ -227,9 +227,9 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
         .allocator = allocator,
     };
     std.debug.print("[tile-process] ctx set cnc_obj_id={x} wksp_idx={d} tile={s}\n", .{ g_ctx.cnc_obj_id, g_ctx.wksp_idx, id_slice });
-    std.debug.print("[tile-process] calling runTileSimple\n", .{});
+    std.debug.print("[tile-process] calling runTileProcess\n", .{});
 
-    c_abi.topo_run.runTileSimple(built.topo, c_abi.topob.topoTilePtr(built.topo, tile_idx));
-    std.debug.print("[tile-process] runTileSimple returned\n", .{});
+    c_abi.topo_run.runTileProcess(built.topo, c_abi.topob.topoTilePtr(built.topo, tile_idx));
+    std.debug.print("[tile-process] runTileProcess returned\n", .{});
     return 0;
 }
