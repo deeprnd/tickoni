@@ -31,6 +31,7 @@ enum {
   FD_METRICS_COUNTER_TILE_PAGE_FAULT_MAJOR_OFF,
   FD_METRICS_COUNTER_TILE_PAGE_FAULT_MINOR_OFF,
   FD_METRICS_GAUGE_TILE_STATUS_OFF,
+  FD_METRICS_GAUGE_TILE_RESIDENT_BYTES_OFF,
   FD_METRICS_GAUGE_TILE_HEARTBEAT_TIMESTAMP_NANOS_OFF,
   FD_METRICS_GAUGE_TILE_IN_BACKPRESSURE_OFF,
   FD_METRICS_COUNTER_TILE_BACKPRESSURE_OFF,
@@ -86,6 +87,7 @@ enum {
 #include "fd_metrics_metric.h"
 #include "fd_metrics_rpc.h"
 #include "fd_metrics_diag.h"
+#include "fd_metrics_tkdiag.h"
 #include "fd_metrics_genesi.h"
 #include "fd_metrics_admin.h"
 #include "fd_metrics_ipecho.h"
@@ -186,6 +188,11 @@ enum {
 #define FD_METRICS_GAUGE_TILE_STATUS_DESC "0=booting, 1=running, 2=shutdown"
 #define FD_METRICS_GAUGE_TILE_STATUS_CVT  (FD_METRICS_CONVERTER_NONE)
 
+#define FD_METRICS_GAUGE_TILE_RESIDENT_BYTES_NAME "tile_resident_bytes"
+#define FD_METRICS_GAUGE_TILE_RESIDENT_BYTES_TYPE (FD_METRICS_TYPE_GAUGE)
+#define FD_METRICS_GAUGE_TILE_RESIDENT_BYTES_DESC "Resident memory of the tile process in bytes (Linux: resident set from /proc, macOS: resident size, Windows: working set), written by the diagnostics tile"
+#define FD_METRICS_GAUGE_TILE_RESIDENT_BYTES_CVT  (FD_METRICS_CONVERTER_NONE)
+
 #define FD_METRICS_GAUGE_TILE_HEARTBEAT_TIMESTAMP_NANOS_NAME "tile_heartbeat_timestamp_nanos"
 #define FD_METRICS_GAUGE_TILE_HEARTBEAT_TIMESTAMP_NANOS_TYPE (FD_METRICS_TYPE_GAUGE)
 #define FD_METRICS_GAUGE_TILE_HEARTBEAT_TIMESTAMP_NANOS_DESC "Last UNIX timestamp the tile heartbeated, in nanoseconds"
@@ -229,15 +236,15 @@ enum {
 #define FD_METRICS_COUNTER_TILE_TIMER_TICK_CVT  (FD_METRICS_CONVERTER_NONE)
 
 
-#define FD_METRICS_ALL_TOTAL (27UL)
+#define FD_METRICS_ALL_TOTAL (28UL)
 extern const fd_metrics_meta_t FD_METRICS_ALL[FD_METRICS_ALL_TOTAL];
 
 #define FD_METRICS_ALL_LINK_IN_TOTAL (9UL)
 extern const fd_metrics_meta_t FD_METRICS_ALL_LINK_IN[FD_METRICS_ALL_LINK_IN_TOTAL];
 
-#define FD_METRICS_TOTAL_SZ (8UL*268UL)
+#define FD_METRICS_TOTAL_SZ (8UL*269UL)
 
-#define FD_METRICS_TILE_KIND_CNT 42
+#define FD_METRICS_TILE_KIND_CNT 43
 extern const char * FD_METRICS_TILE_KIND_NAMES[FD_METRICS_TILE_KIND_CNT];
 extern const ulong FD_METRICS_TILE_KIND_SIZES[FD_METRICS_TILE_KIND_CNT];
 extern const fd_metrics_meta_t * FD_METRICS_TILE_KIND_METRICS[FD_METRICS_TILE_KIND_CNT];
