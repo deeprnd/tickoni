@@ -126,3 +126,43 @@ test "link_bounds: producer backpressures and counts waits when the consumer doe
     try std.testing.expectError(error.Stopped, producer.publish(&payload, &backpressure_waits, &stop_flag, null));
     try std.testing.expect(backpressure_waits.load(.acquire) > 0);
 }
+
+test "link_bounds: backlog counts published fragments the consumer has not consumed, never more than the depth" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const len = try tmp.dir.realPath(std.testing.io, &path_buf);
+    const run_dir = path_buf[0..len];
+
+    const wksp = try attachScratchWksp(std.testing.io, run_dir, "tkbnd3");
+    defer {
+        _ = c_abi.wksp.wkspDetach(wksp);
+        _ = c_abi.wksp.wkspDeleteNamed("tkbnd3");
+        c_abi.boot.halt();
+    }
+
+    const handles = try rt.link.create(wksp, 8, 8);
+    var producer = try rt.link.Producer.join(wksp, handles);
+    defer producer.leave();
+
+    var stop_flag = std.atomic.Value(bool).init(false);
+    var backpressure_waits = std.atomic.Value(u64).init(0);
+    const payload = [_]u8{ 1, 2, 3, 4 };
+
+    try std.testing.expectEqual(@as(u64, 0), producer.backlog());
+    for (0..3) |_| try producer.publish(&payload, &backpressure_waits, &stop_flag, null);
+    try std.testing.expectEqual(@as(u64, 3), producer.backlog());
+
+    // The consumer's position is the next sequence it will read.
+    c_abi.fseq.fseqUpdate(producer.fseq, 2);
+    try std.testing.expectEqual(@as(u64, 1), producer.backlog());
+    c_abi.fseq.fseqUpdate(producer.fseq, 3);
+    try std.testing.expectEqual(@as(u64, 0), producer.backlog());
+
+    // A consumer that has not published a position yet (the topology creates the
+    // fseq at the maximum sequence) has consumed nothing.
+    c_abi.fseq.fseqUpdate(producer.fseq, std.math.maxInt(u64));
+    try std.testing.expectEqual(@as(u64, 3), producer.backlog());
+}

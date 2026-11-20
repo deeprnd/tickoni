@@ -1037,3 +1037,153 @@ test "metric_tile_integration: sequential pipeline runs on same port" {
         try expectNoCrashes(&sup, iter_run_dir);
     }
 }
+
+// ---------------------------------------------------------------------------
+// tkdiag's metrics, served by this metric tile the way Firedancer's metric tile
+// serves its diag tile's: tkdiag writes its own `tkdiag` kind (tkdiag_*) and the
+// per-tile CPU, fault and memory metrics of every tile into the metrics regions,
+// and /metrics renders them. tkdiag has no HTTP server of its own.
+// ---------------------------------------------------------------------------
+
+/// Value of the first series called `name` (or `name_total`) whose `kind` label
+/// is `kind`, e.g. `tkdiag_tiles_reporting{kind="tkdiag",kind_id="0"} 5`.
+fn seriesValue(body: []const u8, name: []const u8, kind: []const u8) ?u64 {
+    var kind_label_buf: [32]u8 = undefined;
+    const kind_label = std.fmt.bufPrint(&kind_label_buf, "kind=\"{s}\"", .{kind}) catch return null;
+    var it = std.mem.splitScalar(u8, body, '\n');
+    while (it.next()) |line| {
+        if (line.len == 0 or line[0] == '#') continue;
+        const brace = std.mem.indexOfScalar(u8, line, '{') orelse continue;
+        var series = line[0..brace];
+        if (std.mem.endsWith(u8, series, "_total")) series = series[0 .. series.len - "_total".len];
+        if (!std.mem.eql(u8, series, name)) continue;
+        const close = std.mem.indexOfScalarPos(u8, line, brace, '}') orelse continue;
+        if (std.mem.indexOf(u8, line[brace..close], kind_label) == null) continue;
+        const value = std.mem.trim(u8, line[close + 1 ..], " \r");
+        return std.fmt.parseInt(u64, value, 10) catch null;
+    }
+    return null;
+}
+
+test "seriesValue matches on metric name and kind label" {
+    const body =
+        "# HELP x y\n" ++
+        "tkdiag_tiles_reporting{kind=\"tkdiag\",kind_id=\"0\"} 5\n" ++
+        "tile_resident_bytes{kind=\"tknorm\",kind_id=\"0\"} 4096\n" ++
+        "tile_resident_bytes{kind=\"tkdedu\",kind_id=\"0\"} 8192\n" ++
+        "tkdiag_fragments_accepted_total{kind=\"tkdiag\",kind_id=\"0\"} 40\n";
+    try std.testing.expectEqual(@as(?u64, 5), seriesValue(body, "tkdiag_tiles_reporting", "tkdiag"));
+    try std.testing.expectEqual(@as(?u64, 8192), seriesValue(body, "tile_resident_bytes", "tkdedu"));
+    try std.testing.expectEqual(@as(?u64, 40), seriesValue(body, "tkdiag_fragments_accepted", "tkdiag"));
+    try std.testing.expectEqual(@as(?u64, null), seriesValue(body, "tkdiag_tiles_reporting", "tknorm"));
+    try std.testing.expectEqual(@as(?u64, null), seriesValue(body, "missing", "tkdiag"));
+}
+
+const metrics_fetch_polls: u32 = 100;
+
+/// Fetches /metrics until `ready` accepts the body, or the budget runs out.
+/// The tkdiag metrics refresh a few times a second, so a single early fetch can
+/// legitimately show zeros.
+fn fetchMetricsUntil(port: u16, comptime ready: fn ([]const u8) bool) ![]u8 {
+    var poll: u32 = 0;
+    while (poll < metrics_fetch_polls) : (poll += 1) {
+        const resp = httpGetWithRetry(METRICS_HOST, port, "/metrics", HTTP_READY_MAX_ATTEMPTS, HTTP_REQUEST_TIMEOUT_MS) catch {
+            util.process.sleepNanos(100 * std.time.ns_per_ms);
+            continue;
+        };
+        if (resp.status_code == 200 and ready(resp.body)) return resp.body;
+        std.testing.allocator.free(resp.body);
+        util.process.sleepNanos(100 * std.time.ns_per_ms);
+    }
+    return error.MetricsNeverReady;
+}
+
+fn tkdiagSawFiveTiles(body: []const u8) bool {
+    const reporting = seriesValue(body, "tkdiag_tiles_reporting", "tkdiag") orelse return false;
+    const accepted = seriesValue(body, "tkdiag_fragments_accepted", "tkdiag") orelse return false;
+    return reporting == 5 and accepted == 5 * tkdiag_metrics_event_count;
+}
+
+const tkdiag_metrics_event_count: u64 = 8;
+
+test "metric_tile_integration: /metrics serves tkdiag's aggregate, the way Firedancer serves its diag tile" {
+    var tmp = util.tmpDir();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const len = try tmp.dir.realPath(std.testing.io, &path_buf);
+    const run_dir = path_buf[0..len];
+
+    var sup = try Supervisor.init(std.testing.allocator, topologies.paymentPipelineProcess());
+    defer {
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
+        sup.deinit();
+    }
+    const port = util.nextMetricPort();
+    var ws_buf: [16]u8 = undefined;
+    try sup.startPaymentPipelineProcess(std.testing.io, .{
+        .run_dir = run_dir,
+        .event_count = tkdiag_metrics_event_count,
+        .policy_limit_cents = 1_000,
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
+        .metric_port = port,
+    });
+
+    const body = try fetchMetricsUntil(port, tkdiagSawFiveTiles);
+    defer std.testing.allocator.free(body);
+
+    // Five pipeline tiles sent one fragment per event each.
+    try std.testing.expectEqual(@as(?u64, 5), seriesValue(body, "tkdiag_tiles_reporting", "tkdiag"));
+    try std.testing.expectEqual(@as(?u64, 5 * tkdiag_metrics_event_count), seriesValue(body, "tkdiag_fragments_accepted", "tkdiag"));
+    try std.testing.expectEqual(@as(?u64, 0), seriesValue(body, "tkdiag_fragments_rejected", "tkdiag"));
+    // Every tile finished cleanly, so nothing is reported as crashed, and no
+    // replay has been checked (tkrepl has no process-mode role yet).
+    try std.testing.expectEqual(@as(?u64, 0), seriesValue(body, "tkdiag_crashed_tiles", "tkdiag"));
+    try std.testing.expectEqual(@as(?u64, 0), seriesValue(body, "tkdiag_sandbox_failures", "tkdiag"));
+    try std.testing.expectEqual(@as(?u64, 0), seriesValue(body, "tkdiag_replay_checked", "tkdiag"));
+    // The totals come from the producers' cumulative counters: tkaudt audited
+    // every event, and tknorm/tkdedu/tkpoly report their rejections.
+    try std.testing.expectEqual(@as(?u64, tkdiag_metrics_event_count), seriesValue(body, "tkdiag_total_audit_records", "tkdiag"));
+    // Backpressure and backlog are real measurements of a timing-dependent run,
+    // so only their presence and bounds are fixed: a pipeline link holds 64.
+    try std.testing.expect(seriesValue(body, "tkdiag_total_backpressure_waits", "tkdiag") != null);
+    try std.testing.expect(seriesValue(body, "tkdiag_max_queue_depth", "tkdiag").? <= 64);
+}
+
+fn tilesHaveOsMetrics(body: []const u8) bool {
+    inline for (.{ "tknorm", "tkdedu", "tkpoly", "tkaudt", "tkdiag" }) |kind| {
+        const rss = seriesValue(body, "tile_resident_bytes", kind) orelse return false;
+        const faults = seriesValue(body, "tile_page_fault_minor", kind) orelse return false;
+        if (rss == 0 or faults == 0) return false;
+    }
+    return true;
+}
+
+test "metric_tile_integration: /metrics carries per-tile OS-level metrics written by tkdiag" {
+    if (comptime builtin.os.tag != .linux) return error.SkipZigTest;
+    var tmp = util.tmpDir();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const len = try tmp.dir.realPath(std.testing.io, &path_buf);
+    const run_dir = path_buf[0..len];
+
+    var sup = try Supervisor.init(std.testing.allocator, topologies.paymentPipelineProcess());
+    defer {
+        sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
+        sup.deinit();
+    }
+    const port = util.nextMetricPort();
+    var ws_buf: [16]u8 = undefined;
+    // event_count 0: every tile idles until HALT, so every process is still there
+    // for tkdiag to read.
+    try sup.startPaymentPipelineProcess(std.testing.io, .{
+        .run_dir = run_dir,
+        .event_count = 0,
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
+        .metric_port = port,
+        .heartbeat_stale_after_ns = 1 * std.time.ns_per_s,
+    });
+
+    const body = try fetchMetricsUntil(port, tilesHaveOsMetrics);
+    defer std.testing.allocator.free(body);
+    try std.testing.expect(tilesHaveOsMetrics(body));
+}
