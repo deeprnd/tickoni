@@ -131,6 +131,26 @@ pub fn createCheckStep(
     const ensure_dir = b.addSystemCommand(&.{ "mkdir", "-p", cache_o_dir });
     check_step.dependOn(&ensure_dir.step);
 
+    // The OS statistics probe has no Firedancer dependency, so all three
+    // implementations are compiled for their own targets on every host: the
+    // macOS and Windows ones cannot be run here, but they cannot rot unseen.
+    const os_stats_checks = [_]struct { target: []const u8, file: []const u8 }{
+        .{ .target = "x86_64-linux-gnu", .file = "tk_os_stats_linux.c" },
+        .{ .target = "aarch64-macos", .file = "tk_os_stats_macos.c" },
+        .{ .target = "x86_64-windows-gnu", .file = "tk_os_stats_windows.c" },
+    };
+    for (os_stats_checks) |os_check| {
+        const c_check = b.addSystemCommand(&.{
+            "sh", "-c",
+            b.fmt(
+                "zig cc -target {s} -std=c17 -Wall -Wextra -Werror -c src/tickoni/c_abi/shim/{s} -o {s}/{s}.{s}.o 2>&1",
+                .{ os_check.target, os_check.file, cache_o_dir, os_check.file, os_check.target },
+            ),
+        });
+        c_check.step.dependOn(&ensure_dir.step);
+        check_step.dependOn(&c_check.step);
+    }
+
     const shim_c_flags = std.mem.join(b.allocator, " ", shims.shimCFlagsFor(target.result)) catch @panic("OOM");
     inline for (shims.shim_c_files) |shim_file| {
         const c_check = b.addSystemCommand(&.{
