@@ -6,7 +6,7 @@
 /// append-only audit ordering, deterministic replay, metrics, diagnostics, and
 /// crash-only failure propagation.
 ///
-/// Each tile's own run loop lives in its own file (ingest.zig, normalize_seq.zig
+/// Each tile's own run loop lives in its own file (normalize_seq.zig
 /// for sequential tests, dedupe.zig, policy.zig, audit_stage.zig, replay.zig,
 /// metric.zig, diag.zig) and the production stem tile path
 /// (c_abi/shim/tk_normalize_stem.c) — see finding 25 in
@@ -61,12 +61,6 @@ pub const PaymentPipelineConfig = struct {
     /// tkdisp replaces only the run id. The synthetic source is the only author of
     /// a template today, so this is honored only when `test_build.enabled`.
     dispatch_template: ?model_request_source.ModelRequestSource = null,
-    /// Optional test-only hook called at each offset. Gate the invocation on
-    /// `runtime.test_build.enabled and hook != null` so the branch is dead
-    /// code in production builds — never on `@import("builtin").is_test`,
-    /// which is false in the process-mode supervisor executable. See
-    /// src/tickoni/runtime/test_build.zig.
-    sandbox_fail_hook: ?*const fn (offset: u64, state: *PaymentPipelineState) callconv(.c) void = null,
 };
 
 pub const RawPayment = struct {
