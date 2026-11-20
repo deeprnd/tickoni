@@ -33,6 +33,9 @@ pub const tktool: tile.TileId = .{ .bytes = "tktool".* };
 pub const tkadpt: tile.TileId = .{ .bytes = "tkadpt".* };
 /// Approved execution tile — privileged mutation paths.
 pub const tkexec: tile.TileId = .{ .bytes = "tkexec".* };
+/// Broker bridge tile — routes broker requests (place, cancel, query) to
+/// per-account broker implementations (IBKR, Schwab, SnapTrade, …).
+pub const tkbrokr: tile.TileId = .{ .bytes = "tkbrokr0".* };
 /// API tile — HTTP/WebSocket CaseOps API.
 pub const tkapi: tile.TileId = .{ .bytes = "tkapi0".* };
 /// Metrics tile — collects and exposes runtime metrics.
@@ -41,9 +44,9 @@ pub const metric: tile.TileId = .{ .bytes = "metric".* };
 pub const tkdiag: tile.TileId = .{ .bytes = "tkdiag".* };
 
 /// All known tile IDs, ordered by Firedancer tile index.
-pub const all: [16]tile.TileId = .{
+pub const all: [17]tile.TileId = .{
     tkings, tknorm, tkdedu, tkpoly, tkaudt, tkrepl, tkcase, tkdisp,
-    tkagnt, tkmodl, tktool, tkadpt, tkexec, tkapi,  metric, tkdiag,
+    tkagnt, tkmodl, tktool, tkadpt, tkexec, tkbrokr, tkapi,  metric, tkdiag,
 };
 
 /// Lookup: returns the TileId for a name string, or null.
