@@ -307,6 +307,7 @@
     "LDFLAGS",
     "libc",
     "libcrypto",
+    "libboost",
     "libdebuginfod",
     "libdw",
     "libegl",
