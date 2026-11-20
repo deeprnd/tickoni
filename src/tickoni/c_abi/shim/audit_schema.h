@@ -20,6 +20,11 @@
 
 #define AUDIT_SCHEMA_VERSION 2
 
+/* Committed-order watermark value before tkaudt has committed anything.
+   Full 64-bit width on every platform: C's ULONG_MAX is only 32-bit on
+   Windows (LLP64) while the fseq word is 64-bit. */
+#define TK_AUDIT_WATERMARK_NONE ((uint64_t)UINT64_MAX)
+
 /* Tile IDs used as producers in audit records. The pipeline stage that
    actually finalizes a message's decision stamps its own id here
    (tknorm for malformed_drop, tkpoly for allow/deny) instead of

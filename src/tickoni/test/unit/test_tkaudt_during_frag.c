@@ -227,7 +227,7 @@ ordered_ctx_init( tk_audit_ctx_t * ctx ) {
     ctx->ordered                = 1;
     ctx->next_agent_seq         = 1UL;
     memset( g_fseq, 0, sizeof(g_fseq) );
-    fd_fseq_new( g_fseq, ULONG_MAX );
+    fd_fseq_new( g_fseq, TK_AUDIT_WATERMARK_NONE );
     ctx->watermark              = fd_fseq_join( g_fseq );
 }
 
@@ -324,10 +324,10 @@ test_chain_is_identical_across_arrival_orders( void ) {
 static void
 test_watermark_follows_the_commit( void ) {
     tk_audit_ctx_t ctx; ordered_ctx_init( &ctx );
-    CHECK( fd_fseq_query( ctx.watermark )==ULONG_MAX, "nothing committed yet" );
+    CHECK( fd_fseq_query( ctx.watermark )==TK_AUDIT_WATERMARK_NONE, "nothing committed yet" );
     feed_agent( &ctx, 1, 1 );                 /* waits for its model record */
     CHECK( ctx.audit_count==0UL && ctx.agent_held_cnt==1UL, "the agent record is held" );
-    CHECK( fd_fseq_query( ctx.watermark )==ULONG_MAX, "the watermark must not advance before the commit" );
+    CHECK( fd_fseq_query( ctx.watermark )==TK_AUDIT_WATERMARK_NONE, "the watermark must not advance before the commit" );
     feed_model( &ctx, 1 );
     CHECK( ctx.audit_count==2UL && fd_fseq_query( ctx.watermark )==1UL, "commit, then watermark" );
 }
