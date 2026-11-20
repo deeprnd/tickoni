@@ -14,6 +14,11 @@ const Channel = rt.link.Channel;
 pub const Topology = rt.topology.Topology;
 const WorkspaceName = rt.link.WorkspaceName;
 
+/// Shape of every diagnostic link into tkdiag, taken from the one definition in
+/// shim/tk_diag_fragment.h (the MTU is the fragment size).
+pub const diag_link_depth: u32 = audit_mod.TK_DIAG_LINK_DEPTH;
+pub const diag_link_mtu: u32 = audit_mod.TK_DIAG_LINK_MTU;
+
 /// Whether a declared product topology has a supervisor/CLI dispatch path
 /// today, so callers do not have to infer runtime support from tile count.
 /// `runnable`: src/app/tickoni/supervisor.zig has a start path for it and
@@ -147,7 +152,8 @@ pub fn investmentWorkflow() Topology {
 
 // v2.14.S1 process-mode variant of paymentPipeline: same 8 tiles and 4
 // core channels, backed by Tango shared memory in one shared workspace
-// instead of the heap-backed dev/test ring. All tiles are floating (no
+// instead of the heap-backed dev/test ring, plus the 5 lossy diagnostic
+// channels of the tkdiag fan-in. All tiles are floating (no
 // hard exclusive-core requirement); src/app/tickoni/supervisor.zig's
 // process-mode start path assigns concrete CPU placement per config.
 const payment_process_channels = [_]Channel{
@@ -187,7 +193,30 @@ const payment_process_channels = [_]Channel{
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
     },
+    // Diagnostic fan-in (plans/v2.10-s14-tkdiag-fan-in.md): one link from each
+    // pipeline tile to tkdiag (tile 7), after the pipeline links so that each
+    // producer's diagnostic link is its last output. They are lossy: the
+    // producer never waits on tkdiag, which keeps the latest fragment per tile.
+    diagLink(0),
+    diagLink(1),
+    diagLink(2),
+    diagLink(3),
+    diagLink(4),
 };
+
+/// The lossy diagnostic link from pipeline tile `src` to tkdiag
+/// (`payment_tiles[7]`).
+fn diagLink(src: u32) Channel {
+    return .{
+        .src_idx = src,
+        .dst_idx = 7,
+        .depth = diag_link_depth,
+        .mtu = diag_link_mtu,
+        .backing = .tango_shm,
+        .reliability = .lossy,
+        .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
+    };
+}
 
 /// v2.14.S1 process-isolated variant of paymentPipeline(): the same tile
 /// identities and channel shape, with every core channel backed by a
@@ -510,15 +539,56 @@ test "investmentWorkflow includes tkmodl tktool tkadpt and passes validation" {
     try std.testing.expectEqualStrings(tile_ids.tkrepl.slice(), topo.tiles[11].name.slice());
 }
 
-test "paymentPipelineProcess has 8 tiles, 4 tango_shm channels, and passes validation" {
+test "paymentPipelineProcess has 8 tiles, 4 reliable pipeline channels plus 5 lossy diagnostic channels, and passes validation" {
     const topo = paymentPipelineProcess();
     try topo.validate();
     try std.testing.expectEqual(@as(usize, 8), topo.tiles.len);
-    try std.testing.expectEqual(@as(usize, 4), topo.channels.len);
-    for (topo.channels) |ch| {
+    try std.testing.expectEqual(@as(usize, 4 + 5), topo.channels.len);
+    for (topo.channels, 0..) |ch, i| {
         try std.testing.expectEqual(rt.link.LinkBacking.tango_shm, ch.backing);
-        try std.testing.expectEqual(rt.link.LinkReliability.reliable, ch.reliability);
         try std.testing.expectEqualStrings("tkpay0", ch.workspace_name.slice());
+        // The pipeline is reliable; the diagnostic links never are.
+        const expected: rt.link.LinkReliability = if (i < 4) .reliable else .lossy;
+        try std.testing.expectEqual(expected, ch.reliability);
+    }
+}
+
+test "paymentPipelineProcess fans one diagnostic link per pipeline tile in to tkdiag, after the pipeline links" {
+    const topo = paymentPipelineProcess();
+    const diag: u32 = 7;
+    try std.testing.expect(topo.tiles[diag].name.eql(tile_ids.tkdiag));
+    // Producers in pipeline order: tkings, tknorm, tkdedu, tkpoly, tkaudt.
+    const producers = [_]*const rt.tile.TileId{ &tile_ids.tkings, &tile_ids.tknorm, &tile_ids.tkdedu, &tile_ids.tkpoly, &tile_ids.tkaudt };
+    for (producers, 0..) |name, i| {
+        const ch = topo.channels[4 + i];
+        try std.testing.expectEqual(@as(u32, @intCast(i)), ch.src_idx);
+        try std.testing.expect(topo.tiles[ch.src_idx].name.eql(name.*));
+        try std.testing.expectEqual(diag, ch.dst_idx);
+        try std.testing.expectEqual(@as(u32, diag_link_depth), ch.depth);
+        try std.testing.expectEqual(@as(u32, diag_link_mtu), ch.mtu);
+        try std.testing.expect(std.math.isPowerOfTwo(ch.depth));
+    }
+    // Nothing else goes to or from tkdiag.
+    for (topo.channels) |ch| {
+        try std.testing.expect(ch.src_idx != diag);
+        if (ch.dst_idx == diag) try std.testing.expect(ch.src_idx <= 4);
+    }
+}
+
+test "the diagnostic link MTU is the diagnostic fragment size" {
+    try std.testing.expectEqual(@as(u32, @sizeOf(audit_mod.diag_fragment_t)), diag_link_mtu);
+}
+
+test "only the 8-tile payment process topology carries diagnostic links" {
+    // The in-process dev ring, the minimal topologies and the full workflow
+    // keep their pipeline-only shape: the diag links are specified for the
+    // 5-producer payment topology alone.
+    const others = [_]Topology{ paymentPipeline(), minimalProcess(), minimalWithNormProcess(), minimalWithDeduProcess(), minimalWithPolyProcess(), investmentWorkflow() };
+    for (others) |topo| {
+        for (topo.tiles, 0..) |t, i| {
+            if (!t.name.eql(tile_ids.tkdiag)) continue;
+            for (topo.channels) |ch| try std.testing.expect(ch.dst_idx != i and ch.src_idx != i);
+        }
     }
 }
 
