@@ -360,9 +360,9 @@ pub const Supervisor = struct {
         log.enter("supervisor", "startPaymentPipelineProcess");
         defer log.exit("supervisor", "startPaymentPipelineProcess");
         std.debug.assert(self.process_state == null);
-        // S15 migrates the payment source only. Refuse the test-only model
-        // source before creating a workspace or spawning an incompatible stem.
-        if (config.model_requests != null) return error.ModelRequestSourceNotMigrated;
+        // S15 migrates payment ingestion only. The test-only model-request
+        // source still runs through its process callback.
+        if (config.model_requests != null and !rt.test_build.enabled) return error.ModelRequestSourceRequiresTestBuild;
         // Refuse a topology whose tkmodl instances and configuration set do
         // not match one-to-one before any workspace or child exists.
         try model_instances.validate(config.model_configs, self.topo);
@@ -810,7 +810,7 @@ pub const Supervisor = struct {
             argv_buf[0] = self_exe_path;
             argv_buf[2] = spec_path;
             const entry = tile_registry.findById(tile.name) orelse return error.UnregisteredTile;
-            argv_buf[1] = switch (entry.launch_mode) {
+            argv_buf[1] = switch (tile_registry.launchModeFor(entry, config.model_requests != null)) {
                 .stem => "__stem-run",
                 .tile => "__tile-run",
             };
