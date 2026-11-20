@@ -20,20 +20,40 @@ Tile-relevant facts:
 
 ## Current Topology
 
-Status: complete as an in-process tile spike.
+Status: financial event spine and agent workflow stem-migrated; case, tool,
+adapter, API, execution, and evidence tiles remain unimplemented.
 
-Implemented topology:
+Financial event spine (fully stem-migrated, tested in process spike):
 
 ```text
 tkings -> tknorm -> tkdedu -> tkpoly -> tkaudt
-tkrepl
-tkmetr
-tkdiag
+replay capsule -> tkrepl -> deterministic pipeline with tkexec disabled
+all tile metrics -> metric (tkmetr)
+all tile diagnostics -> tkdiag
 ```
 
-Implemented in
-[`src/tickoni/tiles/payment_pipeline/`](../../src/tickoni/tiles/payment_pipeline/),
-with supervisor wiring in
+Agent workflow (stem-migrated, fixture/replay mode):
+
+```text
+tkdisp -> tkagnt -> tkmodl[k]
+tkagnt -> tktool -> tkadpt
+tkagnt -> tkaudt
+tkmodl -> tkaudt
+tkcase -> tkdisp -> tkagnt (full workflow; tkcase placeholder)
+tkagnt -> tktool -> tkaudt, tkadpt -> tkaudt (full workflow; placeholders)
+```
+
+Payment pipeline implementation lives in
+[`src/tickoni/tiles/payment_pipeline/`](../../src/tickoni/tiles/payment_pipeline/).
+Agent workflow implementation lives in
+[`src/tickoni/tiles/agent/`](../../src/tickoni/tiles/agent/),
+[`src/tickoni/tiles/model/`](../../src/tickoni/tiles/model/),
+[`src/tickoni/tiles/disp/`](../../src/tickoni/tiles/disp/),
+[`src/tickoni/tiles/case/`](../../src/tickoni/tiles/case/),
+[`src/tickoni/tiles/tool/`](../../src/tickoni/tiles/tool/), and
+[`src/tickoni/tiles/adapter/`](../../src/tickoni/tiles/adapter/).
+Replay lives in [`src/tickoni/tiles/replay/`](../../src/tickoni/tiles/replay/).
+Supervisor wiring is in
 [`src/app/tickoni/supervisor.zig`](../../src/app/tickoni/supervisor.zig) and the
 static topology in
 [`src/tickoni/runtime/topology.zig`](../../src/tickoni/runtime/topology.zig).
@@ -48,6 +68,9 @@ Tile behaviors proven by the current topology:
 6. `tkrepl` owns deterministic replay comparison with external effects disabled.
 7. `tkmetr` owns runtime metric snapshots.
 8. `tkdiag` owns crash, sandbox, audit, and replay diagnostics.
+9. `tkdisp` owns terminal-result receipt (sink) and event-to-request scheduling (full workflow).
+10. `tkagnt` owns bounded agent request dispatch, model-tier routing, result correlation, and audit watermark enforcement.
+11. `tkmodl` owns model fixture resolution, governance, and captured-result replay (fixture/replay only; no provider I/O).
 
 The Firedancer-style topology answers for current links are:
 
@@ -73,6 +96,34 @@ The Firedancer-style topology answers for current links are:
 | `tkmetr` telemetry | `tkmetr` owns metric snapshots. | Atomic counters and queue-watermark reads in `PaymentPipelineState`. | All tiles publish counters; `tkmetr` reads snapshots. | No correctness queue in the spike. | Observational; future telemetry may be lossy with counted drops. | Shutdown takes a final snapshot. | Produced, normalized, invalid, duplicates, allowed, denied, audited, depth, waits, max latency hops. |
 | `tkdiag` diagnostics | `tkdiag` owns diagnostic aggregation: the latest fragment per pipeline tile, the observation of every tile's process, and the replay result it reads. | The 5 diagnostic links below (payment process topology only); every tile's metrics region (status, pid, and where it writes OS-level metrics); tkrepl's CNC app slots 0 and 1. The in-process spike's `PaymentPipelineState` fields remain the thread-mode runtime's. | Tiles publish diagnostics; `tkdiag` receives and aggregates them and watches the processes. | One fragment per processed event per producer; `tkdiag` keeps one per input. | Observational; best effort. A tile found dead is counted (and logged) by `tkdiag`; the supervisor still owns crash handling. | `tkdiag` stops on CNC HALT, or once tkrepl publishes `replay_checked`. A crashed producer publishes nothing, so its death is seen from its process and its `TILE_STATUS`, not from a fragment. | CNC slots 0 to 4 (tiles that died or reported a fault, tiles that died before they ran, tiles reporting, fragments accepted and rejected) and the `tkdiag` metrics kind at `/metrics`. |
 | `tkings`, `tknorm`, `tkdedu`, `tkpoly`, `tkaudt` `-> tkdiag` (payment process topology) | Each producer owns its own diagnostic fragment (`shim/tk_diag_fragment.h`: cumulative counters of that tile only); `tkdiag` owns aggregation. | Tango shared-memory workspace `tkpay0`, links appended after the pipeline links so each is its producer's last output. | One fragment per processed event, single producer, single consumer (`tkdiag`). All five stem tiles use `fd_stem_publish`: `tkings` in `AFTER_CREDIT`, the four consumers in `AFTER_FRAG`. | 64 entries / 128-byte fragment. | **Unreliable** (`LinkReliability.lossy`): the consumer is wired unreliable, so a producer never waits on `tkdiag`. | The producer overwrites the oldest fragment; `tkdiag`'s fd_stem counts the overrun and resyncs. Latest-wins is the intended semantics. Crash-only: no restart inside a run. Shutdown is independent of `tkdiag`, which stops on CNC HALT only. | `tkdiag` CNC slots 2 to 4 (tiles reporting, fragments accepted, fragments rejected) and fd_stem link metrics. See [`plans/v2.10-s14-tkdiag-fan-in.md`](plans/v2.10-s14-tkdiag-fan-in.md). |
+
+### Stem Migration Status
+
+All 17 canonical Tickoni tile runtime IDs (see [`tile-topology.md`](../knowledge/tile-topology.md), "Runtime IDs") map to the status below. The C shim `.c`/`.h` files live in [`src/tickoni/c_abi/shim/`](../../src/tickoni/c_abi/shim/); the Zig FFI wrappers in [`src/tickoni/c_abi/`](../../src/tickoni/c_abi/); the tile implementations in [`src/tickoni/tiles/`](../../src/tickoni/tiles/).
+
+| Tile | Runtime ID | Stem file | Status | Implementation status |
+|---|---|---|---|---|
+| `tkings` | ingest_tile | `tk_ingest_stem.c` | Migrated | Payment source (synthetic offsets), test-only agent-request source. Processed. |
+| `tknorm` | normalize_tile | `tk_normalize_stem.c` | Migrated | Canonical payment normalization. Processed. |
+| `tkdedu` | dedupe_tile | `tk_dedu_stem.c` | Migrated | Idempotency key + content-hash dedupe. Processed. |
+| `tkpoly` | policy_tile | `tk_policy_stem.c` | Migrated | Allow/deny/malformed-drop/duplicate-drop decisions. Processed. |
+| `tkaudt` | audit_tile | `tk_audit_stem.c` | Migrated | Append-only hash-chain audit. Sink tile. Processed. |
+| `tkrepl` | replay_tile | *(uses stem contract via shim)* | Not started | Pure test infrastructure. Exposes test verification functions (`verifyAllowedTrade`, etc.) that load capsules from disk and compare against fixture backends. No runtime tile process. No `tkcase → tkrepl` trigger. No `tkaudt → tkrepl` link wired. No product usecase requires it — forensic replay is not a user-facing feature. |
+| `metric` | metric_tile | *(delegates to `fd_metric_tile.c`)* | Migrated | Prometheus metrics export. Processed. |
+| `tkdisp` | agent_dispatch_tile | `tk_disp_stem.c` | Migrated | Terminal-result sink and event-to-request scheduler. Processed. |
+| `tkagnt` | agent_worker_tile | `tk_agent_stem.c` | Migrated | Bounded agent dispatch, tier routing, result correlation. Processed. |
+| `tkmodl` | model_gateway_tile | `tk_model_stem.c` | Migrated | Fixture/replay only; no provider I/O. Processed. |
+| `tkdiag` | diag_tile | `tk_diag_stem.c` | Migrated | Fan-in diagnostics with lossy links. Processed. |
+| `tkcase` | case_router_tile | placeholder in `tk_pass_stem.c` | **Needs real stem** | Placeholder: forwards events unchanged. No case lifecycle logic. |
+| `tktool` | tool_broker_tile | placeholder in `tk_pass_stem.c` | **Needs real stem** | Placeholder: idle bounded consumer. No tool-broker logic. |
+| `tkadpt` | adapter_tile | placeholder in `tk_pass_stem.c` | **Needs real stem** | Placeholder: idle bounded consumer. No adapter logic. |
+| `tkevid` | evidence_tile | *(none — no stem needed)* | **Not implemented** | Content-addressed evidence blob store. |
+| `tkapi` | caseops_api_tile | *(none — HTTP tile)* | **Not implemented** | CaseOps board queries, evidence reads, approvals, audit timeline. |
+| `tkexec` | action_executor_tile | *(none — no stem needed)* | **Not implemented** | Approved execution: accounting ledger, payment, trading. Disabled-by-default. |
+
+Three tiles share a placeholder stem (`tk_pass_stem.c`): `tkcase`, `tktool`, `tkadpt`. Each needs its own `.c`/`.h` stem with the `tk_get_<tile>_run_*` accessor pattern, a `c_abi/<tile>.zig` FFI module, and a unit-test registration in `build-lib/lanes/unit.zig`.
+
+Three tiles have no stem at all (`tkevid`, `tkapi`, `tkexec`) and need full implementation from scratch.
 
 ### Cross-Platform Shmem and Workspace Shim (V2.10.S15)
 
@@ -106,40 +157,43 @@ current:
 These prerequisites state which runtime guarantees must exist before later tile
 classes are meaningful. They are not a product delivery schedule.
 
-Step 1: deterministic financial event spine.
+Step 1: deterministic financial event spine. **Status: done.**
 
 ```text
 configured event source
-  -> tkings
-  -> tknorm
-  -> tkdedu
-  -> tkpoly
-  -> tkaudt
+  -> tkings     [migrated]
+  -> tknorm     [migrated]
+  -> tkdedu     [migrated]
+  -> tkpoly     [migrated]
+  -> tkaudt     [migrated]
 
-replay capsule -> tkrepl -> deterministic pipeline with tkexec disabled
-all tile metrics -> tkmetr
+replay capsule -> tkrepl     [stem only, no runtime trigger] -> deterministic pipeline with tkexec disabled
+all tile metrics -> metric   [migrated]
+all tile diagnostics -> tkdiag [migrated]
 ```
 
-Step 2: deterministic case and evidence scope.
+Note: `tkrepl` has a stem callback but no runtime tile process. It exposes test verification functions (`verifyAllowedTrade`, etc.) that load capsules from disk and compare against fixture backends. The two runtime triggers described in the architecture — `tkcase` closing a case, or `tkaudt` signaling completion — are not wired.
+
+Step 2: deterministic case and evidence scope. **Status: not started.**
 
 ```text
-tkcase
-tkevid
-all boundary events -> tkaudt
+tkcase     [needs real stem]    → deterministic case lifecycle
+tkevid     [not implemented]   → content-addressed evidence store
+all boundary events -> tkaudt  [migrated — audit chain already exists]
 ```
 
-Step 3: bounded agent, model, tool, and adapter integration.
+Step 3: bounded agent, model, tool, and adapter integration. **Status: agent+model done; tool+adapter placeholder.**
 
 ```text
-tkdisp -> tkagnt -> tkmodl
-tkagnt -> tktool -> tkadpt
+tkdisp -> tkagnt -> tkmodl     [all migrated]
+tkagnt -> tktool -> tkadpt     [placeholders: need real stems]
 ```
 
-Step 4: operator API and approved execution boundary.
+Step 4: operator API and approved execution boundary. **Status: not started.**
 
 ```text
-tkapi
-tkexec
+tkapi      [not implemented]   → CaseOps board, evidence, approvals, audit timeline
+tkexec     [not implemented]   → approved privileged execution (disabled-by-default)
 ```
 
 ## Stem Callback Contract Conformance
