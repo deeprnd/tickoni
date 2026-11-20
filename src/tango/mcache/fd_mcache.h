@@ -307,16 +307,16 @@ fd_mcache_publish( fd_frag_meta_t * mcache,   /* Assumed a current local join */
                    ulong            tsorig,   /* Assumed in [0,UINT_MAX] */
                    ulong            tspub ) { /* Assumed in [0,UINT_MAX] */
   fd_frag_meta_t * meta = mcache + fd_mcache_line_idx( seq, depth );
-  FD_COMPILER_MFENCE();
+  FD_HW_MFENCE_ST();
   meta->seq    = fd_seq_dec( seq, 1UL );
-  FD_COMPILER_MFENCE();
+  FD_HW_MFENCE_ST();
   meta->sig    =         sig;
   meta->chunk  = (uint  )chunk;
   meta->sz     = (ushort)sz;
   meta->ctl    = (ushort)ctl;
   meta->tsorig = (uint  )tsorig;
   meta->tspub  = (uint  )tspub;
-  FD_COMPILER_MFENCE();
+  FD_HW_MFENCE_ST();
   meta->seq    = seq;
   FD_COMPILER_MFENCE();
 }

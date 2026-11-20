@@ -46,7 +46,13 @@ tk_mcache_publish( fd_frag_meta_t * mcache,
 
 ulong
 tk_frag_meta_seq_query( fd_frag_meta_t const * meta ) {
-  return fd_frag_meta_seq_query( meta );
+  /* Acquire for the fragment fields and payload read after this call, and a
+     barrier behind the payload read before a re-check: fd_frag_meta_seq_query is
+     only a compiler fence, which is not enough on weakly ordered CPUs (ARM64). */
+  FD_HW_MFENCE_LD();
+  ulong seq = fd_frag_meta_seq_query( meta );
+  FD_HW_MFENCE_LD();
+  return seq;
 }
 
 ulong tk_dcache_slot_footprint( ulong mtu ) { return FD_DCACHE_SLOT_FOOTPRINT( mtu ); }
