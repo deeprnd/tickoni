@@ -76,11 +76,11 @@ extern ulong tk_topo_audit_watermark_obj( fd_topo_t const * topo );
 #define TKAGNT_SLOTS            4UL                    /* request bodies held while waiting to be sent */
 #define TKAGNT_PENDING          64UL                   /* runs between admission and terminal result */
 #define TKAGNT_STEM_BURST       4UL                    /* publications per iteration */
-#define TKAGNT_NS_PER_MS        1000000L
-#define TKAGNT_PARTIAL_TIMEOUT_NS ((long)TK_MP_PARTIAL_TIMEOUT_MS*TKAGNT_NS_PER_MS)
-#define TKAGNT_DEFAULT_MODEL_TIMEOUT_NS (10000L*TKAGNT_NS_PER_MS)
-#define TKAGNT_DRAIN_DEADLINE_NS        (10000L*TKAGNT_NS_PER_MS)
-#define TKAGNT_DRAIN_GRACE_NS           (5000L*TKAGNT_NS_PER_MS)
+#define TKAGNT_NS_PER_MS        1000000LL
+#define TKAGNT_PARTIAL_TIMEOUT_NS ((tk_ns_t)TK_MP_PARTIAL_TIMEOUT_MS*TKAGNT_NS_PER_MS)
+#define TKAGNT_DEFAULT_MODEL_TIMEOUT_NS (10000LL*TKAGNT_NS_PER_MS)
+#define TKAGNT_DRAIN_DEADLINE_NS        (10000LL*TKAGNT_NS_PER_MS)
+#define TKAGNT_DRAIN_GRACE_NS           (5000LL*TKAGNT_NS_PER_MS)
 
 /* Slot and reassembly buffers are one multipart message each. */
 #define TKAGNT_MSG_BYTES        ((ulong)TK_MP_MAX_MESSAGE_BYTES)
@@ -115,7 +115,7 @@ typedef struct {
     uint64_t  prompt_hash;
     uint64_t  response_hash;
     uint64_t  envelope_hash;
-    long      deadline;           /* AWAIT: when the model has taken too long */
+    tk_ns_t   deadline;           /* AWAIT: when the model has taken too long */
     uint8_t   model_id[TKMODL_MODEL_ID_LEN];
     uint8_t   policy_version[TKMODL_POLICY_VERSION_LEN];
     uint8_t   failed_scope_dim[TKMODL_SCOPE_DIM_LEN];
@@ -198,7 +198,7 @@ typedef struct {
     uint64_t  event_count;
     int       input_exhausted;
     int       draining;
-    long      drain_deadline;
+    tk_ns_t   drain_deadline;
 } tkagnt_ctx_t;
 
 #define TKAGNT_CTX_ALIGN alignof(tkagnt_ctx_t)
@@ -651,7 +651,7 @@ tkagnt_admit( tkagnt_ctx_t * ctx ) {
     r->slot        = (int8_t)slot;
     r->prompt_hash = tk_mp_message_hash( body+sizeof(hdr), prompt_len );
     r->deadline    = hdr.scope.timeout_ms
-                   ? (long)hdr.scope.timeout_ms*TKAGNT_NS_PER_MS
+                   ? (tk_ns_t)hdr.scope.timeout_ms*TKAGNT_NS_PER_MS
                    : TKAGNT_DEFAULT_MODEL_TIMEOUT_NS;     /* a duration until dispatch completes */
     r->state       = RUN_ADMITTED;
 }
@@ -784,7 +784,7 @@ tkagnt_after_frag( tkagnt_ctx_t *      ctx,
 
     ulong in = ctx->stage_in;
     tk_mp_rx_t * rx = &ctx->rx[in];
-    long now = fd_log_wallclock();
+    tk_ns_t now = (tk_ns_t)fd_log_wallclock_nanos();
 
     tk_mp_status_t st = tk_mp_rx_feed( rx, ctx->stage, ctx->stage_sz, ctx->stage_som, ctx->stage_eom, now );
     if( st==TK_MP_ERR_INTERLEAVED ) {
@@ -875,7 +875,7 @@ tkagnt_after_credit( tkagnt_ctx_t *      ctx,
                      int *               opt_poll_in,
                      int *               charge_busy ) {
     (void)opt_poll_in;
-    long now = fd_log_wallclock();
+    tk_ns_t now = (tk_ns_t)fd_log_wallclock_nanos();
     ulong budget = TKAGNT_STEM_BURST;
 
     /* Partial streams that stall are dropped, not held forever. */
@@ -953,7 +953,7 @@ tkagnt_after_credit( tkagnt_ctx_t *      ctx,
         for( uint64_t s=ctx->term_seq; s<=ctx->admitted; s++ ) {
             tkagnt_run_t * r = tkagnt_run_at( ctx, s );
             if( r->state!=RUN_ADMITTED || ctx->inst_busy[r->tier] ) continue;
-            long dur = r->deadline;     /* the model-wait duration, stored at admission */
+            tk_ns_t dur = r->deadline;     /* the model-wait duration, stored at admission */
             if( tk_mp_tx_begin( &ctx->tx[r->tier], TK_MP_DIR_REQUEST, r->content_type, r->run_id, r->agent_seq,
                                 tkagnt_slot_buf( ctx, r->slot ), ctx->slots[r->slot].len )!=0 ) {
                 tkagnt_resolve( ctx, r, TK_AGENT_OUT_DENY_INVALID_REQUEST, 0 );

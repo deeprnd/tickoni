@@ -54,6 +54,11 @@ typedef struct {
     uint64_t  message_hash;
 } tk_mp_id_t;
 
+/* Nanosecond time and durations.  Must be 64-bit: `long` is 32-bit on Windows
+   (LLP64), where it wraps every ~4.29 s.  Callers read the clock with
+   fd_log_wallclock_nanos(), not fd_log_wallclock(). */
+typedef long long tk_ns_t;
+
 typedef struct {
     int         active;         /* a partial message is being built */
     int         discard;        /* swallow continuation fragments until the next SOM */
@@ -62,8 +67,8 @@ typedef struct {
     tk_mp_id_t  fail;           /* message that failed on the last ERR status */
     uint32_t    next_idx;
     uint32_t    next_off;
-    long        deadline;       /* `now` value at which the partial message times out */
-    long        timeout;        /* same units as `now` */
+    tk_ns_t     deadline;       /* `now` value at which the partial message times out */
+    tk_ns_t     timeout;        /* same units as `now` */
     uint8_t *   buf;            /* caller-owned, capacity >= TK_MP_MAX_MESSAGE_BYTES */
 } tk_mp_rx_t;
 
@@ -84,7 +89,7 @@ tk_mp_message_hash( uint8_t const * msg, ulong len ) {
 }
 
 static inline void
-tk_mp_rx_init( tk_mp_rx_t * rx, uint8_t expect_dir, uint8_t * buf, long timeout ) {
+tk_mp_rx_init( tk_mp_rx_t * rx, uint8_t expect_dir, uint8_t * buf, tk_ns_t timeout ) {
     memset( rx, 0, sizeof(*rx) );
     rx->expect_dir = expect_dir;
     rx->buf        = buf;
@@ -155,7 +160,7 @@ tk_mp_hdr_check( TkMpHeader const * h, ulong sz, int som, int eom, uint8_t expec
    now starts the new message.  This keeps one status per call even when the
    new message is a single fragment. */
 static inline tk_mp_status_t
-tk_mp_rx_feed( tk_mp_rx_t * rx, uint8_t const * frag, ulong sz, int som, int eom, long now ) {
+tk_mp_rx_feed( tk_mp_rx_t * rx, uint8_t const * frag, ulong sz, int som, int eom, tk_ns_t now ) {
     TkMpHeader h;
     if( sz<sizeof(h) ) {
         /* Too short to even name a message. */
@@ -242,7 +247,7 @@ tk_mp_rx_feed( tk_mp_rx_t * rx, uint8_t const * frag, ulong sz, int som, int eom
 /* Times out a partial message.  Call from the stem's housekeeping/idle path
    (AFTER_CREDIT) so a stalled producer cannot pin a half-built message. */
 static inline tk_mp_status_t
-tk_mp_rx_poll( tk_mp_rx_t * rx, long now ) {
+tk_mp_rx_poll( tk_mp_rx_t * rx, tk_ns_t now ) {
     if( rx->active && now>=rx->deadline ) {
         tk_mp_id_t failed = rx->cur;
         /* No EOM seen: whatever is still coming belongs to the dead message. */

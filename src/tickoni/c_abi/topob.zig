@@ -107,6 +107,15 @@ pub fn topobDebugWkspObjIds(topo: *Topo) void {
 /// fd_topo_find_wksp/find_tile/find_link.
 pub const not_found: usize = ~@as(usize, 0);
 
+/// Firedancer's "not found" is C's `ULONG_MAX`, whose width is the platform's
+/// `unsigned long`: 64-bit on LP64 but only 32-bit on Windows (LLP64), even
+/// though Firedancer's `ulong` typedef is 64-bit there. Map that sentinel to
+/// the full-width `not_found` at the C boundary so callers compare against
+/// one value on every platform.
+fn fromC(v: usize) usize {
+    return if (v == std.math.maxInt(c_ulong)) not_found else v;
+}
+
 pub fn topoSizeof() usize {
     return tk_topo_sizeof();
 }
@@ -175,15 +184,15 @@ pub fn topoLeaveWorkspaces(topo: *Topo) void {
 }
 
 pub fn topoFindWksp(topo: *Topo, name: [*:0]const u8) usize {
-    return tk_topo_find_wksp(topo, name);
+    return fromC(tk_topo_find_wksp(topo, name));
 }
 
 pub fn topoFindTile(topo: *Topo, name: [*:0]const u8, kind_id: usize) usize {
-    return tk_topo_find_tile(topo, name, kind_id);
+    return fromC(tk_topo_find_tile(topo, name, kind_id));
 }
 
 pub fn topoFindLink(topo: *Topo, name: [*:0]const u8, kind_id: usize) usize {
-    return tk_topo_find_link(topo, name, kind_id);
+    return fromC(tk_topo_find_link(topo, name, kind_id));
 }
 
 pub fn topoObjLaddr(topo: *Topo, obj_id: usize) *anyopaque {
@@ -324,7 +333,7 @@ pub fn topoTileName(topo: *const Topo, tile_id: usize) [*:0]const u8 {
 /// Firedancer's kind_id for a tile: its instance ordinal among tiles that
 /// share a name. std.math.maxInt(usize) for an out-of-range tile id.
 pub fn topoTileKindId(topo: *const Topo, tile_id: usize) usize {
-    return tk_topo_tile_kind_id(topo, tile_id);
+    return fromC(tk_topo_tile_kind_id(topo, tile_id));
 }
 
 /// Records the topology's committed-audit watermark object (an fseq written by
@@ -336,7 +345,7 @@ pub fn topobSetAuditWatermark(topo: *Topo, obj_id: usize) void {
 
 /// Object id of the audit watermark, or `not_found` if the topology has none.
 pub fn topoAuditWatermarkObj(topo: *const Topo) usize {
-    return tk_topo_audit_watermark_obj(topo);
+    return fromC(tk_topo_audit_watermark_obj(topo));
 }
 
 pub fn topoLinkConsumerCount(topo: *const Topo, link_id: usize) usize {
@@ -385,7 +394,7 @@ pub fn topoValidateLinkExists(topo: *const Topo, link_name: [*:0]const u8) bool 
 /// Returns the object id when an object of the given type exists in the
 /// given workspace, or not_found when it does not.
 pub fn topoValidateObjInWksp(topo: *const Topo, obj_type: [*:0]const u8, wksp_name: [*:0]const u8) usize {
-    return tk_topo_validate_obj_in_wksp(topo, obj_type, wksp_name);
+    return fromC(tk_topo_validate_obj_in_wksp(topo, obj_type, wksp_name));
 }
 
 /// Returns true when the workspace at the given index has been joined.
@@ -396,7 +405,7 @@ pub fn topoValidateWorkspaceJoined(topo: *const Topo, wksp_idx: usize) bool {
 /// Returns the workspace id for an object, or not_found if the obj_id is
 /// out of range. Used by tests to verify object-to-workspace placement.
 pub fn topoObjWkspId(topo: *const Topo, obj_id: usize) usize {
-    return tk_topo_obj_wksp_id(topo, obj_id);
+    return fromC(tk_topo_obj_wksp_id(topo, obj_id));
 }
 
 /// Returns the number of declared workspaces in the topology.
@@ -411,6 +420,13 @@ pub fn topoWkspCnt(topo: *const Topo) usize {
 
 test "not_found is ~0 (all bits set)" {
     try std.testing.expectEqual(@as(usize, ~@as(usize, 0)), not_found);
+}
+
+test "fromC maps C ULONG_MAX to not_found and leaves ids alone" {
+    try std.testing.expectEqual(not_found, fromC(std.math.maxInt(c_ulong)));
+    try std.testing.expectEqual(not_found, fromC(not_found));
+    try std.testing.expectEqual(@as(usize, 0), fromC(0));
+    try std.testing.expectEqual(@as(usize, 7), fromC(7));
 }
 
 test "shmem_join_mode constants are 0 and 1" {

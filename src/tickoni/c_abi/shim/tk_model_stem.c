@@ -63,7 +63,7 @@
 #define TKMODL_CONTENT_MAX  ((ulong)TK_MP_MAX_MESSAGE_BYTES - sizeof(ModelResultMsg))
 
 /* The reassembler times a partial request out after this long (ns). */
-#define TKMODL_PARTIAL_TIMEOUT_NS  ((long)TK_MP_PARTIAL_TIMEOUT_MS*1000000L)
+#define TKMODL_PARTIAL_TIMEOUT_NS  ((tk_ns_t)TK_MP_PARTIAL_TIMEOUT_MS*1000000LL)
 
 /* Publications reserved per stem iteration: one audit record plus a bounded
    number of result fragments.  A larger result continues next iteration. */
@@ -686,7 +686,7 @@ tkmodl_after_frag( tkmodl_ctx_t *      ctx,
         return;
     ctx->stage_valid = 0;
 
-    long now = fd_log_wallclock();
+    tk_ns_t now = (tk_ns_t)fd_log_wallclock_nanos();
     tk_mp_status_t st = tk_mp_rx_feed( &ctx->rx, ctx->stage, ctx->stage_sz, ctx->stage_som, ctx->stage_eom, now );
     if( st==TK_MP_ERR_INTERLEAVED ) {
         /* The producer abandoned a message and started another: count the
@@ -709,7 +709,7 @@ tkmodl_after_credit( tkmodl_ctx_t *      ctx,
                      int *               opt_poll_in,
                      int *               charge_busy ) {
     /* A partial request that stalls is dropped, not held forever. */
-    if( tk_mp_rx_poll( &ctx->rx, fd_log_wallclock() )==TK_MP_ERR_TIMEOUT )
+    if( tk_mp_rx_poll( &ctx->rx, (tk_ns_t)fd_log_wallclock_nanos() )==TK_MP_ERR_TIMEOUT )
         ctx->dropped += 1UL;
 
     if( ctx->tx_active ) {

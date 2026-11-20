@@ -750,6 +750,7 @@ pub fn strategy(
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_disco.a", .{fd_lib_dir}) });
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
+        codec.linkTickoniWindowsUuid(b, test_lib, fd_lib_dir);
 
         const test_exe = b.addExecutable(.{
             .name = "test-tkaudt-during-frag",
@@ -777,6 +778,7 @@ pub fn strategy(
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_disco.a", .{fd_lib_dir}) });
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
+        codec.linkTickoniWindowsUuid(b, test_lib, fd_lib_dir);
 
         const test_exe = b.addExecutable(.{
             .name = "test-tkagnt-correlation",
@@ -798,6 +800,7 @@ pub fn strategy(
         test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/firedancer"));
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
         test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
+        codec.linkTickoniWindowsUuid(b, test_lib, fd_lib_dir);
 
         const test_exe = b.addExecutable(.{
             .name = "test-multipart",
