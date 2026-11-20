@@ -1,6 +1,5 @@
 /* stem_diag.h — producer side of the diagnostic fan-in for the fd_stem tiles
-   (tknorm, tkdedu, tkpoly, tkaudt).  tkings is a generic-path Zig tile and
-   publishes through rt.link.Producer.publishLossy instead.
+   (tkings, tknorm, tkdedu, tkpoly, tkaudt).
 
    A producer's diagnostic link is OPTIONAL: it exists only in a topology that
    wires the tile to tkdiag (paymentPipelineProcess()).  stk_diag_out_init finds
@@ -15,7 +14,7 @@
    fd_stem_publish only charges credits on outputs with a reliable consumer, and
    STEM_BURST therefore stays 1.  The tile's pipeline output is still published
    exactly once per iteration, and the diagnostic fragment is published right
-   after it, in AFTER_FRAG, after the tile's own commit and counter publish (the
+   after it, in AFTER_FRAG (AFTER_CREDIT for tkings), after the tile's own commit and counter publish (the
    callback contract in stem_helpers.h).
 
    What a fragment carries beyond the tile's own counters:
@@ -32,7 +31,7 @@
                          say so; tkdiag sees that from the process (see
                          tk_diag_fragment.h, "Tile liveness observation").
 
-   Usage:
+   Usage (for a consumer tile; tkings publishes from AFTER_CREDIT):
      ctx field:         stk_diag_out_t diag;
      unprivileged_init: stk_diag_out_init( &ctx->diag, topo, tile, 1UL );   // pipeline outputs
      AFTER_FRAG:        stk_diag_publish( &ctx->diag, stem, in_idx, seq, events, errors, 0UL );
@@ -146,7 +145,7 @@ stk_diag_fault( stk_diag_out_t * d ) {
 /* Publishes one diagnostic fragment with the tile's current cumulative
    counters.  `in_idx` and `in_seq` are the input and sequence number of the
    fragment just committed, from which the input backlog is measured.  No-op
-   without a diagnostic link.  Call from AFTER_FRAG only. */
+   without a diagnostic link.  Call after the tile's committed publish. */
 static inline void
 stk_diag_publish( stk_diag_out_t *     d,
                   fd_stem_context_t *  stem,
