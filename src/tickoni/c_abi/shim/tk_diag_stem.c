@@ -83,12 +83,12 @@
 #define TKREPL_SLOT_REPLAY_MATCH       1UL
 
 /* Firedancer's REPORT_INTERVAL_MILLIS. */
-#define TKDIAG_REPORT_INTERVAL_NS      (100L*1000L*1000L)
+#define TKDIAG_REPORT_INTERVAL_NS      (100LL*1000LL*1000LL)
 
 /* How long privileged_init waits for the other tiles to publish their pid.
    Processes start within a second of each other; a tile still without a pid
    after this has not booted, and is reported as having died before it ran. */
-#define TKDIAG_BOOT_WAIT_NS            (30L*1000L*1000L*1000L)
+#define TKDIAG_BOOT_WAIT_NS            (30LL*1000LL*1000LL*1000LL)
 
 /* Staging verdict of the fragment DURING_FRAG just looked at. */
 enum { TKDIAG_STAGE_NONE = 0, TKDIAG_STAGE_OK = 1, TKDIAG_STAGE_BAD = 2 };
@@ -127,7 +127,7 @@ typedef struct {
     tkdiag_tile_obs_t obs    [FD_TOPO_MAX_TILES];
     ulong             crashed_total;
     ulong             boot_failures;
-    long              next_report_nanos;
+    long long         next_report_nanos;
 
     /* tkrepl's CNC app region (NULL without a tkrepl) and what it holds. */
     ulong volatile *  repl_app;
@@ -211,7 +211,7 @@ tkdiag_privileged_init( fd_topo_t const *      topo,
     ctx->tile_cnt = topo->tile_cnt;
     ctx->self_idx = tile->id;
 
-    long deadline = fd_log_wallclock() + TKDIAG_BOOT_WAIT_NS;
+    long long deadline = fd_log_wallclock_nanos() + TKDIAG_BOOT_WAIT_NS;
     for( ulong i=0UL; i<topo->tile_cnt; i++ ) {
         ulong * metrics = fd_metrics_join( fd_topo_obj_laddr( (fd_topo_t *)topo, topo->tiles[i].metrics_obj_id ) );
         if( FD_UNLIKELY( !metrics ) )
@@ -228,7 +228,7 @@ tkdiag_privileged_init( fd_topo_t const *      topo,
                 pid = ctx->metrics[i][ FD_METRICS_GAUGE_TILE_PID_OFF ];
                 tid = ctx->metrics[i][ FD_METRICS_GAUGE_TILE_TID_OFF ];
                 if( pid && tid ) break;
-                if( fd_log_wallclock()>deadline ) { pid = 0UL; tid = 0UL; break; }
+                if( fd_log_wallclock_nanos()>deadline ) { pid = 0UL; tid = 0UL; break; }
                 fd_log_sleep( 1000000L );   /* 1 ms */
             }
         }
@@ -262,7 +262,7 @@ tkdiag_unprivileged_init( fd_topo_t const *      topo,
         FD_LOG_ERR(( "%s: collector tile takes no output links, found %lu", tile->name, tile->out_cnt ));
 
     ctx->topo = topo;
-    ctx->next_report_nanos = fd_log_wallclock();
+    ctx->next_report_nanos = fd_log_wallclock_nanos();
 
     /* The replay result lives in tkrepl's CNC app slots.  tkdiag only reads it. */
     for( ulong i=0UL; i<topo->tile_cnt; i++ ) {
@@ -409,7 +409,7 @@ tkdiag_before_credit( tkdiag_ctx_t *       ctx,
                       int *                charge_busy ) {
     (void)stem;
 
-    long now = fd_log_wallclock();
+    long long now = fd_log_wallclock_nanos();
     if( now<ctx->next_report_nanos ) return;
     ctx->next_report_nanos = now + TKDIAG_REPORT_INTERVAL_NS;
 
