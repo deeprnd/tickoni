@@ -19,7 +19,7 @@ sequenceDiagram
     participant Poly as tkpoly (Policy)
     participant Port as tkport (Portfolio)
     participant Exec as tkexec (Execution)
-    participant Brokr as tkbrokr (Broker Bridge)
+    participant Brokr as tkbrok (Broker Bridge)
     participant Ledg as tkledg (Ledger)
     participant Audt as tkaudt (Audit)
 
@@ -76,7 +76,7 @@ sequenceDiagram
 | `tkmodl` | `tkmodl` | Model gateway for GOOG analysis | **EXISTING** — fixture/replay |
 | `tkpoly` | `tkpoly` | Policy check for rebalance capability envelope (sell GOOG + buy AMZN) | **PARTIALLY** — exists, needs rebalance capability rules |
 | `tkport` | `tkport0` | Portfolio read + simulate post-rebalance | **MISSING** — see UC-03 |
-| `tkbrokr` | `tkbrokr0` | Broker bridge — executes GOOG sell and AMZN buy | **MISSING** — see UC-04, broker-bridge.md |
+| `tkbrok` | `tkbrok` | Broker bridge — executes GOOG sell and AMZN buy | **MISSING** — see UC-04, broker-bridge.md |
 | `tkexec` | `tkexec0` | Approved execution for the swap | **MISSING** — see UC-04 |
 | `tkledg` | `tkledg0` | Ledger — stores both transfers | **MISSING** — see UC-04 |
 | `tkaudt` | `tkaudt` | Audit — records case_created, investigation_propose, trade_propose, trade_execute | **PARTIALLY** — needs `case_created`, `investigation_propose` record types |
@@ -101,14 +101,14 @@ sequenceDiagram
 5. Register `tkcase` in tile registry with proper link shape (consumer of `tkapi`, producer to `tkaudt`).
 6. Wire `tkcase` into a new rebalance topology.
 7. Implement `tkapi` handlers: `POST /investigate` and `POST /trade/propose` (case-scoped).
-8. Implement `tkexec` case-scoped execution: verifies case_id, calls `tkbrokr` for both trades, updates `tkport`, posts to `tkledg`, audits via `tkaudt`.
+8. Implement `tkexec` case-scoped execution: verifies case_id, calls `tkbrok` for both trades, updates `tkport`, posts to `tkledg`, audits via `tkaudt`.
 
 ### System test approach
 
-- Launch the rebalance topology with `tkapi`, `tkcase`, `tkdisp`, `tkagnt`, `tkmodl`, `tkpoly`, `tkport`, `tkbrokr`, `tkexec`, `tkledg`, `tkaudt`, `metric`, `tkdiag`.
+- Launch the rebalance topology with `tkapi`, `tkcase`, `tkdisp`, `tkagnt`, `tkmodl`, `tkpoly`, `tkport`, `tkbrok`, `tkexec`, `tkledg`, `tkaudt`, `metric`, `tkdiag`.
 - Use `mock_adapter` with `technology_heavy` fixture (owns GOOG 500 shares, 15% of portfolio).
 - Use `mock_model` for GOOG analysis with canned response recommending AMZN.
-- Use `tkbrokr` default backend (always returns filled).
+- Use `tkbrok` default backend (always returns filled).
 - Send `/investigate?ticker=GOOG&account_id=2001` through `tkapi`.
 - Verify: `tkcase` created the case with correct scope; `tkagnt` ran the investigation and produced a proposal; `tkpoly` allowed the rebalance (same sector, within limits); `tkaudt` recorded `case_created` and `investigation_propose`; terminal received the recommendation.
 - Send `/trade/execute?case_id=...` through `tkapi`.

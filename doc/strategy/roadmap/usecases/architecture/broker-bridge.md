@@ -1,15 +1,15 @@
-# Broker Bridge Architecture (`tkbrokr`)
+# Broker Bridge Architecture (`tkbrok`)
 
 ## Pattern
 
-`tkbrokr` follows the same bridge pattern as `tkmodl`:
+`tkbrok` follows the same bridge pattern as `tkmodl`:
 
 - **`tkmodl`** is the model access gateway. It accepts a `TkModlRequest`, validates it against allowlist/budget/context/retry policies, then dispatches to a `model.Backend` which can be any implementation:
   - `FixtureBackend` — canned responses for tests
   - `ReplayBackend` — captured response substitution for replay
   - `HttpBackend` — live HTTP calls to llama.cpp or cloud LLM servers
 
-- **`tkbrokr`** is the broker access bridge. It accepts normalized broker requests (`place_order`, `cancel_order`, `query_position`, `get_quotes`), validates them against policy, then dispatches to a `BrokerBackend` which can be any implementation:
+- **`tkbrok`** is the broker access bridge. It accepts normalized broker requests (`place_order`, `cancel_order`, `query_position`, `get_quotes`), validates them against policy, then dispatches to a `BrokerBackend` which can be any implementation:
   - `DefaultBackend` — always returns filled/OK for dev/test
   - `ReplayBackend` — captured response substitution for replay
   - `IBKRBackend` — Interactive Brokers API adapter
@@ -21,9 +21,9 @@
 
 | Tile | Runtime ID | Instance count |
 |------|-----------|----------------|
-| `tkbrokr` | `tkbrokr0` | 1 per broker kind (like `tkmodl` instances) |
+| `tkbrok` | `tkbrok` | 1 per broker kind (like `tkmodl` instances) |
 
-Each broker kind (IBKR, Schwab, etc.) gets its own instance of `tkbrokr`, configured with the appropriate `BrokerBackend`. The user only has accounts for the brokers they've connected, so only those instances are instantiated.
+Each broker kind (IBKR, Schwab, etc.) gets its own instance of `tkbrok`, configured with the appropriate `BrokerBackend`. The user only has accounts for the brokers they've connected, so only those instances are instantiated.
 
 ## Vtable Interface (`BrokerBackend`)
 
@@ -82,7 +82,7 @@ pub const BrokerResult = union(BrokerOperation) {
 
 ## Broker Kind Configuration
 
-Each `tkbrokr` instance is configured via a JSON config file alongside its topology spec (like `tkmodl.<kind_id>.config`):
+Each `tkbrok` instance is configured via a JSON config file alongside its topology spec (like `tkmodl.<kind_id>.config`):
 
 ```json
 {
@@ -117,9 +117,9 @@ For dev/test, the config specifies a `fixture` or `replay` backend:
 2. Define `BrokerBackend` vtable interface in a new tile module `src/tickoni/tiles/brokr/mod.zig`.
 3. Implement `DefaultBackend` (always returns filled) in the module.
 4. Implement `FixtureBackend` and `ReplayBackend` (same pattern as `model` module).
-5. Register `tkbrokr` in tile registry (process mode stub, fd_stem when ready).
-6. Wire `tkbrokr` into the investment workflow topology (consumer of `tkadpt`, producer to `tkaudt`).
-7. Add `tkbrokr` configuration schema to `tile_main_config.zig` (like `tkmodl`).
+5. Register `tkbrok` in tile registry (process mode stub, fd_stem when ready).
+6. Wire `tkbrok` into the investment workflow topology (consumer of `tkadpt`, producer to `tkaudt`).
+7. Add `tkbrok` configuration schema to `tile_main_config.zig` (like `tkmodl`).
 8. Implement broker adapter stubs: `IBKRBackend`, `SchwabBackend`, `SnapTradeBackend`.
 
 ## Relation to Existing Tiles
@@ -128,9 +128,9 @@ For dev/test, the config specifies a `fixture` or `replay` backend:
 |------|------|-------------|
 | `tkmodl` | Model bridge | Same vtable pattern, different domain |
 | `tktool` | Tool normalizer | Normalizes agent tool requests → `tkadpt` requests |
-| `tkadpt` | Adapter | Routes `tktool` requests → `tkbrokr` for broker calls |
-| `tkbrokr` | Broker bridge | Dispatches normalized broker requests to per-broker backends |
-| `tkexec` | Approved execution | Calls `tkbrokr` via `tkadpt` for actual order placement |
+| `tkadpt` | Adapter | Routes `tktool` requests → `tkbrok` for broker calls |
+| `tkbrok` | Broker bridge | Dispatches normalized broker requests to per-broker backends |
+| `tkexec` | Approved execution | Calls `tkbrok` via `tkadpt` for actual order placement |
 
 The call chain for execution:
-`tkexec` → `tktool` → `tkadpt` → `tkbrokr` → `{IBKRBackend | SchwabBackend | MockBackend}`
+`tkexec` → `tktool` → `tkadpt` → `tkbrok` → `{IBKRBackend | SchwabBackend | MockBackend}`

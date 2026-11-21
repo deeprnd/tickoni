@@ -111,7 +111,7 @@ sequenceDiagram
 - Launch the retrospective topology with `tkexec`, `tkport`, `tktkr`, `tkcase`, `tkdisp`, `tkagnt`, `tkmodl`, `tkpoly`, `tkaudt`, `metric`, `tkdiag`.
 - Use `mock_adapter` with `technology_heavy` fixture (owns NVDA 50 shares at $200, sold at $150).
 - Use `mock_model` for retrospective analysis with canned response.
-- Use `tkbrokr` default backend (always returns filled) to close position.
+- Use `tkbrok` default backend (always returns filled) to close position.
 - Trigger via `/trade/execute` (close NVDA).
 - Verify: `tkport` recorded position close with correct P&L; `tkcase` created retrospective scope; `tkagnt` ran retrospective analysis and produced findings; `tkpoly` approved the rule suggestions (non-binding); `tkaudt` recorded `position_close` and `retrospective_result`; terminal received the report.
 - Verify rule suggestion: suggested `each_position_limit = 5%` and `stop_loss_pct = 15%`.
