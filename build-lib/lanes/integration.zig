@@ -42,8 +42,8 @@ pub const LaneKind = enum {
     domain,
 };
 
-/// Max possible run count across all lane kinds (all=16).
-const max_run_count: usize = 16;
+/// Max possible run count across all lane kinds (all=24: 17 infra + 7 domain).
+const max_run_count: usize = 24;
 
 /// Register integration tests for the requested lane kind.
 pub fn strategy(
@@ -59,6 +59,20 @@ pub fn strategy(
     var test_runs: [max_run_count]*std.Build.Step.Run = undefined;
     var test_run_count: usize = 0;
 
+    // stem_liveness — CNC-liveness assertions shared by the infra roots that
+    // start stem-tile topologies (test_stem_heartbeat, test_tile_tkagnt).
+    const stem_liveness_mod = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/test/integration/stem_liveness.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "runtime", .module = int_mods.shared_runtime },
+            .{ .name = "c_abi", .module = int_mods.shared_c_abi },
+            .{ .name = "util", .module = int_mods.shared_util },
+            .{ .name = "supervisor", .module = int_mods.supervisor_named_mod },
+        },
+    });
+
     // infra_imports — shared by infra test files that use supervisor/topology.
     const infra_imports = [_]std.Build.Module.Import{
         .{ .name = "runtime", .module = int_mods.shared_runtime },
@@ -69,6 +83,7 @@ pub fn strategy(
         .{ .name = "supervisor", .module = int_mods.supervisor_named_mod },
         .{ .name = "topologies", .module = int_mods.shared_topologies },
         .{ .name = "audit_consts", .module = int_mods.shared_audit_consts },
+        .{ .name = "stem_liveness", .module = stem_liveness_mod },
     };
 
     // ------------------------------------------------------------------
@@ -97,6 +112,8 @@ pub fn strategy(
             "src/tickoni/test/integration/test_tile_tkpoly.zig",
             "src/tickoni/test/integration/test_tile_tkmodl.zig",
             "src/tickoni/test/integration/test_tile_tkagnt.zig",
+            "src/tickoni/test/integration/test_tile_tkdiag.zig",
+            "src/tickoni/test/integration/test_stem_heartbeat.zig",
         };
 
         for (infra_proc_files) |path| {

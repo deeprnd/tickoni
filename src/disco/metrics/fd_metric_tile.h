@@ -46,6 +46,14 @@ typedef struct {
      Tickoni's tk_metric_tile sets it in tk_metric_run.
      See v2.23-m task 2. */
   void * cnc;
+  /* Optional liveness hook, called with ctx->cnc once per stem housekeeping
+     event (STEM_CALLBACK_DURING_HOUSEKEEPING in fd_metric_tile.c).  Tickoni's
+     tk_metric_tile sets it to a function that advances the CNC heartbeat and
+     moves the CNC BOOT -> RUN, so the supervisor can classify a stalled
+     metric tile stale.  fd_metric_tile.c is also linked into the native
+     Firedancer binaries, which cannot reference Tickoni symbols, so this is a
+     pointer rather than a call; it is NULL there and nothing happens. */
+  void (*liveness)( void * cnc );
 } fd_metric_ctx_t;
 
 /* ---------------------------------------------------------------------

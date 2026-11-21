@@ -380,6 +380,29 @@ pub fn strategy(
     });
     run_count += 1;
 
+    // c_abi/tkdiag.zig — identity and scratch contract for the fan-in collector
+    // stem shim registered as tkdiag, plus the fragment layout and aggregation
+    // rules of tk_diag_fragment.h.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tkdiag-identity",
+        .source_file = "src/tickoni/c_abi/tkdiag.zig",
+        .imports = &.{
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+        },
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    // c_abi/os_stats.zig — the per-process OS statistics probe tkdiag uses for
+    // per-tile CPU, fault, context-switch and memory metrics (Linux runs; the
+    // macOS and Windows implementations are compile-checked only).
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-os-stats",
+        .source_file = "src/tickoni/c_abi/os_stats.zig",
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
     // tiles/model/validator_parity.zig — C governance helper vs the retained Zig
     // validator, branch by branch.
     run_sequence[run_count] = tb.registerRunTest(.{

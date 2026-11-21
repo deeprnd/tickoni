@@ -23,6 +23,7 @@ const supervisor_mod = @import("supervisor");
 const topologies = @import("topologies");
 const util = @import("util");
 const audit_zig = @import("audit");
+const stem_liveness = @import("stem_liveness");
 
 const Supervisor = supervisor_mod.Supervisor;
 const model_instances = supervisor_mod.model_instances;
@@ -158,6 +159,18 @@ fn startWorkflowRun(
     event_count: u64,
     template: mrs.ModelRequestSource,
 ) !void {
+    // 0 derives the supervisor's default stale threshold.
+    try startWorkflowRunStale(run, specs, event_count, template, 0);
+}
+
+/// `startWorkflowRun` with an explicit heartbeat stale threshold.
+fn startWorkflowRunStale(
+    run: *AgentRun,
+    specs: []const InstanceSpec,
+    event_count: u64,
+    template: mrs.ModelRequestSource,
+    stale_after_ns: u64,
+) !void {
     run.tmp = util.tmpDir();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try run.tmp.dir.realPath(std.testing.io, &path_buf)];
@@ -172,6 +185,7 @@ fn startWorkflowRun(
     try run.sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = event_count,
+        .heartbeat_stale_after_ns = stale_after_ns,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = util.nextMetricPort(),
@@ -1162,4 +1176,36 @@ test "tkagnt_tile: the full workflow commits the same event-ordered chain on eve
     try std.testing.expect(heads[0] != 0);
     try std.testing.expectEqual(heads[0], heads[1]);
     try std.testing.expectEqual(heads[1], heads[2]);
+}
+
+// ---------------------------------------------------------------------------
+// CNC liveness of every stem tile in the 14-tile workflow: tknorm, tkdedu,
+// tkcase, tkpoly, tkaudt, tkdisp (scheduler), tkagnt, tkmodl, tktool, tkadpt
+// and tkdiag, i.e. every tk_*_stem.c, plus the metric tile. event_count = 0 disables the event gates,
+// so each tile idles in its stem loop; see stem_liveness.zig.
+// ---------------------------------------------------------------------------
+
+test "tkagnt_tile: every stem tile of the full workflow reaches CNC RUN and advances its heartbeat while idle" {
+    const specs = [_]InstanceSpec{.{ .kind_id = 0, .tier = .low }};
+    var run: AgentRun = undefined;
+    try startWorkflowRunStale(&run, &specs, 0, singleSource(.valid_replay, .low, .{}), stem_liveness.stale_after_ns);
+    defer run.deinit();
+
+    try stem_liveness.expectStemTilesAlive(&run.sup);
+    try stem_liveness.expectNoStemTileStale(&run.sup);
+    try expectNoCrash(&run.sup);
+}
+
+test "tkagnt_tile: a frozen stem tile of the full workflow is classified stale and its siblings are not" {
+    const specs = [_]InstanceSpec{.{ .kind_id = 0, .tier = .low }};
+    var run: AgentRun = undefined;
+    try startWorkflowRunStale(&run, &specs, 0, singleSource(.valid_replay, .low, .{}), stem_liveness.stale_after_ns);
+    defer run.deinit();
+    try stem_liveness.expectStemTilesAlive(&run.sup);
+
+    // tkagnt is the tile whose loop carries the most work; freeze it alone,
+    // then freeze every remaining stem tile.
+    try stem_liveness.expectFrozenTileGoesStaleAlone(&run.sup, stem_liveness.indexOf(&run.sup, rt.tile_ids.tkagnt));
+    try stem_liveness.expectEveryFrozenStemTileGoesStale(&run.sup);
+    try expectNoCrash(&run.sup);
 }

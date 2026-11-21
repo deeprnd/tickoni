@@ -385,7 +385,19 @@ Keep a tile on the generic Tickoni callback path
 a source with no `in` links and an external driver (`tkings` today), when it
 must do blocking or syscall-heavy work behind the proxy pattern described
 under [Enforcement](#enforcement), or when it is an observer tile with no
-fragment flow (`tkdiag`).
+fragment flow. `tkdiag` was the one such observer on this list; the owner
+directed it onto `fd_stem` as a minimal observer (0-in, 0-out, `BEFORE_CREDIT`
+only, no fragment I/O) so that every Tickoni-authored tile shares one launch
+path and lifecycle. See
+[`plans/v2.NN-sXX-tkdiag-fd-stem-migration.md`](../execution/plans/v2.NN-sXX-tkdiag-fd-stem-migration.md).
+The owner has since had the whole of that migration's future work done, in
+[`plans/v2.10-s14-tkdiag-fan-in.md`](../execution/plans/v2.10-s14-tkdiag-fan-in.md),
+modelled on Firedancer's diag tile: in the payment process topology `tkdiag`
+takes one unreliable diagnostic link from each of `tkings`, `tknorm`, `tkdedu`,
+`tkpoly` and `tkaudt`; it watches every tile's process and writes each tile's
+OS-level metrics into that tile's metrics region; it reads tkrepl's replay
+result; and it publishes nothing and opens no socket. Its metrics are served by
+the metric tile, as Firedancer serves its diag tile's.
 
 Mixing the two paths in one tile is not allowed. A tile is either an fd_stem
 tile — `process_fn = null` in the registry, booted through
@@ -597,34 +609,110 @@ lives in the audit records and the replay capsule, never in a counter.
 Link-level metrics (`frag_consumed`, polling/reading overrun counters,
 backpressure) come from `fd_stem` itself and need no tile code.
 
-### Health And Lifecycle: Current Gap
+### Health And Lifecycle
 
 The generic tile path (`tile_process.zig`) joins its CNC in
 `privileged_init`, transitions `BOOT -> RUN`, heartbeats during the
-halt-wait loop, and signals `BOOT` again on clean exit. **Stem tiles do none
-of this.** `stemRun` dispatches straight into `fd_topo_run_tile`, and the
-three stem tiles' `privileged_init`/`unprivileged_init` only *read* the CNC
-— for `FD_CNC_SIGNAL_HALT` and for counter slots.
+halt-wait loop, and signals `BOOT` again on clean exit. A stem tile reaches
+the same supervisor-visible state through one helper in
+`shim/stem_helpers.h`, so `supervisor.zig`'s `refreshProcessHealth` covers it
+with the existing staleness model:
 
-The consequence is concrete: `supervisor.zig`'s `refreshProcessHealth`
-classifies heartbeat staleness only for a tile whose CNC signal reads `RUN`,
-so a stem tile is never eligible. Its health is process liveness alone, and a
-stem tile wedged inside its loop is indistinguishable from a healthy one.
-Shutdown and clean-exit detection still work — HALT is observed by
-`SHOULD_SHUTDOWN`, and a self-exit is reaped as `.stopped`.
+- `stk_cnc_liveness( cnc )` — called from the tile's
+  `STEM_CALLBACK_DURING_HOUSEKEEPING`, which `fd_stem` runs once per
+  housekeeping event of the loop, whether or not any fragment arrives or credit
+  is available. It writes the CNC heartbeat and, on the first call (the first
+  loop iteration), moves the CNC `BOOT -> RUN` with a compare-and-swap, so a
+  `HALT` that arrived while the tile was booting is never overwritten. A tile
+  whose loop is wedged, not scheduled or stopped stops advancing the heartbeat
+  and is classified stale like a generic-path tile.
 
-Target behavior: a stem tile publishes the same `BOOT -> RUN` transition and
-advances the CNC heartbeat from a `DURING_HOUSEKEEPING` callback, so the
-existing staleness model covers it. Until that exists, every statement about
-stem-tile health must say "process liveness", and a test must not read a stem
-tile's `.running` state as evidence that its loop is making progress.
+**Why `RUN` is signalled from the loop, not the run entry.** The stem's own
+setup runs between the run entry and the loop, and its first call to
+`fd_tempo_tick_per_ns` calibrates the tick rate for about half a second in
+every tile process. `RUN` signalled from the run entry would make the tile
+eligible for staleness during that setup and it would be classified stale
+against the 100 ms default before it had looped once; this is what the first
+implementation did, and the integration lane showed every stem tile with a
+heartbeat about 500 ms old. The supervisor already classifies staleness only
+for a tile that has reached `RUN`, so the boot interval is correctly outside
+the model.
+
+Every `tk_*_stem.c` defines `STEM_CALLBACK_DURING_HOUSEKEEPING` as
+`stk_cnc_liveness( (ctx)->cnc )`. A stem tile that omits it is silently
+outside the staleness model, so the integration lane checks every stem tile of
+each topology, selected from `tile_registry.zig`, rather than a hand-kept list.
+
+**The metric tile.** `metric` runs an `fd_stem` loop too, from
+`fd_metric_tile.c`, which is shared with the native Firedancer binaries and so
+cannot call Tickoni symbols. It is launched under `__tile-run` (launch mode
+`tile` in the registry) but is dispatched to its own run tile, so it never took
+the generic path's `RUN` and heartbeat either, and its CNC stayed at `BOOT`
+for the whole run. Liveness reaches it through a hook:
+`fd_metric_ctx_t.liveness`, NULL in native Firedancer, which its
+`STEM_CALLBACK_DURING_HOUSEKEEPING` calls with `ctx->cnc` when set.
+`shim/tk_metric_tile.c` sets it to `stk_cnc_liveness` in `tk_metric_run`. The
+integration lane includes metric explicitly, since the registry's launch mode
+does not identify it as a stem-loop tile.
+
+**Which CNC belongs to which tile.** `ProcessState`'s per-tile CNC joins,
+launch-spec addresses and suppression mask, and `built_topo.tile_infos`, are
+indexed by Firedancer tile index, while the supervisor's `handles` and
+`children` are indexed by topology position. `topo_build` registers the metric tile last, so in the payment
+pipeline and the investment workflow metric and tkdiag swap places (positions
+6/7 and 12/13). Every place that pairs a handle or child with its CNC
+(`refreshProcessHealth`, the HALT in `stopProcess`, the per-tile snapshot, the
+launch spec) goes through `ProcessState.tile_cnc_idx`, built once at start by
+`(name, kind_id)`. Indexing the CNC joins by topology position instead would
+attribute a stalled tkdiag to the metric tile, and tkdiag's own staleness would be judged from the
+metric tile's CNC. Child processes already look their own CNC up by identity.
+
+**Clock and units.** The CNC heartbeat is Tickoni's wrapping `u32`
+milliseconds of the monotonic clock, and the supervisor compares it against
+`ProcessOperations.now()` (`util.process.monotonicNanos()`). The helper reads
+`tk_monotonic_nanos()` (`shim/os.c`) and write through `tk_cnc_heartbeat`
+(`shim/tango.c`), the same two functions the Zig side uses. Do not call
+`fd_cnc_heartbeat` with `fd_log_wallclock()` or any other clock: the tile would
+look stale or fresh depending on the epoch difference.
+
+**Staleness budget.** `fd_stem` runs the housekeeping event (this callback),
+the per-input credit returns and the per-consumer credit receives round-robin,
+one every `async_min` to `2 * async_min` ticks, with `async_min` the largest
+power of two not above `STEM_LAZY / event_cnt` (`fd_tempo_async_min`,
+`fd_tempo_async_reload`). The order is reshuffled each cycle, so two
+housekeeping events can be nearly two cycles apart: the gap between heartbeats
+stays below `4 * STEM_LAZY` plus the longest callback (below `2 * STEM_LAZY`
+for a tile with no links, such as `tkdiag` in a topology without diagnostic
+links) and averages about `STEM_LAZY`.
+Every Tickoni stem tile sets
+`STEM_LAZY` to 10 ms, so the worst gap is about 40 ms. The supervisor's default
+stale threshold is 100 ms (five times the 20 ms heartbeat interval), which
+leaves a factor of 2.5 at the worst case. Measured on an idle payment
+pipeline, about 175 supervisor samples per tile gave a mean heartbeat age of 8 ms
+and a maximum of 25 ms for tknorm, tkdedu, tkpoly and tkaudt. A configured
+`heartbeat_stale_after_ns` of 40 ms or less can classify a healthy stem tile
+stale; that is a misconfiguration, not a tile fault, and changing a tile's
+`STEM_LAZY` changes the bound. A callback that blocks for longer than the
+threshold (a synchronous disk or network wait inside `AFTER_FRAG`) also makes
+the tile stale, which is the intended signal.
+
+**Exit.** On HALT the stem returns, the process exits, and the supervisor
+reaps it; nothing waits for the CNC to return to `BOOT`, so a stem tile does
+not write `BOOT` on exit. A tile that stops itself (event count reached) leaves
+the CNC at `RUN`, and the supervisor skips staleness for any tile it has
+already reaped.
+
+Counters and heartbeat are separate: counter slots (above) are advisory
+progress; the heartbeat is the liveness signal. Neither is financial evidence.
 
 ### Registration Checklist For A New Stem Tile
 
 A new stem tile is not complete until every one of these is updated. Each is
 a separate dispatch or list; none is derived from another.
 
-1. `src/tickoni/c_abi/shim/tk_<id>_stem.c` — the tile.
+1. `src/tickoni/c_abi/shim/tk_<id>_stem.c` — the tile, including
+   `STEM_CALLBACK_DURING_HOUSEKEEPING` as `stk_cnc_liveness`
+   (see "Health And Lifecycle").
 2. `src/tickoni/c_abi/topo_run/tk_<id>_stem.h` — `extern` run tile, the
    no-argument align/footprint wrappers, the `set_event_count` setter, the
    `tk_get_<id>_run_*` accessor set, and any state accessors.
@@ -704,6 +792,15 @@ if the callback split is ever undone:
 - **hash-chain shape** for a tile that chains: `prev_hash[0] == 0`,
   `prev_hash[k] == record_hash[k-1]`, `seq[i] == i`, every `record_hash`
   non-zero.
+- **CNC liveness** (`test_stem_heartbeat.zig` for the payment pipeline and
+  `test_tile_tkagnt.zig` for the 14-tile investment workflow, which contains
+  every stem tile kind; both use `stem_liveness.zig`): every stem tile of
+  the topology, chosen from `tile_registry.zig` by launch mode, reaches CNC
+  `RUN` with an advancing heartbeat while it is idle, and a tile frozen with
+  `SIGSTOP` is classified `.stale` while its siblings are not. This is what
+  fails if a stem tile omits its
+  `STEM_CALLBACK_DURING_HOUSEKEEPING`. A `.running` state alone is not evidence
+  of progress.
 
 Supporting discipline for these tests:
 
@@ -787,11 +884,13 @@ needs a deliberate pass.
 - **Stale forward-looking plans.** Several plans written before the contract
   still prescribe publishing in `AFTER_CREDIT`
   (`plans/v2.10-s14-fd-stem-migration.md`,
-  `plans/v2.22-s5-fd-stem-migration.md`, `plans/v2.10-s14-tkdiag-fan-in.md`,
+  `plans/v2.22-s5-fd-stem-migration.md`,
   `plans/v2.10-s14-tkrepl-capsule-io.md`, and the story
   `doc/strategy/roadmap/stories/v2.10-s14.md`). The contract wins; those
-  need a product-owned pass before `tkpoly`, `tkings`, `tkrepl`, or `tkdiag`
-  migrate. Tracked in
+  need a product-owned pass before `tkpoly`, `tkings` or `tkrepl` migrate.
+  `plans/v2.10-s14-tkdiag-fan-in.md` had the same defect and got that pass
+  before it was implemented (its "Resolved Design" supersedes its sketches).
+  Tracked in
   [`../execution/tile-delivery-status.md`](../execution/tile-delivery-status.md).
 - **`plans/v2.NN-sXX-tkaudt-stem-contract.md` overstates its verification.**
   Its "Verification" item 1 claims a `_Static_assert` fails the build if

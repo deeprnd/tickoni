@@ -11,8 +11,9 @@
      the next fragment overwrites.
    - AFTER_FRAG: stamp seq and prev_hash, compute record_hash via SipHash1-3,
      advance the hash chain and audit_count, bump counters, publish progress,
-     apply the event gate.  tkaudt is a sink (out_cnt == 0), so AFTER_FRAG
-     ends without a publish.
+     apply the event gate.  tkaudt is a sink (no pipeline output), so its only
+     publish is the optional diagnostic fragment to tkdiag (stem_diag.h), sent
+     last, over an unreliable link.
    - AFTER_CREDIT: not defined — tkaudt has no fragment-independent work.
    - SHOULD_SHUTDOWN: exit on the supervisor's CNC HALT signal
 */
@@ -22,6 +23,7 @@
 #include "firedancer.h"
 #include "audit_schema.h"
 #include "tickoni/c_abi/shim/stem_helpers.h"
+#include "tickoni/c_abi/shim/stem_diag.h"
 
 #include "../../../disco/topo/fd_topo.h"
 #include "../../../ballet/siphash13/fd_siphash13.h"
@@ -146,6 +148,10 @@ typedef struct {
     ulong    agent_held_head;
     struct { int valid; uint64_t seq; AuditEvent ev; }                      model_held[TKAUDT_HOLD];
     struct { uint64_t seq; uint8_t has_model; AuditEvent ev; }              agent_held[TKAUDT_HOLD];
+
+    /* Optional diagnostic link to tkdiag (stem_diag.h).  tkaudt is a sink: it
+       has no pipeline output, so this is its only output link. */
+    stk_diag_out_t diag;
 } tk_audit_ctx_t;
 
 #define TKAUDT_CTX_ALIGN alignof(tk_audit_ctx_t)
@@ -176,6 +182,7 @@ static void tk_audit_run( fd_topo_t * topo, fd_topo_tile_t * tile );
 #define STEM_LAZY         ((long)10e6)
 #define STEM_CALLBACK_CONTEXT_TYPE  tk_audit_ctx_t
 #define STEM_CALLBACK_CONTEXT_ALIGN TKAUDT_CTX_ALIGN
+#define STEM_CALLBACK_DURING_HOUSEKEEPING(ctx) stk_cnc_liveness( (ctx)->cnc )
 #define STEM_CALLBACK_BEFORE_FRAG   tk_audit_before_frag
 #define STEM_CALLBACK_DURING_FRAG   tk_audit_during_frag
 #define STEM_CALLBACK_AFTER_FRAG    tk_audit_after_frag
@@ -189,6 +196,7 @@ static void tk_audit_run( fd_topo_t * topo, fd_topo_tile_t * tile );
 #undef STEM_NAME
 #undef STEM_CALLBACK_CONTEXT_TYPE
 #undef STEM_CALLBACK_CONTEXT_ALIGN
+#undef STEM_CALLBACK_DURING_HOUSEKEEPING
 #undef STEM_CALLBACK_BEFORE_FRAG
 #undef STEM_CALLBACK_DURING_FRAG
 #undef STEM_CALLBACK_AFTER_FRAG
@@ -294,6 +302,9 @@ tk_audit_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile 
 
     /* Find the CNC for this tile and set ctx->cnc for shutdown detection. */
     STK_UNPRIV_INIT(topo, tile, ctx);
+
+    /* A sink: no pipeline output, only the optional diagnostic link. */
+    stk_diag_out_init( &ctx->diag, topo, tile, 0UL );
 
     /* Per-input fragment bounds.  Fail closed: an input in another workspace
        could not be resolved through ctx->wksp, and a missing dcache has no
@@ -670,7 +681,7 @@ tk_audit_after_frag( tk_audit_ctx_t *    ctx,
                      ulong               tsorig,
                      ulong               tspub,
                      fd_stem_context_t * stem ) {
-    (void)in_idx; (void)seq; (void)sig; (void)sz; (void)tsorig; (void)tspub; (void)stem;
+    (void)sig; (void)sz; (void)tsorig; (void)tspub;
 
     if( !ctx->stage_valid )
         return;
@@ -730,6 +741,10 @@ tk_audit_after_frag( tk_audit_ctx_t *    ctx,
 
     /* Publish progress to CNC app[0] for supervisor snapshots. */
     stk_publish_counter(ctx->cnc, 0UL, ctx->audited);
+
+    /* Diagnostic fragment: the cumulative counters just committed.  tkaudt's
+       only publish, to an unreliable link, so it draws no credit. */
+    stk_diag_publish( &ctx->diag, stem, in_idx, seq, ctx->audited, ctx->rejected, ctx->audit_count );
 }
 
 /* ─── Run entry point ───

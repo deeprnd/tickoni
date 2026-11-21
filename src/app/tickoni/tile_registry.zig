@@ -47,6 +47,10 @@ pub const CounterField = enum {
     metric_backpressure_waits,
     diag_crashed_tile,
     diag_sandbox_failures,
+    // tkdiag fan-in counters (tk_diag_stem.c)
+    diag_tiles_reporting,
+    diag_fragments_accepted,
+    diag_fragments_rejected,
     // tkagnt agent-worker counters
     agent_dispatched,
     agent_results,
@@ -62,6 +66,12 @@ pub const CounterField = enum {
 pub const CounterSchemaEntry = struct { idx: u8, field: CounterField };
 
 pub const LaunchMode = enum { tile, stem };
+
+/// A tile's part in the diagnostic fan-in (plans/v2.10-s14-tkdiag-fan-in.md).
+/// A `producer` may have one extra, optional output link to tkdiag, which is
+/// not part of its pipeline link count (`in_cnt`/`out_cnt`); the `collector`
+/// (tkdiag) takes one such link from each producer and has no pipeline link.
+pub const DiagRole = enum { none, producer, collector };
 
 pub const TileEntry = struct {
     id: rt.tile.TileId,
@@ -85,6 +95,9 @@ pub const TileEntry = struct {
     /// How the expected link counts follow from the configured tkmodl
     /// instances. `.fixed` uses in_cnt/out_cnt as written.
     cardinality: Cardinality = .fixed,
+    /// Role in the diagnostic fan-in. Links to and from tkdiag are validated
+    /// separately from `in_cnt`/`out_cnt`; see `validate`.
+    diag: DiagRole = .none,
 };
 
 /// Link-count rule for a tile whose links depend on how many tkmodl instances a
@@ -155,9 +168,18 @@ fn loadProcessConfig(io: std.Io, spec: *const rt.launch_spec.LaunchSpec) !tiles.
 fn tkingsProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) anyerror!void {
     _ = allocator;
     std.debug.print("[tkings] joining output link...\n", .{});
-    if (spec.out_cnt != 1) return error.MissingOutputLink;
+    // One pipeline output, plus the optional diagnostic link to tkdiag. validate()
+    // guarantees that a second output is that link and comes last.
+    if (spec.out_cnt < 1 or spec.out_cnt > 2) return error.MissingOutputLink;
     var output = try rt.link.Producer.join(wksp, spec.outLinks()[0]);
     defer output.leave();
+    var diag_link: ?rt.link.Producer = null;
+    defer if (diag_link) |*d| d.leave();
+    var diag_sender: ?tiles.process.DiagSender = null;
+    if (spec.out_cnt == 2) {
+        diag_link = try rt.link.Producer.join(wksp, spec.outLinks()[1]);
+        diag_sender = try tiles.process.DiagSender.init(&diag_link.?, spec.tile_idx);
+    }
     const cfg = try loadProcessConfig(io, spec);
     if (cfg.pipeline.model_requests != null) {
         // Test-build model-request stream for the tkmodl topologies.
@@ -167,7 +189,7 @@ fn tkingsProcess(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec
         return;
     }
     std.debug.print("[tkings] producing events (event_count={d})...\n", .{cfg.pipeline.event_count});
-    tiles.process.runIngestProcess(cfg, spec.tile_idx, &output, cnc);
+    tiles.process.runIngestProcess(cfg, spec.tile_idx, &output, if (diag_sender) |*d| d else null, cnc);
     std.debug.print("[tkings] done producing\n", .{});
 }
 
@@ -183,6 +205,7 @@ pub const entries = [_]TileEntry{
         .process_fn = tkingsProcess,
         .counters = &.{.{ .idx = 0, .field = .produced }},
         .out_cnt = 1,
+        .diag = .producer,
     },
     // tknorm migrated to fd_stem tile — lifecycle owned by
     // TK_NORM_RUN's privileged_init / stem_run, not the process-mode
@@ -194,6 +217,7 @@ pub const entries = [_]TileEntry{
         .counters = &.{ .{ .idx = 0, .field = .normalized }, .{ .idx = 1, .field = .invalid } },
         .in_cnt = 1,
         .out_cnt = 1,
+        .diag = .producer,
     },
     // tkdedu migrated to fd_stem tile — lifecycle owned by
     // TK_DEDU_RUN's privileged_init / stem_run, not the process-mode
@@ -205,6 +229,7 @@ pub const entries = [_]TileEntry{
         .counters = &.{.{ .idx = 0, .field = .duplicates }},
         .in_cnt = 1,
         .out_cnt = 1,
+        .diag = .producer,
     },
     .{
         .id = tile_ids.tkpoly,
@@ -213,6 +238,7 @@ pub const entries = [_]TileEntry{
         .counters = &.{ .{ .idx = 0, .field = .allowed }, .{ .idx = 1, .field = .denied } },
         .in_cnt = 1,
         .out_cnt = 1,
+        .diag = .producer,
     },
     // tkaudt migrated to fd_stem tile (Phase 4.1) — lifecycle owned by
     // TK_AUDIT_RUN's privileged_init / stem_run, not the process-mode
@@ -224,6 +250,7 @@ pub const entries = [_]TileEntry{
         .counters = &.{.{ .idx = 0, .field = .audited }},
         .in_cnt = 1,
         .cardinality = .audit_fan_in,
+        .diag = .producer,
     },
     .{
         .id = tile_ids.tkrepl,
@@ -239,9 +266,26 @@ pub const entries = [_]TileEntry{
         .in_cnt = 0,
         .out_cnt = 0,
     },
+    // tkdiag migrated to fd_stem tile — lifecycle owned by
+    // TK_DIAG_RUN's privileged_init / stem_run, not the process-mode
+    // callback path. The diagnostic collector: no pipeline link and no output;
+    // its inputs are the unreliable diagnostic links of the diagnostic
+    // producers (DiagRole), when the topology wires them. tk_diag_stem.c is the
+    // sole writer of these five slots. Slot 0 counts the tiles that died
+    // abnormally or reported a fatal fault (the supervisor's diag_crash_count);
+    // slot 1 those that died before they ran. The field names predate the
+    // fan-in.
     .{
         .id = tile_ids.tkdiag,
-        .counters = &.{ .{ .idx = 0, .field = .diag_crashed_tile }, .{ .idx = 1, .field = .diag_sandbox_failures } },
+        .launch_mode = .stem,
+        .counters = &.{
+            .{ .idx = 0, .field = .diag_crashed_tile },
+            .{ .idx = 1, .field = .diag_sandbox_failures },
+            .{ .idx = 2, .field = .diag_tiles_reporting },
+            .{ .idx = 3, .field = .diag_fragments_accepted },
+            .{ .idx = 4, .field = .diag_fragments_rejected },
+        },
+        .diag = .collector,
     },
     // tkmodl: fd_stem tile, fixture/replay only (no provider I/O). One request
     // link in; an audit link (tkaudt) and a result link (tkagnt) out.
@@ -368,17 +412,42 @@ pub fn validateInstances(topo: rt.topology.Topology) !void {
 
 /// Validates each configured tile against its registry entry and link shape.
 /// The registry can contain tiles absent from a particular topology.
+///
+/// Diagnostic links (channels whose destination is tkdiag) are checked apart
+/// from the pipeline cardinality: they must come from a `.producer` tile, at
+/// most one per producer, be `.lossy` so a slow tkdiag can never backpressure
+/// the event path, and be the producer's last output so a process tile finds it
+/// at a fixed position. tkdiag's own input count is whatever diagnostic links
+/// the topology wires, so only its pipeline links and outputs are compared.
 pub fn validate(topo: rt.topology.Topology) !void {
     try validateInstances(topo);
     for (topo.tiles, 0..) |t, i| {
         const entry = findById(t.name).?;
         var in_cnt: usize = 0;
         var out_cnt: usize = 0;
-        for (topo.channels) |ch| {
-            if (ch.dst_idx == i) in_cnt += 1;
-            if (ch.src_idx == i) out_cnt += 1;
+        var diag_out_cnt: usize = 0;
+        var last_pipeline_out: ?usize = null;
+        var diag_out_pos: usize = 0;
+        for (topo.channels, 0..) |ch, ch_idx| {
+            if (ch.dst_idx >= topo.tiles.len) return error.LinkCardinalityMismatch;
+            const to_diag = topo.tiles[ch.dst_idx].name.eql(tile_ids.tkdiag);
+            if (to_diag and ch.reliability != .lossy) return error.DiagLinkMustBeLossy;
+            if (ch.dst_idx == i and !to_diag) in_cnt += 1;
+            if (ch.src_idx == i) {
+                if (to_diag) {
+                    diag_out_cnt += 1;
+                    diag_out_pos = ch_idx;
+                } else {
+                    out_cnt += 1;
+                    last_pipeline_out = ch_idx;
+                }
+            }
         }
+        if (diag_out_cnt > 0 and (entry.diag != .producer or diag_out_cnt > 1)) return error.LinkCardinalityMismatch;
         if (in_cnt != expectedInCnt(entry, topo) or out_cnt != expectedOutCnt(entry, topo)) return error.LinkCardinalityMismatch;
+        if (last_pipeline_out) |pipeline_pos| {
+            if (diag_out_cnt == 1 and diag_out_pos < pipeline_pos) return error.DiagLinkNotLast;
+        }
     }
 }
 
