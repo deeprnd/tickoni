@@ -1,6 +1,16 @@
 /// Canonical TileId registry for all Tickoni tiles.
 /// Eliminates scattered "tknorm" / "tkdedu" / "tkpoly" / etc. string
 /// literals and [6]u8 constants across the codebase.
+///
+/// Naming convention: TileId.bytes is [6]u8. If the human-readable name
+/// exceeds 6 characters, it is truncated (not padded). The 6-byte form is
+/// the ground truth for wire/format purposes. For example:
+///   • "tkapi"  (5 chars) → "tkapi" (no truncation needed)
+///   • "tkbrok" (6 chars) → "tkbrok" (exactly fits)
+///   • "tkbrokr" (7 chars) → "tkbrok" (truncated to 6)
+///   • "tkapi0" (6 chars) → "tkapi0" (exactly fits)
+/// Documentation may reference the human-readable form (e.g. "tkbrokr"),
+/// but the TileId constant always uses the 6-byte form.
 const std = @import("std");
 const tile = @import("tile.zig");
 
@@ -35,7 +45,7 @@ pub const tkadpt: tile.TileId = .{ .bytes = "tkadpt".* };
 pub const tkexec: tile.TileId = .{ .bytes = "tkexec".* };
 /// Broker bridge tile — routes broker requests (place, cancel, query) to
 /// per-account broker implementations (IBKR, Schwab, SnapTrade, …).
-pub const tkbrokr: tile.TileId = .{ .bytes = "tkbrokr0".* };
+pub const tkbrok: tile.TileId = .{ .bytes = "tkbrok".* };
 /// API tile — HTTP/WebSocket CaseOps API.
 pub const tkapi: tile.TileId = .{ .bytes = "tkapi0".* };
 /// Metrics tile — collects and exposes runtime metrics.
@@ -46,7 +56,8 @@ pub const tkdiag: tile.TileId = .{ .bytes = "tkdiag".* };
 /// All known tile IDs, ordered by Firedancer tile index.
 pub const all: [17]tile.TileId = .{
     tkings, tknorm, tkdedu, tkpoly, tkaudt, tkrepl, tkcase, tkdisp,
-    tkagnt, tkmodl, tktool, tkadpt, tkexec, tkbrokr, tkapi,  metric, tkdiag,
+    tkagnt, tkmodl, tktool, tkadpt, tkexec, tkbrok, tkapi,  metric,
+    tkdiag,
 };
 
 /// Lookup: returns the TileId for a name string, or null.
