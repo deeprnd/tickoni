@@ -83,10 +83,6 @@ typedef struct {
        Points into scratch space (computed in privileged_init). */
     AuditEvent *audit_records;
 
-    /* Workspace pointer for chunk-to-laddr conversion in DURING_FRAG.
-       Set in privileged_init from the tile's workspace ID. */
-    void *wksp;
-
     /* Event count gating (Phase 3.4).
        Set from TKAUDT_EVENT_COUNT env var. Tile exits when
        audited >= event_count, regardless of idle ticks. */
@@ -100,12 +96,10 @@ typedef struct {
     /* Per-input fragment bounds.  tkaudt is a fan-in sink (the spine event link
        plus one model-audit link per tkmodl instance), and each input has its
        own dcache, so each has its own chunk range: a chunk that is valid for
-       one input can lie outside another's.  Every input shares the one
-       workspace in `wksp` (unprivileged_init rejects any input that does
-       not), which is what lets a single base pointer resolve every chunk. */
-    ulong    in_cnt;
-    ulong    in_chunk0[TKAUDT_MAX_INPUTS];
-    ulong    in_wmark[TKAUDT_MAX_INPUTS];
+       one input can lie outside another's, and each input's chunks resolve
+       against its own workspace join. */
+    ulong         in_cnt;
+    stk_link_in_t in[TKAUDT_MAX_INPUTS];
 
     /* What each input carries, bound by producer identity at init (not by sig
        alone): a spine event link, a tkmodl model-audit link, or the
@@ -287,11 +281,8 @@ tk_audit_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
        This is the same memory region reserved by scratch_footprint_tile. */
     ctx->audit_records = tk_audit_records_of( ctx );
 
-    /* Derive workspace pointer from the tile's input link mcache. */
-    ctx->wksp = stk_derive_wksp(topo, tile, 0);
-
-    FD_LOG_NOTICE(( "tkaudt: privileged init ctx=%p records=%p wksp=%p count=%lu",
-                    ctx, ctx->audit_records, ctx->wksp, (unsigned long)TKAUDT_AUDIT_CAPACITY ));
+    FD_LOG_NOTICE(( "tkaudt: privileged init ctx=%p records=%p count=%lu",
+                    ctx, ctx->audit_records, (unsigned long)TKAUDT_AUDIT_CAPACITY ));
 }
 
 static void
@@ -306,22 +297,11 @@ tk_audit_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile 
     /* A sink: no pipeline output, only the optional diagnostic link. */
     stk_diag_out_init( &ctx->diag, topo, tile, 0UL );
 
-    /* Per-input fragment bounds.  Fail closed: an input in another workspace
-       could not be resolved through ctx->wksp, and a missing dcache has no
-       range to check against. */
-    if( FD_UNLIKELY( !ctx->wksp ) )
-        FD_LOG_ERR(( "tkaudt: input workspace is not joined" ));
+    /* Per-input fragment bounds.  Fail closed: an unjoined workspace or a
+       missing dcache has no range to check against. */
     if( FD_UNLIKELY( tile->in_cnt<1UL || tile->in_cnt>TKAUDT_MAX_INPUTS ) )
         FD_LOG_ERR(( "tkaudt: expected 1..%lu input links, found %lu", TKAUDT_MAX_INPUTS, tile->in_cnt ));
-    for( ulong i=0UL; i<tile->in_cnt; i++ ) {
-        fd_topo_link_t const * in_link = &topo->links[ tile->in_link_id[i] ];
-        if( FD_UNLIKELY( stk_derive_wksp( topo, tile, i )!=ctx->wksp ) )
-            FD_LOG_ERR(( "tkaudt: input %lu is not in the workspace shared with input 0", i ));
-        if( FD_UNLIKELY( !in_link->dcache || !in_link->mtu ) )
-            FD_LOG_ERR(( "tkaudt: input %lu has no dcache or mtu", i ));
-        ctx->in_chunk0[i] = fd_dcache_compact_chunk0( ctx->wksp, in_link->dcache );
-        ctx->in_wmark[i]  = fd_dcache_compact_wmark ( ctx->wksp, in_link->dcache, in_link->mtu );
-    }
+    for( ulong i=0UL; i<tile->in_cnt; i++ ) stk_link_in_init( &ctx->in[i], topo, tile, i, 1UL );
     ctx->in_cnt = tile->in_cnt;
 
     /* Bind each input to its producer's identity. */
@@ -507,7 +487,8 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
        before dereferencing it. */
     if( FD_UNLIKELY( in_idx>=ctx->in_cnt ) )
         return;
-    if( FD_UNLIKELY( chunk<ctx->in_chunk0[in_idx] || chunk>ctx->in_wmark[in_idx] ) )
+    stk_link_in_t const * in = &ctx->in[in_idx];
+    if( FD_UNLIKELY( !stk_link_in_contains( in, chunk ) ) )
         return;
 
     /* What the link carries is fixed by who produces it; the fragment's sig
@@ -525,7 +506,7 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
     }
 
     ulong want = is_model ? sizeof(ModelAuditMsg) : is_agent ? sizeof(TkAgentAuditMsg) : (ulong)TK_EVENT_SIZE;
-    if( !stk_validate_frag( sz, want, ctx->wksp ) )
+    if( !stk_validate_frag( sz, want, in->wksp ) )
         return;
 
     /* Build into the single staging event: nothing observes it until
@@ -545,7 +526,7 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
     ctx->stage_has_model = 0;
 
     if( is_model ) {
-        ModelAuditMsg const * msg = stk_chunk_to_gaddr(ctx->wksp, chunk);
+        ModelAuditMsg const * msg = stk_link_in_laddr( in, chunk );
         ModelAuditMsg m;
         memcpy( &m, msg, sizeof(m) );   /* one copy: validate and build from it */
         if( m.version!=TKMODL_WIRE_VERSION ||
@@ -571,7 +552,7 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
 
     if( is_agent ) {
         TkAgentAuditMsg a;
-        memcpy( &a, stk_chunk_to_gaddr(ctx->wksp, chunk), sizeof(a) );
+        memcpy( &a, stk_link_in_laddr( in, chunk ), sizeof(a) );
         if( a.version!=TK_AGENT_WIRE_VERSION ) return;
         if( a.record_type!=RECORD_PROPOSAL && a.record_type!=RECORD_DENIAL ) return;
         if( a.agent_seq==0UL ) return;
@@ -592,7 +573,7 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
         return;
     }
 
-    TkEvent const * msg = stk_chunk_to_gaddr(ctx->wksp, chunk);
+    TkEvent const * msg = stk_link_in_laddr( in, chunk );
 
     /* Populate header from available sources.
        TkEvent provides: trace_id, case_id, source_offset, event_hash,

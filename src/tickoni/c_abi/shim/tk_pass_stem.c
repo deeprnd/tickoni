@@ -46,14 +46,9 @@ typedef struct {
     uint8_t  stage[TKPASS_MTU];
     int      forward;             /* tkcase: copy to every output */
     void *   cnc;
-    void *   wksp;
-    ulong    in_chunk0;
-    ulong    in_wmark;
-    ulong    out_cnt;
-    void *   out_wksp[TKPASS_MAX_OUTS];
-    ulong    out_chunk0[TKPASS_MAX_OUTS];
-    ulong    out_wmark[TKPASS_MAX_OUTS];
-    ulong    out_chunk[TKPASS_MAX_OUTS];
+    stk_link_in_t  in;
+    ulong          out_cnt;
+    stk_link_out_t out[TKPASS_MAX_OUTS];
     uint64_t event_count;
     int      input_exhausted;
 } tkpass_ctx_t;
@@ -117,7 +112,6 @@ tkpass_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     /* Only the forwarding tile has an event gate: tktool and tkadpt see no
        traffic and stop on HALT. */
     ctx->event_count = ctx->forward ? tkpass_event_count_param : 0UL;
-    ctx->wksp        = stk_derive_wksp( topo, tile, 0 );
 }
 
 static void
@@ -134,28 +128,15 @@ tkpass_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
         FD_LOG_ERR(( "%s: at most %lu output links, found %lu", tile->name, TKPASS_MAX_OUTS, tile->out_cnt ));
     if( FD_UNLIKELY( ctx->forward && tile->out_cnt==0UL ) )
         FD_LOG_ERR(( "%s: a forwarding tile needs an output link", tile->name ));
-    if( FD_UNLIKELY( !ctx->wksp ) )
-        FD_LOG_ERR(( "%s: input workspace is not joined", tile->name ));
-
     fd_topo_link_t const * in_link = &topo->links[tile->in_link_id[0]];
-    if( FD_UNLIKELY( !in_link->dcache || !in_link->mtu || in_link->mtu>TKPASS_MTU ) )
-        FD_LOG_ERR(( "%s: invalid input dcache or mtu %lu (max %lu)", tile->name, in_link->mtu, TKPASS_MTU ));
-    ctx->in_chunk0 = fd_dcache_compact_chunk0( ctx->wksp, in_link->dcache );
-    ctx->in_wmark  = fd_dcache_compact_wmark( ctx->wksp, in_link->dcache, in_link->mtu );
+    if( FD_UNLIKELY( in_link->mtu>TKPASS_MTU ) )
+        FD_LOG_ERR(( "%s: input mtu %lu above the %lu a fragment is staged in", tile->name, in_link->mtu, TKPASS_MTU ));
+    stk_link_in_init( &ctx->in, topo, tile, 0UL, 1UL );
 
+    /* A forwarded fragment must fit every output it is copied to. */
     ctx->out_cnt = tile->out_cnt;
-    for( ulong o=0UL; o<tile->out_cnt; o++ ) {
-        fd_topo_link_t const * out_link = &topo->links[tile->out_link_id[o]];
-        /* A forwarded fragment must fit every output it is copied to. */
-        if( FD_UNLIKELY( !out_link->dcache || (ctx->forward && out_link->mtu<in_link->mtu) ) )
-            FD_LOG_ERR(( "%s: output %lu has no dcache or an mtu under the input's", tile->name, o ));
-        ctx->out_wksp[o] = fd_topo_obj_wksp_base( topo, out_link->dcache_obj_id );
-        if( FD_UNLIKELY( !ctx->out_wksp[o] ) )
-            FD_LOG_ERR(( "%s: output %lu workspace is not joined", tile->name, o ));
-        ctx->out_chunk0[o] = fd_dcache_compact_chunk0( ctx->out_wksp[o], out_link->dcache );
-        ctx->out_wmark[o]  = fd_dcache_compact_wmark( ctx->out_wksp[o], out_link->dcache, out_link->mtu );
-        ctx->out_chunk[o]  = ctx->out_chunk0[o];
-    }
+    for( ulong o=0UL; o<tile->out_cnt; o++ )
+        stk_link_out_init( &ctx->out[o], topo, tile, o, ctx->forward ? in_link->mtu : 1UL );
 }
 
 static void
@@ -169,10 +150,10 @@ tkpass_during_frag( tkpass_ctx_t * ctx,
     (void)in_idx; (void)seq; (void)sig; (void)ctl;
 
     ctx->stage_valid = 0;
-    if( !sz || sz>TKPASS_MTU || !ctx->wksp ) return;
-    if( FD_UNLIKELY( chunk<ctx->in_chunk0 || chunk>ctx->in_wmark ) ) return;
+    if( !sz || sz>TKPASS_MTU || !ctx->in.wksp ) return;
+    if( FD_UNLIKELY( !stk_link_in_contains( &ctx->in, chunk ) ) ) return;
 
-    memcpy( ctx->stage, stk_chunk_to_gaddr( ctx->wksp, chunk ), sz );
+    memcpy( ctx->stage, stk_link_in_laddr( &ctx->in, chunk ), sz );
     ctx->stage_sz    = sz;
     ctx->stage_valid = 1;
 }
@@ -193,12 +174,8 @@ tkpass_after_frag( tkpass_ctx_t *      ctx,
 
     ctx->consumed += 1UL;
     if( ctx->forward ) {
-        for( ulong o=0UL; o<ctx->out_cnt; o++ ) {
-            ulong chunk = ctx->out_chunk[o];
-            memcpy( fd_chunk_to_laddr( ctx->out_wksp[o], chunk ), ctx->stage, ctx->stage_sz );
-            fd_stem_publish( stem, o, sig, chunk, ctx->stage_sz, 0UL, 0UL, 0UL );
-            ctx->out_chunk[o] = fd_dcache_compact_next( chunk, ctx->stage_sz, ctx->out_chunk0[o], ctx->out_wmark[o] );
-        }
+        for( ulong o=0UL; o<ctx->out_cnt; o++ )
+            stk_link_out_publish( &ctx->out[o], stem, o, sig, ctx->stage, ctx->stage_sz );
         ctx->forwarded += 1UL;
         STK_EVENT_EXHAUSTED( ctx, ctx->event_count, ctx->forwarded );
     }

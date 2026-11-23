@@ -66,16 +66,13 @@ typedef struct {
     TkAgentResultMsg staged;
     TkEvent  stage_event;
     void *   cnc;
-    void *   wksp;
-    ulong    in_chunk0[2];
-    ulong    in_wmark[2];
+    stk_link_in_t in[2];        /* the event link and the terminal-result link */
     uint64_t event_count;
     int      input_exhausted;
 
     ulong    result_in;         /* input index of the terminal-result link */
     ulong    event_in;          /* input index of the event link */
-    void *   out_wksp;
-    ulong    out_chunk0, out_wmark, out_chunk;
+    stk_link_out_t out;         /* agent requests to tkagnt */
     uint64_t scheduled;         /* requests sent */
     uint64_t answered;          /* terminal results received, ring full or not */
     uint64_t events_seen;
@@ -176,7 +173,6 @@ tkdisp_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     tkdisp_ctx_t * ctx = STK_GET_CTX(tkdisp_ctx_t, scratch, TKDISP_CTX_ALIGN);
     memset( ctx, 0, sizeof(*ctx) );
     ctx->event_count = tkdisp_event_count_param;
-    ctx->wksp        = stk_derive_wksp( topo, tile, 0 );
 }
 
 /* The tile that produces `link_id`, or NULL. */
@@ -198,8 +194,6 @@ tkdisp_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     STK_UNPRIV_INIT(topo, tile, ctx);
     if( FD_UNLIKELY( !ctx->cnc ) )
         FD_LOG_ERR(( "tkdisp: CNC object not found for tile %lu", tile->id ));
-    if( FD_UNLIKELY( !ctx->wksp ) )
-        FD_LOG_ERR(( "tkdisp: input workspace is not joined" ));
     if( FD_UNLIKELY( tile->in_cnt!=2UL || tile->out_cnt!=1UL ) )
         FD_LOG_ERR(( "tkdisp: expected two inputs (events, results) and one output, found %lu and %lu", tile->in_cnt, tile->out_cnt ));
     if( FD_UNLIKELY( !tkdisp_template_set ) )
@@ -220,24 +214,14 @@ tkdisp_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     /* The in-flight bound must leave credits on both links of the loop. */
     if( FD_UNLIKELY( out_link->depth<=TKDISP_MAX_INFLIGHT || res_link->depth<=TKDISP_MAX_INFLIGHT ) )
         FD_LOG_ERR(( "tkdisp: request and result links need a depth above %lu, found %lu and %lu", TKDISP_MAX_INFLIGHT, out_link->depth, res_link->depth ));
-    if( FD_UNLIKELY( !out_link->dcache || out_link->mtu<sizeof(TkAgentRequestMsg) ) )
-        FD_LOG_ERR(( "tkdisp: request output needs an mtu of %lu, found %lu", (ulong)sizeof(TkAgentRequestMsg), out_link->mtu ));
-    ctx->out_wksp  = fd_topo_obj_wksp_base( topo, out_link->dcache_obj_id );
-    if( FD_UNLIKELY( !ctx->out_wksp ) )
-        FD_LOG_ERR(( "tkdisp: output workspace is not joined" ));
-    ctx->out_chunk0 = fd_dcache_compact_chunk0( ctx->out_wksp, out_link->dcache );
-    ctx->out_wmark  = fd_dcache_compact_wmark( ctx->out_wksp, out_link->dcache, out_link->mtu );
-    ctx->out_chunk  = ctx->out_chunk0;
+    stk_link_out_init( &ctx->out, topo, tile, 0UL, (ulong)sizeof(TkAgentRequestMsg) );
 
     for( ulong i=0UL; i<tile->in_cnt; i++ ) {
         fd_topo_link_t const * in_link = &topo->links[tile->in_link_id[i]];
+        if( FD_UNLIKELY( in_link->mtu>(ulong)TK_EVENT_LINK_MTU ) )
+            FD_LOG_ERR(( "tkdisp: input %lu has an mtu %lu above %lu", i, in_link->mtu, (ulong)TK_EVENT_LINK_MTU ));
         ulong need = i==ctx->result_in ? sizeof(TkAgentResultMsg) : (ulong)TK_EVENT_SIZE;
-        if( FD_UNLIKELY( !in_link->dcache || in_link->mtu<need || in_link->mtu>(ulong)TK_EVENT_LINK_MTU ) )
-            FD_LOG_ERR(( "tkdisp: input %lu has no dcache or an mtu outside [%lu, %lu]: %lu", i, need, (ulong)TK_EVENT_LINK_MTU, in_link->mtu ));
-        if( FD_UNLIKELY( stk_derive_wksp( topo, tile, i )!=ctx->wksp ) )
-            FD_LOG_ERR(( "tkdisp: input %lu is not in the workspace shared with input 0", i ));
-        ctx->in_chunk0[i] = fd_dcache_compact_chunk0( ctx->wksp, in_link->dcache );
-        ctx->in_wmark[i]  = fd_dcache_compact_wmark( ctx->wksp, in_link->dcache, in_link->mtu );
+        stk_link_in_init( &ctx->in[i], topo, tile, i, need );
     }
 }
 
@@ -262,18 +246,19 @@ tkdisp_during_frag( tkdisp_ctx_t * ctx,
 
     ctx->stage_valid = 0;
     if( in_idx>1UL ) return;
-    if( FD_UNLIKELY( chunk < ctx->in_chunk0[in_idx] || chunk > ctx->in_wmark[in_idx] ) ) return;
+    stk_link_in_t const * in = &ctx->in[in_idx];
+    if( FD_UNLIKELY( !stk_link_in_contains( in, chunk ) ) ) return;
 
     if( in_idx==ctx->result_in ) {
         if( sig!=TK_LINK_SIG_AGENT_RESULT ) return;
-        if( !stk_validate_frag( sz, sizeof(TkAgentResultMsg), ctx->wksp ) ) return;
-        memcpy( &ctx->staged, stk_chunk_to_gaddr( ctx->wksp, chunk ), sizeof(TkAgentResultMsg) );
+        if( !stk_validate_frag( sz, sizeof(TkAgentResultMsg), in->wksp ) ) return;
+        memcpy( &ctx->staged, stk_link_in_laddr( in, chunk ), sizeof(TkAgentResultMsg) );
         if( ctx->staged.version != TK_AGENT_WIRE_VERSION ) return;
         ctx->stage_is_result = 1;
     } else {
         if( sig!=TK_LINK_SIG_EVENT ) return;
-        if( !stk_validate_frag( sz, TK_EVENT_SIZE, ctx->wksp ) ) return;
-        memcpy( &ctx->stage_event, stk_chunk_to_gaddr( ctx->wksp, chunk ), TK_EVENT_SIZE );
+        if( !stk_validate_frag( sz, TK_EVENT_SIZE, in->wksp ) ) return;
+        memcpy( &ctx->stage_event, stk_link_in_laddr( in, chunk ), TK_EVENT_SIZE );
         ctx->stage_is_result = 0;
     }
     ctx->stage_valid = 1;
@@ -329,10 +314,7 @@ tkdisp_after_credit( tkdisp_ctx_t *      ctx,
     ulong budget = TKDISP_STEM_BURST;
     while( budget && ctx->queue_cnt && ctx->scheduled - ctx->answered < TKDISP_MAX_INFLIGHT ) {
         TkAgentRequestMsg const * req = &ctx->queue[ctx->queue_head];
-        ulong chunk = ctx->out_chunk;
-        memcpy( fd_chunk_to_laddr( ctx->out_wksp, chunk ), req, sizeof(*req) );
-        fd_stem_publish( stem, 0UL, TK_LINK_SIG_AGENT_REQUEST, chunk, sizeof(*req), fd_frag_meta_ctl( 0UL, 1, 1, 0 ), 0UL, 0UL );
-        ctx->out_chunk  = fd_dcache_compact_next( chunk, sizeof(*req), ctx->out_chunk0, ctx->out_wmark );
+        stk_link_out_publish( &ctx->out, stem, 0UL, TK_LINK_SIG_AGENT_REQUEST, req, sizeof(*req) );
         ctx->queue_head = (ctx->queue_head+1UL) % TKDISP_QUEUE_CAPACITY;
         ctx->queue_cnt -= 1UL;
         ctx->scheduled += 1UL;

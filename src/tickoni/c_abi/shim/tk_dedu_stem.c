@@ -55,10 +55,7 @@ typedef struct {
     uint64_t stage_sz;
 
     /* Output dcache allocation state (computed in unprivileged_init) */
-    void *   out_wksp;
-    ulong    out_chunk0;
-    ulong    out_wmark;
-    ulong    out_chunk;
+    stk_link_out_t out;   /* the pipeline output */
 
     /* CNC reference for shutdown detection */
     void     *cnc;
@@ -67,7 +64,7 @@ typedef struct {
     fd_topo_tile_t const *tile;
 
     /* Workspace pointer for input dcache reads */
-    void *wksp;
+    stk_link_in_t in;     /* the pipeline input */
 
     /* Scratch-allocated output TkEvent buffer */
     TkEvent *output_msg;
@@ -210,13 +207,6 @@ tkdedu_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     ctx->cnc = NULL;
     ctx->event_count = 0;
     ctx->input_exhausted = 0;
-    ctx->out_wksp = NULL;
-    ctx->out_chunk0 = 0;
-    ctx->out_wmark = 0;
-    ctx->out_chunk = 0;
-
-    /* Derive workspace pointer from input mcache */
-    ctx->wksp = stk_derive_wksp(topo, tile, 0);
 
     /* Shutdown gating count, as set by topo_build.build() from
        TopologySpec.  0 means "no event-count gate"; the tile then stops
@@ -243,8 +233,8 @@ tkdedu_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
                                           alignof(TkEvent) );
     ctx->output_msg = (TkEvent *)out_align;
 
-    FD_LOG_NOTICE(( "tkdedu: privileged init ctx=%p seen_keys=%p seen_hashes=%p output=%p wksp=%p",
-                    ctx, ctx->seen_keys, ctx->seen_hashes, ctx->output_msg, ctx->wksp ));
+    FD_LOG_NOTICE(( "tkdedu: privileged init ctx=%p seen_keys=%p seen_hashes=%p output=%p",
+                    ctx, ctx->seen_keys, ctx->seen_hashes, ctx->output_msg ));
 }
 
 static void
@@ -258,23 +248,13 @@ tkdedu_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     /* Shared boilerplate: find CNC and set ctx->cnc */
     STK_UNPRIV_INIT(topo, tile, ctx);
 
-    /* Compute output dcache workspace fields for the after_frag publish.
-       Matches the tknorm pattern: get the output link, find its dcache
-       object, compute chunk0/wmark, start at chunk0. */
     /* One pipeline output (index 0), plus the optional diagnostic link last. */
     stk_diag_out_init(&ctx->diag, topo, tile, 1UL);
-    fd_topo_link_t const * out_link = &topo->links[tile->out_link_id[0]];
-    if (FD_UNLIKELY(!out_link->dcache || out_link->mtu < TK_EVENT_SIZE))
-        FD_LOG_ERR(( "tkdedu: invalid output dcache or mtu %lu", out_link->mtu ));
-    ctx->out_wksp = fd_topo_obj_wksp_base(topo, out_link->dcache_obj_id);
-    if (FD_UNLIKELY(!ctx->out_wksp))
-        FD_LOG_ERR(( "tkdedu: output workspace is not joined" ));
-    ctx->out_chunk0 = fd_dcache_compact_chunk0(ctx->out_wksp, out_link->dcache);
-    ctx->out_wmark = fd_dcache_compact_wmark(ctx->out_wksp, out_link->dcache, out_link->mtu);
-    ctx->out_chunk = ctx->out_chunk0;
+    stk_link_in_init (&ctx->in,  topo, tile, 0UL, (ulong)TK_EVENT_SIZE);
+    stk_link_out_init(&ctx->out, topo, tile, 0UL, (ulong)TK_EVENT_SIZE);
 
     FD_LOG_NOTICE(( "tkdedu: unprivileged init tile_id=%lu cnc=%p out_chunk0=%lu out_wmark=%lu",
-                    tile->id, ctx->cnc, ctx->out_chunk0, ctx->out_wmark ));
+                    tile->id, ctx->cnc, ctx->out.chunk0, ctx->out.wmark ));
 }
 
 static void
@@ -293,9 +273,11 @@ tkdedu_during_frag( tkdedu_ctx_t * ctx,
     ctx->stage_valid = 0;
 
     /* Shared boilerplate: empty check, size check, wksp check, chunk→gaddr */
-    if (!stk_validate_frag(sz, TK_EVENT_SIZE, ctx->wksp))
+    if (!stk_validate_frag(sz, TK_EVENT_SIZE, ctx->in.wksp))
         return;
-    TkEvent const * msg_in = stk_chunk_to_gaddr(ctx->wksp, chunk);
+    if (FD_UNLIKELY(!stk_link_in_contains(&ctx->in, chunk)))
+        return;
+    TkEvent const * msg_in = stk_link_in_laddr(&ctx->in, chunk);
 
     /* Stage the input.  Everything below this point is a pure function of
        the staged copy; the dedupe table, counters and publish are committed
@@ -362,18 +344,7 @@ tkdedu_after_frag( tkdedu_ctx_t *      ctx,
     }
 
     /* Publish the staged message, duplicate flag included. */
-    ulong out_chunk = ctx->out_chunk;
-    void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
-    memcpy(dst, ctx->output_msg, ctx->stage_sz);
-
-    /* (stem, out_idx, sig, chunk, sz, ctl, tsorig, tspub) */
-    fd_stem_publish(stem, 0UL, TK_LINK_SIG_EVENT, out_chunk, ctx->stage_sz, fd_frag_meta_ctl(0UL, 1, 1, 0), 0UL, 0UL);
-    ctx->out_chunk = fd_dcache_compact_next(
-        out_chunk,
-        ctx->stage_sz,
-        ctx->out_chunk0,
-        ctx->out_wmark
-    );
+    stk_link_out_publish(&ctx->out, stem, 0UL, TK_LINK_SIG_EVENT, ctx->output_msg, ctx->stage_sz);
 
     ctx->processed += 1;
 

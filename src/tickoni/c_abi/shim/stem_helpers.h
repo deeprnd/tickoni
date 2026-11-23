@@ -275,6 +275,130 @@ stk_chunk_to_gaddr(void * wksp, ulong chunk) {
     return fd_wksp_laddr_fast(wksp, chunk * FD_CHUNK_ALIGN);
 }
 
+/* ─── Links: the dcache side of every input and output ───
+
+   One pattern for every link a stem tile reads or writes.  Every link
+   between tiles is reliable: fd_stem publishes to it only while every
+   reliable consumer holds credits, so a producer waits and never drops.  The
+   only unreliable links are the diagnostic links to tkdiag (stem_diag.h);
+   they use the same cursor, and fd_stem_publish charges them no credit.  So
+   no tile decides, publish by publish, whether to drop.
+
+   stk_link_in_t   an input's dcache: its workspace (from the input's mcache,
+                   see stk_derive_wksp) and its valid chunk range.
+   stk_link_out_t  an output's dcache: its workspace, chunk range and the
+                   next chunk to write.
+
+   Both init functions fail closed (FD_LOG_ERR) on a link with no dcache, an
+   MTU below what the tile publishes or reads, or an unjoined workspace.  Call
+   them from unprivileged_init, after the workspaces are joined.
+
+   Usage:
+     unprivileged_init:  stk_link_in_init ( &ctx->in,  topo, tile, 0UL, TK_EVENT_SIZE );
+                         stk_link_out_init( &ctx->out, topo, tile, 0UL, TK_EVENT_SIZE );
+     DURING_FRAG:        if( !stk_link_in_contains( &ctx->in, chunk ) ) return;
+                         memcpy( &ctx->stage, stk_link_in_laddr( &ctx->in, chunk ), sz );
+     AFTER_FRAG:         stk_link_out_publish( &ctx->out, stem, 0UL, sig, &ctx->stage, sz );
+
+   A tile that builds its fragment in place writes to stk_link_out_laddr and
+   then calls stk_link_out_commit; one that publishes a multipart message
+   passes each fragment's own ctl to stk_link_out_commit. */
+#include "disco/stem/fd_stem.h"
+#include "tango/dcache/fd_dcache.h"
+#include <string.h>
+
+typedef struct {
+    void * wksp;
+    ulong  chunk0;
+    ulong  wmark;
+} stk_link_in_t;
+
+typedef struct {
+    void * wksp;
+    ulong  chunk0;
+    ulong  wmark;
+    ulong  chunk;     /* next chunk to write */
+} stk_link_out_t;
+
+static inline void
+stk_link_in_init( stk_link_in_t *         in,
+                  fd_topo_t const *       topo,
+                  fd_topo_tile_t const *  tile,
+                  ulong                   in_idx,
+                  ulong                   min_mtu ) {
+    fd_topo_link_t const * link = &topo->links[ tile->in_link_id[ in_idx ] ];
+    if( FD_UNLIKELY( !link->dcache || link->mtu<min_mtu ) )
+        FD_LOG_ERR(( "%s: input link %lu has no dcache or an mtu %lu below %lu",
+                     tile->name, in_idx, (ulong)link->mtu, min_mtu ));
+    in->wksp = stk_derive_wksp( topo, tile, in_idx );
+    if( FD_UNLIKELY( !in->wksp ) )
+        FD_LOG_ERR(( "%s: input link %lu workspace is not joined", tile->name, in_idx ));
+    in->chunk0 = fd_dcache_compact_chunk0( in->wksp, link->dcache );
+    in->wmark  = fd_dcache_compact_wmark ( in->wksp, link->dcache, link->mtu );
+}
+
+/* 1 if `chunk` lies in the input's dcache; a fragment outside it is not read. */
+static inline int
+stk_link_in_contains( stk_link_in_t const * in, ulong chunk ) {
+    return chunk>=in->chunk0 && chunk<=in->wmark;
+}
+
+static inline void const *
+stk_link_in_laddr( stk_link_in_t const * in, ulong chunk ) {
+    return stk_chunk_to_gaddr( in->wksp, chunk );
+}
+
+static inline void
+stk_link_out_init( stk_link_out_t *        out,
+                   fd_topo_t const *       topo,
+                   fd_topo_tile_t const *  tile,
+                   ulong                   out_idx,
+                   ulong                   min_mtu ) {
+    fd_topo_link_t const * link = &topo->links[ tile->out_link_id[ out_idx ] ];
+    if( FD_UNLIKELY( !link->dcache || link->mtu<min_mtu ) )
+        FD_LOG_ERR(( "%s: output link %lu has no dcache or an mtu %lu below %lu",
+                     tile->name, out_idx, (ulong)link->mtu, min_mtu ));
+    out->wksp = fd_topo_obj_wksp_base( topo, link->dcache_obj_id );
+    if( FD_UNLIKELY( !out->wksp ) )
+        FD_LOG_ERR(( "%s: output link %lu workspace is not joined", tile->name, out_idx ));
+    out->chunk0 = fd_dcache_compact_chunk0( out->wksp, link->dcache );
+    out->wmark  = fd_dcache_compact_wmark ( out->wksp, link->dcache, link->mtu );
+    out->chunk  = out->chunk0;
+}
+
+/* Where the next fragment on this output is written. */
+static inline void *
+stk_link_out_laddr( stk_link_out_t const * out ) {
+    return fd_chunk_to_laddr( out->wksp, out->chunk );
+}
+
+/* Publishes the `sz` bytes already written at stk_link_out_laddr as output
+   `out_idx`'s next fragment, with control bits `ctl`, and advances to the
+   next chunk. */
+static inline void
+stk_link_out_commit( stk_link_out_t *     out,
+                     fd_stem_context_t *  stem,
+                     ulong                out_idx,
+                     ulong                sig,
+                     ulong                sz,
+                     ulong                ctl ) {
+    fd_stem_publish( stem, out_idx, sig, out->chunk, sz, ctl, 0UL, 0UL );
+    out->chunk = fd_dcache_compact_next( out->chunk, sz, out->chunk0, out->wmark );
+}
+
+/* Copies `sz` bytes from `src` and publishes them as one whole fragment
+   (SOM and EOM). */
+static inline void
+stk_link_out_publish( stk_link_out_t *     out,
+                      fd_stem_context_t *  stem,
+                      ulong                out_idx,
+                      ulong                sig,
+                      void const *         src,
+                      ulong                sz ) {
+    memcpy( stk_link_out_laddr( out ), src, sz );
+    stk_link_out_commit( out, stem, out_idx, sig, sz, fd_frag_meta_ctl( 0UL, 1, 1, 0 ) );
+}
+
 /* ─── Run-tile ABI accessors ───
 
    Define the read-only C ABI wrappers shared by Tickoni stem tiles.  Invoke
