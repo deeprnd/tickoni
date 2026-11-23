@@ -93,20 +93,13 @@ typedef struct {
     /* Output cursors, indexed by role: 0 = audit (tkaudt), 1 = result (tkagnt). */
     ulong    audit_out_idx;
     ulong    result_out_idx;
-    void *   out_wksp[2];
-    ulong    out_chunk0[2];
-    ulong    out_wmark[2];
-    ulong    out_chunk[2];
+    stk_link_out_t out[2];
 
     /* CNC reference for shutdown detection */
     void *   cnc;
 
-    /* Workspace pointer for input dcache reads */
-    void *   wksp;
-
-    /* Input dcache compact chunk bounds, workspace-relative. */
-    ulong    in_chunk0;
-    ulong    in_wmark;
+    /* The request input (from tkagnt): its workspace and compact chunk bounds. */
+    stk_link_in_t in;
 
     /* Event count gating */
     uint64_t event_count;
@@ -408,12 +401,11 @@ tkmodl_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     memset( ctx, 0, sizeof(*ctx) );
     ctx->config      = tkmodl_config_param;
     ctx->event_count = tkmodl_event_count_param;
-    ctx->wksp        = stk_derive_wksp( topo, tile, 0 );
     ctx->txbuf       = tkmodl_txbuf_of( ctx );
     tk_mp_rx_init( &ctx->rx, TK_MP_DIR_REQUEST, tkmodl_rxbuf_of( ctx ), TKMODL_PARTIAL_TIMEOUT_NS );
 
-    FD_LOG_NOTICE(( "tkmodl: privileged init ctx=%p wksp=%p fixtures=%u allowed_models=%u",
-                    (void *)ctx, ctx->wksp,
+    FD_LOG_NOTICE(( "tkmodl: privileged init ctx=%p fixtures=%u allowed_models=%u",
+                    (void *)ctx,
                     (uint)ctx->config.fixture_count, (uint)ctx->config.allowed_model_count ));
 }
 
@@ -444,15 +436,7 @@ tkmodl_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
         FD_LOG_ERR(( "tkmodl: expected exactly one input link, found %lu", tile->in_cnt ));
     if( FD_UNLIKELY( tile->out_cnt != 2UL ) )
         FD_LOG_ERR(( "tkmodl: expected exactly two output links, found %lu", tile->out_cnt ));
-    if( FD_UNLIKELY( !ctx->wksp ) )
-        FD_LOG_ERR(( "tkmodl: input workspace is not joined" ));
-
-    fd_topo_link_t const * in_link = &topo->links[tile->in_link_id[0]];
-    if( FD_UNLIKELY( !in_link->dcache || in_link->mtu < (ulong)TK_MP_LINK_MTU ) )
-        FD_LOG_ERR(( "tkmodl: invalid input dcache or mtu %lu (need %lu)",
-                     in_link->mtu, (ulong)TK_MP_LINK_MTU ));
-    ctx->in_chunk0 = fd_dcache_compact_chunk0( ctx->wksp, in_link->dcache );
-    ctx->in_wmark  = fd_dcache_compact_wmark( ctx->wksp, in_link->dcache, in_link->mtu );
+    stk_link_in_init( &ctx->in, topo, tile, 0UL, (ulong)TK_MP_LINK_MTU );
 
     /* Bind outputs by consumer identity, not declaration order. */
     ulong audit_idx = ULONG_MAX, result_idx = ULONG_MAX;
@@ -468,17 +452,7 @@ tkmodl_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
 
     ulong const need[2] = { sizeof(ModelAuditMsg), (ulong)TK_MP_LINK_MTU };
     ulong const outs[2] = { audit_idx, result_idx };
-    for( ulong r=0UL; r<2UL; r++ ) {
-        fd_topo_link_t const * out_link = &topo->links[tile->out_link_id[outs[r]]];
-        if( FD_UNLIKELY( !out_link->dcache || out_link->mtu < need[r] ) )
-            FD_LOG_ERR(( "tkmodl: invalid output dcache or mtu %lu (need %lu)", out_link->mtu, need[r] ));
-        ctx->out_wksp[r] = fd_topo_obj_wksp_base( topo, out_link->dcache_obj_id );
-        if( FD_UNLIKELY( !ctx->out_wksp[r] ) )
-            FD_LOG_ERR(( "tkmodl: output workspace is not joined" ));
-        ctx->out_chunk0[r] = fd_dcache_compact_chunk0( ctx->out_wksp[r], out_link->dcache );
-        ctx->out_wmark[r]  = fd_dcache_compact_wmark( ctx->out_wksp[r], out_link->dcache, out_link->mtu );
-        ctx->out_chunk[r]  = ctx->out_chunk0[r];
-    }
+    for( ulong r=0UL; r<2UL; r++ ) stk_link_out_init( &ctx->out[r], topo, tile, outs[r], need[r] );
 
     FD_LOG_NOTICE(( "tkmodl: unprivileged init tile_id=%lu cnc=%p audit_out=%lu result_out=%lu",
                     tile->id, ctx->cnc, ctx->audit_out_idx, ctx->result_out_idx ));
@@ -499,16 +473,16 @@ tkmodl_during_frag( tkmodl_ctx_t * ctx,
     /* A multipart fragment is a header and at least one payload byte, up to the
        link MTU.  Exact-size checks belong to the reassembler, which sees the
        header. */
-    if( !sz || sz>(ulong)TK_MP_LINK_MTU || !ctx->wksp )
+    if( !sz || sz>(ulong)TK_MP_LINK_MTU || !ctx->in.wksp )
         return;
 
-    /* Chunk bounds: [in_chunk0, in_wmark], workspace-relative. */
-    if( FD_UNLIKELY( chunk < ctx->in_chunk0 || chunk > ctx->in_wmark ) )
+    /* Chunk bounds: [chunk0, wmark] of the input dcache, workspace-relative. */
+    if( FD_UNLIKELY( !stk_link_in_contains( &ctx->in, chunk ) ) )
         return;
 
     /* Copy first, then judge the copy: the producer may overrun while we
        read, and fd_stem discards the fragment in that case. */
-    memcpy( ctx->stage, stk_chunk_to_gaddr( ctx->wksp, chunk ), sz );
+    memcpy( ctx->stage, stk_link_in_laddr( &ctx->in, chunk ), sz );
     ctx->stage_sz    = sz;
     ctx->stage_som   = fd_frag_meta_ctl_som( ctl );
     ctx->stage_eom   = fd_frag_meta_ctl_eom( ctl );
@@ -519,11 +493,7 @@ static void
 tkmodl_publish_audit( tkmodl_ctx_t *      ctx,
                       fd_stem_context_t * stem,
                       ModelAuditMsg const * audit ) {
-    ulong chunk = ctx->out_chunk[0];
-    memcpy( fd_chunk_to_laddr( ctx->out_wksp[0], chunk ), audit, sizeof(*audit) );
-    /* (stem, out_idx, sig, chunk, sz, ctl, tsorig, tspub) */
-    fd_stem_publish( stem, ctx->audit_out_idx, (ulong)audit->record_type, chunk, sizeof(*audit), 0UL, 0UL, 0UL );
-    ctx->out_chunk[0] = fd_dcache_compact_next( chunk, sizeof(*audit), ctx->out_chunk0[0], ctx->out_wmark[0] );
+    stk_link_out_publish( &ctx->out[0], stem, ctx->audit_out_idx, (ulong)audit->record_type, audit, sizeof(*audit) );
 }
 
 /* Publishes up to `budget` result fragments from the transmit cursor.  The
@@ -533,12 +503,9 @@ static ulong
 tkmodl_emit( tkmodl_ctx_t * ctx, fd_stem_context_t * stem, ulong budget ) {
     ulong n = 0UL;
     while( n<budget && !tk_mp_tx_done( &ctx->tx ) ) {
-        ulong chunk = ctx->out_chunk[1];
         int som, eom;
-        ulong sz  = tk_mp_tx_frag( &ctx->tx, (uint8_t *)fd_chunk_to_laddr( ctx->out_wksp[1], chunk ), &som, &eom );
-        ulong ctl = fd_frag_meta_ctl( 0UL, som, eom, 0 );
-        fd_stem_publish( stem, ctx->result_out_idx, TK_LINK_SIG_MODEL_RESULT, chunk, sz, ctl, 0UL, 0UL );
-        ctx->out_chunk[1] = fd_dcache_compact_next( chunk, sz, ctx->out_chunk0[1], ctx->out_wmark[1] );
+        ulong sz = tk_mp_tx_frag( &ctx->tx, (uint8_t *)stk_link_out_laddr( &ctx->out[1] ), &som, &eom );
+        stk_link_out_commit( &ctx->out[1], stem, ctx->result_out_idx, TK_LINK_SIG_MODEL_RESULT, sz, fd_frag_meta_ctl( 0UL, som, eom, 0 ) );
         n++;
     }
     if( tk_mp_tx_done( &ctx->tx ) ) ctx->tx_active = 0;

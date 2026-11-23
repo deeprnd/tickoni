@@ -45,22 +45,16 @@ typedef struct {
     ulong    stage_sz;
     TkEvent staged_message;
 
-    /* Output dcache allocation state (computed in unprivileged_init) */
-    void *   out_wksp;
-    ulong    out_chunk0;
-    ulong    out_wmark;
-    ulong    out_chunk;
+    /* The pipeline output (to tkaudt), joined in unprivileged_init */
+    stk_link_out_t out;
 
     /* CNC reference for shutdown detection */
     void     *cnc;
 
-    /* Workspace pointer for input dcache reads */
-    void *wksp;
-
-    /* Input dcache compact chunk bounds, workspace-relative: a valid
-       fragment's chunk index lies in [in_chunk0, in_wmark]. */
-    ulong    in_chunk0;
-    ulong    in_wmark;
+    /* The pipeline input (from tkdedu): its workspace and the compact chunk
+       bounds a valid fragment's chunk index lies in, joined in
+       unprivileged_init */
+    stk_link_in_t in;
 
     /* Explicit behavior configuration copied at initialization. */
     int64_t policy_limit_cents;
@@ -210,22 +204,12 @@ tkpoly_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     ctx->cnc = NULL;
     ctx->event_count = 0;
     ctx->input_exhausted = 0;
-    ctx->in_chunk0 = 0;
-    ctx->in_wmark = 0;
     if (FD_UNLIKELY(!tkpoly_policy_limit_configured))
         FD_LOG_ERR(( "tkpoly: policy limit was not configured" ));
     ctx->policy_limit_cents = tkpoly_policy_limit_param;
-    ctx->out_wksp = NULL;
-    ctx->out_chunk0 = 0;
-    ctx->out_wmark = 0;
-    ctx->out_chunk = 0;
-    ctx->wksp = NULL;
-
-    ctx->wksp = stk_derive_wksp(topo, tile, 0);
-
     ctx->event_count = tkpoly_event_count_param;
 
-    FD_LOG_NOTICE(( "tkpoly: privileged init ctx=%p wksp=%p", ctx, ctx->wksp ));
+    FD_LOG_NOTICE(( "tkpoly: privileged init ctx=%p", ctx ));
 }
 
 static void
@@ -249,37 +233,14 @@ tkpoly_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
         FD_LOG_ERR(( "tkpoly: expected exactly one input link, found %lu", tile->in_cnt ));
     stk_diag_out_init(&ctx->diag, topo, tile, 1UL);
 
-    /* The input workspace was derived in privileged_init from the input
-       mcache; a missing join there means every fragment would be silently
-       rejected by stk_validate_frag, so fail startup instead. */
-    if (FD_UNLIKELY(!ctx->wksp))
-        FD_LOG_ERR(( "tkpoly: input workspace is not joined" ));
-    fd_topo_link_t const * in_link = &topo->links[tile->in_link_id[0]];
-    if (FD_UNLIKELY(!in_link->dcache || in_link->mtu < TK_EVENT_SIZE))
-        FD_LOG_ERR(( "tkpoly: invalid input dcache or mtu %lu", in_link->mtu ));
-
-    /* Compact chunk bounds for the input dcache, indexed relative to the
-       same workspace base that during_frag converts chunks against.  A
-       fragment's chunk index is workspace-relative, not a 0..depth ring
-       slot, so the link depth is not a bound on it. */
-    ctx->in_chunk0 = fd_dcache_compact_chunk0(ctx->wksp, in_link->dcache);
-    ctx->in_wmark  = fd_dcache_compact_wmark(ctx->wksp, in_link->dcache, in_link->mtu);
-
-    /* Compute the output dcache workspace fields once, so the per-fragment
-       path is one copy plus one publish.  Matches the tkdedu/tknorm pattern. */
-    fd_topo_link_t const * out_link = &topo->links[tile->out_link_id[0]];
-    if (FD_UNLIKELY(!out_link->dcache || out_link->mtu < TK_EVENT_SIZE))
-        FD_LOG_ERR(( "tkpoly: invalid output dcache or mtu %lu", out_link->mtu ));
-    ctx->out_wksp = fd_topo_obj_wksp_base(topo, out_link->dcache_obj_id);
-    if (FD_UNLIKELY(!ctx->out_wksp))
-        FD_LOG_ERR(( "tkpoly: output workspace is not joined" ));
-    ctx->out_chunk0 = fd_dcache_compact_chunk0(ctx->out_wksp, out_link->dcache);
-    ctx->out_wmark = fd_dcache_compact_wmark(ctx->out_wksp, out_link->dcache, out_link->mtu);
-    ctx->out_chunk = ctx->out_chunk0;
+    /* Fail startup on a missing join, a missing dcache or a short MTU:
+       otherwise every fragment would be silently rejected. */
+    stk_link_in_init (&ctx->in,  topo, tile, 0UL, (ulong)TK_EVENT_SIZE);
+    stk_link_out_init(&ctx->out, topo, tile, 0UL, (ulong)TK_EVENT_SIZE);
 
     FD_LOG_NOTICE(( "tkpoly: unprivileged init tile_id=%lu cnc=%p in_chunk0=%lu in_wmark=%lu out_chunk0=%lu out_wmark=%lu",
-                    tile->id, ctx->cnc, ctx->in_chunk0, ctx->in_wmark,
-                    ctx->out_chunk0, ctx->out_wmark ));
+                    tile->id, ctx->cnc, ctx->in.chunk0, ctx->in.wmark,
+                    ctx->out.chunk0, ctx->out.wmark ));
 }
 
 static void
@@ -294,16 +255,16 @@ tkpoly_during_frag( tkpoly_ctx_t * ctx,
 
     ctx->stage_valid = 0;
 
-    if (!stk_validate_frag(sz, TK_EVENT_SIZE, ctx->wksp))
+    if (!stk_validate_frag(sz, TK_EVENT_SIZE, ctx->in.wksp))
         return;
 
     /* Chunk bounds: must be [in_chunk0, in_wmark].  Prevents out-of-bounds
        reads from the input dcache when fd_stem delivers a corrupted or
        replayed chunk index. */
-    if (FD_UNLIKELY(chunk < ctx->in_chunk0 || chunk > ctx->in_wmark))
+    if (FD_UNLIKELY(!stk_link_in_contains(&ctx->in, chunk)))
         return;
 
-    TkEvent const * msg_in = stk_chunk_to_gaddr(ctx->wksp, chunk);
+    TkEvent const * msg_in = stk_link_in_laddr(&ctx->in, chunk);
 
     /* Stage the input message */
     memcpy(&ctx->staged_message, msg_in, sizeof(TkEvent));
@@ -362,18 +323,7 @@ tkpoly_after_frag( tkpoly_ctx_t *      ctx,
     /* Publish the decided message.  A financial rejection is still a valid
        transport message, so every committed event is forwarded — allow, deny,
        duplicate and malformed alike. */
-    ulong out_chunk = ctx->out_chunk;
-    void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
-    memcpy(dst, msg, ctx->stage_sz);
-
-    /* (stem, out_idx, sig, chunk, sz, ctl, tsorig, tspub) */
-    fd_stem_publish(stem, 0UL, TK_LINK_SIG_EVENT, out_chunk, ctx->stage_sz, fd_frag_meta_ctl(0UL, 1, 1, 0), 0UL, 0UL);
-    ctx->out_chunk = fd_dcache_compact_next(
-        out_chunk,
-        ctx->stage_sz,
-        ctx->out_chunk0,
-        ctx->out_wmark
-    );
+    stk_link_out_publish(&ctx->out, stem, 0UL, TK_LINK_SIG_EVENT, msg, ctx->stage_sz);
 
     ctx->processed += 1;
 

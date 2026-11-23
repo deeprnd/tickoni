@@ -169,16 +169,9 @@ typedef struct {
     ulong     in_cnt;
     ulong     out_cnt;
 
-    /* Per-output chunk cursors. */
-    void *    out_wksp[TKAGNT_MAX_OUTS];
-    ulong     out_chunk0[TKAGNT_MAX_OUTS];
-    ulong     out_wmark[TKAGNT_MAX_OUTS];
-    ulong     out_chunk[TKAGNT_MAX_OUTS];
-
-    /* Per-input bounds and the shared input workspace. */
-    void *    wksp;
-    ulong     in_chunk0[TKAGNT_MAX_INS];
-    ulong     in_wmark[TKAGNT_MAX_INS];
+    /* Per-output cursors and per-input bounds (stem_helpers.h). */
+    stk_link_out_t out[TKAGNT_MAX_OUTS];
+    stk_link_in_t  in[TKAGNT_MAX_INS];
 
     /* The fragment DURING_FRAG staged for AFTER_FRAG: a multipart result
        fragment in `stage`, or a whole agent request in `stage_req`. */
@@ -404,7 +397,6 @@ tkagnt_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     memset( ctx, 0, sizeof(*ctx) );
     ctx->hooks       = tkagnt_hooks_param;
     ctx->event_count = tkagnt_event_count_param;
-    ctx->wksp        = stk_derive_wksp( topo, tile, 0 );
     ctx->rxbuf       = tkagnt_rxbuf_of( ctx );
     ctx->slotbuf     = tkagnt_slotbuf_of( ctx );
     ctx->audit_seq   = 1UL;
@@ -453,8 +445,6 @@ tkagnt_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     STK_UNPRIV_INIT(topo, tile, ctx);
     if( FD_UNLIKELY( !ctx->cnc ) )
         FD_LOG_ERR(( "tkagnt: CNC object not found for tile %lu", tile->id ));
-    if( FD_UNLIKELY( !ctx->wksp ) )
-        FD_LOG_ERR(( "tkagnt: input workspace is not joined" ));
     if( FD_UNLIKELY( tile->in_cnt<2UL || tile->in_cnt>TKAGNT_MAX_INS ) )
         FD_LOG_ERR(( "tkagnt: expected 2..%lu input links, found %lu", TKAGNT_MAX_INS, tile->in_cnt ));
     if( FD_UNLIKELY( tile->out_cnt<3UL || tile->out_cnt>TKAGNT_MAX_OUTS ) )
@@ -466,16 +456,10 @@ tkagnt_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
        tkmodl instance's kind_id), and exactly one request link. */
     ulong req_in = ULONG_MAX;
     for( ulong i=0UL; i<tile->in_cnt; i++ ) {
-        fd_topo_link_t const * in_link = &topo->links[tile->in_link_id[i]];
         fd_topo_tile_t const * producer = tkagnt_link_producer( topo, tile->in_link_id[i] );
         int from_model = producer && strcmp( producer->name, TILE_ID_TKMODL )==0;
         ulong need = from_model ? (ulong)TK_MP_LINK_MTU : sizeof(TkAgentRequestMsg);
-        if( FD_UNLIKELY( !in_link->dcache || in_link->mtu<need ) )
-            FD_LOG_ERR(( "tkagnt: input %lu has no dcache or mtu %lu is under %lu", i, in_link->mtu, need ));
-        if( FD_UNLIKELY( stk_derive_wksp( topo, tile, i )!=ctx->wksp ) )
-            FD_LOG_ERR(( "tkagnt: input %lu is not in the workspace shared with input 0", i ));
-        ctx->in_chunk0[i] = fd_dcache_compact_chunk0( ctx->wksp, in_link->dcache );
-        ctx->in_wmark[i]  = fd_dcache_compact_wmark ( ctx->wksp, in_link->dcache, in_link->mtu );
+        stk_link_in_init( &ctx->in[i], topo, tile, i, need );
 
         if( from_model ) {
             long tier = tkagnt_tier_of_kind( producer->kind_id );
@@ -503,7 +487,6 @@ tkagnt_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     ulong model_outs = 0UL;
     ulong tool_outs  = 0UL;
     for( ulong o=0UL; o<tile->out_cnt; o++ ) {
-        fd_topo_link_t const * out_link = &topo->links[tile->out_link_id[o]];
         fd_topo_tile_t const * consumer = tkagnt_link_consumer( topo, tile->out_link_id[o] );
         if( FD_UNLIKELY( !consumer ) )
             FD_LOG_ERR(( "tkagnt: output %lu has no consumer", o ));
@@ -537,14 +520,7 @@ tkagnt_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
             FD_LOG_ERR(( "tkagnt: output %lu goes to unexpected tile %s", o, consumer->name ));
             return;
         }
-        if( FD_UNLIKELY( !out_link->dcache || out_link->mtu<need ) )
-            FD_LOG_ERR(( "tkagnt: output %lu has no dcache or mtu %lu is under %lu", o, out_link->mtu, need ));
-        ctx->out_wksp[o] = fd_topo_obj_wksp_base( topo, out_link->dcache_obj_id );
-        if( FD_UNLIKELY( !ctx->out_wksp[o] ) )
-            FD_LOG_ERR(( "tkagnt: output %lu workspace is not joined", o ));
-        ctx->out_chunk0[o] = fd_dcache_compact_chunk0( ctx->out_wksp[o], out_link->dcache );
-        ctx->out_wmark[o]  = fd_dcache_compact_wmark ( ctx->out_wksp[o], out_link->dcache, out_link->mtu );
-        ctx->out_chunk[o]  = ctx->out_chunk0[o];
+        stk_link_out_init( &ctx->out[o], topo, tile, o, need );
     }
     if( FD_UNLIKELY( ctx->audit_out==ULONG_MAX ) ) FD_LOG_ERR(( "tkagnt: no audit output (tkaudt)" ));
     if( FD_UNLIKELY( ctx->term_out==ULONG_MAX ) )  FD_LOG_ERR(( "tkagnt: no terminal-result output (tkdisp)" ));
@@ -599,8 +575,9 @@ tkagnt_during_frag( tkagnt_ctx_t * ctx,
     ctx->stage_valid = 0;
 
     if( in_idx>=ctx->in_cnt ) return;
-    if( !sz || sz>(ulong)TK_MP_LINK_MTU || !ctx->wksp ) return;
-    if( FD_UNLIKELY( chunk<ctx->in_chunk0[in_idx] || chunk>ctx->in_wmark[in_idx] ) ) return;
+    stk_link_in_t const * in = &ctx->in[in_idx];
+    if( !sz || sz>(ulong)TK_MP_LINK_MTU || !in->wksp ) return;
+    if( FD_UNLIKELY( !stk_link_in_contains( in, chunk ) ) ) return;
 
     /* What the link carries is fixed by who produces it; the sig must agree. */
     ulong want = ctx->in_tier[in_idx]>=0 ? TK_LINK_SIG_MODEL_RESULT : TK_LINK_SIG_AGENT_REQUEST;
@@ -616,7 +593,7 @@ tkagnt_during_frag( tkagnt_ctx_t * ctx,
             ctx->stage_valid = 1;
             return;
         }
-        memcpy( &ctx->stage_req, stk_chunk_to_gaddr( ctx->wksp, chunk ), sizeof(TkAgentRequestMsg) );
+        memcpy( &ctx->stage_req, stk_link_in_laddr( in, chunk ), sizeof(TkAgentRequestMsg) );
         ctx->stage_sz    = sz;
         ctx->stage_valid = 1;
         return;
@@ -625,7 +602,7 @@ tkagnt_during_frag( tkagnt_ctx_t * ctx,
 
     /* Copy first, then judge the copy: the producer may overrun while we read,
        and fd_stem discards the fragment in that case. */
-    memcpy( ctx->stage, stk_chunk_to_gaddr( ctx->wksp, chunk ), sz );
+    memcpy( ctx->stage, stk_link_in_laddr( in, chunk ), sz );
     ctx->stage_in    = in_idx;
     ctx->stage_sz    = sz;
     ctx->stage_som   = fd_frag_meta_ctl_som( ctl );
@@ -884,11 +861,7 @@ tkagnt_after_frag( tkagnt_ctx_t *      ctx,
 static void
 tkagnt_publish_one( tkagnt_ctx_t * ctx, fd_stem_context_t * stem, ulong out, ulong sig,
                     void const * msg, ulong sz ) {
-    ulong chunk = ctx->out_chunk[out];
-    memcpy( fd_chunk_to_laddr( ctx->out_wksp[out], chunk ), msg, sz );
-    ulong ctl = fd_frag_meta_ctl( 0UL, 1, 1, 0 );   /* single-fragment record */
-    fd_stem_publish( stem, out, sig, chunk, sz, ctl, 0UL, 0UL );
-    ctx->out_chunk[out] = fd_dcache_compact_next( chunk, sz, ctx->out_chunk0[out], ctx->out_wmark[out] );
+    stk_link_out_publish( &ctx->out[out], stem, out, sig, msg, sz );   /* single-fragment record */
 }
 
 static void
@@ -1044,12 +1017,9 @@ tkagnt_after_credit( tkagnt_ctx_t *      ctx,
         if( !ctx->tx_active[t] ) continue;
         while( budget && !tk_mp_tx_done( &ctx->tx[t] ) ) {
             ulong out = ctx->model_out[t];
-            ulong chunk = ctx->out_chunk[out];
             int som, eom;
-            ulong sz  = tk_mp_tx_frag( &ctx->tx[t], (uint8_t *)fd_chunk_to_laddr( ctx->out_wksp[out], chunk ), &som, &eom );
-            ulong ctl = fd_frag_meta_ctl( 0UL, som, eom, 0 );
-            fd_stem_publish( stem, out, TK_LINK_SIG_MODEL_REQUEST, chunk, sz, ctl, 0UL, 0UL );
-            ctx->out_chunk[out] = fd_dcache_compact_next( chunk, sz, ctx->out_chunk0[out], ctx->out_wmark[out] );
+            ulong sz = tk_mp_tx_frag( &ctx->tx[t], (uint8_t *)stk_link_out_laddr( &ctx->out[out] ), &som, &eom );
+            stk_link_out_commit( &ctx->out[out], stem, out, TK_LINK_SIG_MODEL_REQUEST, sz, fd_frag_meta_ctl( 0UL, som, eom, 0 ) );
             budget--;
             *charge_busy = 1;
         }

@@ -113,9 +113,7 @@ typedef struct {
 
     /* Per-input fragment bounds.  Each input has its own dcache, so its own
        chunk range, and its own workspace join. */
-    void *            wksp  [TKDIAG_MAX_INPUTS];
-    ulong             chunk0[TKDIAG_MAX_INPUTS];
-    ulong             wmark [TKDIAG_MAX_INPUTS];
+    stk_link_in_t     in[TKDIAG_MAX_INPUTS];
 
     /* Observation of every tile (Firedancer's diag tile).  Indexed by
        Firedancer tile index. */
@@ -201,8 +199,6 @@ tkdiag_privileged_init( fd_topo_t const *      topo,
     if( FD_UNLIKELY( tile->in_cnt>TKDIAG_MAX_INPUTS ) )
         FD_LOG_ERR(( "%s: expected at most %lu diagnostic inputs, found %lu",
                      tile->name, (ulong)TKDIAG_MAX_INPUTS, tile->in_cnt ));
-    for( ulong i=0UL; i<tile->in_cnt; i++ )
-        ctx->wksp[i] = stk_derive_wksp( topo, tile, i );
 
     /* Observation of the whole topology, as Firedancer's diag tile does it: open
        every tile's /proc files now, before the sandbox is entered. */
@@ -284,13 +280,7 @@ tkdiag_unprivileged_init( fd_topo_t const *      topo,
            A reliable one would let a slow or halted tkdiag stall its producer. */
         if( FD_UNLIKELY( tile->in_link_reliable[i] ) )
             FD_LOG_ERR(( "%s: diagnostic input %lu must be an unreliable consumer", tile->name, i ));
-        if( FD_UNLIKELY( !ctx->wksp[i] || !in_link->dcache || !in_link->mtu ) )
-            FD_LOG_ERR(( "%s: diagnostic input %lu has no joined workspace, dcache or mtu", tile->name, i ));
-        if( FD_UNLIKELY( in_link->mtu<sizeof(diag_fragment_t) ) )
-            FD_LOG_ERR(( "%s: diagnostic input %lu mtu %lu is below the %lu-byte fragment",
-                         tile->name, i, (ulong)in_link->mtu, (ulong)sizeof(diag_fragment_t) ));
-        ctx->chunk0[i] = fd_dcache_compact_chunk0( ctx->wksp[i], in_link->dcache );
-        ctx->wmark [i] = fd_dcache_compact_wmark ( ctx->wksp[i], in_link->dcache, in_link->mtu );
+        stk_link_in_init( &ctx->in[i], topo, tile, i, (ulong)sizeof(diag_fragment_t) );
 
         /* Bind the input to its producer's identity, from the topology. */
         fd_topo_tile_t const * producer = NULL;
@@ -435,11 +425,11 @@ tkdiag_during_frag( tkdiag_ctx_t * ctx,
     /* Fail closed on a fragment that cannot be read: a wrong size, or a chunk
        outside this input's dcache.  The verdict is committed in AFTER_FRAG. */
     if( FD_UNLIKELY( in_idx>=ctx->agg.in_cnt || sz!=sizeof(diag_fragment_t)
-                     || chunk<ctx->chunk0[in_idx] || chunk>ctx->wmark[in_idx] ) ) {
+                     || !stk_link_in_contains( &ctx->in[in_idx], chunk ) ) ) {
         ctx->stage_state = TKDIAG_STAGE_BAD;
         return;
     }
-    memcpy( &ctx->staged, stk_chunk_to_gaddr( ctx->wksp[in_idx], chunk ), sizeof(diag_fragment_t) );
+    memcpy( &ctx->staged, stk_link_in_laddr( &ctx->in[in_idx], chunk ), sizeof(diag_fragment_t) );
     ctx->stage_state = TKDIAG_STAGE_OK;
 }
 

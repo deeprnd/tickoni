@@ -62,7 +62,7 @@ typedef struct {
     fd_topo_tile_t const *tile;
 
     /* Workspace pointer for dcache writes */
-    void *wksp;
+    stk_link_in_t in;     /* the pipeline input */
 
     /* Scratch-allocated output TkEvent buffer */
     TkEvent *output_msg;
@@ -72,10 +72,7 @@ typedef struct {
     int      input_exhausted;
 
     /* Output dcache allocation state */
-    void *   out_wksp;
-    ulong    out_chunk0;
-    ulong    out_wmark;
-    ulong    out_chunk;
+    stk_link_out_t out;   /* the pipeline output */
 
     /* Optional diagnostic link to tkdiag (stem_diag.h) */
     stk_diag_out_t diag;
@@ -255,13 +252,6 @@ tknorm_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     ctx->cnc = NULL;
     ctx->event_count = 0;
     ctx->input_exhausted = 0;
-    ctx->out_wksp = NULL;
-    ctx->out_chunk0 = 0;
-    ctx->out_wmark = 0;
-    ctx->out_chunk = 0;
-
-    /* Derive workspace pointer from input mcache */
-    ctx->wksp = stk_derive_wksp(topo, tile, 0);
 
     /* Point output_msg at scratch block after context */
     ulong ctx_end = fd_ulong_align_up( (ulong)ctx + sizeof(tknorm_ctx_t), alignof(TkEvent) );
@@ -274,8 +264,8 @@ tknorm_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
        which can differ from the supervisor's. */
     ctx->event_count = tknorm_event_count_param;
 
-    FD_LOG_NOTICE(( "tknorm: privileged init ctx=%p output=%p wksp=%p",
-                    ctx, ctx->output_msg, ctx->wksp ));
+    FD_LOG_NOTICE(( "tknorm: privileged init ctx=%p output=%p",
+                    ctx, ctx->output_msg ));
 }
 
 static void
@@ -291,18 +281,11 @@ tknorm_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
 
     /* One pipeline output (index 0), plus the optional diagnostic link last. */
     stk_diag_out_init(&ctx->diag, topo, tile, 1UL);
-    fd_topo_link_t const * out_link = &topo->links[tile->out_link_id[0]];
-    if (FD_UNLIKELY(!out_link->dcache || out_link->mtu < TK_EVENT_SIZE))
-        FD_LOG_ERR(( "tknorm: invalid output dcache or mtu %lu", out_link->mtu ));
-    ctx->out_wksp = fd_topo_obj_wksp_base(topo, out_link->dcache_obj_id);
-    if (FD_UNLIKELY(!ctx->out_wksp))
-        FD_LOG_ERR(( "tknorm: output workspace is not joined" ));
-    ctx->out_chunk0 = fd_dcache_compact_chunk0(ctx->out_wksp, out_link->dcache);
-    ctx->out_wmark = fd_dcache_compact_wmark(ctx->out_wksp, out_link->dcache, out_link->mtu);
-    ctx->out_chunk = ctx->out_chunk0;
+    stk_link_in_init (&ctx->in,  topo, tile, 0UL, (ulong)TK_EVENT_SIZE);
+    stk_link_out_init(&ctx->out, topo, tile, 0UL, (ulong)TK_EVENT_SIZE);
 
     FD_LOG_NOTICE(( "tknorm: unprivileged init tile_id=%lu cnc=%p out_chunk0=%lu out_wmark=%lu",
-                    tile->id, ctx->cnc, ctx->out_chunk0, ctx->out_wmark ));
+                    tile->id, ctx->cnc, ctx->out.chunk0, ctx->out.wmark ));
 }
 
 static void
@@ -321,9 +304,11 @@ tknorm_during_frag( tknorm_ctx_t * ctx,
     ctx->stage_valid = 0;
 
     /* Shared boilerplate: empty check, size check, wksp check, chunk→gaddr */
-    if (!stk_validate_frag(sz, TK_EVENT_SIZE, ctx->wksp))
+    if (!stk_validate_frag(sz, TK_EVENT_SIZE, ctx->in.wksp))
         return;
-    TkEvent const * msg_in = stk_chunk_to_gaddr(ctx->wksp, chunk);
+    if (FD_UNLIKELY(!stk_link_in_contains(&ctx->in, chunk)))
+        return;
+    TkEvent const * msg_in = stk_link_in_laddr(&ctx->in, chunk);
 
     /* Stage the input.  Everything below this point is a pure function of
        the staged copy; counters, progress and the publish are committed in
@@ -371,18 +356,7 @@ tknorm_after_frag( tknorm_ctx_t *      ctx,
     else                                                             ctx->normalized += 1;
 
     /* Publish the staged message. */
-    ulong out_chunk = ctx->out_chunk;
-    void * dst = fd_chunk_to_laddr(ctx->out_wksp, out_chunk);
-    memcpy(dst, ctx->output_msg, ctx->stage_sz);
-
-    /* (stem, out_idx, sig, chunk, sz, ctl, tsorig, tspub) */
-    fd_stem_publish(stem, 0UL, TK_LINK_SIG_EVENT, out_chunk, ctx->stage_sz, fd_frag_meta_ctl(0UL, 1, 1, 0), 0UL, 0UL);
-    ctx->out_chunk = fd_dcache_compact_next(
-        out_chunk,
-        ctx->stage_sz,
-        ctx->out_chunk0,
-        ctx->out_wmark
-    );
+    stk_link_out_publish(&ctx->out, stem, 0UL, TK_LINK_SIG_EVENT, ctx->output_msg, ctx->stage_sz);
 
     /* Publish the two registry-owned counters (tile_registry.zig maps
        app[0]=normalized, app[1]=invalid for tknorm). */

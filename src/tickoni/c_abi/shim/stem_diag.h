@@ -54,10 +54,7 @@ typedef struct {
     int      present;    /* 1 when this tile has a diagnostic link; 0 (the zeroed state) when it has none */
     int      fault;      /* 1 once stk_diag_fault has been called */
     ulong    out_idx;    /* stem output index of the diagnostic link; meaningful only when present */
-    void *   wksp;       /* workspace of the diagnostic link's dcache */
-    ulong    chunk0;
-    ulong    wmark;
-    ulong    chunk;      /* next dcache chunk to write */
+    stk_link_out_t link; /* the diagnostic link's dcache (stem_helpers.h) */
     uint64_t seq;        /* diag fragments published; the last one's `seq` */
     uint32_t tile_id;
     uint32_t tile_type;
@@ -113,16 +110,7 @@ stk_diag_out_init( stk_diag_out_t *        d,
         FD_LOG_ERR(( "%s: not a diagnostic producer, but wired to tkdiag", tile->name ));
     d->tile_id = (uint32_t)tile->id;
 
-    fd_topo_link_t const * link = &topo->links[ tile->out_link_id[ d->out_idx ] ];
-    if( FD_UNLIKELY( !link->dcache || link->mtu<sizeof(diag_fragment_t) ) )
-        FD_LOG_ERR(( "%s: diagnostic link has no dcache or an mtu %lu below the %lu-byte fragment",
-                     tile->name, (ulong)link->mtu, (ulong)sizeof(diag_fragment_t) ));
-    d->wksp = fd_topo_obj_wksp_base( topo, link->dcache_obj_id );
-    if( FD_UNLIKELY( !d->wksp ) )
-        FD_LOG_ERR(( "%s: diagnostic link workspace is not joined", tile->name ));
-    d->chunk0 = fd_dcache_compact_chunk0( d->wksp, link->dcache );
-    d->wmark  = fd_dcache_compact_wmark ( d->wksp, link->dcache, link->mtu );
-    d->chunk  = d->chunk0;
+    stk_link_out_init( &d->link, topo, tile, d->out_idx, (ulong)sizeof(diag_fragment_t) );
 
     /* The backlog of each input, from its producer's published sequence. */
     if( FD_UNLIKELY( tile->in_cnt>STK_DIAG_MAX_IN ) )
@@ -162,7 +150,7 @@ stk_diag_publish( stk_diag_out_t *     d,
     }
 
     d->seq += 1UL;
-    diag_fragment_t * f = (diag_fragment_t *)fd_chunk_to_laddr( d->wksp, d->chunk );
+    diag_fragment_t * f = (diag_fragment_t *)stk_link_out_laddr( &d->link );
     memset( f, 0, sizeof(*f) );
     f->tile_id            = d->tile_id;
     f->tile_type          = d->tile_type;
@@ -175,8 +163,7 @@ stk_diag_publish( stk_diag_out_t *     d,
     f->audit_records      = audit_records;
     f->crashed            = d->fault;
 
-    fd_stem_publish( stem, d->out_idx, 0UL, d->chunk, sizeof(*f), 0UL, 0UL, 0UL );
-    d->chunk = fd_dcache_compact_next( d->chunk, sizeof(*f), d->chunk0, d->wmark );
+    stk_link_out_commit( &d->link, stem, d->out_idx, 0UL, sizeof(*f), fd_frag_meta_ctl( 0UL, 1, 1, 0 ) );
 }
 
 #endif /* __STEM_DIAG_H__ */

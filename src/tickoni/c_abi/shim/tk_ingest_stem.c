@@ -1,8 +1,9 @@
 /* tkings: the ingestion tile on Firedancer's fd_stem loop -- the single entry
-   point for every event.  Its only source is its one input link, which no tile
-   produces (Firedancer's permit_no_producers): tkapi will publish user
-   requests on it, tkrepl replay capsules, and the integration test harness
-   stands in for both today.  tkings does not know or care which.
+   point for every event into the spine.  Its only source is its one input
+   link: tkapi's output in the product topologies (user requests), later also
+   tkrepl's replay capsules, and in the isolation fixtures a link no tile
+   produces (Firedancer's permit_no_producers) on which the integration test
+   harness publishes directly.  tkings does not know or care which.
 
    Per fragment it validates the canonical framing of a TkEvent
    (tk_event_wire.h): one whole fragment of exactly sizeof(TkEvent), a known
@@ -19,6 +20,7 @@
 
 #include "firedancer.h"
 #include "audit_schema.h"
+#include "tk_event_framing.h"
 #include "tickoni/c_abi/shim/stem_helpers.h"
 #include "tickoni/c_abi/shim/stem_diag.h"
 #include "tickoni/c_abi/topo_run/tk_ingest_stem.h"
@@ -31,13 +33,8 @@ typedef struct {
     uint64_t event_count;
     int input_exhausted;
     void * cnc;
-    void * in_wksp;
-    ulong in_chunk0;
-    ulong in_wmark;
-    void * out_wksp;
-    ulong out_chunk0;
-    ulong out_wmark;
-    ulong out_chunk;
+    stk_link_in_t in;                /* from tkapi, or from outside the tile graph */
+    stk_link_out_t out;              /* to tknorm */
     stk_diag_out_t diag;
     uint64_t next_offset[TK_EVENT_SOURCE_CNT];
     int stage_valid;                 /* a fragment was staged */
@@ -51,25 +48,12 @@ static uint64_t tkings_event_count_param;
 
 void tkings_set_event_count( uint64_t event_count ) { tkings_event_count_param = event_count; }
 
-/* A trace id is invalid when all of its bytes are zero. */
-static int
-tkings_trace_id_is_zero( uint8_t const id[ TK_TRACE_ID_SZ ] ) {
-    uint8_t any = 0;
-    for( ulong i=0UL; i<TK_TRACE_ID_SZ; i++ ) any |= id[i];
-    return !any;
-}
-
-/* The canonical framing of a whole-fragment TkEvent.  A pure function of the
-   staged copy. */
+/* The canonical framing of a whole-fragment TkEvent: the shared envelope
+   checks (tk_event_framing.h) and a trace id.  A pure function of the staged
+   copy. */
 int
 tkings_framing_ok( TkEvent const * ev ) {
-    if( ev->version!=TK_EVENT_WIRE_VERSION )                                   return 0;
-    if( ev->kind!=TK_EVENT_KIND_PAYMENT && ev->kind!=TK_EVENT_KIND_AGENT_REQUEST ) return 0;
-    if( ev->source!=TK_EVENT_SOURCE_TKAPI && ev->source!=TK_EVENT_SOURCE_TKREPL ) return 0;
-    if( ev->flags & (uint8_t)~TK_EVENT_FLAGS_KNOWN )                           return 0;
-    if( (ev->flags & TK_EVENT_FLAG_REPLAY) && ev->source!=TK_EVENT_SOURCE_TKREPL ) return 0;
-    if( tkings_trace_id_is_zero( ev->trace_id ) )                              return 0;
-    return 1;
+    return tk_event_envelope_ok( ev ) && !tk_event_trace_id_is_zero( ev->trace_id );
 }
 
 /* DURING_FRAG: stage only (callback contract, stem_helpers.h).  A fragment
@@ -80,11 +64,11 @@ tkings_during_frag( tkings_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig, ulon
     (void)in_idx; (void)seq;
     ctx->stage_valid = 0;
     ctx->stage_ok    = 0;
-    if( FD_UNLIKELY( chunk<ctx->in_chunk0 || chunk>ctx->in_wmark ) ) return;
+    if( FD_UNLIKELY( !stk_link_in_contains( &ctx->in, chunk ) ) ) return;
     ctx->stage_valid = 1;
     if( FD_UNLIKELY( sig!=TK_LINK_SIG_EVENT || sz!=TK_EVENT_SIZE ) ) return;
     if( FD_UNLIKELY( !fd_frag_meta_ctl_som( ctl ) || !fd_frag_meta_ctl_eom( ctl ) ) ) return;
-    memcpy( &ctx->stage, stk_chunk_to_gaddr( ctx->in_wksp, chunk ), TK_EVENT_SIZE );
+    memcpy( &ctx->stage, stk_link_in_laddr( &ctx->in, chunk ), TK_EVENT_SIZE );
     ctx->stage_ok = tkings_framing_ok( &ctx->stage );
 }
 
@@ -109,10 +93,7 @@ tkings_after_frag( tkings_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig, ulong
         memset( ev->decided_by, 0, sizeof(ev->decided_by) );
         memset( ev->_pad, 0, sizeof(ev->_pad) );
 
-        ulong chunk = ctx->out_chunk;
-        memcpy( fd_chunk_to_laddr( ctx->out_wksp, chunk ), ev, TK_EVENT_SIZE );
-        fd_stem_publish( stem, 0UL, TK_LINK_SIG_EVENT, chunk, TK_EVENT_SIZE, fd_frag_meta_ctl( 0UL, 1, 1, 0 ), 0UL, 0UL );
-        ctx->out_chunk = fd_dcache_compact_next( chunk, TK_EVENT_SIZE, ctx->out_chunk0, ctx->out_wmark );
+        stk_link_out_publish( &ctx->out, stem, 0UL, TK_LINK_SIG_EVENT, ev, TK_EVENT_SIZE );
         ctx->produced++;
     }
     stk_publish_counter( ctx->cnc, 0UL, ctx->produced );
@@ -168,24 +149,8 @@ tkings_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
         FD_LOG_ERR(( "tkings: CNC object not found for tile %lu", tile->id ));
     stk_diag_out_init( &ctx->diag, topo, tile, 1UL );
 
-    fd_topo_link_t const * in = &topo->links[tile->in_link_id[0]];
-    if( FD_UNLIKELY( !in->dcache || in->mtu<(ulong)TK_EVENT_SIZE ) )
-        FD_LOG_ERR(( "tkings: invalid input dcache or mtu %lu (need %lu)", in->mtu, (ulong)TK_EVENT_SIZE ));
-    ctx->in_wksp = stk_derive_wksp( topo, tile, 0UL );
-    if( FD_UNLIKELY( !ctx->in_wksp ) )
-        FD_LOG_ERR(( "tkings: input workspace is not joined" ));
-    ctx->in_chunk0 = fd_dcache_compact_chunk0( ctx->in_wksp, in->dcache );
-    ctx->in_wmark  = fd_dcache_compact_wmark( ctx->in_wksp, in->dcache, in->mtu );
-
-    fd_topo_link_t const * out = &topo->links[tile->out_link_id[0]];
-    if( FD_UNLIKELY( !out->dcache || out->mtu<(ulong)TK_EVENT_SIZE ) )
-        FD_LOG_ERR(( "tkings: invalid output dcache or mtu %lu (need %lu)", out->mtu, (ulong)TK_EVENT_SIZE ));
-    ctx->out_wksp = fd_topo_obj_wksp_base( topo, out->dcache_obj_id );
-    if( FD_UNLIKELY( !ctx->out_wksp ) )
-        FD_LOG_ERR(( "tkings: output workspace is not joined" ));
-    ctx->out_chunk0 = fd_dcache_compact_chunk0( ctx->out_wksp, out->dcache );
-    ctx->out_wmark  = fd_dcache_compact_wmark( ctx->out_wksp, out->dcache, out->mtu );
-    ctx->out_chunk  = ctx->out_chunk0;
+    stk_link_in_init ( &ctx->in,  topo, tile, 0UL, (ulong)TK_EVENT_SIZE );
+    stk_link_out_init( &ctx->out, topo, tile, 0UL, (ulong)TK_EVENT_SIZE );
 }
 
 static void
