@@ -27,20 +27,14 @@ pub const process_config_magic: u32 = 0x544b5043; // "TKPC"
 /// test-only stream fault.
 /// v5: the pipeline config carries the full workflow's dispatch template.
 /// v6: the pipeline config no longer carries the thread-mode ingest sandbox-failure hook.
-pub const process_config_version: u16 = 6;
-
-pub const StuckTileHook = struct {
-    tile_idx: u32,
-    after_messages: u64 = 0,
-    sleep_ns: u64 = 60 * std.time.ns_per_s,
-};
+/// v7: no tkings model-request source (the test harness publishes requests on
+/// tkings's input link) and no stuck-tile hook (it moved to the LaunchSpec).
+/// v8: the dispatch template's source carries no stream fault (agent requests
+/// are one fixed fragment that names its prompt by reference).
+pub const process_config_version: u16 = 8;
 
 pub const ProcessRuntimeConfig = struct {
     pipeline: payment_runtime.PaymentPipelineConfig = .{},
-    /// Test-only hook for supervisor heartbeat-staleness integration proofs:
-    /// after `after_messages` iterations, the selected tile sleeps forever
-    /// without emitting further heartbeats or observing HALT.
-    stuck_tile: ?StuckTileHook = null,
 };
 
 pub const ProcessConfigFile = struct {
@@ -82,7 +76,6 @@ test "ProcessConfig round-trips through a file" {
             .duplicate = .{ .offset = 3, .source = 1 },
             .inject_malformed = true,
         },
-        .stuck_tile = .{ .tile_idx = 2, .after_messages = 7, .sleep_ns = 1234 },
     };
     try writeProcessConfig(cfg, std.testing.io, tmp.dir, "payment_pipeline.config");
 
@@ -96,8 +89,6 @@ test "ProcessConfig round-trips through a file" {
         try std.testing.expect(false);
     }
     try std.testing.expect(read_back.pipeline.inject_malformed);
-    try std.testing.expectEqual(@as(?u32, 2), if (read_back.stuck_tile) |hook| hook.tile_idx else null);
-    try std.testing.expectEqual(@as(?u64, 7), if (read_back.stuck_tile) |hook| hook.after_messages else null);
 }
 
 test "ProcessConfig readProcessConfig rejects a truncated file" {

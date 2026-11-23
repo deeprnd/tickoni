@@ -50,16 +50,12 @@ pub const PaymentPipelineConfig = struct {
     /// Set to `null` (default) for no duplicate injection.
     duplicate: ?DuplicateConfig = null,
     inject_malformed: bool = false,
-    /// Optional test-only model-request stream. When set, the tkings process
-    /// emits tkmodl request records instead of payment events (the tkmodl
-    /// fixture/replay topologies). Honored only when `test_build.enabled`;
-    /// production tkings rejects a config that sets it.
-    model_requests: ?model_request_source.ModelRequestSource = null,
-    /// The request template the full workflow's tkdisp sends for every event it
-    /// receives: tier, scope and prompt come from here, never from the event.
-    /// Built from the first slot of the source (`buildAgentRequest` at offset 0);
-    /// tkdisp replaces only the run id. The synthetic source is the only author of
-    /// a template today, so this is honored only when `test_build.enabled`.
+    /// The request template tkdisp sends for every PAYMENT event it receives
+    /// (decision O2): tier, scope and prompt reference come from here, never
+    /// from the event. Built from the first slot of the source
+    /// (`buildAgentRequest` at offset 0); tkdisp replaces only the run and trace
+    /// ids. The synthetic source is the only author of a template today, so this
+    /// is honored only when `test_build.enabled`.
     dispatch_template: ?model_request_source.ModelRequestSource = null,
 };
 
