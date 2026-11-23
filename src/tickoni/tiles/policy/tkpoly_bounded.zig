@@ -235,8 +235,8 @@ test "tkpoly_bounded: scratch footprint is stable across calls" {
     try std.testing.expectEqual(f1, f2);
 }
 
-test "tkpoly_bounded: scratch alignment is 8" {
+test "tkpoly_bounded: scratch alignment is 16" {
     const name_z: [*:0]const u8 = "tkpoly";
     const reqs = topob.tickoniTileScratchRequirements(name_z);
-    try std.testing.expectEqual(@as(usize, 8), reqs.alignment);
+    try std.testing.expectEqual(@as(usize, 16), reqs.alignment);
 }

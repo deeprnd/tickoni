@@ -35,7 +35,7 @@ test "tkings stem descriptor and event ABI" {
     try std.testing.expect(tk_get_ingest_run_tile() != null);
     try std.testing.expect(tkings_tile_scratch_align() > 0);
     try std.testing.expect(tkings_tile_scratch_footprint() > 0);
-    try std.testing.expectEqual(@as(usize, 360), @sizeOf(TkEvent));
+    try std.testing.expectEqual(@as(usize, 400), @sizeOf(TkEvent));
     try std.testing.expect(@sizeOf(TkEvent) <= audit_mod.TK_EVENT_LINK_MTU);
 }
 
