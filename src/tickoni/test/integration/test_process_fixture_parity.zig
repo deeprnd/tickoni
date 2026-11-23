@@ -17,7 +17,7 @@ const topologies = @import("topologies");
 
 const Supervisor = supervisor_mod.Supervisor;
 
-/// Same 8 tiles as topologies.paymentPipelineProcess(), except tkpoly and
+/// Same 9 tiles as topologies.paymentPipelineProcess(), except tkpoly and
 /// tkaudt both declare an explicit shared placement on CPU 0 — a different
 /// pair than test_process_cpu_placement.zig pins, so this test's coverage
 /// is not just a duplicate of M5's.
@@ -30,9 +30,10 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = 5, .name = tile_ids.tkrepl },
     .{ .id = 6, .name = tile_ids.metric },
     .{ .id = 7, .name = tile_ids.tkdiag },
+    .{ .id = 8, .name = tile_ids.tkapi },
 };
 
-/// Same 8 tiles, tkpoly and tkaudt each pinned to their own exclusive CPU
+/// Same 9 tiles, tkpoly and tkaudt each pinned to their own exclusive CPU
 /// (0 and 1 — distinct ids, since two tiles cannot both declare `exclusive`
 /// on the same CPU). Same tile pair as shared_core_tiles for a like-for-like
 /// comparison of placement mode, not tile identity.
@@ -45,6 +46,7 @@ const exclusive_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = 5, .name = tile_ids.tkrepl },
     .{ .id = 6, .name = tile_ids.metric },
     .{ .id = 7, .name = tile_ids.tkdiag },
+    .{ .id = 8, .name = tile_ids.tkapi },
 };
 
 const event_count: u64 = 24;

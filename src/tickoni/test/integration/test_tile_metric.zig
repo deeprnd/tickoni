@@ -336,9 +336,10 @@ test "every scratch-owning tile object is laid out at its required alignment" {
     );
     defer built.deinit(std.testing.allocator);
 
-    // tkings, tknorm, tkdedu, tkaudt, tkpoly, metric and tkdiag each own tile-local
-    // scratch; the rest report footprint 1 and carry no alignment property.
-    const expected_scratch_owners: usize = 7;
+    // tkapi, tkings, tknorm, tkdedu, tkaudt, tkpoly, metric and tkdiag each own
+    // tile-local scratch; the rest report footprint 1 and carry no alignment
+    // property.
+    const expected_scratch_owners: usize = 8;
     var checked: usize = 0;
 
     for (topologies.paymentPipelineProcess().tiles) |t| {
@@ -856,7 +857,7 @@ test "metric_tile_integration: CNC join verifies tile finds CNC object" {
     }
     try std.testing.expect(metric_idx != null);
 
-    try std.testing.expectEqual(@as(usize, 8), topo.tiles.len);
+    try std.testing.expectEqual(@as(usize, 9), topo.tiles.len);
 }
 
 // ---------------------------------------------------------------------------

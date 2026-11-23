@@ -1,14 +1,16 @@
-/// Test harness that feeds events into a running topology through tkings's
-/// input link, its only source (plan v2.NN rev 2, D1).
+/// Test harness that feeds events into a running topology through its one
+/// link that no tile produces (`rt.link.external_src`, Firedancer's
+/// permit_no_producers).
 ///
-/// Every topology gives tkings one input that no tile produces
-/// (`rt.link.external_src`, Firedancer's permit_no_producers). tkapi will
-/// publish user requests on it and tkrepl replay capsules; until they exist this
-/// harness stands in for tkapi. It joins the link from the test process
-/// through the supervisor's workspace join, the way tkrepl replay will, and
-/// publishes one `TkEvent` fragment per event (shim/tk_event_wire.h), stamping
-/// what a producer owns: version, kind, source (tkapi), trace_id and
-/// idempotency_key. tkings frames the rest.
+/// In the product topologies that link is tkapi's input, and the harness stands
+/// in for the terminal tile (the Qt CaseOps app) that will publish user
+/// requests on it. In the isolation fixtures without tkapi it is tkings's
+/// input, and the harness stands in for tkapi. It joins the link from the test
+/// process through the supervisor's workspace join, the way tkrepl replay
+/// will, and publishes one `TkEvent` fragment per event
+/// (shim/tk_event_wire.h), stamping what a producer owns: version, kind,
+/// source (tkapi), trace_id and idempotency_key. tkapi and tkings check and
+/// frame the rest.
 ///
 /// Feeds:
 ///   * `payments`: the synthetic payment stream (`tiles.syntheticPayment`), with
@@ -95,7 +97,7 @@ pub const Harness = struct {
     /// Events published so far.
     published: std.atomic.Value(u64) = .init(0),
 
-    /// Joins tkings's input link of `sup`'s running topology and starts
+    /// Joins the externally fed link of `sup`'s running topology and starts
     /// publishing `event_count` events from `feed` (for `events`, the list's
     /// length). `self` must not move until `finish`.
     pub fn start(self: *Harness, allocator: std.mem.Allocator, sup: *Supervisor, feed: Feed, event_count: u64) !void {
@@ -159,10 +161,12 @@ pub const Harness = struct {
     }
 };
 
-/// The one channel into tkings that no tile produces.
+/// The one channel that no tile produces: tkapi's input where the topology has
+/// tkapi, otherwise tkings's.
 pub fn ingestInputChannel(topo: rt.topology.Topology) !usize {
+    const ingress = supervisor_mod.tile_registry.ingressTile(topo);
     for (topo.channels, 0..) |ch, i| {
-        if (!ch.hasProducerTile() and topo.tiles[ch.dst_idx].name.eql(rt.tile_ids.tkings)) return i;
+        if (!ch.hasProducerTile() and topo.tiles[ch.dst_idx].name.eql(ingress)) return i;
     }
     return error.NoIngestInput;
 }

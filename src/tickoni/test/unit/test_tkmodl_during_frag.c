@@ -41,9 +41,9 @@ static void
 ctx_init( tkmodl_ctx_t * ctx ) {
     memset( ctx, 0, sizeof(*ctx) );
     memset( g_buf, 0, sizeof(g_buf) );
-    ctx->wksp      = g_buf;
-    ctx->in_chunk0 = IN_CHUNK0;
-    ctx->in_wmark  = IN_WMARK;
+    ctx->in.wksp   = g_buf;
+    ctx->in.chunk0 = IN_CHUNK0;
+    ctx->in.wmark  = IN_WMARK;
     ctx->txbuf     = g_txbuf;
     tk_mp_rx_init( &ctx->rx, TK_MP_DIR_REQUEST, g_rxbuf, TKMODL_PARTIAL_TIMEOUT_NS );
 }
@@ -58,7 +58,7 @@ typedef struct {
 static snapshot_t
 snap( tkmodl_ctx_t const * c ) {
     snapshot_t s = { c->processed, c->allowed, c->denied, c->dropped, c->input_exhausted, c->tx_active, c->rx.active,
-                     { c->out_chunk[0], c->out_chunk[1] } };
+                     { c->out[0].chunk, c->out[1].chunk } };
     return s;
 }
 
@@ -67,7 +67,7 @@ unchanged( tkmodl_ctx_t const * c, snapshot_t const * s ) {
     return c->processed==s->processed && c->allowed==s->allowed && c->denied==s->denied &&
            c->dropped==s->dropped && c->input_exhausted==s->input_exhausted &&
            c->tx_active==s->tx_active && c->rx.active==s->rx_active &&
-           c->out_chunk[0]==s->out_chunk[0] && c->out_chunk[1]==s->out_chunk[1];
+           c->out[0].chunk==s->out_chunk[0] && c->out[1].chunk==s->out_chunk[1];
 }
 
 static int g_failed = 0;

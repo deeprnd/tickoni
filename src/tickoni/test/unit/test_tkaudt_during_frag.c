@@ -58,13 +58,13 @@ ctx_init( tk_audit_ctx_t * ctx ) {
     memset( ctx, 0, sizeof(*ctx) );
     memset( g_buf, 0, sizeof(g_buf) );
     memset( g_records, 0, sizeof(g_records) );
-    ctx->wksp          = g_buf;
+    for( ulong i=0UL; i<TKAUDT_MAX_INPUTS; i++ ) ctx->in[i].wksp = g_buf;
     ctx->audit_records = g_records;
     ctx->in_cnt        = 2UL;
-    ctx->in_chunk0[0]  = IN0_CHUNK0;
-    ctx->in_wmark[0]   = IN0_WMARK;
-    ctx->in_chunk0[1]  = IN1_CHUNK0;
-    ctx->in_wmark[1]   = IN1_WMARK;
+    ctx->in[0].chunk0  = IN0_CHUNK0;
+    ctx->in[0].wmark   = IN0_WMARK;
+    ctx->in[1].chunk0  = IN1_CHUNK0;
+    ctx->in[1].wmark   = IN1_WMARK;
 }
 
 /* Everything DURING_FRAG must never change, as one comparison. */
@@ -229,12 +229,12 @@ static void
 ordered_ctx_init( tk_audit_ctx_t * ctx ) {
     ctx_init( ctx );
     ctx->in_cnt                 = 3UL;
-    ctx->in_chunk0[2]           = IN0_CHUNK0;
-    ctx->in_wmark[2]            = IN0_WMARK;
-    ctx->in_chunk0[0]           = IN0_CHUNK0;     /* all three inputs share one range here */
-    ctx->in_wmark[0]            = IN0_WMARK;
-    ctx->in_chunk0[1]           = IN0_CHUNK0;
-    ctx->in_wmark[1]            = IN0_WMARK;
+    ctx->in[2].chunk0           = IN0_CHUNK0;
+    ctx->in[2].wmark            = IN0_WMARK;
+    ctx->in[0].chunk0           = IN0_CHUNK0;     /* all three inputs share one range here */
+    ctx->in[0].wmark            = IN0_WMARK;
+    ctx->in[1].chunk0           = IN0_CHUNK0;
+    ctx->in[1].wmark            = IN0_WMARK;
     ctx->in_role[0]             = TKAUDT_ROLE_EVENT;
     ctx->in_role[1]             = TKAUDT_ROLE_MODEL;
     ctx->in_role[2]             = TKAUDT_ROLE_AGENT;

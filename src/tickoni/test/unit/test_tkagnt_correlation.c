@@ -326,8 +326,7 @@ static uint8_t g_wksp[ 400UL*64UL ] __attribute__((aligned(64)));
 static void
 wksp_init( tkagnt_ctx_t * ctx ) {
     memset( g_wksp, 0, sizeof(g_wksp) );
-    ctx->wksp = g_wksp;
-    for( ulong i=0UL; i<ctx->in_cnt; i++ ) { ctx->in_chunk0[i] = IN_CHUNK0; ctx->in_wmark[i] = IN_WMARK; }
+    for( ulong i=0UL; i<ctx->in_cnt; i++ ) { ctx->in[i].wksp = g_wksp; ctx->in[i].chunk0 = IN_CHUNK0; ctx->in[i].wmark = IN_WMARK; }
 }
 
 static void
