@@ -1056,6 +1056,10 @@ pub const Supervisor = struct {
     /// before stopProcess, which leaves every cnc join and detaches the
     /// workspace.
     pub const ProcessMetricSnapshot = struct {
+        /// Events tkapi forwarded to tkings.
+        api_published: u64 = 0,
+        /// Fragments tkapi dropped for their wire shape (never reached tkings).
+        api_wire_invalid: u64 = 0,
         // Pipeline counters (tkings → tkrnorm → tkdedu → tkpoly → tkaudt)
         produced: u64 = 0,
         /// Fragments tkings dropped for their framing (never entered the spine).
@@ -1146,6 +1150,8 @@ pub const Supervisor = struct {
                                     switch (c.field) {
                                         .produced => snap.produced = v,
                                         .ingest_invalid => snap.ingest_invalid = v,
+                                        .api_published => snap.api_published = v,
+                                        .api_wire_invalid => snap.api_wire_invalid = v,
                                         .normalized => snap.normalized = v,
                                         .invalid => snap.invalid = v,
                                         .duplicates => snap.duplicates = v,
@@ -1206,6 +1212,8 @@ pub const Supervisor = struct {
                                         switch (c.field) {
                                             .produced => snap.produced = v,
                                             .ingest_invalid => snap.ingest_invalid = v,
+                                            .api_published => snap.api_published = v,
+                                            .api_wire_invalid => snap.api_wire_invalid = v,
                                             .normalized => snap.normalized = v,
                                             .invalid => snap.invalid = v,
                                             .duplicates => snap.duplicates = v,
@@ -1256,6 +1264,8 @@ pub const Supervisor = struct {
                 switch (c.field) {
                     .produced => snap.produced = v,
                     .ingest_invalid => snap.ingest_invalid = v,
+                    .api_published => snap.api_published = v,
+                    .api_wire_invalid => snap.api_wire_invalid = v,
                     .normalized => snap.normalized = v,
                     .invalid => snap.invalid = v,
                     .duplicates => snap.duplicates = v,
@@ -1363,6 +1373,8 @@ pub const Supervisor = struct {
             switch (c.field) {
                 .produced => snap.produced = v,
                 .ingest_invalid => snap.ingest_invalid = v,
+                .api_published => snap.api_published = v,
+                .api_wire_invalid => snap.api_wire_invalid = v,
                 .normalized => snap.normalized = v,
                 .invalid => snap.invalid = v,
                 .duplicates => snap.duplicates = v,

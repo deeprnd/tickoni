@@ -172,9 +172,10 @@ fn cmdStartProcess(init: std.process.Init, topo: rt.topology.Topology, run_dir: 
     log.debug("main", "cmdStartProcess", "process-mode pipeline started, monitoring tiles");
 
     try File.writeStreamingAll(stdout, init.io, "tickoni-supervisor: process-mode pipeline started\ntiles:\n");
-    // tkings's only source is its input link, which no tile produces: tkapi will
-    // publish on it (plan v2.NN rev 2, D6). Until then the pipeline idles.
-    try File.writeStreamingAll(stdout, init.io, "tickoni-supervisor: tkings input has no producer yet (tkapi); the pipeline idles until one publishes\n");
+    // tkapi is tkings's producer. tkapi's own input comes from the terminal
+    // tile (the Qt CaseOps app), which does not exist yet, so the pipeline idles
+    // until something publishes on tkapi's input.
+    try File.writeStreamingAll(stdout, init.io, "tickoni-supervisor: tkapi feeds tkings; tkapi's input (the terminal tile) has no producer yet, so the pipeline idles until one publishes\n");
     for (sup.monitor()) |h| {
         const tile_name = topo.tiles[h.tile_idx].name.slice();
         const line = try std.fmt.bufPrint(&buf, "  [{d}] {s}  pid={?}  state={s}\n", .{
