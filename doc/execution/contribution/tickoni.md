@@ -202,6 +202,26 @@ A sink tile (`out_cnt == 0`, such as `tkaudt`) follows the same contract; it
 simply ends `AFTER_FRAG` without a publish. The shape of the tile is decided
 by `out_cnt` alone, not by which callbacks it happens to define.
 
+### Stem Tile Links
+
+Every stem tile reaches its links through one pattern in
+`src/tickoni/c_abi/shim/stem_helpers.h`, not hand-rolled dcache arithmetic:
+
+- `stk_link_in_t` per input, joined with `stk_link_in_init` (fails closed on a
+  missing dcache, an MTU below what the tile reads, or an unjoined
+  workspace). `DURING_FRAG` checks `stk_link_in_contains` before reading and
+  copies from `stk_link_in_laddr`.
+- `stk_link_out_t` per output, joined with `stk_link_out_init`. A whole
+  fragment is published with `stk_link_out_publish`; a fragment built in
+  place (the diagnostic fragment, multipart frames) is written at
+  `stk_link_out_laddr` and published with `stk_link_out_commit` and its own
+  `ctl`.
+
+Every link between tiles is reliable: a producer waits on its consumer's
+credits and never drops, so no tile has a drop-on-full path. The only
+unreliable links are the diagnostic links into `tkdiag`; they use the same
+`stk_link_out_t`, and `fd_stem_publish` charges them no credit.
+
 ### Stem Tile Test And FFI Pattern
 
 Every Tickoni-authored stem tile exposes the same two things, and Zig code
