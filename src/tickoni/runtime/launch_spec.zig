@@ -34,7 +34,8 @@ const logger = @import("logger");
 pub const magic: u32 = 0x544b5350; // "TKSP"
 /// v2: carries the resolved `tile_kind_id` and raises the per-tile link
 /// capacity to the approved 128 inputs / 32 outputs.
-pub const version: u16 = 2;
+/// v3: carries the stem-tile stuck hook (`stuck_after_heartbeats`).
+pub const version: u16 = 3;
 
 pub const shmem_path_cap: usize = 128;
 
@@ -73,6 +74,10 @@ pub const LaunchSpec = struct {
     /// self-exits(1) after this many heartbeats instead of waiting for
     /// SIGTERM. 0 means run normally until signaled.
     crash_after_heartbeats: u32,
+    /// Test-only hook (v2.14.S8.T6 stale-heartbeat proof), stem tiles: after
+    /// this many heartbeats the tile blocks forever, emitting no heartbeat and
+    /// never observing HALT. Null means run normally.
+    stuck_after_heartbeats: ?u32 = null,
 
     pub fn init(fields: struct {
         tile_idx: u32,
@@ -84,6 +89,7 @@ pub const LaunchSpec = struct {
         shmem_path: []const u8,
         heartbeat_interval_ns: u64,
         crash_after_heartbeats: u32 = 0,
+        stuck_after_heartbeats: ?u32 = null,
         /// Topology channels and their resolved shared-memory handles
         /// (parallel arrays, same index in both). Bucketed here into
         /// in_links/out_links by matching tile_idx against each channel's
@@ -106,6 +112,7 @@ pub const LaunchSpec = struct {
             .shmem_path_len = @intCast(fields.shmem_path.len),
             .heartbeat_interval_ns = fields.heartbeat_interval_ns,
             .crash_after_heartbeats = fields.crash_after_heartbeats,
+            .stuck_after_heartbeats = fields.stuck_after_heartbeats,
         };
         @memcpy(spec.shmem_path_buf[0..fields.shmem_path.len], fields.shmem_path);
         for (fields.channels, fields.link_handles) |ch, lh| {
@@ -190,6 +197,7 @@ test "LaunchSpec round-trips through a file" {
         .shmem_path = "/tmp/tickoni-run",
         .heartbeat_interval_ns = 50_000_000,
         .crash_after_heartbeats = 7,
+        .stuck_after_heartbeats = 0,
     });
     try spec.writeToFile(std.testing.io, tmp.dir, "tile.spec");
 
@@ -202,6 +210,7 @@ test "LaunchSpec round-trips through a file" {
     try std.testing.expectEqualStrings("/tmp/tickoni-run", read_back.shmemPath());
     try std.testing.expectEqual(@as(u64, 50_000_000), read_back.heartbeat_interval_ns);
     try std.testing.expectEqual(@as(u32, 7), read_back.crash_after_heartbeats);
+    try std.testing.expectEqual(@as(?u32, 0), read_back.stuck_after_heartbeats);
     try std.testing.expectEqual(@as(u8, 0), read_back.in_cnt);
     try std.testing.expectEqual(@as(u8, 0), read_back.out_cnt);
 }

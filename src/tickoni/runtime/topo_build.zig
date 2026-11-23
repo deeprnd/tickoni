@@ -268,6 +268,7 @@ pub fn build(
         // pipeline links.
         log.kvFmt("topo_build", "build", "calling topobLink(name=ch{d}, wksp={s}, depth={d}, mtu={d})", .{ i, wksp_name_z, ch.depth, ch.mtu });
         link_ids[i] = c_abi.topob.topobLink(topo, linkNameZ(&link_name_buf, i), wksp_name_z, ch.depth, ch.mtu, 1);
+        if (!ch.hasProducerTile()) c_abi.topob.topobLinkPermitNoProducers(topo, link_ids[i]);
         // Verify link was registered with expected name (catches link name typos).
         log.kvFmt("topo_build", "build", "topoValidateLinkExists(name=ch{d})", .{i});
         std.debug.assert(c_abi.topob.topoValidateLinkExists(topo, linkNameZ(&link_name_buf, i)));
@@ -435,9 +436,7 @@ pub fn build(
         var src_name_buf: [8]u8 = undefined;
         var dst_name_buf: [8]u8 = undefined;
         var link_name_buf: [8]u8 = undefined;
-        const src_desc = topo_desc.tiles[ch.src_idx];
         const dst_desc = topo_desc.tiles[ch.dst_idx];
-        const src_name_z = util.toZ(&src_name_buf, src_desc.name.slice());
         const dst_name_z = util.toZ(&dst_name_buf, dst_desc.name.slice());
         const link_name_z = linkNameZ(&link_name_buf, i);
         log.kvFmt("topo_build", "build", "calling topobTileIn(dst={s}#{d}, wksp={s}, link=ch{d})", .{ dst_name_z, dst_desc.kind_id, wksp_name_z, i });
@@ -445,22 +444,28 @@ pub fn build(
         // it. Only telemetry links are lossy (link/types.zig, LinkReliability).
         const reliable = ch.reliability == .reliable;
         const fseq_obj_id = c_abi.topob.topobTileIn(topo, dst_name_z, dst_desc.kind_id, wksp_name_z, link_name_z, 0, reliable, true);
-        log.kvFmt("topo_build", "build", "calling topobTileOut(src={s}, link=ch{d})", .{ src_name_z, i });
-        c_abi.topob.topobTileOut(topo, src_name_z, src_desc.kind_id, link_name_z, 0);
         // Verify channel wiring: src tile has out_cnt >= 1, dst tile has in_cnt >= 1.
-        // Catches stale src_idx/dst_idx that reference deleted tiles.
-        log.kvFmt("topo_build", "build", "calling topoFindTile(src={s})", .{src_name_z});
-        const src_tile_id = c_abi.topob.topoFindTile(topo, src_name_z, src_desc.kind_id);
+        // Catches stale src_idx/dst_idx that reference deleted tiles. A link fed
+        // from outside the tile graph has no src tile (permit_no_producers).
         log.kvFmt("topo_build", "build", "calling topoFindTile(dst={s})", .{dst_name_z});
         const dst_tile_id = c_abi.topob.topoFindTile(topo, dst_name_z, dst_desc.kind_id);
-        std.debug.assert(src_tile_id != c_abi.topob.not_found);
         std.debug.assert(dst_tile_id != c_abi.topob.not_found);
-        log.kvFmt("topo_build", "build", "calling topoTileOutputCount(tile={d})", .{src_tile_id});
-        const src_out_cnt = c_abi.topob.topoTileOutputCount(topo, src_tile_id);
         log.kvFmt("topo_build", "build", "calling topoTileInputCount(tile={d})", .{dst_tile_id});
         const dst_in_cnt = c_abi.topob.topoTileInputCount(topo, dst_tile_id);
-        std.debug.assert(src_out_cnt > 0);
         std.debug.assert(dst_in_cnt > 0);
+        var src_name_z: [*:0]const u8 = "external";
+        if (ch.hasProducerTile()) {
+            const src_desc = topo_desc.tiles[ch.src_idx];
+            src_name_z = util.toZ(&src_name_buf, src_desc.name.slice());
+            log.kvFmt("topo_build", "build", "calling topobTileOut(src={s}, link=ch{d})", .{ src_name_z, i });
+            c_abi.topob.topobTileOut(topo, src_name_z, src_desc.kind_id, link_name_z, 0);
+            log.kvFmt("topo_build", "build", "calling topoFindTile(src={s})", .{src_name_z});
+            const src_tile_id = c_abi.topob.topoFindTile(topo, src_name_z, src_desc.kind_id);
+            std.debug.assert(src_tile_id != c_abi.topob.not_found);
+            log.kvFmt("topo_build", "build", "calling topoTileOutputCount(tile={d})", .{src_tile_id});
+            const src_out_cnt = c_abi.topob.topoTileOutputCount(topo, src_tile_id);
+            std.debug.assert(src_out_cnt > 0);
+        }
         log.kvFmt("topo_build", "build", "calling topoLinkMcacheObjId(link={d})", .{link_ids[i]});
         const mcache_obj = c_abi.topob.topoLinkMcacheObjId(topo, link_ids[i]);
         log.kvFmt("topo_build", "build", "calling topoLinkDcacheObjId(link={d})", .{link_ids[i]});

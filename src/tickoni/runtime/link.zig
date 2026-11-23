@@ -11,6 +11,7 @@ pub const WorkspaceName = types.WorkspaceName;
 pub const LinkBacking = types.LinkBacking;
 pub const LinkReliability = types.LinkReliability;
 pub const Channel = types.Channel;
+pub const external_src = types.external_src;
 
 pub const LinkHandles = handles.LinkHandles;
 pub const Producer = producer.Producer;

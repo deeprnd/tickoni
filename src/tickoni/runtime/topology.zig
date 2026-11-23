@@ -27,7 +27,9 @@ pub const Topology = struct {
         }
         try self.validateIdentities();
         for (self.channels) |ch| {
-            if (ch.src_idx >= self.tiles.len) return error.ChannelSrcOutOfRange;
+            if (!ch.hasProducerTile()) {
+                if (ch.backing != .tango_shm) return error.ChannelExternalSrcNotShm;
+            } else if (ch.src_idx >= self.tiles.len) return error.ChannelSrcOutOfRange;
             if (ch.dst_idx >= self.tiles.len) return error.ChannelDstOutOfRange;
             if (ch.src_idx == ch.dst_idx) return error.ChannelSelfLoop;
             if (ch.depth == 0 or !std.math.isPowerOfTwo(ch.depth)) return error.ChannelDepthNotPowerOfTwo;
@@ -151,6 +153,28 @@ test "validate rejects out-of-range channel src" {
         .channels = &.{.{ .src_idx = 99, .dst_idx = 0, .depth = 64, .mtu = 0 }},
     };
     try std.testing.expectError(error.ChannelSrcOutOfRange, topo.validate());
+}
+
+test "validate accepts an externally produced tango_shm channel" {
+    const wksp = try WorkspaceName.parse("tkpay0");
+    const topo = Topology{
+        .tiles = &.{
+            .{ .id = 0, .name = test_name_foo },
+        },
+        .channels = &.{.{ .src_idx = link.external_src, .dst_idx = 0, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = wksp }},
+    };
+    try topo.validate();
+    try std.testing.expect(!topo.channels[0].hasProducerTile());
+}
+
+test "validate rejects an externally produced channel that is not shared memory" {
+    const topo = Topology{
+        .tiles = &.{
+            .{ .id = 0, .name = test_name_foo },
+        },
+        .channels = &.{.{ .src_idx = link.external_src, .dst_idx = 0, .depth = 64, .mtu = 128 }},
+    };
+    try std.testing.expectError(error.ChannelExternalSrcNotShm, topo.validate());
 }
 
 test "validate rejects tango_shm channel with missing workspace name" {
