@@ -52,8 +52,9 @@ typedef struct {
     uint8_t          requested_tier;   /* 3  - tier ordinal; TK_AGENT_TIER_NONE only for embedding */
     uint32_t         _pad;             /* 4  */
     TkPromptRef      prompt_ref;       /* 8  */
-    ModelRequestMsg  scope;            /* 24 */
-} TkAgentRequestMsg;                   /* 304 */
+    uint8_t          _pad1[8];         /* 24 - align scope (16-byte trace_id) */
+    ModelRequestMsg  scope;            /* 32 */
+} TkAgentRequestMsg;                   /* 320 */
 
 /* Terminal outcome of one agent run. */
 enum {
@@ -71,7 +72,7 @@ enum {
     TK_AGENT_OUT_SHUTDOWN              = 11   /* cancelled by an administrative drain */
 };
 
-/* tkagnt -> tkdisp.  One per accepted request.  96 bytes. */
+/* tkagnt -> tkdisp.  One per accepted request.  112 bytes. */
 typedef struct {
     uint16_t  version;           /* 0  */
     uint8_t   outcome;           /* 2  - TK_AGENT_OUT_* */
@@ -88,8 +89,9 @@ typedef struct {
     uint64_t  response_hash;     /* 40 - canonical hash of the response bytes */
     uint64_t  proposal_hash;     /* 48 - the hash bound into the audit record */
     uint8_t   model_id[TKMODL_MODEL_ID_LEN]; /* 56 */
-    uint64_t  trace_id;          /* 88 */
-} TkAgentResultMsg;              /* 96 */
+    uint8_t   _pad1[8];          /* 88 - align trace_id to 16 */
+    __uint128_t trace_id;        /* 96 - request trace (16-byte, UUID-compatible) */
+} TkAgentResultMsg;              /* 112 */
 
 /* tkagnt -> tkaudt.  record_type is RECORD_PROPOSAL for a completed run and
    RECORD_DENIAL for a denied or failed one.  `has_model_record` says whether a
@@ -105,12 +107,12 @@ typedef struct {
     uint64_t  agent_seq;               /* 16 - becomes header.source_offset; the order key */
     uint64_t  capability_envelope_hash; /* 24 - becomes header.capability_envelope_id */
     uint8_t   policy_version[TKMODL_POLICY_VERSION_LEN]; /* 32 */
-    uint64_t  trace_id;                /* 64 - becomes header.trace_id */
+    __uint128_t trace_id;              /* 64 - becomes header.trace_id (16-byte, UUID-compatible) */
     union {
         WireProposalPayload proposal;
         WireDenialPayload   denial;
-    } payload;                         /* 72 */
-} TkAgentAuditMsg;
+    } payload;                         /* 80 */
+} TkAgentAuditMsg;                  /* 224 */
 
 #define TK_LINK_SIG_AGENT_AUDIT   0x4147UL   /* "AG": tkagnt -> tkaudt */
 #define TK_LINK_SIG_MODEL_RESULT  0x4d52UL   /* "MR": tkmodl -> tkagnt result fragments */
@@ -135,14 +137,15 @@ enum {
 };
 
 _Static_assert( sizeof(TkPromptRef)==16UL,         "TkPromptRef wire size drift" );
-_Static_assert( sizeof(TkAgentRequestMsg)==304UL,  "TkAgentRequestMsg wire size drift" );
+_Static_assert( sizeof(TkAgentRequestMsg)==320UL,  "TkAgentRequestMsg wire size drift" );
 _Static_assert( offsetof(TkAgentRequestMsg, prompt_ref)==8UL, "TkAgentRequestMsg.prompt_ref ABI drift" );
-_Static_assert( offsetof(TkAgentRequestMsg, scope)==24UL, "TkAgentRequestMsg.scope ABI drift" );
+_Static_assert( offsetof(TkAgentRequestMsg, scope)==32UL, "TkAgentRequestMsg.scope ABI drift" );
 _Static_assert( sizeof(TkAgentRequestMsg)<=(unsigned long)TK_AGENT_REQUEST_LINK_MTU, "TkAgentRequestMsg must fit its link" );
-_Static_assert( sizeof(TkAgentResultMsg)==96UL,    "TkAgentResultMsg wire size drift" );
+_Static_assert( sizeof(TkAgentResultMsg)==112UL,   "TkAgentResultMsg wire size drift" );
 _Static_assert( offsetof(TkAgentResultMsg, run_id)==16UL, "TkAgentResultMsg.run_id ABI drift" );
-_Static_assert( offsetof(TkAgentResultMsg, trace_id)==88UL, "TkAgentResultMsg.trace_id ABI drift" );
-_Static_assert( offsetof(TkAgentAuditMsg, payload)==72UL, "TkAgentAuditMsg.payload ABI drift" );
+_Static_assert( offsetof(TkAgentResultMsg, trace_id)==96UL, "TkAgentResultMsg.trace_id ABI drift" );
+_Static_assert( offsetof(TkAgentAuditMsg, payload)==80UL, "TkAgentAuditMsg.payload ABI drift" );
+_Static_assert( sizeof(TkAgentAuditMsg)==224UL,    "TkAgentAuditMsg wire size drift" );
 _Static_assert( sizeof(TkAgentAuditMsg)<=(unsigned long)TK_AGENT_AUDIT_LINK_MTU,   "TkAgentAuditMsg must fit its link" );
 _Static_assert( sizeof(TkAgentResultMsg)<=(unsigned long)TK_AGENT_RESULT_LINK_MTU, "TkAgentResultMsg must fit its link" );
 

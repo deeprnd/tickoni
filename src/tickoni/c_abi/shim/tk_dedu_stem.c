@@ -136,7 +136,7 @@ static void tkdedu_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
    through tkdedu_tile_scratch_align(). */
 static ulong
 tkdedu_scratch_align_tile( void ) {
-    return TKDEDU_CTX_ALIGN;
+    return fd_ulong_max( TKDEDU_CTX_ALIGN, alignof(TkEvent) );
 }
 
 /* ─── Dedupe table size: explicit runtime layout parameter ───
