@@ -51,6 +51,14 @@ static uint64_t tkings_event_count_param;
 
 void tkings_set_event_count( uint64_t event_count ) { tkings_event_count_param = event_count; }
 
+/* A trace id is invalid when all of its bytes are zero. */
+static int
+tkings_trace_id_is_zero( uint8_t const id[ TK_TRACE_ID_SZ ] ) {
+    uint8_t any = 0;
+    for( ulong i=0UL; i<TK_TRACE_ID_SZ; i++ ) any |= id[i];
+    return !any;
+}
+
 /* The canonical framing of a whole-fragment TkEvent.  A pure function of the
    staged copy. */
 int
@@ -60,7 +68,7 @@ tkings_framing_ok( TkEvent const * ev ) {
     if( ev->source!=TK_EVENT_SOURCE_TKAPI && ev->source!=TK_EVENT_SOURCE_TKREPL ) return 0;
     if( ev->flags & (uint8_t)~TK_EVENT_FLAGS_KNOWN )                           return 0;
     if( (ev->flags & TK_EVENT_FLAG_REPLAY) && ev->source!=TK_EVENT_SOURCE_TKREPL ) return 0;
-    if( ev->trace_id==0UL )                                                    return 0;
+    if( tkings_trace_id_is_zero( ev->trace_id ) )                              return 0;
     return 1;
 }
 

@@ -120,7 +120,7 @@ typedef struct {
     uint64_t  prompt_hash;
     uint64_t  response_hash;
     uint64_t  envelope_hash;
-    __uint128_t trace_id;
+    uint8_t   trace_id[TK_TRACE_ID_SZ];
     tk_ns_t   deadline;           /* AWAIT: when the model has taken too long */
     uint8_t   model_id[TKMODL_MODEL_ID_LEN];
     uint8_t   policy_version[TKMODL_POLICY_VERSION_LEN];
@@ -659,7 +659,7 @@ tkagnt_admit( tkagnt_ctx_t * ctx ) {
     memset( r, 0, sizeof(*r) );
     r->agent_seq        = seq;
     r->run_id           = req->scope.run_id;
-    r->trace_id         = req->scope.trace_id;
+    memcpy( r->trace_id, req->scope.trace_id, sizeof(r->trace_id) );
     r->slot             = -1;
     r->tier             = TK_AGENT_TIER_NONE;
     r->source_tier      = TK_AGENT_TIER_NONE;
@@ -909,7 +909,7 @@ tkagnt_build_audit( tkagnt_run_t const * r, TkAgentAuditMsg * a ) {
     a->run_id                   = r->run_id;
     a->agent_seq                = r->agent_seq;
     a->capability_envelope_hash = r->envelope_hash;
-    a->trace_id                 = r->trace_id;
+    memcpy( a->trace_id, r->trace_id, sizeof(a->trace_id) );
     memcpy( a->policy_version, r->policy_version, sizeof(a->policy_version) );
     if( r->outcome==TK_AGENT_OUT_OK ) {
         a->record_type = RECORD_PROPOSAL;
@@ -941,7 +941,7 @@ tkagnt_build_result( tkagnt_run_t const * r, TkAgentResultMsg * m ) {
     m->prompt_hash      = r->prompt_hash;
     m->response_hash    = r->response_hash;
     m->proposal_hash    = r->outcome==TK_AGENT_OUT_OK ? r->response_hash : 0UL;
-    m->trace_id         = r->trace_id;
+    memcpy( m->trace_id, r->trace_id, sizeof(m->trace_id) );
     memcpy( m->model_id, r->model_id, sizeof(m->model_id) );
 }
 

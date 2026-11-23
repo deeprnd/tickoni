@@ -19,6 +19,14 @@
 
 #define AUDIT_SCHEMA_VERSION 3
 
+/* A request trace id (TkEvent.trace_id and every copy of it): 16 opaque
+   bytes, W3C Trace Context / OpenTelemetry trace-id order (byte 0 is the
+   first hex pair of the 32-char lowercase form at W3C boundaries).  All zero
+   is invalid.  A byte array, not __uint128_t, so MSVC, Clang, GCC and Zig
+   agree on its layout on every platform; _Alignas(16) keeps the 16-byte
+   field alignment, offsets and sizes the wire structs already have. */
+#define TK_TRACE_ID_SZ 16
+
 /* Committed-order watermark value before tkaudt has committed anything.
    Full 64-bit width on every platform: C's ULONG_MAX is only 32-bit on
    Windows (LLP64) while the fseq word is 64-bit. */
@@ -87,8 +95,8 @@ enum {
 
 typedef struct {
     uint16_t  schema_version;   /* 0  - audit schema version (3) */
-    uint8_t   _pad0[4];         /* 2  - align trace_id to 8 */
-    __uint128_t trace_id;       /* 8  - request trace the record belongs to (TkEvent.trace_id; 16-byte, UUID-compatible) */
+    uint8_t   _pad0[4];         /* 2  - align trace_id to 16 */
+    _Alignas(16) uint8_t trace_id[TK_TRACE_ID_SZ]; /* 16 - request trace the record belongs to (TkEvent.trace_id) */
     uint64_t  run_id;           /* 24 - topology run ID */
     uint64_t  seq;              /* 32 - sequence number within run */
     uint64_t  source_offset;    /* 40 - original source offset */
@@ -285,7 +293,7 @@ typedef struct {
     uint8_t   capability_envelope_id[TKMODL_ENVELOPE_LEN];      /* 176 */
     uint8_t   policy_version[TKMODL_POLICY_VERSION_LEN];        /* 208 */
     uint8_t   budget_id[TKMODL_BUDGET_LEN];                     /* 240 */
-    __uint128_t trace_id;             /* 272 - request trace; stamped by tkdisp from the event (16-byte, UUID-compatible) */
+    _Alignas(16) uint8_t trace_id[TK_TRACE_ID_SZ]; /* 272 - request trace; stamped by tkdisp from the event */
 } ModelRequestMsg;                    /* 288 */
 
 /* tkmodl -> tkagnt.  136 bytes. */
@@ -319,7 +327,7 @@ typedef struct {
     uint64_t  request_id;             /* 16 - becomes header.source_offset */
     uint64_t  capability_envelope_hash; /* 24 - becomes header.capability_envelope_id */
     uint8_t   policy_version[TKMODL_POLICY_VERSION_LEN]; /* 32 */
-    __uint128_t trace_id;             /* 64 - becomes header.trace_id (16-byte, UUID-compatible) */
+    _Alignas(16) uint8_t trace_id[TK_TRACE_ID_SZ]; /* 64 - becomes header.trace_id */
     union {
         WireModelCallPayload model_call;
         WireDenialPayload    denial;

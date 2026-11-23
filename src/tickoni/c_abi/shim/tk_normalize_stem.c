@@ -149,7 +149,7 @@ tknorm_event_hash( TkEvent const * ev ) {
         canon.prompt_ref._pad  = 0U;
         canon.scope._pad0      = 0U;
         canon.scope.run_id     = 0UL;
-        canon.scope.trace_id   = 0UL;
+        memset( canon.scope.trace_id, 0, sizeof(canon.scope.trace_id) );
         canon.scope.request_id = 0UL;
         canon.scope.prompt_hash = 0UL;
         uint8_t kind = ev->kind;
