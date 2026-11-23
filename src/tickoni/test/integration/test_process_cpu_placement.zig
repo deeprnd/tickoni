@@ -16,7 +16,7 @@ const topologies = @import("topologies");
 
 const Supervisor = supervisor_mod.Supervisor;
 
-/// Same 8 tiles as topologies.paymentPipelineProcess(), except tkings and
+/// Same 9 tiles as topologies.paymentPipelineProcess(), except tkings and
 /// tknorm both declare an explicit shared placement on CPU 0.
 const shared_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = 0, .name = tile_ids.tkings, .cpu_placement = .{ .shared = 0 } },
@@ -27,6 +27,7 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = 5, .name = tile_ids.tkrepl },
     .{ .id = 6, .name = tile_ids.metric },
     .{ .id = 7, .name = tile_ids.tkdiag },
+    .{ .id = 8, .name = tile_ids.tkapi },
 };
 
 test "process_cpu_placement_integration: two tiles sharing one cpu get distinct pids and still complete" {
@@ -64,7 +65,7 @@ test "process_cpu_placement_integration: two tiles sharing one cpu get distinct 
 
     const report = sup.processPlacementReport().?;
     try std.testing.expectEqual(@as(usize, 2), report.shared_count);
-    try std.testing.expectEqual(@as(usize, 6), report.floating_count);
+    try std.testing.expectEqual(@as(usize, 7), report.floating_count);
     try std.testing.expect(report.shared_core);
 
     const tkings_pid = sup.monitor()[0].pid.?;
@@ -112,6 +113,7 @@ test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails
         .{ .id = 5, .name = tile_ids.tkrepl },
         .{ .id = 6, .name = tile_ids.metric },
         .{ .id = 7, .name = tile_ids.tkdiag },
+        .{ .id = 8, .name = tile_ids.tkapi },
     };
     const topo = rt.topology.Topology{
         .tiles = &bogus_tiles,
@@ -160,6 +162,7 @@ test "process_cpu_placement_integration: shared-core rejected when sharing is no
         .{ .id = 5, .name = tile_ids.tkrepl },
         .{ .id = 6, .name = tile_ids.metric },
         .{ .id = 7, .name = tile_ids.tkdiag },
+        .{ .id = 8, .name = tile_ids.tkapi },
     };
     const topo = rt.topology.Topology{
         .tiles = &undeclared_collide_tiles,
@@ -187,6 +190,7 @@ test "process_cpu_placement_integration: exclusive and shared on the same cpu co
         .{ .id = 5, .name = tile_ids.tkrepl },
         .{ .id = 6, .name = tile_ids.metric },
         .{ .id = 7, .name = tile_ids.tkdiag },
+        .{ .id = 8, .name = tile_ids.tkapi },
     };
     const topo = rt.topology.Topology{
         .tiles = &mixed_tiles,
@@ -243,7 +247,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     const floating_metrics = floating_sup.snapshotProcessMetrics();
     try std.testing.expectEqual(event_count, floating_metrics.audited);
     const floating_report_opt = floating_sup.processPlacementReport();
-    var floating_seen_pids: [8]std.process.Child.Id = undefined;
+    var floating_seen_pids: [16]std.process.Child.Id = undefined;
     for (floating_sup.monitor(), 0..) |h, i| {
         const pid = h.pid orelse return error.MissingPid;
         for (floating_seen_pids[0..i]) |other| try std.testing.expect(other != pid);
@@ -289,7 +293,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     const shared_metrics = shared_sup.snapshotProcessMetrics();
     try std.testing.expectEqual(event_count, shared_metrics.audited);
     const shared_report_opt = shared_sup.processPlacementReport();
-    var shared_seen_pids: [8]std.process.Child.Id = undefined;
+    var shared_seen_pids: [16]std.process.Child.Id = undefined;
     for (shared_sup.monitor(), 0..) |h, i| {
         const pid = h.pid orelse return error.MissingPid;
         for (shared_seen_pids[0..i]) |other| try std.testing.expect(other != pid);
@@ -308,7 +312,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     try std.testing.expect(!floating_report_opt.?.shared_core);
     try std.testing.expect(shared_report_opt != null);
     try std.testing.expectEqual(@as(usize, 2), shared_report_opt.?.shared_count);
-    try std.testing.expectEqual(@as(usize, 6), shared_report_opt.?.floating_count);
+    try std.testing.expectEqual(@as(usize, 7), shared_report_opt.?.floating_count);
     try std.testing.expect(shared_report_opt.?.shared_core);
 
     // --- Verify both runs completed successfully with identical counts ---

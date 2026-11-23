@@ -45,7 +45,7 @@ test "process_topology_integration: every tile is a distinct OS process parented
 
     const supervisor_pid = c_abi.sandbox.getpid();
 
-    var seen_pids: [8]std.process.Child.Id = undefined;
+    var seen_pids: [16]std.process.Child.Id = undefined;
     for (sup.monitor(), 0..) |h, i| {
         const child_id = h.pid orelse return error.MissingPid;
         for (seen_pids[0..i]) |other| try std.testing.expect(other != child_id);
@@ -224,9 +224,10 @@ test "process_topology_integration: process mode refuses to start a heap_dev-bac
     // Same shape as paymentPipelineProcess() but the first channel is left
     // at its heap_dev default instead of being declared tango_shm.
     const base = topologies.paymentPipelineProcess();
-    var channels: [5]rt.topology.Channel = undefined;
+    var channels: [6]rt.topology.Channel = undefined;
     @memcpy(channels[0..4], base.channels[0..4]);
-    channels[4] = base.channels[base.channels.len - 1]; // tkings's input
+    channels[4] = base.channels[base.channels.len - 2]; // tkapi -> tkings
+    channels[5] = base.channels[base.channels.len - 1]; // tkapi's input
     channels[0].backing = .heap_dev;
     const topo = rt.topology.Topology{ .tiles = base.tiles, .channels = &channels };
 
