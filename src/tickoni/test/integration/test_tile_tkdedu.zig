@@ -14,6 +14,8 @@ const runtime = @import("runtime");
 const rt = runtime;
 const tile_ids = runtime.tile_ids;
 const supervisor_mod = @import("supervisor");
+const ingest = @import("ingest_harness");
+const Harness = ingest.Harness;
 const topologies = @import("topologies");
 const util = @import("util");
 
@@ -53,15 +55,15 @@ test "tkdedu_integration: stem tile processes all events" {
     const metric_port = util.nextMetricPort();
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-        .inject_malformed = false,
-        .duplicate = null,
-    });
+    }, .{});
 
     // Wait for tkaudt to finish auditing (tkaudt is the pipeline sink).
     const max_polls: u32 = MAX_POLL;
@@ -94,6 +96,7 @@ test "tkdedu_integration: stem tile processes all events" {
         try std.testing.expect(h.state != .crashed);
     }
 
+    feed.finish();
     sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
@@ -122,15 +125,15 @@ test "tkdedu_integration: pipeline completes without crashes or hangs" {
     const metric_port = util.nextMetricPort();
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-        .inject_malformed = false,
-        .duplicate = .{ .offset = 3, .source = 1 },
-    });
+    }, .{ .duplicate = .{ .offset = 3, .source = 1 } });
 
     // Wait for tkaudt to finish auditing (pipeline sink).
     const max_polls: u32 = MAX_POLL;
@@ -162,6 +165,7 @@ test "tkdedu_integration: pipeline completes without crashes or hangs" {
     }
 
     // Task 12 assertion 3: clean shutdown — all tiles reach .stopped.
+    feed.finish();
     sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
@@ -190,15 +194,15 @@ test "tkdedu_integration: CNC HALT stops tile cleanly" {
     const metric_port = util.nextMetricPort();
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-        .inject_malformed = false,
-        .duplicate = null,
-    });
+    }, .{});
 
     // Wait for at least 1 event to be processed before stopping.
     const max_polls: u32 = MAX_POLL;
@@ -210,6 +214,7 @@ test "tkdedu_integration: CNC HALT stops tile cleanly" {
     }
 
     // Signal stop — verifies SHOULD_SHUTDOWN / CNC HALT path.
+    feed.finish();
     sup.stopProcess(std.testing.io) catch |err| std.log.err("CNC HALT stop: {any}", .{err});
     for (sup.monitor()) |h| {
         try std.testing.expect(h.state != .crashed);
@@ -248,15 +253,15 @@ test "tkdedu_integration: sequential runs on same workspace" {
         const metric_port = util.nextMetricPort();
         var ws_buf: [16]u8 = undefined;
         const workspace_name = util.nextWorkspaceName(&ws_buf);
-        try sup.startPaymentPipelineProcess(std.testing.io, .{
+        var feed: Harness = .{};
+        defer feed.finish();
+        try ingest.startPaymentRun(&sup, &feed, .{
             .run_dir = run_dir,
             .event_count = per_run_events,
             .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
             .workspace_name = workspace_name,
             .metric_port = metric_port,
-            .inject_malformed = false,
-            .duplicate = null,
-        });
+        }, .{});
 
         // Wait for all events to be audited.
         const max_polls: u32 = MAX_POLL;
@@ -278,6 +283,7 @@ test "tkdedu_integration: sequential runs on same workspace" {
             try std.testing.expect(h.state != .crashed);
         }
 
+        feed.finish();
         sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
         for (sup.monitor()) |h| {
             try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
@@ -314,15 +320,15 @@ test "tkdedu_integration: the final event is published (event_count = 1)" {
     const metric_port = util.nextMetricPort();
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-        .inject_malformed = false,
-        .duplicate = null,
-    });
+    }, .{});
 
     const max_polls: u32 = MAX_POLL;
     var poll: u32 = 0;
@@ -385,15 +391,15 @@ test "tkdedu_integration: self-exits on event-count exhaustion" {
     const metric_port = util.nextMetricPort();
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-        .inject_malformed = false,
-        .duplicate = null,
-    });
+    }, .{});
 
     // Wait for tkdedu to exit on its own — no stopProcess, no CNC HALT.
     const max_polls: u32 = MAX_POLL;

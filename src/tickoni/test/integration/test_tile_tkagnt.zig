@@ -1,15 +1,22 @@
 /// Process integration contracts for the agent path, with real child processes
 /// and real shared-memory links:
 ///
-///   tkings -> tkagnt -> tkmodl[tier k] -> tkagnt -> tkaudt (audit) + tkdisp (result)
+///   harness -> tkings -> tknorm -> tkdedu -> tkcase -> tkpoly -> tkaudt (policy)
+///                                              tkcase -> tkdisp -> tkagnt
+///   tkagnt -> tkmodl[tier k] -> tkagnt -> tkaudt (audit) + tkdisp (result)
+///
+/// Every agent request is an event: it takes the spine, then tkdisp routes it to
+/// tkagnt as one fixed record naming its prompt by reference, and tkagnt
+/// resolves the prompt from the run's prompt table.
 ///
 /// What is proved here, from the committed state of each tile's own scratch:
 ///   * every accepted agent request ends in exactly one terminal result, in
 ///     admission order, with the model's answer attributed to the instance that
 ///     served it;
-///   * the committed audit sequence is the admission order -- for each run, the
-///     model record (if any) then the agent record -- with a contiguous hash
-///     chain that the independent Zig codec re-derives byte for byte;
+///   * the committed audit sequence is the event order -- for each event, its
+///     policy decision, then the model record (if any) and the agent record of
+///     its run -- every record carrying the event's trace id, with a contiguous
+///     hash chain that the independent Zig codec re-derives byte for byte;
 ///   * prompts and responses larger than one fragment (and than the 16-bit fd
 ///     size) cross every link intact, and audit records carry hashes only;
 ///   * a request for a tier that is not configured is an audited denial with no
@@ -24,6 +31,8 @@ const topologies = @import("topologies");
 const util = @import("util");
 const audit_zig = @import("audit");
 const stem_liveness = @import("stem_liveness");
+const ingest = @import("ingest_harness");
+const Harness = ingest.Harness;
 
 const Supervisor = supervisor_mod.Supervisor;
 const model_instances = supervisor_mod.model_instances;
@@ -33,11 +42,11 @@ const Outcome = c_abi.tkagnt.Outcome;
 const tiles = @import("tiles");
 const mrs = tiles.model_request_source;
 
-// Tile indexes in topologies.agentProcess(n).
-const idx_agent = 1;
-const idx_audit = 2;
-const idx_disp = 3;
-const first_model_idx = 4;
+// Tile indexes in topologies.agentProcess(n): tkings, tknorm, tkdedu, tkcase,
+// tkpoly, tkaudt, tkdisp, tkagnt, then the tkmodl instances.
+const idx_audit = 5;
+const idx_agent = 7;
+const first_model_idx = 8;
 
 const record_policy_decision: u32 = 2;
 const record_model_call: u32 = 3;
@@ -60,12 +69,13 @@ fn tileScratch(sup: *Supervisor, name: []const u8, kind_id: usize) !?*anyopaque 
     return c_abi.topob.topoObjLaddr(topo, c_abi.topob.topoTileObjId(topo, idx));
 }
 
-/// Owns the per-instance configurations (fixtures and captured responses) of a
-/// run: the supervisor copies them into per-instance files at start, but the
-/// slices must outlive that call.
+/// Owns the per-instance configurations (fixtures and captured responses) and
+/// the agent prompt table of a run: the supervisor copies them into files at
+/// start, but the slices must outlive that call.
 const Built = struct {
     arena: std.heap.ArenaAllocator,
     configs: []model_instances.InstanceConfig,
+    prompts: []const []const u8,
 
     fn init(backing: std.mem.Allocator, specs: []const InstanceSpec, shape: mrs.Shape) !Built {
         var arena = std.heap.ArenaAllocator.init(backing);
@@ -84,7 +94,9 @@ const Built = struct {
             }
             out.* = .{ .kind_id = spec.kind_id, .tier = spec.tier, .config = cfg, .contents = contents };
         }
-        return .{ .arena = arena, .configs = configs };
+        // Allocate before `arena` is copied into the result, or the copy misses these.
+        const prompts = try mrs.prompts(shape, a);
+        return .{ .arena = arena, .configs = configs, .prompts = prompts };
     }
 
     fn deinit(self: *Built) void {
@@ -97,8 +109,12 @@ const AgentRun = struct {
     tmp: @TypeOf(util.tmpDir()),
     built: Built,
     n_models: usize,
+    /// The external producer on tkings's input, its only source.
+    harness: Harness = .{},
 
     fn deinit(self: *AgentRun) void {
+        // The harness writes into the shared workspace: stop it first.
+        self.harness.finish();
         self.sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
         self.sup.deinit();
         self.built.deinit();
@@ -114,6 +130,7 @@ fn startAgentRun(
     source: mrs.ModelRequestSource,
 ) !void {
     std.debug.assert(specs.len == n);
+    run.harness = .{};
     run.tmp = util.tmpDir();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try run.tmp.dir.realPath(std.testing.io, &path_buf)];
@@ -130,9 +147,12 @@ fn startAgentRun(
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = util.nextMetricPort(),
-        .model_requests = source,
         .model_configs = run.built.configs,
+        // tkdisp needs its payment template even when only agent requests arrive.
+        .dispatch_template = source,
+        .agent_prompts = run.built.prompts,
     });
+    try run.harness.start(std.testing.allocator, &run.sup, .{ .agent_requests = source }, event_count);
 }
 
 /// Polls until every accepted request has its terminal result committed at
@@ -150,9 +170,9 @@ fn waitForRun(sup: *Supervisor, event_count: u64) void {
     }
 }
 
-/// The full investment workflow (14 tiles): payment events enter tkings, and
-/// tkdisp turns each one that tkcase forwards into one agent request from the
-/// run's dispatch template.
+/// The full investment workflow (14 tiles): the harness publishes payment events
+/// on tkings's input, and tkdisp turns each one that tkcase forwards into one
+/// agent request from the run's dispatch template.
 fn startWorkflowRun(
     run: *AgentRun,
     specs: []const InstanceSpec,
@@ -171,6 +191,7 @@ fn startWorkflowRunStale(
     template: mrs.ModelRequestSource,
     stale_after_ns: u64,
 ) !void {
+    run.harness = .{};
     run.tmp = util.tmpDir();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try run.tmp.dir.realPath(std.testing.io, &path_buf)];
@@ -190,8 +211,10 @@ fn startWorkflowRunStale(
         .workspace_name = workspace_name,
         .metric_port = util.nextMetricPort(),
         .dispatch_template = template,
+        .agent_prompts = run.built.prompts,
         .model_configs = run.built.configs,
     });
+    if (event_count > 0) try run.harness.start(std.testing.allocator, &run.sup, .{ .payments = .{ .event_count = event_count } }, event_count);
 }
 
 /// Polls until every event has its terminal result at tkdisp and every record
@@ -333,10 +356,21 @@ fn expectRun(
             try std.testing.expectEqual(@as(u32, 0), r.response_len);
         }
 
-        // Committed audit sequence: the model record (if any), then the agent
-        // record, for this ordinal -- whatever order the models answered in.
+        // Committed audit sequence, in event order: this event's policy decision
+        // (tkpoly allows every well-framed agent request, decision O1), then the
+        // model record (if any) and the agent record of its run -- whatever order
+        // the models answered in. Every record carries the event's trace id.
+        try std.testing.expectEqual(record_policy_decision, c_abi.tkaudit.recordType(audit, rec));
+        try std.testing.expectEqual(offset, c_abi.tkaudit.recordSourceOffset(audit, rec));
+        try std.testing.expectEqual(@as(u8, 0), c_abi.tkaudit.recordOutcome(audit, rec));
+        try std.testing.expectEqual(ingest.traceIdAt(offset), c_abi.tkaudit.recordTraceId(audit, rec));
+        var by: [6]u8 = undefined;
+        c_abi.tkaudit.recordDecidedBy(audit, rec, &by);
+        try std.testing.expectEqualStrings("tkpoly", &by);
+        rec += 1;
         if (want.model_record != .none) {
             try expectRecordHeader(audit, rec, "tkmodl", seq);
+            try std.testing.expectEqual(ingest.traceIdAt(offset), c_abi.tkaudit.recordTraceId(audit, rec));
             switch (want.model_record) {
                 .call => {
                     try std.testing.expectEqual(record_model_call, c_abi.tkaudit.recordType(audit, rec));
@@ -357,6 +391,8 @@ fn expectRun(
             rec += 1;
         }
         try expectRecordHeader(audit, rec, "tkagnt", seq);
+        try std.testing.expectEqual(ingest.traceIdAt(offset), c_abi.tkaudit.recordTraceId(audit, rec));
+        try std.testing.expectEqual(ingest.traceIdAt(offset), r.trace_id);
         if (want.outcome == .ok) {
             try std.testing.expectEqual(record_proposal, c_abi.tkaudit.recordType(audit, rec));
             try std.testing.expectEqual(r.proposal_hash, c_abi.tkaudit.recordProposalHash(audit, rec));
@@ -396,6 +432,7 @@ fn expectRecordHeader(audit: ?*anyopaque, idx: usize, producer_name: []const u8,
 /// Zig codec: the chain only means something if the two agree byte for byte.
 fn zigHashOfCommittedRecord(ev: c_abi.tkaudit.CAuditEvent) !u64 {
     const payload: audit_zig.AuditEvent.Payload = switch (ev.record_type) {
+        record_policy_decision => .{ .policy_decision = ev.unnamed_0.policy_decision },
         record_model_call => .{ .model_call = .{
             .model_id = ev.unnamed_0.model_call.model_id,
             .prompt_hash = ev.unnamed_0.model_call.prompt_hash,
@@ -429,7 +466,7 @@ fn zigHashOfCommittedRecord(ev: c_abi.tkaudit.CAuditEvent) !u64 {
 /// Re-hashes every committed record with the Zig codec and compares. Returns
 /// which record types the comparison covered, so a caller can assert that it
 /// exercised the types its run is meant to produce.
-const HashCoverage = struct { model_call: bool = false, proposal: bool = false, denial: bool = false };
+const HashCoverage = struct { policy_decision: bool = false, model_call: bool = false, proposal: bool = false, denial: bool = false };
 
 fn expectZigHashParity(sup: *Supervisor) !HashCoverage {
     const audit = try tileScratch(sup, "tkaudt", 0);
@@ -441,6 +478,7 @@ fn expectZigHashParity(sup: *Supervisor) !HashCoverage {
         c_abi.tkaudit.recordCopy(audit, i, &ev);
         try std.testing.expectEqual(c_abi.tkaudit.recordHash(audit, i), try zigHashOfCommittedRecord(ev));
         switch (ev.record_type) {
+            record_policy_decision => saw.policy_decision = true,
             record_model_call => saw.model_call = true,
             record_proposal => saw.proposal = true,
             record_denial => saw.denial = true,
@@ -496,7 +534,8 @@ test "tkagnt_tile: requests to one model complete with attributed, audited termi
     const m = run.sup.snapshotProcessMetrics();
     try std.testing.expectEqual(event_count, m.produced);
     try std.testing.expectEqual(event_count, m.agent_dispatched);
-    try std.testing.expectEqual(event_count, m.allowed);
+    // `allowed` sums tkpoly's (every request passes the spine) and tkmodl's.
+    try std.testing.expectEqual(2 * event_count, m.allowed);
 }
 
 test "tkagnt_tile: every model denial is audited, answered once, and carries its reason" {
@@ -529,15 +568,16 @@ test "tkagnt_tile: every model denial is audited, answered once, and carries its
     const agent = try tileScratch(&run.sup, "tkagnt", 0);
     try std.testing.expectEqual(@as(u64, 10), c_abi.tkagnt.denied(agent));
     const m = run.sup.snapshotProcessMetrics();
-    try std.testing.expectEqual(@as(u64, 2), m.allowed);
+    // `allowed` sums tkpoly's (all 12 requests pass the spine) and tkmodl's (2).
+    try std.testing.expectEqual(@as(u64, 12 + 2), m.allowed);
     try std.testing.expectEqual(@as(u64, 10), m.denied);
 
     // A missing-scope denial names the missing field in tkmodl's own record.
     const audit = try tileScratch(&run.sup, "tkaudt", 0);
     // Run 2 (index 1) is missing_budget: committed records are
-    // [model call, proposal, model denial, agent denial, ...].
+    // [policy, model call, proposal, policy, model denial, agent denial, ...].
     var dim: [32]u8 = undefined;
-    c_abi.tkaudit.recordDenialFailedScopeDim(audit, 2, &dim);
+    c_abi.tkaudit.recordDenialFailedScopeDim(audit, 4, &dim);
     try std.testing.expectEqualStrings("budget_id", std.mem.sliceTo(&dim, 0));
 }
 
@@ -787,6 +827,7 @@ test "tkagnt_tile: an administrative HALT with nothing in flight stops every til
     const agent = try tileScratch(&run.sup, "tkagnt", 0);
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkagnt.admitted(agent));
 
+    run.harness.finish();
     run.sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
     for (run.sup.monitor()) |h| try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
 }
@@ -910,14 +951,17 @@ test "tkagnt_tile: a model that stops answering ends each run in an audited time
     try std.testing.expectEqual(event_count, c_abi.tkdisp.resultCount(disp));
     try std.testing.expectEqual(event_count, c_abi.tkaudit.agentCommitted(audit));
 
-    // Walk the committed chain against the terminal results: an OK run is a model
-    // record then a proposal; a timed-out run is a single agent denial.
+    // Walk the committed chain against the terminal results: each event's policy
+    // decision, then for an OK run a model record and a proposal, for a timed-out
+    // run a single agent denial.
     var rec: usize = 0;
     var timeouts: u64 = 0;
     var i: usize = 0;
     while (i < event_count) : (i += 1) {
         const r = c_abi.tkdisp.result(disp, i);
         try std.testing.expectEqual(@as(u64, i + 1), r.agent_seq);
+        try std.testing.expectEqual(record_policy_decision, c_abi.tkaudit.recordType(audit, rec));
+        rec += 1;
         if (r.outcome == @backingInt(Outcome.ok)) {
             try std.testing.expectEqual(record_model_call, c_abi.tkaudit.recordType(audit, rec));
             try std.testing.expectEqual(record_proposal, c_abi.tkaudit.recordType(audit, rec + 1));
@@ -934,68 +978,6 @@ test "tkagnt_tile: a model that stops answering ends each run in an audited time
     try std.testing.expect(timeouts >= 1);
     try std.testing.expectEqual(rec, c_abi.tkaudit.recordCount(audit));
     try std.testing.expectEqual(event_count, c_abi.tkagnt.terminalDone(agent));
-}
-
-test "tkagnt_tile: a faulty request stream is dropped whole and the requests around it are unaffected" {
-    const shouldSkip = false;
-    if (shouldSkip) return error.SkipZigTest;
-    // A real faulty producer: tkings loses a fragment, corrupts one, or never
-    // sends the last. The faulty request is never accepted -- no run, no audit
-    // record, no terminal result -- and every other request completes in order.
-    const shape = mrs.Shape{ .prompt_bytes = 2 * c_abi.multipart.frag_payload_max + 100 };
-    const faults = [_]mrs.StreamFault{ .drop_middle, .corrupt_payload, .omit_last };
-    for (faults) |fault| {
-        const event_count: u64 = 6;
-        const bad_offset: u64 = 2;
-        const specs = [_]InstanceSpec{.{ .kind_id = 0, .tier = .low }};
-        var source = singleSource(.valid_replay, .low, shape);
-        source.fault = fault;
-        source.fault_offset = bad_offset;
-        var run: AgentRun = undefined;
-        try startAgentRun(&run, 1, &specs, event_count, source);
-        defer run.deinit();
-
-        // Five requests are accepted; the sixth offset never is.
-        const accepted: u64 = event_count - 1;
-        const agent = try tileScratch(&run.sup, "tkagnt", 0);
-        const audit = try tileScratch(&run.sup, "tkaudt", 0);
-        const disp = try tileScratch(&run.sup, "tkdisp", 0);
-        var poll: u32 = 0;
-        while (poll < max_polls) : (poll += 1) {
-            if (c_abi.tkdisp.resultCount(disp) >= accepted and c_abi.tkaudit.agentCommitted(audit) >= accepted) break;
-            util.process.sleepNanos(poll_ns);
-        }
-        // Let any late result arrive: nothing further may appear.
-        util.process.sleepNanos(200 * std.time.ns_per_ms);
-        try expectNoCrash(&run.sup);
-
-        try std.testing.expectEqual(accepted, c_abi.tkagnt.admitted(agent));
-        try std.testing.expectEqual(accepted, c_abi.tkdisp.resultCount(disp));
-        try std.testing.expectEqual(accepted, c_abi.tkaudit.recordCount(audit) / 2);
-        try std.testing.expect(c_abi.tkagnt.transportDropped(agent) >= 1);
-        try std.testing.expectEqual(@as(u64, 0), c_abi.tkaudit.rejectedCount(audit));
-
-        // Admission ordinals are contiguous over the accepted requests, and the
-        // runs are the offsets that were not faulted.
-        var next_offset: u64 = 0;
-        var i: usize = 0;
-        while (i < accepted) : (i += 1) {
-            if (next_offset == bad_offset) next_offset += 1;
-            const r = c_abi.tkdisp.result(disp, i);
-            try std.testing.expectEqual(@as(u64, i + 1), r.agent_seq);
-            try std.testing.expectEqual(mrs.runIdAt(next_offset), r.run_id);
-            try std.testing.expectEqual(@backingInt(Outcome.ok), r.outcome);
-            next_offset += 1;
-        }
-        // The chain is intact over the committed records.
-        var rec: usize = 0;
-        while (rec < c_abi.tkaudit.recordCount(audit)) : (rec += 1) {
-            try std.testing.expectEqual(
-                if (rec == 0) @as(u64, 0) else c_abi.tkaudit.recordHash(audit, rec - 1),
-                c_abi.tkaudit.recordPrevHash(audit, rec),
-            );
-        }
-    }
 }
 
 test "tkagnt_tile: embedding governance denies a model or vector width the instance does not serve" {
@@ -1025,40 +1007,9 @@ test "tkagnt_tile: embedding governance denies a model or vector width the insta
     try std.testing.expectEqual(@as(u64, 3), c_abi.tkagnt.embeddings(agent));
     // The dimension denial carries its own reason in tkmodl's audit record.
     const audit = try tileScratch(&run.sup, "tkaudt", 0);
-    // Committed order for run 2 (bad width): [call, proposal, denial(10), agent denial, ...].
-    try std.testing.expectEqual(@as(u32, 10), c_abi.tkaudit.recordDenialReasonCode(audit, 2));
-}
-
-test "tkagnt_tile: a HALT while a request is half-reassembled drains cleanly and admits nothing partial" {
-    const shouldSkip = false;
-    if (shouldSkip) return error.SkipZigTest;
-    // The last request's final fragment is never sent, so tkagnt is left holding
-    // a half-reassembled message when it is halted (the partial-message timeout
-    // is longer than this test waits). It must drain the accepted requests, drop
-    // the partial one without admitting or auditing it, and exit.
-    const shape = mrs.Shape{ .prompt_bytes = 2 * c_abi.multipart.frag_payload_max + 100 };
-    const event_count: u64 = 4;
-    const specs = [_]InstanceSpec{.{ .kind_id = 0, .tier = .low }};
-    var source = singleSource(.valid_replay, .low, shape);
-    source.fault = .omit_last;
-    source.fault_offset = event_count - 1;
-    var run: AgentRun = undefined;
-    try startAgentRun(&run, 1, &specs, event_count, source);
-    defer run.deinit();
-
-    const agent = try tileScratch(&run.sup, "tkagnt", 0);
-    const audit = try tileScratch(&run.sup, "tkaudt", 0);
-    const disp = try tileScratch(&run.sup, "tkdisp", 0);
-    const accepted: u64 = event_count - 1;
-    var poll: u32 = 0;
-    while (poll < max_polls and c_abi.tkdisp.resultCount(disp) < accepted) : (poll += 1) util.process.sleepNanos(poll_ns);
-    try std.testing.expectEqual(accepted, c_abi.tkdisp.resultCount(disp));
-
-    try haltTile(&run.sup, idx_agent);
-    try std.testing.expectEqual(rt.tile.TileState.stopped, run.sup.monitor()[idx_agent].state);
-    try std.testing.expectEqual(accepted, c_abi.tkagnt.admitted(agent));
-    try std.testing.expectEqual(accepted, c_abi.tkagnt.terminalDone(agent));
-    try std.testing.expectEqual(accepted, c_abi.tkaudit.agentCommitted(audit));
+    // Committed order: [policy, call, proposal] for run 1, then [policy,
+    // denial(10), agent denial] for run 2 (bad width).
+    try std.testing.expectEqual(@as(u32, 10), c_abi.tkaudit.recordDenialReasonCode(audit, 4));
 }
 
 test "tkagnt_tile: the full investment workflow turns each event into one audited agent run" {
@@ -1108,8 +1059,8 @@ test "tkagnt_tile: the full investment workflow turns each event into one audite
         try std.testing.expectEqual(@as(u8, @backingInt(Tier.low)), r.source_tier);
     }
 
-    // The audit chain holds, per event, its policy decision (from the payment
-    // chain), then the model record and the agent record of its admission ordinal.
+    // The audit chain holds, per event, its policy decision (from the spine),
+    // then the model record and the agent record of its admission ordinal.
     try std.testing.expectEqual(event_count, c_abi.tkaudit.agentCommitted(audit));
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkaudit.rejectedCount(audit));
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkaudit.heldModelCount(audit));
@@ -1125,6 +1076,8 @@ test "tkagnt_tile: the full investment workflow turns each event into one audite
         const first = 3 * e;
         try std.testing.expectEqual(record_policy_decision, c_abi.tkaudit.recordType(audit, first));
         try std.testing.expectEqual(@as(u64, e), c_abi.tkaudit.recordSourceOffset(audit, first));
+        // One trace per event, on all three of its records.
+        for (0..3) |k| try std.testing.expectEqual(ingest.traceIdAt(e), c_abi.tkaudit.recordTraceId(audit, first + k));
         try std.testing.expectEqual(record_model_call, c_abi.tkaudit.recordType(audit, first + 1));
         try expectRecordHeader(audit, first + 1, "tkmodl", e + 1);
         try std.testing.expectEqual(record_proposal, c_abi.tkaudit.recordType(audit, first + 2));
@@ -1141,10 +1094,9 @@ test "tkagnt_tile: the full investment workflow turns each event into one audite
     }
     try std.testing.expectEqual(event_count, try watermark(&run.sup));
 
-    // The Zig codec agrees with the C chain on every agent-ordered record.
+    // The Zig codec agrees with the C chain on every record.
     i = 0;
     while (i < count) : (i += 1) {
-        if (c_abi.tkaudit.recordType(audit, i) == record_policy_decision) continue;
         var ev: c_abi.tkaudit.CAuditEvent = undefined;
         c_abi.tkaudit.recordCopy(audit, i, &ev);
         try std.testing.expectEqual(c_abi.tkaudit.recordHash(audit, i), try zigHashOfCommittedRecord(ev));

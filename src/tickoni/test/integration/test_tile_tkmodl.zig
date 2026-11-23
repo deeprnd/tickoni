@@ -1,7 +1,8 @@
 /// Process integration contracts for the tkmodl tile, with a real tkmodl child
 /// on real shared-memory links. tkagnt is its requester:
 ///
-///   tkings -> tkagnt -> tkmodl -> tkaudt (audit) + tkagnt -> tkdisp (result)
+///   harness -> tkings -> (spine) -> tkdisp -> tkagnt -> tkmodl -> tkaudt (audit)
+///                                                      tkagnt -> tkdisp (result)
 ///
 /// What is proved, from the committed state of each tile's own scratch:
 ///   * every request is processed once and gets exactly one tkmodl audit record
@@ -20,7 +21,7 @@
 ///   * the C-computed audit hash of every record tkmodl commits matches the Zig
 ///     codec.
 ///
-/// Agent-side behavior (tiers, multipart transport, timeouts, the full
+/// Agent-side behavior (tiers, multipart model transport, timeouts, the full
 /// workflow) is proved in test_tile_tkagnt.zig. The helpers here are local
 /// because each integration file is its own test root.
 const std = @import("std");
@@ -37,6 +38,7 @@ const Tier = rt.model_tier.TkAgntModelTier;
 
 const tiles = @import("tiles");
 const mrs = tiles.model_request_source;
+const Harness = @import("ingest_harness").Harness;
 
 /// The one tkmodl instance every run here starts (`agentProcess(1)`).
 const instance_kind_id: u8 = 0;
@@ -53,6 +55,7 @@ const Decision = struct {
     const replay_substitution_missing: u8 = 9;
 };
 
+const record_policy_decision: u32 = 2;
 const record_model_call: u32 = 3;
 const record_proposal: u32 = 5;
 const record_denial: u32 = 9;
@@ -84,6 +87,8 @@ fn modelTileIndex(sup: *const Supervisor) usize {
 const Fixtures = struct {
     arena: std.heap.ArenaAllocator,
     config: model_instances.InstanceConfig,
+    /// tkagnt's prompt table: the prompts the requests reference.
+    prompts: []const []const u8,
 
     fn init(backing: std.mem.Allocator) !Fixtures {
         var arena = std.heap.ArenaAllocator.init(backing);
@@ -97,6 +102,8 @@ const Fixtures = struct {
             const n = mrs.fillResponse(buf, class, i, shape);
             c.* = .{ .key = mrs.fixtureKey(i), .bytes = buf[0..n] };
         }
+        // Allocate before `arena` is copied into the result, or the copy misses these.
+        const prompts = try mrs.prompts(shape, a);
         return .{
             .arena = arena,
             .config = .{
@@ -105,6 +112,7 @@ const Fixtures = struct {
                 .config = mrs.fixtureConfig(class, shape, scratch),
                 .contents = contents,
             },
+            .prompts = prompts,
         };
     }
 
@@ -127,8 +135,8 @@ fn pipelineConfig(
     run_dir: []const u8,
     ws_buf: []u8,
     event_count: u64,
-    source: mrs.ModelRequestSource,
     configs: []const model_instances.InstanceConfig,
+    prompts: []const []const u8,
 ) supervisor_mod.ProcessPipelineConfig {
     return .{
         .run_dir = run_dir,
@@ -136,8 +144,10 @@ fn pipelineConfig(
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(ws_buf),
         .metric_port = util.nextMetricPort(),
-        .model_requests = source,
         .model_configs = configs,
+        // tkdisp's payment template; every event here is an agent request.
+        .dispatch_template = sourceOf(&.{.valid_replay}),
+        .agent_prompts = prompts,
     };
 }
 
@@ -145,8 +155,12 @@ const Run = struct {
     sup: Supervisor,
     tmp: @TypeOf(util.tmpDir()),
     fx: Fixtures,
+    /// The external producer on tkings's input link.
+    harness: Harness = .{},
 
     fn deinit(self: *Run) void {
+        // The harness writes into the shared workspace: stop it first.
+        self.harness.finish();
         self.sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
         self.sup.deinit();
         self.fx.deinit();
@@ -158,6 +172,7 @@ const Run = struct {
 fn startRun(run: *Run, fx: Fixtures, event_count: u64, source: mrs.ModelRequestSource) !void {
     run.fx = fx;
     errdefer run.fx.deinit();
+    run.harness = .{};
     run.tmp = util.tmpDir();
     errdefer run.tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -168,8 +183,9 @@ fn startRun(run: *Run, fx: Fixtures, event_count: u64, source: mrs.ModelRequestS
     var ws_buf: [16]u8 = undefined;
     try run.sup.startPaymentPipelineProcess(
         std.testing.io,
-        pipelineConfig(run_dir, &ws_buf, event_count, source, (&run.fx.config)[0..1]),
+        pipelineConfig(run_dir, &ws_buf, event_count, (&run.fx.config)[0..1], run.fx.prompts),
     );
+    try run.harness.start(std.testing.allocator, &run.sup, .{ .agent_requests = source }, event_count);
 }
 
 /// Polls until every request has its terminal result at tkdisp, its agent
@@ -413,6 +429,7 @@ test "tkmodl_tile: an administrative HALT with zero event count stops every tile
     const model = try tileScratch(&run.sup, "tkmodl", instance_kind_id);
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkmodl.ctxProcessed(model));
 
+    run.harness.finish();
     run.sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
     // stopProcess detaches the workspace, so scratch is not read past this
     // point; the committed count was asserted above, before the HALT.
@@ -435,7 +452,7 @@ test "tkmodl_tile: an instance with no configuration refuses the run before any 
         error.ModelConfigMissing,
         sup.startPaymentPipelineProcess(
             std.testing.io,
-            pipelineConfig(run_dir, &ws_buf, 4, sourceOf(&.{.valid_replay}), &.{}),
+            pipelineConfig(run_dir, &ws_buf, 4, &.{}, &.{}),
         ),
     );
 
@@ -462,10 +479,13 @@ test "tkmodl_tile: a live-provider configuration is rejected by the child and no
     waitForState(&run.sup, idx, .crashed);
     try std.testing.expectEqual(rt.tile.TileState.crashed, run.sup.monitor()[idx].state);
 
-    // Nothing was audited and no terminal result reached the dispatcher.
+    // tkmodl audited nothing, no agent run completed, and no terminal result
+    // reached the dispatcher. (The first event's policy decision is the spine's,
+    // committed before any agent run.)
     const audit = try tileScratch(&run.sup, "tkaudt", 0);
     const disp = try tileScratch(&run.sup, "tkdisp", 0);
-    try std.testing.expectEqual(@as(usize, 0), c_abi.tkaudit.recordCount(audit));
+    try std.testing.expectError(error.TkmodlRecordMissing, nextTkmodlRecord(audit, 0));
+    try std.testing.expectEqual(@as(u64, 0), c_abi.tkaudit.agentCommitted(audit));
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkdisp.resultCount(disp));
 }
 
@@ -480,6 +500,7 @@ test "tkmodl_tile: a live-provider configuration is rejected by the child and no
 
 fn zigHashOfCommittedRecord(ev: c_abi.tkaudit.CAuditEvent) !u64 {
     const payload: audit_zig.AuditEvent.Payload = switch (ev.record_type) {
+        record_policy_decision => .{ .policy_decision = ev.unnamed_0.policy_decision },
         record_model_call => .{ .model_call = .{
             .model_id = ev.unnamed_0.model_call.model_id,
             .prompt_hash = ev.unnamed_0.model_call.prompt_hash,

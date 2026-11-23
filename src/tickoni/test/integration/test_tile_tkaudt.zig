@@ -37,6 +37,8 @@ const runtime = @import("runtime");
 const rt = runtime;
 const tile_ids = runtime.tile_ids;
 const supervisor_mod = @import("supervisor");
+const ingest = @import("ingest_harness");
+const Harness = ingest.Harness;
 const topologies = @import("topologies");
 const util = @import("util");
 
@@ -113,13 +115,15 @@ test "tkaudt_integration: Audit record allocation and counting stub" {
     const metric_port = util.nextMetricPort();
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-    });
+    }, .{});
 
     // Wait for tkaudt to finish auditing.
     const max_polls: u32 = MAX_POLL;
@@ -149,6 +153,7 @@ test "tkaudt_integration: Audit record allocation and counting stub" {
         try std.testing.expect(h.state != .crashed);
     }
 
+    feed.finish();
     sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
@@ -181,13 +186,15 @@ test "tkaudt_integration: Hash chain verification" {
     const metric_port = util.nextMetricPort();
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-    });
+    }, .{});
 
     // Wait for tkaudt to finish auditing.
     const max_polls: u32 = MAX_POLL;
@@ -238,10 +245,11 @@ test "tkaudt_integration: Hash chain verification" {
     while (i < record_count) : (i += 1) {
         try std.testing.expect(c_abi.tkaudit.recordHash(scratch, i) != 0);
         try std.testing.expectEqual(@as(u64, i), c_abi.tkaudit.recordSeq(scratch, i));
-        try std.testing.expectEqual(@as(u16, 2), c_abi.tkaudit.recordSchemaVersion(scratch, i));
+        try std.testing.expectEqual(c_abi.tkaudit.AUDIT_SCHEMA_VERSION, c_abi.tkaudit.recordSchemaVersion(scratch, i));
     }
 
     // 4. The stem tile remains running until the supervisor sends HALT.
+    feed.finish();
     try sup.stopProcess(std.testing.io);
     stopped = true;
     for (sup.monitor()) |h| {
@@ -277,13 +285,15 @@ test "tkaudt_integration: the final event is committed (event_count = 1)" {
     const metric_port = util.nextMetricPort();
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-    });
+    }, .{});
 
     const max_polls: u32 = MAX_POLL;
     var poll: u32 = 0;
@@ -308,6 +318,7 @@ test "tkaudt_integration: the final event is committed (event_count = 1)" {
         try std.testing.expect(h.state != .crashed);
     }
 
+    feed.finish();
     try sup.stopProcess(std.testing.io);
     stopped = true;
 }
@@ -336,13 +347,15 @@ test "tkaudt_integration: committed record count matches the audited counter" {
     const metric_port = util.nextMetricPort();
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = metric_port,
-    });
+    }, .{});
 
     const max_polls: u32 = MAX_POLL;
     var poll: u32 = 0;
@@ -360,6 +373,7 @@ test "tkaudt_integration: committed record count matches the audited counter" {
     try std.testing.expectEqual(@as(usize, event_count), record_count);
     try std.testing.expectEqual(@as(usize, @intCast(metrics.audited)), record_count);
 
+    feed.finish();
     try sup.stopProcess(std.testing.io);
     stopped = true;
 }

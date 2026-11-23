@@ -90,7 +90,7 @@ static int g_failed = 0;
 
 static void
 place_payment( ulong chunk ) {
-    memset( g_buf + chunk*CHUNK_BYTES, 0, PAYMENT_MSG_SIZE );
+    memset( g_buf + chunk*CHUNK_BYTES, 0, TK_EVENT_SIZE );
 }
 
 static void
@@ -106,7 +106,7 @@ place_model_audit( ulong chunk ) {
 
 static void
 frag_payment( tk_audit_ctx_t * ctx, ulong in_idx, ulong chunk ) {
-    tk_audit_during_frag( ctx, in_idx, 0UL, TK_LINK_SIG_PAYMENT, chunk, PAYMENT_MSG_SIZE, 0UL );
+    tk_audit_during_frag( ctx, in_idx, 0UL, TK_LINK_SIG_EVENT, chunk, TK_EVENT_SIZE, 0UL );
 }
 
 static void
@@ -221,7 +221,7 @@ ordered_ctx_init( tk_audit_ctx_t * ctx ) {
     ctx->in_wmark[0]            = IN0_WMARK;
     ctx->in_chunk0[1]           = IN0_CHUNK0;
     ctx->in_wmark[1]            = IN0_WMARK;
-    ctx->in_role[0]             = TKAUDT_ROLE_PAYMENT;
+    ctx->in_role[0]             = TKAUDT_ROLE_EVENT;
     ctx->in_role[1]             = TKAUDT_ROLE_MODEL;
     ctx->in_role[2]             = TKAUDT_ROLE_AGENT;
     ctx->ordered                = 1;
@@ -376,7 +376,7 @@ test_unordered_mode_commits_on_arrival( void ) {
     tk_audit_ctx_t ctx; ctx_init( &ctx );
     ctx.in_role[1] = TKAUDT_ROLE_MODEL;
     place_payment( IN0_CHUNK0 );
-    tk_audit_during_frag( &ctx, 0UL, 0UL, TK_LINK_SIG_PAYMENT, IN0_CHUNK0, PAYMENT_MSG_SIZE, 0UL );
+    tk_audit_during_frag( &ctx, 0UL, 0UL, TK_LINK_SIG_EVENT, IN0_CHUNK0, TK_EVENT_SIZE, 0UL );
     tk_audit_after_frag( &ctx, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, NULL );
     CHECK( ctx.audit_count==1UL && ctx.audited==1UL, "a payment record commits on arrival" );
     place_model_audit( IN1_CHUNK0 );
@@ -385,24 +385,64 @@ test_unordered_mode_commits_on_arrival( void ) {
     CHECK( ctx.audit_count==2UL && ctx.audit_records[1].record_type==RECORD_MODEL_CALL, "a model record commits on arrival" );
 }
 
+static void
+test_event_record_carries_the_trace_and_case( void ) {
+    /* The spine record's header takes the event's trace, case and offset; the
+       model and agent records take the trace their wires carry. */
+    tk_audit_ctx_t ctx; ctx_init( &ctx );
+    ctx.in_role[1] = TKAUDT_ROLE_MODEL;
+    TkEvent ev;
+    memset( &ev, 0, sizeof(ev) );
+    ev.trace_id      = 0x7a11UL;
+    ev.case_id       = 0xca5eUL;
+    ev.source_offset = 3UL;
+    memcpy( g_buf + IN0_CHUNK0*CHUNK_BYTES, &ev, sizeof(ev) );
+    tk_audit_during_frag( &ctx, 0UL, 0UL, TK_LINK_SIG_EVENT, IN0_CHUNK0, TK_EVENT_SIZE, 0UL );
+    tk_audit_after_frag( &ctx, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, NULL );
+    CHECK( ctx.audit_count==1UL, "the event record commits" );
+    CHECK( ctx.audit_records[0].header.trace_id==0x7a11UL, "the event record carries the event's trace id" );
+    CHECK( ctx.audit_records[0].header.case_id==0xca5eUL, "the event record carries the event's case id" );
+    CHECK( ctx.audit_records[0].header.source_offset==3UL, "the event record carries tkings's source offset" );
+
+    ModelAuditMsg m;
+    memset( &m, 0, sizeof(m) );
+    m.version     = TKMODL_WIRE_VERSION;
+    m.record_type = RECORD_MODEL_CALL;
+    m.trace_id    = 0x7a12UL;
+    memcpy( g_buf + IN1_CHUNK0*CHUNK_BYTES, &m, sizeof(m) );
+    frag_model( &ctx, 1UL, IN1_CHUNK0 );
+    tk_audit_after_frag( &ctx, 1UL, 0UL, 0UL, 0UL, 0UL, 0UL, NULL );
+    CHECK( ctx.audit_count==2UL && ctx.audit_records[1].header.trace_id==0x7a12UL, "the model record carries its trace id" );
+
+    /* The trace id is hashed: the same record with another trace chains
+       differently.  (Contexts share the record buffer: keep the hash first.) */
+    uint64_t first_hash = ctx.audit_records[0].header.record_hash;
+    tk_audit_ctx_t other; ctx_init( &other );
+    ev.trace_id = 0x7a13UL;
+    memcpy( g_buf + IN0_CHUNK0*CHUNK_BYTES, &ev, sizeof(ev) );
+    tk_audit_during_frag( &other, 0UL, 0UL, TK_LINK_SIG_EVENT, IN0_CHUNK0, TK_EVENT_SIZE, 0UL );
+    tk_audit_after_frag( &other, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, NULL );
+    CHECK( other.audit_records[0].header.record_hash!=first_hash, "trace_id is part of the record hash" );
+}
+
 /* ─── Event order ─── */
 
 static void
 event_ordered_ctx_init( tk_audit_ctx_t * ctx ) {
     ordered_ctx_init( ctx );
-    ctx->has_payment_input = 1;
+    ctx->has_event_input = 1;
 }
 
 /* The n-th payment record (event offset n-1), committed on the payment input
    the way fd_stem would deliver it: only if BEFORE_FRAG lets it through. */
 static int
 feed_payment( tk_audit_ctx_t * ctx, uint64_t n ) {
-    if( tk_audit_before_frag( ctx, 0UL, 0UL, TK_LINK_SIG_PAYMENT )!=0 ) return 0;
-    PaymentMessage p;
+    if( tk_audit_before_frag( ctx, 0UL, 0UL, TK_LINK_SIG_EVENT )!=0 ) return 0;
+    TkEvent p;
     memset( &p, 0, sizeof(p) );
-    p.raw.source_offset = n-1UL;
+    p.source_offset = n-1UL;
     memcpy( g_buf + ORD_CHUNK_M*CHUNK_BYTES, &p, sizeof(p) );
-    commit_frag( ctx, 0UL, TK_LINK_SIG_PAYMENT, PAYMENT_MSG_SIZE );
+    commit_frag( ctx, 0UL, TK_LINK_SIG_EVENT, TK_EVENT_SIZE );
     return 1;
 }
 
@@ -459,31 +499,31 @@ test_event_order_is_independent_of_arrival( void ) {
 static void
 test_payment_record_is_held_back_until_the_previous_agent_record_commits( void ) {
     tk_audit_ctx_t ctx; event_ordered_ctx_init( &ctx );
-    CHECK( tk_audit_before_frag( &ctx, 0UL, 0UL, TK_LINK_SIG_PAYMENT )==0, "payment 1 is taken at once" );
+    CHECK( tk_audit_before_frag( &ctx, 0UL, 0UL, TK_LINK_SIG_EVENT )==0, "payment 1 is taken at once" );
     CHECK( feed_payment( &ctx, 1 ), "payment 1 commits" );
-    CHECK( tk_audit_before_frag( &ctx, 0UL, 0UL, TK_LINK_SIG_PAYMENT )==-1, "payment 2 stays queued upstream" );
+    CHECK( tk_audit_before_frag( &ctx, 0UL, 0UL, TK_LINK_SIG_EVENT )==-1, "payment 2 stays queued upstream" );
     CHECK( tk_audit_before_frag( &ctx, ROLE_MODEL_IN, 0UL, TK_LINK_SIG_MODEL_CALL )==0, "model records are never held back" );
     CHECK( tk_audit_before_frag( &ctx, ROLE_AGENT_IN, 0UL, TK_LINK_SIG_AGENT_AUDIT )==0, "agent records are never held back" );
     CHECK( ctx.audit_count==1UL && ctx.rejected==0UL, "holding a payment record back changes and refuses nothing" );
     feed_agent( &ctx, 1, 0 );
     CHECK( ctx.agent_committed==1UL, "agent record 1 commits (no model record)" );
-    CHECK( tk_audit_before_frag( &ctx, 0UL, 0UL, TK_LINK_SIG_PAYMENT )==0, "payment 2 is taken once agent 1 is committed" );
+    CHECK( tk_audit_before_frag( &ctx, 0UL, 0UL, TK_LINK_SIG_EVENT )==0, "payment 2 is taken once agent 1 is committed" );
 }
 
 static void
 test_nothing_is_held_back_without_both_a_payment_chain_and_agent_runs( void ) {
     /* An agent input but no payment input (the agent topology). */
     tk_audit_ctx_t agent_only; ordered_ctx_init( &agent_only );
-    agent_only.payment_committed = 5UL;
-    CHECK( tk_audit_before_frag( &agent_only, 0UL, 0UL, TK_LINK_SIG_PAYMENT )==0, "no payment input: nothing is held back" );
+    agent_only.event_committed = 5UL;
+    CHECK( tk_audit_before_frag( &agent_only, 0UL, 0UL, TK_LINK_SIG_EVENT )==0, "no payment input: nothing is held back" );
     feed_agent( &agent_only, 1, 0 );
     CHECK( agent_only.agent_committed==1UL, "an agent record does not wait for a payment record that has no chain" );
 
     /* A payment input but no agent input (the payment pipeline). */
     tk_audit_ctx_t payments; ctx_init( &payments );
-    payments.has_payment_input = 1;
-    payments.payment_committed = 5UL;
-    CHECK( tk_audit_before_frag( &payments, 0UL, 0UL, TK_LINK_SIG_PAYMENT )==0, "no agent input: payment records commit on arrival" );
+    payments.has_event_input = 1;
+    payments.event_committed = 5UL;
+    CHECK( tk_audit_before_frag( &payments, 0UL, 0UL, TK_LINK_SIG_EVENT )==0, "no agent input: payment records commit on arrival" );
 }
 
 static void
@@ -493,7 +533,7 @@ test_event_count_gate_waits_for_both_streams( void ) {
     feed_payment( &ctx, 1 ); feed_model( &ctx, 1 ); feed_agent( &ctx, 1, 1 );
     CHECK( ctx.input_exhausted==0, "one event of two is not the end" );
     feed_payment( &ctx, 2 );
-    CHECK( ctx.input_exhausted==0 && ctx.payment_committed==2UL && ctx.agent_committed==1UL, "both payment records in, one agent record short: not the end" );
+    CHECK( ctx.input_exhausted==0 && ctx.event_committed==2UL && ctx.agent_committed==1UL, "both payment records in, one agent record short: not the end" );
     feed_model( &ctx, 2 ); feed_agent( &ctx, 2, 1 );
     CHECK( ctx.input_exhausted==1, "the last agent record ends the run" );
 }
@@ -503,7 +543,7 @@ test_wrong_sig_for_role_is_rejected( void ) {
     tk_audit_ctx_t ctx; ordered_ctx_init( &ctx );
     place_payment( ORD_CHUNK_M );
     /* A payment sig on the agent input, and an agent sig on the model input. */
-    tk_audit_during_frag( &ctx, ROLE_AGENT_IN, 0UL, TK_LINK_SIG_PAYMENT, ORD_CHUNK_M, sizeof(TkAgentAuditMsg), 0UL );
+    tk_audit_during_frag( &ctx, ROLE_AGENT_IN, 0UL, TK_LINK_SIG_EVENT, ORD_CHUNK_M, sizeof(TkAgentAuditMsg), 0UL );
     CHECK( ctx.stage_valid==0, "a payment sig on the agent input is rejected" );
     tk_audit_during_frag( &ctx, ROLE_MODEL_IN, 0UL, TK_LINK_SIG_AGENT_AUDIT, ORD_CHUNK_M, sizeof(ModelAuditMsg), 0UL );
     CHECK( ctx.stage_valid==0, "an agent sig on the model input is rejected" );
@@ -523,6 +563,7 @@ main( void ) {
     test_late_duplicate_and_out_of_order_are_refused();
     test_hold_bound_is_enforced();
     test_unordered_mode_commits_on_arrival();
+    test_event_record_carries_the_trace_and_case();
     test_event_order_is_independent_of_arrival();
     test_payment_record_is_held_back_until_the_previous_agent_record_commits();
     test_nothing_is_held_back_without_both_a_payment_chain_and_agent_runs();

@@ -17,6 +17,8 @@ const builtin = @import("builtin");
 const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const supervisor_mod = @import("supervisor");
+const ingest = @import("ingest_harness");
+const Harness = ingest.Harness;
 const topologies = @import("topologies");
 const util = @import("util");
 const stem_liveness = @import("stem_liveness");
@@ -34,16 +36,16 @@ fn diagTileIndex(sup: *const Supervisor) usize {
     unreachable; // paymentPipelineProcess() configures tkdiag.
 }
 
-fn startPipeline(sup: *Supervisor, run_dir: []const u8) !void {
+fn startPipeline(sup: *Supervisor, feed: *Harness, run_dir: []const u8) !void {
     var workspace_buf: [16]u8 = undefined;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    try ingest.startPaymentRun(sup, feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .policy_limit_cents = 1_000,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&workspace_buf),
         .metric_port = util.nextMetricPort(),
-    });
+    }, .{});
 }
 
 fn assertNoCrash(sup: *Supervisor) !void {
@@ -61,7 +63,9 @@ test "tkdiag_integration: stem tkdiag keeps running until the supervisor halts i
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir);
 
     // Watch for the whole window in which an iteration-bounded tkdiag would have
     // stopped itself (an earlier design did, within it). A self-exit or a crash
@@ -75,6 +79,7 @@ test "tkdiag_integration: stem tkdiag keeps running until the supervisor halts i
     }
 
     // CNC HALT is the only thing that stops it.
+    feed.finish();
     try sup.stopProcess(std.testing.io);
     try std.testing.expectEqual(rt.tile.TileState.stopped, sup.monitor()[diag_idx].state);
     try assertNoCrash(&sup);
@@ -115,7 +120,9 @@ test "tkdiag_integration: pipeline completes and tkdiag receives a diagnostic fr
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir);
 
     try std.testing.expect(waitUntil(&sup, 4 * max_polls, fanInComplete));
 
@@ -163,14 +170,16 @@ test "tkdiag_integration: a frozen tkdiag never stalls the event path, and catch
         sup.deinit();
     }
     var workspace_buf: [16]u8 = undefined;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = flood_event_count,
         .policy_limit_cents = 1_000,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&workspace_buf),
         .metric_port = util.nextMetricPort(),
-    });
+    }, .{});
 
     // Freeze the only consumer of every diagnostic link. If any of those links
     // were reliable, its producer would block after `diag_link_depth`
@@ -206,6 +215,7 @@ const watch_polls: u32 = 2000;
 
 fn startIdle(sup: *Supervisor, run_dir: []const u8) !void {
     var workspace_buf: [16]u8 = undefined;
+    // Idle (event_count 0): no events, so no producer on tkings's input.
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = 0,

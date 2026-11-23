@@ -16,6 +16,8 @@
 const std = @import("std");
 const rt = @import("runtime");
 const supervisor_mod = @import("supervisor");
+const ingest = @import("ingest_harness");
+const Harness = ingest.Harness;
 const topologies = @import("topologies");
 const util = @import("util");
 const stem_liveness = @import("stem_liveness");
@@ -24,6 +26,7 @@ const Supervisor = supervisor_mod.Supervisor;
 
 fn startIdlePipeline(sup: *Supervisor, run_dir: []const u8) !void {
     var workspace_buf: [16]u8 = undefined;
+    // Idle (event_count 0): no events, so no producer on tkings's input.
     try sup.startPaymentPipelineProcess(std.testing.io, .{
         .run_dir = run_dir,
         .event_count = 0,

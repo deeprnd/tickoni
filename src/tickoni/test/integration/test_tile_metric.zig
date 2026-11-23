@@ -18,6 +18,8 @@ const c_abi = @import("c_abi");
 const runtime = @import("runtime");
 const tile_ids = runtime.tile_ids;
 const supervisor_mod = @import("supervisor");
+const ingest = @import("ingest_harness");
+const Harness = ingest.Harness;
 const topologies = @import("topologies");
 const util = @import("util");
 
@@ -467,15 +469,15 @@ test "metric_tile_integration: topology with metric builds and starts" {
 
     const event_count: u64 = 1000;
     var ws_buf: [16]u8 = undefined;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = 1000,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
-        .inject_malformed = false,
-        .duplicate = null,
-    });
+    }, .{});
 
     const max_polls: u32 = 400;
     var poll: u32 = 0;
@@ -488,6 +490,7 @@ test "metric_tile_integration: topology with metric builds and starts" {
     try std.testing.expectEqual(event_count, metrics.audited);
 
     try expectNoCrashes(&sup, run_dir);
+    feed.finish();
     try sup.stopProcess(std.testing.io);
 }
 
@@ -519,15 +522,15 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 1000;
     var ws_buf: [16]u8 = undefined;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
-        .inject_malformed = false,
-        .duplicate = null,
-    });
+    }, .{});
 
     // Wait for the pipeline to finish processing.
     var wait_poll: u32 = 0;
@@ -585,6 +588,7 @@ test "metric_tile_integration: /metrics returns HTTP 200 with valid content" {
     try std.testing.expect(bytes_consumed.? > 0);
 
     try expectNoCrashes(&sup, run_dir);
+    feed.finish();
     try sup.stopProcess(std.testing.io);
 }
 
@@ -612,15 +616,15 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 10;
     var ws_buf: [16]u8 = undefined;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
-        .inject_malformed = false,
-        .duplicate = null,
-    });
+    }, .{});
 
     // Wait for pipeline to finish
     var wait_poll: u32 = 0;
@@ -640,6 +644,7 @@ test "metric_tile_integration: unknown path returns HTTP 404" {
     try std.testing.expectEqual(@as(u16, 404), resp.status_code);
 
     try expectNoCrashes(&sup, run_dir);
+    feed.finish();
     try sup.stopProcess(std.testing.io);
 }
 
@@ -668,15 +673,15 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 10;
     var ws_buf: [16]u8 = undefined;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
-        .inject_malformed = false,
-        .duplicate = null,
-    });
+    }, .{});
 
     // Wait for pipeline to finish
     var wait_poll: u32 = 0;
@@ -703,6 +708,7 @@ test "metric_tile_integration: boot_timestamp is a valid large positive value" {
     try std.testing.expect(boot_timestamp > 1e18);
 
     try expectNoCrashes(&sup, run_dir);
+    feed.finish();
     try sup.stopProcess(std.testing.io);
 }
 
@@ -736,15 +742,15 @@ test "metric_tile_integration: workspace join completeness" {
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 10;
     var ws_buf: [16]u8 = undefined;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
-        .inject_malformed = false,
-        .duplicate = null,
-    });
+    }, .{});
 
     // Wait for the pipeline to finish processing.
     var wait_poll: u32 = 0;
@@ -779,6 +785,7 @@ test "metric_tile_integration: workspace join completeness" {
 
     // Verify the metric tile didn't crash.
     try expectNoCrashes(&sup, run_dir);
+    feed.finish();
     try sup.stopProcess(std.testing.io);
 }
 
@@ -806,15 +813,15 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 4;
     var ws_buf: [16]u8 = undefined;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
-        .inject_malformed = false,
-        .duplicate = null,
-    });
+    }, .{});
 
     const max_polls: u32 = 400;
     var poll: u32 = 0;
@@ -827,6 +834,7 @@ test "metric_tile_integration: CNC shutdown signal stops tile cleanly" {
     try std.testing.expectEqual(event_count, metrics.audited);
 
     try expectNoCrashes(&sup, run_dir);
+    feed.finish();
     try sup.stopProcess(std.testing.io);
 }
 
@@ -882,15 +890,15 @@ test "metric_tile_integration: boot_timestamp via CNC (no HTTP)" {
     std.debug.print("\n  [metric-test] metric_port = {d}\n", .{port});
     const event_count: u64 = 10;
     var ws_buf: [16]u8 = undefined;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
-        .inject_malformed = false,
-        .duplicate = null,
-    });
+    }, .{});
 
     // Wait for the pipeline to finish processing.
     var wait_poll: u32 = 0;
@@ -983,15 +991,15 @@ test "metric_tile_integration: sequential pipeline runs on same port" {
         defer std.testing.allocator.free(iter_run_dir);
         _ = try std.Io.Dir.cwd().createDirPathOpen(std.testing.io, iter_run_dir, .{});
 
-        try sup.startPaymentPipelineProcess(std.testing.io, .{
+        var feed: Harness = .{};
+        defer feed.finish();
+        try ingest.startPaymentRun(&sup, &feed, .{
             .run_dir = iter_run_dir,
             .event_count = event_count,
             .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
             .workspace_name = util.nextWorkspaceName(&ws_buf),
             .metric_port = port,
-            .inject_malformed = false,
-            .duplicate = null,
-        });
+        }, .{});
 
         // Wait for the pipeline to finish processing.
         const max_polls: u32 = 400;
@@ -1119,14 +1127,16 @@ test "metric_tile_integration: /metrics serves tkdiag's aggregate, the way Fired
     }
     const port = util.nextMetricPort();
     var ws_buf: [16]u8 = undefined;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = tkdiag_metrics_event_count,
         .policy_limit_cents = 1_000,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
-    });
+    }, .{});
 
     const body = try fetchMetricsUntil(port, tkdiagSawFiveTiles);
     defer std.testing.allocator.free(body);
@@ -1174,14 +1184,16 @@ test "metric_tile_integration: /metrics carries per-tile OS-level metrics writte
     var ws_buf: [16]u8 = undefined;
     // event_count 0: every tile idles until HALT, so every process is still there
     // for tkdiag to read.
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = 0,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
         .heartbeat_stale_after_ns = 1 * std.time.ns_per_s,
-    });
+    }, .{});
 
     const body = try fetchMetricsUntil(port, tilesHaveOsMetrics);
     defer std.testing.allocator.free(body);

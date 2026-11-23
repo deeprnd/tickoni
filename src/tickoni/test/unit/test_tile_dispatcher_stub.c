@@ -28,3 +28,9 @@ tk_cnc_heartbeat( void * cnc, int64_t now_ns ) {
     (void)now_ns;
     abort();
 }
+
+/* stk_cnc_liveness's test-build fault hook (tango.c); never reached either. */
+void
+tk_cnc_liveness_fault_check( void ) {
+    abort();
+}
