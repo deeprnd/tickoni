@@ -117,6 +117,7 @@ pub fn strategy(
             "src/tickoni/test/integration/test_tile_metric.zig",
             "src/tickoni/test/integration/test_process_topology.zig",
             "src/tickoni/test/integration/test_process_pipeline.zig",
+            "src/tickoni/test/integration/test_tile_tkapi.zig",
             "src/tickoni/test/integration/test_tile_tkings.zig",
             "src/tickoni/test/integration/test_process_shutdown_reap.zig",
             "src/tickoni/test/integration/test_process_cpu_placement.zig",

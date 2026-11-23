@@ -14,6 +14,7 @@ pub const shim_c_files = &.{
     "topob.c",
     "tile_run.c",
     "tk_audit_stem.c",
+    "tk_api_stem.c",
     "tk_ingest_stem.c",
     "tk_normalize_stem.c",
     "tk_dedu_stem.c",
@@ -120,13 +121,16 @@ pub fn addPlainTestRun(
 /// Output is inherited (not captured) to avoid pipe buffer overflow when
 /// 48+ test binaries chain their stdout/stderr — the buffer fills and
 /// blocks the writer before the reader can drain it.
+/// Most test binaries one chained series (and so one lane) can hold.
+pub const max_test_run_series: usize = 66;
+
 pub fn addPlainTestRunSeries(
     b: *std.Build,
     test_compiles: []const *std.Build.Step.Compile,
 ) *std.Build.Step.Run {
     if (test_compiles.len == 0) unreachable;
 
-    var runs: [65]*std.Build.Step.Run = undefined;
+    var runs: [max_test_run_series]*std.Build.Step.Run = undefined;
     var i: usize = 0;
     while (i < test_compiles.len) : (i += 1) {
         runs[i] = b.addRunFile(test_compiles[i].getEmittedBin());
