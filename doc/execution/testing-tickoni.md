@@ -413,34 +413,50 @@ If you do not run a relevant check, say so explicitly in the handoff.
 
 The test layer is determined by where replacement happens.
 
-Unit tests replace direct collaborators at the function, tile helper, or module
-boundary. A unit test may use a deterministic allocator, fixed payment pipeline
-configuration, synthetic input event, fake clock value, direct queue instance,
-or in-process supervisor state so the behavior under test stays one small unit
-of code. Unit tests should not prove Firedancer process startup, seccomp policy
-installation, real shared-memory workspace behavior, full Make integration-test
-targets, or live external tool compatibility.
+**Unit tests** replace direct collaborators at the function, tile helper, or
+module boundary. A unit test may use a deterministic allocator, fixed payment
+pipeline configuration, synthetic input event, fake clock value, direct queue
+instance, or in-process supervisor state so the behavior under test stays one
+small unit of code. Unit tests should not prove Firedancer process startup,
+seccomp policy installation, real shared-memory workspace behavior, full Make
+integration-test targets, or live external tool compatibility.
 
-Integration tests keep Tickoni internals real and replace whole outside tools
-at the harness boundary. Runtime topology, tile wiring, bounded queue behavior,
-event normalization, deduplication, policy evaluation, audit hashing, replay
-comparison, serialization, and C ABI wrappers should run through production-like
-paths. The harness may substitute external systems with deterministic local
-fixtures: a temporary filesystem store instead of a durable deployment store, a
-localhost HTTP/RPC stub instead of a future payment processor or model gateway,
-or a test shared-memory/workspace harness instead of an operator-managed host
-setup. This is the same kind of replacement as using a compatible test engine
-for an external database: the outside tool is substituted, but the application
-path that talks to it remains real.
+**Tile-level integration tests** connect 2–3 real tiles and stub the rest.
+For example, a tkpoly test runs `tkcase stub → tkpoly → tkaudt stub`: tkcase
+generates synthetic input, tkpoly processes it, tkaudt validates the output.
+The tested tile's internals are real; adjacent tiles are replaced at their
+boundary with stubs that provide deterministic inputs and capture outputs.
+These tests do not need the full spine topology — they verify one tile's
+logic against its neighbors. This is the default for tests under
+`test-unit-tk` and `test-integration-tk` that exercise schema, policy, audit,
+replay, and individual tile behavior.
 
-E2E and system tests use the actual local runtime tools in a local topology:
-the Firedancer-derived Make targets, the `tickoni-supervisor` Zig binary,
-wrapper scripts, huge-page setup where needed, and local process or future
-container orchestration. These tests verify startup, command contracts, runtime
-wiring, persistence or audit output, telemetry surface, and local tool
-compatibility. They do not claim production scalability, high availability, or
-managed-service parity: a local process topology is not a production supervised
-deployment, and local huge-page allocation is not an operator-tuned host fleet.
+**Integration tests** (non-tile) keep Tickoni internals real and replace whole
+outside tools at the harness boundary. Runtime topology, tile wiring, bounded
+queue behavior, event normalization, deduplication, policy evaluation, audit
+hashing, replay comparison, serialization, and C ABI wrappers should run
+through production-like paths. The harness may substitute external systems
+with deterministic local fixtures: a temporary filesystem store instead of a
+durable deployment store, a localhost HTTP/RPC stub instead of a future
+payment processor or model gateway, or a test shared-memory/workspace harness
+instead of an operator-managed host setup. This is the same kind of
+replacement as using a compatible test engine for an external database: the
+outside tool is substituted, but the application path that talks to it
+remains real.
+
+**System tests** connect all tiles together per the product spec spine.
+`tkings → tknorm → tkdedu → tkcase → tkpoly → tkaudt → tkdisp → tkagnt`
+with real Firedancer processes, shared memory, and (where applicable) live
+external tools like llama.cpp. These verify startup, command contracts,
+runtime wiring, persistence, and local tool compatibility. They do not claim
+production scalability, high availability, or managed-service parity: a local
+process topology is not a production supervised deployment, and local
+huge-page allocation is not an operator-tuned host fleet.
+
+The boundary between tile-level integration and full-system is simple:
+tile-level uses stubs for adjacent tiles; system uses real tile processes.
+Tile-level tests run under `test-unit-tk` or `test-integration-tk`. System
+tests run under `test-system-tk`.
 
 **Qt terminal** is a CMake build tree (`src/tickoni/terminal/`) with no
 Firedancer, Zig, or Tickoni runtime dependency. Qt tests are build-and-smoke:
@@ -466,13 +482,20 @@ repair tile lifecycle can be tested without real tile infrastructure. The
 initializes Firedancer config/topology and forks the configure, workspace, dev,
 and ready command paths.
 
+Tickoni Zig tests, by contrast, have an explicit tile-level integration layer:
+2–3 real tiles with stubs for the rest. This sits between Firedancer C unit
+tests and Firedancer integration-test binaries.
+
 Practical rule of thumb:
 
 - unit: mock or fix the direct collaborator function, module, tile helper, or
   runtime input
+- tile-level integration: connect 2–3 real tiles, stub the rest (e.g.
+  `tkcase stub → tkpoly → tkaudt stub`)
 - integration: substitute the external tool through the shared harness while
   keeping Tickoni internals real
-- e2e/system: run the real local toolchain and avoid internal mocks
+- system: run all tiles together per the product spec spine with real
+  Firedancer processes
 - CLI unit/integration: run the `tickoni` binary against fixture data
   (deterministic, cross-platform comparable)
 
