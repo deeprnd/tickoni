@@ -149,6 +149,20 @@ install_prompt( ulong len ) {
     CHECK( rc==0 || rc==4, "the prompt is installed" );
 }
 
+/* A trace id from a number, little-endian, as c_abi/trace_id.zig writes it. */
+static void
+trace_set( uint8_t id[ TK_TRACE_ID_SZ ], uint64_t v ) {
+    memset( id, 0, TK_TRACE_ID_SZ );
+    for( ulong i=0UL; i<8UL; i++ ) id[i] = (uint8_t)(v >> (8UL*i));
+}
+
+static int
+trace_is( uint8_t const id[ TK_TRACE_ID_SZ ], uint64_t v ) {
+    uint8_t want[ TK_TRACE_ID_SZ ];
+    trace_set( want, v );
+    return !memcmp( id, want, TK_TRACE_ID_SZ );
+}
+
 /* One agent request whose reference names the prompt of `prompt_len`. */
 static TkAgentRequestMsg
 build_request( uint64_t run_id, uint8_t request_type, uint8_t tier, ulong prompt_len ) {
@@ -158,7 +172,7 @@ build_request( uint64_t run_id, uint8_t request_type, uint8_t tier, ulong prompt
     h.prompt_ref.prompt_hash = tk_mp_message_hash( g_msg, prompt_len );
     h.prompt_ref.prompt_len  = (uint32_t)prompt_len;
     h.scope.version = TKMODL_WIRE_VERSION; h.scope.replay_mode = TKMODL_REPLAY_MODE_REPLAY;
-    h.scope.run_id = run_id; h.scope.trace_id = 1000UL + run_id; h.scope.replay_substitution_id = 1000UL;
+    h.scope.run_id = run_id; trace_set( h.scope.trace_id, 1000UL + run_id ); h.scope.replay_substitution_id = 1000UL;
     h.scope.timeout_ms = 5000U;
     strcpy( (char *)h.scope.model_id, "fixture.model" );
     strcpy( (char *)h.scope.actor_role, "ops_reviewer" );
@@ -230,13 +244,13 @@ test_admission_stages_the_model_request( void ) {
     CHECK( ctx->admitted==1UL, "the request is admitted as ordinal 1" );
     tkagnt_run_t * r = tkagnt_run_at( ctx, 1UL );
     CHECK( r->state==RUN_ADMITTED && r->tier==TIER_LOW && r->agent_seq==1UL && r->run_id==11UL, "run state and identity" );
-    CHECK( r->trace_id==1011UL, "the run keeps the request's trace id" );
+    CHECK( trace_is( r->trace_id, 1011UL ), "the run keeps the request's trace id" );
     CHECK( r->slot==0 && ctx->slots[0].used && ctx->slots[0].len==sizeof(ModelRequestMsg)+prompt_len, "a slot holds the model request" );
 
     ModelRequestMsg scope; memcpy( &scope, g_slots, sizeof(scope) );
     CHECK( scope.request_id==1UL, "request_id is the admission ordinal" );
     CHECK( scope.prompt_hash==0UL, "no declared prompt hash is passed on" );
-    CHECK( scope.run_id==11UL && scope.trace_id==1011UL && scope.replay_substitution_id==1000UL, "scope is carried through" );
+    CHECK( scope.run_id==11UL && trace_is( scope.trace_id, 1011UL ) && scope.replay_substitution_id==1000UL, "scope is carried through" );
     int prompt_ok = 1;
     for( ulong i=0UL; i<prompt_len; i++ ) if( g_slots[sizeof(scope)+i]!=(uint8_t)(i*7UL+3UL) ) { prompt_ok = 0; break; }
     CHECK( prompt_ok, "the prompt bytes come verbatim from the prompt table" );

@@ -2,6 +2,7 @@
 /// input link (tk_ingest_stem.c); nothing here installs a generator.
 const std = @import("std");
 const audit_mod = @import("audit_mod");
+const trace_id = @import("trace_id.zig");
 
 pub const TkEvent = audit_mod.TkEvent;
 
@@ -26,7 +27,7 @@ fn validEvent() TkEvent {
     ev.version = audit_mod.TK_EVENT_WIRE_VERSION;
     ev.kind = audit_mod.TK_EVENT_KIND_PAYMENT;
     ev.source = audit_mod.TK_EVENT_SOURCE_TKAPI;
-    ev.trace_id = 1;
+    ev.trace_id = trace_id.fromInt(1);
     return ev;
 }
 
@@ -47,6 +48,17 @@ test "tkings framing: a canonical event passes, from tkapi or tkrepl" {
     ev.source = audit_mod.TK_EVENT_SOURCE_TKREPL;
     ev.flags = audit_mod.TK_EVENT_FLAG_REPLAY;
     try std.testing.expect(framingOk(&ev));
+}
+
+test "tkings framing: any nonzero trace id byte is a trace; all zero is none" {
+    var ev = validEvent();
+    for (0..trace_id.len) |i| {
+        ev.trace_id = std.mem.zeroes(trace_id.Bytes);
+        ev.trace_id[i] = 0x80;
+        try std.testing.expect(framingOk(&ev));
+    }
+    ev.trace_id = std.mem.zeroes(trace_id.Bytes);
+    try std.testing.expect(!framingOk(&ev));
 }
 
 test "tkings framing: each malformed envelope field fails closed" {
@@ -79,7 +91,7 @@ test "tkings framing: each malformed envelope field fails closed" {
         }.f,
         struct {
             fn f(e: *TkEvent) void {
-                e.trace_id = 0;
+                e.trace_id = trace_id.fromInt(0);
             }
         }.f,
         struct {

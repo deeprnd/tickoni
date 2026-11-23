@@ -152,6 +152,7 @@ test "tknorm scratch footprint — topob wrapper matches direct call" {
 // ---------------------------------------------------------------------------
 
 const audit_mod = @import("audit_mod");
+const trace_id = @import("trace_id.zig");
 
 /// A payment event matching the plan's fixture:
 ///   idempotency_key=1, account_id=2, amount_cents=100, currency="USD"
@@ -160,7 +161,7 @@ fn makeFixture() TkEvent {
     ev.version = audit_mod.TK_EVENT_WIRE_VERSION;
     ev.kind = audit_mod.TK_EVENT_KIND_PAYMENT;
     ev.source = audit_mod.TK_EVENT_SOURCE_TKAPI;
-    ev.trace_id = 1;
+    ev.trace_id = trace_id.fromInt(1);
     ev.idempotency_key = 1;
     ev.body.payment.account_id = 2;
     ev.body.payment.amount_cents = 100;
@@ -198,7 +199,7 @@ test "FNV-1a C hash differs for different inputs" {
 test "the payment hash ignores the envelope fields tiles stamp" {
     const fixture = makeFixture();
     var stamped = makeFixture();
-    stamped.trace_id = 77;
+    stamped.trace_id = trace_id.fromInt(77);
     stamped.source_offset = 5;
     stamped.pipeline_hops = 3;
     stamped.case_id = 9;
@@ -236,9 +237,9 @@ fn agentFixture() TkEvent {
 test "an agent request's hash is its content, not the identities tiles stamp" {
     const base = agentFixture();
     var stamped = agentFixture();
-    stamped.trace_id = 42;
+    stamped.trace_id = trace_id.fromInt(42);
     stamped.body.agent_request.scope.run_id = 5;
-    stamped.body.agent_request.scope.trace_id = 42;
+    stamped.body.agent_request.scope.trace_id = trace_id.fromInt(42);
     stamped.body.agent_request.scope.request_id = 3;
     stamped.body.agent_request.scope.prompt_hash = 0x99;
     try std.testing.expectEqual(eventHash(&base), eventHash(&stamped));

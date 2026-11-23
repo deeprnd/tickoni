@@ -34,7 +34,7 @@ extern fn tk_audit_record_prev_hash(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_hash(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_schema_version(scratch: ?*anyopaque, idx: usize) c_uint;
 extern fn tk_audit_record_source_offset(scratch: ?*anyopaque, idx: usize) u64;
-extern fn tk_audit_record_trace_id(scratch: ?*anyopaque, idx: usize, out: *u128) void;
+extern fn tk_audit_record_trace_id(scratch: ?*anyopaque, idx: usize, out: *[audit_mod.TK_TRACE_ID_SZ]u8) void;
 extern fn tk_audit_record_case_id(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_outcome(scratch: ?*anyopaque, idx: usize) c_uint;
 extern fn tk_audit_record_decided_by(scratch: ?*anyopaque, idx: usize, dst: *[6]u8) void;
@@ -181,8 +181,8 @@ pub fn recordSourceOffset(scratch: ?*anyopaque, idx: usize) u64 {
 }
 
 /// The request trace committed record `idx` belongs to (header.trace_id).
-pub fn recordTraceId(scratch: ?*anyopaque, idx: usize) u128 {
-    var out: u128 = undefined;
+pub fn recordTraceId(scratch: ?*anyopaque, idx: usize) [audit_mod.TK_TRACE_ID_SZ]u8 {
+    var out: [audit_mod.TK_TRACE_ID_SZ]u8 = undefined;
     tk_audit_record_trace_id(scratch, idx, &out);
     return out;
 }

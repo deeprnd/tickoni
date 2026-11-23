@@ -52,7 +52,7 @@ fn envelope(kind: u8, offset: u64, idempotency_key: u64) TkEvent {
     ev.version = event_wire_version;
     ev.kind = kind;
     ev.source = source_tkapi;
-    ev.trace_id = traceIdAt(offset);
+    ev.trace_id = c_abi.trace_id.fromInt(traceIdAt(offset));
     ev.idempotency_key = idempotency_key;
     return ev;
 }
@@ -195,7 +195,7 @@ test "a payment event carries the synthetic payment under a canonical envelope" 
     try std.testing.expect(c_abi.tkings.framingOk(&ev));
     try std.testing.expectEqual(raw.idempotency_key, ev.idempotency_key);
     try std.testing.expectEqual(raw.amount_cents, ev.body.payment.amount_cents);
-    try std.testing.expectEqual(@as(u128, 8), ev.trace_id);
+    try std.testing.expectEqual(@as(u128, 8), c_abi.trace_id.toInt(ev.trace_id));
     try std.testing.expectEqual(@as(u64, 0), ev.source_offset);
 }
 

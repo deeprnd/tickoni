@@ -85,18 +85,18 @@ test "tkings_integration: malformed envelopes are dropped and counted, canonical
     const cfg = @import("tiles").PaymentPipelineConfig{ .event_count = 8 };
     var events: [7]ingest.TkEvent = undefined;
     for (&events, 0..) |*e, i| e.* = ingest.paymentEvent(cfg, i);
-    events[0].trace_id = 11;
+    events[0].trace_id = c_abi.trace_id.fromInt(11);
     events[1].version += 1; // unknown wire version
-    events[2].trace_id = 12;
+    events[2].trace_id = c_abi.trace_id.fromInt(12);
     // A producer cannot pre-decide what later tiles own: tkings resets it.
     events[2].source_offset = 99;
     events[2].case_id = 5;
     events[2].decision = 1;
     events[2].event_hash = 0xdead;
-    events[3].trace_id = 0; // no trace
+    events[3].trace_id = c_abi.trace_id.fromInt(0); // no trace
     events[4].flags = 1; // the replay bit, from tkapi
     events[5].kind = 9; // unknown kind
-    events[6].trace_id = 13;
+    events[6].trace_id = c_abi.trace_id.fromInt(13);
     const valid = [_]u64{ 11, 12, 13 };
 
     var sup = try supervisor_mod.Supervisor.initForTest(std.testing.allocator, topologies.minimalProcess());
@@ -132,7 +132,7 @@ test "tkings_integration: malformed envelopes are dropped and counted, canonical
     try std.testing.expectEqual(@as(usize, valid.len), c_abi.tkaudit.recordCount(audit));
     for (valid, 0..) |trace, i| {
         try std.testing.expectEqual(@as(u64, i), c_abi.tkaudit.recordSourceOffset(audit, i));
-        try std.testing.expectEqual(trace, c_abi.tkaudit.recordTraceId(audit, i));
+        try std.testing.expectEqual(@as(u128, trace), c_abi.trace_id.toInt(c_abi.tkaudit.recordTraceId(audit, i)));
         try std.testing.expectEqual(@as(u64, 0), c_abi.tkaudit.recordCaseId(audit, i));
         try std.testing.expectEqual(@as(u8, 0), c_abi.tkaudit.recordOutcome(audit, i));
         try std.testing.expectEqual(@as(u64, 0), c_abi.tkaudit.recordSourceEventHash(audit, i));

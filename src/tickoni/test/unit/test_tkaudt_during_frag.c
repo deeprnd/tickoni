@@ -88,6 +88,20 @@ unchanged( tk_audit_ctx_t const * c, snapshot_t const * s ) {
 static int g_failed = 0;
 #define CHECK(cond, msg) do { if( !(cond) ) { fprintf( stderr, "FAIL: %s (%s:%d)\n", msg, __FILE__, __LINE__ ); g_failed = 1; } } while(0)
 
+/* A trace id from a number, little-endian, as c_abi/trace_id.zig writes it. */
+static void
+trace_set( uint8_t id[ TK_TRACE_ID_SZ ], uint64_t v ) {
+    memset( id, 0, TK_TRACE_ID_SZ );
+    for( ulong i=0UL; i<8UL; i++ ) id[i] = (uint8_t)(v >> (8UL*i));
+}
+
+static int
+trace_is( uint8_t const id[ TK_TRACE_ID_SZ ], uint64_t v ) {
+    uint8_t want[ TK_TRACE_ID_SZ ];
+    trace_set( want, v );
+    return !memcmp( id, want, TK_TRACE_ID_SZ );
+}
+
 static void
 place_payment( ulong chunk ) {
     memset( g_buf + chunk*CHUNK_BYTES, 0, TK_EVENT_SIZE );
@@ -393,14 +407,14 @@ test_event_record_carries_the_trace_and_case( void ) {
     ctx.in_role[1] = TKAUDT_ROLE_MODEL;
     TkEvent ev;
     memset( &ev, 0, sizeof(ev) );
-    ev.trace_id      = 0x7a11UL;
+    trace_set( ev.trace_id, 0x7a11UL );
     ev.case_id       = 0xca5eUL;
     ev.source_offset = 3UL;
     memcpy( g_buf + IN0_CHUNK0*CHUNK_BYTES, &ev, sizeof(ev) );
     tk_audit_during_frag( &ctx, 0UL, 0UL, TK_LINK_SIG_EVENT, IN0_CHUNK0, TK_EVENT_SIZE, 0UL );
     tk_audit_after_frag( &ctx, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, NULL );
     CHECK( ctx.audit_count==1UL, "the event record commits" );
-    CHECK( ctx.audit_records[0].header.trace_id==0x7a11UL, "the event record carries the event's trace id" );
+    CHECK( trace_is( ctx.audit_records[0].header.trace_id, 0x7a11UL ), "the event record carries the event's trace id" );
     CHECK( ctx.audit_records[0].header.case_id==0xca5eUL, "the event record carries the event's case id" );
     CHECK( ctx.audit_records[0].header.source_offset==3UL, "the event record carries tkings's source offset" );
 
@@ -408,17 +422,17 @@ test_event_record_carries_the_trace_and_case( void ) {
     memset( &m, 0, sizeof(m) );
     m.version     = TKMODL_WIRE_VERSION;
     m.record_type = RECORD_MODEL_CALL;
-    m.trace_id    = 0x7a12UL;
+    trace_set( m.trace_id, 0x7a12UL );
     memcpy( g_buf + IN1_CHUNK0*CHUNK_BYTES, &m, sizeof(m) );
     frag_model( &ctx, 1UL, IN1_CHUNK0 );
     tk_audit_after_frag( &ctx, 1UL, 0UL, 0UL, 0UL, 0UL, 0UL, NULL );
-    CHECK( ctx.audit_count==2UL && ctx.audit_records[1].header.trace_id==0x7a12UL, "the model record carries its trace id" );
+    CHECK( ctx.audit_count==2UL && trace_is( ctx.audit_records[1].header.trace_id, 0x7a12UL ), "the model record carries its trace id" );
 
     /* The trace id is hashed: the same record with another trace chains
        differently.  (Contexts share the record buffer: keep the hash first.) */
     uint64_t first_hash = ctx.audit_records[0].header.record_hash;
     tk_audit_ctx_t other; ctx_init( &other );
-    ev.trace_id = 0x7a13UL;
+    trace_set( ev.trace_id, 0x7a13UL );
     memcpy( g_buf + IN0_CHUNK0*CHUNK_BYTES, &ev, sizeof(ev) );
     tk_audit_during_frag( &other, 0UL, 0UL, TK_LINK_SIG_EVENT, IN0_CHUNK0, TK_EVENT_SIZE, 0UL );
     tk_audit_after_frag( &other, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, NULL );

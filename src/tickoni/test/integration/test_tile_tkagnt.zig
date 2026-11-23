@@ -363,14 +363,14 @@ fn expectRun(
         try std.testing.expectEqual(record_policy_decision, c_abi.tkaudit.recordType(audit, rec));
         try std.testing.expectEqual(offset, c_abi.tkaudit.recordSourceOffset(audit, rec));
         try std.testing.expectEqual(@as(u8, 0), c_abi.tkaudit.recordOutcome(audit, rec));
-        try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(offset))), c_abi.tkaudit.recordTraceId(audit, rec));
+        try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(offset))), c_abi.trace_id.toInt(c_abi.tkaudit.recordTraceId(audit, rec)));
         var by: [6]u8 = undefined;
         c_abi.tkaudit.recordDecidedBy(audit, rec, &by);
         try std.testing.expectEqualStrings("tkpoly", &by);
         rec += 1;
         if (want.model_record != .none) {
             try expectRecordHeader(audit, rec, "tkmodl", seq);
-            try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(offset))), c_abi.tkaudit.recordTraceId(audit, rec));
+            try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(offset))), c_abi.trace_id.toInt(c_abi.tkaudit.recordTraceId(audit, rec)));
             switch (want.model_record) {
                 .call => {
                     try std.testing.expectEqual(record_model_call, c_abi.tkaudit.recordType(audit, rec));
@@ -391,8 +391,8 @@ fn expectRun(
             rec += 1;
         }
         try expectRecordHeader(audit, rec, "tkagnt", seq);
-        try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(offset))), c_abi.tkaudit.recordTraceId(audit, rec));
-        try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(offset))), r.trace_id);
+        try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(offset))), c_abi.trace_id.toInt(c_abi.tkaudit.recordTraceId(audit, rec)));
+        try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(offset))), c_abi.trace_id.toInt(r.trace_id));
         if (want.outcome == .ok) {
             try std.testing.expectEqual(record_proposal, c_abi.tkaudit.recordType(audit, rec));
             try std.testing.expectEqual(r.proposal_hash, c_abi.tkaudit.recordProposalHash(audit, rec));
@@ -1077,7 +1077,7 @@ test "tkagnt_tile: the full investment workflow turns each event into one audite
         try std.testing.expectEqual(record_policy_decision, c_abi.tkaudit.recordType(audit, first));
         try std.testing.expectEqual(@as(u64, e), c_abi.tkaudit.recordSourceOffset(audit, first));
         // One trace per event, on all three of its records.
-        for (0..3) |k| try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(e))), c_abi.tkaudit.recordTraceId(audit, first + k));
+        for (0..3) |k| try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(e))), c_abi.trace_id.toInt(c_abi.tkaudit.recordTraceId(audit, first + k)));
         try std.testing.expectEqual(record_model_call, c_abi.tkaudit.recordType(audit, first + 1));
         try expectRecordHeader(audit, first + 1, "tkmodl", e + 1);
         try std.testing.expectEqual(record_proposal, c_abi.tkaudit.recordType(audit, first + 2));
