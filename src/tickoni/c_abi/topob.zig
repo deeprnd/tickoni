@@ -43,6 +43,7 @@ extern fn tk_topob_wksp(topo: *Topo, name: [*:0]const u8) usize;
 extern fn tk_topob_obj(topo: *Topo, obj_type: [*:0]const u8, wksp_name: [*:0]const u8) usize;
 extern fn tk_topob_tile_uses(topo: *Topo, tile_id: usize, obj_id: usize, mode: c_int) void;
 extern fn tk_topob_link(topo: *Topo, link_name: [*:0]const u8, wksp_name: [*:0]const u8, depth: usize, mtu: usize, burst: usize) usize;
+extern fn tk_topob_link_permit_no_producers(topo: *Topo, link_id: usize) void;
 extern fn tk_topob_tile(topo: *Topo, tile_name: [*:0]const u8, tile_wksp: [*:0]const u8, metrics_wksp: [*:0]const u8, cpu_idx: usize) usize;
 extern fn tk_topob_tile_in(topo: *Topo, tile_name: [*:0]const u8, tile_kind_id: usize, fseq_wksp: [*:0]const u8, link_name: [*:0]const u8, link_kind_id: usize, reliable: c_int, polled: c_int) usize;
 extern fn tk_topob_tile_out(topo: *Topo, tile_name: [*:0]const u8, tile_kind_id: usize, link_name: [*:0]const u8, link_kind_id: usize) void;
@@ -145,6 +146,12 @@ pub fn topobTileUses(topo: *Topo, tile_id: usize, obj_id: usize, read_write: boo
 
 pub fn topobLink(topo: *Topo, link_name: [*:0]const u8, wksp_name: [*:0]const u8, depth: usize, mtu: usize, burst: usize) usize {
     return tk_topob_link(topo, link_name, wksp_name, depth, mtu, burst);
+}
+
+/// Marks a link as fed from outside the tile graph (Firedancer's
+/// `permit_no_producers`), so no tile_out is required for it.
+pub fn topobLinkPermitNoProducers(topo: *Topo, link_id: usize) void {
+    tk_topob_link_permit_no_producers(topo, link_id);
 }
 
 pub fn topobTile(topo: *Topo, tile_name: [*:0]const u8, tile_wksp: [*:0]const u8, metrics_wksp: [*:0]const u8, cpu_idx: usize) usize {

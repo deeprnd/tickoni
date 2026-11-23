@@ -5,18 +5,20 @@
 
    Who sends what:
 
-     tkings  -> tkagnt   multipart, TK_MP_DIR_REQUEST, TK_MP_CT_AGENT_REQUEST
-                         body = TkAgentRequestHdr + prompt bytes
+     tkdisp  -> tkagnt   one fragment, TkAgentRequestMsg (scope + prompt_ref, no prompt bytes)
      tkagnt  -> tkmodl   multipart, TK_MP_DIR_REQUEST, TK_MP_CT_CHAT|EMBEDDING
-                         body = ModelRequestMsg + prompt bytes
+                         body = ModelRequestMsg + prompt bytes (from tkagnt's prompt table)
      tkmodl  -> tkagnt   multipart, TK_MP_DIR_RESULT,  TK_MP_CT_CHAT|EMBEDDING
                          body = ModelResultMsg + response bytes (or vector bytes)
      tkmodl  -> tkaudt   one fragment, ModelAuditMsg (hashes only, no content)
      tkagnt  -> tkaudt   one fragment, TkAgentAuditMsg (hashes only, no content)
      tkagnt  -> tkdisp   one fragment, TkAgentResultMsg (hashes and status)
 
-   Only the multipart links carry content.  The audit and terminal-result
-   records are body-free: they hold hashes and attribution metadata.
+   Only the multipart links carry content.  An agent request names its prompt
+   by reference (TkPromptRef); tkagnt resolves the bytes from its
+   content-addressed prompt table, so the spine and tkdisp never carry them.
+   The audit and terminal-result records are body-free: they hold hashes and
+   attribution metadata.  Every record carries the request's trace_id.
 
    One agent request yields one model dispatch and one terminal result.  The
    agent assigns each accepted request a contiguous admission ordinal,
@@ -28,18 +30,30 @@
 #ifndef __TK_AGENT_WIRE_H__
 #define __TK_AGENT_WIRE_H__
 
-#define TK_AGENT_WIRE_VERSION  1
+#define TK_AGENT_WIRE_VERSION  2
 
-/* tkings -> tkagnt body header.  `scope` is a complete ModelRequestMsg whose
-   request_id and prompt_hash the agent overwrites (it assigns agent_seq and
-   tkmodl computes the prompt hash from the bytes it receives). */
+/* A prompt by reference: the SipHash-1-3 message hash (tk_mp_message_hash) of
+   the prompt bytes and their length.  tkagnt looks the pair up in its prompt
+   table; the bytes themselves never travel on the spine. */
+typedef struct {
+    uint64_t  prompt_hash;             /* 0  */
+    uint32_t  prompt_len;              /* 8  */
+    uint32_t  _pad;                    /* 12 */
+} TkPromptRef;                         /* 16 */
+
+/* One agent request: the agent-request body of a TkEvent, and the single
+   fragment tkdisp sends to tkagnt.  `scope` is a complete ModelRequestMsg;
+   tkdisp stamps scope.run_id and scope.trace_id from the event, tkagnt
+   overwrites request_id (its admission ordinal) and prompt_hash (tkmodl
+   computes it from the bytes it receives). */
 typedef struct {
     uint16_t         version;          /* 0  - TK_AGENT_WIRE_VERSION */
     uint8_t          request_type;     /* 2  - TK_AGENT_REQ_* */
     uint8_t          requested_tier;   /* 3  - tier ordinal; TK_AGENT_TIER_NONE only for embedding */
     uint32_t         _pad;             /* 4  */
-    ModelRequestMsg  scope;            /* 8  */
-} TkAgentRequestHdr;                   /* 280 */
+    TkPromptRef      prompt_ref;       /* 8  */
+    ModelRequestMsg  scope;            /* 24 */
+} TkAgentRequestMsg;                   /* 304 */
 
 /* Terminal outcome of one agent run. */
 enum {
@@ -73,8 +87,8 @@ typedef struct {
     uint64_t  prompt_hash;       /* 32 */
     uint64_t  response_hash;     /* 40 - canonical hash of the response bytes */
     uint64_t  proposal_hash;     /* 48 - the hash bound into the audit record */
-    uint8_t   model_id[TKMODL_MODEL_ID_LEN]; /* 56 - padded to 88 */
-    uint8_t   _pad[8];           /* 88 */
+    uint8_t   model_id[TKMODL_MODEL_ID_LEN]; /* 56 */
+    uint64_t  trace_id;          /* 88 */
 } TkAgentResultMsg;              /* 96 */
 
 /* tkagnt -> tkaudt.  record_type is RECORD_PROPOSAL for a completed run and
@@ -91,29 +105,44 @@ typedef struct {
     uint64_t  agent_seq;               /* 16 - becomes header.source_offset; the order key */
     uint64_t  capability_envelope_hash; /* 24 - becomes header.capability_envelope_id */
     uint8_t   policy_version[TKMODL_POLICY_VERSION_LEN]; /* 32 */
+    uint64_t  trace_id;                /* 64 - becomes header.trace_id */
     union {
         WireProposalPayload proposal;
         WireDenialPayload   denial;
-    } payload;                         /* 64 */
+    } payload;                         /* 72 */
 } TkAgentAuditMsg;
 
 #define TK_LINK_SIG_AGENT_AUDIT   0x4147UL   /* "AG": tkagnt -> tkaudt */
 #define TK_LINK_SIG_MODEL_RESULT  0x4d52UL   /* "MR": tkmodl -> tkagnt result fragments */
 #define TK_LINK_SIG_MODEL_REQUEST 0x4d51UL   /* "MQ": tkagnt -> tkmodl request fragments */
 #define TK_LINK_SIG_AGENT_RESULT  0x4152UL   /* "AR": tkagnt -> tkdisp */
-#define TK_LINK_SIG_AGENT_REQUEST 0x4151UL   /* "AQ": tkings -> tkagnt request fragments */
+#define TK_LINK_SIG_AGENT_REQUEST 0x4151UL   /* "AQ": tkdisp -> tkagnt request */
 
 /* Link MTUs for the single-fragment records. */
 enum {
-    TK_AGENT_AUDIT_LINK_MTU  = 512,
-    TK_AGENT_RESULT_LINK_MTU = 256
+    TK_AGENT_AUDIT_LINK_MTU   = 512,
+    TK_AGENT_RESULT_LINK_MTU  = 256,
+    TK_AGENT_REQUEST_LINK_MTU = 512
 };
 
-_Static_assert( sizeof(TkAgentRequestHdr)==280UL,  "TkAgentRequestHdr wire size drift" );
-_Static_assert( offsetof(TkAgentRequestHdr, scope)==8UL, "TkAgentRequestHdr.scope ABI drift" );
+/* tkagnt's prompt table (installed by tkagnt_set_prompt before the tile runs):
+   at most TKAGNT_PROMPT_CAP prompts, TKAGNT_PROMPT_STORE_BYTES in all, and one
+   prompt fits a model request message beside its ModelRequestMsg. */
+enum {
+    TKAGNT_PROMPT_CAP         = 16,
+    TKAGNT_PROMPT_STORE_BYTES = 512*1024,
+    TKAGNT_PROMPT_MAX_BYTES   = TK_MP_MAX_MESSAGE_BYTES - (int)sizeof(ModelRequestMsg)
+};
+
+_Static_assert( sizeof(TkPromptRef)==16UL,         "TkPromptRef wire size drift" );
+_Static_assert( sizeof(TkAgentRequestMsg)==304UL,  "TkAgentRequestMsg wire size drift" );
+_Static_assert( offsetof(TkAgentRequestMsg, prompt_ref)==8UL, "TkAgentRequestMsg.prompt_ref ABI drift" );
+_Static_assert( offsetof(TkAgentRequestMsg, scope)==24UL, "TkAgentRequestMsg.scope ABI drift" );
+_Static_assert( sizeof(TkAgentRequestMsg)<=(unsigned long)TK_AGENT_REQUEST_LINK_MTU, "TkAgentRequestMsg must fit its link" );
 _Static_assert( sizeof(TkAgentResultMsg)==96UL,    "TkAgentResultMsg wire size drift" );
 _Static_assert( offsetof(TkAgentResultMsg, run_id)==16UL, "TkAgentResultMsg.run_id ABI drift" );
-_Static_assert( offsetof(TkAgentAuditMsg, payload)==64UL, "TkAgentAuditMsg.payload ABI drift" );
+_Static_assert( offsetof(TkAgentResultMsg, trace_id)==88UL, "TkAgentResultMsg.trace_id ABI drift" );
+_Static_assert( offsetof(TkAgentAuditMsg, payload)==72UL, "TkAgentAuditMsg.payload ABI drift" );
 _Static_assert( sizeof(TkAgentAuditMsg)<=(unsigned long)TK_AGENT_AUDIT_LINK_MTU,   "TkAgentAuditMsg must fit its link" );
 _Static_assert( sizeof(TkAgentResultMsg)<=(unsigned long)TK_AGENT_RESULT_LINK_MTU, "TkAgentResultMsg must fit its link" );
 

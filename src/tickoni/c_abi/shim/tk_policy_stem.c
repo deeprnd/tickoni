@@ -1,11 +1,12 @@
 /* tk_policy_stem.c — Stem fd_stem tile for tkpoly.
  *
  * Follows the fd_stem callback contract in stem_helpers.h:
- * - DURING_FRAG: validate framing and copy the PaymentMessage out of the
+ * - DURING_FRAG: validate framing and copy the TkEvent out of the
  *   input dcache into the staged copy. Stages only — no decision, no
  *   counters, no progress, no publish.
  * - AFTER_FRAG: increment hops, apply the preserved branch order
- *   (malformed > duplicate > high-amount, signed), stamp tkpoly attribution
+ *   (malformed > duplicate > high-amount, signed, for a payment; malformed >
+ *   duplicate > allow for an agent request), stamp tkpoly attribution
  *   for owned decisions, publish once to the precomputed output chunk, bump
  *   allowed/denied and processed, publish both CNC slots, then apply the
  *   event gate.
@@ -42,7 +43,7 @@ typedef struct {
     /* Staging state (written in during_frag, committed in after_frag) */
     int      stage_valid;
     ulong    stage_sz;
-    PaymentMessage staged_message;
+    TkEvent staged_message;
 
     /* Output dcache allocation state (computed in unprivileged_init) */
     void *   out_wksp;
@@ -159,6 +160,19 @@ tkpoly_policy_helper( uint8_t  decision,
     return POLICY_ALLOW;
 }
 
+/* An agent request is proposal-first and never executes, so it carries no
+   financial exposure to gate here: past malformed and duplicate it is allowed
+   (plan v2.NN rev 2, resolved decision O1).  The model and agent governance
+   (allowlists, budgets, limits) stays with tkmodl and tkagnt. */
+uint8_t
+tkpoly_agent_request_helper( uint8_t decision, int is_duplicate ) {
+    if (decision == POLICY_MALFORMED_DROP)
+        return POLICY_MALFORMED_DROP;
+    if (is_duplicate)
+        return POLICY_DUPLICATE_DROP;
+    return POLICY_ALLOW;
+}
+
 /* ─── Scratch-base counter readers ─── */
 
 ulong
@@ -241,7 +255,7 @@ tkpoly_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     if (FD_UNLIKELY(!ctx->wksp))
         FD_LOG_ERR(( "tkpoly: input workspace is not joined" ));
     fd_topo_link_t const * in_link = &topo->links[tile->in_link_id[0]];
-    if (FD_UNLIKELY(!in_link->dcache || in_link->mtu < PAYMENT_MSG_SIZE))
+    if (FD_UNLIKELY(!in_link->dcache || in_link->mtu < TK_EVENT_SIZE))
         FD_LOG_ERR(( "tkpoly: invalid input dcache or mtu %lu", in_link->mtu ));
 
     /* Compact chunk bounds for the input dcache, indexed relative to the
@@ -254,7 +268,7 @@ tkpoly_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     /* Compute the output dcache workspace fields once, so the per-fragment
        path is one copy plus one publish.  Matches the tkdedu/tknorm pattern. */
     fd_topo_link_t const * out_link = &topo->links[tile->out_link_id[0]];
-    if (FD_UNLIKELY(!out_link->dcache || out_link->mtu < PAYMENT_MSG_SIZE))
+    if (FD_UNLIKELY(!out_link->dcache || out_link->mtu < TK_EVENT_SIZE))
         FD_LOG_ERR(( "tkpoly: invalid output dcache or mtu %lu", out_link->mtu ));
     ctx->out_wksp = fd_topo_obj_wksp_base(topo, out_link->dcache_obj_id);
     if (FD_UNLIKELY(!ctx->out_wksp))
@@ -280,7 +294,7 @@ tkpoly_during_frag( tkpoly_ctx_t * ctx,
 
     ctx->stage_valid = 0;
 
-    if (!stk_validate_frag(sz, PAYMENT_MSG_SIZE, ctx->wksp))
+    if (!stk_validate_frag(sz, TK_EVENT_SIZE, ctx->wksp))
         return;
 
     /* Chunk bounds: must be [in_chunk0, in_wmark].  Prevents out-of-bounds
@@ -289,12 +303,12 @@ tkpoly_during_frag( tkpoly_ctx_t * ctx,
     if (FD_UNLIKELY(chunk < ctx->in_chunk0 || chunk > ctx->in_wmark))
         return;
 
-    PaymentMessage const * msg_in = stk_chunk_to_gaddr(ctx->wksp, chunk);
+    TkEvent const * msg_in = stk_chunk_to_gaddr(ctx->wksp, chunk);
 
     /* Stage the input message */
-    memcpy(&ctx->staged_message, msg_in, sizeof(PaymentMessage));
+    memcpy(&ctx->staged_message, msg_in, sizeof(TkEvent));
     ctx->stage_valid = 1;
-    ctx->stage_sz = sizeof(PaymentMessage);
+    ctx->stage_sz = sizeof(TkEvent);
 }
 
 static void
@@ -312,18 +326,19 @@ tkpoly_after_frag( tkpoly_ctx_t *      ctx,
         return;
     ctx->stage_valid = 0;
 
-    PaymentMessage * msg = &ctx->staged_message;
+    TkEvent * msg = &ctx->staged_message;
 
     /* One hop per consumed event, counted on the commit path so an
        abandoned speculative read never inflates it. */
     msg->pipeline_hops += 1;
 
-    uint8_t const outcome = tkpoly_policy_helper(
-        msg->decision,
-        (int)msg->duplicate,
-        msg->raw.amount_cents,
-        ctx->policy_limit_cents
-    );
+    uint8_t const outcome = msg->kind == TK_EVENT_KIND_PAYMENT
+        ? tkpoly_policy_helper(
+              msg->decision,
+              (int)msg->duplicate,
+              msg->body.payment.amount_cents,
+              ctx->policy_limit_cents)
+        : tkpoly_agent_request_helper(msg->decision, (int)msg->duplicate);
 
     /* The helper returns MALFORMED_DROP only for an incoming malformed_drop,
        which tknorm already decided and attributed.  Preserving both is the
@@ -352,7 +367,7 @@ tkpoly_after_frag( tkpoly_ctx_t *      ctx,
     memcpy(dst, msg, ctx->stage_sz);
 
     /* (stem, out_idx, sig, chunk, sz, ctl, tsorig, tspub) */
-    fd_stem_publish(stem, 0UL, 0UL, out_chunk, ctx->stage_sz, 0UL, 0UL, 0UL);
+    fd_stem_publish(stem, 0UL, TK_LINK_SIG_EVENT, out_chunk, ctx->stage_sz, fd_frag_meta_ctl(0UL, 1, 1, 0), 0UL, 0UL);
     ctx->out_chunk = fd_dcache_compact_next(
         out_chunk,
         ctx->stage_sz,

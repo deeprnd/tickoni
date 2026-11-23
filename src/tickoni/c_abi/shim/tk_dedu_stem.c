@@ -1,7 +1,7 @@
 /* tk_dedu_stem.c — Stem fd_stem tile for tkdedu.
 
    Follows the fd_stem callback contract in stem_helpers.h:
-   - DURING_FRAG: validate framing, copy the PaymentMessage out of the input
+   - DURING_FRAG: validate framing, copy the TkEvent out of the input
      dcache into the staging buffer, increment pipeline_hops, set stage_valid.
      Stages only — no dedupe write, no counters, no progress, no publish.
    - AFTER_FRAG: skip dedup for malformed_drop, linear scan
@@ -69,8 +69,8 @@ typedef struct {
     /* Workspace pointer for input dcache reads */
     void *wksp;
 
-    /* Scratch-allocated output PaymentMessage buffer */
-    PaymentMessage *output_msg;
+    /* Scratch-allocated output TkEvent buffer */
+    TkEvent *output_msg;
 
     /* Event count gating */
     uint64_t event_count;
@@ -128,7 +128,7 @@ static void tkdedu_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 */
 
 /* Alignment of the whole tile scratch object: the context, the dedupe
-   arrays and the output PaymentMessage all live in this one block, and
+   arrays and the output TkEvent all live in this one block, and
    tkdedu_scratch_footprint_tile() lays them out from offset 0, so the
    object's base must satisfy the strictest of them.  Derived from the
    context struct rather than restated as a literal — this is the single
@@ -186,8 +186,8 @@ tkdedu_scratch_footprint_tile( fd_topo_tile_t const * tile ) {
     footprint = arr_align + sizeof(uint64_t) * event_count * 2;
 
     /* output_msg follows aligned arrays */
-    footprint = fd_ulong_align_up( footprint, alignof(PaymentMessage) );
-    footprint += sizeof(PaymentMessage) * TKDEDU_OUTPUT_CAPACITY;
+    footprint = fd_ulong_align_up( footprint, alignof(TkEvent) );
+    footprint += sizeof(TkEvent) * TKDEDU_OUTPUT_CAPACITY;
 
     return footprint;
 }
@@ -240,8 +240,8 @@ tkdedu_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
 
     /* Point output_msg at scratch block after arrays */
     ulong out_align = fd_ulong_align_up( (ulong)arr + sizeof(uint64_t) * ctx->seen_cap * 2,
-                                          alignof(PaymentMessage) );
-    ctx->output_msg = (PaymentMessage *)out_align;
+                                          alignof(TkEvent) );
+    ctx->output_msg = (TkEvent *)out_align;
 
     FD_LOG_NOTICE(( "tkdedu: privileged init ctx=%p seen_keys=%p seen_hashes=%p output=%p wksp=%p",
                     ctx, ctx->seen_keys, ctx->seen_hashes, ctx->output_msg, ctx->wksp ));
@@ -264,7 +264,7 @@ tkdedu_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     /* One pipeline output (index 0), plus the optional diagnostic link last. */
     stk_diag_out_init(&ctx->diag, topo, tile, 1UL);
     fd_topo_link_t const * out_link = &topo->links[tile->out_link_id[0]];
-    if (FD_UNLIKELY(!out_link->dcache || out_link->mtu < PAYMENT_MSG_SIZE))
+    if (FD_UNLIKELY(!out_link->dcache || out_link->mtu < TK_EVENT_SIZE))
         FD_LOG_ERR(( "tkdedu: invalid output dcache or mtu %lu", out_link->mtu ));
     ctx->out_wksp = fd_topo_obj_wksp_base(topo, out_link->dcache_obj_id);
     if (FD_UNLIKELY(!ctx->out_wksp))
@@ -293,18 +293,18 @@ tkdedu_during_frag( tkdedu_ctx_t * ctx,
     ctx->stage_valid = 0;
 
     /* Shared boilerplate: empty check, size check, wksp check, chunk→gaddr */
-    if (!stk_validate_frag(sz, PAYMENT_MSG_SIZE, ctx->wksp))
+    if (!stk_validate_frag(sz, TK_EVENT_SIZE, ctx->wksp))
         return;
-    PaymentMessage const * msg_in = stk_chunk_to_gaddr(ctx->wksp, chunk);
+    TkEvent const * msg_in = stk_chunk_to_gaddr(ctx->wksp, chunk);
 
     /* Stage the input.  Everything below this point is a pure function of
        the staged copy; the dedupe table, counters and publish are committed
        in AFTER_FRAG, after fd_stem has confirmed the fragment was intact. */
-    memcpy(ctx->output_msg, msg_in, sizeof(PaymentMessage));
+    memcpy(ctx->output_msg, msg_in, sizeof(TkEvent));
     ctx->output_msg->pipeline_hops += 1;
 
     ctx->stage_valid = 1;
-    ctx->stage_sz = PAYMENT_MSG_SIZE;
+    ctx->stage_sz = TK_EVENT_SIZE;
 }
 
 /* AFTER_FRAG is the commit point: the first callback fd_stem reaches after
@@ -333,7 +333,7 @@ tkdedu_after_frag( tkdedu_ctx_t *      ctx,
         /* Linear scan for duplicate */
         int is_dup = 0;
         for (uint64_t i = 0; i < ctx->seen_count; i++) {
-            if (ctx->seen_keys[i] == ctx->output_msg->raw.idempotency_key &&
+            if (ctx->seen_keys[i] == ctx->output_msg->idempotency_key &&
                 ctx->seen_hashes[i] == ctx->output_msg->event_hash) {
                 is_dup = 1;
                 break;
@@ -355,7 +355,7 @@ tkdedu_after_frag( tkdedu_ctx_t *      ctx,
                          (unsigned long)ctx->seen_cap ));
         } else {
             /* Remember this (key, hash) pair */
-            ctx->seen_keys[ctx->seen_count] = ctx->output_msg->raw.idempotency_key;
+            ctx->seen_keys[ctx->seen_count] = ctx->output_msg->idempotency_key;
             ctx->seen_hashes[ctx->seen_count] = ctx->output_msg->event_hash;
             ctx->seen_count += 1;
         }
@@ -367,7 +367,7 @@ tkdedu_after_frag( tkdedu_ctx_t *      ctx,
     memcpy(dst, ctx->output_msg, ctx->stage_sz);
 
     /* (stem, out_idx, sig, chunk, sz, ctl, tsorig, tspub) */
-    fd_stem_publish(stem, 0UL, 0UL, out_chunk, ctx->stage_sz, 0UL, 0UL, 0UL);
+    fd_stem_publish(stem, 0UL, TK_LINK_SIG_EVENT, out_chunk, ctx->stage_sz, fd_frag_meta_ctl(0UL, 1, 1, 0), 0UL, 0UL);
     ctx->out_chunk = fd_dcache_compact_next(
         out_chunk,
         ctx->stage_sz,

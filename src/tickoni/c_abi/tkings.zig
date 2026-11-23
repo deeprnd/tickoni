@@ -1,22 +1,12 @@
-/// Narrow FFI for the tkings fd_stem producer.
+/// Narrow FFI for the tkings fd_stem ingestion tile. Its only source is its
+/// input link (tk_ingest_stem.c); nothing here installs a generator.
 const std = @import("std");
 const audit_mod = @import("audit_mod");
 
-pub const PaymentMessage = audit_mod.PaymentMessage;
-
-pub const Generator = *const fn (u64, *PaymentMessage) callconv(.c) void;
-/// Test-only agent-request source (tk_ingest_stem.h): returns the length of
-/// the request for the offset and sets the message bytes and run id; 0 = none.
-pub const RequestBuilder = *const fn (u64, *[*]const u8, *u64) callconv(.c) usize;
-/// Sees each fragment before it is published (offset, frag_idx, frag_cnt,
-/// fragment bytes, size); may edit it; nonzero withholds it.
-pub const FragmentHook = *const fn (u64, u32, u32, [*]u8, usize) callconv(.c) c_int;
+pub const TkEvent = audit_mod.TkEvent;
 
 extern fn tkings_set_event_count(event_count: u64) void;
-extern fn tkings_set_payment_generator(generator: Generator) void;
-extern fn tkings_set_request_source(builder: RequestBuilder, hook: ?FragmentHook) void;
-extern fn tkings_set_stuck_hook(after_messages: u64, sleep_ns: u64) void;
-extern fn tkings_set_crash_after_heartbeats(heartbeat_count: u32) void;
+extern fn tkings_framing_ok(ev: *const TkEvent) c_int;
 extern fn tk_get_ingest_run_name() [*:0]const u8;
 extern fn tk_get_ingest_run_tile() ?*anyopaque;
 extern fn tkings_tile_scratch_align() usize;
@@ -26,27 +16,87 @@ pub fn setEventCount(event_count: u64) void {
     tkings_set_event_count(event_count);
 }
 
-pub fn setPaymentGenerator(generator: Generator) void {
-    tkings_set_payment_generator(generator);
+/// Whether tkings would forward `ev` (its canonical framing).
+pub fn framingOk(ev: *const TkEvent) bool {
+    return tkings_framing_ok(ev) != 0;
 }
 
-pub fn setRequestSource(builder: RequestBuilder, hook: ?FragmentHook) void {
-    tkings_set_request_source(builder, hook);
+fn validEvent() TkEvent {
+    var ev = std.mem.zeroes(TkEvent);
+    ev.version = audit_mod.TK_EVENT_WIRE_VERSION;
+    ev.kind = audit_mod.TK_EVENT_KIND_PAYMENT;
+    ev.source = audit_mod.TK_EVENT_SOURCE_TKAPI;
+    ev.trace_id = 1;
+    return ev;
 }
 
-pub fn setStuckHook(after_messages: u64, sleep_ns: u64) void {
-    tkings_set_stuck_hook(after_messages, sleep_ns);
-}
-
-pub fn setCrashAfterHeartbeats(heartbeat_count: u32) void {
-    tkings_set_crash_after_heartbeats(heartbeat_count);
-}
-
-test "tkings stem descriptor and payment ABI" {
+test "tkings stem descriptor and event ABI" {
     try std.testing.expectEqualStrings("tkings", std.mem.sliceTo(tk_get_ingest_run_name(), 0));
     try std.testing.expect(tk_get_ingest_run_tile() != null);
     try std.testing.expect(tkings_tile_scratch_align() > 0);
     try std.testing.expect(tkings_tile_scratch_footprint() > 0);
-    try std.testing.expectEqual(@as(usize, 32), @sizeOf(audit_mod.RawPayment));
-    try std.testing.expectEqual(@as(usize, 56), @sizeOf(PaymentMessage));
+    try std.testing.expectEqual(@as(usize, 360), @sizeOf(TkEvent));
+    try std.testing.expect(@sizeOf(TkEvent) <= audit_mod.TK_EVENT_LINK_MTU);
+}
+
+test "tkings framing: a canonical event passes, from tkapi or tkrepl" {
+    var ev = validEvent();
+    try std.testing.expect(framingOk(&ev));
+    ev.kind = audit_mod.TK_EVENT_KIND_AGENT_REQUEST;
+    try std.testing.expect(framingOk(&ev));
+    ev.source = audit_mod.TK_EVENT_SOURCE_TKREPL;
+    ev.flags = audit_mod.TK_EVENT_FLAG_REPLAY;
+    try std.testing.expect(framingOk(&ev));
+}
+
+test "tkings framing: each malformed envelope field fails closed" {
+    const Mutate = *const fn (*TkEvent) void;
+    const cases = [_]Mutate{
+        struct {
+            fn f(e: *TkEvent) void {
+                e.version = audit_mod.TK_EVENT_WIRE_VERSION + 1;
+            }
+        }.f,
+        struct {
+            fn f(e: *TkEvent) void {
+                e.kind = 0;
+            }
+        }.f,
+        struct {
+            fn f(e: *TkEvent) void {
+                e.kind = 3;
+            }
+        }.f,
+        struct {
+            fn f(e: *TkEvent) void {
+                e.source = 0;
+            }
+        }.f,
+        struct {
+            fn f(e: *TkEvent) void {
+                e.source = audit_mod.TK_EVENT_SOURCE_CNT;
+            }
+        }.f,
+        struct {
+            fn f(e: *TkEvent) void {
+                e.trace_id = 0;
+            }
+        }.f,
+        struct {
+            fn f(e: *TkEvent) void {
+                e.flags = 0x80;
+            }
+        }.f,
+        // Only tkrepl may mark an event as a replay.
+        struct {
+            fn f(e: *TkEvent) void {
+                e.flags = audit_mod.TK_EVENT_FLAG_REPLAY;
+            }
+        }.f,
+    };
+    for (cases) |mutate| {
+        var ev = validEvent();
+        mutate(&ev);
+        try std.testing.expect(!framingOk(&ev));
+    }
 }

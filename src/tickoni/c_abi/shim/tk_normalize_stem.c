@@ -1,10 +1,12 @@
 /* tk_normalize_stem.c — Stem fd_stem tile for tknorm.
 
    Follows the fd_stem callback contract in stem_helpers.h:
-   - DURING_FRAG: validate framing (currency=USD, amount_cents>0, not
-     malformed), copy the PaymentMessage out of the input dcache into the
-     staging buffer, compute the stable event hash, stamp decision/decided_by,
-     set stage_valid.  Stages only — no counters, no progress, no publish.
+   - DURING_FRAG: copy the TkEvent out of the input dcache into the staging
+     buffer, validate the kind's fields (payment: currency=USD,
+     amount_cents>0, not malformed; agent request: wire versions, request
+     type and prompt reference), compute the canonical event hash, stamp
+     decision/decided_by, set stage_valid.  Stages only — no counters, no
+     progress, no publish.
    - AFTER_FRAG: bump the normalized/invalid counters from the staged
      decision, publish to the output dcache via fd_stem_publish, publish
      progress, publish the diagnostic fragment to tkdiag when the topology
@@ -62,8 +64,8 @@ typedef struct {
     /* Workspace pointer for dcache writes */
     void *wksp;
 
-    /* Scratch-allocated output PaymentMessage buffer */
-    PaymentMessage *output_msg;
+    /* Scratch-allocated output TkEvent buffer */
+    TkEvent *output_msg;
 
     /* Event count gating */
     uint64_t event_count;
@@ -116,34 +118,85 @@ static void tknorm_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile );
 #undef STEM_CALLBACK_AFTER_FRAG
 #undef STEM_CALLBACK_SHOULD_SHUTDOWN
 
-/* ─── FNV-1a 64-bit hash — matches runtime.zig:stableEventHash exactly ───
-   The Zig code uses AUDIT_INITIAL_HASH (0ULL) as seed, NOT the
-   standard FNV offset basis.  Field order: idempotency_key(u64),
-   account_id(u32), amount_cents(i64→u64 bitcast), currency(3 bytes). */
-/* ─── FNV-1a 64-bit hash (internal, used by DURING_FRAG) ─── */
+/* ─── Canonical event hash: FNV-1a 64-bit, seed AUDIT_INITIAL_HASH (0) ───
+
+   Payment: matches runtime.zig:stableEventHash exactly.  Field order:
+   idempotency_key(u64), account_id(u32), amount_cents(i64->u64 bitcast),
+   currency(3 bytes), each little-endian byte by byte.
+
+   Agent request: the kind byte, idempotency_key(u64), then the bytes of the
+   request with every field that is not request content zeroed -- the
+   per-request identities other tiles stamp (scope.run_id, scope.trace_id,
+   scope.request_id, scope.prompt_hash) and all padding.  Two requests for the
+   same work hash the same whatever trace they belong to, so tkdedu's
+   (idempotency_key, event_hash) rule holds for both kinds. */
+static inline void
+tknorm_fnv_u64( uint64_t * h, uint64_t x, int n ) {
+    for( int i=0; i<n; i++ ) { *h ^= (x & 0xff); *h *= 0x100000001b3ULL; x >>= 8; }
+}
+
+static inline void
+tknorm_fnv_bytes( uint64_t * h, uint8_t const * p, ulong n ) {
+    for( ulong i=0UL; i<n; i++ ) { *h ^= p[i]; *h *= 0x100000001b3ULL; }
+}
+
 static uint64_t
-tknorm_stable_event_hash( RawPayment const * raw ) {
+tknorm_event_hash( TkEvent const * ev ) {
     uint64_t h = 0ULL;  /* AUDIT_INITIAL_HASH == 0 in audit_consts.h */
-
-    /* Hash idempotency_key (u64, byte by byte, little-endian) */
-    { uint64_t x = raw->idempotency_key; for (int i = 0; i < 8; i++) { h ^= (x & 0xff); h *= 0x100000001b3ULL; x >>= 8; } }
-
-    /* Hash account_id (u32, byte by byte, little-endian) */
-    { uint32_t x = raw->account_id; for (int i = 0; i < 4; i++) { h ^= (x & 0xff); h *= 0x100000001b3ULL; x >>= 8; } }
-
-    /* Hash amount_cents (i64 → u64 bitcast, byte by byte, little-endian) */
-    { uint64_t x = (uint64_t)(int64_t)raw->amount_cents; for (int i = 0; i < 8; i++) { h ^= (x & 0xff); h *= 0x100000001b3ULL; x >>= 8; } }
-
-    /* Hash currency (3 bytes) */
-    for (int i = 0; i < 3; i++) { h ^= raw->currency[i]; h *= 0x100000001b3ULL; }
-
+    if( ev->kind==TK_EVENT_KIND_AGENT_REQUEST ) {
+        TkAgentRequestMsg canon = ev->body.agent_request;
+        canon._pad             = 0U;
+        canon.prompt_ref._pad  = 0U;
+        canon.scope._pad0      = 0U;
+        canon.scope.run_id     = 0UL;
+        canon.scope.trace_id   = 0UL;
+        canon.scope.request_id = 0UL;
+        canon.scope.prompt_hash = 0UL;
+        uint8_t kind = ev->kind;
+        tknorm_fnv_bytes( &h, &kind, 1UL );
+        tknorm_fnv_u64( &h, ev->idempotency_key, 8 );
+        tknorm_fnv_bytes( &h, (uint8_t const *)&canon, sizeof(canon) );
+        return h;
+    }
+    TkEventPayment const * p = &ev->body.payment;
+    tknorm_fnv_u64( &h, ev->idempotency_key, 8 );
+    tknorm_fnv_u64( &h, (uint64_t)p->account_id, 4 );
+    tknorm_fnv_u64( &h, (uint64_t)p->amount_cents, 8 );
+    tknorm_fnv_bytes( &h, p->currency, 3UL );
     return h;
 }
 
-/* ─── Exported wrapper for FFI unit tests ─── */
+/* The kind's own fields.  tkings has already checked the envelope. */
+static int
+tknorm_event_valid( TkEvent const * ev ) {
+    if( ev->kind==TK_EVENT_KIND_PAYMENT ) {
+        TkEventPayment const * p = &ev->body.payment;
+        if( p->malformed )                        return 0;
+        if( memcmp( p->currency, "USD", 3 )!=0 )  return 0;
+        if( p->amount_cents<=0 )                  return 0;
+        return 1;
+    }
+    if( ev->kind==TK_EVENT_KIND_AGENT_REQUEST ) {
+        TkAgentRequestMsg const * r = &ev->body.agent_request;
+        if( r->version!=TK_AGENT_WIRE_VERSION )                                 return 0;
+        if( r->scope.version!=TKMODL_WIRE_VERSION )                            return 0;
+        if( r->request_type!=TK_AGENT_REQ_CHAT && r->request_type!=TK_AGENT_REQ_EMBEDDING ) return 0;
+        if( r->prompt_ref.prompt_len==0U ||
+            r->prompt_ref.prompt_len>(uint32_t)TKAGNT_PROMPT_MAX_BYTES )       return 0;
+        return 1;
+    }
+    return 0;
+}
+
+/* ─── Exported wrappers for FFI unit tests ─── */
 uint64_t
-tknorm_stable_event_hash_compute( RawPayment const * raw ) {
-    return tknorm_stable_event_hash( raw );
+tknorm_event_hash_compute( TkEvent const * ev ) {
+    return tknorm_event_hash( ev );
+}
+
+int
+tknorm_event_valid_compute( TkEvent const * ev ) {
+    return tknorm_event_valid( ev );
 }
 
 /* ─── Scratch footprint and alignment ───
@@ -155,7 +208,7 @@ tknorm_stable_event_hash_compute( RawPayment const * raw ) {
    so the tile-specific variants below are what it points at. */
 
 /* Alignment of the whole tile scratch object: the context and the output
-   PaymentMessage both live in this one block, which
+   TkEvent both live in this one block, which
    tknorm_scratch_footprint_tile() lays out from offset 0, so the object's
    base must satisfy the strictest of them.  Derived from the context struct
    rather than restated as a literal — this is the single definition of
@@ -171,8 +224,8 @@ tknorm_scratch_footprint_tile( fd_topo_tile_t const * tile ) {
     (void)tile;
     ulong footprint = fd_ulong_align_up( sizeof(tknorm_ctx_t), TKNORM_CTX_ALIGN );
     /* output_msg follows aligned context */
-    footprint = fd_ulong_align_up( footprint, alignof(PaymentMessage) );
-    footprint += sizeof(PaymentMessage) * TKNORM_OUTPUT_CAPACITY;
+    footprint = fd_ulong_align_up( footprint, alignof(TkEvent) );
+    footprint += sizeof(TkEvent) * TKNORM_OUTPUT_CAPACITY;
     return footprint;
 }
 
@@ -211,8 +264,8 @@ tknorm_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     ctx->wksp = stk_derive_wksp(topo, tile, 0);
 
     /* Point output_msg at scratch block after context */
-    ulong ctx_end = fd_ulong_align_up( (ulong)ctx + sizeof(tknorm_ctx_t), alignof(PaymentMessage) );
-    ctx->output_msg = (PaymentMessage *)ctx_end;
+    ulong ctx_end = fd_ulong_align_up( (ulong)ctx + sizeof(tknorm_ctx_t), alignof(TkEvent) );
+    ctx->output_msg = (TkEvent *)ctx_end;
 
     /* Event count for shutdown gating.
        Set by topo_build.build() via tknorm_set_event_count() —
@@ -239,7 +292,7 @@ tknorm_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     /* One pipeline output (index 0), plus the optional diagnostic link last. */
     stk_diag_out_init(&ctx->diag, topo, tile, 1UL);
     fd_topo_link_t const * out_link = &topo->links[tile->out_link_id[0]];
-    if (FD_UNLIKELY(!out_link->dcache || out_link->mtu < PAYMENT_MSG_SIZE))
+    if (FD_UNLIKELY(!out_link->dcache || out_link->mtu < TK_EVENT_SIZE))
         FD_LOG_ERR(( "tknorm: invalid output dcache or mtu %lu", out_link->mtu ));
     ctx->out_wksp = fd_topo_obj_wksp_base(topo, out_link->dcache_obj_id);
     if (FD_UNLIKELY(!ctx->out_wksp))
@@ -268,23 +321,17 @@ tknorm_during_frag( tknorm_ctx_t * ctx,
     ctx->stage_valid = 0;
 
     /* Shared boilerplate: empty check, size check, wksp check, chunk→gaddr */
-    if (!stk_validate_frag(sz, PAYMENT_MSG_SIZE, ctx->wksp))
+    if (!stk_validate_frag(sz, TK_EVENT_SIZE, ctx->wksp))
         return;
-    PaymentMessage const * msg_in = stk_chunk_to_gaddr(ctx->wksp, chunk);
+    TkEvent const * msg_in = stk_chunk_to_gaddr(ctx->wksp, chunk);
 
     /* Stage the input.  Everything below this point is a pure function of
        the staged copy; counters, progress and the publish are committed in
        AFTER_FRAG, after fd_stem has confirmed the fragment was intact. */
-    memcpy(ctx->output_msg, msg_in, sizeof(PaymentMessage));
+    memcpy(ctx->output_msg, msg_in, sizeof(TkEvent));
 
-    /* Validate framing: currency must be "USD", amount_cents > 0, not malformed */
-    int valid = 1;
-    if (msg_in->raw.malformed) valid = 0;
-    if (memcmp(&msg_in->raw.currency, "USD", 3) != 0) valid = 0;
-    if (msg_in->raw.amount_cents <= 0) valid = 0;
-
-    /* Compute stable event hash */
-    ctx->output_msg->event_hash = tknorm_stable_event_hash(&msg_in->raw);
+    int valid = tknorm_event_valid(ctx->output_msg);
+    ctx->output_msg->event_hash = tknorm_event_hash(ctx->output_msg);
 
     /* Stamp pipeline_hops */
     ctx->output_msg->pipeline_hops += 1;
@@ -293,10 +340,10 @@ tknorm_during_frag( tknorm_ctx_t * ctx,
        pick the counter, so no separate ctx flag is needed. */
     ctx->output_msg->decision = valid ? (uint8_t)POLICY_ALLOW
                                      : (uint8_t)POLICY_MALFORMED_DROP;
-    memcpy(ctx->output_msg->decided_by, TILE_ID_TKNORM, sizeof(TILE_ID_TKNORM));
+    memcpy(ctx->output_msg->decided_by, TILE_ID_TKNORM, sizeof(ctx->output_msg->decided_by));
 
     ctx->stage_valid = 1;
-    ctx->stage_sz = PAYMENT_MSG_SIZE;
+    ctx->stage_sz = TK_EVENT_SIZE;
 }
 
 /* AFTER_FRAG is the commit point: the first callback fd_stem reaches after
@@ -329,7 +376,7 @@ tknorm_after_frag( tknorm_ctx_t *      ctx,
     memcpy(dst, ctx->output_msg, ctx->stage_sz);
 
     /* (stem, out_idx, sig, chunk, sz, ctl, tsorig, tspub) */
-    fd_stem_publish(stem, 0UL, 0UL, out_chunk, ctx->stage_sz, 0UL, 0UL, 0UL);
+    fd_stem_publish(stem, 0UL, TK_LINK_SIG_EVENT, out_chunk, ctx->stage_sz, fd_frag_meta_ctl(0UL, 1, 1, 0), 0UL, 0UL);
     ctx->out_chunk = fd_dcache_compact_next(
         out_chunk,
         ctx->stage_sz,

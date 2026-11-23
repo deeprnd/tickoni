@@ -322,6 +322,14 @@ tk_topob_link( void * topo, char const * link_name, char const * wksp_name, ulon
   return link->id;
 }
 
+/* Mirrors fd_topo_link_t.permit_no_producers: the link is fed from outside
+   the tile graph, so fd_topob_finish's "exactly one producer" check accepts
+   it without a tile_out. */
+void
+tk_topob_link_permit_no_producers( void * topo, ulong link_id ) {
+  ((fd_topo_t *)topo)->links[ link_id ].permit_no_producers = 1;
+}
+
 ulong
 tk_topob_tile( void * topo, char const * tile_name, char const * tile_wksp, char const * metrics_wksp, ulong cpu_idx ) {
   fd_topo_tile_t * tile = fd_topob_tile( (fd_topo_t *)topo, tile_name, tile_wksp, metrics_wksp, cpu_idx,

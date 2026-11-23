@@ -65,6 +65,7 @@ extern fn tk_cnc_heartbeat(cnc: *Cnc, now_ns: i64) void;
 extern fn tk_cnc_signal_query(cnc: *const Cnc) u64;
 extern fn tk_cnc_signal(cnc: *Cnc, s: u64) void;
 extern fn tk_cnc_close(cnc: *Cnc) void;
+extern fn tk_cnc_liveness_fault_set(crash_after_heartbeats: u32, stuck_enabled: c_int, stuck_after_heartbeats: u32) void;
 
 // ---------------------------------------------------------------------------
 // Public Zig wrappers.
@@ -129,6 +130,14 @@ pub fn heartbeatQuery(cnc: *const Cnc) u32 {
 /// representation in the C shim before writing the platform-sized C `long`.
 pub fn heartbeat(cnc: *Cnc, now_ns: i64) void {
     tk_cnc_heartbeat(cnc, now_ns);
+}
+
+/// Installs this process's stem-tile liveness faults (tango.c,
+/// tk_cnc_liveness_fault_check): exit(1) at heartbeat `crash_after_heartbeats`
+/// (0 = never), and block forever after `stuck_after_heartbeats` heartbeats
+/// (null = never). Test builds only; the caller gates it.
+pub fn setLivenessFaults(crash_after_heartbeats: u32, stuck_after_heartbeats: ?u32) void {
+    tk_cnc_liveness_fault_set(crash_after_heartbeats, @intFromBool(stuck_after_heartbeats != null), stuck_after_heartbeats orelse 0);
 }
 
 /// Mirrors the upstream cnc signal-query helper.

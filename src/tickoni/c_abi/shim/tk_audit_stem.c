@@ -33,8 +33,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-/* Fixed header values — not carried in PaymentMessage but needed for
-   the audit record and its hash chain. */
+/* Fixed header values — not carried in TkEvent but needed for the audit
+   record and its hash chain. */
 #define AUDIT_RUN_ID        1ULL
 #define AUDIT_LOGICAL_ACTOR 0ULL
 #define AUDIT_POLICY_VER    "v1"
@@ -63,7 +63,7 @@ extern ulong tk_topo_audit_watermark_obj( fd_topo_t const * topo );
    workflow.  No tool or adapter audit record exists yet, so these links are bound
    (the topology declares them) and carry nothing: a fragment that arrives on one
    is not audited. */
-enum { TKAUDT_ROLE_PAYMENT = 0, TKAUDT_ROLE_MODEL = 1, TKAUDT_ROLE_AGENT = 2, TKAUDT_ROLE_IDLE = 3 };
+enum { TKAUDT_ROLE_EVENT = 0, TKAUDT_ROLE_MODEL = 1, TKAUDT_ROLE_AGENT = 2, TKAUDT_ROLE_IDLE = 3 };
 
 typedef struct {
     /* Audit state */
@@ -97,7 +97,7 @@ typedef struct {
        uncommitted ring slot, cleared by AFTER_FRAG once it is committed. */
     int32_t  stage_valid;
 
-    /* Per-input fragment bounds.  tkaudt is a fan-in sink (the payment link
+    /* Per-input fragment bounds.  tkaudt is a fan-in sink (the spine event link
        plus one model-audit link per tkmodl instance), and each input has its
        own dcache, so each has its own chunk range: a chunk that is valid for
        one input can lie outside another's.  Every input shares the one
@@ -108,7 +108,7 @@ typedef struct {
     ulong    in_wmark[TKAUDT_MAX_INPUTS];
 
     /* What each input carries, bound by producer identity at init (not by sig
-       alone): a payment-pipeline link, a tkmodl model-audit link, or the
+       alone): a spine event link, a tkmodl model-audit link, or the
        tkagnt agent-audit link. */
     uint8_t  in_role[TKAUDT_MAX_INPUTS];
 
@@ -121,15 +121,15 @@ typedef struct {
     int      ordered;
     uint64_t next_agent_seq;      /* admission ordinal to commit next; starts at 1 */
     uint64_t agent_committed;     /* agent records committed */
-    /* Event order (ordered mode with a payment-pipeline input).  The chain is one
-       sequence in event order: for event n, its payment record, then (if the run
-       has one) its model record, then its agent record.  Payment records arrive
+    /* Event order (ordered mode with a spine event input).  The chain is one
+       sequence in event order: for event n, its policy record, then (if the run
+       has one) its model record, then its agent record.  Policy records arrive
        in event order and agent runs are admitted in event order, so the n-th of
-       each belong together.  A payment record is taken only once the agent record
+       each belong together.  A policy record is taken only once the agent record
        of the previous event is committed (BEFORE_FRAG), and an agent record is
-       committed only once the payment record of its own event is. */
-    int      has_payment_input;   /* a payment-pipeline link feeds an ordered tkaudt */
-    uint64_t payment_committed;   /* payment records committed (ordered mode) */
+       committed only once the policy record of its own event is. */
+    int      has_event_input;   /* a spine event link feeds an ordered tkaudt */
+    uint64_t event_committed;   /* policy records committed (ordered mode) */
     uint64_t rejected;            /* records refused: late, duplicate, out of order, or no room */
 
     /* Committed-order watermark (fseq, single writer).  Holds the admission
@@ -336,11 +336,11 @@ tk_audit_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile 
         else if( producer && strcmp( producer, TILE_ID_TKAGNT )==0 ) ctx->in_role[i] = TKAUDT_ROLE_AGENT;
         else if( producer && ( strcmp( producer, TILE_ID_TKTOOL )==0 ||
                                strcmp( producer, TILE_ID_TKADPT )==0 ) ) ctx->in_role[i] = TKAUDT_ROLE_IDLE;
-        else                                                         ctx->in_role[i] = TKAUDT_ROLE_PAYMENT;
+        else                                                         ctx->in_role[i] = TKAUDT_ROLE_EVENT;
         if( ctx->in_role[i]==TKAUDT_ROLE_AGENT ) ctx->ordered = 1;
     }
     for( ulong i=0UL; i<tile->in_cnt; i++ )
-        if( ctx->in_role[i]==TKAUDT_ROLE_PAYMENT ) ctx->has_payment_input = 1;
+        if( ctx->in_role[i]==TKAUDT_ROLE_EVENT ) ctx->has_event_input = 1;
 
     /* Publish the committed-order watermark when the topology declares one. */
     ulong wm_obj = tk_topo_audit_watermark_obj( topo );
@@ -364,9 +364,9 @@ tk_audit_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile 
    include timestamp_ns — it is deliberately excluded so that replay
    substitution (which zero-fills timestamp_ns) does not break the chain.
 
-   Field order (must match hash.zig exactly):
-     schema_version, run_id, seq, source_offset, tile_id,
-     logical_actor_id, policy_version, capability_envelope_id (u64),
+   Field order (must match hash.zig exactly; header fields in layout order):
+     schema_version, trace_id, run_id, seq, source_offset, tile_id,
+     logical_actor_id, policy_version, case_id, capability_envelope_id (u64),
      prev_hash, version, platform_tier, isolation_tier,
      release_digest, manifest_id, record_type, payload fields
 */
@@ -384,12 +384,14 @@ tk_audit_compute_record_hash( AuditEvent * event ) {
        the Zig codec's (owner-approved correction; see the tkmodl migration
        plan). */
     fd_siphash13_append( sip, (uchar *)&event->header.schema_version, sizeof(event->header.schema_version) );
+    fd_siphash13_append( sip, (uchar *)&event->header.trace_id,        sizeof(event->header.trace_id) );
     fd_siphash13_append( sip, (uchar *)&event->header.run_id,          sizeof(event->header.run_id) );
     fd_siphash13_append( sip, (uchar *)&event->header.seq,             sizeof(event->header.seq) );
     fd_siphash13_append( sip, (uchar *)&event->header.source_offset,   sizeof(event->header.source_offset) );
     fd_siphash13_append( sip, event->header.tile_id,                   sizeof(event->header.tile_id) );
     fd_siphash13_append( sip, (uchar *)&event->header.logical_actor_id,sizeof(event->header.logical_actor_id) );
     fd_siphash13_append( sip, event->header.policy_version,            sizeof(event->header.policy_version) );
+    fd_siphash13_append( sip, (uchar *)&event->header.case_id,         sizeof(event->header.case_id) );
     fd_siphash13_append( sip, (uchar *)&event->header.capability_envelope_id,
                          sizeof(event->header.capability_envelope_id) );
     fd_siphash13_append( sip, (uchar *)&event->header.prev_hash,       sizeof(event->header.prev_hash) );
@@ -469,20 +471,20 @@ tk_audit_compute_record_hash( AuditEvent * event ) {
     return fd_siphash13_fini( sip );
 }
 
-/* Event order: the payment record of event n is left queued upstream (return -1:
+/* Event order: the policy record of event n is left queued upstream (return -1:
    lossless backpressure, nothing is dropped) until the agent record of event n-1
-   is committed, so the chain reads payment, model, agent for one event before
-   the next event's payment record.  Every other input, and every topology
-   without both a payment chain and agent runs, is taken as it arrives. */
+   is committed, so the chain reads policy, model, agent for one event before
+   the next event's policy record.  Every other input, and every topology
+   without both a spine event chain and agent runs, is taken as it arrives. */
 static int
 tk_audit_before_frag( tk_audit_ctx_t * ctx,
                       ulong            in_idx,
                       ulong            seq,
                       ulong            sig ) {
     (void)seq; (void)sig;
-    if( FD_LIKELY( !ctx->ordered || !ctx->has_payment_input ) ) return 0;
-    if( in_idx>=ctx->in_cnt || ctx->in_role[in_idx]!=TKAUDT_ROLE_PAYMENT ) return 0;
-    return ctx->payment_committed > ctx->agent_committed ? -1 : 0;
+    if( FD_LIKELY( !ctx->ordered || !ctx->has_event_input ) ) return 0;
+    if( in_idx>=ctx->in_cnt || ctx->in_role[in_idx]!=TKAUDT_ROLE_EVENT ) return 0;
+    return ctx->event_committed > ctx->agent_committed ? -1 : 0;
 }
 
 static void
@@ -519,10 +521,10 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
     } else if( is_agent ) {
         if( FD_UNLIKELY( sig!=TK_LINK_SIG_AGENT_AUDIT ) ) return;
     } else {
-        if( FD_UNLIKELY( sig!=TK_LINK_SIG_PAYMENT ) ) return;
+        if( FD_UNLIKELY( sig!=TK_LINK_SIG_EVENT ) ) return;
     }
 
-    ulong want = is_model ? sizeof(ModelAuditMsg) : is_agent ? sizeof(TkAgentAuditMsg) : (ulong)PAYMENT_MSG_SIZE;
+    ulong want = is_model ? sizeof(ModelAuditMsg) : is_agent ? sizeof(TkAgentAuditMsg) : (ulong)TK_EVENT_SIZE;
     if( !stk_validate_frag( sz, want, ctx->wksp ) )
         return;
 
@@ -550,6 +552,7 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
             (ulong)m.record_type!=sig )
             return;
 
+        event->header.trace_id        = m.trace_id;
         event->header.run_id          = m.run_id;
         event->header.source_offset   = m.request_id;
         memcpy( event->header.tile_id, TILE_ID_TKMODL, sizeof(event->header.tile_id) );
@@ -573,6 +576,7 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
         if( a.record_type!=RECORD_PROPOSAL && a.record_type!=RECORD_DENIAL ) return;
         if( a.agent_seq==0UL ) return;
 
+        event->header.trace_id        = a.trace_id;
         event->header.run_id          = a.run_id;
         event->header.source_offset   = a.agent_seq;
         memcpy( event->header.tile_id, TILE_ID_TKAGNT, sizeof(event->header.tile_id) );
@@ -588,13 +592,15 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
         return;
     }
 
-    PaymentMessage const * msg = stk_chunk_to_gaddr(ctx->wksp, chunk);
+    TkEvent const * msg = stk_chunk_to_gaddr(ctx->wksp, chunk);
 
     /* Populate header from available sources.
-       PaymentMessage provides: source_offset, event_hash,
-       decision, decided_by, pipeline_hops.
+       TkEvent provides: trace_id, case_id, source_offset, event_hash,
+       decision, decided_by.
        Fixed constants provide: run_id, logical_actor, policy_version. */
-    event->header.source_offset   = msg->raw.source_offset;
+    event->header.trace_id        = msg->trace_id;
+    event->header.case_id         = msg->case_id;
+    event->header.source_offset   = msg->source_offset;
     memcpy( event->header.tile_id, msg->decided_by, sizeof(msg->decided_by) );
     memcpy( event->header.policy_version, AUDIT_POLICY_VER,
             sizeof(AUDIT_POLICY_VER) );
@@ -642,8 +648,8 @@ tk_audit_drain( tk_audit_ctx_t * ctx ) {
         ulong head = ctx->agent_held_head;
         uint64_t seq = ctx->agent_held[head].seq;
 
-        /* Event order: this event's payment record comes first. */
-        if( ctx->has_payment_input && ctx->payment_committed<seq ) return;
+        /* Event order: this event's policy record comes first. */
+        if( ctx->has_event_input && ctx->event_committed<seq ) return;
 
         if( ctx->agent_held[head].has_model ) {
             ulong m = TKAUDT_HOLD;
@@ -687,13 +693,13 @@ tk_audit_after_frag( tk_audit_ctx_t *    ctx,
         return;
     ctx->stage_valid = 0;
 
-    if( ctx->stage_role==TKAUDT_ROLE_PAYMENT || !ctx->ordered ) {
+    if( ctx->stage_role==TKAUDT_ROLE_EVENT || !ctx->ordered ) {
         /* Arrival order is the order: a single deterministic producer chain,
            or no agent to order against.  (With both, BEFORE_FRAG has already
            held this record back until the previous event's agent record is
            committed: see the event-order note in the context.) */
-        if( tk_audit_commit( ctx, &ctx->stage ) && ctx->stage_role==TKAUDT_ROLE_PAYMENT )
-            ctx->payment_committed += 1UL;
+        if( tk_audit_commit( ctx, &ctx->stage ) && ctx->stage_role==TKAUDT_ROLE_EVENT )
+            ctx->event_committed += 1UL;
     } else if( ctx->stage_role==TKAUDT_ROLE_MODEL ) {
         /* A record for an ordinal already committed (or an absent one) is late:
            its agent record said no model record would come, or it is a replay. */
@@ -729,13 +735,13 @@ tk_audit_after_frag( tk_audit_ctx_t *    ctx,
     if( ctx->ordered ) tk_audit_drain( ctx );
 
     /* Event-count gating: in ordered mode an agent run is the unit (one per
-       accepted request), and when a payment chain also feeds this tile its
+       accepted request), and when a spine event chain also feeds this tile its
        records must all be in as well; otherwise the record count.  Checked after
        the commit so the gate fires on the Nth unit and the tile exits promptly. */
     uint64_t gate = ctx->audited;
     if( ctx->ordered ) {
         gate = ctx->agent_committed;
-        if( ctx->has_payment_input && ctx->payment_committed<gate ) gate = ctx->payment_committed;
+        if( ctx->has_event_input && ctx->event_committed<gate ) gate = ctx->event_committed;
     }
     STK_EVENT_EXHAUSTED(ctx, ctx->event_count, gate);
 
@@ -875,6 +881,16 @@ tk_audit_record_schema_version( void * scratch, ulong idx ) {
 ulong
 tk_audit_record_source_offset( void * scratch, ulong idx ) {
     return tk_audit_record_at( scratch, idx )->header.source_offset;
+}
+
+ulong
+tk_audit_record_trace_id( void * scratch, ulong idx ) {
+    return tk_audit_record_at( scratch, idx )->header.trace_id;
+}
+
+ulong
+tk_audit_record_case_id( void * scratch, ulong idx ) {
+    return tk_audit_record_at( scratch, idx )->header.case_id;
 }
 
 uint

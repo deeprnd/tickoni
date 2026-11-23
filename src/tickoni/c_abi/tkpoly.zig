@@ -129,7 +129,7 @@ test "tkpoly tile identity — scratch callbacks are non-null" {
 
 test "tkpoly scratch align — describes the context block, not fd_stem's stack scratch" {
     // alignof(tkpoly_ctx_t) == 8: the context holds u64s, pointers and ints,
-    // and PaymentMessage — which the same footprint carves out of the same
+    // and TkEvent — which the same footprint carves out of the same
     // block — is 8-aligned too.
     //
     // 128 (FD_STEM_SCRATCH_ALIGN) here means .scratch_align was wired to the
@@ -266,6 +266,16 @@ test "tkpoly policy helper — zero amount with positive limit => ALLOW" {
 test "tkpoly policy helper — duplicate overrides deny => DUPLICATE_DROP" {
     const got = policyOutcome(POLICY_DENY, true, 50, 100);
     try std.testing.expectEqual(POLICY_DUPLICATE_DROP, got);
+}
+
+extern fn tkpoly_agent_request_helper(decision: u8, is_duplicate: c_int) u8;
+
+test "tkpoly agent-request helper — malformed > duplicate > allow, never an amount denial" {
+    const malformed: u8 = 3;
+    const duplicate: u8 = 4;
+    try std.testing.expectEqual(malformed, tkpoly_agent_request_helper(malformed, 1));
+    try std.testing.expectEqual(duplicate, tkpoly_agent_request_helper(0, 1));
+    try std.testing.expectEqual(@as(u8, 0), tkpoly_agent_request_helper(0, 0));
 }
 
 // ---------------------------------------------------------------------------

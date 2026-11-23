@@ -1,7 +1,6 @@
 /* Shared C schema for the tkaudt stem tile.
-   Matches the Zig audit schema in src/tickoni/schema/audit/audit.zig
-   and the payment pipeline's PaymentMessage/RawPayment in
-   src/tickoni/tiles/payment_pipeline/runtime.zig.
+   Matches the Zig audit schema in src/tickoni/schema/audit/audit.zig.  The
+   spine event envelope (TkEvent) is in tk_event_wire.h, included at the end.
 
    This header is included by tk_audit_stem.c and any other tile that
    needs to read/write audit data in C.
@@ -18,7 +17,7 @@
 
 /* ─── Tile IDs ─── */
 
-#define AUDIT_SCHEMA_VERSION 2
+#define AUDIT_SCHEMA_VERSION 3
 
 /* Committed-order watermark value before tkaudt has committed anything.
    Full 64-bit width on every platform: C's ULONG_MAX is only 32-bit on
@@ -84,44 +83,12 @@ enum {
     RECORD_CASE_CREATION          = 13,
 };
 
-/* ─── RawPayment (matches Zig runtime.RawPayment's in-memory layout) ───
-   Zig's default struct layout places the 64-bit amount before account_id:
-   source_offset=0, idempotency_key=8, amount_cents=16, account_id=24,
-   currency=28, malformed=31.  Total size: 32 bytes. */
-typedef struct {
-    uint64_t  source_offset;
-    uint64_t  idempotency_key;
-    int64_t   amount_cents;
-    uint32_t  account_id;
-    uint8_t   currency[3];
-    uint8_t   malformed;
-} RawPayment;
-
-/* ─── PaymentMessage (matches Zig runtime.PaymentMessage's in-memory layout) ───
-   Sent from tkpoly → tkaudt on the pipeline link.  Total size: 56 bytes. */
-typedef struct {
-    RawPayment raw;
-    uint64_t   event_hash;
-    uint8_t    pipeline_hops;
-    uint8_t    duplicate;
-    uint8_t    decision;
-    uint8_t    decided_by[6];
-} PaymentMessage;
-
-#define PAYMENT_MSG_SIZE sizeof(PaymentMessage)
-
-_Static_assert( sizeof(RawPayment)==32UL, "RawPayment must match Zig's process-link ABI" );
-_Static_assert( offsetof(RawPayment, amount_cents)==16UL, "RawPayment.amount_cents ABI drift" );
-_Static_assert( offsetof(RawPayment, account_id)==24UL, "RawPayment.account_id ABI drift" );
-_Static_assert( sizeof(PaymentMessage)==56UL, "PaymentMessage must match Zig's process-link ABI" );
-_Static_assert( offsetof(PaymentMessage, event_hash)==32UL, "PaymentMessage.event_hash ABI drift" );
-_Static_assert( offsetof(PaymentMessage, decided_by)==43UL, "PaymentMessage.decided_by ABI drift" );
-
 /* ─── Header (matches Zig audit.Header struct) ─── */
 
 typedef struct {
-    uint16_t  schema_version;   /* 0  - audit schema version (2) */
-    uint8_t   _pad0[14];        /* 2  - align run_id to 8 */
+    uint16_t  schema_version;   /* 0  - audit schema version (3) */
+    uint8_t   _pad0[6];         /* 2  - align trace_id to 8 */
+    uint64_t  trace_id;         /* 8  - request trace the record belongs to (TkEvent.trace_id) */
     uint64_t  run_id;           /* 16 - topology run ID */
     uint64_t  seq;              /* 24 - sequence number within run */
     uint64_t  source_offset;    /* 32 - original source offset */
@@ -129,7 +96,7 @@ typedef struct {
     uint8_t   _pad1[2];         /* 46 - align logical_actor_id */
     uint64_t  logical_actor_id; /* 48 - logical actor (0 for pipeline) */
     uint8_t   policy_version[32]; /* 56 - policy version string */
-    uint8_t   _pad2[8];         /* 88 - align capability_envelope_id */
+    uint64_t  case_id;          /* 88 - CaseOps case (TkEvent.case_id); 0 until tkcase assigns one */
     uint64_t  capability_envelope_id; /* 96 - capability envelope reference (simplified stub) */
     uint64_t  timestamp_ns;     /* 112 - nanosecond timestamp */
     uint64_t  prev_hash;        /* 120 - hash chain link */
@@ -259,7 +226,7 @@ typedef struct {
    Source of truth for the C tile, the Zig FFI wrapper (translate-c) and the
    tkaudt model-call record. */
 
-#define TKMODL_WIRE_VERSION        1
+#define TKMODL_WIRE_VERSION        2
 #define TKMODL_MODEL_ID_LEN        32
 #define TKMODL_ROLE_LEN            16
 #define TKMODL_WORKFLOW_LEN        16
@@ -269,9 +236,9 @@ typedef struct {
 #define TKMODL_BUDGET_LEN          32
 #define TKMODL_SCOPE_DIM_LEN       32
 
-/* Fragment `sig` discriminating what a link carries.  Payment-pipeline links
+/* Fragment `sig` discriminating what a link carries.  Spine links (TkEvent)
    publish sig 0; the tkmodl audit link publishes the record type it carries. */
-#define TK_LINK_SIG_PAYMENT        0UL
+#define TK_LINK_SIG_EVENT          0UL
 #define TK_LINK_SIG_MODEL_CALL     ((unsigned long)RECORD_MODEL_CALL)
 #define TK_LINK_SIG_MODEL_DENIAL   ((unsigned long)RECORD_DENIAL)
 
@@ -294,7 +261,7 @@ enum {
 #define TKMODL_REPLAY_MODE_LIVE    0
 #define TKMODL_REPLAY_MODE_REPLAY  1
 
-/* tkings (test-build synthetic source) -> tkmodl.  272 bytes. */
+/* tkagnt -> tkmodl (the scope of an agent request, TkAgentRequestMsg).  280 bytes. */
 typedef struct {
     uint16_t  version;                /* 0   - TKMODL_WIRE_VERSION */
     uint8_t   replay_mode;            /* 2   - TKMODL_REPLAY_MODE_* */
@@ -318,7 +285,8 @@ typedef struct {
     uint8_t   capability_envelope_id[TKMODL_ENVELOPE_LEN];      /* 176 */
     uint8_t   policy_version[TKMODL_POLICY_VERSION_LEN];        /* 208 */
     uint8_t   budget_id[TKMODL_BUDGET_LEN];                     /* 240 */
-} ModelRequestMsg;                    /* 272 */
+    uint64_t  trace_id;               /* 272 - request trace; stamped by tkdisp from the event */
+} ModelRequestMsg;                    /* 280 */
 
 /* tkmodl -> tkagnt.  136 bytes. */
 typedef struct {
@@ -351,10 +319,11 @@ typedef struct {
     uint64_t  request_id;             /* 16 - becomes header.source_offset */
     uint64_t  capability_envelope_hash; /* 24 - becomes header.capability_envelope_id */
     uint8_t   policy_version[TKMODL_POLICY_VERSION_LEN]; /* 32 */
+    uint64_t  trace_id;               /* 64 - becomes header.trace_id */
     union {
         WireModelCallPayload model_call;
         WireDenialPayload    denial;
-    } payload;                        /* 64 */
+    } payload;                        /* 72 */
 } ModelAuditMsg;
 
 /* ─── tkmodl runtime configuration (supervisor -> tkmodl child handoff) ───
@@ -434,13 +403,18 @@ typedef struct {
 
 #define AUDIT_EVENT_SIZE sizeof(AuditEvent)
 
-_Static_assert( sizeof(ModelRequestMsg)==272UL, "ModelRequestMsg wire size drift" );
+_Static_assert( sizeof(ModelRequestMsg)==280UL, "ModelRequestMsg wire size drift" );
+_Static_assert( offsetof(ModelRequestMsg, trace_id)==272UL, "ModelRequestMsg.trace_id ABI drift" );
 _Static_assert( offsetof(ModelRequestMsg, model_id)==80UL, "ModelRequestMsg.model_id ABI drift" );
 _Static_assert( sizeof(ModelResultMsg)==136UL, "ModelResultMsg wire size drift" );
 _Static_assert( offsetof(ModelResultMsg, model_id)==72UL, "ModelResultMsg.model_id ABI drift" );
-_Static_assert( offsetof(ModelAuditMsg, payload)==64UL, "ModelAuditMsg.payload ABI drift" );
+_Static_assert( offsetof(ModelAuditMsg, payload)==72UL, "ModelAuditMsg.payload ABI drift" );
+_Static_assert( offsetof(AuditHeader, trace_id)==8UL, "AuditHeader.trace_id ABI drift" );
+_Static_assert( offsetof(AuditHeader, case_id)==88UL, "AuditHeader.case_id ABI drift" );
+_Static_assert( offsetof(AuditHeader, capability_envelope_id)==96UL, "AuditHeader.capability_envelope_id ABI drift" );
 
 #include "tk_agent_wire.h"
+#include "tk_event_wire.h"
 #include "tk_diag_fragment.h"
 
 #endif /* __AUDIT_SCHEMA_H__ */

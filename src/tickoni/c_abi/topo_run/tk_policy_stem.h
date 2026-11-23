@@ -36,6 +36,9 @@ extern uint8_t tkpoly_policy_helper( uint8_t decision,
 /* The argument is the owning tile object's scratch base, not a child-process
    pointer.  These accessors expose committed counters without leaking the
    private context layout over FFI. */
+/* An agent request's outcome: malformed > duplicate > allow (decision O1). */
+extern uint8_t tkpoly_agent_request_helper( uint8_t decision, int is_duplicate );
+
 extern ulong tkpoly_ctx_processed( void * scratch );
 extern ulong tkpoly_ctx_allowed( void * scratch );
 extern ulong tkpoly_ctx_denied( void * scratch );

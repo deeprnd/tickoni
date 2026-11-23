@@ -32,6 +32,12 @@ extern int tkagnt_set_hooks( TkAgentHooks const * hooks );
    0, or nonzero for an unknown tier or a tier or kind declared twice. */
 extern int tkagnt_set_route( uint8_t tier, uint8_t kind_id );
 
+/* Installs one prompt in the tile's content-addressed prompt table, before the
+   tile runs.  Returns 0, or nonzero and installs nothing: 1 empty or over
+   TKAGNT_PROMPT_MAX_BYTES, 2 the bytes do not hash (tk_mp_message_hash) to
+   `hash`, 3 the table or store is full, 4 the hash is already installed. */
+extern int tkagnt_set_prompt( uint64_t hash, uint8_t const * bytes, ulong len );
+
 /* Counters and state, read from the owning tile object's scratch base. */
 extern ulong tkagnt_admitted( void * scratch );
 extern ulong tkagnt_terminal_done( void * scratch );

@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 static const uint64_t AUDIT_HASH_K0 = 0x0000544455414B54ULL;  /* SipHash k0: "TKAUDT\0\0" LE */
-static const uint64_t AUDIT_HASH_K1 = 2;                      /* SipHash k1: schema version */
+static const uint64_t AUDIT_HASH_K1 = 3;                      /* SipHash k1: schema version (AUDIT_SCHEMA_VERSION) */
 static const uint64_t AUDIT_INITIAL_HASH = 0ULL;              /* Initial prev_hash (identity seed) */
 
 #endif /* __AUDIT_CONSTS_H__ */
