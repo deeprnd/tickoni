@@ -73,6 +73,21 @@ pub fn strategy(
         },
     });
 
+    // ingest_harness — the external producer on tkings's input link, its only
+    // source in every topology: payment events for the payment pipelines and
+    // agent-request events for the agent topologies.
+    const ingest_harness_mod = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/test/integration/ingest_harness.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "runtime", .module = int_mods.shared_runtime },
+            .{ .name = "c_abi", .module = int_mods.shared_c_abi },
+            .{ .name = "tiles", .module = int_mods.shared_tiles },
+            .{ .name = "supervisor", .module = int_mods.supervisor_named_mod },
+        },
+    });
+
     // infra_imports — shared by infra test files that use supervisor/topology.
     const infra_imports = [_]std.Build.Module.Import{
         .{ .name = "runtime", .module = int_mods.shared_runtime },
@@ -84,6 +99,7 @@ pub fn strategy(
         .{ .name = "topologies", .module = int_mods.shared_topologies },
         .{ .name = "audit_consts", .module = int_mods.shared_audit_consts },
         .{ .name = "stem_liveness", .module = stem_liveness_mod },
+        .{ .name = "ingest_harness", .module = ingest_harness_mod },
     };
 
     // ------------------------------------------------------------------
