@@ -33,6 +33,8 @@ pub const ProcessFn = *const fn (
 /// for process-mode visibility.
 pub const CounterField = enum {
     produced,
+    /// tkings: fragments dropped for their framing.
+    ingest_invalid,
     normalized,
     invalid,
     duplicates,
@@ -112,10 +114,6 @@ pub const Cardinality = enum {
     /// output per tkmodl plus the audit and terminal-result outputs, and one idle
     /// output to each tktool.
     agent_fan,
-    /// tkdisp: a terminal-result sink (one input) when the topology has no
-    /// tkcase; a scheduler (an event input from tkcase and tkagnt's results in,
-    /// the agent request link out) when it has one.
-    disp_shape,
 };
 
 fn id(comptime s: []const u8) rt.tile.TileId {
@@ -133,7 +131,10 @@ pub const entries = [_]TileEntry{
         .id = tile_ids.tkings,
         .launch_mode = .stem,
         .process_fn = null,
-        .counters = &.{.{ .idx = 0, .field = .produced }},
+        // Its one input is its only source (the externally produced link the
+        // producer -- tkapi, tkrepl, or a test harness -- publishes on).
+        .counters = &.{ .{ .idx = 0, .field = .produced }, .{ .idx = 1, .field = .ingest_invalid } },
+        .in_cnt = 1,
         .out_cnt = 1,
         .diag = .producer,
     },
@@ -246,16 +247,17 @@ pub const entries = [_]TileEntry{
         },
         .cardinality = .agent_fan,
     },
-    // tkdisp: a bounded sink for tkagnt's terminal results, or, in the full
-    // workflow, the scheduler that also turns each event from tkcase into one
-    // agent request. Its committed results are read from scratch, so it
-    // publishes no CNC counter slot.
+    // tkdisp: the agent dispatch scheduler. The event link from tkcase and
+    // tkagnt's terminal results in; the agent request link to tkagnt out. Its
+    // committed results are read from scratch, so it publishes no CNC counter
+    // slot.
     .{
         .id = tile_ids.tkdisp,
         .launch_mode = .stem,
         .process_fn = null,
         .counters = &.{},
-        .cardinality = .disp_shape,
+        .in_cnt = 2,
+        .out_cnt = 1,
     },
     // tkcase, tktool and tkadpt: config-driven placeholders of the full
     // workflow (tk_pass_stem.c). They carry no case, tool or adapter logic:
@@ -313,7 +315,6 @@ pub fn expectedInCnt(entry: *const TileEntry, topo: rt.topology.Topology) usize 
         else
             entry.in_cnt,
         .agent_fan => 1 + models,
-        .disp_shape => if (countTilesNamed(topo, tile_ids.tkcase) > 0) 2 else 1,
     };
 }
 
@@ -322,7 +323,6 @@ pub fn expectedOutCnt(entry: *const TileEntry, topo: rt.topology.Topology) usize
     return switch (entry.cardinality) {
         .fixed, .audit_fan_in => entry.out_cnt,
         .agent_fan => countTilesNamed(topo, tile_ids.tkmodl) + 2 + countTilesNamed(topo, tile_ids.tktool),
-        .disp_shape => if (countTilesNamed(topo, tile_ids.tkcase) > 0) 1 else 0,
     };
 }
 
@@ -349,8 +349,15 @@ pub fn validateInstances(topo: rt.topology.Topology) !void {
 /// the event path, and be the producer's last output so a process tile finds it
 /// at a fixed position. tkdiag's own input count is whatever diagnostic links
 /// the topology wires, so only its pipeline links and outputs are compared.
+///
+/// A link fed from outside the tile graph (`rt.link.external_src`) may enter
+/// only tkings, the ingestion boundary, whose one input it then is.
 pub fn validate(topo: rt.topology.Topology) !void {
     try validateInstances(topo);
+    for (topo.channels) |ch| {
+        if (ch.hasProducerTile()) continue;
+        if (ch.dst_idx >= topo.tiles.len or !topo.tiles[ch.dst_idx].name.eql(tile_ids.tkings)) return error.ExternalLinkNotIngest;
+    }
     for (topo.tiles, 0..) |t, i| {
         const entry = findById(t.name).?;
         var in_cnt: usize = 0;

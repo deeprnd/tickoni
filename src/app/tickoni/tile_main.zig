@@ -108,13 +108,10 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
         std.debug.print("tile_main: tile {s}#{d} not found in rebuilt topology\n", .{ id_slice, spec.tile_kind_id });
         return 1;
     }
-    if (rt.tile_ids.tkings.eql(spec.tile_id)) {
-        if (rt.test_build.enabled) c_abi.tkings.setCrashAfterHeartbeats(spec.crash_after_heartbeats);
-        config.loadIngestConfig(io, &spec, topo_spec.event_count, null) catch |err| {
-            std.debug.print("tile_main: tkings source config failed for tile {d}: {t}\n", .{ spec.tile_idx, err });
-            return 1;
-        };
-    }
+    // Test-build liveness faults apply to whichever stem tile the supervisor
+    // selected, through the shared stem liveness path (stk_cnc_liveness), the
+    // way tile_process.zig applies crash_after_heartbeats to Zig tiles.
+    if (rt.test_build.enabled) c_abi.cnc.setLivenessFaults(spec.crash_after_heartbeats, spec.stuck_after_heartbeats);
     // tkpoly is the only stem tile with a behavior parameter outside
     // TopologySpec: the signed policy limit lives in payment_pipeline.config,
     // written by the supervisor beside topology.spec. Load it here, before
@@ -149,7 +146,7 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
     // tkagnt: Zig owns its decisions. Register them and the tier-to-instance
     // routes before the C harness runs; the tile refuses to start without them.
     if (rt.tile_ids.tkagnt.eql(spec.tile_id)) {
-        config.loadAgentSetup(io, topo_desc, spec.shmemPath(), null) catch |err| {
+        config.loadAgentSetup(io, topo_desc, spec.shmemPath(), null, allocator) catch |err| {
             std.debug.print(
                 "tile_main: tkagnt setup failed for tile {d}: {t}\n",
                 .{ spec.tile_idx, err },
@@ -158,11 +155,10 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
         };
     }
 
-    // tkdisp is a scheduler when the topology gives it an event source (tkcase):
-    // it then sends one request per event from the run's dispatch template, which
-    // must be installed before the C harness runs. As a pure terminal-result sink
-    // it needs nothing.
-    if (rt.tile_ids.tkdisp.eql(spec.tile_id) and hasTile(topo_desc, rt.tile_ids.tkcase)) {
+    // tkdisp sends the run's dispatch template for every payment event (an
+    // agent-request event carries its own request); the template must be
+    // installed before the C harness runs.
+    if (rt.tile_ids.tkdisp.eql(spec.tile_id)) {
         config.loadDispatchTemplate(io, &spec, null, allocator) catch |err| {
             std.debug.print(
                 "tile_main: tkdisp dispatch template handoff failed for tile {d}: {t}\n",
@@ -181,13 +177,6 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
     // this line is never reached and the crash output comes from the C side.
     std.debug.print("[tile-main] stemRun: runTileSimple returned\n", .{});
     return 0;
-}
-
-fn hasTile(topo: rt.topology.Topology, name: rt.tile.TileId) bool {
-    for (topo.tiles) |t| {
-        if (t.name.eql(name)) return true;
-    }
-    return false;
 }
 
 /// Dispatches the deterministic payment pipeline stage for this tile's
