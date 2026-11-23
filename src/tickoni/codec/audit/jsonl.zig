@@ -7,12 +7,14 @@ pub fn formatJsonLine(event: schema.AuditEvent, writer: anytype) !void {
     const h = event.header;
     try writer.writeAll("{");
     try writer.print("\"schema_version\":{d},", .{h.schema_version});
+    try writer.print("\"trace_id\":{d},", .{h.trace_id});
     try writer.print("\"run_id\":{d},", .{h.run_id});
     try writer.print("\"seq\":{d},", .{h.seq});
     try writer.print("\"source_offset\":{d},", .{h.source_offset});
     try writer.print("\"tile_id\":\"{s}\",", .{std.mem.sliceTo(&h.tile_id, 0)});
     try writer.print("\"logical_actor_id\":{d},", .{h.logical_actor_id});
     try writer.print("\"policy_version\":\"{s}\",", .{std.mem.sliceTo(&h.policy_version, 0)});
+    try writer.print("\"case_id\":{d},", .{h.case_id});
     try writer.print("\"capability_envelope_id\":{d},", .{h.capability_envelope_id});
     try writer.print("\"timestamp_ns\":{d},", .{h.timestamp_ns});
     try writer.print("\"prev_hash\":{d},", .{h.prev_hash});

@@ -34,6 +34,8 @@ extern fn tk_audit_record_prev_hash(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_hash(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_schema_version(scratch: ?*anyopaque, idx: usize) c_uint;
 extern fn tk_audit_record_source_offset(scratch: ?*anyopaque, idx: usize) u64;
+extern fn tk_audit_record_trace_id(scratch: ?*anyopaque, idx: usize) u64;
+extern fn tk_audit_record_case_id(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_outcome(scratch: ?*anyopaque, idx: usize) c_uint;
 extern fn tk_audit_record_decided_by(scratch: ?*anyopaque, idx: usize, dst: *[6]u8) void;
 extern fn tk_audit_record_source_event_hash(scratch: ?*anyopaque, idx: usize) u64;
@@ -178,6 +180,16 @@ pub fn recordSourceOffset(scratch: ?*anyopaque, idx: usize) u64 {
     return tk_audit_record_source_offset(scratch, idx);
 }
 
+/// The request trace committed record `idx` belongs to (header.trace_id).
+pub fn recordTraceId(scratch: ?*anyopaque, idx: usize) u64 {
+    return tk_audit_record_trace_id(scratch, idx);
+}
+
+/// The CaseOps case of committed record `idx` (header.case_id); 0 until tkcase assigns one.
+pub fn recordCaseId(scratch: ?*anyopaque, idx: usize) u64 {
+    return tk_audit_record_case_id(scratch, idx);
+}
+
 /// `policy_decision.outcome` of the committed record at `idx`.
 pub fn recordOutcome(scratch: ?*anyopaque, idx: usize) u8 {
     return @intCast(tk_audit_record_outcome(scratch, idx));
@@ -263,12 +275,13 @@ pub const audit_schema = @import("audit_schema");
 // audit_schema separately.
 pub const AuditHeader = audit_schema.AuditHeader;
 pub const PolicyDecisionPayload = audit_schema.PolicyDecisionPayload;
-pub const RawPayment = audit_schema.RawPayment;
-pub const PaymentMessage = audit_schema.PaymentMessage;
+pub const TkEvent = audit_schema.TkEvent;
 
 // Re-export the C enum values from audit_mod (translate-c from audit_schema.h)
 // so consumers can match against them.
 const audit_mod = @import("audit_mod");
+/// The audit schema version every committed record carries (audit_schema.h).
+pub const AUDIT_SCHEMA_VERSION: u16 = audit_mod.AUDIT_SCHEMA_VERSION;
 pub const POLICY_ALLOW = audit_mod.POLICY_ALLOW;
 pub const POLICY_DENY = audit_mod.POLICY_DENY;
 pub const POLICY_REQUIRE_APPROVAL = audit_mod.POLICY_REQUIRE_APPROVAL;

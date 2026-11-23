@@ -1,4 +1,4 @@
-/* Shared C/FFI declarations for the tkdisp terminal-result sink fd_stem
+/* Shared C/FFI declarations for the tkdisp agent dispatch scheduler fd_stem
    specialization.  The tile object and context stay private to
    tk_disp_stem.c. */
 #ifndef __TK_DISP_STEM_H__
@@ -23,12 +23,13 @@ extern ulong tkdisp_tile_scratch_align( void );
 extern ulong tkdisp_tile_scratch_footprint( void );
 extern void  tkdisp_set_event_count( uint64_t event_count );
 
-/* Installs the request template a scheduler-shaped tkdisp sends for every event
-   it receives (the tier, scope and prompt come from here, never from the event).
-   Returns 0, or nonzero and installs nothing for a bad header or prompt. */
-extern int tkdisp_set_template( TkAgentRequestHdr const * hdr, uint8_t const * prompt, ulong prompt_len );
+/* Installs the template a tkdisp sends for every PAYMENT event (decision O2:
+   the tier, scope and prompt reference come from here, never from the event;
+   an agent-request event carries its own request).  Returns 0, or nonzero and
+   installs nothing for a request that is not well formed. */
+extern int tkdisp_set_template( TkAgentRequestMsg const * req );
 
-/* Requests started and events seen by a scheduler-shaped tkdisp. */
+/* Requests sent and events seen. */
 extern ulong tkdisp_scheduled( void * scratch );
 extern ulong tkdisp_events_seen( void * scratch );
 

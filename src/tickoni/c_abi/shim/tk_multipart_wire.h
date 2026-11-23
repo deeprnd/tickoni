@@ -54,8 +54,7 @@ enum {
 enum {
     TK_MP_CT_CHAT          = 1, /* chat/completion messages or response text */
     TK_MP_CT_EMBEDDING     = 2, /* embedding input text or vector bytes */
-    TK_MP_CT_AGENT_REQUEST = 3, /* tkings -> tkagnt: agent request header + prompt */
-    TK_MP_CT_LAST          = 3
+    TK_MP_CT_LAST          = 2
 };
 
 /* Domain-separated SipHash-1-3 keys for the whole-message hash.  Distinct from

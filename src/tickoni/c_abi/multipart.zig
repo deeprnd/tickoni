@@ -34,7 +34,6 @@ pub const Direction = enum(u8) {
 pub const ContentType = enum(u8) {
     chat = audit_mod.TK_MP_CT_CHAT,
     embedding = audit_mod.TK_MP_CT_EMBEDDING,
-    agent_request = audit_mod.TK_MP_CT_AGENT_REQUEST,
 };
 
 /// Fragments a message of `len` bytes occupies under the canonical framing.

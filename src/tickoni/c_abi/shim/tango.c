@@ -2,6 +2,7 @@
    Tickoni code binds only to Tickoni-owned tk_* symbols. */
 
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "../../../tango/mcache/fd_mcache.h"
 #include "../../../tango/dcache/fd_dcache.h"
@@ -167,5 +168,41 @@ void tk_cnc_heartbeat( fd_cnc_t * cnc, int64_t now_ns ) {
   fd_cnc_heartbeat( cnc, (long)tk_cnc_heartbeat_from_ns( now_ns ) );
 }
 ulong tk_cnc_signal_query( fd_cnc_t const * cnc ) { return fd_cnc_signal_query( cnc ); }
+/* Liveness faults for fd_stem tiles (test builds only; tile_main.zig installs
+   them from the child's LaunchSpec before the C harness runs).  Every stem
+   tile's housekeeping calls stk_cnc_liveness (stem_helpers.h), which calls
+   tk_cnc_liveness_fault_check right after the heartbeat.  This is the stem
+   counterpart of tile_process.zig's crash_after_heartbeats hook, so the
+   supervisor's crash and staleness handling is exercised on any stem tile the
+   same way, without a hook inside any tile:
+
+   - crash: at heartbeat `crash_after_heartbeats` (> 0) the process exits(1)
+     without a clean CNC transition;
+   - stuck: after `stuck_after_heartbeats` heartbeats the loop blocks forever,
+     emitting no further heartbeat and never observing HALT.
+
+   Process-global state: one tile runs per process. */
+static uint32_t tk_liveness_crash_after;
+static int      tk_liveness_stuck_enabled;
+static uint32_t tk_liveness_stuck_after;
+static uint32_t tk_liveness_heartbeats;
+
+void
+tk_cnc_liveness_fault_set( uint32_t crash_after_heartbeats, int stuck_enabled, uint32_t stuck_after_heartbeats ) {
+  tk_liveness_crash_after   = crash_after_heartbeats;
+  tk_liveness_stuck_enabled = stuck_enabled;
+  tk_liveness_stuck_after   = stuck_after_heartbeats;
+  tk_liveness_heartbeats    = 0U;
+}
+
+void
+tk_cnc_liveness_fault_check( void ) {
+  if( FD_LIKELY( !tk_liveness_crash_after && !tk_liveness_stuck_enabled ) ) return;
+  tk_liveness_heartbeats++;
+  if( tk_liveness_crash_after && tk_liveness_heartbeats>=tk_liveness_crash_after ) _Exit( 1 );
+  if( tk_liveness_stuck_enabled && tk_liveness_heartbeats>tk_liveness_stuck_after )
+    for(;;) fd_log_sleep( (long)1e9 );
+}
+
 void tk_cnc_signal( fd_cnc_t * cnc, ulong signal ) { fd_cnc_signal( cnc, signal ); }
 void tk_cnc_close( fd_cnc_t * cnc ) { fd_cnc_close( cnc ); }

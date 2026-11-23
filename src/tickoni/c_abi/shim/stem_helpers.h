@@ -219,9 +219,14 @@ stk_publish_counter(void * cnc, ulong slot, ulong value) {
    or with fd_log_wallclock(): a different clock or unit makes the tile look
    permanently stale or permanently fresh.
 
-   A safe no-op for a NULL cnc. */
+   A safe no-op for a NULL cnc.
+
+   After the heartbeat it runs the process's liveness faults (tango.c,
+   tk_cnc_liveness_fault_check): test-build crash and stuck hooks the supervisor
+   tests use, installed from the LaunchSpec, so no tile carries its own. */
 extern int64_t tk_monotonic_nanos( void );
 extern void    tk_cnc_heartbeat( fd_cnc_t * cnc, int64_t now_ns );
+extern void    tk_cnc_liveness_fault_check( void );
 
 static inline void
 stk_cnc_liveness(void * cnc) {
@@ -233,19 +238,21 @@ stk_cnc_liveness(void * cnc) {
         __atomic_compare_exchange_n(&c->signal, &expected, FD_CNC_SIGNAL_RUN,
                                     0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
     }
+    /* Test-build crash/stuck faults, if installed (tango.c); a no-op otherwise. */
+    tk_cnc_liveness_fault_check();
 }
 
 /* ─── DURING_FRAG validation preamble ───
 
-   Common checks at the top of every DURING_FRAG that consumes PaymentMessage:
+   Common checks at the top of every DURING_FRAG that consumes a TkEvent:
    1. Empty fragment check
-   2. Fragment size check (must match PAYMENT_MSG_SIZE)
+   2. Fragment size check (must match TK_EVENT_SIZE)
    3. Workspace initialized check
    4. Chunk-to-gaddr conversion
 
    Usage (at the top of DURING_FRAG):
-     if (!stk_validate_frag(sz, PAYMENT_MSG_SIZE, ctx->wksp)) { return; }
-     PaymentMessage const * msg = stk_chunk_to_gaddr(ctx->wksp, chunk);
+     if (!stk_validate_frag(sz, TK_EVENT_SIZE, ctx->wksp)) { return; }
+     TkEvent const * msg = stk_chunk_to_gaddr(ctx->wksp, chunk);
 
    Returns 1 if fragment is valid (caller should continue), 0 if should return.
 

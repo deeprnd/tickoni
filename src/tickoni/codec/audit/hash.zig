@@ -22,12 +22,14 @@ pub fn auditEventsEql(a: schema.AuditEvent, b: schema.AuditEvent) bool {
 
 fn eqlHeader(a: schema.Header, b: schema.Header) bool {
     return a.schema_version == b.schema_version and
+        a.trace_id == b.trace_id and
         a.run_id == b.run_id and
         a.seq == b.seq and
         a.source_offset == b.source_offset and
         std.mem.eql(u8, &a.tile_id, &b.tile_id) and
         a.logical_actor_id == b.logical_actor_id and
         std.mem.eql(u8, &a.policy_version, &b.policy_version) and
+        a.case_id == b.case_id and
         a.capability_envelope_id == b.capability_envelope_id and
         a.timestamp_ns == b.timestamp_ns and
         a.prev_hash == b.prev_hash and
@@ -150,12 +152,14 @@ pub fn computeWireRecordHash(event: wire.Event) u64 {
     const h = &event.header;
 
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&h.schema_version));
+    c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&h.trace_id));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&h.run_id));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&h.seq));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&h.source_offset));
     c_abi.ballet.siphashAppend(&sip, &h.tile_id);
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&h.logical_actor_id));
     c_abi.ballet.siphashAppend(&sip, &h.policy_version);
+    c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&h.case_id));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&h.capability_envelope_id));
     c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&h.prev_hash));
     c_abi.ballet.siphashAppend(&sip, &h.version);

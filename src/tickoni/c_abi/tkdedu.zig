@@ -111,7 +111,7 @@ test "tkdedu tile identity — scratch callbacks are non-null" {
 
 test "tkdedu scratch align — describes the context block, not fd_stem's stack scratch" {
     // alignof(tkdedu_ctx_t) == 8: the context holds u64s, pointers and ints,
-    // and PaymentMessage — which the same footprint carves out of the same
+    // and TkEvent — which the same footprint carves out of the same
     // block — is 8-aligned too.
     //
     // 128 (FD_STEM_SCRATCH_ALIGN) here means .scratch_align was wired to the

@@ -12,14 +12,19 @@
  * One request, one model dispatch, one result: there is no cascade.
  *
  * Data path
- *   tkings --agent request--> tkagnt --model request--> tkmodl[tier k]
+ *   tkdisp --agent request--> tkagnt --model request--> tkmodl[tier k]
  *                                    <--model result---
  *                             tkagnt --audit record---> tkaudt
  *                             tkagnt --terminal result-> tkdisp
- *   Request and result bodies are multipart fragment streams
- *   (tk_multipart_wire.h) and are acted on only after reassembly verified
- *   every byte.  Audit and terminal records are single-fragment and
- *   hash-and-metadata-only: no prompt, response or vector bytes.
+ *   An agent request is one fixed fragment (TkAgentRequestMsg): its scope and
+ *   a prompt reference.  tkagnt resolves the prompt bytes from its
+ *   content-addressed prompt table (installed before the tile runs, each
+ *   prompt verified against its hash) and sends them to tkmodl.  Model request
+ *   and result bodies are multipart fragment streams (tk_multipart_wire.h) and
+ *   are acted on only after reassembly verified every byte.  Audit and
+ *   terminal records are single-fragment and hash-and-metadata-only: no
+ *   prompt, response or vector bytes.  Every record carries the request's
+ *   trace id.
  *
  * Ordering and the commit barrier
  *   Each accepted request gets a contiguous admission ordinal, agent_seq.
@@ -115,6 +120,7 @@ typedef struct {
     uint64_t  prompt_hash;
     uint64_t  response_hash;
     uint64_t  envelope_hash;
+    uint64_t  trace_id;
     tk_ns_t   deadline;           /* AWAIT: when the model has taken too long */
     uint8_t   model_id[TKMODL_MODEL_ID_LEN];
     uint8_t   policy_version[TKMODL_POLICY_VERSION_LEN];
@@ -174,15 +180,18 @@ typedef struct {
     ulong     in_chunk0[TKAGNT_MAX_INS];
     ulong     in_wmark[TKAGNT_MAX_INS];
 
-    /* The fragment DURING_FRAG staged for AFTER_FRAG. */
+    /* The fragment DURING_FRAG staged for AFTER_FRAG: a multipart result
+       fragment in `stage`, or a whole agent request in `stage_req`. */
     int       stage_valid;
+    int       stage_is_req;
+    TkAgentRequestMsg stage_req;
     ulong     stage_in;
     ulong     stage_sz;
     int       stage_som;
     int       stage_eom;
     uint8_t   stage[TK_MP_LINK_MTU];
 
-    /* Reassembly, one stream per input; buffers follow the context. */
+    /* Reassembly, one stream per result input; buffers follow the context. */
     tk_mp_rx_t rx[TKAGNT_MAX_INS];
     uint8_t * rxbuf;              /* TKAGNT_MAX_INS * TKAGNT_MSG_BYTES */
     uint8_t * slotbuf;            /* TKAGNT_SLOTS * TKAGNT_MSG_BYTES */
@@ -271,6 +280,14 @@ tkagnt_scratch_footprint_tile( fd_topo_tile_t const * tile ) {
 /* ─── Behavior configuration (set by the Zig child before the tile runs) ─── */
 
 static uint64_t      tkagnt_event_count_param;
+
+/* The prompt table: content-addressed prompts, installed by tkagnt_set_prompt
+   before the tile runs.  A bounded per-process store, like tkmodl's capture
+   store; an agent request names an entry by (prompt_hash, prompt_len). */
+static uint8_t       tkagnt_prompt_store[TKAGNT_PROMPT_STORE_BYTES];
+static ulong         tkagnt_prompt_used;
+static ulong         tkagnt_prompt_cnt;
+static struct { uint64_t hash; uint32_t len; ulong off; } tkagnt_prompts[TKAGNT_PROMPT_CAP];
 static TkAgentHooks  tkagnt_hooks_param;
 static int           tkagnt_hooks_set;
 static int           tkagnt_route_set[TK_AGENT_TIER_COUNT];
@@ -303,6 +320,35 @@ tkagnt_set_route( uint8_t tier, uint8_t kind_id ) {
     tkagnt_route_set[tier]  = 1;
     tkagnt_route_kind[tier] = kind_id;
     return 0;
+}
+
+/* Installs one prompt.  Returns 0, or nonzero and installs nothing: 1 empty or
+   over TKAGNT_PROMPT_MAX_BYTES, 2 the bytes do not hash to `hash`, 3 the table
+   or the store is full, 4 a prompt with that hash is already installed. */
+int
+tkagnt_set_prompt( uint64_t hash, uint8_t const * bytes, ulong len ) {
+    if( !bytes || len==0UL || len>(ulong)TKAGNT_PROMPT_MAX_BYTES )      return 1;
+    if( tk_mp_message_hash( bytes, len )!=hash )                      return 2;
+    if( tkagnt_prompt_cnt>=(ulong)TKAGNT_PROMPT_CAP ||
+        tkagnt_prompt_used+len>(ulong)TKAGNT_PROMPT_STORE_BYTES )      return 3;
+    for( ulong i=0UL; i<tkagnt_prompt_cnt; i++ )
+        if( tkagnt_prompts[i].hash==hash )                            return 4;
+    memcpy( tkagnt_prompt_store+tkagnt_prompt_used, bytes, len );
+    tkagnt_prompts[tkagnt_prompt_cnt].hash = hash;
+    tkagnt_prompts[tkagnt_prompt_cnt].len  = (uint32_t)len;
+    tkagnt_prompts[tkagnt_prompt_cnt].off  = tkagnt_prompt_used;
+    tkagnt_prompt_cnt  += 1UL;
+    tkagnt_prompt_used += len;
+    return 0;
+}
+
+/* The installed prompt a reference names, or NULL. */
+static uint8_t const *
+tkagnt_prompt_lookup( TkPromptRef const * ref ) {
+    for( ulong i=0UL; i<tkagnt_prompt_cnt; i++ )
+        if( tkagnt_prompts[i].hash==ref->prompt_hash && tkagnt_prompts[i].len==ref->prompt_len )
+            return tkagnt_prompt_store + tkagnt_prompts[i].off;
+    return NULL;
 }
 
 /* ─── Helpers ─── */
@@ -421,15 +467,17 @@ tkagnt_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     ulong req_in = ULONG_MAX;
     for( ulong i=0UL; i<tile->in_cnt; i++ ) {
         fd_topo_link_t const * in_link = &topo->links[tile->in_link_id[i]];
-        if( FD_UNLIKELY( !in_link->dcache || in_link->mtu<(ulong)TK_MP_LINK_MTU ) )
-            FD_LOG_ERR(( "tkagnt: input %lu has no dcache or mtu %lu is under %lu", i, in_link->mtu, (ulong)TK_MP_LINK_MTU ));
+        fd_topo_tile_t const * producer = tkagnt_link_producer( topo, tile->in_link_id[i] );
+        int from_model = producer && strcmp( producer->name, TILE_ID_TKMODL )==0;
+        ulong need = from_model ? (ulong)TK_MP_LINK_MTU : sizeof(TkAgentRequestMsg);
+        if( FD_UNLIKELY( !in_link->dcache || in_link->mtu<need ) )
+            FD_LOG_ERR(( "tkagnt: input %lu has no dcache or mtu %lu is under %lu", i, in_link->mtu, need ));
         if( FD_UNLIKELY( stk_derive_wksp( topo, tile, i )!=ctx->wksp ) )
             FD_LOG_ERR(( "tkagnt: input %lu is not in the workspace shared with input 0", i ));
         ctx->in_chunk0[i] = fd_dcache_compact_chunk0( ctx->wksp, in_link->dcache );
         ctx->in_wmark[i]  = fd_dcache_compact_wmark ( ctx->wksp, in_link->dcache, in_link->mtu );
 
-        fd_topo_tile_t const * producer = tkagnt_link_producer( topo, tile->in_link_id[i] );
-        if( producer && strcmp( producer->name, TILE_ID_TKMODL )==0 ) {
+        if( from_model ) {
             long tier = tkagnt_tier_of_kind( producer->kind_id );
             if( FD_UNLIKELY( tier<0 ) )
                 FD_LOG_ERR(( "tkagnt: input %lu comes from tkmodl#%lu, which has no declared tier", i, producer->kind_id ));
@@ -441,8 +489,7 @@ tkagnt_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
         } else {
             if( FD_UNLIKELY( req_in!=ULONG_MAX ) )
                 FD_LOG_ERR(( "tkagnt: more than one agent request input (%lu and %lu)", req_in, i ));
-            req_in = i;
-            tk_mp_rx_init( &ctx->rx[i], TK_MP_DIR_REQUEST, ctx->rxbuf + i*TKAGNT_MSG_BYTES, TKAGNT_PARTIAL_TIMEOUT_NS );
+            req_in = i;     /* one fixed fragment per request: no reassembly */
         }
     }
     if( FD_UNLIKELY( req_in==ULONG_MAX ) )
@@ -527,15 +574,14 @@ tkagnt_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
                     tiers, (uint)ctx->configured_mask, ctx->req_in, ctx->audit_out, ctx->term_out ));
 }
 
-/* Lossless backpressure for new agent requests.  A fragment that would start a
-   message is left queued upstream (return -1) while there is nowhere to put the
-   request; fragments of a message already in progress are always taken, and the
-   slot and run entry checked here at the start stay free until it completes
-   (this is the only input that admits requests). */
+/* Lossless backpressure for new agent requests.  A request is left queued
+   upstream (return -1) while there is nowhere to put it; the slot and run
+   entry checked here stay free until AFTER_FRAG admits it (this is the only
+   input that admits requests). */
 static int
 tkagnt_before_frag( tkagnt_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig ) {
     (void)seq; (void)sig;
-    if( in_idx!=ctx->req_in || ctx->rx[in_idx].active ) return 0;
+    if( in_idx!=ctx->req_in ) return 0;
     if( tkagnt_free_slot( ctx )<0 || !tkagnt_has_run_room( ctx ) ) return -1;
     return 0;
 }
@@ -559,6 +605,23 @@ tkagnt_during_frag( tkagnt_ctx_t * ctx,
     /* What the link carries is fixed by who produces it; the sig must agree. */
     ulong want = ctx->in_tier[in_idx]>=0 ? TK_LINK_SIG_MODEL_RESULT : TK_LINK_SIG_AGENT_REQUEST;
     if( FD_UNLIKELY( sig!=want ) ) return;
+
+    if( in_idx==ctx->req_in ) {
+        /* One whole, fixed-size request per fragment; anything else is dropped. */
+        ctx->stage_is_req = 1;
+        ctx->stage_in     = in_idx;
+        if( FD_UNLIKELY( sz!=sizeof(TkAgentRequestMsg) ||
+                         !fd_frag_meta_ctl_som( ctl ) || !fd_frag_meta_ctl_eom( ctl ) ) ) {
+            ctx->stage_sz    = 0UL;     /* AFTER_FRAG counts it as dropped */
+            ctx->stage_valid = 1;
+            return;
+        }
+        memcpy( &ctx->stage_req, stk_chunk_to_gaddr( ctx->wksp, chunk ), sizeof(TkAgentRequestMsg) );
+        ctx->stage_sz    = sz;
+        ctx->stage_valid = 1;
+        return;
+    }
+    ctx->stage_is_req = 0;
 
     /* Copy first, then judge the copy: the producer may overrun while we read,
        and fd_stem discards the fragment in that case. */
@@ -584,20 +647,19 @@ tkagnt_route( tkagnt_ctx_t * ctx, uint8_t request_type, uint8_t requested_tier )
 
 /* ─── Admission ─── */
 
-/* A complete, verified agent request is in rx[req_in].  Accept it as the next
-   run: assign its admission ordinal, ask the Zig router where it goes, and
+/* A whole agent request is staged.  Accept it as the next run: assign its
+   admission ordinal, resolve its prompt, ask the Zig router where it goes, and
    either stage its model request in a slot or resolve it as denied. */
 static void
 tkagnt_admit( tkagnt_ctx_t * ctx ) {
-    tk_mp_rx_t const * rx = &ctx->rx[ctx->req_in];
-    uint8_t const * body = rx->buf;
-    ulong           len  = rx->cur.total_len;
+    TkAgentRequestMsg const * req = &ctx->stage_req;
 
     uint64_t seq = ++ctx->admitted;
     tkagnt_run_t * r = tkagnt_run_at( ctx, seq );
     memset( r, 0, sizeof(*r) );
     r->agent_seq        = seq;
-    r->run_id           = rx->cur.run_id;
+    r->run_id           = req->scope.run_id;
+    r->trace_id         = req->scope.trace_id;
     r->slot             = -1;
     r->tier             = TK_AGENT_TIER_NONE;
     r->source_tier      = TK_AGENT_TIER_NONE;
@@ -607,22 +669,28 @@ tkagnt_admit( tkagnt_ctx_t * ctx ) {
        own audited terminal result. */
     if( ctx->draining )                    { tkagnt_resolve( ctx, r, TK_AGENT_OUT_SHUTDOWN, 0 ); return; }
 
-    if( len<sizeof(TkAgentRequestHdr) )    { tkagnt_resolve( ctx, r, TK_AGENT_OUT_DENY_INVALID_REQUEST, 0 ); return; }
-    TkAgentRequestHdr hdr;
-    memcpy( &hdr, body, sizeof(hdr) );
-    if( hdr.version!=TK_AGENT_WIRE_VERSION || !tk_model_request_well_formed( &hdr.scope ) ||
-        hdr.scope.run_id!=r->run_id ) {
+    if( req->version!=TK_AGENT_WIRE_VERSION || !tk_model_request_well_formed( &req->scope ) ) {
         tkagnt_resolve( ctx, r, TK_AGENT_OUT_DENY_INVALID_REQUEST, 0 );
         return;
     }
-    memcpy( r->policy_version, hdr.scope.policy_version, sizeof(r->policy_version) );
-    memcpy( r->model_id, hdr.scope.model_id, sizeof(r->model_id) );
-    r->envelope_hash = tk_model_envelope_hash( hdr.scope.capability_envelope_id );
-    r->request_type  = hdr.request_type;
-    r->content_type  = hdr.request_type==TK_AGENT_REQ_EMBEDDING ? TK_MP_CT_EMBEDDING : TK_MP_CT_CHAT;
+    memcpy( r->policy_version, req->scope.policy_version, sizeof(r->policy_version) );
+    memcpy( r->model_id, req->scope.model_id, sizeof(r->model_id) );
+    r->envelope_hash = tk_model_envelope_hash( req->scope.capability_envelope_id );
+    r->request_type  = req->request_type;
+    r->content_type  = req->request_type==TK_AGENT_REQ_EMBEDDING ? TK_MP_CT_EMBEDDING : TK_MP_CT_CHAT;
+
+    /* The prompt the request names must be one the table holds, by hash and
+       length; nothing else can stand in for it. */
+    uint8_t const * prompt = tkagnt_prompt_lookup( &req->prompt_ref );
+    if( !prompt ) {
+        memset( r->failed_scope_dim, 0, sizeof(r->failed_scope_dim) );
+        memcpy( r->failed_scope_dim, "prompt_ref", sizeof("prompt_ref")-1UL );
+        tkagnt_resolve( ctx, r, TK_AGENT_OUT_DENY_INVALID_REQUEST, 0 );
+        return;
+    }
 
     /* Where does it go?  The router is Zig's; this file only checks the answer. */
-    TkAgentRouteDirective d = tkagnt_route( ctx, hdr.request_type, hdr.requested_tier );
+    TkAgentRouteDirective d = tkagnt_route( ctx, req->request_type, req->requested_tier );
     if( d.verdict==TK_AGENT_ROUTE_DENY_ABSENT_TIER ) {
         r->tier = d.tier;
         tkagnt_resolve( ctx, r, TK_AGENT_OUT_DENY_ABSENT_TIER, 0 );
@@ -641,19 +709,19 @@ tkagnt_admit( tkagnt_ctx_t * ctx ) {
     /* The model request is the scope with the agent's ordinal as request_id and
        no declared prompt hash (tkmodl computes it from the bytes it receives),
        followed by the prompt. */
-    ulong prompt_len = len - sizeof(hdr);
-    ModelRequestMsg scope = hdr.scope;
+    ulong prompt_len = req->prompt_ref.prompt_len;
+    ModelRequestMsg scope = req->scope;
     scope.request_id  = seq;
     scope.prompt_hash = 0UL;
     uint8_t * dst = tkagnt_slot_buf( ctx, slot );
     memcpy( dst, &scope, sizeof(scope) );
-    memcpy( dst+sizeof(scope), body+sizeof(hdr), prompt_len );
+    memcpy( dst+sizeof(scope), prompt, prompt_len );
     ctx->slots[slot].used = 1;
     ctx->slots[slot].len  = sizeof(scope) + prompt_len;
     r->slot        = (int8_t)slot;
-    r->prompt_hash = tk_mp_message_hash( body+sizeof(hdr), prompt_len );
-    r->deadline    = hdr.scope.timeout_ms
-                   ? (tk_ns_t)hdr.scope.timeout_ms*TKAGNT_NS_PER_MS
+    r->prompt_hash = req->prompt_ref.prompt_hash;
+    r->deadline    = req->scope.timeout_ms
+                   ? (tk_ns_t)req->scope.timeout_ms*TKAGNT_NS_PER_MS
                    : TKAGNT_DEFAULT_MODEL_TIMEOUT_NS;     /* a duration until dispatch completes */
     r->state       = RUN_ADMITTED;
 }
@@ -784,6 +852,13 @@ tkagnt_after_frag( tkagnt_ctx_t *      ctx,
         return;
     ctx->stage_valid = 0;
 
+    if( ctx->stage_is_req ) {
+        /* A malformed request fragment was never accepted. */
+        if( !ctx->stage_sz ) { ctx->transport_dropped += 1UL; return; }
+        tkagnt_admit( ctx );
+        return;
+    }
+
     ulong in = ctx->stage_in;
     tk_mp_rx_t * rx = &ctx->rx[in];
     tk_ns_t now = (tk_ns_t)fd_log_wallclock_nanos();
@@ -791,19 +866,16 @@ tkagnt_after_frag( tkagnt_ctx_t *      ctx,
     tk_mp_status_t st = tk_mp_rx_feed( rx, ctx->stage, ctx->stage_sz, ctx->stage_som, ctx->stage_eom, now );
     if( st==TK_MP_ERR_INTERLEAVED ) {
         /* The producer abandoned a message and started another. */
-        if( in==ctx->req_in ) ctx->transport_dropped += 1UL;
-        else                  tkagnt_on_result_failure( ctx, (ulong)ctx->in_tier[in] );
+        tkagnt_on_result_failure( ctx, (ulong)ctx->in_tier[in] );
         st = tk_mp_rx_feed( rx, ctx->stage, ctx->stage_sz, ctx->stage_som, ctx->stage_eom, now );
     }
 
     if( st==TK_MP_COMPLETE ) {
-        if( in==ctx->req_in ) tkagnt_admit( ctx );
-        else                  tkagnt_on_result( ctx, (ulong)ctx->in_tier[in] );
+        tkagnt_on_result( ctx, (ulong)ctx->in_tier[in] );
     } else if( (int)st>=(int)TK_MP_ERR_VERSION ) {
-        /* A malformed stream completes nothing.  A broken agent request was
-           never accepted; a broken result ends the run it answered. */
-        if( in==ctx->req_in ) ctx->transport_dropped += 1UL;
-        else                  tkagnt_on_result_failure( ctx, (ulong)ctx->in_tier[in] );
+        /* A malformed stream completes nothing; a broken result ends the run
+           it answered. */
+        tkagnt_on_result_failure( ctx, (ulong)ctx->in_tier[in] );
     }
 }
 
@@ -837,6 +909,7 @@ tkagnt_build_audit( tkagnt_run_t const * r, TkAgentAuditMsg * a ) {
     a->run_id                   = r->run_id;
     a->agent_seq                = r->agent_seq;
     a->capability_envelope_hash = r->envelope_hash;
+    a->trace_id                 = r->trace_id;
     memcpy( a->policy_version, r->policy_version, sizeof(a->policy_version) );
     if( r->outcome==TK_AGENT_OUT_OK ) {
         a->record_type = RECORD_PROPOSAL;
@@ -868,6 +941,7 @@ tkagnt_build_result( tkagnt_run_t const * r, TkAgentResultMsg * m ) {
     m->prompt_hash      = r->prompt_hash;
     m->response_hash    = r->response_hash;
     m->proposal_hash    = r->outcome==TK_AGENT_OUT_OK ? r->response_hash : 0UL;
+    m->trace_id         = r->trace_id;
     memcpy( m->model_id, r->model_id, sizeof(m->model_id) );
 }
 
@@ -882,11 +956,9 @@ tkagnt_after_credit( tkagnt_ctx_t *      ctx,
 
     /* Partial streams that stall are dropped, not held forever. */
     for( ulong i=0UL; i<ctx->in_cnt; i++ ) {
+        if( i==ctx->req_in ) continue;     /* requests are whole fragments */
         tk_mp_status_t st = tk_mp_rx_poll( &ctx->rx[i], now );
-        if( st==TK_MP_ERR_TIMEOUT ) {
-            if( i==ctx->req_in ) ctx->transport_dropped += 1UL;
-            else                  tkagnt_on_result_failure( ctx, (ulong)ctx->in_tier[i] );
-        }
+        if( st==TK_MP_ERR_TIMEOUT ) tkagnt_on_result_failure( ctx, (ulong)ctx->in_tier[i] );
     }
 
     /* Administrative drain: stop dispatching, fail what has not been sent. */

@@ -18,6 +18,7 @@ extern fn tkagnt_tile_scratch_align() usize;
 extern fn tkagnt_set_event_count(event_count: u64) void;
 extern fn tkagnt_set_hooks(hooks: ?*const Hooks) c_int;
 extern fn tkagnt_set_route(tier: u8, kind_id: u8) c_int;
+extern fn tkagnt_set_prompt(hash: u64, bytes: ?[*]const u8, len: usize) c_int;
 extern fn tkagnt_admitted(scratch: ?*anyopaque) usize;
 extern fn tkagnt_terminal_done(scratch: ?*anyopaque) usize;
 extern fn tkagnt_dispatched(scratch: ?*anyopaque) usize;
@@ -30,6 +31,12 @@ extern fn tkagnt_transport_dropped(scratch: ?*anyopaque) usize;
 extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
 
 pub const wire_version: u16 = audit_mod.TK_AGENT_WIRE_VERSION;
+
+/// A prompt by reference (tk_agent_wire.h) and the prompt table's bounds.
+pub const PromptRef = audit_mod.TkPromptRef;
+pub const prompt_cap: usize = audit_mod.TKAGNT_PROMPT_CAP;
+pub const prompt_store_bytes: usize = audit_mod.TKAGNT_PROMPT_STORE_BYTES;
+pub const prompt_max_bytes: usize = audit_mod.TKAGNT_PROMPT_MAX_BYTES;
 
 /// Tier ordinal meaning "none" in a terminal result.
 pub const tier_none: u8 = audit_mod.TK_AGENT_TIER_NONE;
@@ -95,6 +102,22 @@ pub fn setRoute(tier: u8, kind_id: u8) ConfigError!void {
         1 => error.UnknownTier,
         2 => error.DuplicateTier,
         3 => error.DuplicateKind,
+        else => error.Unknown,
+    };
+}
+
+pub const PromptError = error{ PromptBound, PromptHashMismatch, PromptTableFull, DuplicatePrompt, Unknown };
+
+/// Installs one prompt in this process's content-addressed prompt table, before
+/// the tile runs. The C tile re-verifies `bytes` against `hash` and installs
+/// nothing on any refusal.
+pub fn setPrompt(hash: u64, bytes: []const u8) PromptError!void {
+    return switch (tkagnt_set_prompt(hash, bytes.ptr, bytes.len)) {
+        0 => {},
+        1 => error.PromptBound,
+        2 => error.PromptHashMismatch,
+        3 => error.PromptTableFull,
+        4 => error.DuplicatePrompt,
         else => error.Unknown,
     };
 }
@@ -174,4 +197,14 @@ test "tkagnt route declarations are validated" {
 test "tkagnt refuses a hook table with a missing hook" {
     var hooks = std.mem.zeroes(Hooks);
     try std.testing.expectError(error.MissingHook, setHooks(&hooks));
+}
+
+test "tkagnt prompt table installs only verified, unique, bounded prompts" {
+    const multipart = @import("multipart.zig");
+    const prompt = "a verified prompt";
+    const hash = multipart.messageHash(prompt);
+    try std.testing.expectError(error.PromptBound, setPrompt(hash, ""));
+    try std.testing.expectError(error.PromptHashMismatch, setPrompt(hash +% 1, prompt));
+    try setPrompt(hash, prompt);
+    try std.testing.expectError(error.DuplicatePrompt, setPrompt(hash, prompt));
 }
