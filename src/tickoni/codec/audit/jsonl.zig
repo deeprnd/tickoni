@@ -1,13 +1,14 @@
 const std = @import("std");
 const schema = @import("audit_schema");
 const hash = @import("hash.zig");
+const trace_id = @import("c_abi").trace_id;
 const tile_ids = @import("runtime").tile_ids;
 
 pub fn formatJsonLine(event: schema.AuditEvent, writer: anytype) !void {
     const h = event.header;
     try writer.writeAll("{");
     try writer.print("\"schema_version\":{d},", .{h.schema_version});
-    try writer.print("\"trace_id\":{d},", .{h.trace_id});
+    try writer.print("\"trace_id\":{d},", .{trace_id.toInt(h.trace_id)});
     try writer.print("\"run_id\":{d},", .{h.run_id});
     try writer.print("\"seq\":{d},", .{h.seq});
     try writer.print("\"source_offset\":{d},", .{h.source_offset});

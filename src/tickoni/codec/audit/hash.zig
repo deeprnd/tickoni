@@ -22,7 +22,7 @@ pub fn auditEventsEql(a: schema.AuditEvent, b: schema.AuditEvent) bool {
 
 fn eqlHeader(a: schema.Header, b: schema.Header) bool {
     return a.schema_version == b.schema_version and
-        a.trace_id == b.trace_id and
+        std.mem.eql(u8, &a.trace_id, &b.trace_id) and
         a.run_id == b.run_id and
         a.seq == b.seq and
         a.source_offset == b.source_offset and
