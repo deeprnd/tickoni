@@ -59,7 +59,7 @@ extern ulong tk_audit_record_prev_hash( void * scratch, ulong idx );
 extern ulong tk_audit_record_hash( void * scratch, ulong idx );
 extern uint  tk_audit_record_schema_version( void * scratch, ulong idx );
 extern ulong tk_audit_record_source_offset( void * scratch, ulong idx );
-extern ulong tk_audit_record_trace_id( void * scratch, ulong idx );
+extern void  tk_audit_record_trace_id( void * scratch, ulong idx, unsigned __int128 * out );
 extern ulong tk_audit_record_case_id( void * scratch, ulong idx );
 extern uint  tk_audit_record_outcome( void * scratch, ulong idx );
 extern void  tk_audit_record_decided_by( void * scratch, ulong idx, uint8_t * dst );

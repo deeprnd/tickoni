@@ -87,17 +87,17 @@ enum {
 
 typedef struct {
     uint16_t  schema_version;   /* 0  - audit schema version (3) */
-    uint8_t   _pad0[6];         /* 2  - align trace_id to 8 */
-    uint64_t  trace_id;         /* 8  - request trace the record belongs to (TkEvent.trace_id) */
-    uint64_t  run_id;           /* 16 - topology run ID */
-    uint64_t  seq;              /* 24 - sequence number within run */
-    uint64_t  source_offset;    /* 32 - original source offset */
-    uint8_t   tile_id[6];       /* 40 - producer tile id */
-    uint8_t   _pad1[2];         /* 46 - align logical_actor_id */
-    uint64_t  logical_actor_id; /* 48 - logical actor (0 for pipeline) */
-    uint8_t   policy_version[32]; /* 56 - policy version string */
-    uint64_t  case_id;          /* 88 - CaseOps case (TkEvent.case_id); 0 until tkcase assigns one */
-    uint64_t  capability_envelope_id; /* 96 - capability envelope reference (simplified stub) */
+    uint8_t   _pad0[4];         /* 2  - align trace_id to 8 */
+    __uint128_t trace_id;       /* 8  - request trace the record belongs to (TkEvent.trace_id; 16-byte, UUID-compatible) */
+    uint64_t  run_id;           /* 24 - topology run ID */
+    uint64_t  seq;              /* 32 - sequence number within run */
+    uint64_t  source_offset;    /* 40 - original source offset */
+    uint8_t   tile_id[6];       /* 48 - producer tile id */
+    uint8_t   _pad1[2];         /* 54 - align logical_actor_id */
+    uint64_t  logical_actor_id; /* 56 - logical actor (0 for pipeline) */
+    uint8_t   policy_version[32]; /* 64 - policy version string */
+    uint64_t  case_id;          /* 96 - CaseOps case (TkEvent.case_id); 0 until tkcase assigns one */
+    uint64_t  capability_envelope_id; /* 104 - capability envelope reference (simplified stub) */
     uint64_t  timestamp_ns;     /* 112 - nanosecond timestamp */
     uint64_t  prev_hash;        /* 120 - hash chain link */
     uint64_t  record_hash;      /* 128 - hash of this record */
@@ -106,7 +106,7 @@ typedef struct {
     uint8_t   isolation_tier[64]; /* 264 - e.g. "retail" */
     uint8_t   release_digest[64]; /* 328 - git SHA or build digest */
     uint8_t   manifest_id[64];    /* 392 - which manifest was loaded */
-} AuditHeader;
+} AuditHeader;                  /* 400 */
 
 /* ─── PolicyDecisionPayload (matches Zig audit.PolicyDecisionPayload) ─── */
 
@@ -261,7 +261,7 @@ enum {
 #define TKMODL_REPLAY_MODE_LIVE    0
 #define TKMODL_REPLAY_MODE_REPLAY  1
 
-/* tkagnt -> tkmodl (the scope of an agent request, TkAgentRequestMsg).  280 bytes. */
+/* tkagnt -> tkmodl (the scope of an agent request, TkAgentRequestMsg).  288 bytes. */
 typedef struct {
     uint16_t  version;                /* 0   - TKMODL_WIRE_VERSION */
     uint8_t   replay_mode;            /* 2   - TKMODL_REPLAY_MODE_* */
@@ -285,8 +285,8 @@ typedef struct {
     uint8_t   capability_envelope_id[TKMODL_ENVELOPE_LEN];      /* 176 */
     uint8_t   policy_version[TKMODL_POLICY_VERSION_LEN];        /* 208 */
     uint8_t   budget_id[TKMODL_BUDGET_LEN];                     /* 240 */
-    uint64_t  trace_id;               /* 272 - request trace; stamped by tkdisp from the event */
-} ModelRequestMsg;                    /* 280 */
+    __uint128_t trace_id;             /* 272 - request trace; stamped by tkdisp from the event (16-byte, UUID-compatible) */
+} ModelRequestMsg;                    /* 288 */
 
 /* tkmodl -> tkagnt.  136 bytes. */
 typedef struct {
@@ -314,17 +314,17 @@ typedef struct {
 typedef struct {
     uint16_t  version;                /* 0 */
     uint8_t   record_type;            /* 2 - RecordType */
-    uint8_t   _pad0[5];               /* 3 */
+    uint8_t   _pad0[4];               /* 3 */
     uint64_t  run_id;                 /* 8 */
     uint64_t  request_id;             /* 16 - becomes header.source_offset */
     uint64_t  capability_envelope_hash; /* 24 - becomes header.capability_envelope_id */
     uint8_t   policy_version[TKMODL_POLICY_VERSION_LEN]; /* 32 */
-    uint64_t  trace_id;               /* 64 - becomes header.trace_id */
+    __uint128_t trace_id;             /* 64 - becomes header.trace_id (16-byte, UUID-compatible) */
     union {
         WireModelCallPayload model_call;
         WireDenialPayload    denial;
-    } payload;                        /* 72 */
-} ModelAuditMsg;
+    } payload;                        /* 80 */
+} ModelAuditMsg;                    /* 224 */
 
 /* ─── tkmodl runtime configuration (supervisor -> tkmodl child handoff) ───
 
@@ -390,28 +390,30 @@ _Static_assert( sizeof(TkModlRuntimeConfig)%8UL==0UL, "TkModlRuntimeConfig must 
    Header + one payload variant, selected by record_type.  Declared after the
    Wire* payload types it embeds. */
 typedef struct {
-    AuditHeader       header;         /* 0  - 392 bytes */
-    RecordType        record_type;    /* 392 - union discriminant */
-    uint8_t           _pad[4];        /* 393 - align payload */
+    AuditHeader       header;         /* 0  - 400 bytes */
+    RecordType        record_type;    /* 400 - union discriminant */
+    uint8_t           _pad0[7];       /* 401 - align payload to 8 */
     union {
         PolicyDecisionPayload policy_decision;
         WireModelCallPayload  model_call;
         WireProposalPayload   proposal;
         WireDenialPayload     denial;
     };
-} AuditEvent;
+} AuditEvent;                   /* 488 */
 
 #define AUDIT_EVENT_SIZE sizeof(AuditEvent)
 
-_Static_assert( sizeof(ModelRequestMsg)==280UL, "ModelRequestMsg wire size drift" );
+_Static_assert( sizeof(ModelRequestMsg)==288UL, "ModelRequestMsg wire size drift" );
 _Static_assert( offsetof(ModelRequestMsg, trace_id)==272UL, "ModelRequestMsg.trace_id ABI drift" );
 _Static_assert( offsetof(ModelRequestMsg, model_id)==80UL, "ModelRequestMsg.model_id ABI drift" );
 _Static_assert( sizeof(ModelResultMsg)==136UL, "ModelResultMsg wire size drift" );
 _Static_assert( offsetof(ModelResultMsg, model_id)==72UL, "ModelResultMsg.model_id ABI drift" );
-_Static_assert( offsetof(ModelAuditMsg, payload)==72UL, "ModelAuditMsg.payload ABI drift" );
-_Static_assert( offsetof(AuditHeader, trace_id)==8UL, "AuditHeader.trace_id ABI drift" );
-_Static_assert( offsetof(AuditHeader, case_id)==88UL, "AuditHeader.case_id ABI drift" );
-_Static_assert( offsetof(AuditHeader, capability_envelope_id)==96UL, "AuditHeader.capability_envelope_id ABI drift" );
+_Static_assert( offsetof(ModelAuditMsg, payload)==80UL, "ModelAuditMsg.payload ABI drift" );
+_Static_assert( sizeof(ModelAuditMsg)==224UL, "ModelAuditMsg wire size drift" );
+_Static_assert( offsetof(ModelAuditMsg, trace_id)==64UL, "ModelAuditMsg.trace_id ABI drift" );
+_Static_assert( offsetof(AuditHeader, trace_id)==16UL, "AuditHeader.trace_id ABI drift" );
+_Static_assert( offsetof(AuditHeader, case_id)==104UL, "AuditHeader.case_id ABI drift" );
+_Static_assert( offsetof(AuditHeader, capability_envelope_id)==112UL, "AuditHeader.capability_envelope_id ABI drift" );
 
 #include "tk_agent_wire.h"
 #include "tk_event_wire.h"

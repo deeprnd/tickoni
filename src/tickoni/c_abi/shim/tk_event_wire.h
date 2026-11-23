@@ -75,27 +75,28 @@ typedef struct {
     uint8_t   pipeline_hops;           /* 5  */
     uint8_t   duplicate;               /* 6  - tkdedu */
     uint8_t   decision;                /* 7  - PolicyOutcome; tknorm or tkpoly */
-    uint64_t  trace_id;                /* 8  - producer; nonzero */
-    uint64_t  idempotency_key;         /* 16 - producer */
-    uint64_t  source_offset;           /* 24 - tkings */
-    uint64_t  event_hash;              /* 32 - tknorm */
-    uint64_t  case_id;                 /* 40 - tkcase; 0 until assigned */
-    uint8_t   decided_by[6];           /* 48 - tile id that finalized `decision` */
-    uint8_t   _pad[2];                 /* 54 */
+    __uint128_t trace_id;              /* 8  - producer; nonzero (16-byte, UUID-compatible) */
+    uint64_t  idempotency_key;         /* 24 - producer */
+    uint64_t  source_offset;           /* 32 - tkings */
+    uint64_t  event_hash;              /* 40 - tknorm */
+    uint64_t  case_id;                 /* 48 - tkcase; 0 until assigned */
+    uint8_t   decided_by[6];           /* 56 - tile id that finalized `decision` */
+    uint8_t   _pad[2];                 /* 62 */
     union {
         TkEventPayment     payment;
         TkAgentRequestMsg  agent_request;
-    } body;                            /* 56 */
-} TkEvent;                             /* 360 */
+    } body;                            /* 80 */
+} TkEvent;                             /* 400 */
 
 #define TK_EVENT_SIZE sizeof(TkEvent)
 
 _Static_assert( sizeof(TkEventPayment)==16UL,            "TkEventPayment wire size drift" );
-_Static_assert( offsetof(TkEvent, trace_id)==8UL,        "TkEvent.trace_id ABI drift" );
-_Static_assert( offsetof(TkEvent, source_offset)==24UL,  "TkEvent.source_offset ABI drift" );
-_Static_assert( offsetof(TkEvent, decided_by)==48UL,     "TkEvent.decided_by ABI drift" );
-_Static_assert( offsetof(TkEvent, body)==56UL,           "TkEvent.body ABI drift" );
-_Static_assert( sizeof(TkEvent)==360UL,                  "TkEvent wire size drift" );
+_Static_assert( offsetof(TkEvent, trace_id)==16UL,        "TkEvent.trace_id ABI drift" );
+_Static_assert( offsetof(TkEvent, idempotency_key)==32UL, "TkEvent.idempotency_key ABI drift" );
+_Static_assert( offsetof(TkEvent, source_offset)==40UL,  "TkEvent.source_offset ABI drift" );
+_Static_assert( offsetof(TkEvent, decided_by)==64UL,     "TkEvent.decided_by ABI drift" );
+_Static_assert( offsetof(TkEvent, body)==80UL,           "TkEvent.body ABI drift" );
+_Static_assert( sizeof(TkEvent)==400UL,                  "TkEvent wire size drift" );
 _Static_assert( sizeof(TkEvent)<=(unsigned long)TK_EVENT_LINK_MTU, "TkEvent must fit a spine link" );
 
 #endif /* __TK_EVENT_WIRE_H__ */

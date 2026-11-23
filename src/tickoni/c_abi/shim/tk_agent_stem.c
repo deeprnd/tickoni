@@ -120,7 +120,7 @@ typedef struct {
     uint64_t  prompt_hash;
     uint64_t  response_hash;
     uint64_t  envelope_hash;
-    uint64_t  trace_id;
+    __uint128_t trace_id;
     tk_ns_t   deadline;           /* AWAIT: when the model has taken too long */
     uint8_t   model_id[TKMODL_MODEL_ID_LEN];
     uint8_t   policy_version[TKMODL_POLICY_VERSION_LEN];

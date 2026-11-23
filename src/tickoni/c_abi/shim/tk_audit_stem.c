@@ -883,9 +883,9 @@ tk_audit_record_source_offset( void * scratch, ulong idx ) {
     return tk_audit_record_at( scratch, idx )->header.source_offset;
 }
 
-ulong
-tk_audit_record_trace_id( void * scratch, ulong idx ) {
-    return tk_audit_record_at( scratch, idx )->header.trace_id;
+void
+tk_audit_record_trace_id( void * scratch, ulong idx, unsigned __int128 * out ) {
+    *out = tk_audit_record_at( scratch, idx )->header.trace_id;
 }
 
 ulong

@@ -216,7 +216,7 @@ tknorm_event_valid_compute( TkEvent const * ev ) {
    tknorm_tile_scratch_align(). */
 static ulong
 tknorm_scratch_align_tile( void ) {
-    return TKNORM_CTX_ALIGN;
+    return fd_ulong_max( TKNORM_CTX_ALIGN, alignof(TkEvent) );
 }
 
 static ulong

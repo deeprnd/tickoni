@@ -34,7 +34,7 @@ extern fn tk_audit_record_prev_hash(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_hash(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_schema_version(scratch: ?*anyopaque, idx: usize) c_uint;
 extern fn tk_audit_record_source_offset(scratch: ?*anyopaque, idx: usize) u64;
-extern fn tk_audit_record_trace_id(scratch: ?*anyopaque, idx: usize) u64;
+extern fn tk_audit_record_trace_id(scratch: ?*anyopaque, idx: usize, out: *u128) void;
 extern fn tk_audit_record_case_id(scratch: ?*anyopaque, idx: usize) u64;
 extern fn tk_audit_record_outcome(scratch: ?*anyopaque, idx: usize) c_uint;
 extern fn tk_audit_record_decided_by(scratch: ?*anyopaque, idx: usize, dst: *[6]u8) void;
@@ -181,8 +181,10 @@ pub fn recordSourceOffset(scratch: ?*anyopaque, idx: usize) u64 {
 }
 
 /// The request trace committed record `idx` belongs to (header.trace_id).
-pub fn recordTraceId(scratch: ?*anyopaque, idx: usize) u64 {
-    return tk_audit_record_trace_id(scratch, idx);
+pub fn recordTraceId(scratch: ?*anyopaque, idx: usize) u128 {
+    var out: u128 = undefined;
+    tk_audit_record_trace_id(scratch, idx, &out);
+    return out;
 }
 
 /// The CaseOps case of committed record `idx` (header.case_id); 0 until tkcase assigns one.
@@ -338,13 +340,13 @@ test "tkaudt tile identity — init callbacks are non-null" {
 }
 
 test "tkaudt scratch align — describes the context block, not fd_stem's stack scratch" {
-    // alignof(tk_audit_ctx_t) == 8, matching AuditEvent, which the same
-    // footprint carves out of the same block.  128 (FD_STEM_SCRATCH_ALIGN)
+    // alignof(tk_audit_ctx_t) == 16, matching AuditEvent (its 16-byte
+    // header.trace_id), which the same footprint carves out of the same block.  128 (FD_STEM_SCRATCH_ALIGN)
     // here would mean .scratch_align was wired to the STEM-generated
     // tkaudt_scratch_align() from fd_stem.c, which describes fd_stem's own
     // stack scratch.  See "Tile Scratch Layout" in
     // doc/execution/contribution/tickoni.md.
-    try std.testing.expectEqual(@as(usize, 8), tk_audit_scratch_align());
+    try std.testing.expectEqual(@as(usize, 16), tk_audit_scratch_align());
 }
 
 test "tkaudt scratch align — footprint is a whole number of alignment units" {
