@@ -303,7 +303,7 @@ tkdisp_after_frag( tkdisp_ctx_t *      ctx,
         TkAgentRequestMsg * req = &ctx->queue[tail];
         *req = ev->kind==TK_EVENT_KIND_AGENT_REQUEST ? ev->body.agent_request : tkdisp_template;
         req->scope.run_id   = ev->source_offset + 1UL;
-        req->scope.trace_id = ev->trace_id;
+        memcpy( req->scope.trace_id, ev->trace_id, sizeof(req->scope.trace_id) );
         ctx->queue_cnt  += 1UL;
         ctx->events_seen += 1UL;
         return;

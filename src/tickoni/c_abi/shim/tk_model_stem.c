@@ -632,7 +632,7 @@ tkmodl_handle_request( tkmodl_ctx_t * ctx, fd_stem_context_t * stem ) {
     audit.version                  = TKMODL_WIRE_VERSION;
     audit.run_id                   = req.run_id;
     audit.request_id               = req.request_id;
-    audit.trace_id                 = req.trace_id;
+    memcpy( audit.trace_id, req.trace_id, sizeof(audit.trace_id) );
     audit.capability_envelope_hash = tk_model_envelope_hash( req.capability_envelope_id );
     memcpy( audit.policy_version, req.policy_version, sizeof(audit.policy_version) );
     if( allowed ) {

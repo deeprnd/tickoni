@@ -17,7 +17,7 @@
                test harness stands in for tkapi).  The producer owns trace_id:
                one inbound request keeps one nonzero trace_id until its reply.
      tkings    validates framing (size, version, kind, source, flags,
-               trace_id != 0), drops what fails, and stamps source_offset: a
+               trace_id not all zero), drops what fails, and stamps source_offset: a
                per-source counter, deterministic in arrival order.  It resets
                every field a later tile owns, so a producer cannot pre-decide
                anything.
@@ -75,7 +75,7 @@ typedef struct {
     uint8_t   pipeline_hops;           /* 5  */
     uint8_t   duplicate;               /* 6  - tkdedu */
     uint8_t   decision;                /* 7  - PolicyOutcome; tknorm or tkpoly */
-    __uint128_t trace_id;              /* 8  - producer; nonzero (16-byte, UUID-compatible) */
+    _Alignas(16) uint8_t trace_id[TK_TRACE_ID_SZ]; /* 16 - producer; at least one nonzero byte */
     uint64_t  idempotency_key;         /* 24 - producer */
     uint64_t  source_offset;           /* 32 - tkings */
     uint64_t  event_hash;              /* 40 - tknorm */

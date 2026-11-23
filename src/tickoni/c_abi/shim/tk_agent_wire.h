@@ -90,7 +90,7 @@ typedef struct {
     uint64_t  proposal_hash;     /* 48 - the hash bound into the audit record */
     uint8_t   model_id[TKMODL_MODEL_ID_LEN]; /* 56 */
     uint8_t   _pad1[8];          /* 88 - align trace_id to 16 */
-    __uint128_t trace_id;        /* 96 - request trace (16-byte, UUID-compatible) */
+    _Alignas(16) uint8_t trace_id[TK_TRACE_ID_SZ]; /* 96 - request trace */
 } TkAgentResultMsg;              /* 112 */
 
 /* tkagnt -> tkaudt.  record_type is RECORD_PROPOSAL for a completed run and
@@ -107,7 +107,7 @@ typedef struct {
     uint64_t  agent_seq;               /* 16 - becomes header.source_offset; the order key */
     uint64_t  capability_envelope_hash; /* 24 - becomes header.capability_envelope_id */
     uint8_t   policy_version[TKMODL_POLICY_VERSION_LEN]; /* 32 */
-    __uint128_t trace_id;              /* 64 - becomes header.trace_id (16-byte, UUID-compatible) */
+    _Alignas(16) uint8_t trace_id[TK_TRACE_ID_SZ]; /* 64 - becomes header.trace_id */
     union {
         WireProposalPayload proposal;
         WireDenialPayload   denial;

@@ -552,7 +552,7 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
             (ulong)m.record_type!=sig )
             return;
 
-        event->header.trace_id        = m.trace_id;
+        memcpy( event->header.trace_id, m.trace_id, sizeof(event->header.trace_id) );
         event->header.run_id          = m.run_id;
         event->header.source_offset   = m.request_id;
         memcpy( event->header.tile_id, TILE_ID_TKMODL, sizeof(event->header.tile_id) );
@@ -576,7 +576,7 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
         if( a.record_type!=RECORD_PROPOSAL && a.record_type!=RECORD_DENIAL ) return;
         if( a.agent_seq==0UL ) return;
 
-        event->header.trace_id        = a.trace_id;
+        memcpy( event->header.trace_id, a.trace_id, sizeof(event->header.trace_id) );
         event->header.run_id          = a.run_id;
         event->header.source_offset   = a.agent_seq;
         memcpy( event->header.tile_id, TILE_ID_TKAGNT, sizeof(event->header.tile_id) );
@@ -598,7 +598,7 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
        TkEvent provides: trace_id, case_id, source_offset, event_hash,
        decision, decided_by.
        Fixed constants provide: run_id, logical_actor, policy_version. */
-    event->header.trace_id        = msg->trace_id;
+    memcpy( event->header.trace_id, msg->trace_id, sizeof(event->header.trace_id) );
     event->header.case_id         = msg->case_id;
     event->header.source_offset   = msg->source_offset;
     memcpy( event->header.tile_id, msg->decided_by, sizeof(msg->decided_by) );
@@ -884,8 +884,8 @@ tk_audit_record_source_offset( void * scratch, ulong idx ) {
 }
 
 void
-tk_audit_record_trace_id( void * scratch, ulong idx, unsigned __int128 * out ) {
-    *out = tk_audit_record_at( scratch, idx )->header.trace_id;
+tk_audit_record_trace_id( void * scratch, ulong idx, uint8_t out[ TK_TRACE_ID_SZ ] ) {
+    memcpy( out, tk_audit_record_at( scratch, idx )->header.trace_id, TK_TRACE_ID_SZ );
 }
 
 ulong
