@@ -494,7 +494,7 @@ Each tile needs a place to stage that nothing else observes until
 `AFTER_FRAG` commits. Two patterns are in use, and both are acceptable:
 
 - **Scratch staging buffer** (`tknorm`, `tkdedu`): a scratch-allocated
-  `PaymentMessage` the tile owns, plus `stage_valid` / `stage_sz`.
+  `TkEvent` the tile owns, plus `stage_valid` / `stage_sz`.
   `AFTER_FRAG` reads the verdict back off the staged message rather than
   carrying a separate flag.
 - **Next uncommitted slot** (`tkaudt`): `DURING_FRAG` builds the record into

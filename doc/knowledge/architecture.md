@@ -33,16 +33,18 @@ They do not replace the runtime.
 
 ```text
 ┌────────────────────┐      ┌──────────────────────┐      ┌─────────────────────┐
-│      Next.js       │<────>│   Zig CaseOps API    │<────>│  Markdown + the analytics store  │
-│ CaseOps operator UI│      │  tkapi HTTP + WS     │      │ memory + analytics  │
+│      Next.js       │<────>│  tk_api shared-memory│<────>│  Markdown + analytics store  │
+│ CaseOps operator UI│      │  channel (all cmds)  │      │ memory + analytics  │
 └────────────────────┘      └──────────┬───────────┘      └─────────────────────┘
                                        │
                                        v
 ┌───────────────────────────────────────────────────────────────────────────────┐
 │                         Tickoni AI-harness tiles                              │
 │                                                                               │
-│  tkapi                                                                        │
-│    CaseOps API tile: board reads, evidence reads, approvals, audit timeline   │
+│  tk_api                                                                       │
+│    Primary command entry point: shared-memory channel for all operator/agent   │
+│    commands (ingest, valuation, trade propose, trade execute, case reads)      │
+│    CaseOps board reads, evidence reads, approvals, audit timeline              │
 │                                                                               │
 │  tkings -> tknorm -> tkdedu -> tkcase -> tkpoly -> tkaudt                     │
 │    ingestion, normalization, dedupe, deterministic cases, policy, audit       │
@@ -104,18 +106,17 @@ to extend.
 
 Tickoni reuses generic Firedancer tiles and infrastructure primitives, but Solana validator tiles and Solana schemas are not Tickoni framework concepts. That generic Firedancer reuse is what lets Tickoni position itself as an ultra-TPS financial event harness instead of a normal web backend with agents attached.
 
-The **Tickoni AI-harness tiles** own financial correctness. Financial events
-enter `tkings`, become canonical in `tknorm`, are deduplicated in `tkdedu`,
-become deterministic cases in `tkcase`, are policy-checked by `tkpoly`, and
-are ordered into the audit chain by `tkaudt`. Agent, model, tool, adapter,
+The **`tk_api` entry point** is the single shared-memory channel that receives all operator and agent commands. Financial events
+enter `tk_api`, which routes them to `tkings` for ingestion, then through `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, and `tkaudt` in the deterministic pipeline. Agent, model, tool, adapter,
 replay, metrics, diagnostics, and future execution paths are additional tiles
 on top of the same engine substrate.
 
-The **Zig CaseOps API** is the HTTP/WebSocket control-plane edge implemented
-inside Tickoni. It should serve ingestion and CaseOps APIs, authenticate
-clients, fan out live state, and coordinate operator approvals, but it must not
-own normalization, deduplication, policy decisions, model access, adapter
-access, or financial execution. Those stay with the owning Tickoni tiles.
+The **`tk_api` entry point** is the single shared-memory channel that receives
+all operator and agent commands (ingest, valuation, trade propose, trade
+execute, case reads). It authenticates, validates transport shape, routes to
+the owning tiles, and fans out state; it must not own normalization,
+deduplication, policy decisions, model access, adapter access, or financial
+execution. Those stay with the owning Tickoni tiles.
 
 The **Markdown memory/policy store** holds human-authored operating context:
 memory, theses, policies, company notes, runbooks, and case narratives. These
@@ -187,9 +188,11 @@ event spike in process mode:
 
 ```text
 synthetic payment stream
+  -> tk_api
   -> tkings
   -> tknorm
   -> tkdedu
+  -> tkcase
   -> tkpoly
   -> tkaudt
 
@@ -486,11 +489,13 @@ platform, fuzzing, or performance stories.
 
 ### Phase 0 Tiles
 
-| Runtime ID | Logical name | Responsibility |
+|| Runtime ID | Logical name | Responsibility |
 | --- | --- | --- |
+| `tk_api` | `api_entry` | Primary command entry point: shared-memory channel for all operator/agent commands |
 | `tkings` | `ingest_tile` | Receive synthetic payment events, validate framing, assign source offsets, and apply ingress backpressure |
 | `tknorm` | `normalize_tile` | Convert source events into the canonical financial event schema |
 | `tkdedu` | `dedupe_tile` | Deduplicate events by idempotency key and content hash |
+| `tkcase` | `case_tile` | Create deterministic case records when enabled |
 | `tkpoly` | `policy_tile` | Evaluate versioned capability policy for runtime-visible decisions |
 | `tkaudt` | `audit_tile` | Own append-only hash-chain ordering and JSONL export |
 | `tkrepl` | `replay_tile` | Re-inject replay capsules with external effects disabled and report divergence |
