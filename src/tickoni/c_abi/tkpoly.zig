@@ -128,16 +128,15 @@ test "tkpoly tile identity — scratch callbacks are non-null" {
 }
 
 test "tkpoly scratch align — describes the context block, not fd_stem's stack scratch" {
-    // alignof(tkpoly_ctx_t) == 8: the context holds u64s, pointers and ints,
-    // and TkEvent — which the same footprint carves out of the same
-    // block — is 8-aligned too.
+    // 16: alignof(tkpoly_ctx_t), which embeds the staged TkEvent (16-aligned
+    // by its 16-byte trace_id).
     //
     // 128 (FD_STEM_SCRATCH_ALIGN) here means .scratch_align was wired to the
     // STEM-generated tkpolicy_scratch_align() from fd_stem.c, which describes
     // fd_stem's own stack scratch: a different block from the one
     // .scratch_footprint reserves.  See "Tile Scratch Layout" in
     // doc/execution/contribution/tickoni.md.
-    try std.testing.expectEqual(@as(usize, 8), tkpoly_tile_scratch_align());
+    try std.testing.expectEqual(@as(usize, 16), tkpoly_tile_scratch_align());
 }
 
 test "tkpoly scratch align — footprint is a whole number of alignment units" {
