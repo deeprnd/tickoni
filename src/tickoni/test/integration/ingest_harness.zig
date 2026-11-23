@@ -39,7 +39,7 @@ const event_wire_version: u16 = 1; // TK_EVENT_WIRE_VERSION
 
 comptime {
     // The local names above are the C header's (shim/tk_event_wire.h).
-    std.debug.assert(@sizeOf(TkEvent) == 360);
+    std.debug.assert(@sizeOf(TkEvent) == 400);
 }
 
 /// Trace id of the event at stream `offset`: nonzero, one per request.
@@ -195,7 +195,7 @@ test "a payment event carries the synthetic payment under a canonical envelope" 
     try std.testing.expect(c_abi.tkings.framingOk(&ev));
     try std.testing.expectEqual(raw.idempotency_key, ev.idempotency_key);
     try std.testing.expectEqual(raw.amount_cents, ev.body.payment.amount_cents);
-    try std.testing.expectEqual(@as(u64, 8), ev.trace_id);
+    try std.testing.expectEqual(@as(u128, 8), ev.trace_id);
     try std.testing.expectEqual(@as(u64, 0), ev.source_offset);
 }
 
