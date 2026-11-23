@@ -26,30 +26,40 @@ The user can **dismiss** (accept the risk) or **trim** (initiate rebalancing tra
 
 ```mermaid
 sequenceDiagram
-    participant Trigger as Daily/Login/Interval
     participant Port as tkport (Portfolio)
-    participant Poly as tkpoly (Policy)
-    participant Audt as tkaudt (Audit)
+    participant tkA as tk_api (semantic API)
+    participant tkI as tkings (canonical framing)
+    participant tkN as tknorm (normalization)
+    participant tkD as tkdedu (deduplication)
+    participant tkC as tkcase (case scoping)
+    participant tkP as tkpoly (policy check)
+    participant tkU as tkaudt (audit)
     participant Term as Terminal (UI)
 
-    Trigger->>Port: portfolio.read (all accounts)
-    Port-->>Trigger: portfolio snapshot (holdings, prices, sector exposure)
-    loop For each position
-        Trigger->>Poly: POLICY_CHECK exposure_monitor.check (position, limits)
-        Poly-->>Trigger: allow / deny (with blocked_reasons)
-    end
-    Trigger->>Audt: AUDIT exposure_check (accounts, violations count, timestamp)
-    Audt-->>Trigger: audit record committed
+    Note over Port: Trigger: daily / on-login / interval
+
+    Port->>tkA: portfolio_snapshot (all accounts)
+    tkA->>tkI: event (type=exposure_monitor.check)
+    tkI->>tkN: normalized event
+    tkN->>tkD: deduplicated event
+    tkD->>tkC: case-scoped event
+    tkC->>tkP: policy check (exposure_monitor.check)
+    tkP-->>tkC: allow / deny (with blocked_reasons)
+    tkC->>tkU: AUDIT exposure_check (accounts, violations count, timestamp)
+    tkU-->>tkC: audit record committed
     alt Violations found
-        Trigger->>Term: PUSH alert (violations, drift, recommended trim)
+        tkP->>tkA: ui_evt — alert push (violations, drift, recommended trim)
+        tkA-->>Term: ui_evt — alert payload
     else No violations
         Term->>Term: silent update (no alert)
     end
     alt User chooses trim
-        Term->>Term: presents rebalancing proposals
-        Term->>UC-03 or UC-05: POST /trade/propose (rebalancing trades)
+        Term->>tkA: ui_cmd — trade_propose (rebalancing trades)
+        tkA->>tkI: event (case_id=X, type=trade_propose)
+    end
     alt User dismisses
-        Term->>Audt: AUDIT exposure_alert_dismissed (account, violations, timestamp)
+        Term->>tkA: ui_cmd — exposure_alert_dismissed
+        tkA->>tkI: event (case_id=X, type=exposure_alert_dismissed)
     end
 ```
 
@@ -60,7 +70,7 @@ sequenceDiagram
 | `tkport` | `tkport0` | Portfolio tile — read holdings with live prices, compute sector exposure, per-position percentages | **MISSING** — no tile exists (schema exists, see UC-03) |
 | `tkpoly` | `tkpoly` | Policy tile — `exposure_monitor.check` capability envelope (per-position ≤ 5%, sector ≤ 20%, margin requirements) | **PARTIALLY** — exists, needs exposure monitoring policy rules |
 | `tkaudt` | `tkaudt` | Audit tile — records `exposure_check` and `exposure_alert_dismissed` events | **PARTIALLY** — needs `exposure_check` record type |
-| `tkapi` | `tkapi0` | API tile — WebSocket push for continuous alerts, HTTP handler for on-demand checks | **MISSING** — see UC-01 |
+| `tk_api` | `tk_api` | Semantic API tile — alert push via shared-memory event channel, user command intake via ui_cmd | **MISSING** |
 | `tkmetr` | `metric` | Metrics tile — tracks exposure check latency, violation count | **EXISTING** |
 | `tkdiag` | `tkdiag` | Diagnostics | **EXISTING** |
 
@@ -83,15 +93,15 @@ sequenceDiagram
 6. Add `exposure_alert_dismissed` record type to `tkaudt` — includes dismissed violations, timestamp.
 7. Implement alert generation: for each violation, compute drift (old percentage → new percentage), identify recommended trim trades.
 8. Wire `tkport` into the investment workflow topology.
-9. Implement `tkapi` WebSocket handler for alert push (continuous monitoring) and HTTP handler for on-demand check (`GET /exposure/check`).
+9. Implement alert channel: for each violation, compute drift (old percentage → new percentage), identify recommended trim trades, push via `tk_api` event channel to terminal UI.
 
 ### System test approach
 
-- Launch the exposure monitor topology with `tkapi`, `tkport`, `tkpoly`, `tkaudt`, `metric`, `tkdiag`.
+- Launch the exposure monitor topology with `tk_api`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, `tkport`, `tkaudt`, `metric`, `tkdiag`.
 - Use `mock_adapter` with `technology_heavy` fixture (82% tech) — should trigger sector violation on every check.
 - Use `mock_adapter` with `cash_rich` fixture — should pass all checks.
-- Trigger on-demand check via `GET /exposure/check` (or direct test call to the monitor logic).
-- Verify: `tkport` returned holdings with correct price re-pricing; `tkpoly` applied per-position and sector limits; `tkaudt` recorded `exposure_check` with violation list; terminal received alert payload with drift details and recommended trim trades.
+- Trigger on-demand check via `ui_cmd` channel (type=exposure_monitor.check).
+- Verify: `tkport` returned holdings with correct price re-pricing; `tkpoly` applied per-position and sector limits; `tkings` canonicalized the event; `tkaudt` recorded `exposure_check` with violation list; terminal received alert payload with drift details and recommended trim trades via `ui_evt` channel.
 - Test dismiss path: verify `exposure_alert_dismissed` is recorded.
 - Test trim path: verify the recommended trades flow through UC-03/UC-05 (trade proposal).
 - Replay test: captured capsule with substituted portfolio data produces identical alert output.

@@ -112,7 +112,7 @@ sequenceDiagram
 - Use `mock_adapter` with `technology_heavy` fixture (owns NVDA 50 shares at $200, sold at $150).
 - Use `mock_model` for retrospective analysis with canned response.
 - Use `tkbrok` default backend (always returns filled) to close position.
-- Trigger via `/trade/execute` (close NVDA).
+- Trigger via `ui_cmd` channel (type=trade_execute, close NVDA) to trigger the position close, which then triggers the retrospective dispatch.
 - Verify: `tkport` recorded position close with correct P&L; `tkcase` created retrospective scope; `tkagnt` ran retrospective analysis and produced findings; `tkpoly` approved the rule suggestions (non-binding); `tkaudt` recorded `position_close` and `retrospective_result`; terminal received the report.
 - Verify rule suggestion: suggested `each_position_limit = 5%` and `stop_loss_pct = 15%`.
 - Test deny path: retrospective agent proposes a rule that would expand exposure (e.g., "increase position limit to 20%") — `tkpoly` should deny.

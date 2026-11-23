@@ -17,27 +17,27 @@ For a hedge fund manager or trader, replay is not about re-running computations 
 ```mermaid
 sequenceDiagram
     participant Term as Terminal (UI)
-    participant API as tkapi (CaseOps API)
-    participant Case as tkcase (Case scope)
-    participant Audt as tkaudt (Audit — source of truth for replay)
-    participant Repl as tkrepl (Replay — reconstructs decision from audit)
-    case Trader reviews decision
-        Term->>API: GET /case/{case_id}/replay
-        API->>Case: tkcase.capsule (case_id)
-        Case-->>API: capsule (all events in the case)
-        API->>Audt: read audit records (seq range from capsule)
-        Audt-->>API: audit records
-        API->>Repl: replay capsule (external effects disabled, policy version v2.3)
-        Repl-->>API: replay result (deterministic reconstruction)
-        API-->>Term: decision narrative (agent saw X, tried Y, policy said Z)
-    end
+    participant tkA as tk_api (semantic API)
+    participant tkC as tkcase (Case scope)
+    participant tkU as tkaudt (Audit — source of truth for replay)
+    participant tkR as tkrepl (Replay — reconstructs decision from audit)
+
+    Note over Term: Trader reviews decision
+    Term->>tkA: ui_cmd — case_replay (case_id=17)
+    tkA->>tkC: tkcase.capsule (case_id=17)
+    tkC-->>tkA: capsule (all events in the case)
+    tkA->>tkU: read audit records (seq range from capsule)
+    tkU-->>tkA: audit records
+    tkA->>tkR: replay capsule (external effects disabled, policy version v2.3)
+    tkR-->>tkA: replay result (deterministic reconstruction)
+    tkA-->>Term: ui_rsp — decision narrative (agent saw X, tried Y, policy said Z)
 ```
 
 ## Tile Inventory
 
 | Tile | Runtime ID | Responsibility | Status |
 |------|-----------|----------------|--------|
-| `tkapi` | `tkapi0` | Receives replay request, assembles narrative | **MISSING** — see UC-01 |
+|| `tk_api` | `tk_api` | Semantic API tile — receives case_replay via ui_cmd, assembles narrative from tkcase/tkaudt/tkrepl, returns ui_rsp | **MISSING** |
 | `tkcase` | `tkcase0` | `tkcase.capsule` — returns all events for a case | **PARTIALLY** — `tk_pass_stem.c` placeholder |
 | `tkaudt` | `tkaudt` | Source of truth — all audit records for the case | **EXISTING** — append-only chain, hash-chained |
 | `tkrepl` | `tkrepl` | Re-inject capsule, verify deterministic reconstruction | **NOT STARTED** — stem only, no runtime tile |
@@ -59,7 +59,7 @@ sequenceDiagram
    - What the agent tried (tool calls, proposals)
    - What was allowed vs. blocked by policy
    - What the agent was **not allowed** to do (bypass attempts, policy denials)
-3. Implement `tkapi` handler for `GET /case/{case_id}/replay` — returns the narrative to the terminal UI.
+3. Implement `tk_api` command handler for `case_replay` via shared-memory channel — returns the narrative to the terminal UI.
 4. Wire `tkcase` and `tkrepl` into a topology that supports replay requests (separate from the main event pipeline).
 
 ## User interaction
