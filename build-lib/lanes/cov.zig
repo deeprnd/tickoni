@@ -247,7 +247,9 @@ pub fn strategy(
             .{ .name = "topologies", .module = shared.topologies },
             .{ .name = "logger", .module = shared.logger },
         },
-        .linkage = .{ .needs_codec = true, .needs_firedancer = true },
+        // needs_topo_run, as in the unit lane: agent_prompts.zig's tests install
+        // prompts into the tkagnt stem tile (tkagnt_set_prompt).
+        .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
     }, cov_step);
 
     // Topologies cov test.
