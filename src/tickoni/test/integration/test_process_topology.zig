@@ -8,6 +8,8 @@ const rt = @import("runtime");
 const tile_ids = rt.tile_ids;
 const c_abi = @import("c_abi");
 const supervisor_mod = @import("supervisor");
+const ingest = @import("ingest_harness");
+const Harness = ingest.Harness;
 const topologies = @import("topologies");
 const util = @import("util");
 
@@ -31,13 +33,15 @@ test "process_topology_integration: every tile is a distinct OS process parented
     const event_count: u64 = 8;
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = port,
-    });
+    }, .{});
 
     const supervisor_pid = c_abi.sandbox.getpid();
 
@@ -63,6 +67,7 @@ test "process_topology_integration: every tile is a distinct OS process parented
         std.debug.print("[test] tile {d}: state={s} pid={any}\n", .{ i, @tagName(h.state), h.pid });
     }
 
+    feed.finish();
     sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     try std.testing.expectEqual(event_count, metrics.produced);
     try std.testing.expectEqual(event_count, metrics.audited);
@@ -92,17 +97,19 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
     // not sub-100ms reaction time.
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = 16,
         .heartbeat_interval_ns = 50 * std.time.ns_per_ms,
         .heartbeat_stale_after_ns = 1 * std.time.ns_per_s,
         .stuck_tile_idx = 0,
-        .stuck_after_messages = 0,
+        .stuck_after_heartbeats = 0,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = port,
-    });
+    }, .{});
     errdefer sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
 
     const max_polls: u32 = 600;
@@ -130,6 +137,7 @@ test "process_topology_integration: supervisor marks a truly stuck tile stale wh
         try std.testing.expect(h.state != rt.tile.TileState.stale);
     }
 
+    feed.finish();
     sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     // After stopProcess, stale tiles are treated as cleanly stopped rather
     // than crashed — the stale classification happened before shutdown, and
@@ -162,7 +170,9 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
     const event_count: u64 = 16;
     var ws_buf: [16]u8 = undefined;
     const workspace_name = util.nextWorkspaceName(&ws_buf);
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .crash_after_heartbeats = &crash_after_heartbeats,
@@ -171,7 +181,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = port,
-    });
+    }, .{});
 
     const max_polls: u32 = 400;
     var poll: u32 = 0;
@@ -181,6 +191,7 @@ test "process_topology_integration: a self-exiting tile is reported crashed via 
     }
     const metrics = sup.snapshotProcessMetrics();
 
+    feed.finish();
     sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
 
     try std.testing.expectEqual(rt.tile.TileState.crashed, sup.monitor()[tkrepl_idx].state);
@@ -213,8 +224,9 @@ test "process_topology_integration: process mode refuses to start a heap_dev-bac
     // Same shape as paymentPipelineProcess() but the first channel is left
     // at its heap_dev default instead of being declared tango_shm.
     const base = topologies.paymentPipelineProcess();
-    var channels: [4]rt.topology.Channel = undefined;
-    @memcpy(&channels, base.channels[0..4]);
+    var channels: [5]rt.topology.Channel = undefined;
+    @memcpy(channels[0..4], base.channels[0..4]);
+    channels[4] = base.channels[base.channels.len - 1]; // tkings's input
     channels[0].backing = .heap_dev;
     const topo = rt.topology.Topology{ .tiles = base.tiles, .channels = &channels };
 

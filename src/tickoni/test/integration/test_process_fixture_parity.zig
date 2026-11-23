@@ -10,6 +10,8 @@ const rt = @import("runtime");
 const tile_ids = rt.tile_ids;
 const c_abi = @import("c_abi");
 const supervisor_mod = @import("supervisor");
+const ingest = @import("ingest_harness");
+const Harness = ingest.Harness;
 const util = @import("util");
 const topologies = @import("topologies");
 
@@ -52,13 +54,16 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8, 
     defer sup.deinit();
 
     const port = util.nextMetricPort();
-    try sup.startPaymentPipelineProcess(io, .{
+    _ = io;
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = workspace_name,
         .metric_port = port,
-    });
+    }, .{});
 
     const max_polls: u32 = 400; // 2s bound at 5ms per poll
     var poll: u32 = 0;
@@ -82,7 +87,8 @@ fn runToCompletion(io: std.Io, topo: rt.topology.Topology, run_dir: []const u8, 
     const metrics = sup.snapshotProcessMetrics();
     try std.testing.expect(metrics.metric_boot_timestamp >= 1_000_000_000_000_000_000);
     try std.testing.expect(metrics.metric_snapshots > 0);
-    try sup.stopProcess(io);
+    feed.finish();
+    try sup.stopProcess(std.testing.io);
 
     for (sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);

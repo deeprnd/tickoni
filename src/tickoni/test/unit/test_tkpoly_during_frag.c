@@ -37,7 +37,7 @@ typedef struct {
     uint64_t denied;
     int      stage_valid;
     ulong    stage_sz;
-    PaymentMessage staged_message;
+    TkEvent staged_message;
     void *   wksp;
     ulong    in_chunk0;
     ulong    in_wmark;
@@ -55,16 +55,16 @@ test_during_frag( test_ctx_t * ctx, void const * src, ulong chunk, ulong sz ) {
     ctx->stage_valid = 0;
 
     /* Validate size and wksp join (shared boilerplate) */
-    if( !stk_validate_frag( sz, PAYMENT_MSG_SIZE, ctx->wksp ) )
+    if( !stk_validate_frag( sz, TK_EVENT_SIZE, ctx->wksp ) )
         return 0;  /* rejected */
 
     /* Chunk bounds: must be [in_chunk0, in_wmark] (P5.2 addition) */
     if( FD_UNLIKELY( chunk < ctx->in_chunk0 || chunk > ctx->in_wmark ) )
         return 0;  /* rejected */
 
-    memcpy( &ctx->staged_message, src, sizeof(PaymentMessage) );
+    memcpy( &ctx->staged_message, src, sizeof(TkEvent) );
     ctx->stage_valid = 1;
-    ctx->stage_sz = sizeof(PaymentMessage);
+    ctx->stage_sz = sizeof(TkEvent);
 
     return 1;  /* staged */
 }
@@ -76,13 +76,13 @@ test_during_frag( test_ctx_t * ctx, void const * src, ulong chunk, ulong sz ) {
 #define TEST_IN_WMARK  ((ulong)65598)
 #define TEST_IN_DEPTH  ((ulong)64)
 
-static PaymentMessage test_msg;
+static TkEvent test_msg;
 
 static void
 test_ctx_init( test_ctx_t * ctx ) {
     memset( ctx, 0, sizeof(*ctx) );
     memset( &test_msg, 0, sizeof(test_msg) );
-    test_msg.raw.source_offset = 42;
+    test_msg.source_offset = 42;
     ctx->wksp      = (void *)&test_msg;  /* only checked for non-NULL */
     ctx->in_chunk0 = TEST_IN_CHUNK0;
     ctx->in_wmark  = TEST_IN_WMARK;
@@ -95,7 +95,7 @@ test_oversized_rejected( void ) {
     test_ctx_t ctx;
     test_ctx_init( &ctx );
 
-    if( test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0, PAYMENT_MSG_SIZE + 1 ) != 0 ) {
+    if( test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0, TK_EVENT_SIZE + 1 ) != 0 ) {
         FD_LOG_WARNING(( "test_oversized_rejected: oversized fragment was staged" ));
         return 0;
     }
@@ -120,7 +120,7 @@ test_below_chunk0_rejected( void ) {
     test_ctx_t ctx;
     test_ctx_init( &ctx );
 
-    if( test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0 - 1UL, PAYMENT_MSG_SIZE ) != 0 ) {
+    if( test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0 - 1UL, TK_EVENT_SIZE ) != 0 ) {
         FD_LOG_WARNING(( "test_below_chunk0_rejected: chunk below in_chunk0 was staged" ));
         return 0;
     }
@@ -130,7 +130,7 @@ test_below_chunk0_rejected( void ) {
     }
 
     /* A chunk inside the link-depth range is still below in_chunk0. */
-    if( test_during_frag( &ctx, &test_msg, TEST_IN_DEPTH - 1UL, PAYMENT_MSG_SIZE ) != 0 ) {
+    if( test_during_frag( &ctx, &test_msg, TEST_IN_DEPTH - 1UL, TK_EVENT_SIZE ) != 0 ) {
         FD_LOG_WARNING(( "test_below_chunk0_rejected: depth-range chunk was staged" ));
         return 0;
     }
@@ -148,7 +148,7 @@ test_above_wmark_rejected( void ) {
     test_ctx_t ctx;
     test_ctx_init( &ctx );
 
-    if( test_during_frag( &ctx, &test_msg, TEST_IN_WMARK + 1UL, PAYMENT_MSG_SIZE ) != 0 ) {
+    if( test_during_frag( &ctx, &test_msg, TEST_IN_WMARK + 1UL, TK_EVENT_SIZE ) != 0 ) {
         FD_LOG_WARNING(( "test_above_wmark_rejected: chunk above in_wmark was staged" ));
         return 0;
     }
@@ -170,21 +170,21 @@ test_bounds_inclusive( void ) {
     test_ctx_t ctx;
 
     test_ctx_init( &ctx );
-    if( test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0, PAYMENT_MSG_SIZE ) != 1 ) {
+    if( test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0, TK_EVENT_SIZE ) != 1 ) {
         FD_LOG_WARNING(( "test_bounds_inclusive: in_chunk0 was rejected" ));
         return 0;
     }
-    if( ctx.stage_valid != 1 || ctx.stage_sz != sizeof(PaymentMessage) ) {
+    if( ctx.stage_valid != 1 || ctx.stage_sz != sizeof(TkEvent) ) {
         FD_LOG_WARNING(( "test_bounds_inclusive: staging state not set at in_chunk0" ));
         return 0;
     }
 
     test_ctx_init( &ctx );
-    if( test_during_frag( &ctx, &test_msg, TEST_IN_WMARK, PAYMENT_MSG_SIZE ) != 1 ) {
+    if( test_during_frag( &ctx, &test_msg, TEST_IN_WMARK, TK_EVENT_SIZE ) != 1 ) {
         FD_LOG_WARNING(( "test_bounds_inclusive: in_wmark was rejected" ));
         return 0;
     }
-    if( ctx.stage_valid != 1 || ctx.stage_sz != sizeof(PaymentMessage) ) {
+    if( ctx.stage_valid != 1 || ctx.stage_sz != sizeof(TkEvent) ) {
         FD_LOG_WARNING(( "test_bounds_inclusive: staging state not set at in_wmark" ));
         return 0;
     }
@@ -197,15 +197,15 @@ static int
 test_staged_copy_is_fragment( void ) {
     test_ctx_t ctx;
     test_ctx_init( &ctx );
-    test_msg.raw.source_offset = 7;
+    test_msg.source_offset = 7;
 
-    if( test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0 + 2UL, PAYMENT_MSG_SIZE ) != 1 ) {
+    if( test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0 + 2UL, TK_EVENT_SIZE ) != 1 ) {
         FD_LOG_WARNING(( "test_staged_copy_is_fragment: in-bounds chunk was rejected" ));
         return 0;
     }
-    if( ctx.staged_message.raw.source_offset != 7 ) {
+    if( ctx.staged_message.source_offset != 7 ) {
         FD_LOG_WARNING(( "test_staged_copy_is_fragment: staged source_offset=%lu, want 7",
-                         (unsigned long)ctx.staged_message.raw.source_offset ));
+                         (unsigned long)ctx.staged_message.source_offset ));
         return 0;
     }
     /* Staging only: DURING_FRAG advances no counter. */
@@ -231,7 +231,7 @@ test_invalid_transport_no_state_change( void ) {
     ctx.stage_sz  = 12345;
 
     /* Oversized fragment — should be rejected, state unchanged */
-    test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0, PAYMENT_MSG_SIZE + 100 );
+    test_during_frag( &ctx, &test_msg, TEST_IN_CHUNK0, TK_EVENT_SIZE + 100 );
 
     if( ctx.stage_valid != 0 ) {
         FD_LOG_WARNING(( "test_invalid_transport_no_state_change: stage_valid should be 0, got %d", ctx.stage_valid ));
@@ -248,7 +248,7 @@ test_invalid_transport_no_state_change( void ) {
     }
 
     /* Out-of-bounds chunk — should also leave state untouched */
-    test_during_frag( &ctx, &test_msg, TEST_IN_WMARK + 100UL, PAYMENT_MSG_SIZE );
+    test_during_frag( &ctx, &test_msg, TEST_IN_WMARK + 100UL, TK_EVENT_SIZE );
 
     if( ctx.stage_valid != 0 ) {
         FD_LOG_WARNING(( "test_invalid_transport_no_state_change: stage_valid should still be 0, got %d", ctx.stage_valid ));

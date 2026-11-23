@@ -9,6 +9,8 @@ const rt = @import("runtime");
 const tile_ids = rt.tile_ids;
 const c_abi = @import("c_abi");
 const supervisor_mod = @import("supervisor");
+const ingest = @import("ingest_harness");
+const Harness = ingest.Harness;
 const util = @import("util");
 const topologies = @import("topologies");
 
@@ -50,13 +52,15 @@ test "process_cpu_placement_integration: two tiles sharing one cpu get distinct 
     const port = util.nextMetricPort();
     const event_count: u64 = 16;
     var ws_buf: [16]u8 = undefined;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
-    });
+    }, .{});
 
     const report = sup.processPlacementReport().?;
     try std.testing.expectEqual(@as(usize, 2), report.shared_count);
@@ -77,6 +81,7 @@ test "process_cpu_placement_integration: two tiles sharing one cpu get distinct 
     }
 
     const metrics = sup.snapshotProcessMetrics();
+    feed.finish();
     try sup.stopProcess(std.testing.io);
 
     try std.testing.expectEqual(event_count, metrics.produced);
@@ -219,13 +224,15 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
 
     const port = util.nextMetricPort();
     var floating_ws_buf: [16]u8 = undefined;
-    try floating_sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&floating_sup, &feed, .{
         .run_dir = floating_run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&floating_ws_buf),
         .metric_port = port,
-    });
+    }, .{});
 
     const floating_max_polls: u32 = 400;
     var poll: u32 = 0;
@@ -242,6 +249,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
         for (floating_seen_pids[0..i]) |other| try std.testing.expect(other != pid);
         floating_seen_pids[i] = pid;
     }
+    feed.finish();
     floating_sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (floating_sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);
@@ -262,13 +270,15 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
     defer shared_sup.deinit();
 
     var shared_ws_buf: [16]u8 = undefined;
-    try shared_sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed2: Harness = .{};
+    defer feed2.finish();
+    try ingest.startPaymentRun(&shared_sup, &feed2, .{
         .run_dir = shared_run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&shared_ws_buf),
         .metric_port = port,
-    });
+    }, .{});
 
     const shared_max_polls: u32 = 400;
     var poll2: u32 = 0;
@@ -285,6 +295,7 @@ test "process_cpu_placement_integration: shared-core reporting changes placement
         for (shared_seen_pids[0..i]) |other| try std.testing.expect(other != pid);
         shared_seen_pids[i] = pid;
     }
+    feed2.finish();
     shared_sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (shared_sup.monitor()) |h| {
         try std.testing.expectEqual(rt.tile.TileState.stopped, h.state);

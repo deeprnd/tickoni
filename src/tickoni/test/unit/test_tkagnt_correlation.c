@@ -2,22 +2,26 @@
    the tkagnt agent worker.
 
    Compiles the real tile source into the test and drives the real static
-   tkagnt_before_frag / tkagnt_during_frag / tkagnt_after_frag with multipart
-   streams built by the real sender.  Everything the tile decides in those
+   tkagnt_before_frag / tkagnt_during_frag / tkagnt_after_frag with whole
+   agent-request fragments and with multipart result streams built by the real
+   sender.  Everything the tile decides in those
    callbacks mutates state only (publication is AFTER_CREDIT), so no live stem
    is needed.  The Zig decision hooks are replaced by two C stubs that obey the
    same contract (tk_agent_hooks.h).
 
    Proves:
-   1. A complete, verified agent request is admitted as the next ordinal: the
-      model request staged for it is the scope with request_id == ordinal, no
-      declared prompt hash, and the prompt bytes verbatim.
-   2. A request naming an absent tier, a malformed or contradictory request, and
-      a router verdict outside the contract each end in a resolved run with the
-      right outcome and no model record to wait for; none stages a request.
-   3. A malformed agent request stream (gap, corrupt payload) admits nothing.
+   1. A whole agent request is admitted as the next ordinal: the model request
+      staged for it is the scope with request_id == ordinal, no declared prompt
+      hash, and the bytes of the prompt its reference names, from the prompt
+      table.  The run keeps the request's trace id.
+   2. A request naming an absent tier, a prompt the table does not hold, a
+      malformed request, and a router verdict outside the contract each end in
+      a resolved run with the right outcome and no model record to wait for;
+      none stages a request.
+   3. A request fragment of the wrong size, or not a whole message, admits
+      nothing and is counted.
    4. New requests are held back (before_frag == -1) exactly while there is no
-      free slot or run entry and no message is in progress.
+      free slot or run entry.
    5. A result completes the one pending dispatch on its instance and no other:
       an unknown, duplicate, stale, wrong-instance or wrong-model result is
       counted and ignored and cannot complete a run.
@@ -96,7 +100,6 @@ ctx_init( tkagnt_ctx_t * ctx ) {
     ctx->configured_mask = (uint16_t)((1U<<TIER_LOW)|(1U<<TIER_MEDIUM));
     for( ulong i=0UL; i<TKAGNT_MAX_INS; i++ ) ctx->in_tier[i] = -1;
     ctx->in_tier[1] = TIER_LOW; ctx->in_tier[2] = TIER_MEDIUM;
-    tk_mp_rx_init( &ctx->rx[0], TK_MP_DIR_REQUEST, g_rx + 0UL*TK_MP_MAX_MESSAGE_BYTES, TKAGNT_PARTIAL_TIMEOUT_NS );
     tk_mp_rx_init( &ctx->rx[1], TK_MP_DIR_RESULT,  g_rx + 1UL*TK_MP_MAX_MESSAGE_BYTES, TKAGNT_PARTIAL_TIMEOUT_NS );
     tk_mp_rx_init( &ctx->rx[2], TK_MP_DIR_RESULT,  g_rx + 2UL*TK_MP_MAX_MESSAGE_BYTES, TKAGNT_PARTIAL_TIMEOUT_NS );
     g_bad_directive = 0;
@@ -108,6 +111,7 @@ ctx_init( tkagnt_ctx_t * ctx ) {
 static void
 deliver( tkagnt_ctx_t * ctx, ulong in_idx, uint8_t const * frag, ulong sz, int som, int eom ) {
     memcpy( ctx->stage, frag, sz );
+    ctx->stage_is_req = 0;
     ctx->stage_in = in_idx; ctx->stage_sz = sz; ctx->stage_som = som; ctx->stage_eom = eom;
     ctx->stage_valid = 1;
     tkagnt_after_frag( ctx, in_idx, 0UL, 0UL, sz, 0UL, 0UL, NULL );
@@ -131,13 +135,30 @@ send_message( tkagnt_ctx_t * ctx, ulong in_idx, uint8_t dir, uint8_t ct, uint64_
     }
 }
 
-/* Agent request body: header + prompt. */
-static ulong
-build_request( uint8_t * out, uint64_t run_id, uint8_t request_type, uint8_t tier, ulong prompt_len ) {
-    TkAgentRequestHdr h; memset( &h, 0, sizeof(h) );
+/* Deterministic prompt bytes of `len`. */
+static void
+fill_prompt( uint8_t * out, ulong len ) {
+    for( ulong i=0UL; i<len; i++ ) out[i] = (uint8_t)(i*7UL+3UL);
+}
+
+/* Installs the prompt of `len` in the tile's table (once per length). */
+static void
+install_prompt( ulong len ) {
+    fill_prompt( g_msg, len );
+    int rc = tkagnt_set_prompt( tk_mp_message_hash( g_msg, len ), g_msg, len );
+    CHECK( rc==0 || rc==4, "the prompt is installed" );
+}
+
+/* One agent request whose reference names the prompt of `prompt_len`. */
+static TkAgentRequestMsg
+build_request( uint64_t run_id, uint8_t request_type, uint8_t tier, ulong prompt_len ) {
+    TkAgentRequestMsg h; memset( &h, 0, sizeof(h) );
     h.version = TK_AGENT_WIRE_VERSION; h.request_type = request_type; h.requested_tier = tier;
+    fill_prompt( g_msg, prompt_len );
+    h.prompt_ref.prompt_hash = tk_mp_message_hash( g_msg, prompt_len );
+    h.prompt_ref.prompt_len  = (uint32_t)prompt_len;
     h.scope.version = TKMODL_WIRE_VERSION; h.scope.replay_mode = TKMODL_REPLAY_MODE_REPLAY;
-    h.scope.run_id = run_id; h.scope.replay_substitution_id = 1000UL;
+    h.scope.run_id = run_id; h.scope.trace_id = 1000UL + run_id; h.scope.replay_substitution_id = 1000UL;
     h.scope.timeout_ms = 5000U;
     strcpy( (char *)h.scope.model_id, "fixture.model" );
     strcpy( (char *)h.scope.actor_role, "ops_reviewer" );
@@ -146,16 +167,25 @@ build_request( uint8_t * out, uint64_t run_id, uint8_t request_type, uint8_t tie
     strcpy( (char *)h.scope.capability_envelope_id, "capenv.fixture" );
     strcpy( (char *)h.scope.policy_version, "v1" );
     strcpy( (char *)h.scope.budget_id, "budget.fixture" );
-    memcpy( out, &h, sizeof(h) );
-    for( ulong i=0UL; i<prompt_len; i++ ) out[sizeof(h)+i] = (uint8_t)(i*7UL+3UL);
-    return sizeof(h)+prompt_len;
+    return h;
 }
 
-static ulong
+/* Feeds one whole request to the tile the way fd_stem would. */
+static void
+deliver_request( tkagnt_ctx_t * ctx, TkAgentRequestMsg const * req ) {
+    ctx->stage_req    = *req;
+    ctx->stage_is_req = 1;
+    ctx->stage_in     = ctx->req_in;
+    ctx->stage_sz     = sizeof(*req);
+    ctx->stage_valid  = 1;
+    tkagnt_after_frag( ctx, ctx->req_in, 0UL, 0UL, sizeof(*req), 0UL, 0UL, NULL );
+}
+
+static void
 admit( tkagnt_ctx_t * ctx, uint64_t run_id, uint8_t tier, ulong prompt_len ) {
-    ulong len = build_request( g_msg, run_id, TK_AGENT_REQ_CHAT, tier, prompt_len );
-    send_message( ctx, 0UL, TK_MP_DIR_REQUEST, TK_MP_CT_AGENT_REQUEST, run_id, run_id, g_msg, len, -1, -1 );
-    return len;
+    install_prompt( prompt_len );
+    TkAgentRequestMsg req = build_request( run_id, TK_AGENT_REQ_CHAT, tier, prompt_len );
+    deliver_request( ctx, &req );
 }
 
 /* Result body: ModelResultMsg + content. */
@@ -194,28 +224,30 @@ static uint8_t g_content[ 3UL*TK_MP_FRAG_PAYLOAD_MAX+77UL ];
 static void
 test_admission_stages_the_model_request( void ) {
     tkagnt_ctx_t * ctx = &g_ctx; ctx_init( ctx );
-    ulong prompt_len = 3UL*TK_MP_FRAG_PAYLOAD_MAX + 5UL;     /* a request spanning four fragments */
+    ulong prompt_len = 3UL*TK_MP_FRAG_PAYLOAD_MAX + 5UL;     /* a model request spanning four fragments */
     admit( ctx, 11UL, TIER_LOW, prompt_len );
 
     CHECK( ctx->admitted==1UL, "the request is admitted as ordinal 1" );
     tkagnt_run_t * r = tkagnt_run_at( ctx, 1UL );
     CHECK( r->state==RUN_ADMITTED && r->tier==TIER_LOW && r->agent_seq==1UL && r->run_id==11UL, "run state and identity" );
+    CHECK( r->trace_id==1011UL, "the run keeps the request's trace id" );
     CHECK( r->slot==0 && ctx->slots[0].used && ctx->slots[0].len==sizeof(ModelRequestMsg)+prompt_len, "a slot holds the model request" );
 
     ModelRequestMsg scope; memcpy( &scope, g_slots, sizeof(scope) );
     CHECK( scope.request_id==1UL, "request_id is the admission ordinal" );
     CHECK( scope.prompt_hash==0UL, "no declared prompt hash is passed on" );
-    CHECK( scope.run_id==11UL && scope.replay_substitution_id==1000UL, "scope is carried through" );
+    CHECK( scope.run_id==11UL && scope.trace_id==1011UL && scope.replay_substitution_id==1000UL, "scope is carried through" );
     int prompt_ok = 1;
     for( ulong i=0UL; i<prompt_len; i++ ) if( g_slots[sizeof(scope)+i]!=(uint8_t)(i*7UL+3UL) ) { prompt_ok = 0; break; }
-    CHECK( prompt_ok, "the prompt bytes are carried verbatim" );
-    CHECK( r->prompt_hash==tk_mp_message_hash( g_slots+sizeof(scope), prompt_len ), "the agent records its own hash of the prompt" );
+    CHECK( prompt_ok, "the prompt bytes come verbatim from the prompt table" );
+    CHECK( r->prompt_hash==tk_mp_message_hash( g_slots+sizeof(scope), prompt_len ), "the run's prompt hash is that of the bytes sent" );
     CHECK( ctx->transport_dropped==0UL, "nothing dropped" );
 }
 
 static void
 test_denials_resolve_without_a_model_record( void ) {
     tkagnt_ctx_t * ctx = &g_ctx; ctx_init( ctx );
+    install_prompt( 10UL );
 
     admit( ctx, 1UL, 8 /* high: not configured */, 10UL );
     tkagnt_run_t * r = tkagnt_run_at( ctx, 1UL );
@@ -223,28 +255,38 @@ test_denials_resolve_without_a_model_record( void ) {
     CHECK( r->slot==-1 && !ctx->slots[0].used, "a denied request stages nothing" );
 
     /* A chat request that names no tier. */
-    ulong len = build_request( g_msg, 2UL, TK_AGENT_REQ_CHAT, TK_AGENT_TIER_NONE, 10UL );
-    send_message( ctx, 0UL, TK_MP_DIR_REQUEST, TK_MP_CT_AGENT_REQUEST, 2UL, 2UL, g_msg, len, -1, -1 );
+    TkAgentRequestMsg req = build_request( 2UL, TK_AGENT_REQ_CHAT, TK_AGENT_TIER_NONE, 10UL );
+    deliver_request( ctx, &req );
     r = tkagnt_run_at( ctx, 2UL );
     CHECK( r->state==RUN_RESOLVED && r->outcome==TK_AGENT_OUT_DENY_INVALID_REQUEST, "an unnamed tier is an invalid request" );
 
     /* Unterminated string field in the scope. */
-    len = build_request( g_msg, 3UL, TK_AGENT_REQ_CHAT, TIER_LOW, 10UL );
-    memset( g_msg + offsetof(TkAgentRequestHdr, scope) + offsetof(ModelRequestMsg, budget_id), 'x', TKMODL_BUDGET_LEN );
-    send_message( ctx, 0UL, TK_MP_DIR_REQUEST, TK_MP_CT_AGENT_REQUEST, 3UL, 3UL, g_msg, len, -1, -1 );
+    req = build_request( 3UL, TK_AGENT_REQ_CHAT, TIER_LOW, 10UL );
+    memset( req.scope.budget_id, 'x', TKMODL_BUDGET_LEN );
+    deliver_request( ctx, &req );
     CHECK( tkagnt_run_at( ctx, 3UL )->outcome==TK_AGENT_OUT_DENY_INVALID_REQUEST, "a malformed scope is an invalid request" );
 
-    /* The scope's run id must be the run the stream was framed under. */
-    len = build_request( g_msg, 4UL, TK_AGENT_REQ_CHAT, TIER_LOW, 10UL );
-    send_message( ctx, 0UL, TK_MP_DIR_REQUEST, TK_MP_CT_AGENT_REQUEST, 999UL, 4UL, g_msg, len, -1, -1 );
-    CHECK( tkagnt_run_at( ctx, 4UL )->outcome==TK_AGENT_OUT_DENY_INVALID_REQUEST, "an identity mismatch is an invalid request" );
+    /* A prompt reference the table does not hold: by hash, and by length. */
+    req = build_request( 4UL, TK_AGENT_REQ_CHAT, TIER_LOW, 10UL );
+    req.prompt_ref.prompt_hash ^= 1UL;
+    deliver_request( ctx, &req );
+    r = tkagnt_run_at( ctx, 4UL );
+    CHECK( r->outcome==TK_AGENT_OUT_DENY_INVALID_REQUEST && r->slot==-1, "an unknown prompt hash is an invalid request" );
+    CHECK( strcmp( (char const *)r->failed_scope_dim, "prompt_ref" )==0, "the denial names the prompt reference" );
+    req = build_request( 5UL, TK_AGENT_REQ_CHAT, TIER_LOW, 10UL );
+    req.prompt_ref.prompt_len = 11U;
+    deliver_request( ctx, &req );
+    CHECK( tkagnt_run_at( ctx, 5UL )->outcome==TK_AGENT_OUT_DENY_INVALID_REQUEST, "a known hash with the wrong length is an invalid request" );
 
-    /* A body too short to hold the header. */
-    send_message( ctx, 0UL, TK_MP_DIR_REQUEST, TK_MP_CT_AGENT_REQUEST, 5UL, 5UL, g_msg, 10UL, -1, -1 );
-    CHECK( tkagnt_run_at( ctx, 5UL )->outcome==TK_AGENT_OUT_DENY_INVALID_REQUEST, "a short body is an invalid request" );
+    /* A request of another agent wire version. */
+    req = build_request( 6UL, TK_AGENT_REQ_CHAT, TIER_LOW, 10UL );
+    req.version = (uint16_t)(TK_AGENT_WIRE_VERSION+1);
+    deliver_request( ctx, &req );
+    CHECK( tkagnt_run_at( ctx, 6UL )->outcome==TK_AGENT_OUT_DENY_INVALID_REQUEST, "another wire version is an invalid request" );
 
-    CHECK( ctx->admitted==5UL, "every accepted request got an ordinal" );
-    for( uint64_t s=1UL; s<=5UL; s++ ) CHECK( tkagnt_run_at( ctx, s )->has_model_record==0, "none expects a model record" );
+    CHECK( ctx->admitted==6UL, "every accepted request got an ordinal" );
+    for( uint64_t s=1UL; s<=6UL; s++ ) CHECK( tkagnt_run_at( ctx, s )->has_model_record==0, "none expects a model record" );
+    CHECK( !ctx->slots[0].used, "and none holds a slot" );
 }
 
 static void
@@ -260,18 +302,44 @@ test_router_verdicts_outside_the_contract_fail_closed( void ) {
     }
 }
 
+/* ─── DURING_FRAG ───
+
+   A plain buffer stands in for the shared workspace: chunk c is at byte c*64. */
+static uint8_t g_wksp[ 400UL*64UL ] __attribute__((aligned(64)));
+#define IN_CHUNK0 2UL
+#define IN_WMARK  200UL
+
 static void
-test_malformed_request_stream_admits_nothing( void ) {
-    tkagnt_ctx_t * ctx = &g_ctx; ctx_init( ctx );
-    ulong len = build_request( g_msg, 1UL, TK_AGENT_REQ_CHAT, TIER_LOW, 2UL*TK_MP_FRAG_PAYLOAD_MAX );
-    send_message( ctx, 0UL, TK_MP_DIR_REQUEST, TK_MP_CT_AGENT_REQUEST, 1UL, 1UL, g_msg, len, 1, -1 );   /* middle fragment lost */
-    CHECK( ctx->admitted==0UL && ctx->transport_dropped>=1UL, "a stream with a gap admits nothing" );
-    ctx_init( ctx );
-    send_message( ctx, 0UL, TK_MP_DIR_REQUEST, TK_MP_CT_AGENT_REQUEST, 1UL, 1UL, g_msg, len, -1, 1 );   /* corrupt payload */
-    CHECK( ctx->admitted==0UL && ctx->transport_dropped>=1UL, "a corrupt stream admits nothing" );
-    /* A valid request afterwards still works. */
-    admit( ctx, 2UL, TIER_LOW, 10UL );
-    CHECK( ctx->admitted==1UL && tkagnt_run_at( ctx, 1UL )->state==RUN_ADMITTED, "the next valid request is admitted" );
+wksp_init( tkagnt_ctx_t * ctx ) {
+    memset( g_wksp, 0, sizeof(g_wksp) );
+    ctx->wksp = g_wksp;
+    for( ulong i=0UL; i<ctx->in_cnt; i++ ) { ctx->in_chunk0[i] = IN_CHUNK0; ctx->in_wmark[i] = IN_WMARK; }
+}
+
+static void
+test_a_malformed_request_fragment_admits_nothing( void ) {
+    tkagnt_ctx_t * ctx = &g_ctx; ctx_init( ctx ); wksp_init( ctx );
+    install_prompt( 10UL );
+    TkAgentRequestMsg req = build_request( 1UL, TK_AGENT_REQ_CHAT, TIER_LOW, 10UL );
+    memcpy( g_wksp + IN_CHUNK0*CHUNK_BYTES, &req, sizeof(req) );
+    ulong whole = fd_frag_meta_ctl( 0UL, 1, 1, 0 );
+
+    struct { char const * name; ulong sz; ulong ctl; } bad[] = {
+        { "one byte short",         sizeof(req)-1UL, whole },
+        { "one byte long",          sizeof(req)+1UL, whole },
+        { "not the end of message", sizeof(req),     fd_frag_meta_ctl( 0UL, 1, 0, 0 ) },
+        { "not the start",          sizeof(req),     fd_frag_meta_ctl( 0UL, 0, 1, 0 ) },
+    };
+    for( ulong i=0UL; i<sizeof(bad)/sizeof(bad[0]); i++ ) {
+        tkagnt_during_frag( ctx, 0UL, 0UL, TK_LINK_SIG_AGENT_REQUEST, IN_CHUNK0, bad[i].sz, bad[i].ctl );
+        tkagnt_after_frag( ctx, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, NULL );
+        if( ctx->admitted!=0UL ) fprintf( stderr, "case failed: %s\n", bad[i].name );
+        CHECK( ctx->admitted==0UL && ctx->transport_dropped==i+1UL, "a malformed request fragment admits nothing and is counted" );
+    }
+    /* A whole request afterwards is admitted. */
+    tkagnt_during_frag( ctx, 0UL, 0UL, TK_LINK_SIG_AGENT_REQUEST, IN_CHUNK0, sizeof(req), whole );
+    tkagnt_after_frag( ctx, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, NULL );
+    CHECK( ctx->admitted==1UL && tkagnt_run_at( ctx, 1UL )->state==RUN_ADMITTED, "the next whole request is admitted" );
 }
 
 static void
@@ -281,9 +349,6 @@ test_new_requests_are_held_back_when_there_is_no_room( void ) {
     for( ulong i=0UL; i<TKAGNT_SLOTS; i++ ) ctx->slots[i].used = 1;
     CHECK( tkagnt_before_frag( ctx, 0UL, 0UL, 0UL )==-1, "no free slot: a new request is held back" );
     CHECK( tkagnt_before_frag( ctx, 1UL, 0UL, 0UL )==0, "results are never held back" );
-    ctx->rx[0].active = 1;
-    CHECK( tkagnt_before_frag( ctx, 0UL, 0UL, 0UL )==0, "a message in progress is always continued" );
-    ctx->rx[0].active = 0;
     ctx->slots[0].used = 0;
     CHECK( tkagnt_before_frag( ctx, 0UL, 0UL, 0UL )==0, "a slot frees room again" );
     ctx->admitted = TKAGNT_PENDING; ctx->terminal_done = 0UL;
@@ -401,48 +466,26 @@ test_a_failed_result_stream_ends_the_run_it_answered( void ) {
     CHECK( tkagnt_run_at( ctx, 2UL )->outcome==TK_AGENT_OUT_TRANSPORT_FAILURE, "and does not touch other runs" );
 }
 
-/* ─── DURING_FRAG ───
-
-   A plain buffer stands in for the shared workspace: chunk c is at byte c*64. */
-static uint8_t g_wksp[ 400UL*64UL ] __attribute__((aligned(64)));
-#define IN_CHUNK0 2UL
-#define IN_WMARK  200UL
-
-static void
-wksp_init( tkagnt_ctx_t * ctx ) {
-    memset( g_wksp, 0, sizeof(g_wksp) );
-    ctx->wksp = g_wksp;
-    for( ulong i=0UL; i<ctx->in_cnt; i++ ) { ctx->in_chunk0[i] = IN_CHUNK0; ctx->in_wmark[i] = IN_WMARK; }
-}
-
-static ulong
-first_fragment_at( ulong chunk ) {
-    static uint8_t msg[ 2UL*TK_MP_FRAG_PAYLOAD_MAX+100UL ];
-    memset( msg, 0x5a, sizeof(msg) );
-    tk_mp_tx_t tx; tk_mp_tx_begin( &tx, TK_MP_DIR_REQUEST, TK_MP_CT_AGENT_REQUEST, 7UL, 9UL, msg, sizeof(msg) );
-    uint8_t frag[ TK_MP_LINK_MTU ]; int som, eom;
-    ulong sz = tk_mp_tx_frag( &tx, frag, &som, &eom );
-    memcpy( g_wksp + chunk*CHUNK_BYTES, frag, sz );
-    return sz;
-}
-
 static void
 test_during_frag_stages_only_what_the_link_may_carry( void ) {
     tkagnt_ctx_t * ctx = &g_ctx; ctx_init( ctx ); wksp_init( ctx );
-    ulong sz = first_fragment_at( IN_CHUNK0 );
-    ulong som = fd_frag_meta_ctl( 0UL, 1, 0, 0 );
+    TkAgentRequestMsg req = build_request( 7UL, TK_AGENT_REQ_CHAT, TIER_LOW, 10UL );
+    memcpy( g_wksp + IN_CHUNK0*CHUNK_BYTES, &req, sizeof(req) );
+    ulong sz    = sizeof(req);
+    ulong whole = fd_frag_meta_ctl( 0UL, 1, 1, 0 );
 
-    tkagnt_during_frag( ctx, 0UL, 0UL, TK_LINK_SIG_AGENT_REQUEST, IN_CHUNK0, sz, som );
-    CHECK( ctx->stage_valid==1 && ctx->stage_in==0UL && ctx->stage_som==1 && ctx->stage_eom==0, "a request fragment is staged with its boundary bits" );
-    CHECK( ctx->admitted==0UL && ctx->rx[0].active==0, "staging changes nothing else" );
+    tkagnt_during_frag( ctx, 0UL, 0UL, TK_LINK_SIG_AGENT_REQUEST, IN_CHUNK0, sz, whole );
+    CHECK( ctx->stage_valid==1 && ctx->stage_is_req==1 && ctx->stage_in==0UL && ctx->stage_sz==sz, "a whole request is staged" );
+    CHECK( ctx->stage_req.scope.run_id==7UL, "the staged request is a copy of the fragment" );
+    CHECK( ctx->admitted==0UL, "staging changes nothing else" );
 
     /* The abandoned-fragment case: fd_stem skips AFTER_FRAG when the producer
        overran the reader, so a stale stage must not survive into the next
        AFTER_FRAG.  Any invalid next fragment clears it first. */
-    tkagnt_during_frag( ctx, 0UL, 0UL, TK_LINK_SIG_AGENT_REQUEST, IN_WMARK+1UL, sz, som );
+    tkagnt_during_frag( ctx, 0UL, 0UL, TK_LINK_SIG_AGENT_REQUEST, IN_WMARK+1UL, sz, whole );
     CHECK( ctx->stage_valid==0, "an invalid fragment clears a stale staged one" );
     tkagnt_after_frag( ctx, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, NULL );
-    CHECK( ctx->rx[0].active==0 && ctx->admitted==0UL && ctx->transport_dropped==0UL, "AFTER_FRAG after an abandoned fragment feeds nothing" );
+    CHECK( ctx->admitted==0UL && ctx->transport_dropped==0UL, "AFTER_FRAG after an abandoned fragment feeds nothing" );
 
     struct { char const * name; ulong in_idx; ulong sig; ulong chunk; ulong sz; } bad[] = {
         { "wrong sig for the request input",  0UL, TK_LINK_SIG_MODEL_RESULT,  IN_CHUNK0,     sz },
@@ -453,8 +496,8 @@ test_during_frag_stages_only_what_the_link_may_carry( void ) {
         { "input index beyond in_cnt",        3UL, TK_LINK_SIG_AGENT_REQUEST, IN_CHUNK0,     sz },
     };
     for( ulong i=0UL; i<sizeof(bad)/sizeof(bad[0]); i++ ) {
-        tkagnt_during_frag( ctx, 0UL, 0UL, TK_LINK_SIG_AGENT_REQUEST, IN_CHUNK0, sz, som );   /* a valid stage to be cleared */
-        tkagnt_during_frag( ctx, bad[i].in_idx, 0UL, bad[i].sig, bad[i].chunk, bad[i].sz, som );
+        tkagnt_during_frag( ctx, 0UL, 0UL, TK_LINK_SIG_AGENT_REQUEST, IN_CHUNK0, sz, whole );   /* a valid stage to be cleared */
+        tkagnt_during_frag( ctx, bad[i].in_idx, 0UL, bad[i].sig, bad[i].chunk, bad[i].sz, whole );
         if( ctx->stage_valid!=0 ) fprintf( stderr, "case failed: %s\n", bad[i].name );
         CHECK( ctx->stage_valid==0, "an invalid fragment must not be staged" );
     }
@@ -466,7 +509,7 @@ main( void ) {
     test_admission_stages_the_model_request();
     test_denials_resolve_without_a_model_record();
     test_router_verdicts_outside_the_contract_fail_closed();
-    test_malformed_request_stream_admits_nothing();
+    test_a_malformed_request_fragment_admits_nothing();
     test_new_requests_are_held_back_when_there_is_no_room();
     test_a_result_completes_only_the_pending_dispatch();
     test_result_hashes_must_match_the_bytes();

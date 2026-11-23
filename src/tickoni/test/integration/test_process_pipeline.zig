@@ -11,6 +11,8 @@ const std = @import("std");
 const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const supervisor_mod = @import("supervisor");
+const ingest = @import("ingest_harness");
+const Harness = ingest.Harness;
 const util = @import("util");
 const topologies = @import("topologies");
 
@@ -35,7 +37,9 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
     const port = util.nextMetricPort();
     const event_count: u64 = 32;
     var ws_buf: [16]u8 = undefined;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
@@ -45,8 +49,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
         // defaults to null), so the duplicates == 1 expectation below has to
         // request it explicitly: offset 3 reuses offset 1's idempotency_key
         // and account_id, which gives them the same stableEventHash.
-        .duplicate = .{ .offset = 3, .source = 1 },
-    });
+    }, .{ .duplicate = .{ .offset = 3, .source = 1 } });
 
     // Poll for the real completion signal (audited count reaches
     // event_count) instead of a fixed sleep: process-mode tiles keep
@@ -93,6 +96,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
         std.debug.panic("TileCrashed", .{});
     }
 
+    feed.finish();
     try sup.stopProcess(std.testing.io);
 
     // Matches src/tickoni/tiles/payment_pipeline/runtime.zig's
@@ -138,7 +142,9 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
     const port = util.nextMetricPort();
     const event_count: u64 = 8;
     var ws_buf: [16]u8 = undefined;
-    try sup.startPaymentPipelineProcess(std.testing.io, .{
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, .{
         .run_dir = run_dir,
         .event_count = event_count,
         .heartbeat_interval_ns = 20 * std.time.ns_per_ms,
@@ -146,7 +152,7 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&ws_buf),
         .metric_port = port,
-    });
+    }, .{});
 
     const max_polls: u32 = 400;
     var poll: u32 = 0;
@@ -172,6 +178,7 @@ test "process_pipeline_integration: stopProcess prefers clean exit over transien
         std.debug.panic("TileCrashed", .{});
     }
 
+    feed.finish();
     try sup.stopProcess(std.testing.io);
 
     for (sup.monitor()) |h| {

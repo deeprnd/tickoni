@@ -4,11 +4,42 @@ const std = @import("std");
 const c_abi = @import("c_abi");
 const rt = @import("runtime");
 const supervisor_mod = @import("supervisor");
+const ingest = @import("ingest_harness");
+const Harness = ingest.Harness;
 const topologies = @import("topologies");
 const util = @import("util");
 
 const Supervisor = supervisor_mod.Supervisor;
 const ProcessPipelineConfig = supervisor_mod.ProcessPipelineConfig;
+
+/// One run: the supervisor's configuration plus the producer's test-only
+/// payment injection. The harness feeds tkings (its only source); no tile is
+/// configured to generate events.
+const RunConfig = struct {
+    run_dir: []const u8,
+    event_count: u64 = 10_000,
+    policy_limit_cents: i64 = 100_000,
+    workspace_name: ?[]const u8 = null,
+    tile_exe_path: ?[]const u8 = null,
+    metric_port: u16 = 7999,
+    duplicate: ?@import("tiles").DuplicateConfig = null,
+    inject_malformed: bool = false,
+
+    fn process(self: RunConfig) ProcessPipelineConfig {
+        return .{
+            .run_dir = self.run_dir,
+            .event_count = self.event_count,
+            .policy_limit_cents = self.policy_limit_cents,
+            .workspace_name = self.workspace_name,
+            .tile_exe_path = self.tile_exe_path,
+            .metric_port = self.metric_port,
+        };
+    }
+
+    fn payments(self: RunConfig) ingest.PaymentOptions {
+        return .{ .duplicate = self.duplicate, .inject_malformed = self.inject_malformed };
+    }
+};
 
 const max_polls: u32 = 400;
 const poll_interval_ns: u64 = 5 * std.time.ns_per_ms;
@@ -37,14 +68,14 @@ fn waitForAudit(sup: *Supervisor, event_count: u64) void {
     }
 }
 
-fn startPipeline(sup: *Supervisor, run_dir: []const u8, config: ProcessPipelineConfig) !void {
+fn startPipeline(sup: *Supervisor, feed: *Harness, run_dir: []const u8, config: RunConfig) !void {
     var workspace_buf: [16]u8 = undefined;
     var run_config = config;
     run_config.run_dir = run_dir;
     run_config.tile_exe_path = "build/zig-out/bin/tickoni-supervisor";
     run_config.workspace_name = util.nextWorkspaceName(&workspace_buf);
     run_config.metric_port = util.nextMetricPort();
-    try sup.startPaymentPipelineProcess(std.testing.io, run_config);
+    try ingest.startPaymentRun(sup, feed, run_config.process(), run_config.payments());
 }
 
 fn assertNoCrash(sup: *Supervisor) !void {
@@ -74,7 +105,7 @@ fn hashU32(hash: *u64, value: u32) void {
 /// The C normalizer's stable source-event hash.  This intentionally uses the
 /// same public synthetic fixture contract as the process topology, so the
 /// audit assertion detects a missing or substituted source hash.
-fn expectedSourceHash(config: ProcessPipelineConfig, offset: u64) u64 {
+fn expectedSourceHash(config: RunConfig, offset: u64) u64 {
     var canonical_offset = offset;
     if (config.duplicate) |duplicate| {
         if (offset == duplicate.offset) canonical_offset = duplicate.source;
@@ -95,7 +126,7 @@ fn expectedSourceHash(config: ProcessPipelineConfig, offset: u64) u64 {
 
 fn expectRecord(
     sup: *Supervisor,
-    config: ProcessPipelineConfig,
+    config: RunConfig,
     index: usize,
     outcome: u8,
     producer: [6]u8,
@@ -129,14 +160,16 @@ test "tkpoly_integration: equality at the signed limit allows" {
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 1_000 };
+    const config = RunConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 1_000 };
 
     var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
     defer {
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
     waitForAudit(&sup, config.event_count);
 
     const metrics = sup.snapshotProcessMetrics();
@@ -156,14 +189,16 @@ test "tkpoly_integration: signed amount above limit denies" {
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 999 };
+    const config = RunConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 999 };
 
     var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
     defer {
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
     waitForAudit(&sup, config.event_count);
 
     const metrics = sup.snapshotProcessMetrics();
@@ -182,7 +217,7 @@ test "tkpoly_integration: malformed decision has precedence and keeps tknorm att
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{
+    const config = RunConfig{
         .run_dir = run_dir,
         .event_count = 1,
         .policy_limit_cents = 999,
@@ -194,7 +229,9 @@ test "tkpoly_integration: malformed decision has precedence and keeps tknorm att
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
     waitForAudit(&sup, config.event_count);
 
     const metrics = sup.snapshotProcessMetrics();
@@ -214,7 +251,7 @@ test "tkpoly_integration: duplicate has precedence over an amount denial" {
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{
+    const config = RunConfig{
         .run_dir = run_dir,
         .event_count = 2,
         .policy_limit_cents = 999,
@@ -226,7 +263,9 @@ test "tkpoly_integration: duplicate has precedence over an amount denial" {
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
     waitForAudit(&sup, config.event_count);
 
     const metrics = sup.snapshotProcessMetrics();
@@ -247,7 +286,7 @@ test "tkpoly_integration: combined branch evidence preserves sequence and chain"
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{
+    const config = RunConfig{
         .run_dir = run_dir,
         .event_count = 8,
         .duplicate = .{ .offset = 3, .source = 1 },
@@ -259,7 +298,9 @@ test "tkpoly_integration: combined branch evidence preserves sequence and chain"
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
     waitForAudit(&sup, config.event_count);
 
     const metrics = sup.snapshotProcessMetrics();
@@ -295,14 +336,16 @@ test "tkpoly_integration: positive event count naturally stops tkpoly after fina
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 1_000 };
+    const config = RunConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 1_000 };
 
     var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
     defer {
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
     waitForAudit(&sup, config.event_count);
     try std.testing.expectEqual(@as(u64, 1), sup.snapshotProcessMetrics().audited);
     try expectRecord(&sup, config, 0, c_abi.tkaudit.POLICY_ALLOW, tkpoly_id);
@@ -328,14 +371,16 @@ test "tkpoly_integration: non-default limit in child allows 1000/1001 denies 100
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{ .run_dir = run_dir, .event_count = 4, .policy_limit_cents = 1_001 };
+    const config = RunConfig{ .run_dir = run_dir, .event_count = 4, .policy_limit_cents = 1_001 };
 
     var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
     defer {
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
     waitForAudit(&sup, config.event_count);
 
     const metrics = sup.snapshotProcessMetrics();
@@ -366,7 +411,7 @@ test "tkpoly_integration: configuration does not leak between runs" {
     const workspace_name = "tkpay0"; // fixed workspace for both runs
 
     // --- Run 1: limit=1001, N=4 → 2 allowed / 2 denied ---
-    const config1 = ProcessPipelineConfig{
+    const config1 = RunConfig{
         .run_dir = run_dir,
         .event_count = 4,
         .policy_limit_cents = 1_001,
@@ -376,7 +421,9 @@ test "tkpoly_integration: configuration does not leak between runs" {
     };
 
     var sup1 = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
-    try sup1.startPaymentPipelineProcess(std.testing.io, config1);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup1, &feed, config1.process(), config1.payments());
     waitForAudit(&sup1, config1.event_count);
 
     const metrics1 = sup1.snapshotProcessMetrics();
@@ -386,13 +433,14 @@ test "tkpoly_integration: configuration does not leak between runs" {
     try assertNoCrash(&sup1);
 
     // Full teardown: stop, deinit, clean up
+    feed.finish();
     sup1.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
     sup1.deinit();
 
     // --- Run 2: limit=999, N=4 → 0 allowed / 4 denied ---
     // Reuse the same workspace name. The limit setter must be reset to 999,
     // not carried over from the previous run's 1001.
-    const config2 = ProcessPipelineConfig{
+    const config2 = RunConfig{
         .run_dir = run_dir,
         .event_count = 4,
         .policy_limit_cents = 999,
@@ -402,7 +450,9 @@ test "tkpoly_integration: configuration does not leak between runs" {
     };
 
     var sup2 = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
-    try sup2.startPaymentPipelineProcess(std.testing.io, config2);
+    var feed2: Harness = .{};
+    defer feed2.finish();
+    try ingest.startPaymentRun(&sup2, &feed2, config2.process(), config2.payments());
     waitForAudit(&sup2, config2.event_count);
 
     const metrics2 = sup2.snapshotProcessMetrics();
@@ -411,6 +461,7 @@ test "tkpoly_integration: configuration does not leak between runs" {
     try std.testing.expectEqual(@as(u64, 4), metrics2.audited);
     try assertNoCrash(&sup2);
 
+    feed2.finish();
     sup2.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
     sup2.deinit();
 }
@@ -426,7 +477,7 @@ test "tkpoly_integration: malformed-only self-exit" {
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{
+    const config = RunConfig{
         .run_dir = run_dir,
         .event_count = 1,
         .policy_limit_cents = 1000,
@@ -438,7 +489,9 @@ test "tkpoly_integration: malformed-only self-exit" {
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
     waitForAudit(&sup, config.event_count);
 
     const metrics = sup.snapshotProcessMetrics();
@@ -468,7 +521,7 @@ test "tkpoly_integration: duplicate-final self-exit" {
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{
+    const config = RunConfig{
         .run_dir = run_dir,
         .event_count = 2,
         .policy_limit_cents = 1000,
@@ -480,7 +533,9 @@ test "tkpoly_integration: duplicate-final self-exit" {
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
     waitForAudit(&sup, config.event_count);
 
     const metrics = sup.snapshotProcessMetrics();
@@ -520,7 +575,7 @@ test "tkpoly_integration: bounded credit turnover N=128" {
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{
+    const config = RunConfig{
         .run_dir = run_dir,
         .event_count = 128,
     };
@@ -530,7 +585,9 @@ test "tkpoly_integration: bounded credit turnover N=128" {
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
     waitForAudit(&sup, config.event_count);
 
     const metrics = sup.snapshotProcessMetrics();
@@ -570,7 +627,7 @@ test "tkpoly_integration: tkpoly child is launched through __stem-run" {
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{
+    const config = RunConfig{
         .run_dir = run_dir,
         .event_count = 0,
         .policy_limit_cents = 1_000,
@@ -581,7 +638,9 @@ test "tkpoly_integration: tkpoly child is launched through __stem-run" {
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
 
     const pid = sup.monitor()[policyTileIndex(&sup)].pid orelse return error.PolicyChildHasNoPid;
 
@@ -633,14 +692,16 @@ test "tkpoly_integration: positive event count naturally stops tkpoly at N=1" {
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 1_000 };
+    const config = RunConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 1_000 };
 
     var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
     defer {
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
     waitForAudit(&sup, config.event_count);
 
     const scratch = try auditScratch(&sup);
@@ -665,7 +726,7 @@ test "tkpoly_integration: administrative HALT with zero event count" {
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{
+    const config = RunConfig{
         .run_dir = run_dir,
         .event_count = 0,
         .policy_limit_cents = 1_000,
@@ -676,7 +737,9 @@ test "tkpoly_integration: administrative HALT with zero event count" {
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
 
     // Wait for the pipeline to start — policy tile should be running.
     var poll: u32 = 0;
@@ -695,6 +758,7 @@ test "tkpoly_integration: administrative HALT with zero event count" {
     try std.testing.expect(poly_state != .crashed);
 
     // Send CNC HALT — verifies SHOULD_SHUTDOWN honors HALT.
+    feed.finish();
     sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
 
     // Policy must reach .stopped cleanly (not crashed).
@@ -721,7 +785,7 @@ test "tkpoly_integration: final counters survive child reaping" {
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
     // N=8 with mix: offset 0,1,2,4,6 allowed; offset 3 duplicate; offset 5 malformed; offset 7 deny
-    const config = ProcessPipelineConfig{
+    const config = RunConfig{
         .run_dir = run_dir,
         .event_count = 8,
         .policy_limit_cents = 1_000,
@@ -734,7 +798,9 @@ test "tkpoly_integration: final counters survive child reaping" {
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
     waitForAudit(&sup, config.event_count);
 
     // Wait for tkpoly to reach .stopped naturally.
@@ -792,14 +858,16 @@ test "tkpoly_integration: final counters survive reaping — single allow" {
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 1_000 };
+    const config = RunConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 1_000 };
 
     var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
     defer {
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
     waitForAudit(&sup, config.event_count);
 
     // Wait for tkpoly to reach .stopped.
@@ -835,14 +903,16 @@ test "tkpoly_integration: final counters survive reaping — single deny" {
     defer tmp.cleanup();
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     const run_dir = path_buf[0..try tmp.dir.realPath(std.testing.io, &path_buf)];
-    const config = ProcessPipelineConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 999 };
+    const config = RunConfig{ .run_dir = run_dir, .event_count = 1, .policy_limit_cents = 999 };
 
     var sup = try Supervisor.initForTest(std.testing.allocator, topologies.paymentPipelineProcess());
     defer {
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try startPipeline(&sup, run_dir, config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try startPipeline(&sup, &feed, run_dir, config);
     waitForAudit(&sup, config.event_count);
 
     // Wait for tkpoly to reach .stopped.
@@ -888,7 +958,7 @@ const ChainEntry = struct {
 /// Runs the full pipeline once and returns its audit chain.  The caller fixes
 /// `config.workspace_name`, so repeated calls reuse one workspace, like the
 /// "configuration does not leak between runs" test.
-fn runAndCaptureChain(run_dir: []const u8, config: ProcessPipelineConfig) ![replay_event_count]ChainEntry {
+fn runAndCaptureChain(run_dir: []const u8, config: RunConfig) ![replay_event_count]ChainEntry {
     var run_config = config;
     run_config.run_dir = run_dir;
     run_config.tile_exe_path = "build/zig-out/bin/tickoni-supervisor";
@@ -899,7 +969,9 @@ fn runAndCaptureChain(run_dir: []const u8, config: ProcessPipelineConfig) ![repl
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }
-    try sup.startPaymentPipelineProcess(std.testing.io, run_config);
+    var feed: Harness = .{};
+    defer feed.finish();
+    try ingest.startPaymentRun(&sup, &feed, run_config.process(), run_config.payments());
     waitForAudit(&sup, replay_event_count);
 
     try assertNoCrash(&sup);
@@ -932,7 +1004,7 @@ test "tkpoly_integration: identical input yields an identical audit chain across
     // Every decision branch in one run: allow, deny (offset 7), duplicate
     // (offset 3 repeats offset 1), and malformed (offset 5).
     var workspace_buf: [16]u8 = undefined;
-    const config = ProcessPipelineConfig{
+    const config = RunConfig{
         .run_dir = run_dir,
         .event_count = replay_event_count,
         .duplicate = .{ .offset = 3, .source = 1 },
