@@ -11,82 +11,7 @@ const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const tiles = @import("tiles");
 const model_instances = @import("model_instances.zig");
-
-var ingest_config: tiles.PaymentPipelineConfig = .{};
-
-/// The test-only request source's message buffer, handed to the C tile by
-/// pointer: sized for the largest logical message in test builds and empty
-/// otherwise, so a production binary carries no such buffer.
-var request_buf: [if (rt.test_build.enabled) c_abi.multipart.max_message_bytes else 0]u8 = @splat(0);
-
-fn generatePayment(offset: u64, out: *c_abi.tkings.PaymentMessage) callconv(.c) void {
-    const raw = tiles.syntheticPayment(ingest_config, offset);
-    out.* = .{
-        .raw = .{
-            .source_offset = raw.source_offset,
-            .idempotency_key = raw.idempotency_key,
-            .amount_cents = raw.amount_cents,
-            .account_id = raw.account_id,
-            .currency = raw.currency,
-            .malformed = @intFromBool(raw.malformed),
-        },
-        .event_hash = 0,
-        .pipeline_hops = 1,
-        .duplicate = 0,
-        .decision = 0,
-        .decided_by = .{ 0, 0, 0, 0, 0, 0 },
-    };
-}
-
-fn buildRequest(offset: u64, msg: *[*]const u8, run_id: *u64) callconv(.c) usize {
-    const source = ingest_config.model_requests orelse return 0;
-    const body = tiles.model_request_source.buildAgentRequest(source, offset, &request_buf);
-    msg.* = body.ptr;
-    run_id.* = tiles.model_request_source.runIdAt(offset);
-    return body.len;
-}
-
-/// The deliberately faulty producer: at the configured offset, withholds or
-/// corrupts one fragment of the request stream so the receiver's fail-closed
-/// handling is exercised by a real faulty sender.
-fn injectFault(offset: u64, frag_idx: u32, frag_cnt: u32, frag: [*]u8, sz: usize) callconv(.c) c_int {
-    const source = ingest_config.model_requests orelse return 0;
-    if (offset != source.fault_offset) return 0;
-    switch (source.fault) {
-        .none => {},
-        .drop_middle => if (frag_idx == 1) return 1,
-        .omit_last => if (frag_idx == frag_cnt - 1) return 1,
-        .corrupt_payload => if (frag_idx == 1 and sz > c_abi.multipart.header_size + 1) {
-            frag[c_abi.multipart.header_size + 1] ^= 0x5a;
-        },
-    }
-    return 0;
-}
-
-/// Installs the already validated, Zig-owned source in the tkings child before
-/// Firedancer calls its privileged init callback: the synthetic payment
-/// generator, or, in test builds only, the agent-request source.
-pub fn loadIngestConfig(io: std.Io, spec: *const rt.launch_spec.LaunchSpec, topology_event_count: u64, dir: ?std.Io.Dir) !void {
-    var path_buf: [rt.launch_spec.shmem_path_cap + 32]u8 = undefined;
-    const path = if (spec.shmemPath().len > 0)
-        try std.fmt.bufPrint(&path_buf, "{s}/payment_pipeline.config", .{spec.shmemPath()})
-    else
-        try std.fmt.bufPrint(&path_buf, "payment_pipeline.config", .{});
-    const cfg = try tiles.process.readProcessConfig(io, dir orelse std.Io.Dir.cwd(), path);
-    if (cfg.pipeline.event_count != topology_event_count) return error.IngestConfigEventCountMismatch;
-    if (cfg.pipeline.model_requests != null and !rt.test_build.enabled) return error.ModelRequestSourceRequiresTestBuild;
-    if (rt.test_build.enabled) {
-        if (cfg.stuck_tile) |hook| {
-            if (hook.tile_idx == spec.tile_idx) c_abi.tkings.setStuckHook(hook.after_messages, hook.sleep_ns);
-        }
-    }
-    ingest_config = cfg.pipeline;
-    if (cfg.pipeline.model_requests) |source| {
-        c_abi.tkings.setRequestSource(buildRequest, if (source.fault == .none) null else injectFault);
-    } else {
-        c_abi.tkings.setPaymentGenerator(generatePayment);
-    }
-}
+const agent_prompts = @import("agent_prompts.zig");
 
 /// Reads the supervisor-written payment_pipeline.config beside this child's
 /// topology.spec and pushes its signed `policy_limit_cents` into
@@ -157,21 +82,28 @@ pub fn loadModelConfig(
 }
 
 /// Prepares this tkagnt child before the C harness runs: registers the Zig-owned
-/// decision hooks, and declares which tkmodl instance serves which tier by
-/// reading each instance's identity-bound config header. The tile binds its
-/// request and result links from these declarations and the verified channel
-/// endpoints, and refuses to start without hooks.
+/// decision hooks, installs the run's prompt table from `tkagnt.prompts`, and
+/// declares which tkmodl instance serves which tier by reading each instance's
+/// identity-bound config header. The tile binds its request and result links
+/// from these declarations and the verified channel endpoints, and refuses to
+/// start without hooks.
 ///
-/// Fail closed: an instance whose file is missing, swapped or stale, a tier
-/// declared twice, or an unconfigured topology installs a partial route table
+/// Fail closed: a missing or malformed prompt file, a prompt that does not
+/// hash to its reference, an instance whose file is missing, swapped or stale,
+/// a tier declared twice, or an unconfigured topology installs a partial table
 /// no further; the child exits nonzero.
 pub fn loadAgentSetup(
     io: std.Io,
     topo: rt.topology.Topology,
     shmem_path: []const u8,
     dir: ?std.Io.Dir,
+    allocator: std.mem.Allocator,
 ) !void {
     try c_abi.tkagnt.setHooks(&tiles.agent_decision.hooks);
+    var prompts_path_buf: [rt.launch_spec.shmem_path_cap + 32]u8 = undefined;
+    const prompts_path = try agent_prompts.path(&prompts_path_buf, shmem_path);
+    const installed = try agent_prompts.install(io, dir orelse std.Io.Dir.cwd(), prompts_path, allocator);
+    std.debug.print("[tile-main] stemRun: tkagnt prompt table: {d} prompt(s)\n", .{installed});
     const instance_cnt = model_instances.instanceCount(topo);
     if (instance_cnt == 0) return error.AgentWithoutModels;
     for (topo.tiles) |t| {
@@ -185,14 +117,14 @@ pub fn loadAgentSetup(
 }
 
 /// Reads the dispatch template from the supervisor-written
-/// payment_pipeline.config and installs it in a scheduler-shaped tkdisp: the
-/// request that tkdisp sends for every event it receives. Tier, scope and prompt
-/// come from the run configuration; the event contributes only its offset.
+/// payment_pipeline.config and installs it in tkdisp: the request tkdisp sends
+/// for every payment event it receives (decision O2). Tier, scope and prompt
+/// reference come from the run configuration; the event contributes only its
+/// offset and trace id.
 ///
 /// Fail closed: a missing file, a config without a template, a production build
 /// (the synthetic source is the only template author today) or a template the C
-/// tile refuses installs nothing and the child exits nonzero. Only a tkdisp with
-/// an output link (the scheduler shape) needs one; the caller checks.
+/// tile refuses installs nothing and the child exits nonzero.
 pub fn loadDispatchTemplate(
     io: std.Io,
     spec: *const rt.launch_spec.LaunchSpec,
@@ -209,10 +141,10 @@ pub fn loadDispatchTemplate(
     const source = cfg.pipeline.dispatch_template orelse return error.MissingDispatchTemplate;
 
     const src = tiles.model_request_source;
-    const buf = try allocator.alloc(u8, c_abi.multipart.max_message_bytes);
-    defer allocator.free(buf);
-    const body = src.buildAgentRequest(source, 0, buf);
-    try c_abi.tkdisp.setTemplateBody(body);
+    const scratch = try allocator.alloc(u8, source.shape.prompt_bytes);
+    defer allocator.free(scratch);
+    const request = src.buildAgentRequest(source, 0, scratch);
+    try c_abi.tkdisp.setTemplate(&request);
     std.debug.print(
         "[tile-main] stemRun: tkdisp dispatch template tier={d} prompt_bytes={d}\n",
         .{ source.tierAt(0), source.shape.prompt_bytes },
@@ -364,99 +296,6 @@ test "tile_main_config: loadPolicyLimit fails on mismatched event count" {
 }
 
 // ---------------------------------------------------------------------------
-// tkings source handoff — the payment generator or, in test builds, the
-// agent-request source. The C tile only calls these Zig functions; what they
-// build and what they withhold is decided and checked here.
-// ---------------------------------------------------------------------------
-
-fn ingestSpec() !rt.launch_spec.LaunchSpec {
-    return rt.launch_spec.LaunchSpec.init(.{
-        .tile_idx = 0,
-        .tile_id = rt.tile_ids.tkings,
-        .cpu_placement = .floating,
-        .workspace_name = try rt.link.WorkspaceName.parse("tkpay0"),
-        .cnc_gaddr = 0,
-        .shmem_path = "",
-        .heartbeat_interval_ns = 1,
-    });
-}
-
-test "tile_main_config: loadIngestConfig fails on mismatched event count" {
-    var tmp = std.testing.tmpDir(.{});
-    defer tmp.cleanup();
-    const spec = try ingestSpec();
-    const cfg = tiles.process.ProcessRuntimeConfig{ .pipeline = .{ .event_count = 4 } };
-    try tiles.process.writeProcessConfig(cfg, std.testing.io, tmp.dir, "payment_pipeline.config");
-
-    try std.testing.expectError(error.IngestConfigEventCountMismatch, loadIngestConfig(std.testing.io, &spec, 100, tmp.dir));
-}
-
-test "tile_main_config: loadIngestConfig accepts the request source in a test build" {
-    var tmp = std.testing.tmpDir(.{});
-    defer tmp.cleanup();
-    const spec = try ingestSpec();
-    const cfg = tiles.process.ProcessRuntimeConfig{
-        .pipeline = .{ .event_count = 4, .model_requests = .{ .fault = .omit_last, .fault_offset = 2 } },
-    };
-    try tiles.process.writeProcessConfig(cfg, std.testing.io, tmp.dir, "payment_pipeline.config");
-
-    try loadIngestConfig(std.testing.io, &spec, 4, tmp.dir);
-    try std.testing.expect(ingest_config.model_requests != null);
-}
-
-test "tile_main_config: the request source builds exactly the source's requests" {
-    const mrs = tiles.model_request_source;
-    var source = mrs.ModelRequestSource{ .pattern_len = 2 };
-    source.pattern[1] = .missing_budget;
-    const saved = ingest_config;
-    defer ingest_config = saved;
-    ingest_config = .{ .model_requests = source };
-
-    var want_buf: [1024]u8 = undefined;
-    for ([_]u64{ 0, 1, 2, 7 }) |offset| {
-        var msg: [*]const u8 = undefined;
-        var run_id: u64 = 0;
-        const len = buildRequest(offset, &msg, &run_id);
-        try std.testing.expectEqualSlices(u8, mrs.buildAgentRequest(source, offset, &want_buf), msg[0..len]);
-        try std.testing.expectEqual(mrs.runIdAt(offset), run_id);
-    }
-}
-
-test "tile_main_config: injectFault touches only the configured offset and fragment" {
-    const header = c_abi.multipart.header_size;
-    const saved = ingest_config;
-    defer ingest_config = saved;
-    var frag: [128]u8 = @splat(0);
-
-    // No fault: every fragment goes out untouched.
-    ingest_config = .{ .model_requests = .{} };
-    try std.testing.expectEqual(@as(c_int, 0), injectFault(0, 1, 4, &frag, frag.len));
-    try std.testing.expectEqual(@as(u8, 0), frag[header + 1]);
-
-    // drop_middle withholds fragment 1 of the faulty offset, nothing else.
-    ingest_config = .{ .model_requests = .{ .fault = .drop_middle, .fault_offset = 3 } };
-    try std.testing.expectEqual(@as(c_int, 0), injectFault(2, 1, 4, &frag, frag.len));
-    try std.testing.expectEqual(@as(c_int, 0), injectFault(3, 0, 4, &frag, frag.len));
-    try std.testing.expectEqual(@as(c_int, 1), injectFault(3, 1, 4, &frag, frag.len));
-    try std.testing.expectEqual(@as(c_int, 0), injectFault(3, 3, 4, &frag, frag.len));
-
-    // omit_last withholds only the final fragment.
-    ingest_config = .{ .model_requests = .{ .fault = .omit_last, .fault_offset = 3 } };
-    try std.testing.expectEqual(@as(c_int, 0), injectFault(3, 2, 4, &frag, frag.len));
-    try std.testing.expectEqual(@as(c_int, 1), injectFault(3, 3, 4, &frag, frag.len));
-    try std.testing.expectEqual(@as(c_int, 0), injectFault(4, 3, 4, &frag, frag.len));
-
-    // corrupt_payload sends fragment 1 with one payload byte flipped.
-    ingest_config = .{ .model_requests = .{ .fault = .corrupt_payload, .fault_offset = 3 } };
-    try std.testing.expectEqual(@as(c_int, 0), injectFault(3, 0, 4, &frag, frag.len));
-    try std.testing.expectEqual(@as(u8, 0), frag[header + 1]);
-    try std.testing.expectEqual(@as(c_int, 0), injectFault(2, 1, 4, &frag, frag.len));
-    try std.testing.expectEqual(@as(u8, 0), frag[header + 1]);
-    try std.testing.expectEqual(@as(c_int, 0), injectFault(3, 1, 4, &frag, frag.len));
-    try std.testing.expectEqual(@as(u8, 0x5a), frag[header + 1]);
-}
-
-// ---------------------------------------------------------------------------
 // tkmodl per-instance config handoff — fail closed (same contract as the
 // policy limit): a missing, short, long, swapped, stale, mis-magic'd,
 // mis-versioned, or live-enabled file installs nothing and the child exits
@@ -560,4 +399,5 @@ test "tile_main_config: loadModelConfig fails on bad magic, bad version, and a l
 
 test {
     _ = model_instances;
+    _ = agent_prompts;
 }

@@ -19,6 +19,25 @@ const WorkspaceName = rt.link.WorkspaceName;
 pub const diag_link_depth: u32 = audit_mod.TK_DIAG_LINK_DEPTH;
 pub const diag_link_mtu: u32 = audit_mod.TK_DIAG_LINK_MTU;
 
+/// MTU of every spine link: one TkEvent per fragment (shim/tk_event_wire.h).
+pub const event_link_mtu: u32 = audit_mod.TK_EVENT_LINK_MTU;
+
+/// tkings's input: the one link no tile produces (`rt.link.external_src`,
+/// Firedancer's permit_no_producers). Every topology has it and it is tkings's
+/// only source: tkapi publishes user requests on it, tkrepl replay capsules,
+/// and the integration test harness stands in for both until they exist.
+fn ingestInput(workspace: []const u8) Channel {
+    return .{
+        .src_idx = rt.link.external_src,
+        .dst_idx = 0,
+        .depth = 64,
+        .mtu = event_link_mtu,
+        .backing = .tango_shm,
+        .reliability = .reliable,
+        .workspace_name = WorkspaceName.parse(workspace) catch unreachable,
+    };
+}
+
 /// Whether a declared product topology has a supervisor/CLI dispatch path
 /// today, so callers do not have to infer runtime support from tile count.
 /// `runnable`: src/app/tickoni/supervisor.zig has a start path for it and
@@ -42,10 +61,11 @@ const payment_tiles = [_]TileDescriptor{
     .{ .id = 7, .name = tile_ids.tkdiag },
 };
 const payment_channels = [_]Channel{
-    .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 },
-    .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 128 },
-    .{ .src_idx = 2, .dst_idx = 3, .depth = 64, .mtu = 128 },
-    .{ .src_idx = 3, .dst_idx = 4, .depth = 64, .mtu = 128 },
+    .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = event_link_mtu },
+    .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = event_link_mtu },
+    .{ .src_idx = 2, .dst_idx = 3, .depth = 64, .mtu = event_link_mtu },
+    .{ .src_idx = 3, .dst_idx = 4, .depth = 64, .mtu = event_link_mtu },
+    ingestInput("tkpay0"),
 };
 
 const investment_tiles = [_]TileDescriptor{
@@ -80,14 +100,14 @@ fn investmentLink(src: u32, dst: u32, depth: u32, mtu: u32) Channel {
 }
 
 const investment_channels = [_]Channel{
-    investmentLink(0, 1, 64, 128),
-    investmentLink(1, 2, 64, 128),
-    investmentLink(2, 3, 64, 128),
+    investmentLink(0, 1, 64, event_link_mtu),
+    investmentLink(1, 2, 64, event_link_mtu),
+    investmentLink(2, 3, 64, event_link_mtu),
     // tkcase -> tkpoly (the policy path) and tkcase -> tkdisp (the dispatch path).
-    investmentLink(3, 4, 64, 128),
-    investmentLink(3, 6, 64, 128),
-    // tkdisp -> tkagnt carries agent requests: a multipart content link.
-    investmentLink(6, 7, audit_mod.TK_MP_LINK_DEPTH, audit_mod.TK_MP_LINK_MTU),
+    investmentLink(3, 4, 64, event_link_mtu),
+    investmentLink(3, 6, 64, event_link_mtu),
+    // tkdisp -> tkagnt carries agent requests: one fixed record each.
+    investmentLink(6, 7, audit_mod.TK_MP_LINK_DEPTH, audit_mod.TK_AGENT_REQUEST_LINK_MTU),
     // tkagnt -> tkmodl carries model requests: a multipart content link.
     investmentLink(7, 8, audit_mod.TK_MP_LINK_DEPTH, audit_mod.TK_MP_LINK_MTU),
     // tkagnt -> tktool -> tkadpt: the tool and adapter paths. No tool call exists
@@ -96,7 +116,7 @@ const investment_channels = [_]Channel{
     investmentLink(9, 10, 32, 512),
     // Every audit producer feeds tkaudt. tktool and tkadpt have no audit record
     // type yet, so their links are idle.
-    investmentLink(4, 5, 64, 128),
+    investmentLink(4, 5, 64, event_link_mtu),
     investmentLink(8, 5, 32, 256),
     investmentLink(9, 5, 32, 256),
     investmentLink(10, 5, 32, 256),
@@ -106,11 +126,12 @@ const investment_channels = [_]Channel{
     // content link), and tkagnt's terminal result to tkdisp.
     investmentLink(8, 7, audit_mod.TK_MP_LINK_DEPTH, audit_mod.TK_MP_LINK_MTU),
     investmentLink(7, 6, audit_mod.TK_MP_LINK_DEPTH, audit_mod.TK_AGENT_RESULT_LINK_MTU),
+    ingestInput("tkinv0"),
 };
 
 /// Phase 0 in-process pipeline used by the Tickoni product supervisor.
 ///
-///   tkings -> tknorm -> tkdedu -> tkpoly -> tkaudt
+///   (external) -> tkings -> tknorm -> tkdedu -> tkpoly -> tkaudt
 ///   tkrepl, metric, and tkdiag observe the deterministic run.
 ///
 /// No Solana validator tiles are registered in this topology.
@@ -126,7 +147,7 @@ pub fn paymentPipeline() Topology {
 /// The full investment workflow: all 14 tiles, one process each, on reliable
 /// shared-memory links.
 ///
-///   events:    tkings -> tknorm -> tkdedu -> tkcase -> tkpoly -> tkaudt
+///   events:    (external) -> tkings -> tknorm -> tkdedu -> tkcase -> tkpoly -> tkaudt
 ///   dispatch:  tkcase -> tkdisp -> tkagnt (agent request)
 ///   model:     tkagnt -> tkmodl -> tkagnt (request, result); tkmodl -> tkaudt (audit)
 ///   agent:     tkagnt -> tkaudt (audit), tkagnt -> tkdisp (terminal result)
@@ -135,8 +156,8 @@ pub fn paymentPipeline() Topology {
 ///
 /// tkcase, tktool and tkadpt are config-driven placeholders: they carry no case,
 /// tool or adapter logic. tkdisp is the scheduler that turns each event it
-/// receives from tkcase into one agent request from a fixed, config-supplied
-/// template. `tkaudt -> tkrepl` is not a link: replay reads the committed audit
+/// receives from tkcase into one agent request: an agent-request event's own,
+/// or, for a payment event, a fixed, config-supplied template. `tkaudt -> tkrepl` is not a link: replay reads the committed audit
 /// chain, which has no consumer tile yet.
 /// Status: runnable, through the supervisor's process-mode start path
 /// (Supervisor.startPaymentPipelineProcess) given a dispatch template and the
@@ -161,7 +182,7 @@ const payment_process_channels = [_]Channel{
         .src_idx = 0,
         .dst_idx = 1,
         .depth = 64,
-        .mtu = 128,
+        .mtu = event_link_mtu,
         .backing = .tango_shm,
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
@@ -170,7 +191,7 @@ const payment_process_channels = [_]Channel{
         .src_idx = 1,
         .dst_idx = 2,
         .depth = 64,
-        .mtu = 128,
+        .mtu = event_link_mtu,
         .backing = .tango_shm,
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
@@ -179,7 +200,7 @@ const payment_process_channels = [_]Channel{
         .src_idx = 2,
         .dst_idx = 3,
         .depth = 64,
-        .mtu = 128,
+        .mtu = event_link_mtu,
         .backing = .tango_shm,
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
@@ -188,7 +209,7 @@ const payment_process_channels = [_]Channel{
         .src_idx = 3,
         .dst_idx = 4,
         .depth = 64,
-        .mtu = 128,
+        .mtu = event_link_mtu,
         .backing = .tango_shm,
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
@@ -202,6 +223,8 @@ const payment_process_channels = [_]Channel{
     diagLink(2),
     diagLink(3),
     diagLink(4),
+    // tkings's input, after the diagnostic links (it is no tile's output).
+    ingestInput("tkpay0"),
 };
 
 /// The lossy diagnostic link from pipeline tile `src` to tkdiag
@@ -247,11 +270,12 @@ const minimal_channels = [_]Channel{
         .src_idx = 0,
         .dst_idx = 1,
         .depth = 64,
-        .mtu = 128,
+        .mtu = event_link_mtu,
         .backing = .tango_shm,
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
     },
+    ingestInput("tkpay0"),
 };
 
 /// Minimal 3-tile topology (tkings → tkaudt + metric observer tile).
@@ -277,7 +301,7 @@ const minimal_with_norm_channels = [_]Channel{
         .src_idx = 0,
         .dst_idx = 1,
         .depth = 64,
-        .mtu = 128,
+        .mtu = event_link_mtu,
         .backing = .tango_shm,
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
@@ -286,11 +310,12 @@ const minimal_with_norm_channels = [_]Channel{
         .src_idx = 1,
         .dst_idx = 2,
         .depth = 64,
-        .mtu = 128,
+        .mtu = event_link_mtu,
         .backing = .tango_shm,
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
     },
+    ingestInput("tkpay0"),
 };
 
 /// Minimal 4-tile topology (tkings → tknorm → tkaudt + metric observer).
@@ -317,7 +342,7 @@ const minimal_with_dedu_channels = [_]Channel{
         .src_idx = 0,
         .dst_idx = 1,
         .depth = 64,
-        .mtu = 128,
+        .mtu = event_link_mtu,
         .backing = .tango_shm,
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
@@ -326,7 +351,7 @@ const minimal_with_dedu_channels = [_]Channel{
         .src_idx = 1,
         .dst_idx = 2,
         .depth = 64,
-        .mtu = 128,
+        .mtu = event_link_mtu,
         .backing = .tango_shm,
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
@@ -335,11 +360,12 @@ const minimal_with_dedu_channels = [_]Channel{
         .src_idx = 2,
         .dst_idx = 3,
         .depth = 64,
-        .mtu = 128,
+        .mtu = event_link_mtu,
         .backing = .tango_shm,
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
     },
+    ingestInput("tkpay0"),
 };
 
 /// Minimal 5-tile topology (tkings → tknorm → tkdedu → tkaudt + metric observer).
@@ -350,36 +376,51 @@ pub fn minimalWithDeduProcess() Topology {
     };
 }
 
-/// The agent process graph for `n` configured tkmodl instances (1..11), the
-/// shape the tkagnt migration plan counts: N+5 tiles and 3N+3 channels.
+/// The agent process graph for `n` configured tkmodl instances (1..11): every
+/// event takes the spine, and agent requests reach tkagnt only through tkdisp
+/// (plan v2.NN rev 2, D2). N+9 tiles and 3N+10 channels.
 ///
-///   tkings --agent request--> tkagnt --model request--> tkmodl#k   (per model)
-///                                    <--model result---
+///   (external) -> tkings -> tknorm -> tkdedu -> tkcase -> tkpoly -> tkaudt
+///                                              tkcase -> tkdisp -> tkagnt
+///   tkagnt --model request--> tkmodl#k --model result--> tkagnt    (per model)
 ///                             tkmodl#k --model audit---> tkaudt    (per model)
-///                             tkagnt --agent audit-----> tkaudt
-///                             tkagnt --terminal result-> tkdisp
+///   tkagnt --agent audit-----> tkaudt
+///   tkagnt --terminal result-> tkdisp
 ///   metric observes every link.
 ///
-/// Tile order: tkings, tkagnt, tkaudt, tkdisp, tkmodl kind 0..n-1, metric.
-/// Per model k the three channels are request, audit, result, in that order.
+/// Tile order: tkings, tknorm, tkdedu, tkcase, tkpoly, tkaudt, tkdisp, tkagnt,
+/// tkmodl kind 0..n-1, metric. Channels: the six spine links, tkdisp -> tkagnt,
+/// then per model k request, audit, result in that order, then the agent's
+/// audit and terminal-result links, and last tkings's externally produced
+/// input (`rt.link.external_src`): the test harness publishes TkEvents on it.
 /// Which tier a tkmodl instance serves is not part of the topology: it is the
 /// per-instance configuration, and the agent binds its links from it and from
 /// the verified channel endpoints.
 ///
-/// Link bounds are the approved ones (see the plan's "Chosen numeric bounds"):
-/// content links carry the multipart MTU at depth 32 fragments; the single-
-/// fragment audit and terminal records use their own sizes.
+/// Link bounds are the approved ones (see the tkagnt plan's "Chosen numeric
+/// bounds"): model content links carry the multipart MTU at depth 32
+/// fragments; the spine links carry one TkEvent and the single-fragment
+/// request, audit and terminal records use their own sizes.
 fn AgentGraph(comptime n: usize) type {
     return struct {
-        pub const tile_cnt = 5 + n;
-        pub const channel_cnt = 3 + 3 * n;
+        pub const idx_ings = 0;
+        pub const idx_case = 3;
+        pub const idx_poly = 4;
+        pub const idx_audit = 5;
+        pub const idx_disp = 6;
+        pub const idx_agent = 7;
+        pub const first_model_idx = 8;
+        pub const tile_cnt = 9 + n;
+        pub const channel_cnt = 10 + 3 * n;
+        /// Index of tkings's externally produced input channel.
+        pub const ingest_input_idx = channel_cnt - 1;
         const wksp = WorkspaceName.parse("tkpay0") catch unreachable;
 
-        fn channel(src: u32, dst: u32, mtu: u32) Channel {
+        fn channel(src: u32, dst: u32, depth: u32, mtu: u32) Channel {
             return .{
                 .src_idx = src,
                 .dst_idx = dst,
-                .depth = audit_mod.TK_MP_LINK_DEPTH,
+                .depth = depth,
                 .mtu = mtu,
                 .backing = .tango_shm,
                 .reliability = .reliable,
@@ -390,27 +431,39 @@ fn AgentGraph(comptime n: usize) type {
         pub const tiles: [tile_cnt]TileDescriptor = blk: {
             var t: [tile_cnt]TileDescriptor = undefined;
             t[0] = .{ .id = 0, .name = tile_ids.tkings };
-            t[1] = .{ .id = 1, .name = tile_ids.tkagnt };
-            t[2] = .{ .id = 2, .name = tile_ids.tkaudt };
-            t[3] = .{ .id = 3, .name = tile_ids.tkdisp };
-            for (0..n) |k| t[4 + k] = .{ .id = 4 + k, .name = tile_ids.tkmodl, .kind_id = @intCast(k) };
-            t[4 + n] = .{ .id = 4 + n, .name = tile_ids.metric };
+            t[1] = .{ .id = 1, .name = tile_ids.tknorm };
+            t[2] = .{ .id = 2, .name = tile_ids.tkdedu };
+            t[3] = .{ .id = 3, .name = tile_ids.tkcase };
+            t[4] = .{ .id = 4, .name = tile_ids.tkpoly };
+            t[5] = .{ .id = 5, .name = tile_ids.tkaudt };
+            t[6] = .{ .id = 6, .name = tile_ids.tkdisp };
+            t[7] = .{ .id = 7, .name = tile_ids.tkagnt };
+            for (0..n) |k| t[first_model_idx + k] = .{ .id = first_model_idx + k, .name = tile_ids.tkmodl, .kind_id = @intCast(k) };
+            t[first_model_idx + n] = .{ .id = first_model_idx + n, .name = tile_ids.metric };
             break :blk t;
         };
 
         pub const channels: [channel_cnt]Channel = blk: {
+            const depth: u32 = audit_mod.TK_MP_LINK_DEPTH;
             const content_mtu: u32 = audit_mod.TK_MP_LINK_MTU;
             const model_audit_mtu: u32 = 256;
             var c: [channel_cnt]Channel = undefined;
-            c[0] = channel(0, 1, content_mtu);
+            c[0] = channel(0, 1, 64, event_link_mtu);
+            c[1] = channel(1, 2, 64, event_link_mtu);
+            c[2] = channel(2, idx_case, 64, event_link_mtu);
+            c[3] = channel(idx_case, idx_poly, 64, event_link_mtu);
+            c[4] = channel(idx_case, idx_disp, 64, event_link_mtu);
+            c[5] = channel(idx_poly, idx_audit, 64, event_link_mtu);
+            c[6] = channel(idx_disp, idx_agent, depth, audit_mod.TK_AGENT_REQUEST_LINK_MTU);
             for (0..n) |k| {
-                const model: u32 = @intCast(4 + k);
-                c[1 + 3 * k + 0] = channel(1, model, content_mtu);
-                c[1 + 3 * k + 1] = channel(model, 2, model_audit_mtu);
-                c[1 + 3 * k + 2] = channel(model, 1, content_mtu);
+                const model: u32 = @intCast(first_model_idx + k);
+                c[7 + 3 * k + 0] = channel(idx_agent, model, depth, content_mtu);
+                c[7 + 3 * k + 1] = channel(model, idx_audit, depth, model_audit_mtu);
+                c[7 + 3 * k + 2] = channel(model, idx_agent, depth, content_mtu);
             }
-            c[1 + 3 * n] = channel(1, 2, audit_mod.TK_AGENT_AUDIT_LINK_MTU);
-            c[2 + 3 * n] = channel(1, 3, audit_mod.TK_AGENT_RESULT_LINK_MTU);
+            c[7 + 3 * n] = channel(idx_agent, idx_audit, depth, audit_mod.TK_AGENT_AUDIT_LINK_MTU);
+            c[8 + 3 * n] = channel(idx_agent, idx_disp, depth, audit_mod.TK_AGENT_RESULT_LINK_MTU);
+            c[ingest_input_idx] = channel(rt.link.external_src, 0, 64, event_link_mtu);
             break :blk c;
         };
     };
@@ -443,7 +496,7 @@ const minimal_with_poly_channels = [_]Channel{
         .src_idx = 0,
         .dst_idx = 1,
         .depth = 64,
-        .mtu = 128,
+        .mtu = event_link_mtu,
         .backing = .tango_shm,
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
@@ -452,7 +505,7 @@ const minimal_with_poly_channels = [_]Channel{
         .src_idx = 1,
         .dst_idx = 2,
         .depth = 64,
-        .mtu = 128,
+        .mtu = event_link_mtu,
         .backing = .tango_shm,
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
@@ -461,7 +514,7 @@ const minimal_with_poly_channels = [_]Channel{
         .src_idx = 2,
         .dst_idx = 3,
         .depth = 64,
-        .mtu = 128,
+        .mtu = event_link_mtu,
         .backing = .tango_shm,
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
@@ -470,11 +523,12 @@ const minimal_with_poly_channels = [_]Channel{
         .src_idx = 3,
         .dst_idx = 4,
         .depth = 64,
-        .mtu = 128,
+        .mtu = event_link_mtu,
         .backing = .tango_shm,
         .reliability = .reliable,
         .workspace_name = WorkspaceName.parse("tkpay0") catch unreachable,
     },
+    ingestInput("tkpay0"),
 };
 
 /// Minimal 6-tile topology (tkings → tknorm → tkdedu → tkpoly → tkaudt + metric observer).
@@ -488,7 +542,7 @@ pub fn minimalWithPolyProcess() Topology {
 test "paymentPipeline has Phase 0 product tiles and channels" {
     const topo = paymentPipeline();
     try std.testing.expectEqual(@as(usize, 8), topo.tiles.len);
-    try std.testing.expectEqual(@as(usize, 4), topo.channels.len);
+    try std.testing.expectEqual(@as(usize, 5), topo.channels.len);
     try std.testing.expectEqualStrings(tile_ids.tkings.slice(), topo.tiles[0].name.slice());
     try std.testing.expectEqualStrings(tile_ids.tkaudt.slice(), topo.tiles[4].name.slice());
     try std.testing.expectEqualStrings(tile_ids.tkdiag.slice(), topo.tiles[7].name.slice());
@@ -526,7 +580,7 @@ test "investmentWorkflow has no tkaudt -> tkrepl link and keeps the observers un
         try std.testing.expect(ch.src_idx != repl and ch.dst_idx != repl);
         try std.testing.expect(!(ch.src_idx == audit));
     }
-    try std.testing.expectEqual(@as(usize, 16), topo.channels.len);
+    try std.testing.expectEqual(@as(usize, 17), topo.channels.len);
 }
 
 test "investmentWorkflow includes tkmodl tktool tkadpt and passes validation" {
@@ -539,16 +593,16 @@ test "investmentWorkflow includes tkmodl tktool tkadpt and passes validation" {
     try std.testing.expectEqualStrings(tile_ids.tkrepl.slice(), topo.tiles[11].name.slice());
 }
 
-test "paymentPipelineProcess has 8 tiles, 4 reliable pipeline channels plus 5 lossy diagnostic channels, and passes validation" {
+test "paymentPipelineProcess has 8 tiles, 4 reliable pipeline channels, 5 lossy diagnostic channels and tkings's input, and passes validation" {
     const topo = paymentPipelineProcess();
     try topo.validate();
     try std.testing.expectEqual(@as(usize, 8), topo.tiles.len);
-    try std.testing.expectEqual(@as(usize, 4 + 5), topo.channels.len);
+    try std.testing.expectEqual(@as(usize, 4 + 5 + 1), topo.channels.len);
     for (topo.channels, 0..) |ch, i| {
         try std.testing.expectEqual(rt.link.LinkBacking.tango_shm, ch.backing);
         try std.testing.expectEqualStrings("tkpay0", ch.workspace_name.slice());
-        // The pipeline is reliable; the diagnostic links never are.
-        const expected: rt.link.LinkReliability = if (i < 4) .reliable else .lossy;
+        // The pipeline and tkings's input are reliable; the diagnostic links never are.
+        const expected: rt.link.LinkReliability = if (i < 4 or i == 9) .reliable else .lossy;
         try std.testing.expectEqual(expected, ch.reliability);
     }
 }
@@ -592,53 +646,48 @@ test "only the 8-tile payment process topology carries diagnostic links" {
     }
 }
 
-test "agentProcess has N+5 tiles and 3N+3 channels and passes validation for every supported N" {
+test "agentProcess has N+9 tiles and 3N+10 channels and passes validation for every supported N" {
     inline for (.{ 1, 2, 3, 5, 11 }) |n| {
         const topo = agentProcess(n);
         try topo.validate();
-        try std.testing.expectEqual(@as(usize, n + 5), topo.tiles.len);
-        try std.testing.expectEqual(@as(usize, 3 * n + 3), topo.channels.len);
+        try std.testing.expectEqual(@as(usize, n + 9), topo.tiles.len);
+        try std.testing.expectEqual(@as(usize, 3 * n + 10), topo.channels.len);
     }
-    // The 11-model maximum: 16 tiles, 36 channels (the plan's 15-tile/34-channel
-    // base plus the terminal-result consumer and the agent-audit and
-    // terminal-result links).
-    try std.testing.expectEqual(@as(usize, 16), agentProcess(11).tiles.len);
-    try std.testing.expectEqual(@as(usize, 36), agentProcess(11).channels.len);
+    // The 11-model maximum: 20 tiles, 43 channels.
+    try std.testing.expectEqual(@as(usize, 20), agentProcess(11).tiles.len);
+    try std.testing.expectEqual(@as(usize, 43), agentProcess(11).channels.len);
 }
 
-test "agentProcess wires each tkmodl instance to its own request, audit and result links" {
+test "agentProcess routes every event through the spine and agent requests only through tkdisp" {
+    const G = AgentGraph(3);
     const topo = agentProcess(3);
-    const agent: u32 = 1;
-    const audit: u32 = 2;
-    const disp: u32 = 3;
-    try std.testing.expect(topo.tiles[0].name.eql(tile_ids.tkings));
-    try std.testing.expect(topo.tiles[agent].name.eql(tile_ids.tkagnt));
-    try std.testing.expect(topo.tiles[audit].name.eql(tile_ids.tkaudt));
-    try std.testing.expect(topo.tiles[disp].name.eql(tile_ids.tkdisp));
+    const names = [_]rt.tile.TileId{ tile_ids.tkings, tile_ids.tknorm, tile_ids.tkdedu, tile_ids.tkcase, tile_ids.tkpoly, tile_ids.tkaudt, tile_ids.tkdisp, tile_ids.tkagnt };
+    for (names, 0..) |name, i| try std.testing.expect(topo.tiles[i].name.eql(name));
     try std.testing.expect(topo.tiles[topo.tiles.len - 1].name.eql(tile_ids.metric));
 
-    // tkings feeds the agent.
-    try std.testing.expectEqual(@as(u32, 0), topo.channels[0].src_idx);
-    try std.testing.expectEqual(agent, topo.channels[0].dst_idx);
+    // No link from tkings goes anywhere but tknorm, and tkagnt's only request
+    // input is tkdisp's.
+    for (topo.channels) |ch| {
+        if (ch.src_idx == G.idx_ings) try std.testing.expectEqual(@as(u32, 1), ch.dst_idx);
+        if (ch.dst_idx == G.idx_agent and ch.src_idx < G.first_model_idx) try std.testing.expectEqual(@as(u32, G.idx_disp), ch.src_idx);
+    }
     for (0..3) |k| {
-        const model: u32 = @intCast(4 + k);
+        const model: u32 = @intCast(G.first_model_idx + k);
         try std.testing.expect(topo.tiles[model].name.eql(tile_ids.tkmodl));
         try std.testing.expectEqual(@as(u8, @intCast(k)), topo.tiles[model].kind_id);
-        const req = topo.channels[1 + 3 * k + 0];
-        const aud = topo.channels[1 + 3 * k + 1];
-        const res = topo.channels[1 + 3 * k + 2];
-        try std.testing.expectEqual(agent, req.src_idx);
+        const req = topo.channels[7 + 3 * k + 0];
+        const aud = topo.channels[7 + 3 * k + 1];
+        const res = topo.channels[7 + 3 * k + 2];
+        try std.testing.expectEqual(@as(u32, G.idx_agent), req.src_idx);
         try std.testing.expectEqual(model, req.dst_idx);
         try std.testing.expectEqual(model, aud.src_idx);
-        try std.testing.expectEqual(audit, aud.dst_idx);
+        try std.testing.expectEqual(@as(u32, G.idx_audit), aud.dst_idx);
         try std.testing.expectEqual(model, res.src_idx);
-        try std.testing.expectEqual(agent, res.dst_idx);
+        try std.testing.expectEqual(@as(u32, G.idx_agent), res.dst_idx);
     }
-    // The agent's own audit and terminal-result links.
-    try std.testing.expectEqual(agent, topo.channels[10].src_idx);
-    try std.testing.expectEqual(audit, topo.channels[10].dst_idx);
-    try std.testing.expectEqual(agent, topo.channels[11].src_idx);
-    try std.testing.expectEqual(disp, topo.channels[11].dst_idx);
+    // tkings's input has no producer tile: the harness (or replay) feeds it.
+    try std.testing.expect(!topo.channels[G.ingest_input_idx].hasProducerTile());
+    try std.testing.expectEqual(@as(u32, 0), topo.channels[G.ingest_input_idx].dst_idx);
 }
 
 test "agentProcess links are reliable shared-memory links sized for their records" {
@@ -646,16 +695,30 @@ test "agentProcess links are reliable shared-memory links sized for their record
     for (topo.channels) |ch| {
         try std.testing.expectEqual(rt.link.LinkBacking.tango_shm, ch.backing);
         try std.testing.expectEqual(rt.link.LinkReliability.reliable, ch.reliability);
-        try std.testing.expectEqual(@as(u32, audit_mod.TK_MP_LINK_DEPTH), ch.depth);
+        try std.testing.expect(std.math.isPowerOfTwo(ch.depth));
+        try std.testing.expect(ch.mtu <= audit_mod.TK_MP_FD_SZ_CEILING);
     }
-    // Content links carry a full multipart fragment; the single-fragment
-    // records fit their own links.
-    try std.testing.expectEqual(@as(u32, audit_mod.TK_MP_LINK_MTU), topo.channels[0].mtu);
-    try std.testing.expect(topo.channels[2].mtu >= @sizeOf(audit_mod.ModelAuditMsg));
-    try std.testing.expect(topo.channels[topo.channels.len - 2].mtu >= @sizeOf(audit_mod.TkAgentAuditMsg));
-    try std.testing.expect(topo.channels[topo.channels.len - 1].mtu >= @sizeOf(audit_mod.TkAgentResultMsg));
-    // And every fragment fits the 16-bit fd size.
-    for (topo.channels) |ch| try std.testing.expect(ch.mtu <= audit_mod.TK_MP_FD_SZ_CEILING);
+    for (topo.channels[0..6]) |ch| try std.testing.expect(ch.mtu >= @sizeOf(audit_mod.TkEvent));
+    try std.testing.expect(topo.channels[6].mtu >= @sizeOf(audit_mod.TkAgentRequestMsg));
+    try std.testing.expectEqual(@as(u32, audit_mod.TK_MP_LINK_MTU), topo.channels[7].mtu);
+    try std.testing.expect(topo.channels[8].mtu >= @sizeOf(audit_mod.ModelAuditMsg));
+    try std.testing.expect(topo.channels[topo.channels.len - 3].mtu >= @sizeOf(audit_mod.TkAgentAuditMsg));
+    try std.testing.expect(topo.channels[topo.channels.len - 2].mtu >= @sizeOf(audit_mod.TkAgentResultMsg));
+    try std.testing.expect(topo.channels[topo.channels.len - 1].mtu >= @sizeOf(audit_mod.TkEvent));
+}
+
+test "every topology feeds tkings from outside the tile graph, and only tkings" {
+    const all = [_]Topology{ paymentPipeline(), paymentPipelineProcess(), minimalProcess(), minimalWithNormProcess(), minimalWithDeduProcess(), minimalWithPolyProcess(), investmentWorkflow(), agentProcess(1) };
+    for (all) |topo| {
+        var external: usize = 0;
+        for (topo.channels) |ch| {
+            if (ch.hasProducerTile()) continue;
+            external += 1;
+            try std.testing.expect(topo.tiles[ch.dst_idx].name.eql(tile_ids.tkings));
+            try std.testing.expect(ch.mtu >= @sizeOf(audit_mod.TkEvent));
+        }
+        try std.testing.expectEqual(@as(usize, 1), external);
+    }
 }
 
 test "investmentWorkflow declares the agent's request, result, audit and terminal-result links" {
@@ -671,7 +734,7 @@ test "investmentWorkflow declares the agent's request, result, audit and termina
 
     const Edge = struct { src: u32, dst: u32, mtu: u32 };
     const wanted = [_]Edge{
-        .{ .src = disp, .dst = agent, .mtu = audit_mod.TK_MP_LINK_MTU }, // agent request
+        .{ .src = disp, .dst = agent, .mtu = audit_mod.TK_AGENT_REQUEST_LINK_MTU }, // agent request
         .{ .src = agent, .dst = model, .mtu = audit_mod.TK_MP_LINK_MTU }, // model request
         .{ .src = model, .dst = agent, .mtu = audit_mod.TK_MP_LINK_MTU }, // model result
         .{ .src = model, .dst = audit, .mtu = 256 }, // model audit

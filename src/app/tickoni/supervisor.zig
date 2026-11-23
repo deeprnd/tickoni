@@ -12,6 +12,7 @@ const topologies = @import("topologies");
 pub const tile_registry = @import("tile_registry.zig");
 /// Per-instance tkmodl configuration set; tests build `ProcessPipelineConfig.model_configs` from it.
 pub const model_instances = @import("model_instances.zig");
+pub const agent_prompts = @import("agent_prompts.zig");
 const logger = @import("logger");
 
 const Topology = rt.topology.Topology;
@@ -35,29 +36,33 @@ pub const ProcessPipelineConfig = struct {
     /// 0 means run normally. Indexed by tile_idx.
     crash_after_heartbeats: []const u32 = &.{},
     /// Test-only hook (v2.14.S8.T6 stale-heartbeat proof): the selected
-    /// tile blocks forever after stuck_after_messages loop iterations.
+    /// stem tile blocks forever after stuck_after_heartbeats heartbeats,
+    /// through the shared stem liveness path (LaunchSpec.stuck_after_heartbeats).
     stuck_tile_idx: ?u32 = null,
-    stuck_after_messages: u64 = 0,
-    /// Payment pipeline behavior for process-mode
-    /// (event_count, policy_limit_cents, duplicate, inject_malformed).
-    /// Kept in ProcessPipelineConfig so process-mode runs have deterministic
-    /// inputs.
+    stuck_after_heartbeats: u32 = 0,
+    /// Payment pipeline behavior for process-mode (event_count gates every
+    /// spine tile's shutdown; policy_limit_cents is tkpoly's limit). The events
+    /// themselves are not configuration: a producer publishes them on tkings's
+    /// input link.
     event_count: u64 = 10_000,
     policy_limit_cents: i64 = 100_000,
-    duplicate: ?tiles_mod.DuplicateConfig = null,
-    inject_malformed: bool = false,
-    /// Test-build tkmodl topologies: the tkings model-request stream and the
-    /// per-instance tkmodl configuration set (tier, limits, allowlist, fixture
-    /// table). The set must match the topology's tkmodl tiles one-to-one; a
-    /// missing, duplicate or unmatched entry is refused before any workspace or
-    /// child exists. Files are written beside payment_pipeline.config.
-    model_requests: ?tiles_mod.model_request_source.ModelRequestSource = null,
+    /// Test-build tkmodl topologies: the per-instance tkmodl configuration set
+    /// (tier, limits, allowlist, fixture table). The set must match the
+    /// topology's tkmodl tiles one-to-one; a missing, duplicate or unmatched
+    /// entry is refused before any workspace or child exists. Files are written
+    /// beside payment_pipeline.config. The agent requests themselves are not
+    /// configuration: a harness publishes them on tkings's input link.
     model_configs: []const model_instances.InstanceConfig = &.{},
-    /// The full investment workflow: the fixed request template tkdisp sends for
-    /// each event it receives from tkcase (tier, scope and prompt come from here,
-    /// never from the event). Required when the topology has tkcase, and refused
-    /// when it does not: a template no tile will read is a misconfigured run.
+    /// The fixed request template tkdisp sends for each PAYMENT event it receives
+    /// (tier, scope and prompt reference come from here, never from the event;
+    /// decision O2). Required when the topology has tkdisp, and refused when it
+    /// does not: a template no tile will read is a misconfigured run.
     dispatch_template: ?tiles_mod.model_request_source.ModelRequestSource = null,
+    /// tkagnt's prompt table: the prompts agent requests may reference, by
+    /// hash and length. Written to `tkagnt.prompts` when the topology has
+    /// tkagnt (empty allowed: every reference is then an audited denial), and
+    /// refused when it does not.
+    agent_prompts: []const []const u8 = &.{},
     /// Path to the tickoni-supervisor binary to self-exec per tile.
     /// Defaults to /proc/self/exe (correct when the running process IS
     /// tickoni-supervisor). Callers that are not that binary — such as
@@ -239,13 +244,37 @@ fn resolvedHeartbeatStaleAfterNs(config: ProcessPipelineConfig) u64 {
 
 /// A topology with tkcase runs the full workflow, whose tkdisp needs a dispatch
 /// template; any other topology has no tile that would read one.
-fn validateDispatchTemplate(topo: Topology, template: ?tiles_mod.model_request_source.ModelRequestSource) !void {
-    var has_case = false;
+/// Resolves one channel's mcache/dcache/fseq (created by topoWkspNew's
+/// .new callbacks) into the gaddr-based LinkHandles shape children and
+/// external producers join.
+fn channelHandles(state: *const ProcessState, ch: rt.link.Channel, i: usize) rt.link.LinkHandles {
+    const built_topo = state.built_topo;
+    const ids = built_topo.link_obj_id[i];
+    return .{
+        .mcache_gaddr = c_abi.wksp.wkspGaddr(state.wksp, c_abi.topob.topoObjLaddr(built_topo.topo, ids.mcache_obj_id)),
+        .dcache_gaddr = c_abi.wksp.wkspGaddr(state.wksp, c_abi.topob.topoObjLaddr(built_topo.topo, ids.dcache_obj_id)),
+        .fseq_gaddr = c_abi.wksp.wkspGaddr(state.wksp, c_abi.topob.topoObjLaddr(built_topo.topo, ids.fseq_obj_id)),
+        .depth = ch.depth,
+        .mtu = ch.mtu,
+    };
+}
+
+fn hasTile(topo: Topology, name: rt.tile.TileId) bool {
     for (topo.tiles) |t| {
-        if (t.name.eql(rt.tile_ids.tkcase)) has_case = true;
+        if (t.name.eql(name)) return true;
     }
-    if (has_case and template == null) return error.MissingDispatchTemplate;
-    if (!has_case and template != null) return error.UnexpectedDispatchTemplate;
+    return false;
+}
+
+fn validateDispatchTemplate(topo: Topology, template: ?tiles_mod.model_request_source.ModelRequestSource) !void {
+    const has_disp = hasTile(topo, rt.tile_ids.tkdisp);
+    if (has_disp and template == null) return error.MissingDispatchTemplate;
+    if (!has_disp and template != null) return error.UnexpectedDispatchTemplate;
+}
+
+fn validateAgentPrompts(topo: Topology, prompts: []const []const u8) !void {
+    if (!hasTile(topo, rt.tile_ids.tkagnt) and prompts.len > 0) return error.UnexpectedAgentPrompts;
+    try agent_prompts.validate(prompts);
 }
 
 fn resolvedHeartbeatStaleAfterMs(config: ProcessPipelineConfig) !u32 {
@@ -360,12 +389,11 @@ pub const Supervisor = struct {
         log.enter("supervisor", "startPaymentPipelineProcess");
         defer log.exit("supervisor", "startPaymentPipelineProcess");
         std.debug.assert(self.process_state == null);
-        // The model-request source is a test fixture of the tkings stem tile.
-        if (config.model_requests != null and !rt.test_build.enabled) return error.ModelRequestSourceRequiresTestBuild;
         // Refuse a topology whose tkmodl instances and configuration set do
         // not match one-to-one before any workspace or child exists.
         try model_instances.validate(config.model_configs, self.topo);
         try validateDispatchTemplate(self.topo, config.dispatch_template);
+        try validateAgentPrompts(self.topo, config.agent_prompts);
         const heartbeat_stale_after_ms = try resolvedHeartbeatStaleAfterMs(config);
 
         // Fail closed on any tile pinned to a CPU id this process cannot
@@ -693,16 +721,7 @@ pub const Supervisor = struct {
         const chan_cnt = self.topo.channels.len;
         const link_handles = try self.allocator.alloc(rt.link.LinkHandles, chan_cnt);
         defer self.allocator.free(link_handles);
-        for (self.topo.channels, 0..) |ch, i| {
-            const ids = built_topo.link_obj_id[i];
-            link_handles[i] = .{
-                .mcache_gaddr = c_abi.wksp.wkspGaddr(wksp, c_abi.topob.topoObjLaddr(built_topo.topo, ids.mcache_obj_id)),
-                .dcache_gaddr = c_abi.wksp.wkspGaddr(wksp, c_abi.topob.topoObjLaddr(built_topo.topo, ids.dcache_obj_id)),
-                .fseq_gaddr = c_abi.wksp.wkspGaddr(wksp, c_abi.topob.topoObjLaddr(built_topo.topo, ids.fseq_obj_id)),
-                .depth = ch.depth,
-                .mtu = ch.mtu,
-            };
-        }
+        for (link_handles, 0..) |*lh, i| lh.* = channelHandles(state, self.topo.channels[i], i);
 
         var self_exe_path_buf: [std.fs.max_path_bytes]u8 = undefined;
         const self_exe_path = config.tile_exe_path orelse try util.process.selfExePath(&self_exe_path_buf);
@@ -719,21 +738,18 @@ pub const Supervisor = struct {
             .pipeline = .{
                 .event_count = config.event_count,
                 .policy_limit_cents = config.policy_limit_cents,
-                .duplicate = config.duplicate,
-                .inject_malformed = config.inject_malformed,
-                .model_requests = config.model_requests,
                 .dispatch_template = config.dispatch_template,
             },
-            .stuck_tile = if (config.stuck_tile_idx) |idx| .{
-                .tile_idx = idx,
-                .after_messages = config.stuck_after_messages,
-            } else null,
         }, io, std.Io.Dir.cwd(), payment_config_path);
 
         // Each tkmodl instance's governance limits, allowlist and fixture table
         // travel in its own identity-bound file, read only by that child
         // (tile_main_config.zig's loadModelConfig) before the C harness runs.
         try model_instances.writeAll(io, std.Io.Dir.cwd(), config.run_dir, config.model_configs, self.topo);
+
+        // tkagnt's prompt table: read only by that child (tile_main_config.zig's
+        // loadAgentSetup), which installs and re-verifies every prompt.
+        if (hasTile(self.topo, rt.tile_ids.tkagnt)) try agent_prompts.write(io, std.Io.Dir.cwd(), config.run_dir, config.agent_prompts);
 
         // v2.14.S8.T4: every self-exec'd child rebuilds this same topology
         // (topo_build.build) to get a real fd_topo_t to hand to
@@ -779,6 +795,7 @@ pub const Supervisor = struct {
                 .shmem_path = config.run_dir,
                 .heartbeat_interval_ns = config.heartbeat_interval_ns,
                 .crash_after_heartbeats = if (i < config.crash_after_heartbeats.len) config.crash_after_heartbeats[i] else 0,
+                .stuck_after_heartbeats = if (config.stuck_tile_idx) |idx| (if (idx == i) config.stuck_after_heartbeats else null) else null,
                 .channels = channels_copy,
                 .link_handles = link_handles,
             });
@@ -1041,6 +1058,8 @@ pub const Supervisor = struct {
     pub const ProcessMetricSnapshot = struct {
         // Pipeline counters (tkings → tkrnorm → tkdedu → tkpoly → tkaudt)
         produced: u64 = 0,
+        /// Fragments tkings dropped for their framing (never entered the spine).
+        ingest_invalid: u64 = 0,
         normalized: u64 = 0,
         invalid: u64 = 0,
         duplicates: u64 = 0,
@@ -1075,6 +1094,17 @@ pub const Supervisor = struct {
     pub fn processPlacementReport(self: *const Supervisor) ?rt.cpu_placement.PlacementReport {
         const state = self.process_state orelse return null;
         return state.placement_report;
+    }
+
+    /// The shared-memory handles of topology channel `channel_idx`, resolved in
+    /// the supervisor's own workspace join. This is how a producer outside the
+    /// tile graph (a test harness, later tkrepl replay) joins a link whose
+    /// `src_idx` is `rt.link.external_src`. Null when no process-mode pipeline
+    /// has been started or the index is out of range.
+    pub fn linkHandles(self: *const Supervisor, channel_idx: usize) ?rt.link.LinkHandles {
+        const state = self.process_state orelse return null;
+        if (channel_idx >= self.topo.channels.len) return null;
+        return channelHandles(state, self.topo.channels[channel_idx], channel_idx);
     }
 
     /// Returns the underlying fd_topo_t built at start time, for
@@ -1115,6 +1145,7 @@ pub const Supervisor = struct {
                                     const v = rt.cnc_counters.appCounterRead(cnc, c.idx);
                                     switch (c.field) {
                                         .produced => snap.produced = v,
+                                        .ingest_invalid => snap.ingest_invalid = v,
                                         .normalized => snap.normalized = v,
                                         .invalid => snap.invalid = v,
                                         .duplicates => snap.duplicates = v,
@@ -1174,6 +1205,7 @@ pub const Supervisor = struct {
                                         const v = rt.cnc_counters.appCounterRead(cnc, c.idx);
                                         switch (c.field) {
                                             .produced => snap.produced = v,
+                                            .ingest_invalid => snap.ingest_invalid = v,
                                             .normalized => snap.normalized = v,
                                             .invalid => snap.invalid = v,
                                             .duplicates => snap.duplicates = v,
@@ -1223,6 +1255,7 @@ pub const Supervisor = struct {
                 std.debug.print("[sup-snap] tile={s} firedancer_idx={d} counter_idx={d} field={s} val={d}\n", .{ info.tile_id.slice(), i, c.idx, @tagName(c.field), v });
                 switch (c.field) {
                     .produced => snap.produced = v,
+                    .ingest_invalid => snap.ingest_invalid = v,
                     .normalized => snap.normalized = v,
                     .invalid => snap.invalid = v,
                     .duplicates => snap.duplicates = v,
@@ -1329,6 +1362,7 @@ pub const Supervisor = struct {
             const v = rt.cnc_counters.appCounterRead(cnc, c.idx);
             switch (c.field) {
                 .produced => snap.produced = v,
+                .ingest_invalid => snap.ingest_invalid = v,
                 .normalized => snap.normalized = v,
                 .invalid => snap.invalid = v,
                 .duplicates => snap.duplicates = v,
@@ -1619,13 +1653,21 @@ test "tile CNC indices refuse a topology tile the built topology lacks" {
     try std.testing.expectError(error.TileKindIdMismatch, tileCncIndices(std.testing.allocator, &tiles, &built));
 }
 
-test "a dispatch template is required by the full workflow and refused elsewhere" {
-    const full = topologies.investmentWorkflow();
-    const agent_only = topologies.agentProcess(1);
-    try std.testing.expectError(error.MissingDispatchTemplate, validateDispatchTemplate(full, null));
-    try validateDispatchTemplate(full, .{});
-    try validateDispatchTemplate(agent_only, null);
-    try std.testing.expectError(error.UnexpectedDispatchTemplate, validateDispatchTemplate(agent_only, .{}));
+test "a dispatch template is required wherever tkdisp runs and refused elsewhere" {
+    inline for (.{ topologies.investmentWorkflow(), topologies.agentProcess(1) }) |with_disp| {
+        try std.testing.expectError(error.MissingDispatchTemplate, validateDispatchTemplate(with_disp, null));
+        try validateDispatchTemplate(with_disp, .{});
+    }
+    const payments = topologies.paymentPipelineProcess();
+    try validateDispatchTemplate(payments, null);
+    try std.testing.expectError(error.UnexpectedDispatchTemplate, validateDispatchTemplate(payments, .{}));
+}
+
+test "agent prompts are refused where no tkagnt reads them, and bounded where one does" {
+    try validateAgentPrompts(topologies.agentProcess(1), &.{"a prompt"});
+    try validateAgentPrompts(topologies.agentProcess(1), &.{});
+    try std.testing.expectError(error.UnexpectedAgentPrompts, validateAgentPrompts(topologies.paymentPipelineProcess(), &.{"a prompt"}));
+    try std.testing.expectError(error.AgentPromptBound, validateAgentPrompts(topologies.agentProcess(1), &.{""}));
 }
 
 test "the registry accepts the full investment workflow and the agent topologies" {

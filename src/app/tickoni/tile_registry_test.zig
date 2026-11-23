@@ -51,8 +51,9 @@ test "process_fn is null for tiles with no process-mode role" {
 
 test "counter schema matches known field meanings" {
     const tkings = findById(tile_ids.tkings).?;
-    try std.testing.expectEqual(@as(usize, 1), tkings.counters.len);
+    try std.testing.expectEqual(@as(usize, 2), tkings.counters.len);
     try std.testing.expectEqual(CounterField.produced, tkings.counters[0].field);
+    try std.testing.expectEqual(CounterField.ingest_invalid, tkings.counters[1].field);
 
     const tkrnorm = findById(tile_ids.tknorm).?;
     try std.testing.expectEqual(@as(usize, 2), tkrnorm.counters.len);
@@ -62,7 +63,7 @@ test "counter schema matches known field meanings" {
 
 test "expected link cardinality matches the linear Phase 0 chain" {
     const tkings = findById(tile_ids.tkings).?;
-    try std.testing.expectEqual(@as(u8, 0), tkings.in_cnt);
+    try std.testing.expectEqual(@as(u8, 1), tkings.in_cnt);
     try std.testing.expectEqual(@as(u8, 1), tkings.out_cnt);
 
     const tkaudt = findById(tile_ids.tkaudt).?;
@@ -80,14 +81,21 @@ fn descriptorsFromRegistry() [8]rt.tile.TileDescriptor {
     return descriptors;
 }
 
-/// Channels matching the real linear Phase 0 chain: tkings(0)->tknorm(1)
-/// ->tkdedu(2)->tkpoly(3)->tkaudt(4); tkrepl/metric/tkdiag(5,6,7) have none.
-fn channelsFromRegistry() [4]rt.link.Channel {
+/// tkings's input: the link no tile produces (its only source).
+fn ingestInput() rt.link.Channel {
+    return .{ .src_idx = rt.link.external_src, .dst_idx = 0, .depth = 64, .mtu = 512, .backing = .tango_shm, .workspace_name = rt.link.WorkspaceName.parse("tkpay0") catch unreachable };
+}
+
+/// Channels matching the real linear Phase 0 chain: (external)->tkings(0)
+/// ->tknorm(1)->tkdedu(2)->tkpoly(3)->tkaudt(4); tkrepl/metric/tkdiag(5,6,7)
+/// have none.
+fn channelsFromRegistry() [5]rt.link.Channel {
     return .{
-        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 2, .dst_idx = 3, .depth = 64, .mtu = 128 },
-        .{ .src_idx = 3, .dst_idx = 4, .depth = 64, .mtu = 128 },
+        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 512 },
+        .{ .src_idx = 1, .dst_idx = 2, .depth = 64, .mtu = 512 },
+        .{ .src_idx = 2, .dst_idx = 3, .depth = 64, .mtu = 512 },
+        .{ .src_idx = 3, .dst_idx = 4, .depth = 64, .mtu = 512 },
+        ingestInput(),
     };
 }
 
@@ -195,9 +203,43 @@ test "fan-in tiles scale their expected links with the configured tkmodl count" 
         try std.testing.expectEqual(@as(usize, n + 2), reg.expectedOutCnt(tkagnt, topo));
         // Tiles that do not take model links keep their fixed counts.
         try std.testing.expectEqual(@as(usize, 1), reg.expectedInCnt(tkpoly, topo));
-        try std.testing.expectEqual(@as(usize, 1), reg.expectedInCnt(tkdisp, topo));
-        try std.testing.expectEqual(@as(usize, 0), reg.expectedOutCnt(tkdisp, topo));
+        try std.testing.expectEqual(@as(usize, 2), reg.expectedInCnt(tkdisp, topo));
+        try std.testing.expectEqual(@as(usize, 1), reg.expectedOutCnt(tkdisp, topo));
     }
+}
+
+test "tkings takes exactly one input, its only source" {
+    const wksp = try rt.link.WorkspaceName.parse("tkpay0");
+    const two = [_]rt.tile.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkings },
+        .{ .id = 1, .name = tile_ids.tkaudt },
+    };
+    const out = rt.link.Channel{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 512, .backing = .tango_shm, .workspace_name = wksp };
+    const tkings = findById(tile_ids.tkings).?;
+    try std.testing.expectEqual(@as(usize, 1), reg.expectedInCnt(tkings, .{ .tiles = &two, .channels = &.{out} }));
+
+    // Without an input there is nothing to ingest: refused.
+    try std.testing.expectError(error.LinkCardinalityMismatch, validate(.{ .tiles = &two, .channels = &.{out} }));
+
+    // Fed from outside the tile graph: accepted.
+    const fed = [_]rt.link.Channel{ out, ingestInput() };
+    try validate(.{ .tiles = &two, .channels = &fed });
+
+    // Two inputs are refused.
+    try std.testing.expectError(error.LinkCardinalityMismatch, validate(.{ .tiles = &two, .channels = &.{ out, ingestInput(), ingestInput() } }));
+}
+
+test "validate refuses an externally produced link into any tile but tkings" {
+    const wksp = try rt.link.WorkspaceName.parse("tkpay0");
+    const two = [_]rt.tile.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkings },
+        .{ .id = 1, .name = tile_ids.tkaudt },
+    };
+    const channels = [_]rt.link.Channel{
+        .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = wksp },
+        .{ .src_idx = rt.link.external_src, .dst_idx = 1, .depth = 64, .mtu = 128, .backing = .tango_shm, .workspace_name = wksp },
+    };
+    try std.testing.expectError(error.ExternalLinkNotIngest, validate(.{ .tiles = &two, .channels = &channels }));
 }
 
 test "the full workflow's links follow from which placeholder tiles the topology configures" {
@@ -237,19 +279,19 @@ test "the full workflow's links follow from which placeholder tiles the topology
     try std.testing.expectEqual(@as(u8, 1), tkadpt.in_cnt);
     try std.testing.expectEqual(@as(u8, 1), tkadpt.out_cnt);
 
-    // Without tkcase the dispatcher stays a pure sink, and without tktool or
-    // tkadpt the audit fan-in and the agent's outputs are unchanged.
+    // Without tktool or tkadpt the audit fan-in and the agent's outputs are
+    // unchanged; tkdisp is always the scheduler.
     const agent_only = [_]rt.tile.TileDescriptor{
         .{ .id = 0, .name = tile_ids.tkdisp },
         .{ .id = 1, .name = tile_ids.tkagnt },
         .{ .id = 2, .name = tile_ids.tkaudt },
         .{ .id = 3, .name = tile_ids.tkmodl },
     };
-    const sink = rt.topology.Topology{ .tiles = &agent_only, .channels = &.{} };
-    try std.testing.expectEqual(@as(usize, 1), reg.expectedInCnt(tkdisp, sink));
-    try std.testing.expectEqual(@as(usize, 0), reg.expectedOutCnt(tkdisp, sink));
-    try std.testing.expectEqual(@as(usize, 2), reg.expectedInCnt(tkaudt, sink));
-    try std.testing.expectEqual(@as(usize, 3), reg.expectedOutCnt(tkagnt, sink));
+    const no_tools = rt.topology.Topology{ .tiles = &agent_only, .channels = &.{} };
+    try std.testing.expectEqual(@as(usize, 2), reg.expectedInCnt(tkdisp, no_tools));
+    try std.testing.expectEqual(@as(usize, 1), reg.expectedOutCnt(tkdisp, no_tools));
+    try std.testing.expectEqual(@as(usize, 2), reg.expectedInCnt(tkaudt, no_tools));
+    try std.testing.expectEqual(@as(usize, 3), reg.expectedOutCnt(tkagnt, no_tools));
 }
 
 test "launch mode is owned by the registry" {
@@ -302,7 +344,7 @@ test "exactly tkings, tknorm, tkdedu, tkpoly and tkaudt are diagnostic producers
 //
 // paymentPipelineProcess() shape: tkings(0) tknorm(1) tkdedu(2) tkpoly(3)
 // tkaudt(4) tkrepl(5) metric(6) tkdiag(7); channels 0..3 are the pipeline, 4..8
-// the diagnostic links of tkings..tkaudt into tkdiag.
+// the diagnostic links of tkings..tkaudt into tkdiag, 9 tkings's input.
 // ---------------------------------------------------------------------------
 
 const diag_idx: u32 = 7;
@@ -311,9 +353,9 @@ fn diagLink(src: u32) rt.link.Channel {
     return .{ .src_idx = src, .dst_idx = diag_idx, .depth = 64, .mtu = 128, .reliability = .lossy };
 }
 
-fn fanInChannels() [9]rt.link.Channel {
+fn fanInChannels() [10]rt.link.Channel {
     const base = channelsFromRegistry();
-    return .{ base[0], base[1], base[2], base[3], diagLink(0), diagLink(1), diagLink(2), diagLink(3), diagLink(4) };
+    return .{ base[0], base[1], base[2], base[3], diagLink(0), diagLink(1), diagLink(2), diagLink(3), diagLink(4), base[4] };
 }
 
 test "validate accepts the payment process topology with five diagnostic links" {
@@ -325,7 +367,7 @@ test "validate accepts the payment process topology with five diagnostic links" 
 test "validate accepts diagnostic links from only some producers" {
     var descriptors = descriptorsFromRegistry();
     const base = channelsFromRegistry();
-    const channels = [_]rt.link.Channel{ base[0], base[1], base[2], base[3], diagLink(4) };
+    const channels = [_]rt.link.Channel{ base[0], base[1], base[2], base[3], diagLink(4), base[4] };
     try validate(.{ .tiles = &descriptors, .channels = &channels });
 }
 
@@ -334,7 +376,7 @@ test "validate still checks a producer's pipeline links when it also has a diagn
     const base = channelsFromRegistry();
     // tknorm's pipeline link to tkdedu is missing: its diagnostic link must not
     // be mistaken for the pipeline output.
-    const channels = [_]rt.link.Channel{ base[0], base[2], base[3], diagLink(1) };
+    const channels = [_]rt.link.Channel{ base[0], base[2], base[3], diagLink(1), base[4] };
     try std.testing.expectError(error.LinkCardinalityMismatch, validate(.{ .tiles = &descriptors, .channels = &channels }));
 }
 
@@ -370,7 +412,7 @@ test "validate rejects a diagnostic link listed before its producer's pipeline l
     // A process tile finds its diagnostic output as its last output link.
     var descriptors = descriptorsFromRegistry();
     const base = channelsFromRegistry();
-    const channels = [_]rt.link.Channel{ base[0], diagLink(1), base[1], base[2], base[3] };
+    const channels = [_]rt.link.Channel{ base[0], diagLink(1), base[1], base[2], base[3], base[4] };
     try std.testing.expectError(error.DiagLinkNotLast, validate(.{ .tiles = &descriptors, .channels = &channels }));
 }
 
@@ -469,8 +511,7 @@ test "T10.4 positive fan-in: channel array has 2 inbound links to tkaudt" {
 test "tkings has no process callback after stem migration" {
     const entry = findById(tile_ids.tkings).?;
     try std.testing.expectEqual(@as(?ProcessFn, null), entry.process_fn);
-    // One launch mode for every source: the payment generator and the
-    // test-only model-request source both run inside the tkings stem tile.
+    // tkings is a stem tile whose only source is its input link.
     try std.testing.expectEqual(LaunchMode.stem, entry.launch_mode);
 }
 
@@ -564,7 +605,10 @@ test "T10.12 validate rejects a misplaced tile with incompatible links" {
     // Swapping tile identities without rewiring channels fails cardinality.
     descriptors[0].name = tile_ids.tkrepl;
     descriptors[5].name = tile_ids.tkings;
-    const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = &channelsFromRegistry() };
+    // Without tkings's input (which would now enter tkrepl and be refused as
+    // ExternalLinkNotIngest), so the cardinality check is the one exercised.
+    const channels = channelsFromRegistry();
+    const topo = rt.topology.Topology{ .tiles = &descriptors, .channels = channels[0..4] };
     try std.testing.expectError(error.LinkCardinalityMismatch, validate(topo));
 }
 
