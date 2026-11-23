@@ -1,14 +1,17 @@
 //! Test-build synthetic agent-request source for the tkagnt fixture/replay
 //! topologies, and the fixture material it is paired with.
 //!
-//! The tkings process emits these requests in place of payment events when its
-//! config carries a `ModelRequestSource`. Each request is a logical message --
-//! a `TkAgentRequestHdr` followed by the prompt bytes -- sent as a multipart
-//! fragment stream, so a prompt larger than one fragment (or one 16-bit fd
-//! size) is exercised exactly as a real one would be. The same module builds the
-//! matching tkmodl fixtures and their captured response bytes, so the request
-//! stream and the fixture table share one definition: a "valid replay" request
-//! always resolves, and each injected kind fails for exactly one named reason.
+//! The integration test harness publishes these requests on tkings's input as
+//! agent-request events, and the full workflow's dispatch template is built
+//! from the same source. Each request is a `TkAgentRequestMsg`: the scope and a
+//! reference to its prompt (`TkPromptRef`), never the prompt bytes. The prompts
+//! themselves are the run's agent prompt table (`prompts`), which tkagnt
+//! resolves references against and sends to tkmodl as a multipart stream, so a
+//! prompt larger than one fragment (or one 16-bit fd size) is exercised exactly
+//! as a real one would be. The same module builds the matching tkmodl fixtures
+//! and their captured response bytes, so the requests, the prompt table and the
+//! fixture table share one definition: a "valid replay" request always
+//! resolves, and each injected kind fails for exactly one named reason.
 //!
 //! Gated on `runtime.test_build.enabled` by the caller; this file carries no
 //! gate of its own and has no effect unless a process is handed a source.
@@ -71,20 +74,6 @@ pub const Shape = struct {
     timeout_ms: u32 = 30_000,
 };
 
-/// A transport fault the source injects into ONE request's fragment stream, to
-/// exercise the receiver's fail-closed handling with a real faulty producer.
-/// The faulty request must never be admitted; the stream around it must be
-/// unaffected. The fault needs a request of at least three fragments.
-pub const StreamFault = enum(u8) {
-    none,
-    /// Fragment 1 is never sent.
-    drop_middle,
-    /// A payload byte of fragment 1 is flipped, so the whole-message hash fails.
-    corrupt_payload,
-    /// The final fragment is never sent, so the message never ends.
-    omit_last,
-};
-
 /// The request stream: `pattern[offset % pattern_len]` selects each kind and
 /// `tiers[offset % pattern_len]` the tier it names.
 pub const ModelRequestSource = struct {
@@ -92,9 +81,6 @@ pub const ModelRequestSource = struct {
     tiers: [pattern_cap]u8 = @splat(default_tier),
     pattern_len: u8 = 1,
     shape: Shape = .{},
-    /// Test-only: the fault injected at `fault_offset`, and where.
-    fault: StreamFault = .none,
-    fault_offset: u64 = std.math.maxInt(u64),
 
     pub fn kindAt(self: ModelRequestSource, offset: u64) RequestKind {
         std.debug.assert(self.pattern_len > 0 and self.pattern_len <= pattern_cap);
@@ -205,19 +191,43 @@ pub fn scratchBytes(shape: Shape) usize {
     return @max(shape.prompt_bytes, shape.response_bytes) + 64;
 }
 
-/// Builds the request body for stream `offset` into `out`: a `TkAgentRequestHdr`
-/// followed by the prompt bytes. Returns the body slice of `out`.
-pub fn buildAgentRequest(source: ModelRequestSource, offset: u64, out: []u8) []const u8 {
+/// The run's agent prompt table for `shape`: the prompt of each fixture, in
+/// fixture order, allocated from `allocator` (an arena in practice). tkagnt
+/// resolves every request's `prompt_ref` against these.
+pub fn prompts(shape: Shape, allocator: std.mem.Allocator) ![]const []const u8 {
+    const out = try allocator.alloc([]const u8, shape.fixtures);
+    for (out, 0..) |*p, i| {
+        const buf = try allocator.alloc(u8, shape.prompt_bytes);
+        fillPrompt(buf, i);
+        p.* = buf;
+    }
+    return out;
+}
+
+/// The reference a request for fixture `i` carries: the multipart message hash
+/// and length of `fillPrompt(.., i)`. `scratch` must hold `shape.prompt_bytes`.
+pub fn promptRef(i: u64, shape: Shape, scratch: []u8) audit_mod.TkPromptRef {
+    const prompt = scratch[0..shape.prompt_bytes];
+    fillPrompt(prompt, i);
+    var r = std.mem.zeroes(audit_mod.TkPromptRef);
+    r.prompt_hash = multipart.messageHash(prompt);
+    r.prompt_len = shape.prompt_bytes;
+    return r;
+}
+
+/// Builds the agent request for stream `offset`: its scope and the reference
+/// to its fixture's prompt. `scratch` must hold `shape.prompt_bytes` (the
+/// prompt is hashed, not carried).
+pub fn buildAgentRequest(source: ModelRequestSource, offset: u64, scratch: []u8) audit_mod.TkAgentRequestMsg {
     const kind = source.kindAt(offset);
     const i = fixtureIndexAt(offset, source.shape);
     const tier = source.tierAt(offset);
-    const hdr_len = @sizeOf(audit_mod.TkAgentRequestHdr);
-    std.debug.assert(out.len >= hdr_len + source.shape.prompt_bytes);
 
-    var h = std.mem.zeroes(audit_mod.TkAgentRequestHdr);
+    var h = std.mem.zeroes(audit_mod.TkAgentRequestMsg);
     h.version = audit_mod.TK_AGENT_WIRE_VERSION;
     h.request_type = if (classOf(tier) == .embedding) audit_mod.TK_AGENT_REQ_EMBEDDING else audit_mod.TK_AGENT_REQ_CHAT;
     h.requested_tier = tier;
+    h.prompt_ref = promptRef(i, source.shape, scratch);
 
     var m = &h.scope;
     m.version = tkmodl.wire_version;
@@ -254,11 +264,7 @@ pub fn buildAgentRequest(source: ModelRequestSource, offset: u64, out: []u8) []c
             m.embedding_dimensions += 1;
         },
     }
-
-    @memcpy(out[0..hdr_len], std.mem.asBytes(&h));
-    const prompt = out[hdr_len..][0..source.shape.prompt_bytes];
-    fillPrompt(prompt, i);
-    return out[0 .. hdr_len + prompt.len];
+    return h;
 }
 
 test "valid_replay requests resolve to a fixture with the same key, prompt and model" {
@@ -269,16 +275,14 @@ test "valid_replay requests resolve to a fixture with the same key, prompt and m
     var body: [1024]u8 = undefined;
     var offset: u64 = 0;
     while (offset < 20) : (offset += 1) {
-        const msg = buildAgentRequest(src, offset, &body);
-        var hdr: audit_mod.TkAgentRequestHdr = undefined;
-        @memcpy(std.mem.asBytes(&hdr), msg[0..@sizeOf(audit_mod.TkAgentRequestHdr)]);
+        const hdr = buildAgentRequest(src, offset, &body);
         try std.testing.expect(tkmodl.requestWellFormed(&hdr.scope));
         try std.testing.expectEqual(@as(u8, 1), tkmodl.validate(&cfg, &hdr.scope, null)); // MODEL_ALLOW_REPLAY
         const entry = cfg.fixtures[@intCast(fixtureIndexAt(offset, shape))];
         try std.testing.expectEqual(entry.key, hdr.scope.replay_substitution_id);
-        // The fixture was captured against exactly these prompt bytes.
-        const prompt = msg[@sizeOf(audit_mod.TkAgentRequestHdr)..];
-        try std.testing.expectEqual(entry.prompt_hash, multipart.messageHash(prompt));
+        // The fixture was captured against exactly the prompt the reference names.
+        try std.testing.expectEqual(entry.prompt_hash, hdr.prompt_ref.prompt_hash);
+        try std.testing.expectEqual(shape.prompt_bytes, hdr.prompt_ref.prompt_len);
         try std.testing.expectEqual(runIdAt(offset), hdr.scope.run_id);
     }
 }
@@ -303,9 +307,7 @@ test "each injected kind is denied for its own named reason" {
     for (table) |row| {
         var src = ModelRequestSource{};
         src.pattern[0] = row.kind;
-        const msg = buildAgentRequest(src, 0, &body);
-        var hdr: audit_mod.TkAgentRequestHdr = undefined;
-        @memcpy(std.mem.asBytes(&hdr), msg[0..@sizeOf(audit_mod.TkAgentRequestHdr)]);
+        const hdr = buildAgentRequest(src, 0, &body);
         try std.testing.expect(tkmodl.requestWellFormed(&hdr.scope));
         try std.testing.expectEqual(row.decision, tkmodl.validate(&cfg, &hdr.scope, null));
     }
@@ -350,9 +352,7 @@ test "embedding governance: model and vector width are checked against the embed
     src.tiers[0] = 5; // embedding
     var body: [1024]u8 = undefined;
 
-    var hdr: audit_mod.TkAgentRequestHdr = undefined;
-    const msg = buildAgentRequest(src, 0, &body);
-    @memcpy(std.mem.asBytes(&hdr), msg[0..@sizeOf(audit_mod.TkAgentRequestHdr)]);
+    var hdr = buildAgentRequest(src, 0, &body);
     try std.testing.expectEqual(@as(u32, 1024), hdr.scope.embedding_dimensions);
     // ModelDecision tags: 1 allow_replay, 3 model not allowed, 10 embedding dimension.
     try std.testing.expectEqual(@as(u8, 1), tkmodl.validateEmbedding(&cfg, &hdr.scope, null));
@@ -369,8 +369,7 @@ test "embedding governance: model and vector width are checked against the embed
 
     // The bad-width kind asks for a width the instance does not serve.
     src.pattern[0] = .bad_embedding_dimension;
-    const bad = buildAgentRequest(src, 0, &body);
-    @memcpy(std.mem.asBytes(&hdr), bad[0..@sizeOf(audit_mod.TkAgentRequestHdr)]);
+    hdr = buildAgentRequest(src, 0, &body);
     try std.testing.expectEqual(@as(u32, 1025), hdr.scope.embedding_dimensions);
     try std.testing.expectEqual(@as(u8, 10), tkmodl.validateEmbedding(&cfg, &hdr.scope, null));
 }
@@ -383,8 +382,22 @@ test "chat governance is unchanged by the embedding allowlists" {
     var src = ModelRequestSource{};
     var body: [1024]u8 = undefined;
     src.pattern[0] = .valid_replay;
-    const msg = buildAgentRequest(src, 0, &body);
-    var hdr: audit_mod.TkAgentRequestHdr = undefined;
-    @memcpy(std.mem.asBytes(&hdr), msg[0..@sizeOf(audit_mod.TkAgentRequestHdr)]);
+    const hdr = buildAgentRequest(src, 0, &body);
     try std.testing.expectEqual(@as(u8, 1), tkmodl.validate(&cfg, &hdr.scope, null));
+}
+
+test "the prompt table holds exactly the prompts the requests reference" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const shape = Shape{ .fixtures = 3 };
+    const table = try prompts(shape, arena.allocator());
+    try std.testing.expectEqual(@as(usize, 3), table.len);
+    var scratch: [256]u8 = undefined;
+    var offset: u64 = 0;
+    while (offset < 6) : (offset += 1) {
+        const req = buildAgentRequest(.{ .shape = shape }, offset, &scratch);
+        const p = table[@intCast(fixtureIndexAt(offset, shape))];
+        try std.testing.expectEqual(multipart.messageHash(p), req.prompt_ref.prompt_hash);
+        try std.testing.expectEqual(@as(u32, @intCast(p.len)), req.prompt_ref.prompt_len);
+    }
 }
