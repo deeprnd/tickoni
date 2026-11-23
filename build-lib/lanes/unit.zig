@@ -26,7 +26,7 @@ pub fn strategy(
     const int_mods = factory.ModuleFactory.init(b, shared, tm, target, optimize).createIntModules(null);
 
     // Collect all compile steps for sequential run.
-    var run_sequence: [65]*std.Build.Step.Compile = undefined;
+    var run_sequence: [shims.max_test_run_series]*std.Build.Step.Compile = undefined;
     var run_count: usize = 0;
 
     const tb = lane.TestBuilder{
@@ -470,6 +470,14 @@ pub fn strategy(
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-tknorm-identity",
         .source_file = "src/tickoni/c_abi/tknorm.zig",
+        .imports = &.{.{ .name = "audit_mod", .module = shared.audit_mod }},
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tkapi-identity",
+        .source_file = "src/tickoni/c_abi/tkapi.zig",
         .imports = &.{.{ .name = "audit_mod", .module = shared.audit_mod }},
         .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
     });
