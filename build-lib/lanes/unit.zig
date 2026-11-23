@@ -424,6 +424,31 @@ pub fn strategy(
     // This test self-execs build/zig-out/bin/tickoni-supervisor as its tile
     // processes, so the installed binary must be rebuilt first; otherwise a stale
     // binary lays out the workspace differently from this freshly compiled parent.
+    const tknorm_supervisor = b.createModule(.{
+        .root_source_file = b.path("src/app/tickoni/supervisor.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "runtime", .module = shared.runtime },
+            .{ .name = "tiles", .module = shared.tiles },
+            .{ .name = "c_abi", .module = shared.c_abi },
+            .{ .name = "util", .module = shared.util },
+            .{ .name = "topologies", .module = shared.topologies },
+            .{ .name = "logger", .module = shared.logger },
+        },
+    });
+    // The external producer on tkings's input link (its only source).
+    const tknorm_ingest_harness = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/test/integration/ingest_harness.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "runtime", .module = shared.runtime },
+            .{ .name = "c_abi", .module = shared.c_abi },
+            .{ .name = "tiles", .module = shared.tiles },
+            .{ .name = "supervisor", .module = tknorm_supervisor },
+        },
+    });
     const tknorm_integration = tb.registerRunTest(.{
         .name = "test-tknorm-integration",
         .source_file = "src/tickoni/test/integration/test_tile_tknorm.zig",
@@ -432,19 +457,8 @@ pub fn strategy(
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "util", .module = shared.util },
             .{ .name = "topologies", .module = shared.topologies },
-            .{ .name = "supervisor", .module = b.createModule(.{
-                .root_source_file = b.path("src/app/tickoni/supervisor.zig"),
-                .target = target,
-                .optimize = optimize,
-                .imports = &.{
-                    .{ .name = "runtime", .module = shared.runtime },
-                    .{ .name = "tiles", .module = shared.tiles },
-                    .{ .name = "c_abi", .module = shared.c_abi },
-                    .{ .name = "util", .module = shared.util },
-                    .{ .name = "topologies", .module = shared.topologies },
-                    .{ .name = "logger", .module = shared.logger },
-                },
-            }) },
+            .{ .name = "supervisor", .module = tknorm_supervisor },
+            .{ .name = "ingest_harness", .module = tknorm_ingest_harness },
         },
         .linkage = .{ .needs_codec = true, .needs_firedancer = true, .needs_topo_run = true },
     });
@@ -456,6 +470,7 @@ pub fn strategy(
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-tknorm-identity",
         .source_file = "src/tickoni/c_abi/tknorm.zig",
+        .imports = &.{.{ .name = "audit_mod", .module = shared.audit_mod }},
         .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
     });
     run_count += 1;
