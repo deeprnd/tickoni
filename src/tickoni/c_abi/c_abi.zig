@@ -21,6 +21,7 @@ pub const tkpass = @import("tkpass.zig");
 pub const multipart = @import("multipart.zig");
 pub const tkaudit = @import("c_abi_audit");
 pub const tknorm = @import("tknorm.zig");
+pub const tkapi = @import("tkapi.zig");
 pub const tkings = @import("tkings.zig");
 pub const trace_id = @import("trace_id.zig");
 pub const os = @import("os.zig");
