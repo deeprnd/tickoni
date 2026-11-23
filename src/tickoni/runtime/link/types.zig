@@ -34,7 +34,16 @@ pub const LinkBacking = enum {
 
 pub const LinkReliability = enum { reliable, lossy };
 
+/// `Channel.src_idx` of a link with no producer tile in the topology. Mirrors
+/// Firedancer's `fd_topo_link_t.permit_no_producers`: the consumer tile is
+/// fed from outside the tile graph, through the same shared-memory link a
+/// tile would publish on (a test harness today, tkrepl replay later). Only a
+/// tango_shm channel can have one, since the external producer must join the
+/// link's workspace.
+pub const external_src: u32 = std.math.maxInt(u32);
+
 /// Directed channel between two tiles: exactly one producer, one consumer.
+/// The producer is a tile unless `src_idx` is `external_src`.
 pub const Channel = struct {
     src_idx: u32,
     dst_idx: u32,
@@ -49,6 +58,11 @@ pub const Channel = struct {
     reliability: LinkReliability = .reliable,
     /// Required (non-empty) when backing == .tango_shm.
     workspace_name: WorkspaceName = .{},
+
+    /// False for a link fed from outside the tile graph (`external_src`).
+    pub fn hasProducerTile(self: Channel) bool {
+        return self.src_idx != external_src;
+    }
 };
 
 test "WorkspaceName parse and slice round-trip" {
