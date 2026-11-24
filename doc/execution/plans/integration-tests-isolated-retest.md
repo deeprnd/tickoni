@@ -154,7 +154,7 @@ shows up as noise in a higher-level file. Counts are current `shouldSkip` counts
 | 23 | `test_investment_blocked_limits.zig` | 2 | PASS | 2026-11-24 | 2/2 passed on the first run (lane: 2 passed, 143 skipped, 0 failed; 112s). No fix needed. |
 | 24 | `test_investment_allowed_trade.zig` | 1 | PASS | 2026-11-24 | 1/1 passed on the first run (lane: 1 passed, 144 skipped, 0 failed; 126s). No fix needed. |
 | 25 | `test_investment_fixture_system_suite.zig` | 1 | PASS | 2026-11-24 | 1/1 passed on the first run (lane: 1 passed, 144 skipped, 0 failed; 129s). No fix needed. |
-| 26 | `test_investment_replay.zig` | 5 | TODO | | |
+| 26 | `test_investment_replay.zig` | 5 | PASS | 2026-11-24 | 5/5 passed on the first run, 0 runtime skips (lane: 5 passed, 140 skipped, 0 failed; 119s). The generator test ran and rewrote the fixture byte-identically (sha256 3279cde1..., saved copy diffed, no change). No fix needed. |
 
 Total: 141 `shouldSkip` guards across 26 files (re-verified with Grep at plan start
 on 2026-11-24. The first draft said 142 and listed tkpoly as 18, but tkpoly has 17
