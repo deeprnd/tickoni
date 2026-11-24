@@ -127,7 +127,7 @@ shows up as noise in a higher-level file. Counts are current `shouldSkip` counts
 | 1 | `test_minimal_setup.zig` | 6 | PASS | 2026-11-24 | 6/6 passed on the first run (lane: 6 passed, 139 skipped, 0 failed; 110s). No fix needed. No orphans. |
 | 2 | `test_link_bounds.zig` | 4 | PASS | 2026-11-24 | 4/4 passed on the first run (lane: 4 passed, 141 skipped, 0 failed; 120s). No fix needed. No orphans. |
 | 3 | `test_tile_metric.zig` | 17 | PASS | 2026-11-24 | 17/17 passed on the first run (lane: 17 passed, 128 skipped, 0 failed; 147s). No fix needed. No orphans. No direct /proc reads in the test. |
-| 4 | `test_process_topology.zig` | 5 | TODO | | |
+| 4 | `test_process_topology.zig` | 5 | PASS | 2026-11-24 | 5/5 passed on the first run (lane: 5 passed, 140 skipped, 0 failed; 139s). No fix needed. No orphans. |
 | 5 | `test_process_pipeline.zig` | 2 | TODO | | |
 | 6 | `test_process_shutdown_reap.zig` | 7 | TODO | | |
 | 7 | `test_process_cpu_placement.zig` | 5 | TODO | | |
