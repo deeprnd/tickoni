@@ -137,7 +137,7 @@ shows up as noise in a higher-level file. Counts are current `shouldSkip` counts
 | 11 | `test_tile_tkdedu.zig` | 6 | PASS | 2026-11-24 | 6/6 passed on the first run (lane: 6 passed, 139 skipped, 0 failed; 140s). No fix needed. No orphans. |
 | 12 | `test_tile_tkpoly.zig` | 17 | PASS | 2026-11-24 | 17/17 passed on the first run (lane: 17 passed, 128 skipped, 0 failed; 155s). No fix needed. No orphans. |
 | 13 | `test_tile_tkaudt.zig` | 4 | PASS | 2026-11-24 | 4/4 passed on the first run (lane: 4 passed, 141 skipped, 0 failed; 129s). No fix needed. No orphans. |
-| 14 | `test_tile_tkdiag.zig` | 6 | TODO | | |
+| 14 | `test_tile_tkdiag.zig` | 6 | BLOCKED (needs user decision) | 2026-11-24 | r1: 5 passed, 1 failed: test 1 (keeps running until HALT) found tkdiag .stale (heartbeat age 119 ms > 100 ms default) at test_tile_tkdiag.zig:81. r2: 6/6 passed, but tile 6 (metric) was still marked stale in test 1 (116 ms). Root cause: CPU oversubscription, see Findings F1. No orphans either run. |
 | 15 | `test_tile_tkapi.zig` | 4 | TODO | | |
 | 16 | `test_tile_tkmodl.zig` | 8 | TODO | | |
 | 17 | `test_tile_tkagnt.zig` | 20 | TODO | | |
@@ -212,6 +212,42 @@ enabled at a time.
 6. **Link and memory leaks.** `std.testing.allocator` leak reports and Firedancer
    workspace/link-bound violations (depth/MTU/overrun) are real failures. Do not
    suppress them.
+
+---
+
+## Findings and open decisions
+
+### F1. Idle stem tiles spin and starve each other on small hosts (file 14)
+
+- **Symptom.** `tkdiag_integration: stem tkdiag keeps running until the supervisor
+  halts it` polls `refreshProcessHealth` for 2 s under the supervisor's default
+  stale threshold (100 ms = 5 x 20 ms heartbeat interval) and expects tkdiag to stay
+  `.running`. On r1 it saw `.stale` (age 119 ms). On r2 it passed, but in the same
+  test metric was marked stale (116 ms), and in r1 tkrepl (224 ms) and metric
+  (112 ms) were too. Staleness is sticky, so one late heartbeat is final.
+- **Host.** Windows 11 ARM64 VM on Apple Silicon, 4 vCPUs.
+- **Root cause.** `fd_stem` (`src/disco/stem/fd_stem.c`) never sleeps when idle;
+  it only `FD_SPIN_PAUSE`s. The payment pipeline is 9 stem-loop processes (tkings,
+  tknorm, tkdedu, tkpoly, tkaudt, tkrepl, metric, tkdiag, tkapi), plus the test
+  process and the feed harness: 10+ CPU-bound threads on 4 vCPUs. A runnable tile
+  can wait more than 100 ms for a time slice. The median heartbeat age is 0-20 ms,
+  so the tiles are not wedged. They are not scheduled.
+- **Doc vs code.** `doc/knowledge/tile-orchestration.md` "Staleness budget"
+  derives the 2.5x margin from the in-loop housekeeping gap (about 40 ms) of a tile
+  that is running. Its "Deviation: Bounded Sleep Instead of Pure Spin" section says
+  Tickoni runs on consumer hardware with limited cores and "must sleep during idle
+  to keep the total tile-to-core ratio manageable". That holds for the generic link
+  primitives, but the stem-migrated tiles do not sleep, so every idle stem tile
+  burns a full core. This discrepancy is the real defect. The test exposes it.
+- **Options (user decision, tile loop behavior is an "Ask Before You Change" item):**
+  1. Code to docs: give Tickoni stem tiles a bounded idle sleep (for example in
+     `BEFORE_CREDIT`/`AFTER_CREDIT` when nothing was polled), keeping the heartbeat
+     and HALT checks per iteration.
+  2. Test only: test 1 configures `stem_liveness.stale_after_ns` (1 s), as the
+     other liveness tests in this file already do, because its stated contract is
+     "no self-exit and no crash until HALT", not scheduler latency.
+  3. Supervisor: raise or scale the default stale threshold with the
+     tile-to-CPU ratio.
 
 ---
 
