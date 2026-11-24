@@ -67,7 +67,7 @@ flowchart TB
     tango["Tango shared-memory queues"]
     topo["topology · workspaces"]
     cnc["heartbeat · halt"]
-    sandbox["sandbox<br/>seccomp · Landlock"]
+    sandbox["process isolation<br/>same on every OS"]
     http["fd_http_server"]
     crash["crash-only tile processes"]
     tango ~~~ topo ~~~ cnc ~~~ sandbox ~~~ http ~~~ crash

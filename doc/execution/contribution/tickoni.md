@@ -819,10 +819,11 @@ instead of routed through C. The trigger conditions are:
 - **Linux-only constraints** — the code assumes `mmap` with `MAP_HUGE`,
   seccomp filters, `prctl` syscalls, `/proc` filesystem access, NUMA node
   enumeration, CPU affinity via `sched_setaffinity`, or any other Linux API
-  that is not portable to the retail tier. If the Tickoni requirement is to
-  run on non-Linux platforms (retail tier, CI parity, developer machines), the
-  Linux-specific path must become a Zig implementation and the shim routes to
-  the Zig version.
+  that is not portable to every supported platform. Tickoni runs on par on
+  Windows, macOS and Linux, x86_64 and ARM64 (see
+  [`platform-tiers.md`](../../knowledge/platform-tiers.md)), so the
+  Linux-specific path must become a portable Zig implementation and the shim
+  routes to the Zig version.
 
 - **High RAM footprint** — the embedded code allocates fixed-size buffers,
   alignment padding, or workspace objects that scale poorly on constrained
@@ -830,7 +831,7 @@ instead of routed through C. The trigger conditions are:
   `fd_shmem_gaddr` lookups that require pre-reserved shared-memory regions,
   large static tables in the binary, or SIMD-accelerated paths that duplicate
   input buffers. If the allocation pattern causes OOM on less-than-16 GB
-  systems or prevents the retail tier from fitting in normal-page workspaces,
+  systems or prevents Tickoni from fitting in normal-page workspaces,
   port the allocation strategy to Zig with bounded, explicit sizing.
 
 - **Validator-specific state** — the code reads or writes Solana validator
@@ -873,8 +874,8 @@ Does the Firedancer code carry Tickoni-relevant logic?
 
 - **Cross-platform build breakage** from Linux-only syscalls buried inside
   a "just a utility" header pulled in by a shim.
-- **Memory OOM in retail or CI lanes** where large-page workspaces are not
-  available but the C shim still demands them.
+- **Memory OOM on user machines or CI lanes** where large-page workspaces are
+  not available but the C shim still demands them.
 - **Validator semantics bleeding into Tickoni** through shared structs or
   zeroed union fields that look harmless until a future bump changes the
   memset order or the harness starts reading a field that was previously
@@ -1078,8 +1079,9 @@ Platform-specific logic belongs in the shim layer:
   clocks, sleep, PID, kill, write, env, tty). The Zig side is
   `src/tickoni/util/os_api.zig`, which re-exports the shim and presents
   a unified Zig API.
-- `src/tickoni/c_abi/shim/topo_run_platform_linux.c` — Linux-only topology
-  and process-platform hooks.
+- `src/tickoni/c_abi/shim/topo_run_platform_linux.c` — Linux implementation
+  of the topology and process-platform hooks. Each OS implements the same
+  hooks with the same behavior; platform files must not add OS-only features.
 - `src/tickoni/c_abi/shim/topo_run_platform_macos.c` — macOS equivalents.
 - `src/tickoni/c_abi/shim/topo_run_platform_windows.c` — Windows equivalents.
 - `src/tickoni/c_abi/shim/topo_run_platform.h` — the shared C header

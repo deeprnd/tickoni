@@ -2,39 +2,40 @@
 
 ## Decision
 
-Tickoni uses a Tickoni-owned tile orchestration boundary with a
-Firedancer-backed Linux full-runtime implementation.
+Tickoni uses a Tickoni-owned tile orchestration boundary with one
+Firedancer-backed implementation that runs on par on Windows, macOS and Linux,
+x86_64 and ARM64 (see [`platform-tiers.md`](platform-tiers.md)).
 
 The public orchestration model is Tickoni-owned:
 
 - Tickoni tile ids and roles
 - Tickoni topology descriptors and link contracts
-- Tickoni support tiers
+- Tickoni platform support (one contract on every supported platform)
 - Tickoni capability, audit, replay, evidence, model, tool, adapter, and
   execution contracts
 - Tickoni runtime diagnostics and operator-facing status
 
-The Linux full-runtime implementation should reuse Firedancer orchestration
+The runtime implementation should reuse Firedancer orchestration
 semantics through an adapter instead of rebuilding a parallel harness. The
 adapter may map Tickoni runtime descriptors to the Firedancer topology/run
 surface internally, but product code must not depend on Firedancer validator
 topology types, Solana tile kinds, validator config stages, validator metrics,
 or validator schemas.
 
-For macOS and Windows retail runtimes, the same Tickoni orchestration boundary
-applies. The implementation may use portable substitutes or fail-closed
-unsupported operations. Native retail builds must not assume that
-`libfd_tango.a`, `libfd_util.a`, or `libfd_ballet.a` compile, link, or export
-the same symbols as the Linux build. Target-specific `c_abi` implementations
-select the correct behavior at compile/link time, not only at runtime.
+Windows, macOS and Linux use the same orchestration boundary, the same tile set
+and the same Firedancer-backed implementation. Native builds must not assume
+that `libfd_tango.a`, `libfd_util.a`, or `libfd_ballet.a` export identical
+symbols on every OS; target-specific `c_abi` shim implementations select the OS
+mechanism at compile/link time and must provide the same behavior on every
+platform, not a reduced or fail-closed variant.
 
 ## Scope
 
 This document describes how tile orchestration is meant to work at the
 architecture boundary.
 
-It owns launch lifecycle, Firedancer harness adapter semantics, runtime-tier
-implementation boundaries, registry responsibility, link discovery,
+It owns launch lifecycle, Firedancer harness adapter semantics, per-OS shim
+boundaries, registry responsibility, link discovery,
 health/staleness behavior, shutdown behavior, and crash visibility.
 
 It does not own the canonical list of Tickoni tile IDs, product event flow, or
@@ -53,29 +54,30 @@ It also does not evaluate alternatives. The option analysis lives in:
 
 ## Core Model
 
-Tickoni has one orchestration contract with multiple implementation tiers:
+Tickoni has one orchestration contract and one implementation on every
+supported platform:
 
 ```text
 Tickoni product topology
-  tile ids, roles, link descriptors, placement, support tier
+  tile ids, roles, link descriptors, placement
         |
         v
 Tickoni orchestration boundary
   registry, callbacks, lifecycle, link discovery, diagnostics contract
         |
-        +--> Linux full runtime
-        |     Firedancer-backed adapter
-        |     real process isolation, real Firedancer shared memory,
-        |     real sandbox/metrics/lifecycle semantics where supported
+        v
+Firedancer-backed process runtime (Windows, macOS, Linux; x86_64, ARM64)
+  one OS process per tile, Firedancer shared memory,
+  metrics/lifecycle semantics, fail-closed live effects
         |
-        +--> macOS / Windows retail runtime
-              portable or reduced-isolation implementation,
-              deterministic paper/sandbox demos, visible degraded guarantees,
-              fail-closed unsupported live effects
+        v
+Per-OS c_abi shims
+  same behavior on every platform; only the OS mechanism differs
 ```
 
-The boundary is stable. The implementation behind it is selected by target and
-runtime tier.
+The boundary is stable. Only the per-OS shim behind it is selected by target,
+and it must not change behavior. Linux-only mechanisms (seccomp, Landlock,
+namespaces) are postponed to a future server-only version.
 
 ## Firedancer Orchestration Mechanics
 
@@ -101,7 +103,7 @@ stack of conventions and guardrails:
    heartbeat/metric visibility.
 5. Tickoni's supervisor owns OS-process launch, child tracking, crash visibility,
    and crash-only shutdown behavior. Firedancer's optional single-process
-   pthread launcher is not used by the Linux full runtime.
+   pthread launcher is not used by Tickoni on any platform.
 
 The Firedancer shape to preserve is the semantics of that lifecycle:
 
@@ -117,9 +119,11 @@ tile selected from topology
   -> enforce shutdown/exit expectations
 ```
 
-The Linux full-runtime adapter must preserve the ordering, guard intent, and
+The Firedancer-backed adapter must preserve the ordering, guard intent, and
 failure behavior of these steps unless an explicit Tickoni substitute is
-documented and tested.
+documented and tested. In retail Tickoni the "enter sandbox" step is the same
+on every platform: no Linux-only sandbox (seccomp, Landlock, namespaces) is
+entered. Linux sandbox entry is postponed to the server-only version.
 
 ### Process-Per-Tile Launch And Boot
 
@@ -921,17 +925,18 @@ needs a deliberate pass.
 
 Tickoni reuses Firedancer infrastructure in two forms.
 
-### Linux Full Runtime
+### Process Runtime (All Platforms)
 
-The Linux full-runtime tier reuses Firedancer orchestration as deeply as the
-Tickoni boundary allows:
+The process runtime reuses Firedancer orchestration as deeply as the Tickoni
+boundary allows, identically on Windows, macOS and Linux:
 
 - topology construction via `fd_topob.c` (the real Firedancer topology builder)
 - workspace creation and join via `fd_wksp_*` (normal-page backing; see
   [workspace-management.md](../knowledge/workspace-management.md) for the
   hugetlbfs vs normal-page divergence)
 - link filling for `mcache`, `dcache`, `fseq`, and related state
-- sandbox entry and allowed-fd/seccomp discipline where supported
+- allowed-fd discipline (Linux sandbox/seccomp entry is postponed to the
+  server-only version)
 - metrics registration or equivalent per-tile health visibility
 - one supervisor-spawned OS process per tile; Firedancer lifecycle execution
   begins only after the child already exists
@@ -1080,7 +1085,8 @@ Current and expected substrate categories include:
 - Tango queues and control state:
   `mcache`, `dcache`, `fseq`, `cnc`, and, where justified, `fctl` and `tempo`
 - workspace and shared-memory mechanics
-- sandbox primitives on Linux
+- process-control primitives (spawn, wait, suspend/resume) with one
+  implementation per OS behind one interface
 - low-level metrics/diagnostics mechanics or patterns
 - Ballet protobuf/hash primitives and vendored JSON where Tickoni deliberately
   reuses them
@@ -1181,7 +1187,7 @@ require deliberate Tickoni implementation or are explicitly not reused:
    `allow_shutdown`, `metrics` — no Solana union fields touched.
 
 3. **`fd_topo_run_single_process`** — single-process mode for testing, not for
-   Linux full-runtime. Use when testing topology without process launch.
+   the process runtime. Use when testing topology without process launch.
 
 4. **`generate_filters.py`** — Firedancer's CPU placement script. **Resolved: the
    script is topology-independent.** It reads `topology_name`, `topology_path`,
@@ -1337,7 +1343,7 @@ Tickoni topology owns:
 - depth, MTU, reliability, and overrun behavior
 - workspace ownership
 - input and output link cardinality
-- CPU placement policy at the Tickoni support tier
+- CPU placement policy (the same on every platform)
 
 Topology is the graph. Bootstrap records are not the graph.
 
@@ -1362,7 +1368,6 @@ explicitly validated as linear.
 The tile registry is the single product-facing answer to:
 
 - this tile id's logical name
-- supported runtime tiers
 - process-mode run callback (`ProcessFn`), if any
 - expected link cardinality
 - counter/metric schema
@@ -1387,9 +1392,9 @@ Tickoni owns the financial correctness layer:
 
 These contracts must not be represented as Firedancer topology fields.
 
-## Linux Full-Runtime Adapter Contract
+## Firedancer Adapter Contract
 
-The Linux full-runtime adapter is allowed to know about Firedancer topology and
+The Firedancer-backed adapter is allowed to know about Firedancer topology and
 run types. It is the only layer that may translate from Tickoni descriptors to
 Firedancer-compatible structures.
 
@@ -1401,7 +1406,8 @@ The adapter owns:
   descriptors
 - mapping Tickoni link descriptors into Firedancer link arrays and link
   backing objects
-- mapping Tickoni placement policy into supported Linux placement behavior
+- mapping Tickoni placement policy into placement metadata that behaves the same
+  on every platform
 - preserving Firedancer lifecycle ordering and failure semantics
 - reporting adapter-private failures through Tickoni diagnostics
 
@@ -1421,11 +1427,12 @@ not become Tickoni product concepts.
 
 ## Retail Runtime Contract
 
-macOS and Windows retail runtimes implement the same Tickoni orchestration
-boundary but are not expected to provide Linux-equivalent engine guarantees.
+Retail Tickoni provides the same engine guarantees on Windows, macOS and Linux,
+x86_64 and ARM64. There is no reduced-guarantee platform.
 
-Retail runtimes may support:
+On every platform, retail Tickoni supports:
 
+- the full tile runtime and Firedancer shared-memory links
 - deterministic paper/sandbox demos
 - policy decisions over fixtures
 - audit JSONL output
@@ -1433,7 +1440,7 @@ Retail runtimes may support:
 - CaseOps review of supported demo artifacts
 - mocked, fixture-backed, or replay-substituted model/tool/adapter effects
 
-Retail runtimes must fail closed for unsupported behavior:
+On every platform, retail Tickoni fails closed for:
 
 - live trading
 - live payment or transfer execution
@@ -1441,22 +1448,20 @@ Retail runtimes must fail closed for unsupported behavior:
 - direct model-provider bypass
 - direct adapter bypass
 - privileged execution
-- unsupported sandbox or isolation claims
+- Linux-only sandbox or isolation claims (postponed to the server-only version)
 
-Target-specific bridges decide at compile/link time whether a `tk_*` symbol is:
-
-- Linux-Firedancer
-- portable-Firedancer
-- Tickoni substitute
-- unsupported/fail-closed
-- decision-needed
-
-Runtime checks remain necessary for operator diagnostics, but they are not
-sufficient when a Firedancer symbol cannot compile or link on the target.
+Target-specific bridges decide at compile/link time how a `tk_*` symbol is
+implemented on each OS: portable Firedancer code, or a Tickoni per-OS
+substitute. Either way the behavior must be the same on all supported
+platforms; a symbol that is unsupported on one platform only is a bug, not a
+platform difference. Runtime checks remain necessary for operator diagnostics,
+but they are not sufficient when a Firedancer symbol cannot compile or link on
+the target.
 
 ## Health, Shutdown, And Crash Semantics
 
-Every runtime tier must expose enough health information to answer:
+The runtime must expose, on every platform, enough health information to
+answer:
 
 - which tile is running, halted, failed, or stale
 - which process/thread owns that tile
@@ -1464,27 +1469,27 @@ Every runtime tier must expose enough health information to answer:
 - which links it consumes and produces
 - which heartbeat or health timestamp is advancing
 - whether shutdown was requested and observed
-- whether a failure was crash-only, clean halt, unsupported tier, or startup
+- whether a failure was crash-only, clean halt, unsupported platform, or startup
   validation failure
 
-Linux full-runtime tiles should preserve Firedancer-style lifecycle behavior:
+Tiles on every platform should preserve Firedancer-style lifecycle behavior:
 
 - heartbeat or equivalent health state advances during work
 - shutdown is checked inside tile loops and waits
 - reliable consumers/producers do not block forever without a visible stale
   health state
 - one tile crash is visible to the supervisor
-- crash-only policy tears down or marks the topology according to the selected
-  support-tier semantics
+- crash-only policy tears down or marks the topology the same way on every
+  platform
 
-Retail runtimes must expose degraded guarantees explicitly. If they cannot
-provide process isolation, namespace sandboxing, CPU pinning, or shared-memory
-equivalence, the missing guarantee is part of the runtime tier and must be
-visible in diagnostics and evidence.
+There are no degraded guarantees to expose. Process isolation and shared-memory
+links behave the same on every platform. Namespace sandboxing and CPU pinning
+are not part of retail Tickoni on any platform (see
+[`platform-tiers.md`](platform-tiers.md)).
 
 ## Orchestration Drift Guard
 
-The Linux adapter depends on Firedancer harness behavior staying understood.
+The adapter depends on Firedancer harness behavior staying understood.
 Tickoni should maintain a watched Firedancer harness file set and a repo gate
 that detects changes relative to the previous commit. The intended command is:
 
@@ -1511,7 +1516,7 @@ The initial watched set is:
 - `src/disco/metrics/fd_metrics.h`
 - `src/disco/metrics/fd_metrics_base.h`
 
-The list is conservative and may be refined when the Linux adapter's exact
+The list is conservative and may be refined when the adapter's exact
 dependency surface is known. The guard does not freeze Firedancer. It prevents
 silent drift in orchestration semantics Tickoni relies on.
 
@@ -1525,8 +1530,9 @@ silent drift in orchestration semantics Tickoni relies on.
   adapters as direct dependencies of the orchestration layer.
 - Do not let agents, UI, model tiles, tool brokers, adapters, or future
   execution paths bypass `tkpoly`, `tkaudt`, and replay boundaries.
-- Do not claim macOS or Windows Linux-equivalent isolation, performance, or
-  shared-memory behavior without explicit support-tier evidence.
+- Do not introduce platform-specific behavior: Windows, macOS and Linux,
+  x86_64 and ARM64, must stay on par. Linux-only features wait for the
+  server-only version.
 
 ## Summary
 
@@ -1534,8 +1540,8 @@ Tickoni's orchestration architecture is a boundary decision:
 
 ```text
 Tickoni owns the product topology and financial semantics.
-Firedancer powers the Linux full-runtime implementation where reusable.
-Retail runtimes implement the same Tickoni boundary with explicit guarantees.
+Firedancer powers the runtime implementation where reusable.
+Windows, macOS and Linux (x86_64, ARM64) run that runtime on par.
 ```
 
 The architecture should make it hard to accidentally rebuild Firedancer in

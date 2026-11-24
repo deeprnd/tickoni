@@ -1,5 +1,14 @@
 # Backlog Proposal: Mac And Windows Consumer Runtime Support
 
+> **Superseded by platform parity (2026-11-24).** Windows, macOS and Linux, on
+> x86_64 and ARM64, now have the same functionality; see
+> [`platform-tiers.md`](../../../../knowledge/platform-tiers.md). The Linux full-runtime / retail
+> tier split, degraded guarantees, Linux-only paths and per-OS fallbacks
+> described here no longer apply, and Linux-only features (seccomp, Landlock,
+> namespaces, XDP, huge pages, CPU pinning) are postponed to a future
+> server-only version. Completed work is kept as history; open scope that
+> depends on per-OS tiers must be re-scoped before it is picked up.
+
 **Candidate issue type if accepted:** epic
 **Candidate labels:** `platform`, `operations`, `security`, `trust`
 **Related docs / examples:** [`development.md`](../../../../execution/development.md), [`architecture.md`](../../../../knowledge/architecture.md), [`firedancer.md`](../../../../execution/contribution/firedancer.md), [`V2.14`](../../epics/v2.14.md), [Hermes installer](https://hermes-agent.nousresearch.com/install.sh), [Hermes PowerShell installer](https://hermes-agent.nousresearch.com/install.ps1), [OpenClaw README](https://github.com/openclaw/openclaw)

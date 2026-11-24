@@ -1,4 +1,11 @@
 ---
+
+> **Superseded by platform parity (2026-11-24).** Windows, macOS and Linux, on
+> x86_64 and ARM64, now have the same functionality; see
+> [`platform-tiers.md`](../platform-tiers.md). The Linux full-runtime / retail
+> tier split, Linux-only paths and per-OS fallbacks described here no longer
+> apply, and Linux-only features are postponed to a future server-only
+> version. Kept as history.
 author: deeprnd
 date: 2026-07-03
 ---

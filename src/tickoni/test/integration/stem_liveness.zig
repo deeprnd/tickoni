@@ -20,7 +20,6 @@
 /// gates so every stem tile idles until HALT) and passes the running
 /// supervisor in.
 const std = @import("std");
-const builtin = @import("builtin");
 const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const supervisor_mod = @import("supervisor");
@@ -80,17 +79,35 @@ fn nameOf(sup: *const Supervisor, idx: usize) []const u8 {
     return sup.topo.tiles[idx].name.slice();
 }
 
-/// Sends SIGSTOP or SIGCONT to the tile's process. Windows has no equivalent;
-/// the test is skipped there.
-fn signalTile(sup: *const Supervisor, idx: usize, comptime which: enum { stop, cont }) !void {
-    if (comptime builtin.os.tag == .windows) {
-        return error.SkipZigTest;
-    } else {
-        const pid = sup.monitor()[idx].pid orelse return error.NoChildPid;
-        try std.posix.kill(pid, switch (which) {
-            .stop => .STOP,
-            .cont => .CONT,
-        });
+fn childId(sup: *const Supervisor, idx: usize) !std.process.Child.Id {
+    return sup.monitor()[idx].pid orelse error.NoChildPid;
+}
+
+fn expectControlled(failure: ?util.process_api.ProcessError) !void {
+    if (failure) |f| {
+        std.debug.print("stem_liveness: process control failed: {s} (native {d})\n", .{ @tagName(f.category), f.native_code });
+        return error.ProcessControlFailed;
+    }
+}
+
+/// Freezes the tile's process without ending it (the tile stays alive and
+/// reapable). Cross-platform: the OS mechanism lives behind the C shim.
+pub fn freezeTile(sup: *const Supervisor, idx: usize) !void {
+    try expectControlled(util.process_api.suspendProcess(try childId(sup, idx)));
+}
+
+/// Thaws a tile frozen by `freezeTile`.
+pub fn thawTile(sup: *const Supervisor, idx: usize) !void {
+    try expectControlled(util.process_api.resumeProcess(try childId(sup, idx)));
+}
+
+/// Hard-kills the tile's process: no clean shutdown, no final fragment. The
+/// supervisor is not told, so it observes this as a crash, not a stop it asked
+/// for.
+pub fn killTile(sup: *const Supervisor, idx: usize) !void {
+    switch (util.process_api.forceTerminate(try childId(sup, idx))) {
+        .accepted => {},
+        .failed => |f| try expectControlled(f),
     }
 }
 
@@ -162,12 +179,12 @@ fn waitStale(sup: *Supervisor, idx: usize) !void {
     try std.testing.expect(sup.monitor()[idx].isAlive());
 }
 
-/// Freezes one stem tile with SIGSTOP and expects it, and only it among the
+/// Freezes one stem tile and expects it, and only it among the
 /// stem tiles, to be classified stale. The tile is resumed before returning.
 pub fn expectFrozenTileGoesStaleAlone(sup: *Supervisor, frozen_idx: usize) !void {
     try std.testing.expect(isStem(frozen_idx, sup));
-    try signalTile(sup, frozen_idx, .stop);
-    defer signalTile(sup, frozen_idx, .cont) catch {};
+    try freezeTile(sup, frozen_idx);
+    defer thawTile(sup, frozen_idx) catch {};
 
     try waitStale(sup, frozen_idx);
     for (sup.monitor(), 0..) |h, idx| {
@@ -183,7 +200,7 @@ pub fn expectFrozenTileGoesStaleAlone(sup: *Supervisor, frozen_idx: usize) !void
 
 fn resumeAllStem(sup: *const Supervisor) void {
     for (sup.monitor(), 0..) |_, idx| {
-        if (isStem(idx, sup)) signalTile(sup, idx, .cont) catch {};
+        if (isStem(idx, sup)) thawTile(sup, idx) catch {};
     }
 }
 
@@ -195,7 +212,7 @@ pub fn expectEveryFrozenStemTileGoesStale(sup: *Supervisor) !void {
     defer resumeAllStem(sup);
     for (sup.monitor(), 0..) |h, idx| {
         if (!isStem(idx, sup) or h.state == .stale) continue;
-        try signalTile(sup, idx, .stop);
+        try freezeTile(sup, idx);
         frozen_cnt += 1;
     }
     try std.testing.expect(frozen_cnt > 0);

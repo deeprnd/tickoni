@@ -61,8 +61,8 @@ They do not replace the runtime.
                                 │
 ┌───────────────────────────────┴───────────────────────────────────────────────┐
 │                    Firedancer infrastructure tiles/substrate                  │
-│  tango queues, topology, workspaces, sandbox, metric/diag, fd_http_server,    │
-│  bounded polling, tile-local networking, seccomp/Landlock, crash-only model   │
+│  tango queues, topology, workspaces, lifecycle, metric/diag, fd_http_server,  │
+│  bounded polling, tile-local networking, process isolation, crash-only model  │
 └───────────────────────────────────────────────────────────────────────────────┘
 
 Governed external systems:
@@ -217,8 +217,9 @@ next runtime hardening step is to replace those spike rings with the selected
 shared-memory backing while keeping the same tile identities and link answers.
 
 That hardening step must use real Firedancer-style substrate, not just Zig
-workers named as tiles. For tier scope, see
-[`platform-tiers.md`](platform-tiers.md). In Linux full-runtime process mode:
+workers named as tiles. Process mode is the same on Windows, macOS and Linux,
+x86_64 and ARM64 (see [`platform-tiers.md`](platform-tiers.md)). In process
+mode:
 
 - each configured tile runs as a supervisor-managed OS process with its own
   address space; there is no thread-mode compatibility lane.
@@ -229,8 +230,10 @@ workers named as tiles. For tier scope, see
   `src/tango/cnc` or a narrow Tickoni wrapper around the same control model;
 - workspaces, objects, join modes, and process-start behavior follow
   Firedancer `src/disco/topo` patterns through Tickoni-owned wrappers;
-- seccomp, Landlock, file-descriptor discipline, and process isolation reuse
-  `src/util/sandbox` where the Linux full-runtime tier can support them.
+- process isolation and file-descriptor discipline use portable mechanisms
+  available on every supported platform. Firedancer's Linux-only
+  `src/util/sandbox` (seccomp, Landlock, namespaces) is postponed to the
+  server-only version.
 
 CPU placement is Tickoni-owned policy. Tickoni may support `exclusive`,
 `shared`, and `floating` placement modes; it must not inherit a hard Firedancer
@@ -364,10 +367,10 @@ instead of routed through C. The trigger conditions are:
 - **Linux-only constraints** — the code assumes `mmap` with `MAP_HUGE`,
   seccomp filters, `prctl` syscalls, `/proc` filesystem access, NUMA node
   enumeration, CPU affinity via `sched_setaffinity`, or any other Linux API
-  that is not portable to the retail tier. If the Tickoni requirement is to
-  run on non-Linux platforms (retail tier, CI parity, developer machines), the
-  Linux-specific path must become a Zig implementation and the shim routes to
-  the Zig version.
+  that is not portable to every supported platform. Tickoni runs on par on
+  Windows, macOS and Linux, x86_64 and ARM64 (see
+  [`platform-tiers.md`](platform-tiers.md)), so the Linux-specific path must
+  become a portable Zig implementation and the shim routes to the Zig version.
 
 - **High RAM footprint** — the embedded code allocates fixed-size buffers,
   alignment padding, or workspace objects that scale poorly on constrained
@@ -375,7 +378,7 @@ instead of routed through C. The trigger conditions are:
   `fd_shmem_gaddr` lookups that require pre-reserved shared-memory regions,
   large static tables in the binary, or SIMD-accelerated paths that duplicate
   input buffers. If the allocation pattern causes OOM on less-than-16 GB
-  systems or prevents the retail tier from fitting in normal-page workspaces,
+  systems or prevents Tickoni from fitting in normal-page workspaces,
   port the allocation strategy to Zig with bounded, explicit sizing.
 
 - **Validator-specific state** — the code reads or writes Solana validator
@@ -418,8 +421,8 @@ Does the Firedancer code carry Tickoni-relevant logic?
 
 - **Cross-platform build breakage** from Linux-only syscalls buried inside
   a "just a utility" header pulled in by a shim.
-- **Memory OOM in retail or CI lanes** where large-page workspaces are not
-  available but the C shim still demands them.
+- **Memory OOM on user machines or CI lanes** where large-page workspaces are
+  not available but the C shim still demands them.
 - **Validator semantics bleeding into Tickoni** through shared structs or
   zeroed union fields that look harmless until a future bump changes the
   memset order or the harness starts reading a field that was previously
@@ -745,23 +748,16 @@ Tickoni avoids using Docker as the primary security model for the runtime.
 Docker may be useful for development and packaging, but the runtime security
 model should be lower-level and explicit.
 
-**Platform divergence:** `fd_sandbox_enter` (Firedancer's Linux sandbox) executes
-17 steps, 10 of which are Linux-only syscalls (namespaces, user namespaces,
-capabilities, seccomp, Landlock, keyring, pivot_root). These do not exist on
-macOS or Windows. The architecture doc describes the Linux full-runtime tier as
-the reference; retail tiers (macOS, Windows) have process-level isolation only
-(separate address spaces, UID/GID switching, resource limits). The Linux
-full-runtime tier is the only tier with seccomp/Landlock enforcement. See
-[`platform-tiers.md`](platform-tiers.md) for the full step-by-step breakdown
-and macOS/Windows equivalents.
+**Platform parity:** retail Tickoni has the same isolation model on Windows,
+macOS and Linux, x86_64 and ARM64. `fd_sandbox_enter` (Firedancer's Linux
+sandbox) relies on Linux-only syscalls (namespaces, capabilities, seccomp,
+Landlock, keyring, pivot_root), so it is not part of retail Tickoni on any
+platform. Linux-only hardening is postponed to a future server-only version.
+See [`platform-tiers.md`](platform-tiers.md).
 
-Runtime isolation:
+Runtime isolation (all platforms):
 
-- small tile processes
-- seccomp profiles (Linux full-runtime tier only; see platform-tiers.md)
-- dropped capabilities (Linux full-runtime tier only; see platform-tiers.md)
-- restricted filesystem access (Landlock on Linux; sandbox_init on macOS; none
-  on Windows)
+- small tile processes, each with its own address space
 - explicit network permissions
 - shared-memory channels
 - bounded resources

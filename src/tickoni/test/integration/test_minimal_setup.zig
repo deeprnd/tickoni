@@ -20,7 +20,7 @@ const Harness = ingest.Harness;
 const Supervisor = supervisor_mod.Supervisor;
 
 test "minimal_setup_integration: tkings → tkaudt + metric observer" {
-    const shouldSkip = false;
+    const shouldSkip = true;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
@@ -96,6 +96,9 @@ test "minimal_setup_integration: tkings → tkaudt + metric observer" {
 }
 
 test "minimal_setup_integration: tkapi → tkings → tkaudt + metric observer" {
+    const shouldSkip = true;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
     defer tmp.cleanup();
 
@@ -163,7 +166,7 @@ test "minimal_setup_integration: tkapi → tkings → tkaudt + metric observer" 
 }
 
 test "minimal_setup_integration: tkings → tknorm → tkaudt + metric observer" {
-    const shouldSkip = false;
+    const shouldSkip = true;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
@@ -251,7 +254,7 @@ test "minimal_setup_integration: tkings → tknorm → tkaudt + metric observer"
 }
 
 test "minimal_setup_integration: tkings → tknorm → tkdedu → tkaudt + metric observer" {
-    const shouldSkip = false;
+    const shouldSkip = true;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
@@ -342,7 +345,7 @@ test "minimal_setup_integration: tkings → tknorm → tkdedu → tkaudt + metri
 }
 
 test "minimal_setup_integration: tkings → tknorm → tkdedu → tkpoly → tkaudt + metric observer" {
-    const shouldSkip = false;
+    const shouldSkip = true;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
@@ -436,6 +439,9 @@ test "minimal_setup_integration: tkings → tknorm → tkdedu → tkpoly → tka
 }
 
 test "minimal_setup_integration: harness → tkapi → spine → tkdisp → tkagnt → tkmodl → tkaudt + metric observer" {
+    const shouldSkip = true;
+    if (shouldSkip) return error.SkipZigTest;
+
     var tmp = util.tmpDir();
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;

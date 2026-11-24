@@ -357,6 +357,28 @@ tk_process_force_terminate( ulong                           process_token,
 }
 
 void
+tk_process_suspend( ulong                         process_token,
+                    tk_process_control_result_t * out ) {
+  memset( out, 0, sizeof(*out) );
+  if( FD_UNLIKELY( kill( (pid_t)process_token, SIGSTOP ) ) ) {
+    int err           = errno;
+    out->error        = tk_process_error_from_errno( err );
+    out->native_error = (uint)err;
+  }
+}
+
+void
+tk_process_resume( ulong                         process_token,
+                   tk_process_control_result_t * out ) {
+  memset( out, 0, sizeof(*out) );
+  if( FD_UNLIKELY( kill( (pid_t)process_token, SIGCONT ) ) ) {
+    int err           = errno;
+    out->error        = tk_process_error_from_errno( err );
+    out->native_error = (uint)err;
+  }
+}
+
+void
 tk_process_release( ulong process_token,
                     ulong thread_token ) {
   (void)process_token;
@@ -618,6 +640,47 @@ tk_process_force_terminate( ulong                           process_token,
   out->accepted     = 1U;
   out->action_kind  = TK_PROCESS_TERMINATION_EXIT_CODE;
   out->action_value = (uint)force_exit_code;
+}
+
+/* NtSuspendProcess / NtResumeProcess are exported by ntdll but have no
+   Win32 header; resolve them once.  Both take a process HANDLE with
+   PROCESS_SUSPEND_RESUME (the handle CreateProcess returns has it) and
+   return an NTSTATUS. */
+
+typedef LONG (NTAPI * tk_nt_process_fn_t)( HANDLE );
+
+static void
+tk_process_nt_control( char const *                  symbol,
+                       ulong                         process_token,
+                       tk_process_control_result_t * out ) {
+  memset( out, 0, sizeof(*out) );
+  HMODULE ntdll = GetModuleHandleA( "ntdll.dll" );
+  tk_nt_process_fn_t fn = ntdll ? (tk_nt_process_fn_t)(void *)GetProcAddress( ntdll, symbol ) : NULL;
+  if( FD_UNLIKELY( !fn ) ) {
+    out->error        = TK_PROCESS_ERROR_UNSUPPORTED;
+    out->native_error = (uint)GetLastError();
+    return;
+  }
+  LONG status = fn( (HANDLE)(uintptr_t)process_token );
+  if( FD_UNLIKELY( status<0 ) ) {
+    /* NTSTATUS failure: severity bits set. */
+    out->error        = (status==(LONG)0xC0000022L) ? TK_PROCESS_ERROR_ACCESS_DENIED
+                      : (status==(LONG)0xC0000008L) ? TK_PROCESS_ERROR_INVALID_PROCESS
+                      :                               TK_PROCESS_ERROR_SYSTEM;
+    out->native_error = (uint)status;
+  }
+}
+
+void
+tk_process_suspend( ulong                         process_token,
+                    tk_process_control_result_t * out ) {
+  tk_process_nt_control( "NtSuspendProcess", process_token, out );
+}
+
+void
+tk_process_resume( ulong                         process_token,
+                   tk_process_control_result_t * out ) {
+  tk_process_nt_control( "NtResumeProcess", process_token, out );
 }
 
 void

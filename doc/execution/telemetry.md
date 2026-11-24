@@ -117,7 +117,7 @@ rule files exist:
 Both V2.21 (macOS) and V2.22 (Windows) retail runtime support share the same
 privacy defaults:
 
-- **Telemetry is disabled by default** on all retail tiers
+- **Telemetry is disabled by default** on every platform
 - `tickoni --version`, `tickoni doctor`, and the deterministic demo flows do not
   require outbound telemetry
 - Evidence generation is local/offline by default

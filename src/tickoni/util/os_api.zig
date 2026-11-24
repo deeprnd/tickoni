@@ -5,6 +5,7 @@ const c = @import("c_abi").os;
 
 pub const ProcessReapResult = c.ProcessReapResult;
 pub const ProcessTerminateResult = c.ProcessTerminateResult;
+pub const ProcessControlResult = c.ProcessControlResult;
 
 pub fn monotonicNanos() i64 {
     return c.monotonicNanos();
@@ -76,6 +77,14 @@ pub fn processReapNoHang(process_token: usize) ProcessReapResult {
 
 pub fn processForceTerminate(process_token: usize) ProcessTerminateResult {
     return c.processForceTerminate(process_token);
+}
+
+pub fn processSuspend(process_token: usize) ProcessControlResult {
+    return c.processSuspend(process_token);
+}
+
+pub fn processResume(process_token: usize) ProcessControlResult {
+    return c.processResume(process_token);
 }
 
 pub fn processRelease(child: *std.process.Child) void {

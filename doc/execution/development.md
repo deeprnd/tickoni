@@ -11,8 +11,10 @@ Makefiles.
 
 Core requirements:
 
-- Linux on x86-64 for Firedancer-derived runtime work
-- Windows 10 2004+ (x86_64) or Windows 11 (ARM64) for retail tier builds
+- Windows, macOS or Linux, on x86_64 or ARM64. Tickoni is on par on all of
+  them (see [`platform-tiers.md`](../knowledge/platform-tiers.md)); on Windows,
+  Windows 10 2004+ (x86_64) or Windows 11 (ARM64). Upstream Firedancer C unit
+  tests (`test-unit-fd`) run on Linux x86 only.
 - `just` (install manually — it is the sole documented manual prerequisite)
 - Python 3
 - clang or MSVC for Windows builds (MinGW-w64 for MSYS2)
@@ -58,11 +60,12 @@ The Tickoni-owned Zig runtime builds on Windows with the following conventions:
 - CRT compat header: `src/tickoni/util/fd_windows_compat.h` provides
   `stricmp`, `strnicmp`, `strdup`, `snprintf`, `vsnprintf` shim functions
   for MSVC environments
-- Build scope: Windows retail mode excludes Firedancer shared-memory tiles,
-  seccomp tiles, and the full tile runtime — only portable Firedancer
-  substrate is linked
+- Build scope: the same tile set, shared-memory topology and full tile runtime
+  as on Linux and macOS; only portable Firedancer substrate is linked on every
+  platform, and Linux-only substrate (seccomp, Landlock) is not used anywhere
 - CI: Windows lanes run on `windows-2025` and `windows-11-arm` runners;
-  demo conformance verifies deterministic fixture outputs match Linux
+  demo conformance verifies deterministic fixture outputs match the other
+  platforms
 - Tick counter width: Windows is LLP64, so `long` is 32-bit and
   `fd_tickcount()` (`(long)rdtsc`) is a counter that wraps every ~1.4 s on
   x86. Tick arithmetic must use `fd_tick_t` (64-bit on every target; plain
@@ -82,9 +85,10 @@ CI expectations:
 
 - qualified `just build-tk-windows-*` recipes run the Windows build with MSVC
   and MinGW-w64 toolchains
-- Demo conformance output is compared cross-platform against Linux reference
-- No large-page or huge-page infrastructure on Windows — retail tier does not
-  attempt shared-memory topology
+- Demo conformance output is compared across all platforms; no platform is the
+  reference
+- No large-page or huge-page infrastructure on any platform — workspaces use
+  normal pages everywhere, including the shared-memory topology
 
 ## Install
 

@@ -4,6 +4,18 @@
 **Epic:** V2.21
 **Status:** Decision record
 
+> **Superseded in part by platform parity.** Windows, macOS and Linux, on
+> x86_64 and ARM64, now have the same functionality (see
+> [`platform-tiers.md`](platform-tiers.md)). The `linux_full`, `macos_retail`
+> and `windows_retail` tiers and the `full` / `retail` / `degraded` isolation
+> tiers no longer describe capability differences; Linux-only features are
+> postponed to a future server-only version. Where this record uses tier values
+> (`--version` and `doctor` output, manifest `supported_runtime_tiers` /
+> `required_isolation_tier`, audit header `platform_tier` / `isolation_tier`),
+> read them as host-platform provenance only: they must not gate behavior or
+> imply degradation. Renaming or removing those fields changes public CLI,
+> manifest and audit schemas, and needs its own approved change.
+
 ## 1. Version Source of Truth
 
 **Decision:** Build-time environment variables, injected by `build.zig`.
