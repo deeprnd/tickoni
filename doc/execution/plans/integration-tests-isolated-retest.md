@@ -185,7 +185,7 @@ tiles, so their results stand.
 
 | # | File | shouldSkip count | Status | Date | Fix / notes |
 |---|------|-----------------:|--------|------|-------------|
-| 27 | `mocks/test_mock_servers.zig` | 4 | TODO | | Outside `integration/`. Added per hazard 5 decision. Flip with the same sed on `src/tickoni/test/mocks/test_mock_servers.zig`. |
+| 27 | `mocks/test_mock_servers.zig` | 4 | PASS | 2026-11-24 | 4/4 on the first run (lane: 4 passed, 143 skipped, 0 failed; 99s). No fix needed. Re-disabled. |
 
 Total after F1: **143** guards in the integration directory (`test_stem_heartbeat` 3 -> 5).
 Pre-F1 total: 141 `shouldSkip` guards across 26 files (re-verified with Grep at plan start
