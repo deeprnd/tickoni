@@ -142,7 +142,7 @@ shows up as noise in a higher-level file. Counts are current `shouldSkip` counts
 | 16 | `test_tile_tkmodl.zig` | 8 | PASS | 2026-11-24 | 8/8 passed on the first run (lane: 8 passed, 137 skipped, 0 failed; 150s). No fix needed. No orphans. |
 | 17 | `test_tile_tkagnt.zig` | 20 | PASS | 2026-11-24 | 20/20 passed on the first run (lane: 20 passed, 125 skipped, 0 failed; 224s). No fix needed. No orphans. Includes the frozen-tile stale test (portable suspend/resume works on Windows). |
 | 18 | `test_stem_heartbeat.zig` | 3 | PASS | 2026-11-24 | 3/3 passed on the first run (lane: 3 passed, 142 skipped, 0 failed; 134s). No fix needed. No orphans. Freeze/resume via tk_process_suspend/resume works on the host. |
-| 19 | `test_model_http_backend.zig` | 4 | TODO | | |
+| 19 | `test_model_http_backend.zig` | 4 | PASS | 2026-11-24 | 4/4 passed on the first run (lane: 4 passed, 141 skipped, 0 failed; 146s). No fix needed. test_mock_servers stayed skipped (hazard 5). No orphans. |
 
 ### Domain lane (`LaneKind.domain`, 7 files)
 
