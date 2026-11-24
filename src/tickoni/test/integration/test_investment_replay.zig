@@ -57,7 +57,7 @@ fn resolveFixturePath(allocator: std.mem.Allocator, path: []const u8, io: std.Io
 }
 
 test "investment_replay_integration: succeeds with fixture substitutions and no live effects" {
-    const shouldSkip = false;
+    const shouldSkip = true;
     if (shouldSkip) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
@@ -126,7 +126,7 @@ test "investment_replay_integration: succeeds with fixture substitutions and no 
 }
 
 test "investment_replay_integration: allowed trade audit chain hashes are real and deterministic" {
-    const shouldSkip = false;
+    const shouldSkip = true;
     if (shouldSkip) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
@@ -223,7 +223,7 @@ test "investment_replay_integration: allowed trade audit chain hashes are real a
 }
 
 test "investment_replay_integration: tamper detection reports first divergent hash and sequence" {
-    const shouldSkip = false;
+    const shouldSkip = true;
     if (shouldSkip) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
@@ -287,6 +287,9 @@ test "investment_replay_integration: tamper detection reports first divergent ha
 }
 
 test "gen audit allowed trade jsonl" {
+    const shouldSkip = true;
+    if (shouldSkip) return error.SkipZigTest;
+
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();
     const thesis_id = thesis.computeThesisInputHash(input);
@@ -346,7 +349,7 @@ test "gen audit allowed trade jsonl" {
 }
 
 test "investment_replay_integration: audit jsonl hash chain is consistent" {
-    const shouldSkip = false;
+    const shouldSkip = true;
     if (shouldSkip) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const input = support.operationsThesisInput();

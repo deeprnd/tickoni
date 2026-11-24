@@ -418,7 +418,7 @@ module boundary. A unit test may use a deterministic allocator, fixed payment
 pipeline configuration, synthetic input event, fake clock value, direct queue
 instance, or in-process supervisor state so the behavior under test stays one
 small unit of code. Unit tests should not prove Firedancer process startup,
-seccomp policy installation, real shared-memory workspace behavior, full Make
+per-OS process control, real shared-memory workspace behavior, full Make
 integration-test targets, or live external tool compatibility.
 
 **Tile-level integration tests** connect 2–3 real tiles and stub the rest.
@@ -451,7 +451,10 @@ external tools like llama.cpp. These verify startup, command contracts,
 runtime wiring, persistence, and local tool compatibility. They do not claim
 production scalability, high availability, or managed-service parity: a local
 process topology is not a production supervised deployment, and local
-huge-page allocation is not an operator-tuned host fleet.
+normal-page allocation is not an operator-tuned host fleet. Integration and
+system tests are the same on Windows, macOS and Linux, x86_64 and ARM64, and
+must not carry OS guards or platform skips (see
+[`platform-tiers.md`](../knowledge/platform-tiers.md)).
 
 The boundary between tile-level integration and full-system is simple:
 tile-level uses stubs for adjacent tiles; system uses real tile processes.

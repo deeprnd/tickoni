@@ -139,7 +139,7 @@ Planned first-pass native Windows jobs:
 | `_ci-build.yml` | `Harness Build / Windows 2025` | `windows-2025-vs2026` | `just build-tk-windows-x86` |
 | `_ci-build.yml` | `Harness Build / Windows 11 ARM` | `windows-11-vs2026-arm` | `just build-tk-windows-arm` |
 
-These are native Windows runner lanes only. The frozen first-pass contract explicitly excludes WSL, container, or VM fallback lanes as the official support path, and does not claim seccomp, sanitizer, replay, or full runtime parity on Windows.
+These are native Windows runner lanes only. WSL, container, or VM fallback lanes are not the official support path. As a product platform, Windows is on par with Linux and macOS, including replay and the full tile runtime (see [`platform-tiers.md`](../knowledge/platform-tiers.md)). The sanitizer and Firedancer seccomp checks are Linux CI tooling over upstream code, not Tickoni product features; Linux-only product features are postponed to a future server-only version.
 
 ---
 

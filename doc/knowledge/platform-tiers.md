@@ -1,125 +1,115 @@
-# Platform Support Tiers
+# Platform Support
 
 ## Purpose
 
-Defines the official runtime support tiers for Tickoni, maps workflows to tiers,
-and specifies degraded-guarantee visibility rules. This document is the source
-of truth for which tiers exist and what each tier guarantees.
+Defines which platforms Tickoni supports and what they guarantee. This document
+is the source of truth for platform support.
 
-Tier definitions are product-language decisions. They do not modify policy
-outcomes, audit/replay behavior, topology changes, or CaseOps integration —
-those are scoped to separate stories (S3, S7, etc.).
+**Tickoni has one runtime contract on every supported platform.** Windows, macOS
+and Linux, on x86_64 and ARM64, run the same tile runtime and offer the same
+functionality. There are no per-OS capability tiers, no degraded modes and no
+OS-specific tests. (This file keeps its historical name `platform-tiers.md`
+because other documents link to it. The former `linux_full`, `macos_retail` and
+`windows_retail` tiers are retired.)
 
-## Tier Inventory
+Platform support does not modify policy outcomes, audit/replay behavior, tile
+topology or CaseOps integration. Those are defined once, for all platforms, in
+their own documents.
 
-| Tier | OS | Arch | What it is |
-| --- | --- | --- | --- |
-| `linux_full` | Linux | x86_64, ARM64 | Shared-memory topology, seccomp/Landlock sandbox, AF_PACKET networking, full tile set |
-| `macos_retail` | macOS | ARM64, x86_64 | No seccomp/sandbox, no shared-memory topology, socket networking, reduced tile set |
-| `windows_retail` | Windows | x86_64, ARM64 | No seccomp/sandbox, no shared-memory topology, socket networking, reduced tile set |
-| `container_assisted` | Any hosted OS | varies | Runs inside another OS/host; tier is that of the host, with additional notes about hosting context |
-| `unsupported` | any | any | Not a supported OS or architecture; nothing runs |
+## Supported Platforms
 
-The Linux full-runtime tier is the default. V2.21 (macOS) and V2.22 (Windows)
-define their respective retail tiers as degraded relative to Linux. Linux
-remains the high-throughput tier unless a separate decision approves native
-parity.
+| OS | Architectures | Support |
+| --- | --- | --- |
+| Windows | x86_64, ARM64 | Full |
+| macOS | x86_64, ARM64 | Full |
+| Linux | x86_64, ARM64 | Full |
+| any other OS or architecture | any | `unsupported`: nothing runs |
 
-## Workflow-to-Tier Mapping
+"Full" means the same thing on all six supported combinations. A platform is not
+a reference platform for the others, and a behavior that works on one supported
+platform and not on another is a bug in Tickoni, not a documented difference.
 
-| Workflow | Linux full | macOS retail | Windows retail | WSL2/VM | Unsupported |
-| --- | --- | --- | --- | --- | --- |
-| Build | ✓ | ✓ | ✓ | ✓ | ✗ |
-| Doctor | ✓ | ✓ | ✓ | ✓ | ✗ |
-| Deterministic paper demo | ✓ | ✓ | ✓ | ✓ | ✗ |
-| CaseOps review | ✓ | ✓ | ✓ | ✓ | ✗ |
-| Replay proof | ✓ | ✗ | ✗ | ? | ✗ |
-| Sandbox adapter substitute | ✓ | ✗ | ✗ | ✗ | ✗ |
-| Full Linux tile runtime | ✓ | ✗ | ✗ | ✗ | ✗ |
+Hosted environments (WSL2, VMs, containers) are not a separate support class.
+Tickoni runs as the platform its process sees: a Linux kernel in WSL2 is Linux.
+Docker may help with development and packaging, but it is not the runtime
+security model.
 
-WSL2/VM replay is TBD — depends on whether the container or host provides
-deterministic capture semantics. Marking `?` until a decision is made.
+## Functionality On Every Platform
 
-## Degraded Guarantees
+| Capability | Contract (all six platforms) |
+| --- | --- |
+| Build, `tickoni doctor`, `tickoni --version` | Same commands, same output fields |
+| Deterministic paper demo | Same behavior |
+| CaseOps review | Same behavior |
+| Replay proof | Same behavior, with external effects disabled |
+| Full tile runtime | Same tile set, same tile identities, same links |
+| Shared-memory topology | Firedancer Tango `mcache`/`dcache` links with `fseq`/`fctl` flow control and Firedancer workspaces, through Tickoni-owned wrappers |
+| Tile isolation | One supervisor-managed OS process per tile, each with its own address space, crash-only behavior |
+| Networking | Standard sockets |
+| Tile liveness, freeze/resume, process metrics | Portable shim APIs with one implementation per OS behind one interface |
 
-Each non-Linux tier has the following degraded guarantees relative to Linux
-full-runtime. The degradation applies to every workflow on that tier.
+Rules that follow from this contract:
 
-### Sandboxing
+- **Same inputs, same facts.** Equivalent inputs produce the same normalized
+  financial facts, hashes, audit chain and replay results on every platform.
+  A platform difference between capture and replay is never a divergence by
+  itself. The cross-platform conformance exports and comparisons
+  (`compare-cli-conformance`, `compare-build-artifact-conformance`) are how this
+  is verified.
+- **No OS-specific product behavior.** OS differences live in the portable shim
+  layer (`src/tickoni/c_abi/shim/`, `src/tickoni/util/`) behind a single
+  interface. Tile, policy, audit, replay, API and test code must not branch on
+  the host OS.
+- **No OS-specific tests.** Integration and unit tests run on every platform and
+  must not carry OS guards or platform skips. A test that fails on one platform
+  is a bug to root-cause and fix. The one OS-flavored area is freezing and
+  resuming a tile process (SIGSTOP/SIGCONT on POSIX, `NtSuspendProcess` and
+  `NtResumeProcess` on Windows). It goes through the portable
+  `tk_process_suspend` / `tk_process_resume` API, so the tests stay identical.
+- **Authorization is finance-native, not OS-native.** Who may do what is decided
+  by capability envelopes in `tkpoly` and enforced at the `tkmodl`, `tktool`,
+  `tkadpt` and `tkexec` boundaries, identically on all platforms. It never
+  depends on an OS sandbox.
 
-`fd_sandbox_enter` (Firedancer's Linux sandbox) executes 17 steps:
+## Postponed To The Server-Only Version
 
-| # | Mechanism | Linux | macOS | Windows |
-|---|-----------|-------|-------|---------|
-| 1 | Clear env vars | ✓ | ✓ | ✓ |
-| 2 | Validate open FDs | ✓ | ✓ | ✓ |
-| 3 | Drop supplementary groups | ✓ | ✓ | ✓ |
-| 4 | Session keyring | Linux-only | ✗ | ✗ |
-| 5 | New process group | ✓ | ✓ | ✓ |
-| 6 | Switch UID/GID | ✓ | ✓ | ✓ |
-| 7 | Unshare namespaces (mount, net, cgroup, ipc, uts) | ✓ | ✗ | ✗ |
-| 8 | User namespace | ✓ | ✗ | ✗ |
-| 9 | Sysctl hardening | Linux-only | ✗ | ✗ |
-| 10 | Nested user namespace | Linux-only | ✗ | ✗ |
-| 11 | Dumpable bit | ✓ | ✓ | ✓ |
-| 12 | Root filesystem pivot | Linux-only | ✗ | ✗ |
-| 13 | Resource limits (rlimits) | ✓ | ✓ | ✓ (partial) |
-| 14 | Drop all capabilities | Linux-only | ✗ | ✗ |
-| 15 | `no_new_privs` | Linux-only | ✗ | ✗ |
-| 16 | Landlock | Linux-only (kernel 5.13+) | ✗ | ✗ |
-| 17 | Seccomp-BPF | Linux-only (kernel 3.17+) | ✗ | ✗ |
+These Linux-specific mechanisms are **not** part of retail Tickoni on any
+platform, including Linux, because adopting them would make one platform's
+product diverge from the others. They are postponed to a future server-only
+Linux version (see Server-Only Features) and are not used or required anywhere
+in the retail product today:
 
-10 of 17 steps are Linux-only syscalls with no macOS or Windows equivalent.
-Namespaces, user namespaces, capabilities, seccomp, Landlock, keyring, and
-pivot_root do not exist on those platforms.
+- seccomp-BPF, Landlock, Linux namespaces (mount, net, cgroup, ipc, uts, user),
+  capability dropping, `no_new_privs`, `pivot_root`, session keyrings,
+  sysctl hardening (the `fd_sandbox_enter` steps that exist only on Linux),
+- AF_PACKET and XDP kernel-bypass networking,
+- huge-page or gigantic-page workspace requirements,
+- hard CPU pinning with `sched_setaffinity` / cpusets (see CPU Placement),
+- any dependency on `/proc`, `/sys` or another Linux-only interface in code that
+  is not behind the portable shim layer.
 
-macOS provides `sandbox_init()` (BSD sandbox profiles, since 10.8), which controls
-network and file access but not syscalls. Code signing and entitlements are
-mandatory for many operations but cannot be set programmatically per-process.
-`setuid`/`setgid` and `setrlimit` work. No namespaces, no seccomp, no capabilities.
+Firedancer infrastructure is reused only where it is portable to all six
+platforms. Firedancer's Linux-only substrate stays in upstream Firedancer and
+does not become a Tickoni framework concept.
 
-Windows provides Job Objects (`JOB_OBJECT_LIMIT_*`) for CPU, memory, and handle
-limits; Mandatory Integrity Levels (coarse-grained access control); Restricted
-Tokens (limited access tokens). No namespaces, no seccomp, no capabilities, no
-pivot_root.
+## Server-Only Features
 
-**Conclusion:** `fd_sandbox_enter` cannot be ported to macOS/Windows. The header
-is `#if defined(__linux__)` for a reason. On macOS and Windows, the sandbox
-boundary is process-level isolation (separate address spaces, which Tickoni
-already has with its process-mode tiles), plus whatever coarse mechanisms exist
-(UID/GID switching, resource limits, `sandbox_init` on macOS for network/file
-access). The Linux full-runtime tier is the only tier with seccomp/Landlock
-enforcement. Retail tiers have process isolation only.
+Linux-specific features are postponed to a future server-only version of
+Tickoni, such as kernel-bypass ingest or seccomp/Landlock sandbox hardening for
+a hosted Linux deployment. A server-only feature must:
 
-### Shared Memory
+1. be an explicit, opt-in server profile that is off by default,
+2. be documented here before any other document or story references it,
+3. never be required by any workflow, demo, CaseOps flow or test that the retail
+   product supports,
+4. never change the deterministic event path, normalization, deduplication,
+   audit records, policy outcomes or replay results,
+5. be an explicit product decision, not an implementation detail.
 
-Firedancer workspace and topology shared memory are unavailable on macOS and
-Windows. No deterministic queue topology. Tiles that depend on shared memory
-are stubbed or excluded.
+No such feature exists today. Retail Tickoni must stay on par on Windows, macOS
+and Linux, x86_64 and ARM64.
 
-### Networking
-
-AF_PACKET and XDP are unavailable on macOS and Windows. Standard sockets are
-used instead. Throughput is bounded by socket I/O, not kernel-bypass ring I/O.
-
-**Stub behavior note:** some retail stubs use a "stub object" pattern
-(`fd_platform_stub_object_new()`) that returns a valid non-NULL pointer so
-callers don't null-crash, but all functional methods are no-ops. A few
-metadata bookkeeping functions (gRPC stream send/close) return 0 to avoid
-polluting errno. The actual data path (socket `rxtx`, HTTP listen, UDP send)
-correctly fails closed with errno.
-
-### Performance
-
-No shared-memory queues means no Firedancer throughput model. Expected throughput
-is bounded by socket I/O. The tier name "retail" signals this to users.
-
-### Execution
-
-Full tile runtime is not available outside Linux. Only the subset of tiles that
-do not require Linux kernel primitives run on retail tiers.
-
-### CPU Placement (Affinity)
+## CPU Placement (Affinity)
 
 Firedancer pins threads to cores with `sched_setaffinity` / `cpuset` because
 Firedancer tiles are **threads within a single process**. Pinning gives:
@@ -158,60 +148,52 @@ supervisor output.
 
 ## Visibility Rules
 
-The tier and its degraded dimensions must be visible in all five surfaces.
+The host platform must be visible, and nothing may be hidden behind it.
 
 ### CLI (`tickoni doctor`)
 
-The supported product command is `tickoni doctor` on the retail-facing `tickoni`
-binary. It prints tier name, OS, architecture, degraded dimensions, and
-affected tiles:
-
-```
-Tier: macos_retail
-OS: macOS 14.5 | arch: arm64
-Degradations: sandboxing (disabled), shared memory (disabled), networking (socket path)
-Tiles excluded: 5
-```
+`tickoni doctor` on the retail-facing `tickoni` binary prints the host OS and
+architecture and the result of each preflight check. It prints no
+"degradations" and no "excluded tiles", because no platform has any.
 
 ### CLI (`tickoni --version`)
 
-The supported product command is `tickoni --version` on the retail-facing
-`tickoni` binary. It prints the version/provenance fields plus the runtime and
-isolation tiers as the short trust surface for retail users.
+`tickoni --version` prints the version and provenance fields plus the host OS,
+architecture and compiler.
 
 ### CaseOps
 
-CaseOps tier/degraded-guarantee display is deferred for V2.21. In this epic,
-platform trust is exposed through CLI, audit, replay, metrics, diagnostics, and
-linked evidence artifacts. A future tkapi/UI story must add the dashboard host
-metadata surface before docs can claim CaseOps display is shipped.
+CaseOps does not display a platform capability level, because there is none to
+show. Host platform metadata may be shown as plain provenance once a tkapi/UI
+story adds the dashboard host metadata surface.
 
 ### Audit
 
-Each audit event records the tier of the host that generated it. Replay output
-reports the original host's tier and flags any dimension that differs from the
-replay environment.
+Each audit event records the host platform that generated it, in the audit
+header's existing platform field. The field is provenance only. It never gates
+behavior. Replay output reports the original host platform and treats a
+difference from the replay host as informational, not as a divergence. Changing
+the audit header schema is a separate, approved change.
 
 ### Documentation
 
-This document is the canonical support matrix. Any change to tier definitions,
-new tiers, or updated degradation rules must be documented here before other
-docs or stories reference them.
+This document is the canonical support statement. Any new platform, any
+platform-specific behavior, or any server-only feature must be documented here
+before other docs or stories reference it.
 
 ## Decision Rules
 
 | Question | Owner |
 | --- | --- |
-| What tiers exist and what do they guarantee? | This document (V2.21.S1 / V2.22.S1) |
-| How do we detect the tier at runtime? | S3 (doctor/preflight) |
-| How is tier shown in CaseOps? | Deferred beyond V2.21; S7 documents the deferral explicitly |
-| How do we test per tier? | Separate testing story |
+| Which platforms are supported and what do they guarantee? | This document |
+| Is a feature allowed to differ by platform? | Only as a server-only feature under the rules above; otherwise no |
+| Where do per-OS differences live? | The portable shim layer, one interface per capability |
+| How do we test per platform? | The same tests on all six platforms; conformance exports compare results |
 
 ## Quality Gate
 
-- [x] Tier definitions are documented in this file.
-- [x] No story in V2.21/V2.22 can proceed with an implicit WSL2, container,
-      or VM choice without an explicit tier decision (see `?` cell for
-      WSL2 replay — not resolved yet, but the table makes it visible).
-- [x] Documentation and roadmap status are updated when tier definitions change.
-      (Owners of roadmap stories must reference this doc.)
+- [x] One support contract for all supported platforms is documented here.
+- [x] Linux-only mechanisms are listed as postponed to the server-only version.
+- [x] Server-only features have explicit admission rules.
+- [ ] Code, tests and other docs are aligned with this contract (open: the old
+      tier names and degradation output still exist in code and in other docs).

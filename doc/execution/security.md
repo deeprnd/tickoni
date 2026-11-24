@@ -93,12 +93,14 @@ checks a contributor or reviewer can apply line by line.
 ### No Elevated Permissions
 
 - Tile processes must run with the least privilege their one responsibility
-  needs: dropped capabilities, a minimal seccomp syscall allowlist, and
-  Landlock/filesystem restriction, following the existing `privileged_init`
-  → capability drop → seccomp install → tile run loop ordering.
-- Do not add a code path that requires running as root, disabling seccomp,
-  widening a tile's syscall allowlist, or granting a tile filesystem/network
-  access it does not need. Treat that as a runtime-foundation change that
+  needs, the same way on Windows, macOS and Linux: per-user, no root or admin
+  rights, only the links, file descriptors and network access the tile needs,
+  and authority limited by finance-native capability envelopes. Linux-only
+  hardening (capability drop, seccomp syscall allowlists, Landlock) is
+  postponed to a future server-only version (see
+  [`platform-tiers.md`](../knowledge/platform-tiers.md)).
+- Do not add a code path that requires running as root or admin, or granting a
+  tile filesystem/network access it does not need. Treat that as a runtime-foundation change that
   requires explicit review, per Ask Before You Change in `CLAUDE.md`.
 - Dev/test convenience such as thread-mode tiles or relaxed sandboxing must
   never leak into a production code path; keep the two modes explicit and

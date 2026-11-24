@@ -45,6 +45,11 @@ typedef struct {
   uint native_error;
 } tk_process_terminate_result_t;
 
+typedef struct {
+  uint error;
+  uint native_error;
+} tk_process_control_result_t;
+
 uint
 tk_process_diagnostic_pid( ulong process_token );
 
@@ -55,6 +60,18 @@ tk_process_reap_nohang( ulong                      process_token,
 void
 tk_process_force_terminate( ulong                           process_token,
                             tk_process_terminate_result_t * out );
+
+/* Freezes / thaws every thread of the child (POSIX SIGSTOP / SIGCONT,
+   Windows NtSuspendProcess / NtResumeProcess).  Not an exit: the child
+   stays alive and reapable. */
+
+void
+tk_process_suspend( ulong                          process_token,
+                    tk_process_control_result_t *  out );
+
+void
+tk_process_resume( ulong                          process_token,
+                   tk_process_control_result_t *  out );
 
 void
 tk_process_release( ulong process_token,

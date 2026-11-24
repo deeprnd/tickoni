@@ -158,7 +158,7 @@ pub fn strategy(
         // 8. Mock servers + model tile HTTP (series — two binaries, one step).
         const mock_servers_test = b.addTest(.{
             .root_module = b.createModule(.{
-                .root_source_file = b.path("src/tickoni/test/mocks/mock_servers.zig"),
+                .root_source_file = b.path("src/tickoni/test/mocks/test_mock_servers.zig"),
                 .target = target,
                 .optimize = optimize,
                 .imports = &.{

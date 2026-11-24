@@ -170,7 +170,7 @@ financial meaning.
 | `fd_http_server` used by `metric`, `rpc`, and `gui` | Generic HTTP/WebSocket infrastructure, not itself a tile | Useful for `tkapi`, `metric`, and `tkdiag` HTTP surfaces. | Reuse the HTTP/WebSocket substrate, not Solana RPC or GUI schemas. |
 | `src/disco/topo` and `src/disco/stem` | Generic tile lifecycle/polling substrate | Useful for process lifecycle, workspace construction, link validation, bounded polling, and backpressure. | Reuse `fd_topo_run_tile` inside each Tickoni tile child process. Reuse `fd_stem.c` only through a tile-specific compile-time specialization; never share one generated stem runner across unrelated tile contexts. Avoid adding Tickoni fields to upstream-hot `fd_topo.h`. |
 | `src/tango` | Generic queue substrate | Core Tickoni shared-memory queue and flow-control substrate. | Reuse with Tickoni-owned link schemas. |
-| `src/util/sandbox` and generated seccomp pattern | Generic sandbox infrastructure with per-tile policies | Useful for tile isolation, file descriptor discipline, Landlock/seccomp, and crash-only operation. | Adapt per Tickoni tile class. |
+| `src/util/sandbox` and generated seccomp pattern | Generic sandbox infrastructure with per-tile policies, but Linux-only (namespaces, Landlock, seccomp) | Postponed to the server-only version: retail Tickoni must stay on par on Windows, macOS and Linux, so it does not use Linux-only sandboxing (see [platform-tiers.md](platform-tiers.md)). | Not used in retail; revisit only for a server-only Linux profile. |
 | `backtest`, `forkt`, benchmark tiles | Solana payloads, generic offline-run idea | Useful only as examples for replay/backtest command structure and test topologies. | Do not drop in; copy patterns for `tkrepl` and harness load tests. |
 
 ### Solana-Specific Tiles To Replace Or Exclude
@@ -205,7 +205,7 @@ Tickoni should reuse stable systems substrate, not validator semantics.
 | `src/tango/mcache` and `src/tango/dcache` | Shared-memory fragment queues for correctness-bearing inter-process links |
 | `src/tango/fseq` or `src/tango/fctl` | Reliable consumer progress and producer backpressure |
 | `src/tango/cnc` | Tile boot, heartbeat, halt, and fail state |
-| `src/util/sandbox` | Process sandboxing on Linux only — namespaces, file descriptor checks, Landlock, and seccomp (see [platform-tiers.md](platform-tiers.md) for the step-by-step Linux-only breakdown and macOS/Windows equivalents) |
+| `src/util/sandbox` | Not used in retail Tickoni. Its namespaces, Landlock and seccomp are Linux-only, so they are postponed to the server-only version (see [platform-tiers.md](platform-tiers.md)) |
 | `src/disco/topo` | Reuse `fd_topo_run_tile` for lifecycle execution inside each supervisor-spawned tile child process |
 | `src/disco/stem` | Reuse only through tile-specific compile-time specializations for tiles such as `tkaudt` and `metric`; a generated runner is not a generic loop |
 | `src/disco/metrics` | Reference for low-overhead per-tile metrics; do not copy validator metric names as financial facts |
@@ -233,8 +233,9 @@ Firedancer or vendored C headers. Avoid adding Tickoni fields to
 
 ### Process And Core Placement Boundary
 
-In Tickoni Linux full-runtime process mode, a tile is a supervisor-managed OS
-process with its own address space. Process mode is the only dispatch path;
+In Tickoni process mode, on every supported platform (Windows, macOS and Linux,
+x86_64 and ARM64), a tile is a supervisor-managed OS process with its own
+address space. Process mode is the only dispatch path;
 there is no thread-mode compatibility lane. The supervisor uses lightweight
 Firedancer boot for logging and shared-memory setup, then starts one child with
 `std.process.spawn` for each configured tile.

@@ -4,54 +4,44 @@
 
 Canonical retail runtime trust surface. Documents supported binaries, install and
 update paths, storage locations, manual verification, privacy defaults,
-unsupported features, and execution defaults for every supported retail tier.
+unsupported features, and execution defaults for retail Tickoni.
 
-Tier definitions themselves, low-level topology ownership, or release-signing
-claims that do not exist are out of scope for this document.
+Platform support definitions themselves, low-level topology ownership, or
+release-signing claims that do not exist are out of scope for this document.
+Platform support is defined in
+[`doc/knowledge/platform-tiers.md`](../knowledge/platform-tiers.md).
 
-## Supported Binaries and Runtime Tiers
+## Supported Platforms
 
-| Tier | OS | Arch | Description |
-| --- | --- | --- | --- |
-| `linux_full` | Linux | x86_64, ARM64 | Shared-memory topology, seccomp/Landlock sandbox, AF_PACKET networking, full tile set |
-| `macos_retail` | macOS | ARM64, x86_64 | No seccomp/sandbox, no shared-memory topology, socket networking, reduced tile set |
-| `windows_retail` | Windows | x86_64, ARM64 | No seccomp/sandbox, no shared-memory topology, socket networking, reduced tile set |
-| `container_assisted` | Any hosted OS | varies | Runs inside another OS/host; tier is that of the host, with additional notes about hosting context |
-| `unsupported` | Any | Any | Not a supported OS or architecture; nothing runs |
+Retail Tickoni is on par on every supported platform. The same binaries, tile
+runtime, shared-memory topology, workflows and guarantees apply everywhere:
 
-The Linux full-runtime tier is the default. macOS and Windows retail tiers are
-degraded relative to Linux. Linux remains the high-throughput tier unless a
-separate decision approves native parity.
+| OS | Arch | Support |
+| --- | --- | --- |
+| Windows (10 2004+ on x86_64, 11 on ARM64) | x86_64, ARM64 | Full |
+| macOS | x86_64, ARM64 | Full |
+| Linux | x86_64, ARM64 | Full |
+| any other OS or architecture | any | `unsupported`: nothing runs |
 
-### V2.22: Windows Retail (`windows_retail`)
+Native ARM64 Zig on Windows requires Windows 11. WSL2, VMs and containers are
+not a separate support class: Tickoni runs as the platform its process sees.
+Native portable Tickoni needs no WSL2, Docker Desktop or VM.
 
-The Windows retail tier was added in V2.22 to bring Tickoni's deterministic
-paper-demo, policy-gated, audit-chain, and replay-proof path to Windows consumer
-hardware. It uses the same capability envelopes, hash-chained audit records, and
-fail-closed guarantees as the Linux full-runtime tier, but with the degraded
-guarantees listed below.
+Linux-only features (seccomp/Landlock sandboxing, namespaces, AF_PACKET/XDP
+networking, huge pages, CPU pinning) are not part of retail Tickoni on any
+platform. They are postponed to a future server-only version.
 
-Windows retail is available on:
+## Workflows
 
-- Windows 10 2004+ for x86_64
-- Windows 11 for ARM64 (native ARM64 Zig requires Windows 11)
-
-No WSL2, no Docker Desktop, no VMs. Native portable Tickoni only.
-
-## Workflow-to-Tier Mapping
-
-| Workflow | Linux full | macOS retail | Windows retail | WSL2/VM | Unsupported |
-| --- | --- | --- | --- | --- | --- |
-| Build | ✓ | ✓ | ✓ | ✓ | ✗ |
-| Doctor | ✓ | ✓ | ✓ | ✓ | ✗ |
-| Deterministic paper demo | ✓ | ✓ | ✓ | ✓ | ✗ |
-| CaseOps review | ✓ | ✓ | ✓ | ✓ | ✗ |
-| Replay proof | ✓ | ✗ | ✗ | ? | ✗ |
-| Sandbox adapter substitute | ✓ | ✗ | ✗ | ✗ | ✗ |
-| Full Linux tile runtime | ✓ | ✗ | ✗ | ✗ | ✗ |
-
-WSL2/VM replay is TBD — depends on whether the container or host provides
-deterministic capture semantics.
+| Workflow | Windows, macOS, Linux (x86_64, ARM64) |
+| --- | --- |
+| Build | ✓ |
+| Doctor | ✓ |
+| Deterministic paper demo | ✓ |
+| CaseOps review | ✓ |
+| Replay proof | ✓ |
+| Sandbox adapter substitute | ✓ |
+| Full tile runtime | ✓ |
 
 ## Install Paths
 
@@ -92,10 +82,10 @@ during install, demo, or evidence generation.
 
 ## Demo Commands
 
-### V2.21 / V2.22 Retail Demo
+### Retail Demo
 
 ```bash
-# Check host capabilities and tier
+# Check host and preflight
 tickoni doctor
 
 # Run a deterministic paper investment demo
@@ -104,7 +94,7 @@ tickoni demo investment --manifest <path-to-manifest>
 
 The demo commands run locally with no outbound network calls. Output includes:
 
-- Runtime tier and isolation tier
+- Host platform (OS and architecture)
 - Demo manifest compatibility check
 - Policy-checked proposal hash
 - Append-only audit JSONL output
@@ -114,12 +104,12 @@ The demo commands run locally with no outbound network calls. Output includes:
 ### Version and Provenance
 
 ```bash
-# Print version, tier, and build metadata
+# Print version, host platform, and build metadata
 tickoni --version
 ```
 
-On Windows retail, this prints `windows_retail` as the runtime tier and `retail`
-as the isolation tier.
+The output is the same on every platform apart from the host OS, architecture
+and compiler values.
 
 ## Manual Verification
 
@@ -139,10 +129,10 @@ Users can verify release artifacts by comparing SHA256 checksums:
 3. Compare the output against the published checksum.
 
 Build reproducibility: rebuilding Tickoni from the same commit on the same
-platform produces the same binary hashes. This is verified through the
-conformance suite, which checks that deterministic fixture inputs produce
-identical normalized event hashes, policy outcomes, proposal hashes, audit
-records, and replay results across Linux full-runtime and Windows retail modes.
+platform produces the same binary hashes. Cross-platform behavior is verified
+through the conformance suite, which checks that deterministic fixture inputs
+produce identical normalized event hashes, policy outcomes, proposal hashes,
+audit records, and replay results on Windows, macOS and Linux, x86_64 and ARM64.
 
 ## Update / Uninstall Behavior
 
@@ -168,47 +158,35 @@ rm -rf ~/.tickoni
 
 ## Unsupported Features
 
-The following features are **not** available on retail tiers (macOS, Windows):
+The following features are **not** available in retail Tickoni on any platform:
 
 | Feature | Status | Reason |
 | --- | --- | --- |
-| seccomp / Landlock sandbox | Not supported | OS does not provide kernel-level syscall filtering |
-| Shared-memory topology | Not supported | No Firedancer workspace shared memory on retail tiers |
-| AF_PACKET / XDP networking | Not supported | Retail tiers use standard sockets only |
-| Full Linux tile runtime | Not supported | Only subset of tiles that do not require Linux kernel primitives |
-| Replay proof on retail tier | Disabled | Replay substitution required; not deterministic across tiers |
-| Sandbox adapter substitute | Disabled | No sandbox layer on retail tiers |
+| seccomp / Landlock / namespace sandbox | Postponed to server-only version | Linux-only; would make the Linux product diverge |
+| AF_PACKET / XDP networking | Postponed to server-only version | Linux-only; retail uses standard sockets everywhere |
+| Huge-page workspaces, CPU pinning | Postponed to server-only version | Linux-only; retail uses normal-page workspaces and the OS scheduler |
 | Live execution / trading | Disabled | Consumer retail mode never enables live money paths |
 
-The `windows_retail` tier additionally does not claim:
+Retail Tickoni also does not claim:
 
-- Throughput parity with Linux full runtime
-- Shared-memory queue topology
-- CaseOps UI tier/degraded-guarantee display (deferred)
+- CaseOps UI display of host platform metadata (deferred)
 - Signed release assets beyond checksum-based verification
 
 ## Execution Defaults
 
-### Windows Retail (`windows_retail`)
-
-The Windows retail tier defaults to paper/sandbox/mock/sandbox-substitute
+On every platform, retail Tickoni defaults to paper/sandbox/mock/sandbox-substitute
 behavior:
 
 - **Live execution is disabled.** Attempting to trigger live trading, payments,
   crypto transfers, or any privileged money-moving operation will fail closed
   with an explicit diagnostic.
 - The user sees a clear error indicating that live execution is not supported
-  on the `windows_retail` tier.
+  in retail Tickoni.
 - All demo flows produce deterministic paper results only.
-
-### macOS Retail (`macos_retail`)
-
-Same defaults as Windows retail: paper/sandbox/mock/sandbox-substitute, live
-execution disabled.
 
 ## Privacy and Telemetry Defaults
 
-- **Telemetry is disabled by default** on all retail tiers.
+- **Telemetry is disabled by default** on every platform.
 - `tickoni --version`, `tickoni doctor`, and the deterministic demo flows do not
   require outbound telemetry.
 - Evidence generation is local/offline by default.
@@ -233,79 +211,53 @@ Excluded from retail packages:
 
 ## Quality Gate
 
-- [x] Tier definitions documented in `doc/knowledge/platform-tiers.md`.
-- [x] No implicit WSL2, container, or VM assumption for supported retail tiers.
+- [x] Platform support documented in `doc/knowledge/platform-tiers.md`.
+- [x] No implicit WSL2, container, or VM assumption.
 - [x] Unsupported features explicitly listed with reasons.
 - [x] Per-user install paths documented (no sudo).
 - [x] Manual verification via SHA256 checksums documented.
 - [x] Update/uninstall behavior documented (evidence preserved by default).
 - [x] Privacy and telemetry defaults documented (opt-out, not opt-in).
 
-## Tier Visibility on Windows
+## Platform Visibility
+
+The host platform is visible as provenance. It never gates behavior or implies
+degradation.
 
 ### `tickoni --version`
 
-On Windows retail, `tickoni --version` prints:
-
-```
-Tickoni 0.1.1
-Build ID: ...
-Git: abc123def456
-OS: Windows x86_64
-Runtime Tier: windows_retail
-Isolation Tier: retail
-Policy Schema: 2
-Replay Schema: 2
-Demo Manifest: none
-Compiler: ...
-```
-
-The runtime tier field shows `windows_retail` and the isolation tier shows
-`retail` (same as macOS retail).
+`tickoni --version` prints the version and provenance fields plus the host OS,
+architecture and compiler. The `Runtime Tier` and `Isolation Tier` lines from
+the V2.21/V2.22 output are host-platform provenance only (see the note in
+[`version-identity.md`](../knowledge/version-identity.md)); renaming or removing
+them is a separate, approved CLI contract change.
 
 ### `tickoni doctor`
 
-On Windows retail, `tickoni doctor` prints:
-
-```
-tickoni doctor — host report
-Platform tier: windows_retail
-OS: Windows | arch: x86_64
-Degradations: sandboxing (disabled), shared memory (disabled), networking (socket path)
-Tiles excluded: 5
----
-...
-```
-
-The degraded dimensions are:
-
-| Dimension | Windows retail | Linux full |
-| --- | --- | --- |
-| Sandboxing | disabled (no seccomp/Landlock) | enabled |
-| Shared memory | disabled (no workspace shm) | enabled |
-| Networking | socket path | AF_PACKET / XDP |
-
-Five tiles are excluded from the Windows retail tile set: replay_proof,
-sandbox_adapter, full_linux_tile_runtime, and shared-memory-dependent tiles.
+`tickoni doctor` prints the host OS, architecture and preflight results. It
+prints no degradations and no excluded tiles, because no platform has any.
 
 ### Audit Events
 
-Audit events on Windows carry `platform_tier` in the event header, serialized
-identically to Linux and macOS:
+Audit events carry the host platform in the event header's `platform_tier`
+field, serialized identically on every platform:
 
-- JSONL: `"platform_tier":"windows_retail"`
+- JSONL: `"platform_tier":"<host platform>"`
 - Binary: platform_tier field in `schema.Header`
 - Wire: 64-byte `platform_tier` field
 - Protobuf: field 91 `platform_tier`
 
+The field is provenance only. Changing its name or values is an audit schema
+change that needs approval.
+
 ### Replay Capsules
 
-Replay capsules on Windows carry the original host's `platform_tier` and flag
-any dimension that differs from the replay environment.
+Replay capsules carry the original host platform. A different replay host is
+reported as information, never as a divergence by itself.
 
 ### CaseOps (Deferred)
 
-CaseOps tier/degraded-guarantee display is deferred for V2.22. Platform trust
-is exposed through CLI, audit, replay, metrics, diagnostics, and linked evidence
+CaseOps display of host platform metadata is deferred. Platform provenance is
+exposed through CLI, audit, replay, metrics, diagnostics, and linked evidence
 artifacts. A future tkapi/UI story must add the dashboard host metadata surface
 before docs can claim CaseOps display is shipped.

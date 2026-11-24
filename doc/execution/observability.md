@@ -21,7 +21,7 @@ For V2.21 and V2.22 retail runtime support, this observability surface remains l
 and evidence-oriented: CLI host reports, deterministic demo output, local audit
 artifacts, replay artifacts, and linked conformance evidence. CaseOps UI
 surfacing and hosted observability stacks are explicitly deferred work, not
-implied current behavior. Both macOS and Windows retail tiers share the same
+implied current behavior. Windows, macOS and Linux share the same
 privacy defaults (telemetry disabled by default, no outbound telemetry required)
 and the same evidence-oriented trust surface.
 

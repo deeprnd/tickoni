@@ -66,8 +66,15 @@ pub const ProcessTerminateResult = extern struct {
     native_error: u32,
 };
 
+pub const ProcessControlResult = extern struct {
+    err: u32,
+    native_error: u32,
+};
+
 extern fn tk_process_reap_nohang(process_token: usize, out: *ProcessReapResult) void;
 extern fn tk_process_force_terminate(process_token: usize, out: *ProcessTerminateResult) void;
+extern fn tk_process_suspend(process_token: usize, out: *ProcessControlResult) void;
+extern fn tk_process_resume(process_token: usize, out: *ProcessControlResult) void;
 extern fn tk_process_release(process_token: usize, thread_token: usize) void;
 
 extern fn tk_process_test_eintr_then_exit(exit_code: u32) void;
@@ -189,6 +196,18 @@ pub fn processReapNoHang(process_token: usize) ProcessReapResult {
 pub fn processForceTerminate(process_token: usize) ProcessTerminateResult {
     var result: ProcessTerminateResult = undefined;
     tk_process_force_terminate(process_token, &result);
+    return result;
+}
+
+pub fn processSuspend(process_token: usize) ProcessControlResult {
+    var result: ProcessControlResult = undefined;
+    tk_process_suspend(process_token, &result);
+    return result;
+}
+
+pub fn processResume(process_token: usize) ProcessControlResult {
+    var result: ProcessControlResult = undefined;
+    tk_process_resume(process_token, &result);
     return result;
 }
 

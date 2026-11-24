@@ -67,6 +67,18 @@ pub fn forceTerminate(id: std.process.Child.Id) TerminateResult {
     return .{ .accepted = action };
 }
 
+/// Freezes the child without ending it (it stays alive and reapable).
+pub fn suspendProcess(id: std.process.Child.Id) ?ProcessError {
+    const result = os_api.processSuspend(os_api.processToken(id));
+    return if (result.err == 0) null else decodeError(result.err, result.native_error);
+}
+
+/// Thaws a child frozen by `suspendProcess`.
+pub fn resumeProcess(id: std.process.Child.Id) ?ProcessError {
+    const result = os_api.processResume(os_api.processToken(id));
+    return if (result.err == 0) null else decodeError(result.err, result.native_error);
+}
+
 pub fn classify(observation: Observation, successful_action: ?TerminationAction) ProcessOutcome {
     return switch (observation) {
         .exited => |code| if (code == 0)

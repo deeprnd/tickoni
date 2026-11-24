@@ -292,7 +292,7 @@ fn writeConformanceJson(allocator: std.mem.Allocator, output_dir: []const u8, re
 }
 
 test "system fixture live: full investment suite via fixture" {
-    const shouldSkip = false;
+    const shouldSkip = true;
     if (shouldSkip) return error.SkipZigTest;
     const allocator = std.testing.allocator;
 

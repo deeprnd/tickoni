@@ -821,21 +821,10 @@ pub const Supervisor = struct {
                 if (std.c.getenv("PATH")) |value| try env.put("PATH", std.mem.span(value));
             }
 
-            var argv_buf: [4][]const u8 = undefined;
-            var argv_count: usize = 3;
-            argv_buf[0] = self_exe_path;
-            argv_buf[2] = spec_path;
+            var argv_buf: TileArgvBuf = undefined;
             const entry = tile_registry.findById(tile.name) orelse return error.UnregisteredTile;
-            argv_buf[1] = switch (entry.launch_mode) {
-                .stem => "__stem-run",
-                .tile => "__tile-run",
-            };
-            if (config.verbose) {
-                argv_buf[3] = "--verbose";
-                argv_count = 4;
-            }
             const child = try std.process.spawn(io, .{
-                .argv = argv_buf[0..argv_count],
+                .argv = tileArgv(&argv_buf, self_exe_path, entry.launch_mode, spec_path, config.verbose),
                 .environ_map = &env,
             });
 
@@ -1524,6 +1513,62 @@ pub const Supervisor = struct {
         return false;
     }
 };
+
+const TileArgvBuf = [4][]const u8;
+
+/// The argv a tile child is spawned with: this executable, the launch verb
+/// its registry launch mode selects (dispatched in main.zig), its launch
+/// spec, and --verbose when requested.
+fn tileArgv(
+    buf: *TileArgvBuf,
+    self_exe_path: []const u8,
+    launch_mode: tile_registry.LaunchMode,
+    spec_path: []const u8,
+    verbose: bool,
+) []const []const u8 {
+    buf[0] = self_exe_path;
+    buf[1] = switch (launch_mode) {
+        .stem => "__stem-run",
+        .tile => "__tile-run",
+    };
+    buf[2] = spec_path;
+    if (!verbose) return buf[0..3];
+    buf[3] = "--verbose";
+    return buf[0..4];
+}
+
+test "tileArgv launches a stem tile through __stem-run and a Zig tile through __tile-run" {
+    var buf: TileArgvBuf = undefined;
+    const stem = tileArgv(&buf, "exe", .stem, "run/tile_0.spec", false);
+    try std.testing.expectEqual(@as(usize, 3), stem.len);
+    try std.testing.expectEqualStrings("exe", stem[0]);
+    try std.testing.expectEqualStrings("__stem-run", stem[1]);
+    try std.testing.expectEqualStrings("run/tile_0.spec", stem[2]);
+
+    const tile = tileArgv(&buf, "exe", .tile, "run/tile_1.spec", false);
+    try std.testing.expectEqual(@as(usize, 3), tile.len);
+    try std.testing.expectEqualStrings("__tile-run", tile[1]);
+    try std.testing.expectEqualStrings("run/tile_1.spec", tile[2]);
+}
+
+test "tileArgv appends --verbose after the launch spec only when requested" {
+    var buf: TileArgvBuf = undefined;
+    const argv = tileArgv(&buf, "exe", .stem, "run/tile_0.spec", true);
+    try std.testing.expectEqual(@as(usize, 4), argv.len);
+    try std.testing.expectEqualStrings("__stem-run", argv[1]);
+    try std.testing.expectEqualStrings("run/tile_0.spec", argv[2]);
+    try std.testing.expectEqualStrings("--verbose", argv[3]);
+}
+
+// Replaces the integration tests' /proc/<pid>/cmdline probes: what verb a
+// tkings, tkpoly or tkapi child gets is decided here, from the registry.
+test "tkings, tkpoly and tkapi children are spawned through __stem-run" {
+    var buf: TileArgvBuf = undefined;
+    inline for (.{ rt.tile_ids.tkings, rt.tile_ids.tkpoly, rt.tile_ids.tkapi }) |tile_id| {
+        const entry = tile_registry.findById(tile_id) orelse return error.UnregisteredTile;
+        try std.testing.expectEqualStrings("__stem-run", tileArgv(&buf, "exe", entry.launch_mode, "spec", false)[1]);
+    }
+}
 
 test "Supervisor monitor returns correct tile count" {
     const topo = topologies.paymentPipeline();

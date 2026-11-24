@@ -36,10 +36,12 @@ normal web backend with agents attached.
 
 Core layers:
 1. Firedancer infrastructure provides the ultra-TPS systems substrate:
-   `src/tango` queues, topology/workspace discipline, sandboxed tile
+   `src/tango` queues, topology/workspace discipline, isolated tile
    processes, low-overhead metrics/diagnostics, `fd_http_server`,
-   bounded polling, tile-local networking, seccomp/Landlock, and crash-only
-   behavior.
+   bounded polling, tile-local networking, and crash-only behavior. Retail
+   Tickoni is on par on Windows, macOS and Linux, x86_64 and ARM64; Linux-only
+   features (seccomp, Landlock, namespaces, XDP, huge pages) are postponed to
+   a future server-only version (see `doc/knowledge/platform-tiers.md`).
 2. Tickoni AI-harness tiles own financial correctness: ingest, normalize,
    dedupe, case routing, policy, audit, replay, metrics, diagnostics, bounded
    agents, model gateway, tool broker, signed adapters, and future approved
