@@ -130,7 +130,7 @@ shows up as noise in a higher-level file. Counts are current `shouldSkip` counts
 | 4 | `test_process_topology.zig` | 5 | PASS | 2026-11-24 | 5/5 passed on the first run (lane: 5 passed, 140 skipped, 0 failed; 139s). No fix needed. No orphans. |
 | 5 | `test_process_pipeline.zig` | 2 | PASS | 2026-11-24 | 2/2 passed on the first run (lane: 2 passed, 143 skipped, 0 failed; 117s). No fix needed. No orphans. |
 | 6 | `test_process_shutdown_reap.zig` | 7 | PASS | 2026-11-24 | 7/7 passed on the first run (lane: 7 passed, 138 skipped, 0 failed; 163s). No fix needed. No orphans. |
-| 7 | `test_process_cpu_placement.zig` | 5 | TODO | | |
+| 7 | `test_process_cpu_placement.zig` | 5 | PASS | 2026-11-24 | 5/5 passed on the first run (lane: 5 passed, 140 skipped, 0 failed; 182s). No fix needed. No orphans. |
 | 8 | `test_process_fixture_parity.zig` | 1 | TODO | | |
 | 9 | `test_tile_tkings.zig` | 2 | TODO | | |
 | 10 | `test_tile_tknorm.zig` | 6 | TODO | | |
