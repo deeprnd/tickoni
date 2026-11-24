@@ -138,7 +138,7 @@ shows up as noise in a higher-level file. Counts are current `shouldSkip` counts
 | 12 | `test_tile_tkpoly.zig` | 17 | PASS | 2026-11-24 | 17/17 passed on the first run (lane: 17 passed, 128 skipped, 0 failed; 155s). No fix needed. No orphans. |
 | 13 | `test_tile_tkaudt.zig` | 4 | PASS | 2026-11-24 | 4/4 passed on the first run (lane: 4 passed, 141 skipped, 0 failed; 129s). No fix needed. No orphans. |
 | 14 | `test_tile_tkdiag.zig` | 6 | BLOCKED (needs user decision) | 2026-11-24 | r1: 5 passed, 1 failed: test 1 (keeps running until HALT) found tkdiag .stale (heartbeat age 119 ms > 100 ms default) at test_tile_tkdiag.zig:81. r2: 6/6 passed, but tile 6 (metric) was still marked stale in test 1 (116 ms). Root cause: CPU oversubscription, see Findings F1. No orphans either run. |
-| 15 | `test_tile_tkapi.zig` | 4 | TODO | | |
+| 15 | `test_tile_tkapi.zig` | 4 | PASS | 2026-11-24 | 4/4 passed on the first run (lane: 4 passed, 141 skipped, 0 failed; 141s). No fix needed. No orphans. |
 | 16 | `test_tile_tkmodl.zig` | 8 | TODO | | |
 | 17 | `test_tile_tkagnt.zig` | 20 | TODO | | |
 | 18 | `test_stem_heartbeat.zig` | 3 | TODO | | |
