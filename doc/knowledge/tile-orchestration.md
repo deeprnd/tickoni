@@ -227,6 +227,10 @@ The stem loop (`fd_stem.c` `stem_run1`) interleaves the following every iteratio
 5. **Fragment processing** — `BEFORE_FRAG` → `DURING_FRAG` → `AFTER_FRAG`
    callbacks. These are the only place tile-specific logic executes.
 6. **Output publication** — publish to downstream via `fd_stem_publish`.
+7. **Idle sleep (Tickoni deviation)** — after `STEM_IDLE_SPIN_MAX`
+   consecutive idle iterations, an idle iteration ends with a bounded
+   `fd_log_sleep( STEM_IDLE_SLEEP_NS )` instead of spinning on. See
+   "Deviation: Bounded Sleep Instead of Pure Spin" below.
 
 Every iteration boundary is an interleaving point for shutdown, health, and
 backpressure. A tile cannot get stuck because there is no blocking point
@@ -301,6 +305,48 @@ paid. Tickoni's shared-core model cannot make that trade — it must sleep
 during idle to keep the total tile-to-core ratio manageable. This is a
 conscious architectural relaxation, not an oversight: it is documented in
 `wait.zig` and enforced in the link primitives.
+
+**The same deviation in `fd_stem`.** Every stem tile (all `tk_*_stem.c`
+tiles and `metric`) runs `src/disco/stem/fd_stem.c`, and upstream `fd_stem`
+never sleeps: an idle stem loop spins on `FD_SPIN_PAUSE` and burns a full
+core. A payment pipeline is nine stem-loop processes, so on a 4-core retail
+host the idle tiles alone oversubscribe the CPU, a runnable tile can wait
+more than 100 ms for a time slice, and the supervisor correctly classifies
+it stale (the integration lane saw this on a 4-vCPU Windows ARM host). Tickoni's
+copy of `fd_stem.c` therefore applies the hybrid pattern in the loop
+itself, so every stem tile gets it without per-tile code:
+
+- An iteration is **idle** when it polled an input and found nothing new
+  (caught up), or the tile has no inputs, and no `BEFORE_CREDIT` /
+  `AFTER_CREDIT` callback set `charge_busy`. Any fragment, overrun or busy
+  callback resets the idle count. Backpressure and `poll_in = 0` are not
+  idle: there is work waiting, so they never sleep.
+- After `STEM_IDLE_SPIN_MAX` (4096) consecutive idle iterations, each
+  further idle iteration ends with `fd_log_sleep( STEM_IDLE_SLEEP_NS )`
+  (100 μs, the same value as `wait.idle_sleep_ns`). The tile keeps sleeping on
+  every idle iteration until work arrives, so a genuinely idle tile costs a
+  few percent of a core, not a whole one. A burst of work is still picked up
+  by spinning, with no sleep latency, until the loop has been idle for the
+  spin budget again.
+- The shutdown check and the housekeeping/credit events still run at the top
+  of every iteration, so HALT is observed within one sleep and the heartbeat
+  keeps advancing (see the staleness budget below).
+- A stem that must never sleep defines `STEM_IDLE_SLEEP_NS` as `0` before
+  including `fd_stem.c`. No Tickoni tile does.
+- A callback must not do its own blocking idle wait. The stem's idle sleep
+  is that wait. Upstream's metric tile polled its HTTP server with a 1 ms
+  timeout to save CPU, and on Windows `WSAPoll` wakes on the timer tick, so
+  each iteration blocked about 10 ms (measured; up to 34 ms) and metric's
+  heartbeat aged past 100 ms. `fd_metric_tile.c` now polls with timeout 0 and
+  sets `charge_busy` when it serves, like every other callback.
+
+`fd_log_sleep` must honour sub-millisecond requests on every platform for
+this to work. On Windows, `Sleep()` takes whole milliseconds and its
+granularity is the system timer tick (about 9 to 15.6 ms), so
+`fd_log_windows.c` serves sleeps below one millisecond from a
+high-resolution waitable timer (`CREATE_WAITABLE_TIMER_HIGH_RESOLUTION`,
+about 1 ms measured on the Windows ARM host). It falls back to `Sleep(1)` only
+where that timer is unavailable.
 
 ### Anti-Patterns (What to Avoid)
 
@@ -689,7 +735,14 @@ stays below `4 * STEM_LAZY` plus the longest callback (below `2 * STEM_LAZY`
 for a tile with no links, such as `tkdiag` in a topology without diagnostic
 links) and averages about `STEM_LAZY`.
 Every Tickoni stem tile sets
-`STEM_LAZY` to 10 ms, so the worst gap is about 40 ms. The supervisor's default
+`STEM_LAZY` to 10 ms, so the worst gap is about 40 ms. The idle sleep (see
+"The same deviation in `fd_stem`") runs at most one async event per sleep, so
+for an idle tile the cycle is also bounded by `event_cnt` sleeps. With the
+measured sleep of about 1 ms on Windows (about 0.15 ms on Linux) and
+`event_cnt` of 20 or fewer, two cycles stay below about 40 ms as well. A
+millisecond-granularity `Sleep(1)` of 9 to 15.6 ms would not stay below that:
+two cycles of a 7-event tkdiag would be 126 ms or more, which is why
+`fd_log_sleep` must not round sub-millisecond sleeps up to a timer tick. The supervisor's default
 stale threshold is 100 ms (five times the 20 ms heartbeat interval), which
 leaves a factor of 2.5 at the worst case. Measured on an idle payment
 pipeline, about 175 supervisor samples per tile gave a mean heartbeat age of 8 ms

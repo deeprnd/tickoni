@@ -41,6 +41,28 @@ extern fn tk_os_probe_fds(probe: *const Probe, out: [*]c_int, cap: u64) u64;
 extern fn tk_os_self_ids(pid: *u64, tid: *u64) void;
 extern fn tk_os_stats_size() u64;
 
+pub const CpuReadError = error{ ProcessGone, ProbeFailed };
+
+/// CPU time (user plus system) the process `pid` has used since it started,
+/// read through the same portable probe tkdiag uses. A tile process runs its
+/// loop on its main thread, whose Linux tid is the pid.
+pub fn processCpuNanos(pid: u64) CpuReadError!u64 {
+    var probe: Probe = undefined;
+    switch (tk_os_probe_open(&probe, pid, pid)) {
+        probe_ok => {},
+        probe_gone => return error.ProcessGone,
+        else => return error.ProbeFailed,
+    }
+    defer tk_os_probe_close(&probe);
+    var stats: Stats = undefined;
+    switch (tk_os_probe_read(&probe, &stats)) {
+        probe_ok => {},
+        probe_gone => return error.ProcessGone,
+        else => return error.ProbeFailed,
+    }
+    return stats.user_nanos + stats.system_nanos;
+}
+
 // The extern structs above restate the C layout only so the Linux test can read
 // fields; a size check against the C definition keeps them from drifting.
 test "os stats — the C struct layout matches the one used here" {

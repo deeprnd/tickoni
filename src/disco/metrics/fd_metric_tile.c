@@ -85,7 +85,13 @@ before_credit( fd_metric_ctx_t *   ctx,
                fd_stem_context_t * stem,
                int *               charge_busy ) {
   FD_LOG_DEBUG(( "fd_metric_tile: before_credit ENTER ctx=%p", (void*)ctx ));
-  *charge_busy = fd_http_server_poll( ctx->metrics_server, 1 ); /* 1ms */
+  /* Non-blocking: when idle, fd_stem's idle sleep is the bounded wait
+     (doc/knowledge/tile-orchestration.md, "The same deviation in
+     `fd_stem`").  A 1 ms poll timeout blocked about 10 ms per iteration on
+     Windows (WSAPoll wakes on the timer tick), which stretched the
+     housekeeping cycle and let metric's heartbeat age past the 100 ms stale
+     threshold. */
+  *charge_busy = fd_http_server_poll( ctx->metrics_server, 0 );
   (void)stem;
 
   /* Increment metric_snapshots counter (CNC app-region index 0) each
