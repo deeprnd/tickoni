@@ -363,16 +363,38 @@ These come from `AGENTS.md` and apply to every fix made during this plan.
 
 ## Done criteria
 
-- [ ] All 26 rows in the tables are `PASS`, with zero skipped tests in each file
-      (other than the file-scoped runtime skips noted in "Known hazards").
-- [ ] `Grep` for `shouldSkip = false` under `src/tickoni/test` returns nothing.
-- [ ] `Grep` for `shouldSkip = true` count equals the post-F1 count (143 in the
-      integration directory, plus the 4 untouched in `mocks/`).
-- [ ] Final `just test-integration-tk` (everything skipped again) is green and its
-      pass/skip counts equal the baseline.
-- [ ] `just test-unit-tk` is green (fixes must not regress the unit lane).
-- [ ] `git diff` contains only root-cause fixes and this plan. No stray fixture or
-      line-ending churn.
+Status 2026-11-24: **all met.**
+
+- [x] All 27 rows in the tables are `PASS`, with zero skipped tests in each file
+      (file 26 had 0 runtime skips). Files that spawn tile processes were re-run on
+      the F1 code (see "Re-verification after F1").
+- [x] `Grep` for `shouldSkip = false` under `src/tickoni/test` returns nothing.
+- [x] `shouldSkip = true` count: 143 in the integration directory (141 before the
+      plan, plus F1's 2 new tests in `test_stem_heartbeat.zig`) and 4 in `mocks/`.
+- [x] Final `just test-integration-tk` (everything skipped again) is green:
+      0 passed, 147 skipped, 0 failed, 27 binaries. That is the baseline (145) plus
+      the 2 new tests.
+- [x] `just test-unit-tk` is green: 942 passed, 18 skipped (pre-existing guards),
+      0 failed, 60 binaries.
+- [x] `git diff` since the baseline commit `4127a2e41` holds one code commit
+      (`610efa214`, F1/F2 root-cause fix with tests and docs) and plan updates.
+      The replay fixture is byte-identical. The only untracked file,
+      `integration-tests-isolated-retest-template.md`, predates the plan and is
+      not part of it.
+
+Follow-ups noticed and not changed (out of scope):
+- `tk_normalize_stem.c`: `idle_ticks` is reset and checked (`> 10000`) but never
+  incremented, so that shutdown clause is dead code.
+- On Windows `long` is 32-bit, so `long` nanosecond arithmetic on
+  `fd_log_wallclock()` values overflows (seen with temporary instrumentation;
+  no committed code is affected).
+- `c_abi/os_stats.zig` unit tests are Linux-only guarded, so the Windows and
+  macOS probes are compile-checked only.
+- Build caching: after editing only an `#include`d `fd_stem.c`, the lane once
+  relinked `tickoni-supervisor.exe` without recompiling its stem shim objects.
+  Clearing `build/.zig-cache` fixed it. `fd_metric_tile.c` (with its copy of
+  `fd_stem.c`) builds through make into `libfd_disco.a`, so it needs
+  `just build-fd`.
 
 ## Status values
 
