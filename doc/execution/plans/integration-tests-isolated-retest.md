@@ -148,7 +148,7 @@ shows up as noise in a higher-level file. Counts are current `shouldSkip` counts
 
 | # | File | shouldSkip count | Status | Date | Fix / notes |
 |---|------|-----------------:|--------|------|-------------|
-| 20 | `test_investment_decision_cards.zig` | 1 | TODO | | |
+| 20 | `test_investment_decision_cards.zig` | 1 | PASS | 2026-11-24 | 1/1 passed on the first run (lane: 1 passed, 144 skipped, 0 failed; 112s). No fix needed. |
 | 21 | `test_investment_input_policy_denials.zig` | 2 | TODO | | |
 | 22 | `test_investment_restricted_instrument.zig` | 2 | TODO | | |
 | 23 | `test_investment_blocked_limits.zig` | 2 | TODO | | |
