@@ -134,7 +134,7 @@ shows up as noise in a higher-level file. Counts are current `shouldSkip` counts
 | 8 | `test_process_fixture_parity.zig` | 1 | PASS | 2026-11-24 | 1/1 passed on the first run (lane: 1 passed, 144 skipped, 0 failed; 166s). No fix needed. No orphans. |
 | 9 | `test_tile_tkings.zig` | 2 | PASS | 2026-11-24 | 2/2 passed on the first run (lane: 2 passed, 143 skipped, 0 failed; 163s). No fix needed. No orphans. |
 | 10 | `test_tile_tknorm.zig` | 6 | PASS | 2026-11-24 | 6/6 passed on the first run (lane: 6 passed, 139 skipped, 0 failed; 192s). No fix needed. No orphans. |
-| 11 | `test_tile_tkdedu.zig` | 6 | TODO | | |
+| 11 | `test_tile_tkdedu.zig` | 6 | PASS | 2026-11-24 | 6/6 passed on the first run (lane: 6 passed, 139 skipped, 0 failed; 140s). No fix needed. No orphans. |
 | 12 | `test_tile_tkpoly.zig` | 17 | TODO | | |
 | 13 | `test_tile_tkaudt.zig` | 4 | TODO | | |
 | 14 | `test_tile_tkdiag.zig` | 6 | TODO | | |
