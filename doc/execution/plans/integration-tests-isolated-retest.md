@@ -137,11 +137,11 @@ shows up as noise in a higher-level file. Counts are current `shouldSkip` counts
 | 11 | `test_tile_tkdedu.zig` | 6 | PASS | 2026-11-24 | 6/6 passed on the first run (lane: 6 passed, 139 skipped, 0 failed; 140s). No fix needed. No orphans. |
 | 12 | `test_tile_tkpoly.zig` | 17 | PASS | 2026-11-24 | 17/17 passed on the first run (lane: 17 passed, 128 skipped, 0 failed; 155s). No fix needed. No orphans. |
 | 13 | `test_tile_tkaudt.zig` | 4 | PASS | 2026-11-24 | 4/4 passed on the first run (lane: 4 passed, 141 skipped, 0 failed; 129s). No fix needed. No orphans. |
-| 14 | `test_tile_tkdiag.zig` | 6 | BLOCKED (needs user decision) | 2026-11-24 | r1: 5 passed, 1 failed: test 1 (keeps running until HALT) found tkdiag .stale (heartbeat age 119 ms > 100 ms default) at test_tile_tkdiag.zig:81. r2: 6/6 passed, but tile 6 (metric) was still marked stale in test 1 (116 ms). Root cause: CPU oversubscription, see Findings F1. No orphans either run. |
+| 14 | `test_tile_tkdiag.zig` | 6 | PASS | 2026-11-24 | r1 failed (tkdiag stale, 119 ms). Fixed by F1 (stem idle sleep, `610efa214`). F2: the tkdiag lifecycle/fan-in helper uses the 1 s liveness threshold (user decision: logic tests, not latency). fix2 and fix3 both 6/6 (lane: 6 passed, 141 skipped). No orphans. |
 | 15 | `test_tile_tkapi.zig` | 4 | PASS | 2026-11-24 | 4/4 passed on the first run (lane: 4 passed, 141 skipped, 0 failed; 141s). No fix needed. No orphans. |
 | 16 | `test_tile_tkmodl.zig` | 8 | PASS | 2026-11-24 | 8/8 passed on the first run (lane: 8 passed, 137 skipped, 0 failed; 150s). No fix needed. No orphans. |
 | 17 | `test_tile_tkagnt.zig` | 20 | PASS | 2026-11-24 | 20/20 passed on the first run (lane: 20 passed, 125 skipped, 0 failed; 224s). No fix needed. No orphans. Includes the frozen-tile stale test (portable suspend/resume works on Windows). |
-| 18 | `test_stem_heartbeat.zig` | 3 | PASS | 2026-11-24 | 3/3 passed on the first run (lane: 3 passed, 142 skipped, 0 failed; 134s). No fix needed. No orphans. Freeze/resume via tk_process_suspend/resume works on the host. |
+| 18 | `test_stem_heartbeat.zig` | 5 (was 3) | PASS | 2026-11-24 | 3/3 on the first run. F1 added 2 tests (idle CPU < 1/5 core, sustained idle liveness), which failed before the fix. After `610efa214`: 5/5 (lane: 5 passed, 142 skipped). Idle stem CPU 0-46 ms per 2 s. |
 | 19 | `test_model_http_backend.zig` | 4 | PASS | 2026-11-24 | 4/4 passed on the first run (lane: 4 passed, 141 skipped, 0 failed; 146s). No fix needed. test_mock_servers stayed skipped (hazard 5). No orphans. |
 
 ### Domain lane (`LaneKind.domain`, 7 files)
@@ -156,7 +156,39 @@ shows up as noise in a higher-level file. Counts are current `shouldSkip` counts
 | 25 | `test_investment_fixture_system_suite.zig` | 1 | PASS | 2026-11-24 | 1/1 passed on the first run (lane: 1 passed, 144 skipped, 0 failed; 129s). No fix needed. |
 | 26 | `test_investment_replay.zig` | 5 | PASS | 2026-11-24 | 5/5 passed on the first run, 0 runtime skips (lane: 5 passed, 140 skipped, 0 failed; 119s). The generator test ran and rewrote the fixture byte-identically (sha256 3279cde1..., saved copy diffed, no change). No fix needed. |
 
-Total: 141 `shouldSkip` guards across 26 files (re-verified with Grep at plan start
+### Re-verification after F1 (`610efa214` changed every stem tile's loop)
+
+Files 1-13 and 15-17 passed before the `fd_stem` idle-sleep change. The ones that
+spawn tile processes are re-run once each on the new code (same single-file loop).
+`test_link_bounds` (2) and the domain files (19-26) run in-process with no stem
+tiles, so their results stand.
+
+| # | File | Status | Fix / notes |
+|---|------|--------|-------------|
+| 1 | `test_minimal_setup.zig` | TODO | |
+| 3 | `test_tile_metric.zig` | TODO | |
+| 4 | `test_process_topology.zig` | TODO | |
+| 5 | `test_process_pipeline.zig` | TODO | |
+| 6 | `test_process_shutdown_reap.zig` | TODO | |
+| 7 | `test_process_cpu_placement.zig` | TODO | |
+| 8 | `test_process_fixture_parity.zig` | TODO | |
+| 9 | `test_tile_tkings.zig` | TODO | |
+| 10 | `test_tile_tknorm.zig` | TODO | |
+| 11 | `test_tile_tkdedu.zig` | TODO | |
+| 12 | `test_tile_tkpoly.zig` | TODO | |
+| 13 | `test_tile_tkaudt.zig` | TODO | |
+| 15 | `test_tile_tkapi.zig` | TODO | |
+| 16 | `test_tile_tkmodl.zig` | TODO | |
+| 17 | `test_tile_tkagnt.zig` | TODO | |
+
+### Added by user decision (2026-11-24)
+
+| # | File | shouldSkip count | Status | Date | Fix / notes |
+|---|------|-----------------:|--------|------|-------------|
+| 27 | `mocks/test_mock_servers.zig` | 4 | TODO | | Outside `integration/`. Added per hazard 5 decision. Flip with the same sed on `src/tickoni/test/mocks/test_mock_servers.zig`. |
+
+Total after F1: **143** guards in the integration directory (`test_stem_heartbeat` 3 -> 5).
+Pre-F1 total: 141 `shouldSkip` guards across 26 files (re-verified with Grep at plan start
 on 2026-11-24. The first draft said 142 and listed tkpoly as 18, but tkpoly has 17
 tests and every one is guarded. `shouldSkip = false` occurs nowhere).
 
@@ -207,7 +239,7 @@ enabled at a time.
    `src/tickoni/test/mocks/test_mock_servers.zig` has 4 `shouldSkip` guards too,
    but it is outside `src/tickoni/test/integration`. The request scopes this plan to
    the integration directory, so it is **not** flipped here. Its tests keep skipping
-   while file 19 runs. Open question for the user: add it as file 27?
+   while file 19 runs. Decision (2026-11-24): added as file 27.
 
 6. **Link and memory leaks.** `std.testing.allocator` leak reports and Firedancer
    workspace/link-bound violations (depth/MTU/overrun) are real failures. Do not
@@ -248,6 +280,55 @@ enabled at a time.
      "no self-exit and no crash until HALT", not scheduler latency.
   3. Supervisor: raise or scale the default stale threshold with the
      tile-to-CPU ratio.
+- **Decision (user, 2026-11-24): option 1, in the infrastructure.** Every
+  `fd_stem` tile gets the idle sleep from `src/disco/stem/fd_stem.c` itself,
+  since all Tickoni tiles migrate to `fd_stem`. Firedancer could spin because it
+  owns a core per tile; Tickoni is multi-process on limited retail hardware.
+- **Work in progress:**
+  - Docs first: `doc/knowledge/tile-orchestration.md` (stem loop step 7, "The same
+    deviation in `fd_stem`", staleness budget with the idle sleep).
+  - Tests next, added to `test_stem_heartbeat.zig` (its guard count goes from 3
+    to 5): "an idle stem tile sleeps instead of spinning on a core" (CPU per idle
+    stem tile over 2 s < 1/5 core, via new `c_abi.os_stats.processCpuNanos`) and
+    "no idle stem tile is classified stale under the default threshold". Both
+    fail on the unfixed code: tkings used 609 ms of CPU in 2047 ms, and metric
+    went stale.
+  - Code: `fd_stem.c` (`STEM_IDLE_SPIN_MAX` 4096, `STEM_IDLE_SLEEP_NS` 100 us)
+    and `fd_log_windows.c` (`fd_log_sleep` below 1 ms uses a high-resolution
+    waitable timer). Measured on the host: mingw `nanosleep(100 us)` returns at
+    once, `Sleep(1)` takes 9.2 ms, and the high-resolution timer takes 1.0 to
+    1.4 ms at about 2% of a core.
+  - Pitfall: after editing only `fd_stem.c` (which is `#include`d into the
+    `tk_*_stem.c` shims), the lane relinked `tickoni-supervisor.exe` against the
+    new `libfd_util.a` but did not recompile the exe's stem objects. Child tiles
+    kept running the old loop (every tk stem tile at about 35% of a core). Cleared
+    `build/.zig-cache` and rebuilt cold. Rebuild `just build-fd` after any
+    `src/util` change, because the lane links the prebuilt FD libs.
+  - A second cause, also fixed: the metric tile polled HTTP with a 1 ms timeout
+    (upstream's per-tile idle wait). On Windows `WSAPoll(1 ms)` takes 10 ms on
+    average (34 ms max), which stretched metric's housekeeping cycle. It now polls
+    with timeout 0 and idles through the stem sleep. `fd_metric_tile.o` comes from
+    make (`libfd_disco.a`), so this also needs `just build-fd`.
+  - **Result after the fix:** idle stem tiles use 0 to 62 ms of CPU per 2 s, down
+    from 560 to 780 ms (the CPU test passes). Steady-state heartbeat intervals
+    average about 15 ms, about `STEM_LAZY`, with a max of about 50 ms, the
+    documented `4 x STEM_LAZY`.
+
+### F2. The host itself stalls longer than the default stale threshold
+
+- **Evidence.** After F1, the remaining over-threshold heartbeats (105 to 127 ms)
+  line up with moments when every tile and the supervisor's own refresh loop jump
+  by 40 to 80 ms together. A standalone probe with nothing else running (a 1 ms
+  high-resolution waiter for 20 s) saw max gap 225 ms, 4 gaps over 50 ms and 1
+  over 100 ms. The Windows ARM VM on Apple Silicon pauses vCPUs. No tile can
+  meet a 100 ms heartbeat on this host.
+- **Effect.** Any assertion of "never stale under the default 100 ms threshold"
+  is flaky here: `test_tile_tkdiag` test 1 (r1 after F1: metric 111 ms, tkdiag
+  116 ms) and the new `test_stem_heartbeat` test 4.
+- **Decision (user, 2026-11-24):** these are logic tests, not performance tests.
+  Tune the test thresholds so they pass on this VM and on faster non-VM machines.
+  Applied: the tkdiag lifecycle/fan-in tests and the new sustained-idle test use
+  `stem_liveness.stale_after_ns` (1 s). The supervisor default is unchanged.
 
 ---
 
@@ -285,7 +366,7 @@ These come from `AGENTS.md` and apply to every fix made during this plan.
 - [ ] All 26 rows in the tables are `PASS`, with zero skipped tests in each file
       (other than the file-scoped runtime skips noted in "Known hazards").
 - [ ] `Grep` for `shouldSkip = false` under `src/tickoni/test` returns nothing.
-- [ ] `Grep` for `shouldSkip = true` count equals the pre-plan count (141 in the
+- [ ] `Grep` for `shouldSkip = true` count equals the post-F1 count (143 in the
       integration directory, plus the 4 untouched in `mocks/`).
 - [ ] Final `just test-integration-tk` (everything skipped again) is green and its
       pass/skip counts equal the baseline.
