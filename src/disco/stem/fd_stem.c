@@ -191,6 +191,40 @@
 #define STEM_LAZY (0L)
 #endif
 
+/* Tickoni deviation: idle sleep (doc/knowledge/tile-orchestration.md,
+   "Deviation: Bounded Sleep Instead of Pure Spin").  Upstream fd_stem runs
+   on a dedicated, pinned core and spins forever when idle.  Tickoni runs
+   many tile processes on few retail cores, where idle spinning tiles starve
+   each other of CPU.  An iteration that made no progress (its polled input
+   was caught up or held its frag, or there are no inputs, and no credit
+   callback was busy) is idle.  After STEM_IDLE_SPIN_MAX consecutive idle
+   iterations, every further idle iteration ends with a bounded
+   fd_log_sleep( STEM_IDLE_SLEEP_NS ), until progress resets the count.  The
+   shutdown check and the housekeeping/credit events still run at the top of
+   every iteration.  Define STEM_IDLE_SLEEP_NS as 0 to keep upstream's pure
+   spin. */
+#ifndef STEM_IDLE_SPIN_MAX
+#define STEM_IDLE_SPIN_MAX (4096UL)
+#endif
+
+#ifndef STEM_IDLE_SLEEP_NS
+#define STEM_IDLE_SLEEP_NS (100000L) /* 100 us, as runtime/link/wait.zig idle_sleep_ns */
+#endif
+
+#if STEM_IDLE_SLEEP_NS>0
+#define STEM_PRIVATE_PROGRESS() do { idle_iters = 0UL; } while(0)
+#define STEM_PRIVATE_IDLE()     do {                                           \
+    if( FD_UNLIKELY( idle_iters>=(ulong)STEM_IDLE_SPIN_MAX ) ) {               \
+      fd_log_sleep( (long)STEM_IDLE_SLEEP_NS );                                \
+    } else {                                                                   \
+      idle_iters++;                                                            \
+    }                                                                          \
+  } while(0)
+#else
+#define STEM_PRIVATE_PROGRESS() do { (void)idle_iters; } while(0)
+#define STEM_PRIVATE_IDLE()     do { (void)idle_iters; } while(0)
+#endif
+
 #define STEM_SHUTDOWN_SEQ (ULONG_MAX-1UL)
 
 static inline void
@@ -390,6 +424,7 @@ STEM_(run1)( ulong                        in_cnt,
      counter would wrap and overflow every ~1.4 s. */
   fd_tick_t then = fd_tickcount_wide();
   fd_tick_t now  = then;
+  ulong idle_iters = 0UL; /* consecutive iterations without progress, see STEM_IDLE_SLEEP_NS */
   for(;;) {
 
 #ifdef STEM_CALLBACK_SHOULD_SHUTDOWN
@@ -545,6 +580,7 @@ STEM_(run1)( ulong                        in_cnt,
     if( FD_UNLIKELY( min_cr_avail<burst ) ) {
       metric_backp_cnt += (ulong)!metric_in_backp;
       metric_in_backp   = 1UL;
+      STEM_PRIVATE_PROGRESS(); /* output is waiting on credits: not idle */
       FD_SPIN_PAUSE();
       metric_regime_ticks[2] += housekeeping_ticks;
       fd_tick_t next = fd_tickcount_wide();
@@ -559,6 +595,7 @@ STEM_(run1)( ulong                        in_cnt,
     int poll_in = 1;
     STEM_CALLBACK_AFTER_CREDIT( ctx, &stem, &poll_in, &charge_busy_after );
     if( FD_UNLIKELY( !poll_in ) ) {
+      STEM_PRIVATE_PROGRESS(); /* the tile is mid-work and paused input */
       metric_regime_ticks[1] += housekeeping_ticks;
       fd_tick_t next = fd_tickcount_wide();
       metric_regime_ticks[4] += (ulong)(next - now);
@@ -571,6 +608,8 @@ STEM_(run1)( ulong                        in_cnt,
 
     if( FD_UNLIKELY( !in_cnt ) ) {
       int was_busy = charge_busy_before+charge_busy_after;
+      if( FD_UNLIKELY( was_busy ) ) STEM_PRIVATE_PROGRESS();
+      else                          STEM_PRIVATE_IDLE();
       metric_regime_ticks[0] += housekeeping_ticks;
       fd_tick_t next = fd_tickcount_wide();
       if( FD_UNLIKELY( was_busy ) ) metric_regime_ticks[3] += (ulong)(next - now);
@@ -647,6 +686,8 @@ STEM_(run1)( ulong                        in_cnt,
       }
 
       /* Don't bother with spin as polling multiple locations */
+      if( FD_UNLIKELY( (diff<0L) | charge_busy_before | charge_busy_after ) ) STEM_PRIVATE_PROGRESS();
+      else                                                                     STEM_PRIVATE_IDLE(); /* caught up */
       *housekeeping_regime += housekeeping_ticks;
       *prefrag_regime += prefrag_ticks;
       fd_tick_t next = fd_tickcount_wide();
@@ -658,6 +699,10 @@ STEM_(run1)( ulong                        in_cnt,
 #ifdef STEM_CALLBACK_BEFORE_FRAG
     int filter = STEM_CALLBACK_BEFORE_FRAG( ctx, (ulong)this_in->idx, seq_found, sig );
     if( FD_UNLIKELY( filter<0 ) ) {
+      /* The frag is held upstream until other work frees room for it, so
+         holding it is not progress. */
+      if( FD_UNLIKELY( charge_busy_before | charge_busy_after ) ) STEM_PRIVATE_PROGRESS();
+      else                                                       STEM_PRIVATE_IDLE();
       metric_regime_ticks[1] += housekeeping_ticks;
       metric_regime_ticks[4] += prefrag_ticks;
       fd_tick_t next = fd_tickcount_wide();
@@ -665,6 +710,7 @@ STEM_(run1)( ulong                        in_cnt,
       now = next;
       continue;
     } else if( FD_UNLIKELY( filter>0 ) ) {
+      STEM_PRIVATE_PROGRESS(); /* the frag is consumed */
       this_in->accum[ FD_METRICS_COUNTER_LINK_FRAG_FILTERED_OFF ]++;
       this_in->accum[ FD_METRICS_COUNTER_LINK_FRAG_FILTERED_BYTES_OFF ] += (uint)this_in_mline->sz; /* TODO: This might be overrun ... ? Not loaded atomically */
 
@@ -680,6 +726,8 @@ STEM_(run1)( ulong                        in_cnt,
       continue;
     }
 #endif
+
+    STEM_PRIVATE_PROGRESS();
 
     /* We have a new fragment to mux.  Try to load it.  This attempt
        should always be successful if in producers are honoring our flow
@@ -887,6 +935,10 @@ STEM_(run)( fd_topo_t *      topo,
 #undef STEM_CALLBACK_CONTEXT_TYPE
 #undef STEM_CALLBACK_CONTEXT_ALIGN
 #undef STEM_LAZY
+#undef STEM_IDLE_SPIN_MAX
+#undef STEM_IDLE_SLEEP_NS
+#undef STEM_PRIVATE_PROGRESS
+#undef STEM_PRIVATE_IDLE
 #undef STEM_CALLBACK_SHOULD_SHUTDOWN
 #undef STEM_CALLBACK_DURING_HOUSEKEEPING
 #undef STEM_CALLBACK_METRICS_WRITE

@@ -191,6 +191,34 @@ fd_log_wallclock_cstr( long   now,
 
 /* ── Log sleep/wait ───────────────────────────────────────────────────── */
 
+#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
+#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
+#endif
+
+/* Sleep() takes whole milliseconds and wakes on the system timer tick
+   (about 9 to 15.6 ms unless some process raised the timer resolution), so
+   a sub-millisecond request would oversleep by up to a tick.  fd_stem's idle
+   sleep relies on short sleeps staying short (doc/knowledge/
+   tile-orchestration.md, "The same deviation in `fd_stem`"), so a request
+   below one millisecond waits on a per-thread high-resolution waitable timer
+   (Windows 10 1803 and later).  Returns 0 if that timer is unavailable, and
+   the caller falls back to Sleep(1). */
+static FD_TL HANDLE fd_log_private_sleep_timer;
+static FD_TL int    fd_log_private_sleep_timer_unavailable;
+
+static int
+fd_log_private_short_sleep( long ns ) {
+  if( FD_UNLIKELY( !fd_log_private_sleep_timer && !fd_log_private_sleep_timer_unavailable ) ) {
+    fd_log_private_sleep_timer = CreateWaitableTimerExW( NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS );
+    if( !fd_log_private_sleep_timer ) fd_log_private_sleep_timer_unavailable = 1;
+  }
+  if( FD_UNLIKELY( !fd_log_private_sleep_timer ) ) return 0;
+  LARGE_INTEGER due;
+  due.QuadPart = -(LONGLONG)( (ns + 99L) / 100L ); /* relative, in 100 ns units, rounded up */
+  if( FD_UNLIKELY( !SetWaitableTimer( fd_log_private_sleep_timer, &due, 0, NULL, NULL, FALSE ) ) ) return 0;
+  return WaitForSingleObject( fd_log_private_sleep_timer, INFINITE )==WAIT_OBJECT_0;
+}
+
 long
 fd_log_sleep( long dt ) {
   if( dt < 1L ) {
@@ -199,6 +227,7 @@ fd_log_sleep( long dt ) {
   }
   long ns_dt = fd_long_min( dt, ((FD_NS_PER_S)<<31)-1L );
   dt -= ns_dt;
+  if( ns_dt < FD_NS_PER_MS && fd_log_private_short_sleep( ns_dt ) ) return dt;
   long ms = (long)((ulong)ns_dt / FD_NS_PER_MS);
   if( ms < 1L ) ms = 1L;
   Sleep( (DWORD)ms );

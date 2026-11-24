@@ -25,3 +25,4 @@ pub const tkapi = @import("tkapi.zig");
 pub const tkings = @import("tkings.zig");
 pub const trace_id = @import("trace_id.zig");
 pub const os = @import("os.zig");
+pub const os_stats = @import("os_stats.zig");

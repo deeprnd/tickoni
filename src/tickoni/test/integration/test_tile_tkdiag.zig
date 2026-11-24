@@ -43,6 +43,10 @@ fn startPipeline(sup: *Supervisor, feed: *Harness, run_dir: []const u8) !void {
         .run_dir = run_dir,
         .event_count = event_count,
         .policy_limit_cents = 1_000,
+        // These are lifecycle and fan-in contracts, not a latency budget: the
+        // liveness threshold keeps a host scheduler stall (a VM pauses its
+        // vCPUs for 100 ms and more) from being read as a stale tile.
+        .heartbeat_stale_after_ns = stem_liveness.stale_after_ns,
         .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
         .workspace_name = util.nextWorkspaceName(&workspace_buf),
         .metric_port = util.nextMetricPort(),
