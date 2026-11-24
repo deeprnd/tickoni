@@ -165,21 +165,21 @@ tiles, so their results stand.
 
 | # | File | Status | Fix / notes |
 |---|------|--------|-------------|
-| 1 | `test_minimal_setup.zig` | TODO | |
-| 3 | `test_tile_metric.zig` | TODO | |
-| 4 | `test_process_topology.zig` | TODO | |
-| 5 | `test_process_pipeline.zig` | TODO | |
-| 6 | `test_process_shutdown_reap.zig` | TODO | |
-| 7 | `test_process_cpu_placement.zig` | TODO | |
-| 8 | `test_process_fixture_parity.zig` | TODO | |
-| 9 | `test_tile_tkings.zig` | TODO | |
-| 10 | `test_tile_tknorm.zig` | TODO | |
-| 11 | `test_tile_tkdedu.zig` | TODO | |
-| 12 | `test_tile_tkpoly.zig` | TODO | |
-| 13 | `test_tile_tkaudt.zig` | TODO | |
-| 15 | `test_tile_tkapi.zig` | TODO | |
-| 16 | `test_tile_tkmodl.zig` | TODO | |
-| 17 | `test_tile_tkagnt.zig` | TODO | |
+| 1 | `test_minimal_setup.zig` | PASS | 6/6 (6 passed, 141 skipped; 105s). No orphans. |
+| 3 | `test_tile_metric.zig` | PASS | 17/17 (130 skipped; 106s). No orphans. |
+| 4 | `test_process_topology.zig` | PASS | 5/5 (96s). No orphans. |
+| 5 | `test_process_pipeline.zig` | PASS | 2/2 (93s). No orphans. |
+| 6 | `test_process_shutdown_reap.zig` | PASS | 7/7 (107s). No orphans. |
+| 7 | `test_process_cpu_placement.zig` | PASS | 5/5 (99s). No orphans. |
+| 8 | `test_process_fixture_parity.zig` | PASS | 1/1 (95s). No orphans. |
+| 9 | `test_tile_tkings.zig` | PASS | 2/2 (89s). No orphans. |
+| 10 | `test_tile_tknorm.zig` | PASS | 6/6. The first run took 532s, all of it before the tests started (they took 4 s): a one-off build/host stall. The rerun took 120s. No orphans. |
+| 11 | `test_tile_tkdedu.zig` | PASS | 6/6 (100s). No orphans. |
+| 12 | `test_tile_tkpoly.zig` | PASS | 17/17 (112s). No orphans. |
+| 13 | `test_tile_tkaudt.zig` | PASS | 4/4 (95s). No orphans. |
+| 15 | `test_tile_tkapi.zig` | PASS | 4/4 (95s). No orphans. |
+| 16 | `test_tile_tkmodl.zig` | PASS | 8/8 (111s). No orphans. |
+| 17 | `test_tile_tkagnt.zig` | PASS | 20/20 (120s). No orphans. |
 
 ### Added by user decision (2026-11-24)
 
