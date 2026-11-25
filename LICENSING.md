@@ -10,7 +10,7 @@ the Apache License, Version 2.0:
 - the Firedancer-derived execution infrastructure;
 - the Tickoni Zig runtime;
 - the Tickoni CLI;
-- `tkapi` schemas and protocol definitions;
+- `tkgate` schemas and protocol definitions;
 - non-UI SDKs and generated clients;
 - general build, test, and technical documentation.
 
@@ -33,7 +33,7 @@ The GPL-3.0-only license text is contained in
 The Tickoni runtime and terminal are separate programs and separate
 processes.
 
-For local operation, the terminal communicates with `tk_api` through
+For local operation, the terminal communicates with `tk_gate` through
 bounded shared-memory channels. For remote operation, network
 communication is mediated by the Tickoni gateway.
 

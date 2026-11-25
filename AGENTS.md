@@ -47,7 +47,7 @@ Core layers:
    agents, model gateway, tool broker, signed adapters, and future approved
    execution.
 3. Attached systems are governed integrations around the runtime: Next.js
-   CaseOps UI, Zig `tkapi` HTTP/WebSocket API, Markdown memory/policy files,
+   CaseOps UI, Zig `tkgate` HTTP/WebSocket API, Markdown memory/policy files,
    the analytics store analytics/backtest stores, LLM server/model providers, local Agent
    Daemon, the approved execution ledger, and trading/crypto/payment/risk/compliance APIs.
 
@@ -82,7 +82,7 @@ Key principle:
 Scenario: a user asks the trading-control agent to buy USD 2,000 of a US
 Information Technology ETF through `brokerage.demo_ops`.
 
-1. `tkapi` receives the user request and records source identity, workflow
+1. `tkgate` receives the user request and records source identity, workflow
    `trading_control`, case or run id, requested instrument, side, notional
    amount, venue, and environment.
 2. `tkings`, `tknorm`, and `tkdedu` ingest, canonicalize, and deduplicate the
@@ -184,7 +184,7 @@ Notes:
 - Use Firedancer infrastructure tiles and primitives for the ultra-TPS runtime
   claim, but do not repurpose Solana validator schemas, RPC semantics, or
   validator-only tile identities as Tickoni framework concepts.
-- `tkapi` is the Zig HTTP/WebSocket CaseOps API tile. It should use or wrap
+- `tkgate` is the Zig HTTP/WebSocket CaseOps API tile. It should use or wrap
   Firedancer HTTP infrastructure where practical.
 - Markdown files hold memory, theses, policies, company notes, runbooks, and
   human-authored operating context.
@@ -301,7 +301,7 @@ Do not change these assumptions without explicit approval:
   human approval, signed action envelope, deterministic action id, audit
   before/after records, and downstream read-back.
 - TigerBeetle is the authoritative finance database for balances, transfers,
-  fills, and accounting state. Agents, UI, `tkapi`, `tkmodl`, and `tkadpt`
+  fills, and accounting state. Agents, UI, `tkgate`, `tkmodl`, and `tkadpt`
   must not connect to it directly.
 - DuckDB is for market data, analytics, backtests, research tables, and local
   analytical projections. Do not treat DuckDB analytics state as authoritative
@@ -349,7 +349,7 @@ These are mandatory unless the user explicitly directs otherwise.
 - Preserve separation of concerns: ingestion, normalization, dedupe, case
   routing, policy, audit, replay, model access, tool brokering, adapter access,
   execution, storage, and UI/API transport must remain clearly separated.
-- Keep `tkapi` thin. HTTP/WebSocket handlers should validate transport shape,
+- Keep `tkgate` thin. HTTP/WebSocket handlers should validate transport shape,
   authenticate, route, and fan out state; financial correctness belongs in the
   owning tiles.
 - Keep `tkpoly` as the authority for finance-native capability decisions. Do
@@ -480,7 +480,7 @@ Stop and get guidance before:
   amount/exposure/frequency limits, approval requirements, or proposal state,
 - changing audit record schema, audit hash chaining, append-only behavior, or
   replay substitution rules,
-- changing public API contracts for `tkapi`, CaseOps, agent daemon sessions,
+- changing public API contracts for `tkgate`, CaseOps, agent daemon sessions,
   model requests, tool requests, adapter requests, or approval actions,
 - changing storage roles for Markdown, DuckDB, or TigerBeetle,
 - changing TigerBeetle balance, transfer, fill, accounting, idempotency, or
