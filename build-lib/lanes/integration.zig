@@ -32,18 +32,23 @@ pub fn createIntModules(
 
 /// Which subset of integration tests to register.
 ///
-/// infra = infrastructure layer: supervisor, tile lifecycle, Tango links,
-///         CPU placement, mock server infrastructure, model tile HTTP.
+/// infra_tile = infrastructure layer, one file per tile (`test_tile_*.zig`).
+/// infra_process = infrastructure layer, everything else: supervisor,
+///         topology, Tango links, CPU placement, stem heartbeat, mock server
+///         infrastructure, model tile HTTP.
 /// domain = financial domain: investment policy, allowed/blocked trades,
 ///          replay, decision cards.
+/// all = infra_tile, then infra_process, then domain, in one sequential chain.
 pub const LaneKind = enum {
     all,
-    infra,
+    infra_tile,
+    infra_process,
     domain,
 };
 
-/// Max possible run count across all lane kinds (all=25: 18 infra + 7 domain).
-const max_run_count: usize = 25;
+/// Max possible run count across all lane kinds (all=26: 10 tile files,
+/// 8 process files, 1 mock-server/model-HTTP series and 7 domain files).
+const max_run_count: usize = 26;
 
 /// Register integration tests for the requested lane kind.
 pub fn strategy(
@@ -103,38 +108,54 @@ pub fn strategy(
     };
 
     // ------------------------------------------------------------------
-    // Infra tests (8)
+    // Infra tests
     // ------------------------------------------------------------------
-    const register_infra: bool = switch (kind) {
+    const register_infra_tile: bool = switch (kind) {
         .all => true,
-        .infra => true,
+        .infra_tile => true,
+        .infra_process => false,
+        .domain => false,
+    };
+    const register_infra_process: bool = switch (kind) {
+        .all => true,
+        .infra_tile => false,
+        .infra_process => true,
         .domain => false,
     };
 
-    if (register_infra) {
-        // 1-7. Process-mode files share infra_imports.
-        const infra_proc_files: []const []const u8 = &.{
-            "src/tickoni/test/integration/test_tile_metric.zig",
-            "src/tickoni/test/integration/test_process_topology.zig",
-            "src/tickoni/test/integration/test_process_pipeline.zig",
-            "src/tickoni/test/integration/test_tile_tkapi.zig",
-            "src/tickoni/test/integration/test_tile_tkings.zig",
-            "src/tickoni/test/integration/test_process_shutdown_reap.zig",
-            "src/tickoni/test/integration/test_process_cpu_placement.zig",
-            "src/tickoni/test/integration/test_process_fixture_parity.zig",
-            "src/tickoni/test/integration/test_link_bounds.zig",
-            "src/tickoni/test/integration/test_tile_tkaudt.zig",
-            "src/tickoni/test/integration/test_tile_tknorm.zig",
-            "src/tickoni/test/integration/test_tile_tkdedu.zig",
-            "src/tickoni/test/integration/test_tile_tkpoly.zig",
-            "src/tickoni/test/integration/test_tile_tkdiag.zig",
-            "src/tickoni/test/integration/test_minimal_setup.zig",
-            "src/tickoni/test/integration/test_tile_tkmodl.zig",
-            "src/tickoni/test/integration/test_tile_tkagnt.zig",
-            "src/tickoni/test/integration/test_stem_heartbeat.zig",
-        };
+    // Process-mode files share infra_imports. Tile files exercise one tile each;
+    // process files exercise the supervisor, topology and links.
+    const infra_tile_files: []const []const u8 = &.{
+        "src/tickoni/test/integration/test_tile_metric.zig",
+        "src/tickoni/test/integration/test_tile_tkapi.zig",
+        "src/tickoni/test/integration/test_tile_tkings.zig",
+        "src/tickoni/test/integration/test_tile_tkaudt.zig",
+        "src/tickoni/test/integration/test_tile_tknorm.zig",
+        "src/tickoni/test/integration/test_tile_tkdedu.zig",
+        "src/tickoni/test/integration/test_tile_tkpoly.zig",
+        "src/tickoni/test/integration/test_tile_tkdiag.zig",
+        "src/tickoni/test/integration/test_tile_tkmodl.zig",
+        "src/tickoni/test/integration/test_tile_tkagnt.zig",
+    };
+    const infra_process_files: []const []const u8 = &.{
+        "src/tickoni/test/integration/test_process_topology.zig",
+        "src/tickoni/test/integration/test_process_pipeline.zig",
+        "src/tickoni/test/integration/test_process_shutdown_reap.zig",
+        "src/tickoni/test/integration/test_process_cpu_placement.zig",
+        "src/tickoni/test/integration/test_process_fixture_parity.zig",
+        "src/tickoni/test/integration/test_link_bounds.zig",
+        "src/tickoni/test/integration/test_minimal_setup.zig",
+        "src/tickoni/test/integration/test_stem_heartbeat.zig",
+    };
 
-        for (infra_proc_files) |path| {
+    const infra_file_groups = [_]struct { enabled: bool, files: []const []const u8 }{
+        .{ .enabled = register_infra_tile, .files = infra_tile_files },
+        .{ .enabled = register_infra_process, .files = infra_process_files },
+    };
+
+    for (infra_file_groups) |group| {
+        if (!group.enabled) continue;
+        for (group.files) |path| {
             const test_bin = b.addTest(.{
                 .root_module = b.createModule(.{
                     .root_source_file = b.path(path),
@@ -154,8 +175,10 @@ pub fn strategy(
             test_runs[test_run_count].step.dependOn(&exe_install.step);
             test_run_count += 1;
         }
+    }
 
-        // 8. Mock servers + model tile HTTP (series — two binaries, one step).
+    if (register_infra_process) {
+        // Mock servers + model tile HTTP (series — two binaries, one step).
         const mock_servers_test = b.addTest(.{
             .root_module = b.createModule(.{
                 .root_source_file = b.path("src/tickoni/test/mocks/test_mock_servers.zig"),
@@ -199,7 +222,8 @@ pub fn strategy(
     // ------------------------------------------------------------------
     const register_domain: bool = switch (kind) {
         .all => true,
-        .infra => false,
+        .infra_tile => false,
+        .infra_process => false,
         .domain => true,
     };
 

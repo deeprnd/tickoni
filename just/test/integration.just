@@ -51,33 +51,67 @@ test-integration-tk-macos-x86: test-integration-tk-linux-x86
 
 test-integration-tk-macos-arm: test-integration-tk-linux-x86
 
-# Infra lane — supervisor, tile lifecycle, Tango links, mock servers.
+# Infra lane: the tile lane, then the process lane, one after the other.
+# They never run concurrently: both spawn tile processes that share ports and workspaces.
 test-integration-tk-infra:
+    just test-integration-tk-infra-tile
+    just test-integration-tk-infra-process
+
+# Infra tile lane — one test file per tile (metric, tkagnt, tkapi, tkaudt, tkdedu, tkdiag, tkings, tkmodl, tknorm, tkpoly).
+test-integration-tk-infra-tile:
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{ os }}-{{ arch }}" in
-    linux-x86) exec just test-integration-tk-infra-linux-x86 ;;
-    linux-arm) exec just test-integration-tk-infra-linux-arm ;;
-    macos-x86) exec just test-integration-tk-infra-macos-x86 ;;
-    macos-arm) exec just test-integration-tk-infra-macos-arm ;;
-    windows-x86) exec just test-integration-tk-infra-windows-x86 ;;
-    windows-arm) exec just test-integration-tk-infra-windows-arm ;;
-    *) echo \"unsupported host platform for test-integration-tk-infra: {{ os }}-{{ arch }}\" >&2; exit 1 ;;
+    linux-x86) exec just test-integration-tk-infra-tile-linux-x86 ;;
+    linux-arm) exec just test-integration-tk-infra-tile-linux-arm ;;
+    macos-x86) exec just test-integration-tk-infra-tile-macos-x86 ;;
+    macos-arm) exec just test-integration-tk-infra-tile-macos-arm ;;
+    windows-x86) exec just test-integration-tk-infra-tile-windows-x86 ;;
+    windows-arm) exec just test-integration-tk-infra-tile-windows-arm ;;
+    *) echo "unsupported host platform for test-integration-tk-infra-tile: {{ os }}-{{ arch }}" >&2; exit 1 ;;
     esac
 
-test-integration-tk-infra-linux-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig version)" test-integration-tk-infra
+test-integration-tk-infra-tile-linux-x86:
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig version)" test-integration-tk-infra-tile
 
-test-integration-tk-infra-linux-arm: test-integration-tk-infra-linux-x86
+test-integration-tk-infra-tile-linux-arm: test-integration-tk-infra-tile-linux-x86
 
-test-integration-tk-infra-macos-x86: test-integration-tk-infra-linux-x86
+test-integration-tk-infra-tile-macos-x86: test-integration-tk-infra-tile-linux-x86
 
-test-integration-tk-infra-macos-arm: test-integration-tk-infra-linux-x86
+test-integration-tk-infra-tile-macos-arm: test-integration-tk-infra-tile-linux-x86
 
-test-integration-tk-infra-windows-x86:
-    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig version)" test-integration-tk-infra
+test-integration-tk-infra-tile-windows-x86:
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig version)" test-integration-tk-infra-tile
 
-test-integration-tk-infra-windows-arm: test-integration-tk-infra-windows-x86
+test-integration-tk-infra-tile-windows-arm: test-integration-tk-infra-tile-windows-x86
+
+# Infra process lane — supervisor, topology, Tango links, stem heartbeat, mock servers, model HTTP.
+test-integration-tk-infra-process:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ os }}-{{ arch }}" in
+    linux-x86) exec just test-integration-tk-infra-process-linux-x86 ;;
+    linux-arm) exec just test-integration-tk-infra-process-linux-arm ;;
+    macos-x86) exec just test-integration-tk-infra-process-macos-x86 ;;
+    macos-arm) exec just test-integration-tk-infra-process-macos-arm ;;
+    windows-x86) exec just test-integration-tk-infra-process-windows-x86 ;;
+    windows-arm) exec just test-integration-tk-infra-process-windows-arm ;;
+    *) echo "unsupported host platform for test-integration-tk-infra-process: {{ os }}-{{ arch }}" >&2; exit 1 ;;
+    esac
+
+test-integration-tk-infra-process-linux-x86:
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig version)" test-integration-tk-infra-process
+
+test-integration-tk-infra-process-linux-arm: test-integration-tk-infra-process-linux-x86
+
+test-integration-tk-infra-process-macos-x86: test-integration-tk-infra-process-linux-x86
+
+test-integration-tk-infra-process-macos-arm: test-integration-tk-infra-process-linux-x86
+
+test-integration-tk-infra-process-windows-x86:
+    ZIG_LOCAL_CACHE_DIR={{ ZIG_CACHE }} ZIG_GLOBAL_CACHE_DIR={{ ZIG_GLOBAL_CACHE }} zig build --cache-dir {{ ZIG_CACHE }} --prefix {{ ZIG_PREFIX }} -Dtest=true -Dfd-lib-dir={{ fd_tickoni_lib }} -Dzig-version="$(zig version)" test-integration-tk-infra-process
+
+test-integration-tk-infra-process-windows-arm: test-integration-tk-infra-process-windows-x86
 
 # Domain lane — investment policy, allowed/blocked trades, replay.
 test-integration-tk-domain:
