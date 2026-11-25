@@ -160,7 +160,7 @@ fn makeFixture() TkEvent {
     var ev = std.mem.zeroes(TkEvent);
     ev.version = audit_mod.TK_EVENT_WIRE_VERSION;
     ev.kind = audit_mod.TK_EVENT_KIND_PAYMENT;
-    ev.source = audit_mod.TK_EVENT_SOURCE_TKAPI;
+    ev.source = audit_mod.TK_EVENT_SOURCE_TKGATE;
     ev.trace_id = trace_id.fromInt(1);
     ev.idempotency_key = 1;
     ev.body.payment.account_id = 2;
