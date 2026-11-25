@@ -538,6 +538,17 @@ liveness bug rather than a correctness one: `SHOULD_SHUTDOWN` runs at the
 silently drops its last event. Publishing in `AFTER_FRAG` puts the publish in
 the same iteration as the fragment that triggered the gate.
 
+The same top-of-loop check has a mirror-image trap for a tile that sets its
+exhaustion flag from `AFTER_CREDIT` (a drain that finishes on a HALT, as in
+`tkagnt`). `fd_stem` still polls one input fragment in that same iteration
+unless `AFTER_CREDIT` clears `*poll_in`, and `SHOULD_SHUTDOWN` is not read
+again until the next iteration. A fragment the tile accepts in between is
+counted and resolved but never published, so an accepted request ends with no
+terminal result and no audit record. The rule: a tile that sets its exhaustion
+flag in `AFTER_CREDIT` sets `*poll_in = 0` in that same call. A request the
+tile did not read is not accepted, and its producer is back-pressured, not
+silently dropped.
+
 ### Staging Discipline
 
 Each tile needs a place to stage that nothing else observes until
