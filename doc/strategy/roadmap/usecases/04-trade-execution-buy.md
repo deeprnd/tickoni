@@ -52,7 +52,7 @@ sequenceDiagram
 
 || Tile | Runtime ID | Responsibility | Status |
 ||------|-----------|----------------|--------|
-|| `tkapi` | `tkapi0` | HTTP/WebSocket CaseOps API tile — receives trade execution request, sets case_id, routes to tkings | **MISSING** |
+|| `tkapi` | `tkapi` | HTTP/WebSocket CaseOps API tile — receives trade execution request, sets case_id, routes to tkings | **MISSING** |
 || `tkings` | `tkings` | Universal event ingestion — receives trading_order.execute event, frames it canonically | **NOT STARTED** |
 || `tknorm` | `tknorm` | Canonical normalization — normalizes trade execution event into canonical facts | **NOT STARTED** |
 || `tkdedu` | `tkdedu` | Deduplication — deduplicates trade execution event | **NOT STARTED** |

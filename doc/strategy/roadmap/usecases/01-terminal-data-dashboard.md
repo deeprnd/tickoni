@@ -46,7 +46,7 @@ sequenceDiagram
 
 || Tile | Runtime ID | Responsibility | Status |
 ||------|-----------|----------------|--------|
-|| `tkapi` | `tkapi0` | HTTP/WebSocket CaseOps API tile — receives dashboard request, sets case_id, routes to tkings for canonical event framing | **MISSING** |
+|| `tkapi` | `tkapi` | HTTP/WebSocket CaseOps API tile — receives dashboard request, sets case_id, routes to tkings for canonical event framing | **MISSING** |
 || `tkings` | `tkings` | Universal event ingestion — receives dashboard_read event, frames it canonically, pushes to tknorm | **NOT STARTED** |
 || `tknorm` | `tknorm` | Canonical normalization — normalizes dashboard_read event into canonical facts | **NOT STARTED** |
 || `tkdedu` | `tkdedu` | Deduplication — deduplicates dashboard_read event | **NOT STARTED** |

@@ -53,7 +53,7 @@ sequenceDiagram
 
 || Tile | Runtime ID | Responsibility | Status |
 ||------|-----------|----------------|--------|
-|| `tkapi` | `tkapi0` | HTTP/WebSocket CaseOps API tile — receives valuation request, sets case_id, routes to tkings | **MISSING** |
+|| `tkapi` | `tkapi` | HTTP/WebSocket CaseOps API tile — receives valuation request, sets case_id, routes to tkings | **MISSING** |
 || `tkings` | `tkings` | Universal event ingestion — receives valuation_analysis event, frames it canonically | **NOT STARTED** |
 || `tknorm` | `tknorm` | Canonical normalization — normalizes valuation_analysis event | **NOT STARTED** |
 || `tkdedu` | `tkdedu` | Deduplication — deduplicates valuation_analysis event | **NOT STARTED** |
