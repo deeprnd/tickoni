@@ -61,6 +61,8 @@
 #include "disco/topo/fd_topo.h"
 #include "util/wksp/fd_wksp.h"
 
+// ── Context, Workspace, and CNC ──
+
 /* ─── Context retrieval ───
 
    Retrieve ctx from scratch. Takes the ctx type and alignment constant as
@@ -155,6 +157,8 @@ stk_find_cnc(fd_topo_t const * topo, ulong tile_id) {
             (ctx)->cnc = fd_topo_obj_laddr((fd_topo_t *)topo, _cnc_obj); \
     } while (0)
 
+// ── Sequence Counters ──
+
 /* ─── Counter publishing ───
 
    Publish a tile counter to its CNC app slot.  Safe no-op if cnc is NULL.
@@ -181,6 +185,8 @@ stk_publish_counter(void * cnc, ulong slot, ulong value) {
     ulong * app = (ulong *)fd_cnc_app_laddr((fd_cnc_t *)cnc);
     if (app) app[slot] = value;
 }
+
+// ── Diagnostics Publishing ──
 
 /* ─── CNC liveness (BOOT -> RUN + heartbeat) ───
 
@@ -242,6 +248,8 @@ stk_cnc_liveness(void * cnc) {
     tk_cnc_liveness_fault_check();
 }
 
+// ── Fragment Handling ──
+
 /* ─── DURING_FRAG validation preamble ───
 
    Common checks at the top of every DURING_FRAG that consumes a TkEvent:
@@ -274,6 +282,8 @@ static inline void *
 stk_chunk_to_gaddr(void * wksp, ulong chunk) {
     return fd_wksp_laddr_fast(wksp, chunk * FD_CHUNK_ALIGN);
 }
+
+// ── DCache Publishing ──
 
 /* ─── Links: the dcache side of every input and output ───
 
@@ -398,6 +408,8 @@ stk_link_out_publish( stk_link_out_t *     out,
     memcpy( stk_link_out_laddr( out ), src, sz );
     stk_link_out_commit( out, stem, out_idx, sig, sz, fd_frag_meta_ctl( 0UL, 1, 1, 0 ) );
 }
+
+// ── Run-tile ABI Accessors ──
 
 /* ─── Run-tile ABI accessors ───
 
