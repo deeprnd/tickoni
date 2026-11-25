@@ -3,7 +3,7 @@
 ## Goal
 
 Every integration test file under `src/tickoni/test/integration/` currently has its
-tests disabled by a per-test `const shouldSkip = true;` guard. Re-enable them
+tests disabled by a per-test `const shouldSkip = false;` guard. Re-enable them
 **one file at a time**, so any failure is attributable to exactly one file. Run the
 integration lane, find the root cause of each failure, fix it, and re-run until that
 file is green. Then re-disable the file and move to the next.
@@ -24,7 +24,7 @@ ports and a shared Zig cache.
 
 For each file `X` in the order below:
 
-1. **Enable** — in `X` only, change every `const shouldSkip = true;` to
+1. **Enable** — in `X` only, change every `const shouldSkip = false;` to
    `const shouldSkip = false;`.
    - Confirm with `Grep` that `X` has zero `shouldSkip = true` and that the
      number of `shouldSkip = false` matches the "shouldSkip count" in the table.
@@ -47,7 +47,7 @@ For each file `X` in the order below:
 4. **Re-test** — go back to step 2. Repeat until all of `X`'s tests pass
    with the full summary clean.
 5. **Disable** — change every `const shouldSkip = false;` in `X` back to
-   `const shouldSkip = true;`. Confirm with `Grep` that no `shouldSkip = false`
+   `const shouldSkip = false;`. Confirm with `Grep` that no `shouldSkip = false`
    remains anywhere under `src/tickoni/test`.
 6. **Record** — update the progress table (status, date, fixes made, commit).
    Commit the fix(es) for `X` separately from the plan update, so each file's
@@ -61,9 +61,9 @@ Use a byte-preserving edit so the working copy's line endings are not rewritten
 
 ```bash
 # enable
-sed -i 's/const shouldSkip = true;/const shouldSkip = false;/' src/tickoni/test/integration/<X>.zig
+sed -i 's/const shouldSkip = false;/const shouldSkip = false;/' src/tickoni/test/integration/<X>.zig
 # disable
-sed -i 's/const shouldSkip = false;/const shouldSkip = true;/' src/tickoni/test/integration/<X>.zig
+sed -i 's/const shouldSkip = false;/const shouldSkip = false;/' src/tickoni/test/integration/<X>.zig
 ```
 
 After the disable step, `git diff -U0 -- <X>.zig` must show **no** `shouldSkip`
@@ -140,7 +140,7 @@ shows up as noise in a higher-level file. Counts are current `shouldSkip` counts
 | 14 | `test_tile_tkdiag.zig` | 6 | PASS | 2026-11-24 | r1 failed (tkdiag stale, 119 ms). Fixed by F1 (stem idle sleep, `610efa214`). F2: the tkdiag lifecycle/fan-in helper uses the 1 s liveness threshold (user decision: logic tests, not latency). fix2 and fix3 both 6/6 (lane: 6 passed, 141 skipped). No orphans. |
 | 15 | `test_tile_tkapi.zig` | 4 | PASS | 2026-11-24 | 4/4 passed on the first run (lane: 4 passed, 141 skipped, 0 failed; 141s). No fix needed. No orphans. |
 | 16 | `test_tile_tkmodl.zig` | 8 | PASS | 2026-11-24 | 8/8 passed on the first run (lane: 8 passed, 137 skipped, 0 failed; 150s). No fix needed. No orphans. |
-| 17 | `test_tile_tkagnt.zig` | 20 | PASS | 2026-11-24 | 20/20 passed on the first run (lane: 20 passed, 125 skipped, 0 failed; 224s). No fix needed. No orphans. Includes the frozen-tile stale test (portable suspend/resume works on Windows). |
+| 17 | `test_tile_tkagnt.zig` | 20 | PASS | 2026-11-24 | 20/20 passed on the first run (lane: 20 passed, 125 skipped, 0 failed; 224s). No fix needed. No orphans. Includes the frozen-tile stale test (portable suspend/resume works on Windows). **Flaky, see F3:** with every test unskipped the HALT drain test failed about 1 run in 3. Fixed by F3. |
 | 18 | `test_stem_heartbeat.zig` | 5 (was 3) | PASS | 2026-11-24 | 3/3 on the first run. F1 added 2 tests (idle CPU < 1/5 core, sustained idle liveness), which failed before the fix. After `610efa214`: 5/5 (lane: 5 passed, 142 skipped). Idle stem CPU 0-46 ms per 2 s. |
 | 19 | `test_model_http_backend.zig` | 4 | PASS | 2026-11-24 | 4/4 passed on the first run (lane: 4 passed, 141 skipped, 0 failed; 146s). No fix needed. test_mock_servers stayed skipped (hazard 5). No orphans. |
 
@@ -329,6 +329,37 @@ enabled at a time.
   Tune the test thresholds so they pass on this VM and on faster non-VM machines.
   Applied: the tkdiag lifecycle/fan-in tests and the new sustained-idle test use
   `stem_liveness.stale_after_ns` (1 s). The supervisor default is unchanged.
+
+### F3. tkagnt admits a request after its drain decided it was done (file 17)
+
+- **Symptom.** `tkagnt_tile: a HALT mid-run drains every accepted request into one
+  audited terminal result` failed at `expectEqual(admitted, terminalDone)` with
+  "expected 24, found 23" (and 39/38). Standalone, the `tkagnt` test binary failed
+  2 of 3 runs. It passed both full-lane runs and the original file-17 run, because
+  the race depends on timing. No "drain deadline passed" warning was logged.
+- **Root cause.** `fd_stem` evaluates `SHOULD_SHUTDOWN` only at the top of the loop.
+  `tkagnt_after_credit` sets `input_exhausted` at the end of the iteration, but
+  `poll_in` stays 1, so the same iteration still polls one input fragment.
+  `tkagnt_admit` takes a request that arrives in that window (`admitted++`,
+  resolved as shutdown), and the tile exits at the next loop top before that
+  run's audit record and terminal result are published. One accepted run ends
+  with no terminal result, which breaks "every accepted request ends in exactly
+  one terminal result, audited first" in `tk_agent_stem.c`.
+- **Fix (user decision 2026-11-24: confirm, fix, retest).** Docs first:
+  `doc/knowledge/tile-orchestration.md` ("AFTER_CREDIT as a publish path" gains
+  the mirror-image rule). Code: `tkagnt_after_credit` sets `*opt_poll_in = 0` in
+  the same call that sets `input_exhausted`. An unread request is not accepted
+  and its producer is back-pressured.
+- **Second, test-only race found by the stress run.** After the fix, 2 of 6 runs
+  failed at the next assertion, `expectEqual(admitted, tkdisp.resultCount)`
+  ("expected 21, found 5"). `terminalDone == admitted` now held. `tkdisp` is a
+  separate process that consumes the results asynchronously, and the test read its
+  count the moment `tkagnt` was reaped. The test now waits, bounded by `max_polls`,
+  for `tkdisp` to reach `admitted` and still requires the full count.
+- **Result.** Fixed binary: 8 of 8 standalone runs passed, and the lane passed with
+  `tkagnt` 20/20. Before the fix: 2 of 3 standalone failures.
+- **Same pattern elsewhere.** Other stem tiles that set an exhaustion flag outside
+  `AFTER_FRAG` were not audited here. Not changed.
 
 ---
 
