@@ -12,7 +12,7 @@ const util = @import("util");
 // That the supervisor launches tkings through "__stem-run" is asserted in
 // supervisor.zig's tileArgv tests, on every platform.
 test "tkings_integration: idle child stays running and halts cleanly" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
@@ -57,7 +57,7 @@ fn tileScratch(sup: *supervisor_mod.Supervisor, name: []const u8) !?*anyopaque {
 }
 
 test "tkings_integration: malformed envelopes are dropped and counted, canonical ones framed in arrival order" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();

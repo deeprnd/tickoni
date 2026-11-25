@@ -28,7 +28,7 @@ fn attachScratchWksp(io: std.Io, run_dir: []const u8, name: [*:0]const u8) !*c_a
 }
 
 test "link_bounds: publish larger than the link's mtu fails closed instead of overrunning the dcache slot" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -58,7 +58,7 @@ test "link_bounds: publish larger than the link's mtu fails closed instead of ov
 }
 
 test "link_bounds: joining a zeroed (missing) link handle set fails closed" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -82,7 +82,7 @@ test "link_bounds: joining a zeroed (missing) link handle set fails closed" {
 }
 
 test "link_bounds: producer backpressures and counts waits when the consumer does not advance" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();
@@ -128,7 +128,7 @@ test "link_bounds: producer backpressures and counts waits when the consumer doe
 }
 
 test "link_bounds: backlog counts published fragments the consumer has not consumed, never more than the depth" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
     defer tmp.cleanup();

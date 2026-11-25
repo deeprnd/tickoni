@@ -41,7 +41,7 @@ fn connectWithTimeout(
 }
 
 test "integration mock openai server config defaults are stable" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     const config = openai_mock.Config{};
@@ -51,7 +51,7 @@ test "integration mock openai server config defaults are stable" {
 }
 
 test "integration mock broker server config defaults are stable" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     const config = broker_mock.Config{};
@@ -61,7 +61,7 @@ test "integration mock broker server config defaults are stable" {
 }
 
 test "integration mock openai server serves health and chat completions" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     const allocator = std.testing.allocator;
@@ -107,7 +107,7 @@ test "integration mock openai server serves health and chat completions" {
 }
 
 test "integration mock broker server serves health and broker endpoints" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     const allocator = std.testing.allocator;

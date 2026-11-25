@@ -43,7 +43,7 @@ fn expectNoCrash(sup: *Supervisor) !void {
 }
 
 test "stem_heartbeat: every stem tile reaches CNC RUN and advances its heartbeat while idle" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
@@ -64,7 +64,7 @@ test "stem_heartbeat: every stem tile reaches CNC RUN and advances its heartbeat
 }
 
 test "stem_heartbeat: a frozen tkdiag is classified stale and no other stem tile is" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     // The audit finding: an observer stem tile with no heartbeat could not be
@@ -105,7 +105,7 @@ fn tileCpuNanos(sup: *const Supervisor, idx: usize) !u64 {
 }
 
 test "stem_heartbeat: an idle stem tile sleeps instead of spinning on a core" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
@@ -140,8 +140,8 @@ test "stem_heartbeat: an idle stem tile sleeps instead of spinning on a core" {
         const spins = used_ns * idle_cpu_max_den > wall_ns * idle_cpu_max_num;
         if (spins) spinning += 1;
         std.debug.print("stem_heartbeat: idle {s} used {d} ms of CPU in {d} ms{s}\n", .{
-            sup.topo.tiles[idx].name.slice(),          used_ns / std.time.ns_per_ms,
-            wall_ns / std.time.ns_per_ms, if (spins) " (spinning)" else "",
+            sup.topo.tiles[idx].name.slice(), used_ns / std.time.ns_per_ms,
+            wall_ns / std.time.ns_per_ms,     if (spins) " (spinning)" else "",
         });
     }
     if (spinning != 0) return error.IdleStemTileSpins;
@@ -149,7 +149,7 @@ test "stem_heartbeat: an idle stem tile sleeps instead of spinning on a core" {
 }
 
 test "stem_heartbeat: a sleeping idle stem tile keeps its heartbeat for the whole idle window" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     // The idle sleep must not cost a tile its liveness: polled for the whole
@@ -180,7 +180,7 @@ test "stem_heartbeat: a sleeping idle stem tile keeps its heartbeat for the whol
 }
 
 test "stem_heartbeat: every stem tile of the pipeline is classified stale when frozen" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
