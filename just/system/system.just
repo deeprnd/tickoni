@@ -72,7 +72,7 @@ system-kill-test:
         ;;
       windows)
         # Windows: use taskkill with image-name filters for tk* and test-*
-        for img in tkings tknorm tkdedu tkcase tkpoly tkaudt tkrepl tkmetr tkdiag tkdisp tkagnt tkmodl tktool tkadpt tkapi tickoni-supervisor; do
+        for img in tkings tknorm tkdedu tkcase tkpoly tkaudt tkrepl tkmetr tkdiag tkdisp tkagnt tkmodl tktool tkadpt tkgate tickoni-supervisor; do
           taskkill /F /FI "IMAGENAME eq ${img}.exe" /T > /dev/null 2>&1 || true
         done
         # Kill any zig-out/test-* processes by matching the path

@@ -57,7 +57,7 @@ test-integration-tk-infra:
     just test-integration-tk-infra-tile
     just test-integration-tk-infra-process
 
-# Infra tile lane — one test file per tile (metric, tkagnt, tkapi, tkaudt, tkdedu, tkdiag, tkings, tkmodl, tknorm, tkpoly).
+# Infra tile lane — one test file per tile (metric, tkagnt, tkgate, tkaudt, tkdedu, tkdiag, tkings, tkmodl, tknorm, tkpoly).
 test-integration-tk-infra-tile:
     #!/usr/bin/env bash
     set -euo pipefail
