@@ -8,7 +8,6 @@
 ///   • "tkapi"  (5 chars) → "tkapi" (no truncation needed)
 ///   • "tkbrok" (6 chars) → "tkbrok" (exactly fits)
 ///   • "tkbrokr" (7 chars) → "tkbrok" (truncated to 6)
-///   • "tkapi0" (6 chars) → "tkapi0" (exactly fits)
 /// Documentation may reference the human-readable form (e.g. "tkbrokr"),
 /// but the TileId constant always uses the 6-byte form.
 const std = @import("std");
@@ -47,7 +46,7 @@ pub const tkexec: tile.TileId = .{ .bytes = "tkexec".* };
 /// per-account broker implementations (IBKR, Schwab, SnapTrade, …).
 pub const tkbrok: tile.TileId = .{ .bytes = "tkbrok".* };
 /// API tile — HTTP/WebSocket CaseOps API.
-pub const tkapi: tile.TileId = .{ .bytes = "tkapi0".* };
+pub const tkapi: tile.TileId = .{ .bytes = "tkapi"."* };
 /// Metrics tile — collects and exposes runtime metrics.
 pub const metric: tile.TileId = .{ .bytes = "metric".* };
 /// Diagnostics tile — runtime diagnostics and health checks.
@@ -87,6 +86,6 @@ test "lookup matches known tile names" {
     try std.testing.expect(lookup("tkpoly") != null);
     try std.testing.expect(lookup("tkaudt") != null);
     try std.testing.expect(lookup("tkrepl") != null);
-    try std.testing.expect(lookup("tkapi0") != null);
+    try std.testing.expect(lookup("tkapi") != null);
     try std.testing.expect(lookup("metric") != null);
 }

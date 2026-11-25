@@ -31,7 +31,7 @@ test "registry has the 8 Phase 0 tiles followed by tkmodl, tkagnt, tkdisp, the w
 }
 
 test "findById finds every registered tile" {
-    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt", "tkrepl", "metric", "tkdiag", "tkmodl", "tkagnt", "tkdisp", "tkcase", "tktool", "tkadpt", "tkapi0" }) |name| {
+    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt", "tkrepl", "metric", "tkdiag", "tkmodl", "tkagnt", "tkdisp", "tkcase", "tktool", "tkadpt", "tkapi" }) |name| {
         const tile_id = tile_ids.lookup(name) orelse unreachable;
         try std.testing.expect(findById(tile_id) != null);
     }

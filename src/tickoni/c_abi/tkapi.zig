@@ -35,7 +35,7 @@ fn validEvent() TkEvent {
 }
 
 test "tkapi stem descriptor and scratch" {
-    try std.testing.expectEqualStrings("tkapi0", std.mem.sliceTo(tk_get_api_run_name(), 0));
+    try std.testing.expectEqualStrings("tkapi", std.mem.sliceTo(tk_get_api_run_name(), 0));
     try std.testing.expect(tk_get_api_run_tile() != null);
     try std.testing.expect(tk_get_api_run_privileged_init() != null);
     try std.testing.expect(tk_get_api_run_unprivileged_init() != null);
