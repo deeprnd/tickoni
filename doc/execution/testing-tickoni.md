@@ -13,7 +13,7 @@ Tickoni repository.
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
-  <img alt="Security" src="https://img.shields.io/badge/security-passing-brightgreen?style=flat-square" />
+  <img alt="Security" src="https://img.shields.io/badge/security-failing-red?style=flat-square" />
   <!-- badge:security:end -->
 </p>
 
@@ -41,7 +41,7 @@ Tickoni repository.
   <!-- badge:cov-fd:end -->
 
   <!-- badge:cov-tk:start -->
-  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-49.5%25-red?style=flat-square" />
+  <img alt="Tests Coverage" src="https://img.shields.io/badge/tests%20coverage-50.4%25-red?style=flat-square" />
   <!-- badge:cov-tk:end -->
 </p>
 
