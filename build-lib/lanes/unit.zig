@@ -476,8 +476,8 @@ pub fn strategy(
     run_count += 1;
 
     run_sequence[run_count] = tb.registerRunTest(.{
-        .name = "test-tkapi-identity",
-        .source_file = "src/tickoni/c_abi/tkapi.zig",
+        .name = "test-tkgate-identity",
+        .source_file = "src/tickoni/c_abi/tkgate.zig",
         .imports = &.{.{ .name = "audit_mod", .module = shared.audit_mod }},
         .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
     });
