@@ -24,10 +24,10 @@ pub const diag_link_mtu: u32 = audit_mod.TK_DIAG_LINK_MTU;
 pub const event_link_mtu: u32 = audit_mod.TK_EVENT_LINK_MTU;
 
 /// ── Helper Functions ──
-/// tkings's input in the isolation fixtures, which have no tkapi: the one link
+/// tkings's input in the isolation fixtures, which have no tkgate: the one link
 /// no tile produces (`rt.link.external_src`, Firedancer's permit_no_producers),
 /// on which the integration test harness publishes TkEvents directly. In the
-/// product topologies tkings's input is tkapi's output (`apiOutput`).
+/// product topologies tkings's input is tkgate's output (`apiOutput`).
 fn ingestInput(workspace: []const u8) Channel {
     return .{
         .src_idx = rt.link.external_src,
@@ -40,7 +40,7 @@ fn ingestInput(workspace: []const u8) Channel {
     };
 }
 
-/// tkapi's input: the link from the terminal tile (the Qt CaseOps desktop
+/// tkgate's input: the link from the terminal tile (the Qt CaseOps desktop
 /// application). No tile produces it yet (`rt.link.external_src`, Firedancer's
 /// permit_no_producers): the integration test harness stands in for the
 /// terminal tile until it exists.
@@ -56,8 +56,8 @@ fn apiInput(api_idx: u32, workspace: []const u8) Channel {
     };
 }
 
-/// tkapi -> tkings: tkings's only input wherever the topology has tkapi. A
-/// reliable link, like every link between tiles: tkapi waits on tkings's
+/// tkgate -> tkings: tkings's only input wherever the topology has tkgate. A
+/// reliable link, like every link between tiles: tkgate waits on tkings's
 /// credits and never drops.
 fn apiOutput(api_idx: u32, ings_idx: u32, workspace: []const u8) Channel {
     return .{
@@ -95,9 +95,9 @@ const payment_tiles = [_]TileDescriptor{
     .{ .id = 5, .name = tile_ids.tkrepl },
     .{ .id = 6, .name = tile_ids.metric },
     .{ .id = 7, .name = tile_ids.tkdiag },
-    .{ .id = 8, .name = tile_ids.tkapi },
+    .{ .id = 8, .name = tile_ids.tkgate },
 };
-/// Index of tkapi in `payment_tiles`.
+/// Index of tkgate in `payment_tiles`.
 const payment_api_idx: u32 = 8;
 const payment_channels = [_]Channel{
     .{ .src_idx = 0, .dst_idx = 1, .depth = 64, .mtu = event_link_mtu },
@@ -124,9 +124,9 @@ const investment_tiles = [_]TileDescriptor{
     .{ .id = 11, .name = tile_ids.tkrepl },
     .{ .id = 12, .name = tile_ids.metric },
     .{ .id = 13, .name = tile_ids.tkdiag },
-    .{ .id = 14, .name = tile_ids.tkapi },
+    .{ .id = 14, .name = tile_ids.tkgate },
 };
-/// Index of tkapi in `investment_tiles`.
+/// Index of tkgate in `investment_tiles`.
 const investment_api_idx: u32 = 14;
 
 /// ── Investment Topology Links ──
@@ -204,7 +204,7 @@ fn diagLinkInvestment(src: u32) Channel {
 
 /// Phase 0 in-process pipeline used by the Tickoni product supervisor.
 ///
-///   (terminal tile) -> tkapi -> tkings -> tknorm -> tkdedu -> tkpoly -> tkaudt
+///   (terminal tile) -> tkgate -> tkings -> tknorm -> tkdedu -> tkpoly -> tkaudt
 ///   tkrepl, metric, and tkdiag observe the deterministic run.
 ///
 /// No Solana validator tiles are registered in this topology.
@@ -220,7 +220,7 @@ pub fn paymentPipeline() Topology {
 /// The full investment workflow: all 15 tiles, one process each, on reliable
 /// shared-memory links.
 ///
-///   events:    (terminal tile) -> tkapi -> tkings -> tknorm -> tkdedu -> tkcase -> tkpoly -> tkaudt
+///   events:    (terminal tile) -> tkgate -> tkings -> tknorm -> tkdedu -> tkcase -> tkpoly -> tkaudt
 ///   dispatch:  tkcase -> tkdisp -> tkagnt (agent request)
 ///   model:     tkagnt -> tkmodl -> tkagnt (request, result); tkmodl -> tkaudt (audit)
 ///   agent:     tkagnt -> tkaudt (audit), tkagnt -> tkdisp (terminal result)
@@ -298,11 +298,10 @@ const payment_process_channels = [_]Channel{
     diagLink(2),
     diagLink(3),
     diagLink(4),
-    // tkapi's diagnostic link is its last output.
-    diagLink(8),
-    // tkapi -> tkings, and tkapi's input from the terminal tile (no tile's
-    // output yet), after the diagnostic links.
+    // tkgate -> tkings, then tkgate's diagnostic link as its last output.
+    // tkgate's input from the terminal tile (no tile's output yet).
     apiOutput(payment_api_idx, 0, "tkpay0"),
+    diagLink(8),
     apiInput(payment_api_idx, "tkpay0"),
 };
 
@@ -368,11 +367,11 @@ pub fn minimalProcess() Topology {
 }
 
 /// ── Minimal Topology Variants ──
-/// Minimal 4-tile topology for testing tkapi in front of the event pipeline:
-/// (terminal tile) -> tkapi -> tkings -> tkaudt (+ metric observer). The test
-/// harness stands in for the terminal tile on tkapi's input.
+/// Minimal 4-tile topology for testing tkgate in front of the event pipeline:
+/// (terminal tile) -> tkgate -> tkings -> tkaudt (+ metric observer). The test
+/// harness stands in for the terminal tile on tkgate's input.
 const minimal_with_api_tiles = [_]TileDescriptor{
-    .{ .id = 0, .name = tile_ids.tkapi },
+    .{ .id = 0, .name = tile_ids.tkgate },
     .{ .id = 1, .name = tile_ids.tkings },
     .{ .id = 2, .name = tile_ids.tkaudt },
     .{ .id = 3, .name = tile_ids.metric },
@@ -391,7 +390,7 @@ const minimal_with_api_channels = [_]Channel{
     apiInput(0, "tkpay0"),
 };
 
-/// Minimal 4-tile topology (tkapi -> tkings -> tkaudt + metric observer).
+/// Minimal 4-tile topology (tkgate -> tkings -> tkaudt + metric observer).
 pub fn minimalWithApiProcess() Topology {
     return .{
         .tiles = &minimal_with_api_tiles,
@@ -494,7 +493,7 @@ pub fn minimalWithDeduProcess() Topology {
 /// event takes the spine, and agent requests reach tkagnt only through tkdisp
 /// (plan v2.NN rev 2, D2). N+10 tiles and 3N+11 channels.
 ///
-///   (terminal tile) -> tkapi -> tkings -> tknorm -> tkdedu -> tkcase -> tkpoly -> tkaudt
+///   (terminal tile) -> tkgate -> tkings -> tknorm -> tkdedu -> tkcase -> tkpoly -> tkaudt
 ///                                              tkcase -> tkdisp -> tkagnt
 ///   tkagnt --model request--> tkmodl#k --model result--> tkagnt    (per model)
 ///                             tkmodl#k --model audit---> tkaudt    (per model)
@@ -503,10 +502,10 @@ pub fn minimalWithDeduProcess() Topology {
 ///   metric observes every link.
 ///
 /// Tile order: tkings, tknorm, tkdedu, tkcase, tkpoly, tkaudt, tkdisp, tkagnt,
-/// tkmodl kind 0..n-1, metric, tkapi. Channels: the six spine links, tkdisp ->
+/// tkmodl kind 0..n-1, metric, tkgate. Channels: the six spine links, tkdisp ->
 /// tkagnt, then per model k request, audit, result in that order, then the
-/// agent's audit and terminal-result links, then tkapi -> tkings, and last
-/// tkapi's externally produced input (`rt.link.external_src`): the test
+/// agent's audit and terminal-result links, then tkgate -> tkings, and last
+/// tkgate's externally produced input (`rt.link.external_src`): the test
 /// harness publishes TkEvents on it, standing in for the terminal tile.
 /// Which tier a tkmodl instance serves is not part of the topology: it is the
 /// per-instance configuration, and the agent binds its links from it and from
@@ -529,9 +528,9 @@ fn AgentGraph(comptime n: usize) type {
         pub const idx_api = idx_metric + 1;
         pub const tile_cnt = 10 + n;
         pub const channel_cnt = 11 + 3 * n;
-        /// Index of the tkapi -> tkings channel.
+        /// Index of the tkgate -> tkings channel.
         pub const api_output_idx = channel_cnt - 2;
-        /// Index of tkapi's externally produced input channel.
+        /// Index of tkgate's externally produced input channel.
         pub const api_input_idx = channel_cnt - 1;
         const wksp = WorkspaceName.parse("tkpay0") catch unreachable;
 
@@ -559,7 +558,7 @@ fn AgentGraph(comptime n: usize) type {
             t[7] = .{ .id = 7, .name = tile_ids.tkagnt };
             for (0..n) |k| t[first_model_idx + k] = .{ .id = first_model_idx + k, .name = tile_ids.tkmodl, .kind_id = @intCast(k) };
             t[idx_metric] = .{ .id = idx_metric, .name = tile_ids.metric };
-            t[idx_api] = .{ .id = idx_api, .name = tile_ids.tkapi };
+            t[idx_api] = .{ .id = idx_api, .name = tile_ids.tkgate };
             break :blk t;
         };
 
@@ -669,7 +668,7 @@ test "paymentPipeline has Phase 0 product tiles and channels" {
     try std.testing.expectEqualStrings(tile_ids.tkings.slice(), topo.tiles[0].name.slice());
     try std.testing.expectEqualStrings(tile_ids.tkaudt.slice(), topo.tiles[4].name.slice());
     try std.testing.expectEqualStrings(tile_ids.tkdiag.slice(), topo.tiles[7].name.slice());
-    try std.testing.expectEqualStrings(tile_ids.tkapi.slice(), topo.tiles[8].name.slice());
+    try std.testing.expectEqualStrings(tile_ids.tkgate.slice(), topo.tiles[8].name.slice());
     try std.testing.expectEqual(@as(u32, 0), topo.channels[0].src_idx);
     try std.testing.expectEqual(@as(u32, 1), topo.channels[0].dst_idx);
 }
@@ -719,7 +718,7 @@ test "investmentWorkflow includes tkmodl tktool tkadpt and passes validation" {
     try std.testing.expectEqualStrings(tile_ids.tkrepl.slice(), topo.tiles[11].name.slice());
 }
 
-test "paymentPipelineProcess has 9 tiles, 4 reliable pipeline channels, 6 lossy diagnostic channels and tkapi's two links, and passes validation" {
+test "paymentPipelineProcess has 9 tiles, 4 reliable pipeline channels, 6 lossy diagnostic channels and tkgate's two links, and passes validation" {
     const topo = paymentPipelineProcess();
     try topo.validate();
     try std.testing.expectEqual(@as(usize, 9), topo.tiles.len);
@@ -727,8 +726,10 @@ test "paymentPipelineProcess has 9 tiles, 4 reliable pipeline channels, 6 lossy 
     for (topo.channels, 0..) |ch, i| {
         try std.testing.expectEqual(rt.link.LinkBacking.tango_shm, ch.backing);
         try std.testing.expectEqualStrings("tkpay0", ch.workspace_name.slice());
-        // The pipeline and tkapi's links are reliable; the diagnostic links never are.
-        const expected: rt.link.LinkReliability = if (i < 4 or i >= 10) .reliable else .lossy;
+        // The pipeline and tkgate's links are reliable; the diagnostic links never are.
+        // Reliable: spine channels 0-3, tkgate's pipeline link at 9.
+        // Lossy: diag fan-in at 4-8 and tkgate's diag link at 10.
+        const expected: rt.link.LinkReliability = if (i < 4 or i == 9) .reliable else .lossy;
         try std.testing.expectEqual(expected, ch.reliability);
     }
 }
@@ -738,11 +739,12 @@ test "paymentPipelineProcess fans one diagnostic link per pipeline tile in to tk
     const diag: u32 = 7;
     try std.testing.expect(topo.tiles[diag].name.eql(tile_ids.tkdiag));
     // Producers in topology order: tkings(0), tknorm(1), tkdedu(2), tkpoly(3),
-    // tkaudt(4), tkapi(8).
+    // tkaudt(4) at channels 4..8, tkgate(8) at channel 10 (after its pipeline
+    // output at channel 9).
     const p_indices = [_]u32{ 0, 1, 2, 3, 4, 8 };
-    const p_names = [_]*const rt.tile.TileId{ &tile_ids.tkings, &tile_ids.tknorm, &tile_ids.tkdedu, &tile_ids.tkpoly, &tile_ids.tkaudt, &tile_ids.tkapi };
+    const p_names = [_]*const rt.tile.TileId{ &tile_ids.tkings, &tile_ids.tknorm, &tile_ids.tkdedu, &tile_ids.tkpoly, &tile_ids.tkaudt, &tile_ids.tkgate };
     for (p_indices, 0..) |src, i| {
-        const ch = topo.channels[4 + i];
+        const ch = topo.channels[4 + if (i == 5) 6 else i];
         try std.testing.expectEqual(src, ch.src_idx);
         try std.testing.expect(topo.tiles[ch.src_idx].name.eql(p_names[i].*));
         try std.testing.expectEqual(diag, ch.dst_idx);
@@ -780,12 +782,12 @@ test "investmentWorkflow fans one diagnostic link per producer tile to tkdiag" {
     try std.testing.expect(topo.tiles[diag].name.eql(tile_ids.tkdiag));
     // Producers in topology order: tkings(0), tknorm(1), tkdedu(2), tkcase(3),
     // tkpoly(4), tkaudt(5), tkdisp(6), tkagnt(7), tkmodl(8) at channels 16..24,
-    // tkapi(14) at channel 26 (after apiOutput at 25).
+    // tkgate(14) at channel 26 (after apiOutput at 25).
     const p_indices = [_]u32{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 14 };
     const p_names = [_]*const rt.tile.TileId{
         &tile_ids.tkings, &tile_ids.tknorm, &tile_ids.tkdedu, &tile_ids.tkcase,
         &tile_ids.tkpoly, &tile_ids.tkaudt, &tile_ids.tkdisp, &tile_ids.tkagnt,
-        &tile_ids.tkmodl, &tile_ids.tkapi,
+        &tile_ids.tkmodl, &tile_ids.tkgate,
     };
     for (p_indices, 0..) |src, i| {
         const ch_idx: usize = if (i == 9) 26 else 16 + i;
@@ -824,7 +826,7 @@ test "agentProcess routes every event through the spine and agent requests only 
     const names = [_]rt.tile.TileId{ tile_ids.tkings, tile_ids.tknorm, tile_ids.tkdedu, tile_ids.tkcase, tile_ids.tkpoly, tile_ids.tkaudt, tile_ids.tkdisp, tile_ids.tkagnt };
     for (names, 0..) |name, i| try std.testing.expect(topo.tiles[i].name.eql(name));
     try std.testing.expect(topo.tiles[G.idx_metric].name.eql(tile_ids.metric));
-    try std.testing.expect(topo.tiles[G.idx_api].name.eql(tile_ids.tkapi));
+    try std.testing.expect(topo.tiles[G.idx_api].name.eql(tile_ids.tkgate));
 
     // No link from tkings goes anywhere but tknorm, and tkagnt's only request
     // input is tkdisp's.
@@ -846,7 +848,7 @@ test "agentProcess routes every event through the spine and agent requests only 
         try std.testing.expectEqual(model, res.src_idx);
         try std.testing.expectEqual(@as(u32, G.idx_agent), res.dst_idx);
     }
-    // tkings's only input is tkapi's output, and tkapi's input has no producer
+    // tkings's only input is tkgate's output, and tkgate's input has no producer
     // tile: the harness feeds it, standing in for the terminal tile.
     try std.testing.expectEqual(@as(u32, G.idx_api), topo.channels[G.api_output_idx].src_idx);
     try std.testing.expectEqual(@as(u32, G.idx_ings), topo.channels[G.api_output_idx].dst_idx);
@@ -872,7 +874,7 @@ test "agentProcess links are reliable shared-memory links sized for their record
     try std.testing.expect(topo.channels[topo.channels.len - 1].mtu >= @sizeOf(audit_mod.TkEvent));
 }
 
-test "every product topology feeds tkapi from outside the tile graph, and tkapi alone feeds tkings" {
+test "every product topology feeds tkgate from outside the tile graph, and tkgate alone feeds tkings" {
     const product = [_]Topology{ paymentPipeline(), paymentPipelineProcess(), minimalWithApiProcess(), investmentWorkflow(), agentProcess(1) };
     for (product) |topo| {
         var external: usize = 0;
@@ -881,12 +883,12 @@ test "every product topology feeds tkapi from outside the tile graph, and tkapi 
             if (topo.tiles[ch.dst_idx].name.eql(tile_ids.tkings)) {
                 into_ings += 1;
                 try std.testing.expect(ch.hasProducerTile());
-                try std.testing.expect(topo.tiles[ch.src_idx].name.eql(tile_ids.tkapi));
+                try std.testing.expect(topo.tiles[ch.src_idx].name.eql(tile_ids.tkgate));
                 try std.testing.expectEqual(rt.link.LinkReliability.reliable, ch.reliability);
             }
             if (ch.hasProducerTile()) continue;
             external += 1;
-            try std.testing.expect(topo.tiles[ch.dst_idx].name.eql(tile_ids.tkapi));
+            try std.testing.expect(topo.tiles[ch.dst_idx].name.eql(tile_ids.tkgate));
             try std.testing.expect(ch.mtu >= @sizeOf(audit_mod.TkEvent));
         }
         try std.testing.expectEqual(@as(usize, 1), external);
@@ -894,7 +896,7 @@ test "every product topology feeds tkapi from outside the tile graph, and tkapi 
     }
 }
 
-test "the isolation fixtures without tkapi feed tkings from outside the tile graph, and only tkings" {
+test "the isolation fixtures without tkgate feed tkings from outside the tile graph, and only tkings" {
     const fixtures = [_]Topology{ minimalProcess(), minimalWithNormProcess(), minimalWithDeduProcess(), minimalWithPolyProcess() };
     for (fixtures) |topo| {
         var external: usize = 0;
