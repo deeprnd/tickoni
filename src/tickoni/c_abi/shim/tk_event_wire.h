@@ -13,8 +13,8 @@
    Who stamps what (plans/v2.NN-tkings-test-build-cleanup.md, revision 2):
 
      producer  version, kind, source, flags, trace_id, idempotency_key, body
-               (tkapi for user requests, tkrepl for replay; the integration
-               test harness stands in for tkapi).  The producer owns trace_id:
+               (tkgate for user requests, tkrepl for replay; the integration
+               test harness stands in for tkgate).  The producer owns trace_id:
                one inbound request keeps one nonzero trace_id until its reply.
      tkings    validates framing (size, version, kind, source, flags,
                trace_id not all zero), drops what fails, and stamps source_offset: a
@@ -41,11 +41,11 @@ enum {
     TK_EVENT_KIND_AGENT_REQUEST = 2
 };
 
-/* Producers.  The integration test harness stands in for tkapi, so there is no
+/* Producers.  The integration test harness stands in for tkgate, so there is no
    test value.  source_offset counts per source, so TK_EVENT_SOURCE_CNT bounds
    tkings's counter table. */
 enum {
-    TK_EVENT_SOURCE_TKAPI  = 1,
+    TK_EVENT_SOURCE_TKGATE  = 1,
     TK_EVENT_SOURCE_TKREPL = 2,
     TK_EVENT_SOURCE_CNT    = 3
 };

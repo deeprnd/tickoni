@@ -61,12 +61,12 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
 #include "../topo_run/tk_pass_stem.h"
 #include "../topo_run/tk_diag_stem.h"
 #include "../topo_run/tk_ingest_stem.h"
-#include "../topo_run/tk_api_stem.h"
+#include "../topo_run/tk_gate_stem.h"
 #endif
 
 static int
-tile_is_api( fd_topo_tile_t * tile ) {
-  return tile!=NULL && strcmp( tile->name, TILE_ID_TKAPI )==0;
+tile_is_gate( fd_topo_tile_t * tile ) {
+  return tile!=NULL && strcmp( tile->name, TILE_ID_TKGATE )==0;
 }
 
 static int
@@ -247,8 +247,8 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
   fd_topo_tile_t * tile_c = (fd_topo_tile_t *)tile;
   fd_topo_run_tile_t * run_tile;
 #if FD_HAS_LINUX || FD_HAS_MACOS || FD_HAS_WINDOWS
-  if( tile_is_api( tile_c ) ) {
-    run_tile = &TK_API_RUN;
+  if( tile_is_gate( tile_c ) ) {
+    run_tile = &TK_GATE_RUN;
   } else if( tile_is_ingest( tile_c ) ) {
     run_tile = &TK_INGEST_RUN;
   } else if( tile_is_dedu( tile_c ) ) {
@@ -279,7 +279,7 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
     run_tile = &TK_TILE_RUN;
   }
 #else
-  (void)tile_is_api;
+  (void)tile_is_gate;
   (void)tile_is_ingest;
   (void)tile_is_dedu;
   (void)tile_is_audit;
