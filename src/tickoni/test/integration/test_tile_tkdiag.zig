@@ -93,9 +93,9 @@ test "tkdiag_integration: stem tkdiag keeps running until the supervisor halts i
     try assertNoCrash(&sup);
 }
 
-/// One diagnostic fragment per processed event from each of the five
-/// producers: tkings, tknorm, tkdedu, tkpoly and tkaudt.
-const fan_in_producers: u64 = 5;
+/// One diagnostic fragment per processed event from each producer:
+/// tkings, tknorm, tkdedu, tkpoly, tkaudt and tkapi.
+const fan_in_producers: u64 = 6;
 /// Depth of every diagnostic link (topologies.zig `diag_link_depth`).
 const diag_link_depth: u64 = 64;
 /// Far more events than a diagnostic link holds, so that a link that
@@ -373,4 +373,69 @@ test "tkdiag_integration: a replay that did not match is still a finished replay
         util.process.sleepNanos(poll_interval_ns);
     }
     try std.testing.expect(exited);
+}
+
+// ---------------------------------------------------------------------------
+// Compile-time-aware registry test: every tile registry entry that declares
+// DiagRole.producer must have a matching lossy diagnostic link in every
+// topology that carries tkdiag.  This catches accidental unlinking when
+// stem tiles change or topology wiring drifts.
+// ---------------------------------------------------------------------------
+
+test "tkdiag_registry: every DiagRole.producer tile has a diagnostic link in topologies that carry tkdiag" {
+    const registry = @import("tile_registry");
+
+    // Collect the names of all producer tiles from the registry.
+    const producers = blk: {
+        var count: usize = 0;
+        for (registry.entries) |e| if (e.diag == .producer) count += 1;
+        var names: [16]rt.tile.TileId = undefined;
+        var i: usize = 0;
+        for (registry.entries) |e| {
+            if (e.diag == .producer) names[i] = e.id;
+            if (e.diag == .producer) i += 1;
+        }
+        break :blk .{ .names = names[0..i], .count = i };
+    };
+
+    // Check every topology that contains tkdiag.
+    const diagTopos = [_]struct { name: []const u8, topo: rt.topology.Topology }{
+        .{ .name = "paymentPipelineProcess", .topo = topologies.paymentPipelineProcess() },
+        .{ .name = "investmentWorkflow", .topo = topologies.investmentWorkflow() },
+    };
+
+    for (diagTopos) |dt| {
+        // Find the tkdiag tile index in this topology.
+        var diag_idx: ?usize = null;
+        for (dt.topo.tiles, 0..) |t, j| {
+            if (t.name.eql(rt.tile_ids.tkdiag)) { diag_idx = j; break; }
+        }
+        const diag = diag_idx orelse {
+            // This topology has no tkdiag — skip.
+            continue;
+        };
+
+        // For each declared producer, verify there is exactly one lossy
+        // diagnostic link from that producer to tkdiag.
+        for (producers.names[0..producers.count]) |p_name| {
+            var found: bool = false;
+            for (dt.topo.channels) |ch| {
+                if (ch.dst_idx == diag and ch.src_idx == dt.topo.tiles.len) {
+                    // Skip external links that don't map to a tile index.
+                    continue;
+                }
+                if (ch.dst_idx >= dt.topo.tiles.len) continue;
+                if (ch.dst_idx != diag) continue;
+                const src_entry = registry.findById(dt.topo.tiles[ch.src_idx].name);
+                if (src_entry) |entry| {
+                    if (entry.diag == .producer and entry.id.eql(p_name)) {
+                        try std.testing.expect(ch.reliability == .lossy);
+                        try std.testing.expect(ch.dst_idx == diag);
+                        found = true;
+                    }
+                }
+            }
+            try std.testing.expect(found);
+        }
+    }
 }
