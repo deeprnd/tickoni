@@ -49,7 +49,7 @@
 #define TILE_ID_TKTOOL  "tktool"
 #define TILE_ID_TKADPT  "tkadpt"
 #define TILE_ID_TKEXEC  "tkexec"
-#define TILE_ID_TKAPI   "tkapi"
+#define TILE_ID_TKGATE   "tkgate"
 #define TILE_ID_METRIC  "metric"
 #define TILE_ID_TKDIAG  "tkdiag"
 

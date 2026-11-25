@@ -1,6 +1,6 @@
 /* tkings: the ingestion tile on Firedancer's fd_stem loop -- the single entry
    point for every event into the spine.  Its only source is its one input
-   link: tkapi's output in the product topologies (user requests), later also
+   link: tkgate's output in the product topologies (user requests), later also
    tkrepl's replay capsules, and in the isolation fixtures a link no tile
    produces (Firedancer's permit_no_producers) on which the integration test
    harness publishes directly.  tkings does not know or care which.
@@ -33,7 +33,7 @@ typedef struct {
     uint64_t event_count;
     int input_exhausted;
     void * cnc;
-    stk_link_in_t in;                /* from tkapi, or from outside the tile graph */
+    stk_link_in_t in;                /* from tkgate, or from outside the tile graph */
     stk_link_out_t out;              /* to tknorm */
     stk_diag_out_t diag;
     uint64_t next_offset[TK_EVENT_SOURCE_CNT];
@@ -93,7 +93,7 @@ tkings_after_frag( tkings_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig, ulong
         memset( ev->decided_by, 0, sizeof(ev->decided_by) );
         memset( ev->_pad, 0, sizeof(ev->_pad) );
 
-        FD_LOG_DEBUG(( "tkings: after_frag published source=%lu offset=%lu", ev->source, ev->source_offset ));
+        FD_LOG_DEBUG(( "tkings: after_frag published source=%lu offset=%lu", (ulong)ev->source, ev->source_offset ));
         stk_link_out_publish( &ctx->out, stem, 0UL, TK_LINK_SIG_EVENT, ev, TK_EVENT_SIZE );
         ctx->produced++;
     }
