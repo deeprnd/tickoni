@@ -32,9 +32,9 @@ pub const ProcessFn = *const fn (
 /// written. Observer tiles (tkrepl, metric, tkdiag) use additional fields
 /// for process-mode visibility.
 pub const CounterField = enum {
-    /// tkapi: events forwarded to tkings.
+    /// tkgate: events forwarded to tkings.
     api_published,
-    /// tkapi: fragments dropped for their wire shape.
+    /// tkgate: fragments dropped for their wire shape.
     api_wire_invalid,
     produced,
     /// tkings: fragments dropped for their framing.
@@ -120,11 +120,11 @@ pub const Cardinality = enum {
     agent_fan,
 };
 
-/// The tile a topology's externally fed link enters: tkapi when the topology
+/// The tile a topology's externally fed link enters: tkgate when the topology
 /// has one, otherwise tkings.
 pub fn ingressTile(topo: rt.topology.Topology) rt.tile.TileId {
     for (topo.tiles) |t| {
-        if (t.name.eql(tile_ids.tkapi)) return tile_ids.tkapi;
+        if (t.name.eql(tile_ids.tkgate)) return tile_ids.tkgate;
     }
     return tile_ids.tkings;
 }
@@ -144,8 +144,8 @@ pub const entries = [_]TileEntry{
         .id = tile_ids.tkings,
         .launch_mode = .stem,
         .process_fn = null,
-        // Its one input is its only source: tkapi's output where the topology
-        // has tkapi, otherwise a link fed from outside the tile graph (a test
+        // Its one input is its only source: tkgate's output where the topology
+        // has tkgate, otherwise a link fed from outside the tile graph (a test
         // harness, later tkrepl).
         .counters = &.{ .{ .idx = 0, .field = .produced }, .{ .idx = 1, .field = .ingest_invalid } },
         .in_cnt = 1,
@@ -305,11 +305,11 @@ pub const entries = [_]TileEntry{
         .in_cnt = 1,
         .out_cnt = 1,
     },
-    // tkapi: the API tile in front of tkings. Its one input comes from the
+    // tkgate: the API tile in front of tkings. Its one input comes from the
     // terminal tile (fed from outside the tile graph until that tile exists);
     // its one output is tkings's input, a reliable link.
     .{
-        .id = tile_ids.tkapi,
+        .id = tile_ids.tkgate,
         .launch_mode = .stem,
         .process_fn = null,
         .counters = &.{ .{ .idx = 0, .field = .api_published }, .{ .idx = 1, .field = .api_wire_invalid } },
@@ -381,7 +381,7 @@ pub fn validateInstances(topo: rt.topology.Topology) !void {
 /// the topology wires, so only its pipeline links and outputs are compared.
 ///
 /// A link fed from outside the tile graph (`rt.link.external_src`) may enter
-/// only the topology's ingress boundary: tkapi where the topology has tkapi,
+/// only the topology's ingress boundary: tkgate where the topology has tkgate,
 /// otherwise tkings. That tile's one input it then is.
 pub fn validate(topo: rt.topology.Topology) !void {
     try validateInstances(topo);

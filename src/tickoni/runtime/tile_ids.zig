@@ -5,7 +5,7 @@
 /// Naming convention: TileId.bytes is [6]u8. If the human-readable name
 /// exceeds 6 characters, it is truncated (not padded). The 6-byte form is
 /// the ground truth for wire/format purposes. For example:
-///   • "tkapi"  (5 chars) → "tkapi" (no truncation needed)
+///   • "tkgate" (6 chars) → "tkgate" (exactly fits)
 ///   • "tkbrok" (6 chars) → "tkbrok" (exactly fits)
 ///   • "tkbrokr" (7 chars) → "tkbrok" (truncated to 6)
 /// Documentation may reference the human-readable form (e.g. "tkbrokr"),
@@ -45,8 +45,8 @@ pub const tkexec: tile.TileId = .{ .bytes = "tkexec".* };
 /// Broker bridge tile — routes broker requests (place, cancel, query) to
 /// per-account broker implementations (IBKR, Schwab, SnapTrade, …).
 pub const tkbrok: tile.TileId = .{ .bytes = "tkbrok".* };
-/// API tile — HTTP/WebSocket CaseOps API.
-pub const tkapi: tile.TileId = .{ .bytes = "tkapi".* };
+/// CaseOps gate tile — HTTP/WebSocket API for CaseOps.
+pub const tkgate: tile.TileId = .{ .bytes = "tkgate".* };
 /// Metrics tile — collects and exposes runtime metrics.
 pub const metric: tile.TileId = .{ .bytes = "metric".* };
 /// Diagnostics tile — runtime diagnostics and health checks.
@@ -55,7 +55,7 @@ pub const tkdiag: tile.TileId = .{ .bytes = "tkdiag".* };
 /// All known tile IDs, ordered by Firedancer tile index.
 pub const all: [17]tile.TileId = .{
     tkings, tknorm, tkdedu, tkpoly, tkaudt, tkrepl, tkcase, tkdisp,
-    tkagnt, tkmodl, tktool, tkadpt, tkexec, tkbrok, tkapi,  metric,
+    tkagnt, tkmodl, tktool, tkadpt, tkexec, tkbrok, tkgate, metric,
     tkdiag,
 };
 
@@ -86,6 +86,6 @@ test "lookup matches known tile names" {
     try std.testing.expect(lookup("tkpoly") != null);
     try std.testing.expect(lookup("tkaudt") != null);
     try std.testing.expect(lookup("tkrepl") != null);
-    try std.testing.expect(lookup("tkapi") != null);
+    try std.testing.expect(lookup("tkgate") != null);
     try std.testing.expect(lookup("metric") != null);
 }
