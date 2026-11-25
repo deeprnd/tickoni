@@ -96,12 +96,20 @@ test "diag fragment — exactly 128 bytes with the documented field offsets" {
     try std.testing.expectEqual(@as(usize, 84), @offsetOf(Frag, "reserved"));
 }
 
-test "diag fragment — type codes follow the pipeline order" {
+test "diag fragment — type codes: the spine in pipeline order, then the runtime tiles, append-only" {
     try std.testing.expectEqual(@as(u32, 1), audit_mod.TK_DIAG_TYPE_INGEST);
     try std.testing.expectEqual(@as(u32, 2), audit_mod.TK_DIAG_TYPE_NORMALIZE);
     try std.testing.expectEqual(@as(u32, 3), audit_mod.TK_DIAG_TYPE_DEDUPE);
     try std.testing.expectEqual(@as(u32, 4), audit_mod.TK_DIAG_TYPE_POLICY);
     try std.testing.expectEqual(@as(u32, 5), audit_mod.TK_DIAG_TYPE_AUDIT);
+    try std.testing.expectEqual(@as(u32, 6), audit_mod.TK_DIAG_TYPE_GATE);
+    try std.testing.expectEqual(@as(u32, 7), audit_mod.TK_DIAG_TYPE_CASE);
+    try std.testing.expectEqual(@as(u32, 8), audit_mod.TK_DIAG_TYPE_DISPATCH);
+    try std.testing.expectEqual(@as(u32, 9), audit_mod.TK_DIAG_TYPE_AGENT);
+    try std.testing.expectEqual(@as(u32, 10), audit_mod.TK_DIAG_TYPE_MODEL);
+    try std.testing.expectEqual(@as(u32, audit_mod.TK_DIAG_TYPE_MODEL), audit_mod.TK_DIAG_TYPE_LAST);
+    // tkdiag can bind one input per producer type.
+    try std.testing.expect(audit_mod.TKDIAG_MAX_INPUTS >= audit_mod.TK_DIAG_TYPE_LAST);
 }
 
 test "diag link — depth is a power of two" {
@@ -115,6 +123,13 @@ test "diag fragment — tile names map to their type code, anything else to zero
     try std.testing.expectEqual(@as(u32, audit_mod.TK_DIAG_TYPE_DEDUPE), f("tkdedu"));
     try std.testing.expectEqual(@as(u32, audit_mod.TK_DIAG_TYPE_POLICY), f("tkpoly"));
     try std.testing.expectEqual(@as(u32, audit_mod.TK_DIAG_TYPE_AUDIT), f("tkaudt"));
+    try std.testing.expectEqual(@as(u32, audit_mod.TK_DIAG_TYPE_GATE), f("tkgate"));
+    try std.testing.expectEqual(@as(u32, audit_mod.TK_DIAG_TYPE_CASE), f("tkcase"));
+    try std.testing.expectEqual(@as(u32, audit_mod.TK_DIAG_TYPE_DISPATCH), f("tkdisp"));
+    try std.testing.expectEqual(@as(u32, audit_mod.TK_DIAG_TYPE_AGENT), f("tkagnt"));
+    try std.testing.expectEqual(@as(u32, audit_mod.TK_DIAG_TYPE_MODEL), f("tkmodl"));
+    try std.testing.expectEqual(@as(u32, 0), f("tktool"));
+    try std.testing.expectEqual(@as(u32, 0), f("tkadpt"));
     try std.testing.expectEqual(@as(u32, 0), f("tkrepl"));
     try std.testing.expectEqual(@as(u32, 0), f("metric"));
     try std.testing.expectEqual(@as(u32, 0), f("tkdiag"));
@@ -173,6 +188,26 @@ test "tkdiag agg — init rejects an input count outside 1..max and a missing bi
     // A binding to a tile type that is not a diagnostic producer is refused.
     const bad_types = [_]u32{ 1, 2, 3, 4, 0 };
     try std.testing.expect(audit_mod.tkdiag_agg_init(&agg, 5, &bound_ids, &bad_types) != 0);
+}
+
+test "tkdiag agg — binds one input per producer type, spine and runtime, and accepts a runtime tile's fragment" {
+    var agg: Agg = undefined;
+    var ids: [audit_mod.TK_DIAG_TYPE_LAST]u32 = undefined;
+    var types: [audit_mod.TK_DIAG_TYPE_LAST]u32 = undefined;
+    for (&ids, &types, 0..) |*id, *ty, k| {
+        id.* = @intCast(k);
+        ty.* = @intCast(k + 1);
+    }
+    try std.testing.expectEqual(@as(c_int, 0), audit_mod.tkdiag_agg_init(&agg, ids.len, &ids, &types));
+    var f = std.mem.zeroes(Frag);
+    f.tile_id = ids[ids.len - 1];
+    f.tile_type = audit_mod.TK_DIAG_TYPE_MODEL;
+    f.seq = 1;
+    try std.testing.expectEqual(@as(c_int, 1), audit_mod.tkdiag_agg_accept(&agg, ids.len - 1, &f));
+    try std.testing.expectEqual(@as(u64, 1), agg.tiles_reporting);
+    // A code past the last producer type is not a producer's.
+    types[0] = audit_mod.TK_DIAG_TYPE_LAST + 1;
+    try std.testing.expect(audit_mod.tkdiag_agg_init(&agg, ids.len, &ids, &types) != 0);
 }
 
 test "tkdiag agg — init rejects two inputs bound to the same producer type" {
