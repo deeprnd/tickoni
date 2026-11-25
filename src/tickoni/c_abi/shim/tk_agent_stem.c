@@ -923,7 +923,6 @@ tkagnt_after_credit( tkagnt_ctx_t *      ctx,
                      fd_stem_context_t * stem,
                      int *               opt_poll_in,
                      int *               charge_busy ) {
-    (void)opt_poll_in;
     tk_ns_t now = (tk_ns_t)fd_log_wallclock_nanos();
     ulong budget = TKAGNT_STEM_BURST;
 
@@ -1060,6 +1059,13 @@ tkagnt_after_credit( tkagnt_ctx_t *      ctx,
     } else if( ctx->event_count && ctx->terminal_done>=ctx->event_count && all_done ) {
         ctx->input_exhausted = 1;
     }
+
+    /* SHOULD_SHUTDOWN is read at the top of the next iteration, but fd_stem
+       would still poll one input fragment in this one.  A request admitted
+       there is counted and resolved but never audited or published, so
+       it would be accepted and owed a terminal result that never comes.  Leave
+       the request unread instead: its producer is back-pressured. */
+    if( ctx->input_exhausted ) *opt_poll_in = 0;
 }
 
 /* ─── Run entry point ─── */
