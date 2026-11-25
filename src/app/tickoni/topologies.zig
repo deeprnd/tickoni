@@ -727,9 +727,9 @@ test "paymentPipelineProcess has 9 tiles, 4 reliable pipeline channels, 6 lossy 
         try std.testing.expectEqual(rt.link.LinkBacking.tango_shm, ch.backing);
         try std.testing.expectEqualStrings("tkpay0", ch.workspace_name.slice());
         // The pipeline and tkgate's links are reliable; the diagnostic links never are.
-        // Reliable: spine channels 0-3, tkgate's pipeline link at 9.
-        // Lossy: diag fan-in at 4-8 and tkgate's diag link at 10.
-        const expected: rt.link.LinkReliability = if (i < 4 or i == 9) .reliable else .lossy;
+        // Reliable: spine channels 0-3, tkgate's pipeline link at 9 and its
+        // input at 11. Lossy: diag fan-in at 4-8 and tkgate's diag link at 10.
+        const expected: rt.link.LinkReliability = if (i < 4 or i == 9 or i == 11) .reliable else .lossy;
         try std.testing.expectEqual(expected, ch.reliability);
     }
 }
