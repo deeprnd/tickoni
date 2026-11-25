@@ -151,8 +151,10 @@ tkgate_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     void * scratch = fd_topo_obj_laddr( (fd_topo_t *)topo, tile->tile_obj_id );
     tkgate_ctx_t * ctx = STK_GET_CTX( tkgate_ctx_t, scratch, TKGATE_CTX_ALIGN );
     memset( ctx, 0, sizeof(*ctx) );
-    if( FD_UNLIKELY( tile->in_cnt!=1UL || tile->out_cnt!=1UL ) )
-        FD_LOG_ERR(( "tkgate: exactly one input and one output link, found %lu and %lu", tile->in_cnt, tile->out_cnt ));
+    /* The output count (one pipeline output plus an optional diagnostic link)
+       is checked by stk_diag_out_init in unprivileged_init. */
+    if( FD_UNLIKELY( tile->in_cnt!=1UL ) )
+        FD_LOG_ERR(( "tkgate: expected exactly one input link, found %lu", tile->in_cnt ));
     ctx->event_count = tkgate_event_count_param;
     /* Trace ids are request identifiers, not secrets: a fast RNG seeded per
        run, so ids do not repeat from one run to the next. */

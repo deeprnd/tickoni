@@ -447,12 +447,15 @@ tkagnt_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     STK_UNPRIV_INIT(topo, tile, ctx);
     if( FD_UNLIKELY( !ctx->cnc ) )
         FD_LOG_ERR(( "tkagnt: CNC object not found for tile %lu", tile->id ));
-    stk_diag_out_init( &ctx->diag, topo, tile, tile->out_cnt - 1UL );
+    /* The pipeline outputs are every output but the optional diagnostic link,
+       which stk_diag_out_init requires to be last. */
+    ulong pipeline_out_cnt = tile->out_cnt - ( stk_diag_out_find( topo, tile )!=ULONG_MAX ? 1UL : 0UL );
+    stk_diag_out_init( &ctx->diag, topo, tile, pipeline_out_cnt );
 
     if( FD_UNLIKELY( tile->in_cnt<2UL || tile->in_cnt>TKAGNT_MAX_INS ) )
         FD_LOG_ERR(( "tkagnt: expected 2..%lu input links, found %lu", TKAGNT_MAX_INS, tile->in_cnt ));
-    if( FD_UNLIKELY( tile->out_cnt<3UL || tile->out_cnt>TKAGNT_MAX_OUTS ) )
-        FD_LOG_ERR(( "tkagnt: expected 3..%lu output links, found %lu", TKAGNT_MAX_OUTS, tile->out_cnt ));
+    if( FD_UNLIKELY( pipeline_out_cnt<3UL || pipeline_out_cnt>TKAGNT_MAX_OUTS ) )
+        FD_LOG_ERR(( "tkagnt: expected 3..%lu pipeline output links, found %lu", TKAGNT_MAX_OUTS, pipeline_out_cnt ));
     ctx->in_cnt  = tile->in_cnt;
     ctx->out_cnt = tile->out_cnt;
 
@@ -490,7 +493,7 @@ tkagnt_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     ctx->term_out  = ULONG_MAX;
     ulong model_outs = 0UL;
     ulong tool_outs  = 0UL;
-    for( ulong o=0UL; o<tile->out_cnt; o++ ) {
+    for( ulong o=0UL; o<pipeline_out_cnt; o++ ) {
         fd_topo_tile_t const * consumer = tkagnt_link_consumer( topo, tile->out_link_id[o] );
         if( FD_UNLIKELY( !consumer ) )
             FD_LOG_ERR(( "tkagnt: output %lu has no consumer", o ));
@@ -539,8 +542,8 @@ tkagnt_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
             FD_LOG_ERR(( "tkagnt: tier %lu needs both a request and a result link", t ));
         if( has_out ) { ctx->configured_mask = (uint16_t)(ctx->configured_mask | (1U<<t)); tiers++; }
     }
-    if( FD_UNLIKELY( tiers==0UL || tile->in_cnt!=1UL+tiers || tile->out_cnt!=tiers+2UL+tool_outs || model_outs!=tiers ) )
-        FD_LOG_ERR(( "tkagnt: link counts (in %lu, out %lu) do not match %lu configured tiers", tile->in_cnt, tile->out_cnt, tiers ));
+    if( FD_UNLIKELY( tiers==0UL || tile->in_cnt!=1UL+tiers || pipeline_out_cnt!=tiers+2UL+tool_outs || model_outs!=tiers ) )
+        FD_LOG_ERR(( "tkagnt: link counts (in %lu, pipeline out %lu) do not match %lu configured tiers", tile->in_cnt, pipeline_out_cnt, tiers ));
 
     /* Read-only join of the committed-order watermark tkaudt publishes. */
     ulong wm_obj = tk_topo_audit_watermark_obj( topo );
