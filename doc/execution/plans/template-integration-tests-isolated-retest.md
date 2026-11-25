@@ -73,7 +73,7 @@ hunks that were not already in the working tree before the plan started.
 
 ## Preconditions
 
-- [ ] Working tree is on `story/tkapi-fd-stem` and has a lot of uncommitted work
+- [ ] Working tree is on `story/tkgate-fd-stem` and has a lot of uncommitted work
       (stem tile, `os` shim, harness changes). Commit or stash it first so a
       per-file fix commit contains only that file's fix. Do not mix the plan with
       unrelated edits.
@@ -86,7 +86,7 @@ hunks that were not already in the working tree before the plan started.
 - [ ] Host platform. The lane dispatches on `{{ os }}-{{ arch }}`. The host here is
       Windows 11 (`test-integration-tk-windows-x86`). All platforms have equivalent
       capabilities, so there are **no OS-specific tests and no platform exclusions**.
-      The old `builtin.target.os.tag` guards (tkings, tkapi, tkpoly, tkdiag, metric,
+      The old `builtin.target.os.tag` guards (tkings, tkgate, tkpoly, tkdiag, metric,
       `stem_liveness`) were removed on purpose. A failure on Windows is a real bug
       in the code or the test to root-cause and fix, never a "platform-unsupported"
       result. Do not re-add OS guards or skip a file because of the host OS.
@@ -133,7 +133,7 @@ shows up as noise in a higher-level file. Counts are current `shouldSkip` counts
 | 12 | `test_tile_tkpoly.zig` | 18 | TODO | | |
 | 13 | `test_tile_tkaudt.zig` | 4 | TODO | | |
 | 14 | `test_tile_tkdiag.zig` | 6 | TODO | | |
-| 15 | `test_tile_tkapi.zig` | 4 | TODO | | |
+| 15 | `test_tile_tkgate.zig` | 4 | TODO | | |
 | 16 | `test_tile_tkmodl.zig` | 8 | TODO | | |
 | 17 | `test_tile_tkagnt.zig` | 20 | TODO | | |
 | 18 | `test_stem_heartbeat.zig` | 3 | TODO | | |
@@ -224,7 +224,7 @@ These come from `AGENTS.md` and apply to every fix made during this plan.
   tile ownership/IDs/lifecycle/link semantics; event framing, source offsets,
   normalization, dedupe or hash behavior; case lifecycle; capability envelope or
   policy outcomes; audit schema, hash chaining or replay substitution; public
-  `tkapi`/model/tool/adapter contracts; storage roles; or model/adapter access rules.
+  `tkgate`/model/tool/adapter contracts; storage roles; or model/adapter access rules.
   Present the root cause and the options; do not pick silently.
 - No weakening a test to make it pass (looser assertions, longer sleeps, added
   retries, new skips, or removing the test). If a test itself is wrong, fix it and

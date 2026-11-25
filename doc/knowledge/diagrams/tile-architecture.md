@@ -10,7 +10,7 @@ see [`tile-delivery-status.md`](../../execution/tile-delivery-status.md).
 
 - Each external system is reachable only through its owning tile: model
   providers through `tkmodl`, financial APIs through `tkadpt`, the execution
-  ledger through `tkexec`, and the CaseOps UI through `tkapi`.
+  ledger through `tkexec`, and the CaseOps UI through `tkgate`.
 - `tkexec` acts only after a `tkpoly` decision and human approval.
 - `tkrepl` replays captured capsules with external effects disabled.
 
@@ -44,11 +44,11 @@ flowchart TB
   subgraph control["Operator control · approved actions only"]
     direction LR
     ui(["CaseOps UI"])
-    tkapi["<b>tkapi</b><br/>CaseOps API"]
+    tkgate["<b>tkgate</b><br/>CaseOps API"]
     tkexec["<b>tkexec</b><br/>approved execution"]
     ledger[("execution ledger")]
-    ui --> tkapi
-    tkapi -- "human approval" --> tkexec
+    ui --> tkgate
+    tkgate -- "human approval" --> tkexec
     tkexec --> ledger
   end
 
@@ -84,7 +84,7 @@ flowchart TB
   classDef external fill:#ffffff,stroke:#7a869a,stroke-width:1px,color:#2d3748
   classDef infra fill:#f3f4f6,stroke:#6b7280,stroke-width:1px,color:#111827
 
-  class tkings,tknorm,tkdedu,tkcase,tkpoly,tkdisp,tkagnt,tkmodl,tktool,tkadpt,tkapi,tkexec,tkaudt,tkevid,tkrepl,tkmetr,tkdiag tile
+  class tkings,tknorm,tkdedu,tkcase,tkpoly,tkdisp,tkagnt,tkmodl,tktool,tkadpt,tkgate,tkexec,tkaudt,tkevid,tkrepl,tkmetr,tkdiag tile
   class src,llm,apis,ui,ledger external
   class tango,topo,cnc,sandbox,http,crash infra
 

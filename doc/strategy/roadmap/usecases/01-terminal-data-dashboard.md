@@ -7,14 +7,14 @@ The user opens the terminal UI. The terminal requests:
 1. **Portfolio data** — current holdings, cash balance, sector exposure (pre-aggregated), and account limits.
 2. **Ticker data** — real-time prices, quotes, and market indicators for widgets: SPY, QQQ, KWEB, US Treasury rate, crude oil, gold, Bitcoin price, and other market benchmarks.
 
-The request enters through the API tile (`tkapi`), which sets the initial `case_id` and routes the event to the ingestion pipeline (`tkings`). The event flows through normalization (`tknorm`), deduplication (`tkdedu`), and case scoping (`tkcase`). Policy checks it as a read event (`tkpoly` — allowed), and the result is recorded in the audit trail (`tkaudt`). The dashboard agent run is scheduled via `tkdisp`, which calls the agent (`tkagnt`) to fetch data through the tool normalizer (`tktool`) and adapter layer (`tkadpt`) to the market data (`tktkr`) and portfolio (`tkport`) tiles.
+The request enters through the API tile (`tkgate`), which sets the initial `case_id` and routes the event to the ingestion pipeline (`tkings`). The event flows through normalization (`tknorm`), deduplication (`tkdedu`), and case scoping (`tkcase`). Policy checks it as a read event (`tkpoly` — allowed), and the result is recorded in the audit trail (`tkaudt`). The dashboard agent run is scheduled via `tkdisp`, which calls the agent (`tkagnt`) to fetch data through the tool normalizer (`tktool`) and adapter layer (`tkadpt`) to the market data (`tktkr`) and portfolio (`tkport`) tiles.
 
 ## Flow
 
 ```mermaid
 sequenceDiagram
     participant Term as Terminal (UI)
-    participant API as tkapi (transport/auth)
+    participant API as tkgate (transport/auth)
     participant Ing as tkings (canonical framing)
     participant Norm as tknorm (normalization)
     participant Dedu as tkdedu (deduplication)
@@ -46,7 +46,7 @@ sequenceDiagram
 
 || Tile | Runtime ID | Responsibility | Status |
 ||------|-----------|----------------|--------|
-|| `tkapi` | `tkapi` | HTTP/WebSocket CaseOps API tile — receives dashboard request, sets case_id, routes to tkings for canonical event framing | **MISSING** |
+|| `tkgate` | `tkgate` | HTTP/WebSocket CaseOps API tile — receives dashboard request, sets case_id, routes to tkings for canonical event framing | **MISSING** |
 || `tkings` | `tkings` | Universal event ingestion — receives dashboard_read event, frames it canonically, pushes to tknorm | **NOT STARTED** |
 || `tknorm` | `tknorm` | Canonical normalization — normalizes dashboard_read event into canonical facts | **NOT STARTED** |
 || `tkdedu` | `tkdedu` | Deduplication — deduplicates dashboard_read event | **NOT STARTED** |
@@ -67,16 +67,16 @@ sequenceDiagram
 
 ### What's needed
 
-1. Register `tk_api` in the tile registry as a semantic API tile.
+1. Register `tk_gate` in the tile registry as a semantic API tile.
 2. Register `tktkr` tile ID, implement market data fetch stub (returning canned quotes from the mock server or fixture data).
 3. Register `tkport` tile ID, implement portfolio read stub (returning canned account snapshots).
-4. Wire `tkings` topology with links: `tk_api` → `tkings` → `tknorm` → `tkdedu` → `tkcase` → `tkpoly` → `tkaudt`.
-5. Implement `tk_api` command handler for `dashboard_request` via shared-memory channel.
+4. Wire `tkings` topology with links: `tk_gate` → `tkings` → `tknorm` → `tkdedu` → `tkcase` → `tkpoly` → `tkaudt`.
+5. Implement `tk_gate` command handler for `dashboard_request` via shared-memory channel.
 6. Add audit record type `dashboard_read` to `tkaudt`.
 
 ### System test approach
 
-- Launch the topology with `tk_api`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, `tkport`, `tkaudt`, `tktool`, `tkadpt`, `metric`, `tkdiag`.
+- Launch the topology with `tk_gate`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, `tkport`, `tkaudt`, `tktool`, `tkadpt`, `metric`, `tkdiag`.
 - Use `mock_broker_market_server` to serve portfolio and quote data (test infrastructure).
 - Send dashboard_request through `ui_cmd` channel (case_id=X, type=dashboard_read, tickers=NVDA,SPY,QQQ).
 - Verify: `tkings` canonicalized the event; `tktkr` returned matching quotes; `tkport` returned the correct portfolio for the requested account; `tkaudt` recorded the `dashboard_read` audit event; terminal received the response via `ui_rsp`.

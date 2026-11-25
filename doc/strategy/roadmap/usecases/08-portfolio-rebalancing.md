@@ -11,7 +11,7 @@ The flow creates a case (`case_rebalance_{timestamp}`) that scopes all events un
 ```mermaid
 sequenceDiagram
     participant Term as Terminal (UI)
-    participant tkA as tk_api (semantic API)
+    participant tkA as tk_gate (semantic API)
     participant tkI as tkings (canonical framing)
     participant tkN as tknorm (normalization)
     participant tkD as tkdedu (deduplication)
@@ -85,7 +85,7 @@ sequenceDiagram
 
 | Tile | Runtime ID | Responsibility | Status |
 |------|-----------|----------------|--------|
-|| `tk_api` | `tk_api` | Semantic API tile — receives investigate/trade_propose/trade_execute via ui_cmd, routes to tkings, returns ui_rsp | **MISSING** |
+|| `tk_gate` | `tk_gate` | Semantic API tile — receives investigate/trade_propose/trade_execute via ui_cmd, routes to tkings, returns ui_rsp | **MISSING** |
 | `tkcase` | `tkcase0` | Creates deterministic case scope, attaches events to case, provides replay capsule | **PARTIALLY** — `tk_pass_stem.c` placeholder exists |
 | `tkdisp` | `tkdisp` | Schedules investigation agent run | **EXISTING** — in investment workflow topology |
 | `tkagnt` | `tkagnt` | Bounded investigation agent — analyzes GOOG, proposes AMZN | **PARTIALLY** — `runInvestmentAgent` exists for trading; needs `runInvestmentInvestigationAgent` |
@@ -114,14 +114,14 @@ sequenceDiagram
 2. Add `case_created`, `investigation_propose`, `rebalance_execute` record types to `tkaudt`.
 3. Implement `runInvestmentInvestigationAgent` — bounded agent that analyzes a single ticker (fundamentals, valuation, risk profile) and proposes a rebalancing action (trim/add).
 4. Add `rebalance` capability to `tkpoly` — checks sell-side (existing holding, no short-sale issues) and buy-side (notional limits, sector limits, instrument allowlist).
-5. Register `tkcase` in tile registry with proper link shape (consumer of `tkapi`, producer to `tkaudt`).
+5. Register `tkcase` in tile registry with proper link shape (consumer of `tkgate`, producer to `tkaudt`).
 6. Wire `tkcase` into a new rebalance topology.
-7. Implement `tk_api` command handlers: investigate, trade_propose, and trade_execute via shared-memory channels.
+7. Implement `tk_gate` command handlers: investigate, trade_propose, and trade_execute via shared-memory channels.
 8. Implement `tkexec` case-scoped execution: verifies case_id, calls `tkbrok` for both trades, updates `tkport`, posts to `tkledg`, audits via `tkaudt`.
 
 ### System test approach
 
-- Launch the rebalance topology with `tk_api`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkdisp`, `tkagnt`, `tkmodl`, `tkpoly`, `tkport`, `tkbrok`, `tkexec`, `tkledg`, `tkaudt`, `tktool`, `tkadpt`, `metric`, `tkdiag`.
+- Launch the rebalance topology with `tk_gate`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkdisp`, `tkagnt`, `tkmodl`, `tkpoly`, `tkport`, `tkbrok`, `tkexec`, `tkledg`, `tkaudt`, `tktool`, `tkadpt`, `metric`, `tkdiag`.
 - Use `mock_adapter` with `technology_heavy` fixture (owns GOOG 500 shares, 15% of portfolio).
 - Use `mock_model` for GOOG analysis with canned response recommending AMZN.
 - Use `tkbrok` default backend (always returns filled).

@@ -188,7 +188,7 @@ changed, `test-e2e-fd`.
 `tkexec` request shape, allowlists, budgets, and replay substitution are
 covered by tests and, where a live tool is involved, `test-system-tk`.
 
-**CaseOps API or UI** — `tkapi` HTTP/WebSocket contracts, CaseOps screens, and
+**CaseOps API or UI** — `tkgate` HTTP/WebSocket contracts, CaseOps screens, and
 approval flows are covered by integration tests and, where practical, a
 captured request/response sample.
 

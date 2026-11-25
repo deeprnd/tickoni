@@ -33,7 +33,7 @@ They do not replace the runtime.
 
 ```text
 ┌────────────────────┐      ┌──────────────────────┐      ┌─────────────────────┐
-│      Next.js       │<────>│  tk_api shared-memory│<────>│  Markdown + analytics store  │
+│      Next.js       │<────>│  tk_gate shared-memory│<────>│  Markdown + analytics store  │
 │ CaseOps operator UI│      │  channel (all cmds)  │      │ memory + analytics  │
 └────────────────────┘      └──────────┬───────────┘      └─────────────────────┘
                                        │
@@ -41,7 +41,7 @@ They do not replace the runtime.
 ┌───────────────────────────────────────────────────────────────────────────────┐
 │                         Tickoni AI-harness tiles                              │
 │                                                                               │
-│  tk_api                                                                       │
+│  tk_gate                                                                       │
 │    Primary command entry point: shared-memory channel for all operator/agent   │
 │    commands (ingest, valuation, trade propose, trade execute, case reads)      │
 │    CaseOps board reads, evidence reads, approvals, audit timeline              │
@@ -106,12 +106,12 @@ to extend.
 
 Tickoni reuses generic Firedancer tiles and infrastructure primitives, but Solana validator tiles and Solana schemas are not Tickoni framework concepts. That generic Firedancer reuse is what lets Tickoni position itself as an ultra-TPS financial event harness instead of a normal web backend with agents attached.
 
-The **`tk_api` entry point** is the single shared-memory channel that receives all operator and agent commands. Financial events
-enter `tk_api`, which routes them to `tkings` for ingestion, then through `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, and `tkaudt` in the deterministic pipeline. Agent, model, tool, adapter,
+The **`tk_gate` entry point** is the single shared-memory channel that receives all operator and agent commands. Financial events
+enter `tk_gate`, which routes them to `tkings` for ingestion, then through `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, and `tkaudt` in the deterministic pipeline. Agent, model, tool, adapter,
 replay, metrics, diagnostics, and future execution paths are additional tiles
 on top of the same engine substrate.
 
-The **`tk_api` entry point** is the single shared-memory channel that receives
+The **`tk_gate` entry point** is the single shared-memory channel that receives
 all operator and agent commands (ingest, valuation, trade propose, trade
 execute, case reads). It authenticates, validates transport shape, routes to
 the owning tiles, and fans out state; it must not own normalization,
@@ -188,7 +188,7 @@ event spike in process mode:
 
 ```text
 synthetic payment stream
-  -> tk_api
+  -> tk_gate
   -> tkings
   -> tknorm
   -> tkdedu
@@ -494,7 +494,7 @@ platform, fuzzing, or performance stories.
 
 || Runtime ID | Logical name | Responsibility |
 | --- | --- | --- |
-| `tk_api` | `api_entry` | Primary command entry point: shared-memory channel for all operator/agent commands |
+| `tk_gate` | `api_entry` | Primary command entry point: shared-memory channel for all operator/agent commands |
 | `tkings` | `ingest_tile` | Receive synthetic payment events, validate framing, assign source offsets, and apply ingress backpressure |
 | `tknorm` | `normalize_tile` | Convert source events into the canonical financial event schema |
 | `tkdedu` | `dedupe_tile` | Deduplicate events by idempotency key and content hash |

@@ -163,11 +163,11 @@ financial meaning.
 | Tile or source | Solana-specific? | Tickoni use | Reuse mode |
 | --- | --- | --- | --- |
 | `net` | Mostly generic packet I/O, but configured around validator UDP flows | Useful only if Tickoni later needs high-rate packet ingress/egress below normal HTTP/WebSocket APIs, such as market-data UDP capture or colocated adapter feeds. Not needed for the current in-process spike. | Adapt only the generic packet-I/O discipline; do not inherit validator packet schemas. |
-| `sock` | Mostly generic UDP socket I/O | Useful for lower-rate UDP adapter feeds or tests where XDP is unnecessary. Not a replacement for `tkapi` HTTP/WebSocket. | Adapt only if Tickoni needs low-level UDP feeds. |
+| `sock` | Mostly generic UDP socket I/O | Useful for lower-rate UDP adapter feeds or tests where XDP is unnecessary. Not a replacement for `tkgate` HTTP/WebSocket. | Adapt only if Tickoni needs low-level UDP feeds. |
 | `netlnk` | Generic Linux network metadata | Useful with `net` if Tickoni owns route/neighbor-aware packet I/O. | Keep paired with low-level network work; otherwise omit. |
 | `metric` | Mostly generic, but assumes Firedancer metric layout and C topology | Useful model for `metric` Prometheus export and `fd_http_server` integration. | Keep metric workspace/rendering patterns; expose Tickoni metric names instead of validator metric schema. |
 | `diag` | Mixed: generic process diagnostics plus validator health checks | Useful model for `tkdiag` process, queue, crash, CPU, and interrupt diagnostics. | Minimal adaptation: remove validator-specific replay/tower/bundle checks and keep process/topology sampling. |
-| `fd_http_server` used by `metric`, `rpc`, and `gui` | Generic HTTP/WebSocket infrastructure, not itself a tile | Useful for `tkapi`, `metric`, and `tkdiag` HTTP surfaces. | Reuse the HTTP/WebSocket substrate, not Solana RPC or GUI schemas. |
+| `fd_http_server` used by `metric`, `rpc`, and `gui` | Generic HTTP/WebSocket infrastructure, not itself a tile | Useful for `tkgate`, `metric`, and `tkdiag` HTTP surfaces. | Reuse the HTTP/WebSocket substrate, not Solana RPC or GUI schemas. |
 | `src/disco/topo` and `src/disco/stem` | Generic tile lifecycle/polling substrate | Useful for process lifecycle, workspace construction, link validation, bounded polling, and backpressure. | Reuse `fd_topo_run_tile` inside each Tickoni tile child process. Reuse `fd_stem.c` only through a tile-specific compile-time specialization; never share one generated stem runner across unrelated tile contexts. Avoid adding Tickoni fields to upstream-hot `fd_topo.h`. |
 | `src/tango` | Generic queue substrate | Core Tickoni shared-memory queue and flow-control substrate. | Reuse with Tickoni-owned link schemas. |
 | `src/util/sandbox` and generated seccomp pattern | Generic sandbox infrastructure with per-tile policies, but Linux-only (namespaces, Landlock, seccomp) | Postponed to the server-only version: retail Tickoni must stay on par on Windows, macOS and Linux, so it does not use Linux-only sandboxing (see [platform-tiers.md](platform-tiers.md)). | Not used in retail; revisit only for a server-only Linux profile. |
@@ -188,10 +188,10 @@ financial meaning.
 | `poh`, `pohh`, `tower`, `replay` | Implement PoH, fork replay, TowerBFT, voting, Solana block IDs, and bank/fork state. | Exclude. Tickoni ordering comes from source offsets, deterministic case order, audit hashes, and replay capsules. |
 | `accdb` and Solana runtime objects | Store Solana account state, forks, banks, program cache, transaction cache, and compaction state. | Exclude as storage. the approved execution ledger, the analytics store, Markdown, audit logs, and evidence stores have distinct Tickoni roles. |
 | `sign` | Validator identity and authorized-voter keyguard. | Replace. Future signing belongs behind `tkexec` action envelopes; split a `tksign` tile only if execution support requires it. |
-| `rpc` | Solana JSON-RPC data model and accounts/bank reads. | Exclude. `tkapi` must expose CaseOps and ingestion APIs without owning financial correctness. |
+| `rpc` | Solana JSON-RPC data model and accounts/bank reads. | Exclude. `tkgate` must expose CaseOps and ingestion APIs without owning financial correctness. |
 | `event`, `solcap` | Export or capture Solana transaction, shred, vote, and execution artifacts. | Exclude. Tickoni uses `tkaudt`, `tkevid`, and `tkrepl` for financial audit and replay artifacts. |
 | `bundle` | Jito block-engine bundle path for Solana leaders. | Exclude. Tickoni has no Jito/MEV bundle product surface. |
-| `gui`, `guih`, `plugin` | Validator GUI/plugin streams with Solana topology, vote, stake, gossip, bank, and blockstore state. | Exclude. CaseOps UI reads through `tkapi` and must use Tickoni case/evidence/audit schemas. |
+| `gui`, `guih`, `plugin` | Validator GUI/plugin streams with Solana topology, vote, stake, gossip, bank, and blockstore state. | Exclude. CaseOps UI reads through `tkgate` and must use Tickoni case/evidence/audit schemas. |
 | `store` | Agave blockstore bridge for Solana shreds and FEC sets. | Exclude. Tickoni evidence, audit, analytics, and ledger stores must stay separate and finance-owned. |
 
 ## Reuse Boundary
@@ -209,7 +209,7 @@ Tickoni should reuse stable systems substrate, not validator semantics.
 | `src/disco/topo` | Reuse `fd_topo_run_tile` for lifecycle execution inside each supervisor-spawned tile child process |
 | `src/disco/stem` | Reuse only through tile-specific compile-time specializations for tiles such as `tkaudt` and `metric`; a generated runner is not a generic loop |
 | `src/disco/metrics` | Reference for low-overhead per-tile metrics; do not copy validator metric names as financial facts |
-| `src/waltz/http` | HTTP/WebSocket substrate for `tkapi`, `metric`, and diagnostics surfaces |
+| `src/waltz/http` | HTTP/WebSocket substrate for `tkgate`, `metric`, and diagnostics surfaces |
 | `net`, `sock`, `netlnk` tile implementations | Optional low-level network ingress/egress substrate when a Tickoni workflow proves it needs packet-tile performance |
 | Crash-only process model | Keep: unexpected tile failure tears down the runtime |
 
@@ -423,7 +423,7 @@ and demo paths are Tickoni-owned support roots around the runtime.
 | `tkmodl` | `model_gateway_tile` | Own model-provider or LLM-server network access, in-process GPU inference, routing, context limits, retry limits, token accounting, and spend caps. Supported providers: OpenAI, Anthropic (Claude), Qwen, DeepSeek, and a configured local/dev LLM endpoint. |
 | `tktool` | `tool_broker_tile` | Normalize model-native function calls and MCP requests into finance-native adapter or proposal envelopes, validate capability scope, and route approved requests to signed or stub adapters |
 | `tkadpt` | `adapter_tile` | Run a signed, manifest-scoped financial adapter or local stub adapter with narrowly allowed destinations, rails, accounts, venues, instruments, and network access |
-| `tkapi` | `caseops_api_tile` | Serve CaseOps board queries, evidence reads, approvals, and audit timeline reads |
+| `tkgate` | `caseops_api_tile` | Serve CaseOps board queries, evidence reads, approvals, and audit timeline reads |
 | `tkexec` | `action_executor_tile` | Execute only approved, signed downstream financial mutations within destination, amount, frequency, and approval scope; own privileged accounting ledger credentials |
 
 `tkagnt` and `tkadpt` are tile classes and may have multiple instances. Start
@@ -445,7 +445,7 @@ tkcase -> tkdisp -> tkagnt          case-scoped investigation
 
 tkagnt -> tkmodl                    model calls
 tkagnt -> tktool -> tkadpt          finance-capability-scoped reads and proposals
-tkapi  -> tkpoly -> tkexec          approved sensitive actions only
+tkgate  -> tkpoly -> tkexec          approved sensitive actions only
 
 all boundary events -> tkaudt
 evidence records    -> tkevid
@@ -561,7 +561,7 @@ runtime no longer depends on it.
 | `accdb`, `store`, `funk`, `progcache`, `txncache`, `banks` | Exclude. They are Solana runtime state. | Dedicated case, evidence, audit, and connector stores |
 | `event` | Exclude. It is an outbound Solana telemetry exporter. | `tkings`, `tkaudt` |
 | `metric` | Reimplement with Tickoni IDs while reusing the generic metrics and sandbox substrate where practical. | `metric`, `tkdiag` | Scratch footprint is a few hundred KiB (4 connection slots, 256 KiB out buffer). |
-| `rpc`, `gui`, `guih`, `plugin` | Exclude as validator tiles. The validator RPC and GUI data model do not fit CaseOps. The plugin fanout pattern may still be useful if Tickoni needs a governed connector or marketplace surface. | `tkapi` and a separate CaseOps frontend |
+| `rpc`, `gui`, `guih`, `plugin` | Exclude as validator tiles. The validator RPC and GUI data model do not fit CaseOps. The plugin fanout pattern may still be useful if Tickoni needs a governed connector or marketplace surface. | `tkgate` and a separate CaseOps frontend |
 | `bundle` | Exclude. Jito bundles are Solana-specific. | None |
 | `resolh`, `resolv` | Exclude. Solana lookup resolution is unrelated to financial entity enrichment. | Add a new `tkenty` enrichment tile only when a workflow requires it |
 | `solcap` | Exclude. It captures Solana execution state. | `tkaudt`, `tkevid`, `tkrepl` |

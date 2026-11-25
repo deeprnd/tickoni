@@ -2,14 +2,14 @@
 
 ## Description
 
-The user requests detailed historical data for a ticker (e.g. NVDA). The event enters through `tkapi` (transport/auth), which sets the `case_id` and routes to the ingestion pipeline (`tkings`). The event flows through `tknorm` → `tkdedu` → `tkcase` (case scope created) → `tkpoly` (allowed — read event) → `tkaudt`. The ticker data agent run is scheduled via `tkdisp`, which calls the agent (`tkagnt`) to fetch data through the tool normalizer (`tktool`) and adapter layer (`tkadpt`) to the execution ledger (`tkledg`), valuation store (`tkval`), market data tile (`tktkr`), and technical analysis engine (`tkta`).
+The user requests detailed historical data for a ticker (e.g. NVDA). The event enters through `tkgate` (transport/auth), which sets the `case_id` and routes to the ingestion pipeline (`tkings`). The event flows through `tknorm` → `tkdedu` → `tkcase` (case scope created) → `tkpoly` (allowed — read event) → `tkaudt`. The ticker data agent run is scheduled via `tkdisp`, which calls the agent (`tkagnt`) to fetch data through the tool normalizer (`tktool`) and adapter layer (`tkadpt`) to the execution ledger (`tkledg`), valuation store (`tkval`), market data tile (`tktkr`), and technical analysis engine (`tkta`).
 
 ## Flow
 
 ```mermaid
 sequenceDiagram
     participant Term as Terminal (UI)
-    participant tkA as tk_api (semantic API)
+    participant tkA as tk_gate (semantic API)
     participant tkI as tkings (canonical framing)
     participant tkN as tknorm (normalization)
     participant tkD as tkdedu (deduplication)
@@ -56,7 +56,7 @@ sequenceDiagram
 
 || Tile | Runtime ID | Responsibility | Status |
 ||------|-----------|----------------|--------|
-|| `tk_api` | `tk_api` | Semantic API tile — receives ticker data request via shared-memory channel, sets case_id, routes to tkings | **MISSING** |
+|| `tk_gate` | `tk_gate` | Semantic API tile — receives ticker data request via shared-memory channel, sets case_id, routes to tkings | **MISSING** |
 || `tkings` | `tkings` | Universal event ingestion — receives ticker_data_request event, frames it canonically | **NOT STARTED** |
 || `tknorm` | `tknorm` | Canonical normalization — normalizes ticker_data_request event into canonical facts | **NOT STARTED** |
 || `tkdedu` | `tkdedu` | Deduplication — deduplicates ticker_data_request event | **NOT STARTED** |
@@ -95,7 +95,7 @@ sequenceDiagram
 
 ### System test approach
 
-| Launch the data query topology with `tk_api`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, `tkaudt`, `tkdisp`, `tkledg`, `tkval`, `tktkr`, `tkta`, `tktool`, `tkadpt`, `metric`, `tkdiag`.
+| Launch the data query topology with `tk_gate`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, `tkaudt`, `tkdisp`, `tkledg`, `tkval`, `tktkr`, `tkta`, `tktool`, `tkadpt`, `metric`, `tkdiag`.
 | Use `tktkr` mock with canned 1-year OHLCV data for NVDA.
 | Use `tkledg` stub with canned transaction history for NVDA.
 | Use `tkval` stub with canned valuation history for NVDA.

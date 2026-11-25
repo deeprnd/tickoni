@@ -144,7 +144,7 @@ doc/observability.md and doc/telemetry.md for metrics/diagnostics expectations.
 | Model gateway governance (`tkmodl`) | [Applies | N/A | Decision needed] | ... |
 | Tool broker or adapter dispatch (`tktool` / `tkadpt`) | [Applies | N/A | Decision needed] | ... |
 | Approved execution (`tkexec`) | [Applies | N/A | Decision needed] | ... |
-| CaseOps API/UI (`tkapi`) | [Applies | N/A | Decision needed] | ... |
+| CaseOps API/UI (`tkgate`) | [Applies | N/A | Decision needed] | ... |
 | Storage role: Memory, Analytics, Ledger | [Applies | N/A | Decision needed] | ... |
 | Metrics, diagnostics, and operations | [Applies | N/A | Decision needed] | ... |
 | Security and fail-closed behavior | [Applies | N/A | Decision needed] | ... |

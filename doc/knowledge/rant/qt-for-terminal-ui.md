@@ -29,7 +29,7 @@ for a dense, keyboard-first, multi-window UI on Linux, macOS, and Windows while
 preserving the Zig runtime's financial and licensing boundaries, it was decided to
 build the official terminal with Qt 6 Quick/QML and a thin C++ application layer.
 For local operation, the terminal communicates with the Zig runtime through
-`tk_api` over bounded shared-memory channels inside the `tk_ui` composite tile
+`tk_gate` over bounded shared-memory channels inside the `tk_ui` composite tile
 (see ADR-04). For remote operation, it communicates through `tk_gateway` over
 HTTP, WebSocket, or QUIC. We will not use Tauri, Flutter, a
 browser/Electron-style shell, a Qt Widgets-only UI, or direct Qt bindings from
@@ -52,7 +52,7 @@ into the frontend.
 
 The intended product is a persistent professional terminal rather than a
 consumer dashboard. It needs dense tables, aligned numerical data, keyboard
-commands, multiple windows, high-DPI support, live `tkapi` updates, and a
+commands, multiple windows, high-DPI support, live `tkgate` updates, and a
 consistent visual system across Linux, macOS, and Windows.
 
 The requirements suggest the long-term workload as 10–50 dockable panels, 
@@ -77,7 +77,7 @@ workflow, required native architecture matrix, and non-MSVC Windows policy.
 The supplied reviews expose two legitimate but different optimization targets.
 The CLI/GUI review recommends a web-first React/Tauri route as the fastest way
 to reuse mature grids, financial charts, and terminal components, while keeping
-all authority behind `tkapi`. The trading-framework review recommends Qt for the
+all authority behind `tkgate`. The trading-framework review recommends Qt for the
 long-lived premium desktop workstation because its model/view, windowing,
 keyboard, and workspace foundations better match a professional
 market-data/trading-desk terminal. This ADR chooses the second target for the official desktop terminal
@@ -131,7 +131,7 @@ every later terminal function.
 - Allow a strongly customized but consistent Tickoni visual system.
 - Keep financial correctness and execution authority in the Zig runtime.
 - Keep the runtime and CLI buildable and usable without Qt.
-- Preserve a provider-neutral `tkapi` for official and third-party clients.
+- Preserve a provider-neutral `tkgate` for official and third-party clients.
 - Avoid maintaining direct Zig bindings to Qt's C++ meta-object system.
 - Make licensing boundaries explicit and mechanically testable.
 - Preserve Tickoni's existing GNU/Clang-oriented toolchain policy and avoid an
@@ -153,7 +153,7 @@ Quality attributes affected:
   packaging tested separately.
 - Performance: C++ models and reusable Qt Quick delegates support dense tables
   when QML remains presentation-only.
-- Operability/testability: fixture and `tkapi` transports share typed models;
+- Operability/testability: fixture and `tkgate` transports share typed models;
   terminal and runtime can fail and restart independently.
 - Security/compliance: the UI cannot call providers, adapters, brokers, stores,
   or execution systems directly.
@@ -164,7 +164,7 @@ Quality attributes affected:
   changed by another decision.
 - The official Qt terminal is a separate executable and is not required to build
   or run the runtime or CLI.
-- `tk_api` is the semantic boundary for governed reads and actions. A separate
+- `tk_gate` is the semantic boundary for governed reads and actions. A separate
   `tk_ui` tile wraps the Qt application for local operation.
 - Local transport uses bounded shared-memory channels (see ADR-04).
 - Remote transport uses HTTP, WebSocket, or QUIC through `tk_gateway`.
@@ -186,7 +186,7 @@ Quality attributes affected:
   the GPL terminal. The Zig runtime remains a separate process by default.
 - Hosted market-data, brokerage, and LLM services are separate network services
   and outside this ADR.
-- The CLI/TUI and Qt terminal are separate clients of the same `tkapi`; neither
+- The CLI/TUI and Qt terminal are separate clients of the same `tkgate`; neither
   is allowed to become the execution engine or the source of financial truth.
 - Commands, sessions, streaming, approval gates, audit, replay, policy errors,
   and case state must be represented through shared API contracts and command
@@ -337,7 +337,7 @@ Tickoni therefore treats charting as an independent module with a documented
 input and interaction API:
 
 ```text
-tkapi snapshots/deltas
+tkgate snapshots/deltas
         |
         v
 C++ chart model / normalized series API
@@ -372,14 +372,14 @@ charting remains the highest-risk replaceable component.
 
 ## Considered Options
 
-1. **Qt Quick/QML with C++ models over `tkapi`.** Build one native terminal with
+1. **Qt Quick/QML with C++ models over `tkgate`.** Build one native terminal with
    QML presentation, C++ Qt integration, and a separate Zig runtime process.
-2. **Qt Widgets-only over `tkapi`.** Build the terminal with traditional Qt
+2. **Qt Widgets-only over `tkgate`.** Build the terminal with traditional Qt
    Widgets and C++ models.
-3. **Tauri 2 with a web frontend and Rust shell over `tkapi`.** Build the
+3. **Tauri 2 with a web frontend and Rust shell over `tkgate`.** Build the
    terminal with HTML/CSS/TypeScript in operating-system WebViews and a small
    Rust desktop shell.
-4. **Flutter Desktop over `tkapi`.** Build the terminal in Dart using Flutter's
+4. **Flutter Desktop over `tkgate`.** Build the terminal in Dart using Flutter's
    cross-platform rendering engine and native desktop embedders.
 5. **Web-first UI with an optional desktop wrapper.** Build React/Next.js and use
    a browser or Electron-like shell for desktop delivery.
@@ -388,7 +388,7 @@ charting remains the highest-risk replaceable component.
 
 ## Option Analysis
 
-### Option 1: Qt Quick/QML with C++ models over `tkapi`
+### Option 1: Qt Quick/QML with C++ models over `tkgate`
 
 Build `tickoni-terminal-qt` as a Qt 6 application. Use QML and Qt Quick Controls
 for visual composition, C++ `QObject` and `QAbstractItemModel` implementations
@@ -410,7 +410,7 @@ Good, because:
 - Qt's model/view architecture, reusable views, shortcuts, menus, splitters, and
   multi-window foundations reduce the amount of workstation infrastructure that
   Tickoni must invent compared with a general mobile or web application stack.
-- The process boundary preserves `tkapi` authority and runtime ownership.
+- The process boundary preserves `tkgate` authority and runtime ownership.
 - The runtime and CLI remain usable without Qt.
 - Third parties can build other clients against the same API.
 
@@ -454,7 +454,7 @@ Validation needed:
 - Verify runtime and CLI builds with Qt absent.
 - Complete licensing review for the pinned Qt modules.
 
-### Option 2: Qt Widgets-only over `tkapi`
+### Option 2: Qt Widgets-only over `tkgate`
 
 Build the terminal with `QMainWindow`, dock widgets, item views, and C++ models.
 
@@ -483,12 +483,12 @@ Validation needed:
 - No full spike is required unless the QML prototype fails a stated accessibility
   or performance gate.
 
-### Option 3: Tauri 2 with a web frontend and Rust shell over `tkapi`
+### Option 3: Tauri 2 with a web frontend and Rust shell over `tkgate`
 
 Build a Tauri 2 desktop application with a TypeScript frontend and a minimal
 Rust core. The frontend runs in the operating system WebView: WebView2 on
 Windows, WKWebView on macOS, and WebKitGTK on Linux. The Tauri core would manage
-windows, local settings, updates, and a typed `tkapi` client; financial behavior
+windows, local settings, updates, and a typed `tkgate` client; financial behavior
 would remain in the separate Zig runtime.
 
 Good, because:
@@ -554,12 +554,12 @@ Validation needed:
 - Verify installer, updater, code-signing, WebView availability, and Linux
   distribution compatibility on every supported architecture.
 
-### Option 4: Flutter Desktop over `tkapi`
+### Option 4: Flutter Desktop over `tkgate`
 
 Build a Dart application using Flutter's declarative widget system and bundled
 rendering engine. The Flutter desktop embedders host the engine in native
 Windows, macOS, and Linux applications, while all financial state is loaded from
-`tkapi`.
+`tkgate`.
 
 Good, because:
 
@@ -575,7 +575,7 @@ Good, because:
   surface.
 - Flutter can deliver rapid UI iteration when the product behaves more like a
   custom application than a traditional workstation.
-- The separate `tkapi` boundary remains straightforward and no C++ financial
+- The separate `tkgate` boundary remains straightforward and no C++ financial
   logic is required.
 
 Bad, because:
@@ -651,7 +651,7 @@ Bad, because:
 
 Neutral or conditional:
 
-- A later web review or partner portal can use the same `tkapi`.
+- A later web review or partner portal can use the same `tkgate`.
 
 Validation needed:
 
@@ -671,7 +671,7 @@ Bad, because:
 
 - Qt depends on C++ classes, `QObject`, signals and slots, MOC, QML type
   registration, and CMake; custom Zig bindings create a large maintenance layer.
-- Embedding the runtime weakens process isolation and the existing `tkapi`
+- Embedding the runtime weakens process isolation and the existing `tkgate`
   authority boundary.
 - Shared address space introduces allocator, ownership, lifecycle, crash, and ABI
   concerns.
@@ -690,7 +690,7 @@ Validation needed:
 
 ## Comparison
 
-| Criterion | Weight | Qt Quick + `tkapi` | Qt Widgets + `tkapi` | Tauri 2 | Flutter Desktop | Web/Electron wrapper | Direct Zig/Qt |
+| Criterion | Weight | Qt Quick + `tkgate` | Qt Widgets + `tkgate` | Tauri 2 | Flutter Desktop | Web/Electron wrapper | Direct Zig/Qt |
 | --- | ---: | --- | --- | --- | --- | --- | --- |
 | Professional terminal fit | High | Strong | Medium/Strong | Medium | Medium | Medium | Depends on wrapper |
 | Docking, workspaces, and multi-monitor | High | Strong Qt foundation; QML shell still needs a validated panel manager | Strong traditional Qt support | Medium; custom web/wrapper coordination | Medium; plugin/custom work | Medium; wrapper-specific | Depends on wrapper |
@@ -714,14 +714,14 @@ Validation needed:
 
 **We will build the official Tickoni desktop terminal with Qt 6 Quick/QML and a
 thin C++ application/model layer, as a separate executable communicating with
-the Zig runtime exclusively through `tkapi` over HTTP/WebSocket.**
+the Zig runtime exclusively through `tkgate` over HTTP/WebSocket.**
 
 This is the default for the Linux, macOS, and Windows operator terminal. V2.19
 and later desktop terminal work must use it unless a deviation criterion applies.
 
 The decisive factor is that Qt Quick with C++ models provides the required
 native desktop, model/view, keyboard, multi-window, workspace, and visual-control
-foundation for a long-lived workstation from one codebase, while the `tkapi`
+foundation for a long-lived workstation from one codebase, while the `tkgate`
 process boundary preserves Zig ownership of financial truth and keeps the
 runtime and CLI independent of Qt. Tauri wins the narrower comparison for rapid
 access to web charts and grids; Qt wins the broader comparison for the official
@@ -737,7 +737,7 @@ Implementation rules:
 3. The Zig runtime and CLI must not depend on or link Qt UI code.
 4. QML contains presentation behavior only.
 5. C++ exposes typed services and `QAbstractItemModel`-based models to QML.
-6. All governed reads and actions pass through a typed `tkapi` client.
+6. All governed reads and actions pass through a typed `tkgate` client.
 7. A local runtime may be started as a child process, but is accessed through the
    same API as a remote runtime.
 8. Qt Quick Controls uses a Tickoni style based initially on Basic.
@@ -827,7 +827,7 @@ Rejected alternatives:
 - Qt remains an application framework, not a finance-domain dependency.
 - A web client, Tauri companion application, or Flutter mobile/companion client
   may coexist later without changing this terminal decision, provided it uses
-  the same governed `tkapi` boundary.
+  the same governed `tkgate` boundary.
 - Hosted market-data, brokerage, and LLM services remain separate APIs.
 - A fork may replace the GPL terminal while continuing to use the Apache runtime.
 
@@ -846,7 +846,7 @@ Rejected alternatives:
 | QML workspace/docking implementation becomes bespoke and unstable | Medium | High | Prototype panel detach/reattach, persistence, focus, and multi-monitor behavior early; permit a selective Widgets/native host | UI maintainers |
 | Charting scope dominates V2.19 or locks the shell to one vendor | Medium | High | Table-first release, chart-module interface, separate dependency/licensing ADR, batched governed data contracts | Product/UI maintainers |
 | CLI and desktop command semantics diverge | Medium | Medium | Versioned shared command metadata and cross-client contract tests | API/CLI/UI maintainers |
-| `tkapi` protocol drifts | Medium | High | Versioned schemas, compatibility tests, explicit unavailable states | API maintainers |
+| `tkgate` protocol drifts | Medium | High | Versioned schemas, compatibility tests, explicit unavailable states | API maintainers |
 | Process transport becomes a bottleneck | Low | Medium | Profile, batch updates, optimize WebSocket deltas, then write a new ADR | Architecture maintainers |
 
 ## Implementation Plan
@@ -862,7 +862,7 @@ Rejected alternatives:
 - Add `LICENSES/GPL-3.0-only.txt`, `src/tickoni/ui/LICENSE`, SPDX headers, and a
   repository-level `LICENSING.md`.
 - Keep runtime, API, and CLI code under Apache-2.0 with no dependency on Qt.
-- Define the minimum versioned `tkapi` terminal view contract.
+- Define the minimum versioned `tkgate` terminal view contract.
 - Define shared command metadata for CLI/TUI and desktop commands, completion,
   authorization requirements, and help text.
 - Define a chart-module interface for series snapshots, batched deltas,
@@ -894,9 +894,9 @@ Rejected alternatives:
 Migration/backward compatibility:
 
 - Existing runtime and CLI behavior is unchanged.
-- Existing deterministic demos become terminal fixtures or `tkapi` responses.
+- Existing deterministic demos become terminal fixtures or `tkgate` responses.
 - CLI-only installations remain supported and do not require Qt.
-- `tkapi` changes are backward-compatible or explicitly versioned.
+- `tkgate` changes are backward-compatible or explicitly versioned.
 
 Operational impact:
 
@@ -914,7 +914,7 @@ Operational impact:
   reconnect tests, multi-window and workspace-persistence tests, synthetic table
   performance tests, chart-module contract tests, 8-hour soak tests, and
   compiler/architecture package tests.
-- Review gates: UI architecture, `tkapi`, cross-platform packaging,
+- Review gates: UI architecture, `tkgate`, cross-platform packaging,
   accessibility, open-source licensing, and documented alternative-framework
   comparison reviews.
 - Build/CI checks: committed CMake presets; macOS x86_64/arm64; Linux
@@ -934,7 +934,7 @@ Minimum evidence:
 - A 10,000-row synthetic table remains interactive under representative updates.
 - A synthetic 10–50 panel workspace can detach, restore, and survive an 8-hour
   update soak without unbounded memory growth or focus failure.
-- The CLI/TUI and desktop resolve shared commands to compatible `tkapi` requests
+- The CLI/TUI and desktop resolve shared commands to compatible `tkgate` requests
   and policy/approval semantics.
 - The terminal connects and reconnects to a local runtime without linking it.
 - Runtime and CLI tests pass in an environment without Qt.
@@ -950,7 +950,7 @@ A future implementation may deviate only when at least one condition applies:
   ARM64EC, another C++ standard library, or a different MinGW distribution is
   proposed. Such a change requires documented ABI, Qt module, deployment, and
   native-device validation.
-- A measured product SLO cannot be met through `tkapi` after transport and model
+- A measured product SLO cannot be met through `tkgate` after transport and model
   optimization.
 - A browser, mobile, embedded, compact companion, or platform-specific product
   has materially different requirements from the official terminal; Tauri or

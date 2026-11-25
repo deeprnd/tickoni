@@ -58,7 +58,7 @@ someone else already updated.
 
 The supervisor's main thread should be able to:
 - Poll metrics (`snapshotProcessMetrics`)
-- Serve API requests (`tkapi` HTTP/WebSocket)
+- Serve API requests (`tkgate` HTTP/WebSocket)
 - Handle OS signals (SIGTERM, SIGINT)
 - Wait for user input (CaseOps, interactive control)
 - All while crash detection happens independently
@@ -67,7 +67,7 @@ The supervisor's main thread should be able to:
 and update handle state without blocking the main thread or requiring every
 caller to poll manually?
 
-This decision matters now because every new caller (tests, `tkapi` handlers,
+This decision matters now because every new caller (tests, `tkgate` handlers,
 future `tkdiag` endpoints, `tkexec` approval gates) must discover and implement
 the same polling pattern, and the current workaround is test-specific boilerplate
 that does not belong in production code.

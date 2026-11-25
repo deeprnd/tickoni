@@ -9,7 +9,7 @@ Tickoni repository.
   <!-- badge:build:end -->
 
   <!-- badge:quality:start -->
-  <img alt="Quality" src="https://img.shields.io/badge/quality-failing-red?style=flat-square" />
+  <img alt="Quality" src="https://img.shields.io/badge/quality-passing-brightgreen?style=flat-square" />
   <!-- badge:quality:end -->
 
   <!-- badge:security:start -->
@@ -23,7 +23,7 @@ Tickoni repository.
   <!-- badge:unit:end -->
 
   <!-- badge:integration:start -->
-  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-passing-brightgreen?style=flat-square" />
+  <img alt="Integration Tests" src="https://img.shields.io/badge/integration%20tests-failing-red?style=flat-square" />
   <!-- badge:integration:end -->
 
   <!-- badge:system:start -->
@@ -196,7 +196,7 @@ reference for which commands exist and which are stubbed.
 | `test-integration-tk-windows-arm` | Tickoni integration — Windows ARM | Windows ARM | Active |
 | `test-integration-tk-windows-x86` | Tickoni integration — Windows x86 | Windows x86 | Active |
 | `test-integration-tk-infra` | Infra lane: `-tile`, then `-process`, sequentially (never concurrent: both spawn tile processes that share ports and workspaces) | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
-| `test-integration-tk-infra-tile` | Per-tile files: metric, tkagnt, tkapi, tkaudt, tkdedu, tkdiag, tkings, tkmodl, tknorm, tkpoly | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
+| `test-integration-tk-infra-tile` | Per-tile files: metric, tkagnt, tkgate, tkaudt, tkdedu, tkdiag, tkings, tkmodl, tknorm, tkpoly | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
 | `test-integration-tk-infra-process` | Process, topology, link-bound, minimal-setup and stem-heartbeat files, plus the mock-server and model-HTTP series | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
 | `test-integration-tk-domain` | Domain lane: investment policy, allowed/blocked trades, replay | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
 | `test-integration-cli` | CLI integration (spawn tickoni binary) | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |

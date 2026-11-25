@@ -2,7 +2,7 @@
 
 ## Description
 
-The user reviews the trade proposal from UC-03 and agrees. The event enters through `tkapi` (transport/auth), which sets the `case_id` and routes to the ingestion pipeline (`tkings`). The event flows through `tknorm` → `tkdedu` → `tkcase` (case scope created) → `tkpoly` (re-validation: policy still in scope) → `tkaudt` → `tkexec` (approved execution) → `tkbrok` (broker) → `tkport` (portfolio update) → `tkledg` (ledger entry) → `tkaudt` (execution audit).
+The user reviews the trade proposal from UC-03 and agrees. The event enters through `tkgate` (transport/auth), which sets the `case_id` and routes to the ingestion pipeline (`tkings`). The event flows through `tknorm` → `tkdedu` → `tkcase` (case scope created) → `tkpoly` (re-validation: policy still in scope) → `tkaudt` → `tkexec` (approved execution) → `tkbrok` (broker) → `tkport` (portfolio update) → `tkledg` (ledger entry) → `tkaudt` (execution audit).
 
 This is the first path where money would actually move (in production). In the current stubbed environment, the broker returns a synthetic filled order.
 
@@ -11,7 +11,7 @@ This is the first path where money would actually move (in production). In the c
 ```mermaid
 sequenceDiagram
     participant Term as Terminal (UI)
-    participant API as tkapi (transport/auth)
+    participant API as tkgate (transport/auth)
     participant Ing as tkings (canonical framing)
     participant Norm as tknorm (normalization)
     participant Dedu as tkdedu (deduplication)
@@ -52,7 +52,7 @@ sequenceDiagram
 
 || Tile | Runtime ID | Responsibility | Status |
 ||------|-----------|----------------|--------|
-|| `tkapi` | `tkapi` | HTTP/WebSocket CaseOps API tile — receives trade execution request, sets case_id, routes to tkings | **MISSING** |
+|| `tkgate` | `tkgate` | HTTP/WebSocket CaseOps API tile — receives trade execution request, sets case_id, routes to tkings | **MISSING** |
 || `tkings` | `tkings` | Universal event ingestion — receives trading_order.execute event, frames it canonically | **NOT STARTED** |
 || `tknorm` | `tknorm` | Canonical normalization — normalizes trade execution event into canonical facts | **NOT STARTED** |
 || `tkdedu` | `tkdedu` | Deduplication — deduplicates trade execution event | **NOT STARTED** |
@@ -86,11 +86,11 @@ sequenceDiagram
 8. Implement ledger entry: transfer record with before/after state for audit read-back reconciliation.
 9. Add `trade_execute` record type to `tkaudt` — includes proposal hash, fill details, ledger entry hash, signed envelope verification.
 10. Wire `tkexec`, `tkbrok`, `tkledg` into a new execution topology.
-11. Implement `tk_api` command handler for `trade_execute` via shared-memory channel.
+11. Implement `tk_gate` command handler for `trade_execute` via shared-memory channel.
 
 ### System test approach
 
-- Launch the execution topology with `tk_api`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, `tkexec`, `tkbrok`, `tkledg`, `tkport`, `tkaudt`, `tktool`, `tkadpt`, `metric`, `tkdiag`.
+- Launch the execution topology with `tk_gate`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, `tkexec`, `tkbrok`, `tkledg`, `tkport`, `tkaudt`, `tktool`, `tkadpt`, `metric`, `tkdiag`.
 - Use `mock_adapter` with portfolio snapshot and paper_order filled response.
 - Use `tkbrok` default backend (always returns filled).
 - Send trade_execute command through `ui_cmd` channel (case_id=X, type=trading_order.execute, ticket_id=ticket_abc, proposal_hash=hash_xyz).

@@ -164,7 +164,7 @@ architecture and compiler.
 ### CaseOps
 
 CaseOps does not display a platform capability level, because there is none to
-show. Host platform metadata may be shown as plain provenance once a tkapi/UI
+show. Host platform metadata may be shown as plain provenance once a tkgate/UI
 story adds the dashboard host metadata surface.
 
 ### Audit
