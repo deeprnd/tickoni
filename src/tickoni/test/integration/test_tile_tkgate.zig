@@ -347,19 +347,21 @@ test "tkgate_integration: audit records carry correct source_offset continuity a
         try std.testing.expectEqual(@as(u64, i), c_abi.tkaudit.recordSourceOffset(audit, i));
     }
 
-    // Every record is a source_event (type 0) decided by tknorm.
+    // Every record is the policy_decision tkaudt writes for each spine event
+    // it receives (this fixture has no tkpoly, so nothing is pre-decided).
     for (0..events.len - 1) |i| {
-        try std.testing.expectEqual(@as(u32, @intCast(c_abi.tkaudit.RECORD_SOURCE_EVENT)), c_abi.tkaudit.recordType(audit, i));
+        try std.testing.expectEqual(@as(u32, @intCast(c_abi.tkaudit.RECORD_POLICY_DECISION)), c_abi.tkaudit.recordType(audit, i));
     }
 }
 
-test "tkgate_integration: source event hashes are unique per event" {
+test "tkgate_integration: tkgate stamps no source event hash; that is tknorm's" {
     const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var events = paymentEvents(10);
-    // Each payment event has a different idempotency_key and trace_id,
-    // so every event should produce a unique source event hash.
+    // The canonical source event hash is computed by tknorm, which this
+    // fixture (tkgate -> tkings -> tkaudt) does not have. Neither tkgate nor
+    // tkings may fill it in, so every record carries none.
     var run: Run = undefined;
     try run.start(&events);
     defer run.deinit();
@@ -371,14 +373,8 @@ test "tkgate_integration: source event hashes are unique per event" {
     const audit = try tileScratch(&run.sup, "tkaudt");
     try std.testing.expectEqual(@as(usize, events.len), c_abi.tkaudit.recordCount(audit));
 
-    var hashes: [events.len]u64 = undefined;
-    for (0..events.len) |i| hashes[i] = c_abi.tkaudit.recordSourceEventHash(audit, i);
-
-    // All hashes are pairwise distinct.
     for (0..events.len) |i| {
-        for (hashes[i + 1 ..]) |other| {
-            try std.testing.expect(hashes[i] != other);
-        }
+        try std.testing.expectEqual(@as(u64, 0), c_abi.tkaudit.recordSourceEventHash(audit, i));
     }
 }
 
