@@ -19,9 +19,9 @@ const tiles = @import("tiles");
 /// helpers below build from only these.
 const phase0_tile_cnt = 8;
 
-test "registry has the 8 Phase 0 tiles followed by tkmodl, tkagnt, tkdisp, the workflow placeholders and tkapi" {
+test "registry has the 8 Phase 0 tiles followed by tkmodl, tkagnt, tkdisp, the workflow placeholders and tkgate" {
     try std.testing.expectEqual(@as(usize, 15), entries.len);
-    try std.testing.expect(entries[phase0_tile_cnt + 6].id.eql(tile_ids.tkapi));
+    try std.testing.expect(entries[phase0_tile_cnt + 6].id.eql(tile_ids.tkgate));
     try std.testing.expect(entries[phase0_tile_cnt].id.eql(tile_ids.tkmodl));
     try std.testing.expect(entries[phase0_tile_cnt + 1].id.eql(tile_ids.tkagnt));
     try std.testing.expect(entries[phase0_tile_cnt + 2].id.eql(tile_ids.tkdisp));
@@ -31,7 +31,7 @@ test "registry has the 8 Phase 0 tiles followed by tkmodl, tkagnt, tkdisp, the w
 }
 
 test "findById finds every registered tile" {
-    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt", "tkrepl", "metric", "tkdiag", "tkmodl", "tkagnt", "tkdisp", "tkcase", "tktool", "tkadpt", "tkapi" }) |name| {
+    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkaudt", "tkrepl", "metric", "tkdiag", "tkmodl", "tkagnt", "tkdisp", "tkcase", "tktool", "tkadpt", "tkgate" }) |name| {
         const tile_id = tile_ids.lookup(name) orelse unreachable;
         try std.testing.expect(findById(tile_id) != null);
     }
@@ -56,13 +56,13 @@ test "counter schema matches known field meanings" {
     try std.testing.expectEqual(CounterField.produced, tkings.counters[0].field);
     try std.testing.expectEqual(CounterField.ingest_invalid, tkings.counters[1].field);
 
-    const tkapi = findById(tile_ids.tkapi).?;
-    try std.testing.expectEqual(@as(usize, 2), tkapi.counters.len);
-    try std.testing.expectEqual(CounterField.api_published, tkapi.counters[0].field);
-    try std.testing.expectEqual(CounterField.api_wire_invalid, tkapi.counters[1].field);
-    try std.testing.expectEqual(LaunchMode.stem, tkapi.launch_mode);
-    try std.testing.expectEqual(@as(u8, 1), tkapi.in_cnt);
-    try std.testing.expectEqual(@as(u8, 1), tkapi.out_cnt);
+    const tkgate = findById(tile_ids.tkgate).?;
+    try std.testing.expectEqual(@as(usize, 2), tkgate.counters.len);
+    try std.testing.expectEqual(CounterField.api_published, tkgate.counters[0].field);
+    try std.testing.expectEqual(CounterField.api_wire_invalid, tkgate.counters[1].field);
+    try std.testing.expectEqual(LaunchMode.stem, tkgate.launch_mode);
+    try std.testing.expectEqual(@as(u8, 1), tkgate.in_cnt);
+    try std.testing.expectEqual(@as(u8, 1), tkgate.out_cnt);
 
     const tkrnorm = findById(tile_ids.tknorm).?;
     try std.testing.expectEqual(@as(usize, 2), tkrnorm.counters.len);
@@ -251,10 +251,10 @@ test "validate refuses an externally produced link into any tile but tkings" {
     try std.testing.expectError(error.ExternalLinkNotIngest, validate(.{ .tiles = &two, .channels = &channels }));
 }
 
-test "validate: with tkapi in the topology the externally produced link enters tkapi, never tkings" {
+test "validate: with tkgate in the topology the externally produced link enters tkgate, never tkings" {
     const wksp = try rt.link.WorkspaceName.parse("tkpay0");
     const three = [_]rt.tile.TileDescriptor{
-        .{ .id = 0, .name = tile_ids.tkapi },
+        .{ .id = 0, .name = tile_ids.tkgate },
         .{ .id = 1, .name = tile_ids.tkings },
         .{ .id = 2, .name = tile_ids.tkaudt },
     };
@@ -263,7 +263,7 @@ test "validate: with tkapi in the topology the externally produced link enters t
     const into_api = rt.link.Channel{ .src_idx = rt.link.external_src, .dst_idx = 0, .depth = 64, .mtu = 512, .backing = .tango_shm, .workspace_name = wksp };
     const into_ings = rt.link.Channel{ .src_idx = rt.link.external_src, .dst_idx = 1, .depth = 64, .mtu = 512, .backing = .tango_shm, .workspace_name = wksp };
 
-    try std.testing.expect(reg.ingressTile(.{ .tiles = &three, .channels = &.{} }).eql(tile_ids.tkapi));
+    try std.testing.expect(reg.ingressTile(.{ .tiles = &three, .channels = &.{} }).eql(tile_ids.tkgate));
     try validate(.{ .tiles = &three, .channels = &.{ api_to_ings, ings_to_audt, into_api } });
     try std.testing.expectError(error.ExternalLinkNotIngest, validate(.{ .tiles = &three, .channels = &.{ api_to_ings, ings_to_audt, into_ings } }));
 }
@@ -354,7 +354,7 @@ test "tkdiag is the diagnostic collector: no pipeline links, no output, CNC slot
 
 test "exactly the spine tiles and runtime tiles are diagnostic producers" {
     const spine_producers = [_]rt.tile.TileId{ tile_ids.tkings, tile_ids.tknorm, tile_ids.tkdedu, tile_ids.tkpoly, tile_ids.tkaudt, tile_ids.tkcase };
-    const runtime_producers = [_]rt.tile.TileId{ tile_ids.tkmodl, tile_ids.tkagnt, tile_ids.tkdisp, tile_ids.tkapi };
+    const runtime_producers = [_]rt.tile.TileId{ tile_ids.tkmodl, tile_ids.tkagnt, tile_ids.tkdisp, tile_ids.tkgate };
     for (&entries) |*e| {
         var is_spine_producer = false;
         for (spine_producers) |p| {
