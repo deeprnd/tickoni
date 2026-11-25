@@ -177,6 +177,7 @@ tkpass_after_frag( tkpass_ctx_t *      ctx,
         for( ulong o=0UL; o<ctx->out_cnt; o++ )
             stk_link_out_publish( &ctx->out[o], stem, o, sig, ctx->stage, ctx->stage_sz );
         ctx->forwarded += 1UL;
+        FD_LOG_DEBUG(( "tkpass: after_frag forwarded sz=%lu out_cnt=%lu", ctx->stage_sz, ctx->out_cnt ));
         STK_EVENT_EXHAUSTED( ctx, ctx->event_count, ctx->forwarded );
     }
     stk_publish_counter( ctx->cnc, 0UL, ctx->consumed );
@@ -188,6 +189,8 @@ tkpass_run_entry( fd_topo_t *      topo,
     void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
     tkpass_ctx_t * ctx = STK_GET_CTX(tkpass_ctx_t, scratch, TKPASS_CTX_ALIGN);
 
+    FD_LOG_DEBUG(( "tkpass: run entry ctx=%p tile=%s:%lu", (void*)ctx, tile->name, tile->id ));
+
     ulong cnc_obj_id = tk_topo_find_tile_obj( topo, tile->id, "cnc" );
     if( FD_UNLIKELY( cnc_obj_id == ULONG_MAX ) )
         FD_LOG_ERR(( "%s: CNC object not found for tile %lu", tile->name, tile->id ));
@@ -196,6 +199,8 @@ tkpass_run_entry( fd_topo_t *      topo,
     tkpass_run( topo, tile );
 
     tile->allow_shutdown = 1;
+    FD_LOG_DEBUG(( "tkpass: run exit ctx=%p consumed=%lu forwarded=%lu",
+                   (void*)ctx, ctx->consumed, ctx->forwarded ));
 }
 
 #define TKPASS_RUN_TILE( sym, tile_name )                          \

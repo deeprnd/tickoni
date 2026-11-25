@@ -93,6 +93,7 @@ tkings_after_frag( tkings_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig, ulong
         memset( ev->decided_by, 0, sizeof(ev->decided_by) );
         memset( ev->_pad, 0, sizeof(ev->_pad) );
 
+        FD_LOG_DEBUG(( "tkings: after_frag published source=%lu offset=%lu", ev->source, ev->source_offset ));
         stk_link_out_publish( &ctx->out, stem, 0UL, TK_LINK_SIG_EVENT, ev, TK_EVENT_SIZE );
         ctx->produced++;
     }
@@ -155,8 +156,16 @@ tkings_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
 
 static void
 tkings_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile ) {
+    void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
+    tkings_ctx_t * ctx = STK_GET_CTX( tkings_ctx_t, scratch, TKINGS_CTX_ALIGN );
+
+    FD_LOG_DEBUG(( "tkings: run entry ctx=%p tile=%s:%lu", (void*)ctx, tile->name, tile->id ));
+
     tkings_run( topo, tile );
     tile->allow_shutdown = 1;
+
+    FD_LOG_DEBUG(( "tkings: run exit ctx=%p produced=%lu invalid=%lu",
+                   (void*)ctx, ctx->produced, ctx->invalid ));
 }
 
 fd_topo_run_tile_t TK_INGEST_RUN = {

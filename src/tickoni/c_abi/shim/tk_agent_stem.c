@@ -1083,6 +1083,8 @@ tkagnt_run_entry( fd_topo_t *      topo,
     void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
     tkagnt_ctx_t * ctx = STK_GET_CTX(tkagnt_ctx_t, scratch, TKAGNT_CTX_ALIGN);
 
+    FD_LOG_DEBUG(( "tkagnt: run entry ctx=%p tile=%s:%lu", (void*)ctx, tile->name, tile->id ));
+
     ulong cnc_obj_id = tk_topo_find_tile_obj( topo, tile->id, "cnc" );
     if( FD_UNLIKELY( cnc_obj_id == ULONG_MAX ) )
         FD_LOG_ERR(( "tkagnt: CNC object not found for tile %lu", tile->id ));
@@ -1091,6 +1093,8 @@ tkagnt_run_entry( fd_topo_t *      topo,
     tkagnt_run( topo, tile );
 
     tile->allow_shutdown = 1;
+    FD_LOG_DEBUG(( "tkagnt: run exit ctx=%p admitted=%lu dispatched=%lu results=%lu denied=%lu",
+                   (void*)ctx, ctx->admitted, ctx->dispatched, ctx->results, ctx->denied ));
 }
 
 fd_topo_run_tile_t TK_AGENT_RUN = {

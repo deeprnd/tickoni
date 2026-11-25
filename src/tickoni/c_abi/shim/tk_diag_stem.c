@@ -403,6 +403,7 @@ tkdiag_before_credit( tkdiag_ctx_t *       ctx,
     if( now<ctx->next_report_nanos ) return;
     ctx->next_report_nanos = now + TKDIAG_REPORT_INTERVAL_NS;
 
+    FD_LOG_DEBUG(( "tkdiag: before_credit report_cycle" ));
     *charge_busy = 1;
     tkdiag_report( ctx );
 }
@@ -513,9 +514,16 @@ tkdiag_populate_allowed_fds( fd_topo_t const *      topo,
 static void
 tkdiag_run_entry( fd_topo_t *      topo,
                   fd_topo_tile_t * tile ) {
+    void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
+    tkdiag_ctx_t * ctx = STK_GET_CTX(tkdiag_ctx_t, scratch, TKDIAG_CTX_ALIGN);
+
+    FD_LOG_DEBUG(( "tkdiag: run entry ctx=%p tile=%s:%lu", (void*)ctx, tile->name, tile->id ));
+
     tkdiag_run( topo, tile );
 
     tile->allow_shutdown = 1;
+    FD_LOG_DEBUG(( "tkdiag: run exit ctx=%p fragments_accepted=%lu fragments_rejected=%lu",
+                   (void*)ctx, ctx->agg.accepted, ctx->agg.rejected ));
 }
 
 /* ─── fd_topo_run_tile_t ─── */

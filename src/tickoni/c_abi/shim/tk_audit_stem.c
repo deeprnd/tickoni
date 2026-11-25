@@ -734,23 +734,15 @@ tk_audit_after_frag( tk_audit_ctx_t *    ctx,
     stk_diag_publish( &ctx->diag, stem, in_idx, seq, ctx->audited, ctx->rejected, ctx->audit_count );
 }
 
-/* ─── Run entry point ───
-
-   This is the tk_audit_run callback. Firedancer infrastructure calls
-   privileged_init, then unprivileged_init, then this run function.
-
-   Pattern from tk_metric_tile.c:
-   1. Find scratch space via fd_topo_obj_laddr(topo, tile->tile_obj_id)
-   2. Cast to ctx type
-   3. Find CNC object and set ctx->cnc (for shutdown detection)
-   4. Enter the audit-specific tkaudt_run loop
-*/
+/* ─── Run entry point ─── */
 
 static void
 tk_audit_run( fd_topo_t *      topo,
               fd_topo_tile_t * tile ) {
     void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
     tk_audit_ctx_t * ctx = STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN);
+
+    FD_LOG_DEBUG(( "tkaudt: run entry ctx=%p tile=%s:%lu", (void*)ctx, tile->name, tile->id ));
 
     /* The stem shutdown callback reads the tile CNC. */
     ulong cnc_obj_id = tk_topo_find_tile_obj( topo, tile->id, "cnc" );
@@ -765,6 +757,9 @@ tk_audit_run( fd_topo_t *      topo,
        that the tile exited cleanly. The dispatch resets allow_shutdown=0
        before calling run(), then checks it after — crash if still 0. */
     tile->allow_shutdown = 1;
+
+    FD_LOG_DEBUG(( "tkaudt: run exit ctx=%p audited=%lu rejected=%lu audit_count=%lu",
+                   (void*)ctx, ctx->audited, ctx->rejected, ctx->audit_count ));
 }
 
 /* ─── fd_topo_run_tile_t ─── */

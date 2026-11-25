@@ -371,6 +371,8 @@ tkdedu_run_entry( fd_topo_t *      topo,
     void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
     tkdedu_ctx_t * ctx = (tkdedu_ctx_t *)fd_ulong_align_up( (ulong)scratch, TKDEDU_CTX_ALIGN );
 
+    FD_LOG_DEBUG(( "tkdedu: run entry ctx=%p tile=%s:%lu", (void*)ctx, tile->name, tile->id ));
+
     ulong cnc_obj_id = tk_topo_find_tile_obj( topo, tile->id, "cnc" );
     if (FD_UNLIKELY(cnc_obj_id == ULONG_MAX))
         FD_LOG_ERR(( "tkdedu: CNC object not found for tile %lu", tile->id ));
@@ -379,6 +381,8 @@ tkdedu_run_entry( fd_topo_t *      topo,
     tkdedu_run(topo, tile);  /* stem_run loop */
 
     tile->allow_shutdown = 1;
+    FD_LOG_DEBUG(( "tkdedu: run exit ctx=%p processed=%lu duplicates=%lu",
+                   (void*)ctx, ctx->processed, ctx->duplicates ));
 }
 
 /* ─── fd_topo_run_tile_t ─── */

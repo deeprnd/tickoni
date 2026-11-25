@@ -109,6 +109,7 @@ tkapi_after_frag( tkapi_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig, ulong s
     } else {
         TkEvent * ev = &ctx->stage;
         if( tk_event_trace_id_is_zero( ev->trace_id ) ) tkapi_trace_id_generate( ctx->rng, ev->trace_id );
+        FD_LOG_DEBUG(( "tkapi: after_frag published" ));
         stk_link_out_publish( &ctx->out, stem, 0UL, TK_LINK_SIG_EVENT, ev, TK_EVENT_SIZE );
         ctx->published++;
     }
@@ -175,8 +176,16 @@ tkapi_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
 
 static void
 tkapi_run_entry( fd_topo_t * topo, fd_topo_tile_t * tile ) {
+    void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
+    tkapi_ctx_t * ctx = STK_GET_CTX( tkapi_ctx_t, scratch, TKAPI_CTX_ALIGN );
+
+    FD_LOG_DEBUG(( "tkapi: run entry ctx=%p tile=%s:%lu", (void*)ctx, tile->name, tile->id ));
+
     tkapi_run( topo, tile );
     tile->allow_shutdown = 1;
+
+    FD_LOG_DEBUG(( "tkapi: run exit ctx=%p published=%lu wire_invalid=%lu",
+                   (void*)ctx, ctx->published, ctx->wire_invalid ));
 }
 
 fd_topo_run_tile_t TK_API_RUN = {

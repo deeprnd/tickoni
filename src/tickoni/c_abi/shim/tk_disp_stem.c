@@ -325,6 +325,10 @@ tkdisp_after_credit( tkdisp_ctx_t *      ctx,
         budget--;
         *charge_busy = 1;
     }
+    if( FD_LIKELY( !budget || !ctx->queue_cnt || ctx->scheduled - ctx->answered >= TKDISP_MAX_INFLIGHT ) ) {
+        FD_LOG_DEBUG(( "tkdisp: after_credit scheduled=%lu answered=%lu queue_left=%lu",
+                       ctx->scheduled, ctx->answered, ctx->queue_cnt ));
+    }
     stk_publish_counter( ctx->cnc, 0UL, ctx->scheduled );
     /* Unreliable diagnostic link: draws no credit, STEM_BURST stays 1. */
     stk_diag_publish( &ctx->diag, stem, ctx->event_in, 0UL, ctx->events_seen, 0UL, 0UL );
@@ -336,6 +340,8 @@ tkdisp_run_entry( fd_topo_t *      topo,
     void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
     tkdisp_ctx_t * ctx = STK_GET_CTX(tkdisp_ctx_t, scratch, TKDISP_CTX_ALIGN);
 
+    FD_LOG_DEBUG(( "tkdisp: run entry ctx=%p tile=%s:%lu", (void*)ctx, tile->name, tile->id ));
+
     ulong cnc_obj_id = tk_topo_find_tile_obj( topo, tile->id, "cnc" );
     if( FD_UNLIKELY( cnc_obj_id == ULONG_MAX ) )
         FD_LOG_ERR(( "tkdisp: CNC object not found for tile %lu", tile->id ));
@@ -344,6 +350,8 @@ tkdisp_run_entry( fd_topo_t *      topo,
     tkdisp_run( topo, tile );
 
     tile->allow_shutdown = 1;
+    FD_LOG_DEBUG(( "tkdisp: run exit ctx=%p events_seen=%lu scheduled=%lu answered=%lu",
+                   (void*)ctx, ctx->events_seen, ctx->scheduled, ctx->answered ));
 }
 
 fd_topo_run_tile_t TK_DISP_RUN = {
