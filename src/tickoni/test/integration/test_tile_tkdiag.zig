@@ -58,7 +58,7 @@ fn assertNoCrash(sup: *Supervisor) !void {
 }
 
 test "tkdiag_integration: stem tkdiag keeps running until the supervisor halts it, then stops cleanly" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
@@ -118,7 +118,7 @@ fn fanInComplete(sup: *Supervisor) bool {
 }
 
 test "tkdiag_integration: pipeline completes and tkdiag receives a diagnostic fragment from every pipeline tile" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
@@ -163,7 +163,7 @@ fn allTilesReporting(sup: *Supervisor) bool {
 }
 
 test "tkdiag_integration: a frozen tkdiag never stalls the event path, and catches up lossily when resumed" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
@@ -257,7 +257,7 @@ fn cncOf(sup: *Supervisor, idx: usize) !*c_abi.cnc.Cnc {
 }
 
 test "tkdiag_integration: a killed tile is counted as crashed, and nothing else is" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
@@ -287,7 +287,7 @@ test "tkdiag_integration: a killed tile is counted as crashed, and nothing else 
 }
 
 test "tkdiag_integration: replay_checked in tkrepl's CNC ends tkdiag; HALT is still the only other way" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();
@@ -339,7 +339,7 @@ test "tkdiag_integration: replay_checked in tkrepl's CNC ends tkdiag; HALT is st
 }
 
 test "tkdiag_integration: a replay that did not match is still a finished replay" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var tmp = util.tmpDir();

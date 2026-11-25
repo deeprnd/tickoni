@@ -44,7 +44,7 @@ fn spawnPipeline(
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
@@ -127,7 +127,7 @@ test "shutdown_reap: non-zero exit before force-phase reap is preserved as crash
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: child exits between running-check and kill → was_forced=false classification" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
@@ -187,7 +187,7 @@ test "shutdown_reap: child exits between running-check and kill → was_forced=f
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: pre-existing crash survives stopProcess" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
@@ -256,7 +256,7 @@ test "shutdown_reap: pre-existing crash survives stopProcess" {
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: externally reaped child classified as .unknown not .exited_ok" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
@@ -321,7 +321,7 @@ test "shutdown_reap: externally reaped child classified as .unknown not .exited_
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: final timeout reap classifies still-running child as .unknown" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
@@ -388,7 +388,7 @@ test "shutdown_reap: final timeout reap classifies still-running child as .unkno
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
@@ -470,7 +470,7 @@ test "shutdown_reap: HALT concurrent with tile failure retains crash evidence" {
 // ---------------------------------------------------------------------------
 
 test "shutdown_reap: non-zero exit during grace → force-phase preserves .exited_code" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 

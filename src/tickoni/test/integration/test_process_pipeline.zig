@@ -19,7 +19,7 @@ const topologies = @import("topologies");
 const Supervisor = supervisor_mod.Supervisor;
 
 test "process_pipeline_integration: process-mode payment pipeline matches expected decision counts" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 
@@ -124,7 +124,7 @@ test "process_pipeline_integration: process-mode payment pipeline matches expect
 }
 
 test "process_pipeline_integration: stopProcess prefers clean exit over transient stale classification" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     var tmp = util.tmpDir();
 

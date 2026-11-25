@@ -11,7 +11,7 @@ const tkdisp = @import("tkdisp");
 const tkpoly = @import("tkpoly");
 
 test "investment_restricted_instrument_integration: direct restricted ticker request is denied before model and adapter work" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     const input = support.operationsRestrictedTickerInput();
     try std.testing.expectEqual(@as(u8, 1), input.requested_ticker_count);
@@ -39,7 +39,7 @@ test "investment_restricted_instrument_integration: direct restricted ticker req
 }
 
 test "investment_restricted_instrument_integration: restricted ticker replay and audit reproduce the deny" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
     const input = support.operationsRestrictedTickerInput();
     try std.testing.expectEqual(@as(u8, 1), input.requested_ticker_count);

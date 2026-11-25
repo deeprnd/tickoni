@@ -94,7 +94,7 @@ fn paymentEvents(comptime n: usize) [n]TkEvent {
 // That the supervisor launches tkapi through "__stem-run" is asserted in
 // supervisor.zig's tileArgv tests, on every platform.
 test "tkapi_integration: idle child stays running and halts cleanly" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var run: Run = undefined;
@@ -114,7 +114,7 @@ test "tkapi_integration: idle child stays running and halts cleanly" {
 }
 
 test "tkapi_integration: user requests reach tkings in order; malformed ones are dropped and counted" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var events = paymentEvents(9);
@@ -149,7 +149,7 @@ test "tkapi_integration: user requests reach tkings in order; malformed ones are
 }
 
 test "tkapi_integration: a request without a trace id gets a random one, distinct per request" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     var events = paymentEvents(5);
@@ -183,7 +183,7 @@ test "tkapi_integration: a request without a trace id gets a random one, distinc
 }
 
 test "tkapi_integration: more requests than the link depth are back-pressured, never dropped" {
-    const shouldSkip = true;
+    const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
     // 1000 fragments through two 64-deep links: tkapi waits on tkings's
