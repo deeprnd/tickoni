@@ -46,7 +46,7 @@ pub const tkexec: tile.TileId = .{ .bytes = "tkexec".* };
 /// per-account broker implementations (IBKR, Schwab, SnapTrade, …).
 pub const tkbrok: tile.TileId = .{ .bytes = "tkbrok".* };
 /// API tile — HTTP/WebSocket CaseOps API.
-pub const tkapi: tile.TileId = .{ .bytes = "tkapi"."* };
+pub const tkapi: tile.TileId = .{ .bytes = "tkapi".* };
 /// Metrics tile — collects and exposes runtime metrics.
 pub const metric: tile.TileId = .{ .bytes = "metric".* };
 /// Diagnostics tile — runtime diagnostics and health checks.

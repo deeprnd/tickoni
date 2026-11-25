@@ -15,7 +15,6 @@ pub const Topology = rt.topology.Topology;
 const WorkspaceName = rt.link.WorkspaceName;
 
 /// ── Imports ──
-
 /// Shape of every diagnostic link into tkdiag, taken from the one definition in
 /// shim/tk_diag_fragment.h (the MTU is the fragment size).
 pub const diag_link_depth: u32 = audit_mod.TK_DIAG_LINK_DEPTH;
@@ -25,7 +24,6 @@ pub const diag_link_mtu: u32 = audit_mod.TK_DIAG_LINK_MTU;
 pub const event_link_mtu: u32 = audit_mod.TK_EVENT_LINK_MTU;
 
 /// ── Helper Functions ──
-
 /// tkings's input in the isolation fixtures, which have no tkapi: the one link
 /// no tile produces (`rt.link.external_src`, Firedancer's permit_no_producers),
 /// on which the integration test harness publishes TkEvents directly. In the
@@ -74,7 +72,6 @@ fn apiOutput(api_idx: u32, ings_idx: u32, workspace: []const u8) Channel {
 }
 
 /// ── Topology Status ──
-
 /// Whether a declared product topology has a supervisor/CLI dispatch path
 /// today, so callers do not have to infer runtime support from tile count.
 /// `runnable`: src/app/tickoni/supervisor.zig has a start path for it and
@@ -112,7 +109,6 @@ const payment_channels = [_]Channel{
 };
 
 /// ── Investment Topology ──
-
 const investment_tiles = [_]TileDescriptor{
     .{ .id = 0, .name = tile_ids.tkings },
     .{ .id = 1, .name = tile_ids.tknorm },
@@ -134,7 +130,6 @@ const investment_tiles = [_]TileDescriptor{
 const investment_api_idx: u32 = 14;
 
 /// ── Investment Topology Links ──
-
 /// One reliable shared-memory link of the full workflow, in the one workspace
 /// every process-mode tile joins.
 fn investmentLink(src: u32, dst: u32, depth: u32, mtu: u32) Channel {
@@ -193,7 +188,6 @@ const investment_channels = [_]Channel{
 };
 
 /// ── Investment Workflow Diagnostic Links ──
-
 /// The lossy diagnostic link from pipeline tile `src` to tkdiag
 /// (`investment_tiles[13]`).
 fn diagLinkInvestment(src: u32) Channel {
@@ -313,7 +307,6 @@ const payment_process_channels = [_]Channel{
 };
 
 /// ── Payment Process Diagnostic Links ──
-
 /// The lossy diagnostic link from pipeline tile `src` to tkdiag
 /// (`payment_tiles[7]`).
 fn diagLink(src: u32) Channel {
@@ -344,7 +337,6 @@ pub fn paymentPipelineProcess() Topology {
 }
 
 /// ── Minimal Topologies ──
-
 /// Minimal 3-tile topology for isolation testing: tkings → tkaudt (+ metric).
 /// The metric tile is required so Firedancer's fd_topo_fill_tile can set
 /// tile_c->metrics to a non-NULL value; without it every tile gets a NULL
@@ -376,7 +368,6 @@ pub fn minimalProcess() Topology {
 }
 
 /// ── Minimal Topology Variants ──
-
 /// Minimal 4-tile topology for testing tkapi in front of the event pipeline:
 /// (terminal tile) -> tkapi -> tkings -> tkaudt (+ metric observer). The test
 /// harness stands in for the terminal tile on tkapi's input.
@@ -499,7 +490,6 @@ pub fn minimalWithDeduProcess() Topology {
 }
 
 /// ── Agent Process ──
-
 /// The agent process graph for `n` configured tkmodl instances (1..11): every
 /// event takes the spine, and agent requests reach tkagnt only through tkdisp
 /// (plan v2.NN rev 2, D2). N+10 tiles and 3N+11 channels.
