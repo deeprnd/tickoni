@@ -1,5 +1,6 @@
 /// Narrow FFI for the tkings fd_stem ingestion tile. Its only source is its
 /// input link (tk_ingest_stem.c); nothing here installs a generator.
+/// The producer is tkgate (user requests) or tkrepl (replay).
 const std = @import("std");
 const audit_mod = @import("audit_mod");
 const trace_id = @import("trace_id.zig");
@@ -26,7 +27,7 @@ fn validEvent() TkEvent {
     var ev = std.mem.zeroes(TkEvent);
     ev.version = audit_mod.TK_EVENT_WIRE_VERSION;
     ev.kind = audit_mod.TK_EVENT_KIND_PAYMENT;
-    ev.source = audit_mod.TK_EVENT_SOURCE_TKAPI;
+    ev.source = audit_mod.TK_EVENT_SOURCE_TKGATE;
     ev.trace_id = trace_id.fromInt(1);
     return ev;
 }
@@ -40,7 +41,7 @@ test "tkings stem descriptor and event ABI" {
     try std.testing.expect(@sizeOf(TkEvent) <= audit_mod.TK_EVENT_LINK_MTU);
 }
 
-test "tkings framing: a canonical event passes, from tkapi or tkrepl" {
+test "tkings framing: a canonical event passes, from tkgate or tkrepl" {
     var ev = validEvent();
     try std.testing.expect(framingOk(&ev));
     ev.kind = audit_mod.TK_EVENT_KIND_AGENT_REQUEST;
