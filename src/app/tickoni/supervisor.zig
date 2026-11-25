@@ -15,6 +15,8 @@ pub const model_instances = @import("model_instances.zig");
 pub const agent_prompts = @import("agent_prompts.zig");
 const logger = @import("logger");
 
+/// ── Imports ──
+
 const Topology = rt.topology.Topology;
 const TileHandle = rt.tile.TileHandle;
 const TileState = rt.tile.TileState;
@@ -140,6 +142,8 @@ pub const ChildRecord = struct {
     last_reap_error: ?util.process_api.ProcessError = null,
     reap_error_count: u32 = 0,
 };
+
+/// ── Helper Functions ──
 
 /// Firedancer tile index of each topology position, matched by `(name, kind_id)`.
 /// Caller owns the result.
@@ -305,6 +309,8 @@ fn resolvedHeartbeatIntervalNs(config: ProcessPipelineConfig, multiplier: u64) u
     return std.math.mul(u64, config.heartbeat_interval_ns, multiplier) catch std.math.maxInt(u64);
 }
 
+/// ── Supervisor Struct ──
+
 pub const Supervisor = struct {
     allocator: std.mem.Allocator,
     /// Tile count, set from topo_desc.tiles.len during init. Used to size
@@ -319,6 +325,8 @@ pub const Supervisor = struct {
     /// can reference tile/channel metadata without accepting topo as a
     /// parameter (current API contract).
     topo: Topology,
+
+    /// ── Lifecycle Management ──
 
     /// Runs topo.validate()'s structural checks (duplicate tile ids, channel
     /// depth/MTU shape, exclusive/shared CPU placement conflicts) before
@@ -379,6 +387,8 @@ pub const Supervisor = struct {
         std.debug.assert(self.process_state == null);
         self.allocator.free(self.handles);
     }
+
+    /// ── Process Spawning ──
 
     /// Start every tile in the topology as a separate OS process connected
     /// by Firedancer Tango shared memory (v2.14.S1). Requires
@@ -850,6 +860,8 @@ pub const Supervisor = struct {
         }
     }
 
+    /// ── Child Lifecycle ──
+
     fn updateHandleForOutcome(self: *Supervisor, i: usize, outcome: util.process_api.ProcessOutcome) void {
         // Preserve a real crash: once the supervisor has classified a tile as
         // crashed, subsequent reaps (e.g. during stopProcess teardown) must not
@@ -954,6 +966,8 @@ pub const Supervisor = struct {
         _ = self.pollAllOwned();
     }
 
+    /// ── Health Monitoring ──
+
     pub fn refreshProcessHealth(self: *Supervisor) void {
         const log = logger.get();
         log.enter("supervisor", "refreshProcessHealth");
@@ -1033,6 +1047,8 @@ pub const Supervisor = struct {
             }
         }
     }
+
+    /// ── Metrics Snapshotting ──
 
     /// v2.14.S1.T14: a snapshot of all tile cnc counters read in process
     /// mode (see snapshotProcessMetrics below). Pipeline tiles (tkings →
@@ -1390,6 +1406,8 @@ pub const Supervisor = struct {
         return snap;
     }
 
+    /// ── Shutdown Coordination ──
+
     /// Signals every tile to halt via its cnc (crash-only shutdown, not a
     /// POSIX signal — matches fd_cnc's own command/control model), waits
     /// for exit, and fully tears down the shared workspace. Sibling tiles
@@ -1484,6 +1502,8 @@ pub const Supervisor = struct {
         self.allocator.free(std.mem.asBytes(state));
     }
 
+    /// ── Test Harness Integration ──
+
     /// Installs process operations for deterministic lifecycle tests.  Callers
     /// must restore the native operations before starting unrelated work.
     pub fn setProcessOperations(self: *Supervisor, operations: ProcessOperations) void {
@@ -1536,6 +1556,8 @@ fn tileArgv(
     buf[3] = "--verbose";
     return buf[0..4];
 }
+
+// ── Tests ──
 
 test "tileArgv launches a stem tile through __stem-run and a Zig tile through __tile-run" {
     var buf: TileArgvBuf = undefined;
