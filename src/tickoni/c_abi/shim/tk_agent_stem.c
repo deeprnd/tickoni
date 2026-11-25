@@ -60,6 +60,7 @@
 #include "tk_multipart.h"
 #include "tk_model_request.h"
 #include "tickoni/c_abi/shim/stem_helpers.h"
+#include "tickoni/c_abi/shim/stem_diag.h"
 #include "tickoni/c_abi/topo_run/tk_agent_stem.h"
 
 #include "disco/topo/fd_topo.h"
@@ -197,6 +198,7 @@ typedef struct {
 
     /* Lifecycle. */
     void *    cnc;
+    stk_diag_out_t diag;
     uint64_t  event_count;
     int       input_exhausted;
     int       draining;
@@ -445,6 +447,8 @@ tkagnt_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     STK_UNPRIV_INIT(topo, tile, ctx);
     if( FD_UNLIKELY( !ctx->cnc ) )
         FD_LOG_ERR(( "tkagnt: CNC object not found for tile %lu", tile->id ));
+    stk_diag_out_init( &ctx->diag, topo, tile, tile->out_cnt - 1UL );
+
     if( FD_UNLIKELY( tile->in_cnt<2UL || tile->in_cnt>TKAGNT_MAX_INS ) )
         FD_LOG_ERR(( "tkagnt: expected 2..%lu input links, found %lu", TKAGNT_MAX_INS, tile->in_cnt ));
     if( FD_UNLIKELY( tile->out_cnt<3UL || tile->out_cnt>TKAGNT_MAX_OUTS ) )
@@ -1042,6 +1046,9 @@ tkagnt_after_credit( tkagnt_ctx_t *      ctx,
     stk_publish_counter( ctx->cnc, 2UL, ctx->denied );
     stk_publish_counter( ctx->cnc, 3UL, ctx->tokens );
     stk_publish_counter( ctx->cnc, 4UL, ctx->embeddings );
+    /* Unreliable diagnostic link: draws no credit, STEM_BURST is unaffected. */
+    stk_diag_publish( &ctx->diag, stem, ctx->req_in, 0UL, ctx->dispatched + ctx->denied,
+                      ctx->mismatched + ctx->transport_dropped, 0UL );
 
     /* Shutdown.  Set only after the last publication above, so the stem
        cannot stop with an accepted run still owed a terminal result. */

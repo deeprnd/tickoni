@@ -45,6 +45,7 @@
 #include "firedancer.h"
 #include "audit_schema.h"
 #include "tickoni/c_abi/shim/stem_helpers.h"
+#include "tickoni/c_abi/shim/stem_diag.h"
 #include "tickoni/c_abi/topo_run/tk_disp_stem.h"
 
 #include "disco/topo/fd_topo.h"
@@ -69,6 +70,7 @@ typedef struct {
     stk_link_in_t in[2];        /* the event link and the terminal-result link */
     uint64_t event_count;
     int      input_exhausted;
+    stk_diag_out_t diag;
 
     ulong    result_in;         /* input index of the terminal-result link */
     ulong    event_in;          /* input index of the event link */
@@ -194,6 +196,8 @@ tkdisp_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     STK_UNPRIV_INIT(topo, tile, ctx);
     if( FD_UNLIKELY( !ctx->cnc ) )
         FD_LOG_ERR(( "tkdisp: CNC object not found for tile %lu", tile->id ));
+    stk_diag_out_init( &ctx->diag, topo, tile, 1UL );
+
     if( FD_UNLIKELY( tile->in_cnt!=2UL || tile->out_cnt!=1UL ) )
         FD_LOG_ERR(( "tkdisp: expected two inputs (events, results) and one output, found %lu and %lu", tile->in_cnt, tile->out_cnt ));
     if( FD_UNLIKELY( !tkdisp_template_set ) )
@@ -322,6 +326,8 @@ tkdisp_after_credit( tkdisp_ctx_t *      ctx,
         *charge_busy = 1;
     }
     stk_publish_counter( ctx->cnc, 0UL, ctx->scheduled );
+    /* Unreliable diagnostic link: draws no credit, STEM_BURST stays 1. */
+    stk_diag_publish( &ctx->diag, stem, ctx->event_in, 0UL, ctx->events_seen, 0UL, 0UL );
 }
 
 static void
