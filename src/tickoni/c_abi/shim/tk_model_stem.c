@@ -692,6 +692,9 @@ tkmodl_after_credit( tkmodl_ctx_t *      ctx,
            being sent, so the transmit buffer is never reused under it. */
         *opt_poll_in = 0;
         if( tkmodl_emit( ctx, stem, TKMODL_STEM_BURST_FRAGS )>0UL ) *charge_busy = 1;
+    } else {
+        FD_LOG_DEBUG(( "tkmodl: after_credit no tx_active processed=%lu allowed=%lu denied=%lu dropped=%lu",
+                       ctx->processed, ctx->allowed, ctx->denied, ctx->dropped ));
     }
 }
 
@@ -703,6 +706,8 @@ tkmodl_run_entry( fd_topo_t *      topo,
     void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
     tkmodl_ctx_t * ctx = STK_GET_CTX(tkmodl_ctx_t, scratch, TKMODL_CTX_ALIGN);
 
+    FD_LOG_DEBUG(( "tkmodl: run entry ctx=%p tile=%s:%lu", (void*)ctx, tile->name, tile->id ));
+
     ulong cnc_obj_id = tk_topo_find_tile_obj( topo, tile->id, "cnc" );
     if( FD_UNLIKELY( cnc_obj_id == ULONG_MAX ) )
         FD_LOG_ERR(( "tkmodl: CNC object not found for tile %lu", tile->id ));
@@ -711,6 +716,8 @@ tkmodl_run_entry( fd_topo_t *      topo,
     tkmodl_run( topo, tile );  /* stem_run loop */
 
     tile->allow_shutdown = 1;
+    FD_LOG_DEBUG(( "tkmodl: run exit ctx=%p processed=%lu allowed=%lu denied=%lu dropped=%lu",
+                   (void*)ctx, ctx->processed, ctx->allowed, ctx->denied, ctx->dropped ));
 }
 
 /* ─── fd_topo_run_tile_t ─── */

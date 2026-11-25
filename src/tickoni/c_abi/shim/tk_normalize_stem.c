@@ -380,6 +380,8 @@ tknorm_run_entry( fd_topo_t *      topo,
     void * scratch = fd_topo_obj_laddr( topo, tile->tile_obj_id );
     tknorm_ctx_t * ctx = (tknorm_ctx_t *)fd_ulong_align_up( (ulong)scratch, TKNORM_CTX_ALIGN );
 
+    FD_LOG_DEBUG(( "tknorm: run entry ctx=%p tile=%s:%lu", (void*)ctx, tile->name, tile->id ));
+
     ulong cnc_obj_id = tk_topo_find_tile_obj( topo, tile->id, "cnc" );
     if (FD_UNLIKELY(cnc_obj_id == ULONG_MAX))
         FD_LOG_ERR(( "tknorm: CNC object not found for tile %lu", tile->id ));
@@ -387,6 +389,9 @@ tknorm_run_entry( fd_topo_t *      topo,
 
     tknorm_run( topo, tile );  /* stem_run loop */
     tile->allow_shutdown = 1;
+
+    FD_LOG_DEBUG(( "tknorm: run exit ctx=%p normalized=%lu invalid=%lu",
+                   (void*)ctx, ctx->normalized, ctx->invalid ));
 }
 
 /* ─── fd_topo_run_tile_t ─── */
