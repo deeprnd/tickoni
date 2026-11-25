@@ -30,6 +30,7 @@
 #include "audit_schema.h"
 #include "tk_event_framing.h"
 #include "tickoni/c_abi/shim/stem_helpers.h"
+#include "tickoni/c_abi/shim/stem_diag.h"
 #include "tickoni/c_abi/topo_run/tk_api_stem.h"
 
 #include "util/rng/fd_rng.h"
@@ -42,6 +43,7 @@ typedef struct {
     uint64_t       wire_invalid;     /* fragments dropped for their wire shape */
     uint64_t       event_count;
     int            input_exhausted;
+    stk_diag_out_t diag;
     void *         cnc;
     stk_link_in_t  in;               /* from the terminal tile */
     stk_link_out_t out;              /* to tkings */
@@ -112,6 +114,8 @@ tkapi_after_frag( tkapi_ctx_t * ctx, ulong in_idx, ulong seq, ulong sig, ulong s
     }
     stk_publish_counter( ctx->cnc, 0UL, ctx->published );
     stk_publish_counter( ctx->cnc, 1UL, ctx->wire_invalid );
+    /* Unreliable diagnostic link: draws no credit, STEM_BURST stays 1. */
+    stk_diag_publish( &ctx->diag, stem, in_idx, seq, ctx->published + ctx->wire_invalid, ctx->wire_invalid, 0UL );
     STK_EVENT_EXHAUSTED( ctx, ctx->event_count, ctx->published + ctx->wire_invalid );
 }
 
@@ -162,6 +166,8 @@ tkapi_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     STK_UNPRIV_INIT( topo, tile, ctx );
     if( FD_UNLIKELY( !ctx->cnc ) )
         FD_LOG_ERR(( "tkapi: CNC object not found for tile %lu", tile->id ));
+    stk_diag_out_init( &ctx->diag, topo, tile, 1UL );
+
     stk_link_in_init ( &ctx->in,  topo, tile, 0UL, (ulong)TK_EVENT_SIZE );
     stk_link_out_init( &ctx->out, topo, tile, 0UL, (ulong)TK_EVENT_SIZE );
     FD_LOG_NOTICE(( "tkapi: ready, tile_id=%lu event_count=%lu", tile->id, ctx->event_count ));

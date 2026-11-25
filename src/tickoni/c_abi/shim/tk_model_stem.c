@@ -41,6 +41,7 @@
 #include "tk_multipart.h"
 #include "tk_model_request.h"
 #include "tickoni/c_abi/shim/stem_helpers.h"
+#include "tickoni/c_abi/shim/stem_diag.h"
 #include "tickoni/c_abi/topo_run/tk_model_stem.h"
 
 #include "disco/topo/fd_topo.h"
@@ -104,6 +105,7 @@ typedef struct {
     /* Event count gating */
     uint64_t event_count;
     int      input_exhausted;
+    stk_diag_out_t diag;
 
     /* Configuration copy (governance limits + fixture table), fixed size. */
     TkModlRuntimeConfig config;
@@ -428,6 +430,7 @@ tkmodl_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     STK_UNPRIV_INIT(topo, tile, ctx);
     if( FD_UNLIKELY( !ctx->cnc ) )
         FD_LOG_ERR(( "tkmodl: CNC object not found for tile %lu", tile->id ));
+    stk_diag_out_init( &ctx->diag, topo, tile, 2UL );
 
     /* One request link in; one audit link (tkaudt) and one result link
        (tkagnt) out.  Anything else is a topology the contract does not
@@ -667,10 +670,12 @@ tkmodl_after_frag( tkmodl_ctx_t *      ctx,
     if( st==TK_MP_COMPLETE ) {
         tkmodl_handle_request( ctx, stem );
     } else if( (int)st>=(int)TK_MP_ERR_VERSION ) {
-        /* A malformed stream is dropped whole: nothing is governed, audited or
-           answered for it. */
+        /* A malformed stream completes nothing; a broken result ends the run
+           it answered. */
         ctx->dropped += 1UL;
     }
+    /* Unreliable diagnostic link: draws no credit, STEM_BURST stays 1. */
+    stk_diag_publish( &ctx->diag, stem, in_idx, seq, ctx->processed, ctx->dropped, 0UL );
 }
 
 static void
