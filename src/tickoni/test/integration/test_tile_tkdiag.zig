@@ -376,69 +376,35 @@ test "tkdiag_integration: a replay that did not match is still a finished replay
 }
 
 // ---------------------------------------------------------------------------
-// Compile-time-aware registry test: every tile registry entry that declares
-// DiagRole.producer must have a matching lossy diagnostic link in every
-// topology that carries tkdiag.  This catches accidental unlinking when
-// stem tiles change or topology wiring drifts.
+// Registry test: in every topology that carries tkdiag, each tile present in
+// it whose registry entry declares DiagRole.producer has exactly one lossy
+// diagnostic link to tkdiag.  This catches accidental unlinking when stem
+// tiles change or topology wiring drifts.
 // ---------------------------------------------------------------------------
 
 test "tkdiag_registry: every DiagRole.producer tile has a diagnostic link in topologies that carry tkdiag" {
-    const registry = @import("tile_registry");
+    const registry = supervisor_mod.tile_registry;
 
-    // Collect the names of all producer tiles from the registry.
-    const producers = blk: {
-        var count: usize = 0;
-        for (registry.entries) |e| if (e.diag == .producer) count += 1;
-        var names: [16]rt.tile.TileId = undefined;
-        var i: usize = 0;
-        for (registry.entries) |e| {
-            if (e.diag == .producer) names[i] = e.id;
-            if (e.diag == .producer) i += 1;
-        }
-        break :blk .{ .names = names[0..i], .count = i };
+    const diag_topos = [_]rt.topology.Topology{
+        topologies.paymentPipelineProcess(),
+        topologies.investmentWorkflow(),
     };
 
-    // Check every topology that contains tkdiag.
-    const diagTopos = [_]struct { name: []const u8, topo: rt.topology.Topology }{
-        .{ .name = "paymentPipelineProcess", .topo = topologies.paymentPipelineProcess() },
-        .{ .name = "investmentWorkflow", .topo = topologies.investmentWorkflow() },
-    };
+    for (diag_topos) |topo| {
+        const diag_idx = for (topo.tiles, 0..) |t, j| {
+            if (t.name.eql(rt.tile_ids.tkdiag)) break j;
+        } else return error.TestUnexpectedResult;
 
-    for (diagTopos) |dt| {
-        // Find the tkdiag tile index in this topology.
-        var diag_idx: ?usize = null;
-        for (dt.topo.tiles, 0..) |t, j| {
-            if (t.name.eql(rt.tile_ids.tkdiag)) {
-                diag_idx = j;
-                break;
+        for (topo.tiles, 0..) |t, tile_idx| {
+            const entry = registry.findById(t.name) orelse continue;
+            if (entry.diag != .producer) continue;
+            var diag_links: usize = 0;
+            for (topo.channels) |ch| {
+                if (!ch.hasProducerTile() or ch.src_idx != tile_idx or ch.dst_idx != diag_idx) continue;
+                try std.testing.expectEqual(rt.link.LinkReliability.lossy, ch.reliability);
+                diag_links += 1;
             }
-        }
-        const diag = diag_idx orelse {
-            // This topology has no tkdiag — skip.
-            continue;
-        };
-
-        // For each declared producer, verify there is exactly one lossy
-        // diagnostic link from that producer to tkdiag.
-        for (producers.names[0..producers.count]) |p_name| {
-            var found: bool = false;
-            for (dt.topo.channels) |ch| {
-                if (ch.dst_idx == diag and ch.src_idx == dt.topo.tiles.len) {
-                    // Skip external links that don't map to a tile index.
-                    continue;
-                }
-                if (ch.dst_idx >= dt.topo.tiles.len) continue;
-                if (ch.dst_idx != diag) continue;
-                const src_entry = registry.findById(dt.topo.tiles[ch.src_idx].name);
-                if (src_entry) |entry| {
-                    if (entry.diag == .producer and entry.id.eql(p_name)) {
-                        try std.testing.expect(ch.reliability == .lossy);
-                        try std.testing.expect(ch.dst_idx == diag);
-                        found = true;
-                    }
-                }
-            }
-            try std.testing.expect(found);
+            try std.testing.expectEqual(@as(usize, 1), diag_links);
         }
     }
 }

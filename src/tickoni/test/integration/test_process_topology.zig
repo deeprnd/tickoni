@@ -221,13 +221,18 @@ test "process_topology_integration: process mode refuses to start a heap_dev-bac
     const len = try tmp.dir.realPath(std.testing.io, &path_buf);
     const run_dir = path_buf[0..len];
 
-    // Same shape as paymentPipelineProcess() but the first channel is left
-    // at its heap_dev default instead of being declared tango_shm.
+    // Same shape as paymentPipelineProcess() without its diagnostic links
+    // (the spine, tkgate -> tkings and tkgate's input), but the first channel
+    // is left at its heap_dev default instead of being declared tango_shm.
     const base = topologies.paymentPipelineProcess();
     var channels: [6]rt.topology.Channel = undefined;
-    @memcpy(channels[0..4], base.channels[0..4]);
-    channels[4] = base.channels[base.channels.len - 2]; // tkgate -> tkings
-    channels[5] = base.channels[base.channels.len - 1]; // tkgate's input
+    var n: usize = 0;
+    for (base.channels) |ch| {
+        if (base.tiles[ch.dst_idx].name.eql(rt.tile_ids.tkdiag)) continue;
+        channels[n] = ch;
+        n += 1;
+    }
+    try std.testing.expectEqual(channels.len, n);
     channels[0].backing = .heap_dev;
     const topo = rt.topology.Topology{ .tiles = base.tiles, .channels = &channels };
 

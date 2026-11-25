@@ -1110,10 +1110,13 @@ fn fetchMetricsUntil(port: u16, comptime ready: fn ([]const u8) bool) ![]u8 {
     return error.MetricsNeverReady;
 }
 
-fn tkdiagSawFiveTiles(body: []const u8) bool {
+/// Diagnostic producers of paymentPipelineProcess(): the five spine tiles and tkgate.
+const payment_diag_producers: u64 = 6;
+
+fn tkdiagSawEveryProducer(body: []const u8) bool {
     const reporting = seriesValue(body, "tkdiag_tiles_reporting", "tkdiag") orelse return false;
     const accepted = seriesValue(body, "tkdiag_fragments_accepted", "tkdiag") orelse return false;
-    return reporting == 5 and accepted == 5 * tkdiag_metrics_event_count;
+    return reporting == payment_diag_producers and accepted == payment_diag_producers * tkdiag_metrics_event_count;
 }
 
 const tkdiag_metrics_event_count: u64 = 8;
@@ -1145,12 +1148,12 @@ test "metric_tile_integration: /metrics serves tkdiag's aggregate, the way Fired
         .metric_port = port,
     }, .{});
 
-    const body = try fetchMetricsUntil(port, tkdiagSawFiveTiles);
+    const body = try fetchMetricsUntil(port, tkdiagSawEveryProducer);
     defer std.testing.allocator.free(body);
 
-    // Five pipeline tiles sent one fragment per event each.
-    try std.testing.expectEqual(@as(?u64, 5), seriesValue(body, "tkdiag_tiles_reporting", "tkdiag"));
-    try std.testing.expectEqual(@as(?u64, 5 * tkdiag_metrics_event_count), seriesValue(body, "tkdiag_fragments_accepted", "tkdiag"));
+    // Every diagnostic producer sent one fragment per event.
+    try std.testing.expectEqual(@as(?u64, payment_diag_producers), seriesValue(body, "tkdiag_tiles_reporting", "tkdiag"));
+    try std.testing.expectEqual(@as(?u64, payment_diag_producers * tkdiag_metrics_event_count), seriesValue(body, "tkdiag_fragments_accepted", "tkdiag"));
     try std.testing.expectEqual(@as(?u64, 0), seriesValue(body, "tkdiag_fragments_rejected", "tkdiag"));
     // Every tile finished cleanly, so nothing is reported as crashed, and no
     // replay has been checked (tkrepl has no process-mode role yet).
