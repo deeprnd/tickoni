@@ -164,9 +164,35 @@ const investment_channels = [_]Channel{
     // content link), and tkagnt's terminal result to tkdisp.
     investmentLink(8, 7, audit_mod.TK_MP_LINK_DEPTH, audit_mod.TK_MP_LINK_MTU),
     investmentLink(7, 6, audit_mod.TK_MP_LINK_DEPTH, audit_mod.TK_AGENT_RESULT_LINK_MTU),
+    // Diagnostic fan-in: one lossy link from each producer tile to tkdiag
+    // (tile 13), after the pipeline links so diag is each producer's last output.
+    diagLinkInvestment(0),
+    diagLinkInvestment(1),
+    diagLinkInvestment(2),
+    diagLinkInvestment(3),
+    diagLinkInvestment(4),
+    diagLinkInvestment(5),
+    diagLinkInvestment(6),
+    diagLinkInvestment(7),
+    diagLinkInvestment(8),
     apiOutput(investment_api_idx, 0, "tkinv0"),
+    diagLinkInvestment(14),
     apiInput(investment_api_idx, "tkinv0"),
 };
+
+/// The lossy diagnostic link from pipeline tile `src` to tkdiag
+/// (`investment_tiles[13]`).
+fn diagLinkInvestment(src: u32) Channel {
+    return .{
+        .src_idx = src,
+        .dst_idx = 13,
+        .depth = diag_link_depth,
+        .mtu = diag_link_mtu,
+        .backing = .tango_shm,
+        .reliability = .lossy,
+        .workspace_name = WorkspaceName.parse("tkinv0") catch unreachable,
+    };
+}
 
 /// Phase 0 in-process pipeline used by the Tickoni product supervisor.
 ///
@@ -262,6 +288,8 @@ const payment_process_channels = [_]Channel{
     diagLink(2),
     diagLink(3),
     diagLink(4),
+    // tkapi's diagnostic link is its last output.
+    diagLink(8),
     // tkapi -> tkings, and tkapi's input from the terminal tile (no tile's
     // output yet), after the diagnostic links.
     apiOutput(payment_api_idx, 0, "tkpay0"),
@@ -641,13 +669,14 @@ test "runnable topologies have the 9-tile shape Supervisor's start paths assert"
     try std.testing.expectEqual(@as(usize, 9), paymentPipelineProcess().tiles.len);
 }
 
-test "investmentWorkflow is runnable: every link is a reliable shared-memory link in one workspace" {
+test "investmentWorkflow is runnable: spine links are reliable shared-memory links in one workspace" {
     try std.testing.expectEqual(TopologyStatus.runnable, investment_workflow_status);
     const topo = investmentWorkflow();
     for (topo.channels) |ch| {
         try std.testing.expectEqual(rt.link.LinkBacking.tango_shm, ch.backing);
-        try std.testing.expectEqual(rt.link.LinkReliability.reliable, ch.reliability);
         try std.testing.expectEqualStrings("tkinv0", ch.workspace_name.slice());
+        // Pipeline links are reliable; diagnostic links are lossy.
+        try std.testing.expect(ch.reliability == .reliable or ch.reliability == .lossy);
     }
 }
 
@@ -658,9 +687,10 @@ test "investmentWorkflow has no tkaudt -> tkrepl link and keeps the observers un
     try std.testing.expect(topo.tiles[repl].name.eql(tile_ids.tkrepl));
     for (topo.channels) |ch| {
         try std.testing.expect(ch.src_idx != repl and ch.dst_idx != repl);
-        try std.testing.expect(!(ch.src_idx == audit));
+        // tkaudt may now have a diagnostic output; only reject audit -> tkrepl.
+        try std.testing.expect(!(ch.src_idx == audit and ch.dst_idx == repl));
     }
-    try std.testing.expectEqual(@as(usize, 18), topo.channels.len);
+    try std.testing.expectEqual(@as(usize, 28), topo.channels.len);
 }
 
 test "investmentWorkflow includes tkmodl tktool tkadpt and passes validation" {
@@ -673,16 +703,16 @@ test "investmentWorkflow includes tkmodl tktool tkadpt and passes validation" {
     try std.testing.expectEqualStrings(tile_ids.tkrepl.slice(), topo.tiles[11].name.slice());
 }
 
-test "paymentPipelineProcess has 9 tiles, 4 reliable pipeline channels, 5 lossy diagnostic channels and tkapi's two links, and passes validation" {
+test "paymentPipelineProcess has 9 tiles, 4 reliable pipeline channels, 6 lossy diagnostic channels and tkapi's two links, and passes validation" {
     const topo = paymentPipelineProcess();
     try topo.validate();
     try std.testing.expectEqual(@as(usize, 9), topo.tiles.len);
-    try std.testing.expectEqual(@as(usize, 4 + 5 + 2), topo.channels.len);
+    try std.testing.expectEqual(@as(usize, 4 + 6 + 2), topo.channels.len);
     for (topo.channels, 0..) |ch, i| {
         try std.testing.expectEqual(rt.link.LinkBacking.tango_shm, ch.backing);
         try std.testing.expectEqualStrings("tkpay0", ch.workspace_name.slice());
         // The pipeline and tkapi's links are reliable; the diagnostic links never are.
-        const expected: rt.link.LinkReliability = if (i < 4 or i >= 9) .reliable else .lossy;
+        const expected: rt.link.LinkReliability = if (i < 4 or i >= 10) .reliable else .lossy;
         try std.testing.expectEqual(expected, ch.reliability);
     }
 }
@@ -691,12 +721,14 @@ test "paymentPipelineProcess fans one diagnostic link per pipeline tile in to tk
     const topo = paymentPipelineProcess();
     const diag: u32 = 7;
     try std.testing.expect(topo.tiles[diag].name.eql(tile_ids.tkdiag));
-    // Producers in pipeline order: tkings, tknorm, tkdedu, tkpoly, tkaudt.
-    const producers = [_]*const rt.tile.TileId{ &tile_ids.tkings, &tile_ids.tknorm, &tile_ids.tkdedu, &tile_ids.tkpoly, &tile_ids.tkaudt };
-    for (producers, 0..) |name, i| {
+    // Producers in topology order: tkings(0), tknorm(1), tkdedu(2), tkpoly(3),
+    // tkaudt(4), tkapi(8).
+    const p_indices = [_]u32{ 0, 1, 2, 3, 4, 8 };
+    const p_names = [_]*const rt.tile.TileId{ &tile_ids.tkings, &tile_ids.tknorm, &tile_ids.tkdedu, &tile_ids.tkpoly, &tile_ids.tkaudt, &tile_ids.tkapi };
+    for (p_indices, 0..) |src, i| {
         const ch = topo.channels[4 + i];
-        try std.testing.expectEqual(@as(u32, @intCast(i)), ch.src_idx);
-        try std.testing.expect(topo.tiles[ch.src_idx].name.eql(name.*));
+        try std.testing.expectEqual(src, ch.src_idx);
+        try std.testing.expect(topo.tiles[ch.src_idx].name.eql(p_names[i].*));
         try std.testing.expectEqual(diag, ch.dst_idx);
         try std.testing.expectEqual(@as(u32, diag_link_depth), ch.depth);
         try std.testing.expectEqual(@as(u32, diag_link_mtu), ch.mtu);
@@ -705,7 +737,7 @@ test "paymentPipelineProcess fans one diagnostic link per pipeline tile in to tk
     // Nothing else goes to or from tkdiag.
     for (topo.channels) |ch| {
         try std.testing.expect(ch.src_idx != diag);
-        if (ch.dst_idx == diag) try std.testing.expect(ch.src_idx <= 4);
+        if (ch.dst_idx == diag) try std.testing.expect(ch.src_idx <= 8);
     }
 }
 
@@ -713,15 +745,47 @@ test "the diagnostic link MTU is the diagnostic fragment size" {
     try std.testing.expectEqual(@as(u32, @sizeOf(audit_mod.diag_fragment_t)), diag_link_mtu);
 }
 
-test "only the 9-tile payment process topology carries diagnostic links" {
-    // The in-process dev ring, the minimal topologies and the full workflow
+test "only the payment process and investment workflows carry diagnostic links" {
+    // The in-process dev ring, the minimal topologies and the full pipeline
     // keep their pipeline-only shape: the diag links are specified for the
-    // 5-producer payment topology alone.
-    const others = [_]Topology{ paymentPipeline(), minimalProcess(), minimalWithApiProcess(), minimalWithNormProcess(), minimalWithDeduProcess(), minimalWithPolyProcess(), investmentWorkflow() };
+    // payment-process and investment-process topologies.
+    const others = [_]Topology{ paymentPipeline(), minimalProcess(), minimalWithApiProcess(), minimalWithNormProcess(), minimalWithDeduProcess(), minimalWithPolyProcess() };
     for (others) |topo| {
         for (topo.tiles, 0..) |t, i| {
             if (!t.name.eql(tile_ids.tkdiag)) continue;
             for (topo.channels) |ch| try std.testing.expect(ch.dst_idx != i and ch.src_idx != i);
+        }
+    }
+}
+
+test "investmentWorkflow fans one diagnostic link per producer tile to tkdiag" {
+    const topo = investmentWorkflow();
+    const diag: u32 = 13;
+    try std.testing.expect(topo.tiles[diag].name.eql(tile_ids.tkdiag));
+    // Producers in topology order: tkings(0), tknorm(1), tkdedu(2), tkcase(3),
+    // tkpoly(4), tkaudt(5), tkdisp(6), tkagnt(7), tkmodl(8) at channels 16..24,
+    // tkapi(14) at channel 26 (after apiOutput at 25).
+    const p_indices = [_]u32{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 14 };
+    const p_names = [_]*const rt.tile.TileId{
+        &tile_ids.tkings, &tile_ids.tknorm, &tile_ids.tkdedu, &tile_ids.tkcase,
+        &tile_ids.tkpoly, &tile_ids.tkaudt, &tile_ids.tkdisp, &tile_ids.tkagnt,
+        &tile_ids.tkmodl, &tile_ids.tkapi,
+    };
+    for (p_indices, 0..) |src, i| {
+        const ch_idx: usize = if (i == 9) 26 else 16 + i;
+        const ch = topo.channels[ch_idx];
+        try std.testing.expectEqual(src, ch.src_idx);
+        try std.testing.expect(topo.tiles[ch.src_idx].name.eql(p_names[i].*));
+        try std.testing.expectEqual(diag, ch.dst_idx);
+        try std.testing.expectEqual(@as(u32, diag_link_depth), ch.depth);
+        try std.testing.expectEqual(@as(u32, diag_link_mtu), ch.mtu);
+        try std.testing.expect(std.math.isPowerOfTwo(ch.depth));
+    }
+    // Nothing else goes to or from tkdiag.
+    for (topo.channels) |ch| {
+        try std.testing.expect(ch.src_idx != diag);
+        if (ch.dst_idx == diag) {
+            try std.testing.expect(ch.reliability == .lossy);
         }
     }
 }
