@@ -408,7 +408,10 @@ test "tkdiag_registry: every DiagRole.producer tile has a diagnostic link in top
         // Find the tkdiag tile index in this topology.
         var diag_idx: ?usize = null;
         for (dt.topo.tiles, 0..) |t, j| {
-            if (t.name.eql(rt.tile_ids.tkdiag)) { diag_idx = j; break; }
+            if (t.name.eql(rt.tile_ids.tkdiag)) {
+                diag_idx = j;
+                break;
+            }
         }
         const diag = diag_idx orelse {
             // This topology has no tkdiag — skip.

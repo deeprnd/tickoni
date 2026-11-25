@@ -238,11 +238,11 @@ test "tkapi_integration: all-malformed events are dropped, none reach tkings" {
     if (shouldSkip) return error.SkipZigTest;
 
     var events = paymentEvents(5);
-    events[0].source = source_tkrepl;   // wrong source
-    events[1].idempotency_key = 0;     // missing idempotency key
-    events[2].flags = flag_replay;     // replay flag set
-    events[3].version += 1;            // unknown version
-    events[4].kind = 9;                // unknown kind
+    events[0].source = source_tkrepl; // wrong source
+    events[1].idempotency_key = 0; // missing idempotency key
+    events[2].flags = flag_replay; // replay flag set
+    events[3].version += 1; // unknown version
+    events[4].kind = 9; // unknown kind
 
     var run: Run = undefined;
     try run.start(&events);
