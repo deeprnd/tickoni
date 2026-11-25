@@ -1053,9 +1053,9 @@ pub const Supervisor = struct {
     /// before stopProcess, which leaves every cnc join and detaches the
     /// workspace.
     pub const ProcessMetricSnapshot = struct {
-        /// Events tkapi forwarded to tkings.
+        /// Events tkgate forwarded to tkings.
         api_published: u64 = 0,
-        /// Fragments tkapi dropped for their wire shape (never reached tkings).
+        /// Fragments tkgate dropped for their wire shape (never reached tkings).
         api_wire_invalid: u64 = 0,
         // Pipeline counters (tkings → tkrnorm → tkdedu → tkpoly → tkaudt)
         produced: u64 = 0,
@@ -1573,10 +1573,10 @@ test "tileArgv appends --verbose after the launch spec only when requested" {
 }
 
 // Replaces the integration tests' /proc/<pid>/cmdline probes: what verb a
-// tkings, tkpoly or tkapi child gets is decided here, from the registry.
-test "tkings, tkpoly and tkapi children are spawned through __stem-run" {
+// tkings, tkpoly or tkgate child gets is decided here, from the registry.
+test "tkings, tkpoly and tkgate children are spawned through __stem-run" {
     var buf: TileArgvBuf = undefined;
-    inline for (.{ rt.tile_ids.tkings, rt.tile_ids.tkpoly, rt.tile_ids.tkapi }) |tile_id| {
+    inline for (.{ rt.tile_ids.tkings, rt.tile_ids.tkpoly, rt.tile_ids.tkgate }) |tile_id| {
         const entry = tile_registry.findById(tile_id) orelse return error.UnregisteredTile;
         try std.testing.expectEqualStrings("__stem-run", tileArgv(&buf, "exe", entry.launch_mode, "spec", false)[1]);
     }
