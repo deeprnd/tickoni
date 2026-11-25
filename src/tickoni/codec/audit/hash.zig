@@ -1,3 +1,13 @@
+//! Audit record hashing and event equality.
+//!
+//! Computes Siphash13 hashes of canonical audit wire events for integrity
+//! verification and hash-chain chaining. Provides `computeRecordHash` for
+//! AuditEvent → u64 and `auditEventsEql` for structural comparison of two
+//! audit events (ignoring timestamps and record_hash).
+//!
+//! Usage: call `computeRecordHash` to produce the record_hash field of an
+//! AuditEvent; call `auditEventsEql` to compare two events for replay
+//! divergence detection.
 const std = @import("std");
 const c_abi = @import("c_abi");
 const schema = @import("audit_schema");
