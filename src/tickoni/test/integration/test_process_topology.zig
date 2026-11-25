@@ -226,8 +226,8 @@ test "process_topology_integration: process mode refuses to start a heap_dev-bac
     const base = topologies.paymentPipelineProcess();
     var channels: [6]rt.topology.Channel = undefined;
     @memcpy(channels[0..4], base.channels[0..4]);
-    channels[4] = base.channels[base.channels.len - 2]; // tkapi -> tkings
-    channels[5] = base.channels[base.channels.len - 1]; // tkapi's input
+    channels[4] = base.channels[base.channels.len - 2]; // tkgate -> tkings
+    channels[5] = base.channels[base.channels.len - 1]; // tkgate's input
     channels[0].backing = .heap_dev;
     const topo = rt.topology.Topology{ .tiles = base.tiles, .channels = &channels };
 

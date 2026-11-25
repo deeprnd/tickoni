@@ -27,7 +27,7 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = 5, .name = tile_ids.tkrepl },
     .{ .id = 6, .name = tile_ids.metric },
     .{ .id = 7, .name = tile_ids.tkdiag },
-    .{ .id = 8, .name = tile_ids.tkapi },
+    .{ .id = 8, .name = tile_ids.tkgate },
 };
 
 test "process_cpu_placement_integration: two tiles sharing one cpu get distinct pids and still complete" {
@@ -113,7 +113,7 @@ test "process_cpu_placement_integration: a malformed (out-of-range) cpu id fails
         .{ .id = 5, .name = tile_ids.tkrepl },
         .{ .id = 6, .name = tile_ids.metric },
         .{ .id = 7, .name = tile_ids.tkdiag },
-        .{ .id = 8, .name = tile_ids.tkapi },
+        .{ .id = 8, .name = tile_ids.tkgate },
     };
     const topo = rt.topology.Topology{
         .tiles = &bogus_tiles,
@@ -162,7 +162,7 @@ test "process_cpu_placement_integration: shared-core rejected when sharing is no
         .{ .id = 5, .name = tile_ids.tkrepl },
         .{ .id = 6, .name = tile_ids.metric },
         .{ .id = 7, .name = tile_ids.tkdiag },
-        .{ .id = 8, .name = tile_ids.tkapi },
+        .{ .id = 8, .name = tile_ids.tkgate },
     };
     const topo = rt.topology.Topology{
         .tiles = &undeclared_collide_tiles,
@@ -190,7 +190,7 @@ test "process_cpu_placement_integration: exclusive and shared on the same cpu co
         .{ .id = 5, .name = tile_ids.tkrepl },
         .{ .id = 6, .name = tile_ids.metric },
         .{ .id = 7, .name = tile_ids.tkdiag },
-        .{ .id = 8, .name = tile_ids.tkapi },
+        .{ .id = 8, .name = tile_ids.tkgate },
     };
     const topo = rt.topology.Topology{
         .tiles = &mixed_tiles,

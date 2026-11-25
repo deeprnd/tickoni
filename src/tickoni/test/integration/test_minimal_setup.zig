@@ -95,7 +95,7 @@ test "minimal_setup_integration: tkings → tkaudt + metric observer" {
     }
 }
 
-test "minimal_setup_integration: tkapi → tkings → tkaudt + metric observer" {
+test "minimal_setup_integration: tkgate → tkings → tkaudt + metric observer" {
     const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
@@ -106,10 +106,10 @@ test "minimal_setup_integration: tkapi → tkings → tkaudt + metric observer" 
     const len = try tmp.dir.realPath(std.testing.io, &path_buf);
     const run_dir = path_buf[0..len];
 
-    // Minimal 4-tile topology: (harness as terminal tile) → tkapi → tkings → tkaudt + metric
+    // Minimal 4-tile topology: (harness as terminal tile) → tkgate → tkings → tkaudt + metric
     const topo = topologies.minimalWithApiProcess();
     try std.testing.expectEqual(@as(usize, 4), topo.tiles.len);
-    try std.testing.expectEqualStrings(tile_ids.tkapi.slice(), topo.tiles[0].name.slice());
+    try std.testing.expectEqualStrings(tile_ids.tkgate.slice(), topo.tiles[0].name.slice());
     try std.testing.expectEqualStrings(tile_ids.tkings.slice(), topo.tiles[1].name.slice());
     try std.testing.expectEqualStrings(tile_ids.tkaudt.slice(), topo.tiles[2].name.slice());
     try std.testing.expectEqualStrings(tile_ids.metric.slice(), topo.tiles[3].name.slice());
@@ -151,13 +151,13 @@ test "minimal_setup_integration: tkapi → tkings → tkaudt + metric observer" 
     }
     metrics = sup.snapshotProcessMetrics();
 
-    // Every event passed tkapi, then tkings, then reached the audit chain.
+    // Every event passed tkgate, then tkings, then reached the audit chain.
     try std.testing.expectEqual(event_count, metrics.api_published);
     try std.testing.expectEqual(@as(u64, 0), metrics.api_wire_invalid);
     try std.testing.expectEqual(event_count, metrics.produced);
     try std.testing.expectEqual(event_count, metrics.audited);
 
-    // Every tile, tkapi included, stops on its event count or the HALT.
+    // Every tile, tkgate included, stops on its event count or the HALT.
     feed.finish();
     sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
     for (sup.monitor()) |h| {
@@ -438,7 +438,7 @@ test "minimal_setup_integration: tkings → tknorm → tkdedu → tkpoly → tka
     }
 }
 
-test "minimal_setup_integration: harness → tkapi → spine → tkdisp → tkagnt → tkmodl → tkaudt + metric observer" {
+test "minimal_setup_integration: harness → tkgate → spine → tkdisp → tkagnt → tkmodl → tkaudt + metric observer" {
     const shouldSkip = false;
     if (shouldSkip) return error.SkipZigTest;
 
@@ -451,10 +451,10 @@ test "minimal_setup_integration: harness → tkapi → spine → tkdisp → tkag
     // Minimal agent topology: every agent request takes the spine (tkings →
     // tknorm → tkdedu → tkcase → tkpoly → tkaudt), and tkcase → tkdisp → tkagnt
     // → tkmodl → {tkaudt, tkagnt}, tkagnt → {tkaudt, tkdisp}, plus the metric
-    // observer. The test harness publishes the requests on tkapi's input,
-    // standing in for the terminal tile; tkapi feeds tkings.
+    // observer. The test harness publishes the requests on tkgate's input,
+    // standing in for the terminal tile; tkgate feeds tkings.
     const topo = topologies.agentProcess(1);
-    const names = [_]rt.tile.TileId{ tile_ids.tkings, tile_ids.tknorm, tile_ids.tkdedu, tile_ids.tkcase, tile_ids.tkpoly, tile_ids.tkaudt, tile_ids.tkdisp, tile_ids.tkagnt, tile_ids.tkmodl, tile_ids.metric, tile_ids.tkapi };
+    const names = [_]rt.tile.TileId{ tile_ids.tkings, tile_ids.tknorm, tile_ids.tkdedu, tile_ids.tkcase, tile_ids.tkpoly, tile_ids.tkaudt, tile_ids.tkdisp, tile_ids.tkagnt, tile_ids.tkmodl, tile_ids.metric, tile_ids.tkgate };
     try std.testing.expectEqual(names.len, topo.tiles.len);
     for (names, topo.tiles) |want, t| try std.testing.expectEqualStrings(want.slice(), t.name.slice());
 

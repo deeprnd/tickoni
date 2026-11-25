@@ -2,14 +2,14 @@
 /// link that no tile produces (`rt.link.external_src`, Firedancer's
 /// permit_no_producers).
 ///
-/// In the product topologies that link is tkapi's input, and the harness stands
+/// In the product topologies that link is tkgate's input, and the harness stands
 /// in for the terminal tile (the Qt CaseOps app) that will publish user
-/// requests on it. In the isolation fixtures without tkapi it is tkings's
-/// input, and the harness stands in for tkapi. It joins the link from the test
+/// requests on it. In the isolation fixtures without tkgate it is tkings's
+/// input, and the harness stands in for tkgate. It joins the link from the test
 /// process through the supervisor's workspace join, the way tkrepl replay
 /// will, and publishes one `TkEvent` fragment per event
 /// (shim/tk_event_wire.h), stamping what a producer owns: version, kind,
-/// source (tkapi), trace_id and idempotency_key. tkapi and tkings check and
+/// source (tkgate), trace_id and idempotency_key. tkgate and tkings check and
 /// frame the rest.
 ///
 /// Feeds:
@@ -34,7 +34,7 @@ const mrs = tiles.model_request_source;
 pub const TkEvent = c_abi.tkings.TkEvent;
 
 const event_sig: u64 = 0; // TK_LINK_SIG_EVENT
-const source_tkapi: u8 = 1; // TK_EVENT_SOURCE_TKAPI
+const source_tkgate: u8 = 1; // TK_EVENT_SOURCE_TKGATE
 const kind_payment: u8 = 1; // TK_EVENT_KIND_PAYMENT
 const kind_agent_request: u8 = 2; // TK_EVENT_KIND_AGENT_REQUEST
 const event_wire_version: u16 = 1; // TK_EVENT_WIRE_VERSION
@@ -53,7 +53,7 @@ fn envelope(kind: u8, offset: u64, idempotency_key: u64) TkEvent {
     var ev = std.mem.zeroes(TkEvent);
     ev.version = event_wire_version;
     ev.kind = kind;
-    ev.source = source_tkapi;
+    ev.source = source_tkgate;
     ev.trace_id = c_abi.trace_id.fromInt(traceIdAt(offset));
     ev.idempotency_key = idempotency_key;
     return ev;
@@ -161,8 +161,8 @@ pub const Harness = struct {
     }
 };
 
-/// The one channel that no tile produces: tkapi's input where the topology has
-/// tkapi, otherwise tkings's.
+/// The one channel that no tile produces: tkgate's input where the topology has
+/// tkgate, otherwise tkings's.
 pub fn ingestInputChannel(topo: rt.topology.Topology) !usize {
     const ingress = supervisor_mod.tile_registry.ingressTile(topo);
     for (topo.channels, 0..) |ch, i| {

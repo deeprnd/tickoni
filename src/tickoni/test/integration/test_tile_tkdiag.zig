@@ -94,7 +94,7 @@ test "tkdiag_integration: stem tkdiag keeps running until the supervisor halts i
 }
 
 /// One diagnostic fragment per processed event from each producer:
-/// tkings, tknorm, tkdedu, tkpoly, tkaudt and tkapi.
+/// tkings, tknorm, tkdedu, tkpoly, tkaudt and tkgate.
 const fan_in_producers: u64 = 6;
 /// Depth of every diagnostic link (topologies.zig `diag_link_depth`).
 const diag_link_depth: u64 = 64;

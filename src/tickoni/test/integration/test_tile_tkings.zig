@@ -77,7 +77,7 @@ test "tkings_integration: malformed envelopes are dropped and counted, canonical
     events[2].decision = 1;
     events[2].event_hash = 0xdead;
     events[3].trace_id = c_abi.trace_id.fromInt(0); // no trace
-    events[4].flags = 1; // the replay bit, from tkapi
+    events[4].flags = 1; // the replay bit, from tkgate
     events[5].kind = 9; // unknown kind
     events[6].trace_id = c_abi.trace_id.fromInt(13);
     const valid = [_]u64{ 11, 12, 13 };
