@@ -14,6 +14,8 @@ const Channel = rt.link.Channel;
 pub const Topology = rt.topology.Topology;
 const WorkspaceName = rt.link.WorkspaceName;
 
+/// ── Imports ──
+
 /// Shape of every diagnostic link into tkdiag, taken from the one definition in
 /// shim/tk_diag_fragment.h (the MTU is the fragment size).
 pub const diag_link_depth: u32 = audit_mod.TK_DIAG_LINK_DEPTH;
@@ -21,6 +23,8 @@ pub const diag_link_mtu: u32 = audit_mod.TK_DIAG_LINK_MTU;
 
 /// MTU of every spine link: one TkEvent per fragment (shim/tk_event_wire.h).
 pub const event_link_mtu: u32 = audit_mod.TK_EVENT_LINK_MTU;
+
+/// ── Helper Functions ──
 
 /// tkings's input in the isolation fixtures, which have no tkapi: the one link
 /// no tile produces (`rt.link.external_src`, Firedancer's permit_no_producers),
@@ -69,6 +73,8 @@ fn apiOutput(api_idx: u32, ings_idx: u32, workspace: []const u8) Channel {
     };
 }
 
+/// ── Topology Status ──
+
 /// Whether a declared product topology has a supervisor/CLI dispatch path
 /// today, so callers do not have to infer runtime support from tile count.
 /// `runnable`: src/app/tickoni/supervisor.zig has a start path for it and
@@ -78,6 +84,8 @@ fn apiOutput(api_idx: u32, ings_idx: u32, workspace: []const u8) Channel {
 /// tile roles and will fail closed (assert) if handed a differently-shaped
 /// topology.
 pub const TopologyStatus = enum { runnable, planned };
+
+/// ── Payment Topology ──
 
 // Static backing arrays for paymentPipeline — avoids returning pointers to
 // stack-allocated data.
@@ -103,6 +111,8 @@ const payment_channels = [_]Channel{
     apiInput(payment_api_idx, "tkpay0"),
 };
 
+/// ── Investment Topology ──
+
 const investment_tiles = [_]TileDescriptor{
     .{ .id = 0, .name = tile_ids.tkings },
     .{ .id = 1, .name = tile_ids.tknorm },
@@ -122,6 +132,8 @@ const investment_tiles = [_]TileDescriptor{
 };
 /// Index of tkapi in `investment_tiles`.
 const investment_api_idx: u32 = 14;
+
+/// ── Investment Topology Links ──
 
 /// One reliable shared-memory link of the full workflow, in the one workspace
 /// every process-mode tile joins.
@@ -180,6 +192,8 @@ const investment_channels = [_]Channel{
     apiInput(investment_api_idx, "tkinv0"),
 };
 
+/// ── Investment Workflow Diagnostic Links ──
+
 /// The lossy diagnostic link from pipeline tile `src` to tkdiag
 /// (`investment_tiles[13]`).
 fn diagLinkInvestment(src: u32) Channel {
@@ -235,6 +249,8 @@ pub fn investmentWorkflow() Topology {
         .channels = &investment_channels,
     };
 }
+
+/// ── Payment Process Topology ──
 
 // v2.14.S1 process-mode variant of paymentPipeline: same 9 tiles and 4
 // core channels, backed by Tango shared memory in one shared workspace
@@ -296,6 +312,8 @@ const payment_process_channels = [_]Channel{
     apiInput(payment_api_idx, "tkpay0"),
 };
 
+/// ── Payment Process Diagnostic Links ──
+
 /// The lossy diagnostic link from pipeline tile `src` to tkdiag
 /// (`payment_tiles[7]`).
 fn diagLink(src: u32) Channel {
@@ -324,6 +342,8 @@ pub fn paymentPipelineProcess() Topology {
         .channels = &payment_process_channels,
     };
 }
+
+/// ── Minimal Topologies ──
 
 /// Minimal 3-tile topology for isolation testing: tkings → tkaudt (+ metric).
 /// The metric tile is required so Firedancer's fd_topo_fill_tile can set
@@ -354,6 +374,8 @@ pub fn minimalProcess() Topology {
         .channels = &minimal_channels,
     };
 }
+
+/// ── Minimal Topology Variants ──
 
 /// Minimal 4-tile topology for testing tkapi in front of the event pipeline:
 /// (terminal tile) -> tkapi -> tkings -> tkaudt (+ metric observer). The test
@@ -475,6 +497,8 @@ pub fn minimalWithDeduProcess() Topology {
         .channels = &minimal_with_dedu_channels,
     };
 }
+
+/// ── Agent Process ──
 
 /// The agent process graph for `n` configured tkmodl instances (1..11): every
 /// event takes the spine, and agent requests reach tkagnt only through tkdisp
@@ -645,6 +669,8 @@ pub fn minimalWithPolyProcess() Topology {
         .channels = &minimal_with_poly_channels,
     };
 }
+
+// ── Tests ──
 
 test "paymentPipeline has Phase 0 product tiles and channels" {
     const topo = paymentPipeline();
