@@ -30,7 +30,7 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = 5, .name = tile_ids.tkrepl },
     .{ .id = 6, .name = tile_ids.metric },
     .{ .id = 7, .name = tile_ids.tkdiag },
-    .{ .id = 8, .name = tile_ids.tkapi },
+    .{ .id = 8, .name = tile_ids.tkgate },
 };
 
 /// Same 9 tiles, tkpoly and tkaudt each pinned to their own exclusive CPU
@@ -46,7 +46,7 @@ const exclusive_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = 5, .name = tile_ids.tkrepl },
     .{ .id = 6, .name = tile_ids.metric },
     .{ .id = 7, .name = tile_ids.tkdiag },
-    .{ .id = 8, .name = tile_ids.tkapi },
+    .{ .id = 8, .name = tile_ids.tkgate },
 };
 
 const event_count: u64 = 24;

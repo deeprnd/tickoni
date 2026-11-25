@@ -40,7 +40,7 @@ pub const RestrictedInstrumentBlockedAuditChain = struct {
 };
 
 // policy_version is centralized in fixtures/shared.zig (the header builder).
-const source_system = tile_ids.tkapi.slice();
+const source_system = tile_ids.tkgate.slice();
 const source_event_type = "investment_intent";
 const canonical_event_type = "investment.intent";
 const model_backend_id = "fixture.ai_infra";

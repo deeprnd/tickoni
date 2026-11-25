@@ -27,7 +27,7 @@ const shared_core_tiles = [_]rt.topology.TileDescriptor{
     .{ .id = 5, .name = tile_ids.tkrepl, .cpu_placement = .{ .shared = 0 } },
     .{ .id = 6, .name = tile_ids.metric, .cpu_placement = .{ .shared = 0 } },
     .{ .id = 7, .name = tile_ids.tkdiag, .cpu_placement = .{ .shared = 0 } },
-    .{ .id = 8, .name = tile_ids.tkapi, .cpu_placement = .{ .shared = 0 } },
+    .{ .id = 8, .name = tile_ids.tkgate, .cpu_placement = .{ .shared = 0 } },
 };
 
 const event_count: u64 = 64;

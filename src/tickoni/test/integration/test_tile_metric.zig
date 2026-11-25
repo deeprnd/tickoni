@@ -336,7 +336,7 @@ test "every scratch-owning tile object is laid out at its required alignment" {
     );
     defer built.deinit(std.testing.allocator);
 
-    // tkapi, tkings, tknorm, tkdedu, tkaudt, tkpoly, metric and tkdiag each own
+    // tkgate, tkings, tknorm, tkdedu, tkaudt, tkpoly, metric and tkdiag each own
     // tile-local scratch; the rest report footprint 1 and carry no alignment
     // property.
     const expected_scratch_owners: usize = 8;
