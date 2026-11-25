@@ -127,7 +127,7 @@ pub fn strategy(
     // process files exercise the supervisor, topology and links.
     const infra_tile_files: []const []const u8 = &.{
         "src/tickoni/test/integration/test_tile_metric.zig",
-        "src/tickoni/test/integration/test_tile_tkapi.zig",
+        "src/tickoni/test/integration/test_tile_tkgate.zig",
         "src/tickoni/test/integration/test_tile_tkings.zig",
         "src/tickoni/test/integration/test_tile_tkaudt.zig",
         "src/tickoni/test/integration/test_tile_tknorm.zig",
