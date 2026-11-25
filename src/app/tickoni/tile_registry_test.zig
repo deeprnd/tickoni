@@ -352,13 +352,19 @@ test "tkdiag is the diagnostic collector: no pipeline links, no output, CNC slot
     }
 }
 
-test "exactly tkings, tknorm, tkdedu, tkpoly and tkaudt are diagnostic producers" {
-    const producers = [_]rt.tile.TileId{ tile_ids.tkings, tile_ids.tknorm, tile_ids.tkdedu, tile_ids.tkpoly, tile_ids.tkaudt };
+test "exactly the spine tiles and runtime tiles are diagnostic producers" {
+    const spine_producers = [_]rt.tile.TileId{ tile_ids.tkings, tile_ids.tknorm, tile_ids.tkdedu, tile_ids.tkpoly, tile_ids.tkaudt, tile_ids.tkcase };
+    const runtime_producers = [_]rt.tile.TileId{ tile_ids.tkmodl, tile_ids.tkagnt, tile_ids.tkdisp, tile_ids.tkapi };
     for (&entries) |*e| {
-        var is_producer = false;
-        for (producers) |p| {
-            if (p.eql(e.id)) is_producer = true;
+        var is_spine_producer = false;
+        for (spine_producers) |p| {
+            if (p.eql(e.id)) is_spine_producer = true;
         }
+        var is_runtime_producer = false;
+        for (runtime_producers) |p| {
+            if (p.eql(e.id)) is_runtime_producer = true;
+        }
+        const is_producer = is_spine_producer or is_runtime_producer;
         try std.testing.expectEqual(is_producer, e.diag == .producer);
         // Only tkdiag collects.
         try std.testing.expectEqual(e.id.eql(tile_ids.tkdiag), e.diag == .collector);

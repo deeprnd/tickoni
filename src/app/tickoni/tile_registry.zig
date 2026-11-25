@@ -243,6 +243,7 @@ pub const entries = [_]TileEntry{
         .in_cnt = 1,
         .out_cnt = 2,
         .max_instances = rt.model_tier.max_model_instances,
+        .diag = .producer,
     },
     // tkagnt: the agent worker. One agent-request input and one result input
     // per configured tkmodl; one request output per tkmodl plus the audit
@@ -260,6 +261,7 @@ pub const entries = [_]TileEntry{
             .{ .idx = 4, .field = .agent_embeddings },
         },
         .cardinality = .agent_fan,
+        .diag = .producer,
     },
     // tkdisp: the agent dispatch scheduler. The event link from tkcase and
     // tkagnt's terminal results in; the agent request link to tkagnt out. Its
@@ -272,6 +274,7 @@ pub const entries = [_]TileEntry{
         .counters = &.{},
         .in_cnt = 2,
         .out_cnt = 1,
+        .diag = .producer,
     },
     // tkcase, tktool and tkadpt: config-driven placeholders of the full
     // workflow (tk_pass_stem.c). They carry no case, tool or adapter logic:
@@ -284,6 +287,7 @@ pub const entries = [_]TileEntry{
         .counters = &.{},
         .in_cnt = 1,
         .out_cnt = 2,
+        .diag = .producer,
     },
     .{
         .id = tile_ids.tktool,
@@ -311,6 +315,7 @@ pub const entries = [_]TileEntry{
         .counters = &.{ .{ .idx = 0, .field = .api_published }, .{ .idx = 1, .field = .api_wire_invalid } },
         .in_cnt = 1,
         .out_cnt = 1,
+        .diag = .producer,
     },
 };
 
@@ -407,8 +412,10 @@ pub fn validate(topo: rt.topology.Topology) !void {
                 }
             }
         }
+        const in_expected = expectedInCnt(entry, topo);
+        const out_expected = expectedOutCnt(entry, topo);
+        if (in_cnt != in_expected or out_cnt != out_expected) return error.LinkCardinalityMismatch;
         if (diag_out_cnt > 0 and (entry.diag != .producer or diag_out_cnt > 1)) return error.LinkCardinalityMismatch;
-        if (in_cnt != expectedInCnt(entry, topo) or out_cnt != expectedOutCnt(entry, topo)) return error.LinkCardinalityMismatch;
         if (last_pipeline_out) |pipeline_pos| {
             if (diag_out_cnt == 1 and diag_out_pos < pipeline_pos) return error.DiagLinkNotLast;
         }
