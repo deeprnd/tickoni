@@ -36,15 +36,24 @@ pub fn registerTestLanes(
     // Integration modules
     const int_mods = integration_lane.createIntModules(b, shared, tm, target, optimize, exe);
 
-    // Infra lane — supervisor, tile lifecycle, Tango links, mock servers.
-    const integration_infr_step = b.step(
-        "test-integration-tk-infra",
-        "Run Tickoni infrastructure integration tests",
-    );
     // Supervisor binary must exist at prefix before process-mode tests
     // spawn it (tile_exe_path = "build/zig-out/bin/tickoni-supervisor").
-    integration_infr_step.dependOn(&exe_install.step);
-    integration_lane.strategy(b, int_mods, .infra, target, optimize, fd_lib_dir, integration_infr_step, exe_install);
+
+    // Infra tile lane — one test file per tile.
+    const integration_infra_tile_step = b.step(
+        "test-integration-tk-infra-tile",
+        "Run Tickoni per-tile infrastructure integration tests",
+    );
+    integration_infra_tile_step.dependOn(&exe_install.step);
+    integration_lane.strategy(b, int_mods, .infra_tile, target, optimize, fd_lib_dir, integration_infra_tile_step, exe_install);
+
+    // Infra process lane — supervisor, topology, Tango links, mock servers.
+    const integration_infra_process_step = b.step(
+        "test-integration-tk-infra-process",
+        "Run Tickoni process-level infrastructure integration tests",
+    );
+    integration_infra_process_step.dependOn(&exe_install.step);
+    integration_lane.strategy(b, int_mods, .infra_process, target, optimize, fd_lib_dir, integration_infra_process_step, exe_install);
 
     // Domain lane — investment policy, allowed/blocked trades, replay.
     const integration_domain_step = b.step(
@@ -53,13 +62,15 @@ pub fn registerTestLanes(
     );
     integration_lane.strategy(b, int_mods, .domain, target, optimize, fd_lib_dir, integration_domain_step, exe_install);
 
-    // Combined lane — runs both infra and domain.
+    // Combined lane — infra tile, infra process, then domain, in one
+    // sequential chain. The tile and process lanes both spawn tile processes
+    // that share ports and workspaces, so they must never run concurrently.
     const integration_step = b.step(
         "test-integration-tk",
-        "Run all Tickoni integration tests (infra + domain)",
+        "Run all Tickoni integration tests (infra tile, infra process, domain)",
     );
-    integration_step.dependOn(integration_infr_step);
-    integration_step.dependOn(integration_domain_step);
+    integration_step.dependOn(&exe_install.step);
+    integration_lane.strategy(b, int_mods, .all, target, optimize, fd_lib_dir, integration_step, exe_install);
 
     const system_step = b.step("test-system", "Run all src/tickoni/test/system proofs");
     system_lane.strategy(b, .{
