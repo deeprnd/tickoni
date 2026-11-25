@@ -73,7 +73,7 @@ hunks that were not already in the working tree before the plan started.
 
 ## Preconditions
 
-- [x] Working tree is on `story/tkapi-fd-stem` and has a lot of uncommitted work
+- [x] Working tree is on `story/tkgate-fd-stem` and has a lot of uncommitted work
       (stem tile, `os` shim, harness changes). Commit or stash it first so a
       per-file fix commit contains only that file's fix. Do not mix the plan with
       unrelated edits.
@@ -91,7 +91,7 @@ hunks that were not already in the working tree before the plan started.
 - [x] Host platform. The lane dispatches on `{{ os }}-{{ arch }}`. The host here is
       Windows 11 (`test-integration-tk-windows-x86`). All platforms have equivalent
       capabilities, so there are **no OS-specific tests and no platform exclusions**.
-      The old `builtin.target.os.tag` guards (tkings, tkapi, tkpoly, tkdiag, metric,
+      The old `builtin.target.os.tag` guards (tkings, tkgate, tkpoly, tkdiag, metric,
       `stem_liveness`) were removed on purpose. A failure on Windows is a real bug
       in the code or the test to root-cause and fix, never a "platform-unsupported"
       result. Do not re-add OS guards or skip a file because of the host OS.
@@ -138,7 +138,7 @@ shows up as noise in a higher-level file. Counts are current `shouldSkip` counts
 | 12 | `test_tile_tkpoly.zig` | 17 | PASS | 2026-11-24 | 17/17 passed on the first run (lane: 17 passed, 128 skipped, 0 failed; 155s). No fix needed. No orphans. |
 | 13 | `test_tile_tkaudt.zig` | 4 | PASS | 2026-11-24 | 4/4 passed on the first run (lane: 4 passed, 141 skipped, 0 failed; 129s). No fix needed. No orphans. |
 | 14 | `test_tile_tkdiag.zig` | 6 | PASS | 2026-11-24 | r1 failed (tkdiag stale, 119 ms). Fixed by F1 (stem idle sleep, `610efa214`). F2: the tkdiag lifecycle/fan-in helper uses the 1 s liveness threshold (user decision: logic tests, not latency). fix2 and fix3 both 6/6 (lane: 6 passed, 141 skipped). No orphans. |
-| 15 | `test_tile_tkapi.zig` | 4 | PASS | 2026-11-24 | 4/4 passed on the first run (lane: 4 passed, 141 skipped, 0 failed; 141s). No fix needed. No orphans. |
+| 15 | `test_tile_tkgate.zig` | 4 | PASS | 2026-11-24 | 4/4 passed on the first run (lane: 4 passed, 141 skipped, 0 failed; 141s). No fix needed. No orphans. |
 | 16 | `test_tile_tkmodl.zig` | 8 | PASS | 2026-11-24 | 8/8 passed on the first run (lane: 8 passed, 137 skipped, 0 failed; 150s). No fix needed. No orphans. |
 | 17 | `test_tile_tkagnt.zig` | 20 | PASS | 2026-11-24 | 20/20 passed on the first run (lane: 20 passed, 125 skipped, 0 failed; 224s). No fix needed. No orphans. Includes the frozen-tile stale test (portable suspend/resume works on Windows). **Flaky, see F3:** with every test unskipped the HALT drain test failed about 1 run in 3. Fixed by F3. |
 | 18 | `test_stem_heartbeat.zig` | 5 (was 3) | PASS | 2026-11-24 | 3/3 on the first run. F1 added 2 tests (idle CPU < 1/5 core, sustained idle liveness), which failed before the fix. After `610efa214`: 5/5 (lane: 5 passed, 142 skipped). Idle stem CPU 0-46 ms per 2 s. |
@@ -177,7 +177,7 @@ tiles, so their results stand.
 | 11 | `test_tile_tkdedu.zig` | PASS | 6/6 (100s). No orphans. |
 | 12 | `test_tile_tkpoly.zig` | PASS | 17/17 (112s). No orphans. |
 | 13 | `test_tile_tkaudt.zig` | PASS | 4/4 (95s). No orphans. |
-| 15 | `test_tile_tkapi.zig` | PASS | 4/4 (95s). No orphans. |
+| 15 | `test_tile_tkgate.zig` | PASS | 4/4 (95s). No orphans. |
 | 16 | `test_tile_tkmodl.zig` | PASS | 8/8 (111s). No orphans. |
 | 17 | `test_tile_tkagnt.zig` | PASS | 20/20 (120s). No orphans. |
 
@@ -260,7 +260,7 @@ enabled at a time.
 - **Host.** Windows 11 ARM64 VM on Apple Silicon, 4 vCPUs.
 - **Root cause.** `fd_stem` (`src/disco/stem/fd_stem.c`) never sleeps when idle;
   it only `FD_SPIN_PAUSE`s. The payment pipeline is 9 stem-loop processes (tkings,
-  tknorm, tkdedu, tkpoly, tkaudt, tkrepl, metric, tkdiag, tkapi), plus the test
+  tknorm, tkdedu, tkpoly, tkaudt, tkrepl, metric, tkdiag, tkgate), plus the test
   process and the feed harness: 10+ CPU-bound threads on 4 vCPUs. A runnable tile
   can wait more than 100 ms for a time slice. The median heartbeat age is 0-20 ms,
   so the tiles are not wedged. They are not scheduled.
@@ -378,7 +378,7 @@ These come from `AGENTS.md` and apply to every fix made during this plan.
   tile ownership/IDs/lifecycle/link semantics; event framing, source offsets,
   normalization, dedupe or hash behavior; case lifecycle; capability envelope or
   policy outcomes; audit schema, hash chaining or replay substitution; public
-  `tkapi`/model/tool/adapter contracts; storage roles; or model/adapter access rules.
+  `tkgate`/model/tool/adapter contracts; storage roles; or model/adapter access rules.
   Present the root cause and the options; do not pick silently.
 - No weakening a test to make it pass (looser assertions, longer sleeps, added
   retries, new skips, or removing the test). If a test itself is wrong, fix it and

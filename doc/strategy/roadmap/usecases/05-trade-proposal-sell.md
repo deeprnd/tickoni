@@ -2,7 +2,7 @@
 
 ## Description
 
-The user decides to sell. The event enters through `tkapi` (transport/auth), which sets the `case_id` and routes to the ingestion pipeline (`tkings`). The event flows through `tknorm` → `tkdedu` → `tkcase` (case scope created, `run_id` generated) → `tkpoly` (policy check — `trading_order.propose`: for long sell, allow; for short sell, check margin) → `tkaudt`. `tkdisp` schedules the bounded agent run (`tkagnt`), which calls portfolio read and simulation through the tool normalizer (`tktool`) and adapter layer (`tkadpt`) to the portfolio tile (`tkport`).
+The user decides to sell. The event enters through `tkgate` (transport/auth), which sets the `case_id` and routes to the ingestion pipeline (`tkings`). The event flows through `tknorm` → `tkdedu` → `tkcase` (case scope created, `run_id` generated) → `tkpoly` (policy check — `trading_order.propose`: for long sell, allow; for short sell, check margin) → `tkaudt`. `tkdisp` schedules the bounded agent run (`tkagnt`), which calls portfolio read and simulation through the tool normalizer (`tktool`) and adapter layer (`tkadpt`) to the portfolio tile (`tkport`).
 
 This is also proposal-only — no shares actually move. The policy gate determines if shorting is allowed for this account.
 
@@ -11,7 +11,7 @@ This is also proposal-only — no shares actually move. The policy gate determin
 ```mermaid
 sequenceDiagram
     participant Term as Terminal (UI)
-    participant API as tkapi (transport/auth)
+    participant API as tkgate (transport/auth)
     participant Ing as tkings (canonical framing)
     participant Norm as tknorm (normalization)
     participant Dedu as tkdedu (deduplication)
@@ -44,7 +44,7 @@ sequenceDiagram
 
 || Tile | Runtime ID | Responsibility | Status |
 ||------|-----------|----------------|--------|
-|| `tkapi` | `tkapi` | HTTP/WebSocket CaseOps API tile — receives trade proposal request, sets case_id, routes to tkings | **MISSING** |
+|| `tkgate` | `tkgate` | HTTP/WebSocket CaseOps API tile — receives trade proposal request, sets case_id, routes to tkings | **MISSING** |
 || `tkings` | `tkings` | Universal event ingestion — receives trading_order.propose (sell) event, frames it canonically | **NOT STARTED** |
 || `tknorm` | `tknorm` | Canonical normalization — normalizes sell trade proposal event into canonical facts | **NOT STARTED** |
 || `tkdedu` | `tkdedu` | Deduplication — deduplicates sell trade proposal event | **NOT STARTED** |
@@ -73,12 +73,12 @@ sequenceDiagram
 5. Implement short-sale policy check: margin requirement >= X% of position value, locate availability check, single-stock short limit.
 6. Add `short_sale` boolean to `trade_propose` audit record in `tkaudt`.
 7. Wire `tkport` to simulate short position creation (negative holding, margin commitment).
-8. Implement `tk_api` command handler for `trade_propose` (short-sale variant) via shared-memory channel.
+8. Implement `tk_gate` command handler for `trade_propose` (short-sale variant) via shared-memory channel.
 
 ### System test approach
 
-- Launch the trade proposal topology with `tk_api`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, `tkport`, `tkaudt`, `tktool`, `tkadpt`, `metric`, `tkdiag`.
-- Test 1 (long sell): send `trade_propose` (sell, not short-sale) via `ui_cmd` channel through `tk_api` → `tkings` → `tknorm` → `tkdedu` → `tkcase` → `tkpoly` → `tkaudt`; use `technology_heavy` fixture (owns NVDA 115 shares); propose sell 50 shares. Verify: `tkpoly` allows, `tkport` simulates reduced NVDA + increased cash, `tkaudt` records `trade_propose` with `short_sale=false`.
+- Launch the trade proposal topology with `tk_gate`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, `tkport`, `tkaudt`, `tktool`, `tkadpt`, `metric`, `tkdiag`.
+- Test 1 (long sell): send `trade_propose` (sell, not short-sale) via `ui_cmd` channel through `tk_gate` → `tkings` → `tknorm` → `tkdedu` → `tkcase` → `tkpoly` → `tkaudt`; use `technology_heavy` fixture (owns NVDA 115 shares); propose sell 50 shares. Verify: `tkpoly` allows, `tkport` simulates reduced NVDA + increased cash, `tkaudt` records `trade_propose` with `short_sale=false`.
 - Test 2 (short sell): use `diversified` fixture (no NVDA holding); send `trade_propose` (sell_short) via `ui_cmd` channel. Verify: `tkpoly` checks short-sale permissions and margin; if margin insufficient, returns deny; if allowed, returns proposal with short position and margin requirement.
 - Test 3 (short sell denied): use `low_cash` fixture — margin check should fail, policy denies.
 - Replay test: capsule with substituted portfolio and policy decisions produces identical output.

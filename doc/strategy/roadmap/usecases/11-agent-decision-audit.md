@@ -17,7 +17,7 @@ For a hedge fund manager or trader, replay is not about re-running computations 
 ```mermaid
 sequenceDiagram
     participant Term as Terminal (UI)
-    participant tkA as tk_api (semantic API)
+    participant tkA as tk_gate (semantic API)
     participant tkC as tkcase (Case scope)
     participant tkU as tkaudt (Audit — source of truth for replay)
     participant tkR as tkrepl (Replay — reconstructs decision from audit)
@@ -37,7 +37,7 @@ sequenceDiagram
 
 | Tile | Runtime ID | Responsibility | Status |
 |------|-----------|----------------|--------|
-|| `tk_api` | `tk_api` | Semantic API tile — receives case_replay via ui_cmd, assembles narrative from tkcase/tkaudt/tkrepl, returns ui_rsp | **MISSING** |
+|| `tk_gate` | `tk_gate` | Semantic API tile — receives case_replay via ui_cmd, assembles narrative from tkcase/tkaudt/tkrepl, returns ui_rsp | **MISSING** |
 | `tkcase` | `tkcase0` | `tkcase.capsule` — returns all events for a case | **PARTIALLY** — `tk_pass_stem.c` placeholder |
 | `tkaudt` | `tkaudt` | Source of truth — all audit records for the case | **EXISTING** — append-only chain, hash-chained |
 | `tkrepl` | `tkrepl` | Re-inject capsule, verify deterministic reconstruction | **NOT STARTED** — stem only, no runtime tile |
@@ -59,7 +59,7 @@ sequenceDiagram
    - What the agent tried (tool calls, proposals)
    - What was allowed vs. blocked by policy
    - What the agent was **not allowed** to do (bypass attempts, policy denials)
-3. Implement `tk_api` command handler for `case_replay` via shared-memory channel — returns the narrative to the terminal UI.
+3. Implement `tk_gate` command handler for `case_replay` via shared-memory channel — returns the narrative to the terminal UI.
 4. Wire `tkcase` and `tkrepl` into a topology that supports replay requests (separate from the main event pipeline).
 
 ## User interaction
@@ -88,9 +88,9 @@ The user can also ask follow-ups:
 
 ## System test approach
 
-- Launch the replay topology with `tkapi`, `tkcase`, `tkrepl`, `tkaudt`, `metric`, `tkdiag`.
+- Launch the replay topology with `tkgate`, `tkcase`, `tkrepl`, `tkaudt`, `metric`, `tkdiag`.
 - Create a case with multiple agent attempts (some allowed, some denied).
 - Replay the case and verify the narrative matches the audit record.
 - Test policy version swap: replay the same case with a different policy version, verify the narrative reflects the different outcome.
 - Test counterfactual: replay with modified initial state (different NVDA allocation), verify the agent's proposed amount changes accordingly.
-- Verify: `tkcase.capsule` returns all events in order; `tkrepl` reconstructs the decision chain deterministically; `tkapi` returns the narrative to the user.
+- Verify: `tkcase.capsule` returns all events in order; `tkrepl` reconstructs the decision chain deterministically; `tkgate` returns the narrative to the user.

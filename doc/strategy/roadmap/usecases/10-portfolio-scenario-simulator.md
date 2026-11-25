@@ -17,7 +17,7 @@ Unlike Bloomberg or Interactive Brokers, which only show current state and basic
 ```mermaid
 sequenceDiagram
     participant Term as Terminal (UI)
-    participant tkA as tk_api (semantic API)
+    participant tkA as tk_gate (semantic API)
     participant tkI as tkings (canonical framing)
     participant tkN as tknorm (normalization)
     participant tkD as tkdedu (deduplication)
@@ -59,7 +59,7 @@ sequenceDiagram
 
 | Tile | Runtime ID | Responsibility | Status |
 |------|-----------|----------------|--------|
-|| `tk_api` | `tk_api` | Semantic API tile — receives scenario_simulate via ui_cmd, routes to tkings, returns ui_rsp | **MISSING** |
+|| `tk_gate` | `tk_gate` | Semantic API tile — receives scenario_simulate via ui_cmd, routes to tkings, returns ui_rsp | **MISSING** |
 | `tkcase` | `tkcase0` | Creates scenario scope | **PARTIALLY** — `tk_pass_stem.c` placeholder |
 | `tkdisp` | `tkdisp` | Dispatches scenario agent | **EXISTING** — in investment workflow |
 | `tkagnt` | `tkagnt` | Runs scenario analysis agent | **PARTIALLY** — needs `runScenarioAgent` |
@@ -88,12 +88,12 @@ sequenceDiagram
    - Calls model for analysis (explain impact, identify drivers, suggest actions)
    - Produces a scenario report with before/after values and recommended actions
 4. Add `scenario_result` record type to `tkaudt` — includes case_id, scenario description, before/after portfolio values, impact breakdown.
-5. Implement `tk_api` command handler for `scenario_simulate` via shared-memory channel — accepts scenario description and account ID.
+5. Implement `tk_gate` command handler for `scenario_simulate` via shared-memory channel — accepts scenario description and account ID.
 6. Wire `tkcase` into the simulation topology.
 
 ### System test approach
 
-- Launch the scenario simulation topology with `tk_api`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkdisp`, `tkagnt`, `tkmodl`, `tkport`, `tktkr`, `tkaudt`, `tktool`, `tkadpt`, `metric`, `tkdiag`.
+- Launch the scenario simulation topology with `tk_gate`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkdisp`, `tkagnt`, `tkmodl`, `tkport`, `tktkr`, `tkaudt`, `tktool`, `tkadpt`, `metric`, `tkdiag`.
 - Use `mock_adapter` with `technology_heavy` fixture (82% tech, owns GOOG/AMZN/NVDA).
 - Use `mock_model` for scenario analysis with canned response.
 - Send scenario_simulate command through `ui_cmd` channel (case_id=X, type=scenario_simulate, scenario=QQQ-20%, account_id=2001).

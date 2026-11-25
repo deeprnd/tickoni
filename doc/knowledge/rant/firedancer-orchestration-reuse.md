@@ -205,7 +205,7 @@ working well:
 
 - Financial tile identity and responsibility. `tkings`, `tknorm`, `tkdedu`,
   `tkcase`, `tkpoly`, `tkaudt`, `tkrepl`, `tkmetr`, `tkdiag`, `tkdisp`,
-  `tkagnt`, `tkmodl`, `tktool`, `tkadpt`, `tkapi`, and future `tkexec` are
+  `tkagnt`, `tkmodl`, `tktool`, `tkadpt`, `tkgate`, and future `tkexec` are
   Tickoni concepts, not validator tile aliases.
 - Capability envelopes, policy outcomes, audit schemas, evidence records, and
   replay capsules. These are the product's financial correctness layer and do

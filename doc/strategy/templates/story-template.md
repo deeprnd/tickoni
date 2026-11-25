@@ -60,7 +60,7 @@ Conditional guidance:
   - Include model/tool/adapter acceptance only when the story touches tkmodl,
     tktool, tkadpt, model providers, local agent CLI routing, or financial
     adapter calls.
-  - Include UI/API acceptance only when the story changes tkapi, CaseOps, HTTP,
+  - Include UI/API acceptance only when the story changes tkgate, CaseOps, HTTP,
     WebSocket, ingestion, review, approval, or external contract behavior.
   - Mark a conditional section `N/A - reason` when reviewers may otherwise
     expect it.
@@ -193,7 +193,7 @@ API access, or replay substitution for external calls. -->
 
 **CaseOps API or UI**
 
-<!-- Applies when changing tkapi, HTTP/WebSocket behavior, CaseOps screens,
+<!-- Applies when changing tkgate, HTTP/WebSocket behavior, CaseOps screens,
 operator review, approval flows, external ingestion, or partner review APIs. -->
 
 - [ ] [N/A - reason, or API/UI acceptance criterion]

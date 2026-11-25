@@ -27,7 +27,7 @@ The user can **dismiss** (accept the risk) or **trim** (initiate rebalancing tra
 ```mermaid
 sequenceDiagram
     participant Port as tkport (Portfolio)
-    participant tkA as tk_api (semantic API)
+    participant tkA as tk_gate (semantic API)
     participant tkI as tkings (canonical framing)
     participant tkN as tknorm (normalization)
     participant tkD as tkdedu (deduplication)
@@ -70,7 +70,7 @@ sequenceDiagram
 | `tkport` | `tkport0` | Portfolio tile — read holdings with live prices, compute sector exposure, per-position percentages | **MISSING** — no tile exists (schema exists, see UC-03) |
 | `tkpoly` | `tkpoly` | Policy tile — `exposure_monitor.check` capability envelope (per-position ≤ 5%, sector ≤ 20%, margin requirements) | **PARTIALLY** — exists, needs exposure monitoring policy rules |
 | `tkaudt` | `tkaudt` | Audit tile — records `exposure_check` and `exposure_alert_dismissed` events | **PARTIALLY** — needs `exposure_check` record type |
-| `tk_api` | `tk_api` | Semantic API tile — alert push via shared-memory event channel, user command intake via ui_cmd | **MISSING** |
+| `tk_gate` | `tk_gate` | Semantic API tile — alert push via shared-memory event channel, user command intake via ui_cmd | **MISSING** |
 | `tkmetr` | `metric` | Metrics tile — tracks exposure check latency, violation count | **EXISTING** |
 | `tkdiag` | `tkdiag` | Diagnostics | **EXISTING** |
 
@@ -93,11 +93,11 @@ sequenceDiagram
 6. Add `exposure_alert_dismissed` record type to `tkaudt` — includes dismissed violations, timestamp.
 7. Implement alert generation: for each violation, compute drift (old percentage → new percentage), identify recommended trim trades.
 8. Wire `tkport` into the investment workflow topology.
-9. Implement alert channel: for each violation, compute drift (old percentage → new percentage), identify recommended trim trades, push via `tk_api` event channel to terminal UI.
+9. Implement alert channel: for each violation, compute drift (old percentage → new percentage), identify recommended trim trades, push via `tk_gate` event channel to terminal UI.
 
 ### System test approach
 
-- Launch the exposure monitor topology with `tk_api`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, `tkport`, `tkaudt`, `metric`, `tkdiag`.
+- Launch the exposure monitor topology with `tk_gate`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, `tkport`, `tkaudt`, `metric`, `tkdiag`.
 - Use `mock_adapter` with `technology_heavy` fixture (82% tech) — should trigger sector violation on every check.
 - Use `mock_adapter` with `cash_rich` fixture — should pass all checks.
 - Trigger on-demand check via `ui_cmd` channel (type=exposure_monitor.check).

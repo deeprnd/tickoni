@@ -259,5 +259,5 @@ reported as information, never as a divergence by itself.
 
 CaseOps display of host platform metadata is deferred. Platform provenance is
 exposed through CLI, audit, replay, metrics, diagnostics, and linked evidence
-artifacts. A future tkapi/UI story must add the dashboard host metadata surface
+artifacts. A future tkgate/UI story must add the dashboard host metadata surface
 before docs can claim CaseOps display is shipped.

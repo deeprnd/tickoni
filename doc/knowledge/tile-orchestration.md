@@ -254,7 +254,7 @@ endpoint completes its first poll/listen cycle. See
 [workspace-management.md](workspace-management.md#tile-boot-timing-pipeline-tiles-vs-metric-tile)
 for the practical implications in tests and diagnostics.
 
-Future tiles (`tkcase`, `tkrepl`, `tkmodl`, `tktool`, `tkadpt`, `tkapi`) must
+Future tiles (`tkcase`, `tkrepl`, `tkmodl`, `tktool`, `tkadpt`, `tkgate`) must
 adhere to the same discipline:
 
 - **Model access (`tkmodl`):** Use bounded polling on shared memory or a
@@ -264,7 +264,7 @@ adhere to the same discipline:
 - **Adapter access (`tktool`, `tkadpt`):** Read and write through bounded
   shared-memory queues or a proxy tile that does the I/O and publishes
   results asynchronously. The consumer tile polls, never blocks.
-- **API/transport (`tkapi`):** Use Firedancer's `fd_http_server` infrastructure
+- **API/transport (`tkgate`):** Use Firedancer's `fd_http_server` infrastructure
   or a non-blocking event loop. Never have a handler block the tile's
   heartbeat/halt loop.
 - **Replay (`tkrepl`):** Substitutes external effects with captured data.

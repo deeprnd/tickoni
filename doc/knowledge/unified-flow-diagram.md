@@ -8,12 +8,12 @@ tkdisp is the **enterprise service bus (ESB)** — it sits between the determini
 - Dispatch: routes pipeline events to PATH A (agent), PATH B (data read), or PATH C (sink)
 - Collect: receives results back from whatever it dispatched to
 - Validate: checks results match dispatched requests — request_id tracking, one-result-per-request invariant
-- Store: passes validated results to the ring buffer for tk_api to retrieve
+- Store: passes validated results to the ring buffer for tk_gate to retrieve
 
 **What it does NOT do:**
 - Does not enforce policy — that's tkpoly
-- Does not transform/normalize data — that's tknorm (inbound) and tk_api (outbound)
-- Does not format responses for the terminal — that's tk_api
+- Does not transform/normalize data — that's tknorm (inbound) and tk_gate (outbound)
+- Does not format responses for the terminal — that's tk_gate
 - Does not store business state — ring buffer is transient; case/audit store holds persistent state
 
 **Routing decision:** After tkcase passes an event to tkdisp, tkdisp decides where to route:
@@ -26,7 +26,7 @@ tkdisp is the **enterprise service bus (ESB)** — it sits between the determini
 2. "Has a result already been stored for this request?" — rejects duplicates
 3. Only validated results are stored in the ring buffer
 
-This is the ESB's validation role: it doesn't understand content, it validates that results match dispatched requests. A rogue or compromised tkagnt cannot inject arbitrary results — tkdisp enforces the one-request-one-result invariant. tk_api trusts the ring buffer because every result has been validated against a dispatched request.
+This is the ESB's validation role: it doesn't understand content, it validates that results match dispatched requests. A rogue or compromised tkagnt cannot inject arbitrary results — tkdisp enforces the one-request-one-result invariant. tk_gate trusts the ring buffer because every result has been validated against a dispatched request.
 
 ## The Unified Flow
 
@@ -34,14 +34,14 @@ This is the ESB's validation role: it doesn't understand content, it validates t
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  OPERATOR UI (generic client terminal)                                      │
 │                                                                             │
-│  Sends commands via tk_api shared-memory channel.                           │
+│  Sends commands via tk_gate shared-memory channel.                           │
 │  Receives responses back through the same channel.                          │
 └──────────────────────────┬──────────────────────────────────────────────────┘
-                           │ tk_api (shared-memory command channel)
+                           │ tk_gate (shared-memory command channel)
                            │ All operator/agent commands enter here
                            v
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  tk_api entry point                                                         │
+│  tk_gate entry point                                                         │
 │  Validates shape, routes to pipeline                                        │
 └──────────────────────────┬──────────────────────────────────────────────────┘
                            │
@@ -116,13 +116,13 @@ This is the ESB's validation role: it doesn't understand content, it validates t
 │                          [rogue results rejected]              │           │
 └────────────────────────────────────────────────────────────────┴───────────┘
                            │ tkdisp result ring
-                           │ tk_api retrieves results, formats for terminal
+                           │ tk_gate retrieves results, formats for terminal
                            v
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  tk_api retrieves from result ring (or case/audit store) and formats        │
+│  tk_gate retrieves from result ring (or case/audit store) and formats        │
 │  responses for the terminal                                                 │
 │                                                                             │
-│  (tknorm normalizes inbound events; tk_api formats outbound results)        │
+│  (tknorm normalizes inbound events; tk_gate formats outbound results)        │
 │  This is symmetric: canonicalize in, format out.                            │
 └──────────────────────────┬──────────────────────────────────────────────────┘
                            │
@@ -177,27 +177,27 @@ This is the ESB's validation role: it doesn't understand content, it validates t
 
 **PATH A — Agent Run (UC-02 only):**
 ```
-Terminal → tk_api → tkings → tknorm → tkdedu → tkcase → tkpoly → tkdisp
+Terminal → tk_gate → tkings → tknorm → tkdedu → tkcase → tkpoly → tkdisp
                                                 tkdisp records request_id
 tkdisp → tkagnt (with request_id)
 tkagnt → tkdisp (with result + request_id)
 tkdisp validates: request_id exists + not already completed
     → tkpoly (if agent needs external access) → tkmodl/tktool/tkadpt
-Result: validated → tkdisp result ring → tk_api retrieves, formats, sends to terminal
+Result: validated → tkdisp result ring → tk_gate retrieves, formats, sends to terminal
 ```
 tkdisp routes to tkagnt. If tkagnt needs external access, it sends the request back to tkdisp, which routes to tkpoly for policy checks (model fees, tool permissions, adapter scopes), then forwards to the service. tkdisp validates each result against its outstanding-requests table before storing it.
 
 **PATH B — Data Read (UC-06, UC-07, UC-08, UC-09, UC-10):**
 ```
 tkdisp ──> tkpoly (policy check) ──> tktool/tkadpt/tkport (data read)
-Result: stored in tkdisp result ring → tk_api retrieves, formats, sends to terminal
+Result: stored in tkdisp result ring → tk_gate retrieves, formats, sends to terminal
 ```
 No agent run needed. tkdisp routes to tktool/tkadpt/tkport for data reads, all gated by tkpoly for policy checks. Results stored in ring buffer.
 
 **PATH C — Pure Sink (UC-01, UC-03-05, UC-11):**
 ```
 tkdisp ──> result ring (passive)
-Result: tk_api retrieves from case/audit store, formats, sends to terminal
+Result: tk_gate retrieves from case/audit store, formats, sends to terminal
 ```
 Policy decision and audit are sufficient. No external routing needed. tkdisp stores results passively.
 
@@ -205,11 +205,11 @@ Policy decision and audit are sufficient. No external routing needed. tkdisp sto
 
 ```
 Inbound (request):
-  Terminal → tk_api → tkings → tknorm → tkdedu → tkcase → tkpoly → tkaudt
+  Terminal → tk_gate → tkings → tknorm → tkdedu → tkcase → tkpoly → tkaudt
                     (format)   (ingest) (normalize) (dedup) (case) (policy) (audit)
 
 Outbound (response):
-  tkdisp result ring / case-audit store → tk_api → Terminal
+  tkdisp result ring / case-audit store → tk_gate → Terminal
   (validated results)                  (format)  (formatted)
 
 Request-response contract (PATH A only):
@@ -217,13 +217,13 @@ Request-response contract (PATH A only):
   tkagnt returns result → tkdisp validates request_id → stores in ring
   [rogue results with unknown request_id are rejected]
 
-Symmetry: tknorm normalizes inbound events; tk_api formats outbound results.
+Symmetry: tknorm normalizes inbound events; tk_gate formats outbound results.
 tkdisp dispatches and validates — it does not format or transform data.
 ```
 
 ## Why Only UC-02 Needs Agent Run
 
-Most use cases are **read or propose-only** — they need data from the pipeline and policy decisions. The terminal sends a command, the pipeline processes it, policy checks it, audit records it, and tkdisp stores results. tk_api retrieves and formats. The terminal gets back the response.
+Most use cases are **read or propose-only** — they need data from the pipeline and policy decisions. The terminal sends a command, the pipeline processes it, policy checks it, audit records it, and tkdisp stores results. tk_gate retrieves and formats. The terminal gets back the response.
 
 **UC-02 (Valuation Analysis)** is the exception — it requires model analysis (base/bull/bear scenarios, graphs, verdict). So tkdisp dispatches an agent run. If the agent needs model access, tkdisp gates it through tkpoly (fees, token budget, scope) before forwarding to tkmodl.
 
@@ -231,7 +231,7 @@ Most use cases are **read or propose-only** — they need data from the pipeline
 
 ```
 Layer 1: Command Entry (ALL use cases)
-  Terminal ──tk_api──> tkings
+  Terminal ──tk_gate──> tkings
 
 Layer 2: Deterministic Pipeline (ALL use cases)
   tkings ──> tknorm ──> tkdedu ──> tkcase ──> tkpoly ──> tkaudt
@@ -241,18 +241,18 @@ Layer 3: tkdisp ESB routing + Result Retrieval (ALL use cases, different paths)
   tkdisp ──> PATH A: tkagnt ──> tkdisp ──> tkpoly ──> (tkmodl | tktool | tkadpt | tkport)
        or ──> PATH B: tkpoly ──> (tktool | tkadpt | tkport)
        or ──> PATH C: result ring (passive)
-  tkdisp ring / case-audit store ──> tk_api ──> Terminal
+  tkdisp ring / case-audit store ──> tk_gate ──> Terminal
 ```
 
 ## Key Takeaways
 
-1. **tk_api** is the single entry point — all commands go through it, and it formats all responses
+1. **tk_gate** is the single entry point — all commands go through it, and it formats all responses
 2. **The pipeline** (tkings → tknorm → tkdedu → tkcase → tkpoly → tkaudt) runs for ALL use cases
 3. **tkdisp** is the ESB (enterprise service bus) — central routing hub that dispatches pipeline events to the right path, collects responses, validates results, and stores them in the ring buffer — does not enforce policy, transform data, or format responses
 4. **PATH A** (agent run) only runs for UC-02 — agent logic with gated external access
 5. **PATH B** (data read) runs for UC-06, 07, 08, 09, 10 — tkdisp routes to tktool/tkadpt/tkport, tkpoly enforces policy checks
 6. **PATH C** (sink) runs for UC-01, 03-05, 11 — pure policy/audit, no external routing needed
 7. **Agents are fully isolated** — tkagnt only communicates with tkdisp, which enforces policy (scope, fees, budgets, permissions) before granting access to tkmodl, tktool, or tkadpt
-8. **tk_api handles result formatting** — it retrieves from tkdisp's result ring or the case/audit store and formats responses for the terminal, symmetric to tknorm which normalizes inbound events
-9. **The terminal only sees tk_api** — it doesn't know or care which pipeline tiles processed its command
+8. **tk_gate handles result formatting** — it retrieves from tkdisp's result ring or the case/audit store and formats responses for the terminal, symmetric to tknorm which normalizes inbound events
+9. **The terminal only sees tk_gate** — it doesn't know or care which pipeline tiles processed its command
 10. **Request-response contract**: tkdisp enforces one-request-one-result. Results must include a request_id that tkdisp validates against its outstanding-requests table. Rogue or compromised tkagnt cannot inject arbitrary results — tkdisp rejects unknown request IDs and duplicates

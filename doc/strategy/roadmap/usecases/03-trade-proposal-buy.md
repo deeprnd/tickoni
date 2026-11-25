@@ -2,7 +2,7 @@
 
 ## Description
 
-The user decides to buy 100 shares of NVDA at $200/share. The event enters through `tkapi` (transport/auth), which sets the `case_id` and routes to the ingestion pipeline (`tkings`). The event flows through `tknorm` → `tkdedu` → `tkcase` (case scope created, `run_id` generated) → `tkpoly` (policy check — trading_order.propose: require_approval for trades) → `tkaudt`. `tkdisp` schedules the bounded agent run (`tkagnt`), which calls portfolio read and policy simulation through the tool normalizer (`tktool`) and adapter layer (`tkadpt`) to the portfolio tile (`tkport`).
+The user decides to buy 100 shares of NVDA at $200/share. The event enters through `tkgate` (transport/auth), which sets the `case_id` and routes to the ingestion pipeline (`tkings`). The event flows through `tknorm` → `tkdedu` → `tkcase` (case scope created, `run_id` generated) → `tkpoly` (policy check — trading_order.propose: require_approval for trades) → `tkaudt`. `tkdisp` schedules the bounded agent run (`tkagnt`), which calls portfolio read and policy simulation through the tool normalizer (`tktool`) and adapter layer (`tkadpt`) to the portfolio tile (`tkport`).
 
 No money moves. This is a **proposal-only** flow (agents are proposal-first per framework invariants).
 
@@ -11,7 +11,7 @@ No money moves. This is a **proposal-only** flow (agents are proposal-first per 
 ```mermaid
 sequenceDiagram
     participant Term as Terminal (UI)
-    participant API as tkapi (transport/auth)
+    participant API as tkgate (transport/auth)
     participant Ing as tkings (canonical framing)
     participant Norm as tknorm (normalization)
     participant Dedu as tkdedu (deduplication)
@@ -44,7 +44,7 @@ sequenceDiagram
 
 || Tile | Runtime ID | Responsibility | Status |
 ||------|-----------|----------------|--------|
-|| `tkapi` | `tkapi` | HTTP/WebSocket CaseOps API tile — receives trade proposal request, sets case_id, routes to tkings | **MISSING** |
+|| `tkgate` | `tkgate` | HTTP/WebSocket CaseOps API tile — receives trade proposal request, sets case_id, routes to tkings | **MISSING** |
 || `tkings` | `tkings` | Universal event ingestion — receives trading_order.propose event, frames it canonically | **NOT STARTED** |
 || `tknorm` | `tknorm` | Canonical normalization — normalizes trade proposal event into canonical facts | **NOT STARTED** |
 || `tkdedu` | `tkdedu` | Deduplication — deduplicates trade proposal event | **NOT STARTED** |
@@ -74,11 +74,11 @@ sequenceDiagram
 4. Add per-position (5%) and per-sector (20%) policy rules to `tkpoly`.
 5. Add `trade_propose` record type to `tkaudt` — includes ticker, side, shares, price, notional, outcome, position size, sector drift.
 6. Wire `tkport` into investment workflow topology.
-7. Implement `tk_api` command handler for `trade_propose` via shared-memory channel.
+7. Implement `tk_gate` command handler for `trade_propose` via shared-memory channel.
 
 ### System test approach
 
-- Launch the full investment workflow topology extended with `tkport`, `tk_api`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, `tkaudt`, `tktool`, `tkadpt`.
+- Launch the full investment workflow topology extended with `tkport`, `tk_gate`, `tkings`, `tknorm`, `tkdedu`, `tkcase`, `tkpoly`, `tkaudt`, `tktool`, `tkadpt`.
 - Use `mock_adapter` with `cash_rich` fixture (account 2001, $5M buying power).
 - Send trade_propose command through `ui_cmd` channel (case_id=X, type=trading_order.propose, ticker=NVDA).
 - Verify: `tkport` returned correct portfolio; `tkpoly` applied per-position and sector limits; `tkaudt` recorded `trade_propose` with exposure data; terminal receives the proposal result.

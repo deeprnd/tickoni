@@ -239,7 +239,7 @@ This should not move forward if:
 | Rebalance draft source | Agent-drafted (`tkagnt` produces suggestion) vs computation-drafted (deterministic exposure diff produces suggestion) | Product: computation-drafted is simpler and replay-stable; agent-drafted adds evidence but is non-deterministic |
 | Valuation queue ownership | `tkdisp` schedules queued valuations as bounded agent runs vs a dedicated `tkvalq` tile | Platform: `tkdisp` keeps governance consistent; `tkvalq` isolates the queue but adds a new tile |
 | Model selection granularity | Per-portfolio model vs per-watchlist-item model vs global model | Product: per-portfolio is sufficient for V1; per-watchlist adds complexity |
-| Subscription delivery | WebSocket to CaseOps API vs event-sourced analytics store table vs both | Platform: WebSocket to `tkapi` is the minimal path; analytics store table for audit/replay |
+| Subscription delivery | WebSocket to CaseOps API vs event-sourced analytics store table vs both | Platform: WebSocket to `tkgate` is the minimal path; analytics store table for audit/replay |
 | Concentration limit model | Per-name cap only vs per-sector cap only vs both | Policy: both is safer but requires policy table changes |
 | Portfolio state storage | Audit chain reconstruction only vs indexed holding table in the analytics store | Platform: audit chain is the source of truth; the analytics store indexed table for performant exposure queries |
 

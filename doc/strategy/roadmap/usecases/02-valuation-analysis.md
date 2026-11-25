@@ -2,14 +2,14 @@
 
 ## Description
 
-The user asks the terminal to analyze a stock (e.g. NVDA). The event enters through `tkapi` (transport/auth), which sets the `case_id` and routes to the ingestion pipeline (`tkings`). The event flows through `tknorm` → `tkdedu` → `tkcase` (case scope created, `run_id` generated) → `tkpoly` (allowed) → `tkaudt`. `tkdisp` schedules the bounded valuation agent run (`tkagnt`), which calls the model gateway (`tkmodl`) through the tool normalizer (`tktool`) and adapter layer (`tkadpt`) to fetch financials (`tktkr`) and compute valuation (`tkval`).
+The user asks the terminal to analyze a stock (e.g. NVDA). The event enters through `tkgate` (transport/auth), which sets the `case_id` and routes to the ingestion pipeline (`tkings`). The event flows through `tknorm` → `tkdedu` → `tkcase` (case scope created, `run_id` generated) → `tkpoly` (allowed) → `tkaudt`. `tkdisp` schedules the bounded valuation agent run (`tkagnt`), which calls the model gateway (`tkmodl`) through the tool normalizer (`tktool`) and adapter layer (`tkadpt`) to fetch financials (`tktkr`) and compute valuation (`tkval`).
 
 ## Flow
 
 ```mermaid
 sequenceDiagram
     participant Term as Terminal (UI)
-    participant API as tkapi (transport/auth)
+    participant API as tkgate (transport/auth)
     participant Ing as tkings (canonical framing)
     participant Norm as tknorm (normalization)
     participant Dedu as tkdedu (deduplication)
@@ -53,7 +53,7 @@ sequenceDiagram
 
 || Tile | Runtime ID | Responsibility | Status |
 ||------|-----------|----------------|--------|
-|| `tkapi` | `tkapi` | HTTP/WebSocket CaseOps API tile — receives valuation request, sets case_id, routes to tkings | **MISSING** |
+|| `tkgate` | `tkgate` | HTTP/WebSocket CaseOps API tile — receives valuation request, sets case_id, routes to tkings | **MISSING** |
 || `tkings` | `tkings` | Universal event ingestion — receives valuation_analysis event, frames it canonically | **NOT STARTED** |
 || `tknorm` | `tknorm` | Canonical normalization — normalizes valuation_analysis event | **NOT STARTED** |
 || `tkdedu` | `tkdedu` | Deduplication — deduplicates valuation_analysis event | **NOT STARTED** |

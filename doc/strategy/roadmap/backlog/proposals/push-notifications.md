@@ -16,9 +16,9 @@ epic or story using the relevant template.
 **Related docs / examples:**
 - `doc/strategy/roadmap/epics/v4.5.md` — V5.5 explicitly excludes push notifications as out of scope
 - `doc/strategy/roadmap/backlog/proposals/portfolio-valuation-queue.md` — mentions "subscription delivery" as an open decision
-- `doc/execution/contribution/tickoni-engine-issues.md` — `fd_http_server` / `tkapi` security surface
-- `doc/knowledge/architecture.md` — `tkapi` tile, attached systems
-- `doc/knowledge/tile-topology.md` — `tkapi` tile definition, `tkmetr` tile
+- `doc/execution/contribution/tickoni-engine-issues.md` — `fd_http_server` / `tkgate` security surface
+- `doc/knowledge/architecture.md` — `tkgate` tile, attached systems
+- `doc/knowledge/tile-topology.md` — `tkgate` tile definition, `tkmetr` tile
 - `doc/execution/observability.md` — operator signals
 - `doc/execution/telemetry.md` — diagnostics
 
@@ -27,7 +27,7 @@ epic or story using the relevant template.
 Build a server-side subscription and push notification system that delivers Tickoni
 governance events — valuation completions, rebalance suggestions, policy decisions,
 and case updates — to user devices (desktop browser, mobile app, or CLI) in
-real-time. The system uses `tkapi` WebSocket subscriptions as the primary transport,
+real-time. The system uses `tkgate` WebSocket subscriptions as the primary transport,
 with optional push notification bridges (browser Push API, FCM/APNs) as extension
 points. Every notification carries an immutable event reference from Tickoni's
 audit chain, so recipients can verify that the notification is tied to a real,
@@ -62,7 +62,7 @@ suppress governance events; it must log to `tkaudt` and surface in CaseOps.
 | How does it support policy-gated proposals instead of uncontrolled execution? | Notifications carry capability envelope metadata (actor, role, workflow, case/run id, scope, policy version) extracted from the audit record. The subscription system never executes or proposes — it only relays metadata references to the actual audit events stored in `tkaudt`. |
 | What audit, evidence, or replay value does it creates? | Every subscription creation, topic subscription, notification dispatch, delivery attempt, and failure is recorded in `tkaudt`. The replay system substitutes captured notification payloads so replay never sends real pushes. Notification delivery state (delivered, failed, expired) is queryable in CaseOps. |
 | What finance-native scope matters: account, beneficiary, wallet, rail, currency, market, venue, instrument, amount, exposure, frequency, approval path? | Subscriptions are scoped to event types (valuation.complete, rebalance.propose, case.approval_required, policy.decision) and optional filters (portfolio_id, ticker, case_id). Each notification carries the financial scope of its source event for display and verification. |
-| How does it keep agents off the direct money path? | Agents cannot create or modify subscriptions. Subscriptions are managed through the operator UI or through governed API endpoints accessed via `tkapi` with explicit `subscription.manage` capability scope. Agents produce events; subscriptions relay them. |
+| How does it keep agents off the direct money path? | Agents cannot create or modify subscriptions. Subscriptions are managed through the operator UI or through governed API endpoints accessed via `tkgate` with explicit `subscription.manage` capability scope. Agents produce events; subscriptions relay them. |
 | How does it avoid becoming generic agent automation or trading-alpha UX? | The notification system is a transport layer, not a decision layer. It does not generate, summarize, or rank events — it relays metadata references. There is no "notification preference tuning by agents" or "smart notification grouping by LLM." |
 
 ## User / Operator Problem
@@ -84,7 +84,7 @@ but breaks down for cross-device workflows or when the operator steps away.
 ## Current Gap
 
 Tickoni has:
-- `tkapi` with `fd_http_server` providing the CaseOps API surface (HTTP/WebSocket).
+- `tkgate` with `fd_http_server` providing the CaseOps API surface (HTTP/WebSocket).
 - V5.5 watchlist management and automatic valuation queue.
 - `tkaudt` append-only, hash-chained audit records.
 - `tkmetr` tile for metrics.
@@ -104,7 +104,7 @@ Tickoni does not have:
 ## Proposed Product Behavior
 
 When [user/operator] configures a subscription in Tickoni CaseOps or through a
-governed `tkapi` endpoint, Tickoni should deliver real-time notifications for
+governed `tkgate` endpoint, Tickoni should deliver real-time notifications for
 selected event types, so that [the user receives timely, verifiable governance
 alerts without polling, and every notification is cryptographically tied to its
 source audit event].
@@ -116,8 +116,8 @@ Expected behavior:
   rebalance.propose, case.approval_required, policy.decision) and optional
   filters (portfolio_id, ticker, case_id). The subscription is stored in
   the analytics store with a stable `subscription_id` and recorded in `tkaudt`.
-* WebSocket delivery: `tkapi` opens a persistent WebSocket connection to the
-  subscribed device/browser. When a matching event enters `tkaudt`, `tkapi`
+* WebSocket delivery: `tkgate` opens a persistent WebSocket connection to the
+  subscribed device/browser. When a matching event enters `tkaudt`, `tkgate`
   publishes a notification payload containing the event reference (hash, source
   offset, event type), capability scope (actor, role, workflow, case id, scope
   dimensions), and policy outcome.
@@ -141,7 +141,7 @@ Expected behavior:
 V5.5 closes the loop for watchlist-driven valuation but leaves the user in a
 "check CaseOps" pattern. This is the minimum gap between a working governance
 system and a usable consumer product. The infrastructure is already in place:
-`tkapi` uses `fd_http_server` which supports WebSocket upgrades, V5.5 produces
+`tkgate` uses `fd_http_server` which supports WebSocket upgrades, V5.5 produces
 the governance events (valuation completions, rebalance proposals), and `tkaudt`
 provides the immutable audit chain that notifications reference. Adding
 subscriptions and push notifications is the last step to make Tickoni's consumer
@@ -165,7 +165,7 @@ ad-hoc notification system.
 Given:  A user has subscribed to "valuation.complete" events for their "Growth"
         portfolio (portfolio_id = growth_001, tickers = [AMZN, AAPL, MSFT])
 When:   The DCF valuation for AMZN completes and is recorded in tkaudt
-Then:   Tickoni's tkapi publishes a WebSocket notification to the user's device
+Then:   Tickoni's tkgate publishes a WebSocket notification to the user's device
         containing: event_type=valuation.complete, event_hash=<tkaudt_hash>,
         portfolio_id=growth_001, ticker=AMZN, policy_outcome=allow,
         intrinsic_value_range=[175, 220], monte_carlo_ci=90
@@ -184,12 +184,12 @@ Then:   No WebSocket or push notification is sent to any device. The replay
 
 ### In Scope
 
-* WebSocket subscription transport via `tkapi` (persistent connections, topic
+* WebSocket subscription transport via `tkgate` (persistent connections, topic
   routing, payload formatting)
 * Subscription CRUD: create/list/delete/update subscriptions with event type
   and filter configuration
 * Subscription state storage: the analytics store subscription table with stable `subscription_id`,
-  scoped to `tkapi` and `tkaudt`
+  scoped to `tkgate` and `tkaudt`
 * Basic event taxonomy: valuation.complete, rebalance.propose, case.approval_required,
   policy.decision, replay.complete
 * Delivery auditing: every dispatch attempt recorded in `tkaudt` with outcome
@@ -232,7 +232,7 @@ Then:   No WebSocket or push notification is sent to any device. The replay
 | --- | --- |
 | `subscription.manage` | User/operator can create, list, delete, update subscriptions |
 | `subscription.observe` | User/operator can view their own subscriptions |
-| `notification.dispatch` | System-internal scope for `tkapi` notification dispatch (not user-facing) |
+| `notification.dispatch` | System-internal scope for `tkgate` notification dispatch (not user-facing) |
 | `subscription.override` | Denied — no override mechanism for subscription state |
 
 ## Fit Against Product Principles
@@ -244,8 +244,8 @@ Then:   No WebSocket or push notification is sent to any device. The replay
 | Policy gates and approval paths | Every notification carries the capability scope and policy outcome from its source audit record. A notification about a denied rebalance proposal shows `deny` alongside the proposal details. | Does the notification system need its own policy gate for delivery? E.g., can a subscription be created for an event the subscriber has no authority to view? |
 | Audit-grade evidence | Every subscription lifecycle event (create, dispatch, failure) is recorded in `tkaudt`. The notification payload is a deterministic function of the audit record. | How large should the stored notification payload be in `tkaudt`? Storing full payloads per dispatch could bloat audit storage for high-volume event types. |
 | Deterministic replay or replay-safe substitution | Replay substitutes captured notification payloads and never sends real pushes. This must be explicitly tested to verify no WebSocket connections are opened during replay. | Must ensure replay substitution is complete: not just the payload, but also the dispatch attempt record. What happens if replay substitutes a payload that was never actually captured? |
-| Bounded model/tool/adapter spend | Notifications do not involve model/tool/adapter calls. They are pure event relay from `tkaudt` to `tkapi`. | N/A |
-| Fail-closed behavior | If `tkapi` WebSocket delivery fails, the dispatch attempt is logged in `tkaudt` with failure status. The event is not suppressed — it is recorded as failed delivery. CaseOps surfaces failures for review. | What is the retry policy? Immediate retry with exponential backoff, or best-effort with operator review? |
+| Bounded model/tool/adapter spend | Notifications do not involve model/tool/adapter calls. They are pure event relay from `tkaudt` to `tkgate`. | N/A |
+| Fail-closed behavior | If `tkgate` WebSocket delivery fails, the dispatch attempt is logged in `tkaudt` with failure status. The event is not suppressed — it is recorded as failed delivery. CaseOps surfaces failures for review. | What is the retry policy? Immediate retry with exponential backoff, or best-effort with operator review? |
 | No live side effects unless explicitly approved | Notifications are the one allowed "live side effect" — they change the state of the user's device (ring, banner, badge) but not any financial state. This must be explicitly approved as a non-money-impacting side effect. | Is notification delivery itself a "live side effect" that requires explicit approval? Or is it considered a passive observation relay (like CaseOps polling) with no approval needed? |
 
 ## Evidence Needed To Promote
@@ -290,14 +290,14 @@ If accepted, this should become:
 
 * [ ] Epic: spans multiple stories (WebSocket transport, subscription management, delivery auditing, replay safety, CaseOps UI)
 * [ ] Story: each independently implementable and verifiable
-* [ ] Documentation: updates to `tkapi` tile definition, security docs, and tile-topology
+* [ ] Documentation: updates to `tkgate` tile definition, security docs, and tile-topology
 * [ ] Decision record: when it primarily resolves WebSocket vs SSE, payload size, or delivery retry policy
 
 Suggested next artifact:
 
 * [ ] Create epic using `epic-template.md` with the expanded scope from this proposal
 * [ ] Create investigation story for WebSocket transport vs SSE tradeoff
-* [ ] Create story for WebSocket subscription transport in `tkapi` (proof-of-concept)
+* [ ] Create story for WebSocket subscription transport in `tkgate` (proof-of-concept)
 * [ ] Create story for subscription CRUD and analytics store storage
 * [ ] Create story for `subscription.manage` capability scope and policy definition
 * [ ] Create story for delivery auditing in `tkaudt`

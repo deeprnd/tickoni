@@ -469,7 +469,7 @@ in scope:
   content-addressed audit evidence and any future crypto needs
 - `src/ballet/pb` — protobuf encoding and decoding behind `tk_pb_*`
 - `src/ballet/json/cJSON` — vendored JSON behind `tk_json_*`
-- `src/waltz/http` — `fd_http_server` for the `tkapi` tile HTTP/WebSocket
+- `src/waltz/http` — `fd_http_server` for the `tkgate` tile HTTP/WebSocket
   surface
 - `src/tango` — mcache, dcache, fseq, cnc, and queue substrate behind
   `tk_*`
@@ -1155,7 +1155,7 @@ the shim — do not branch in the caller.
 - When wrapping Firedancer `fd_http_server`, use its method constants such as
   `FD_HTTP_SERVER_METHOD_GET` and `FD_HTTP_SERVER_METHOD_POST` at the C ABI
   edge, and expose a narrow Zig representation above that edge.
-- Keep route definitions for `tkapi` centralized. Tests should import route
+- Keep route definitions for `tkgate` centralized. Tests should import route
   constants or helpers instead of duplicating endpoint strings.
 - Apply this rule consistently in runtime code, integration tests, and
   CaseOps/daemon test harnesses.
@@ -1768,7 +1768,7 @@ paths.
 Tickoni does not currently ship a standalone OpenTelemetry bootstrap or local
 Tempo/Grafana stack. The current surface is in-memory metrics,
 diagnostics, and supervisor output. Future tracing should extend the owning
-tile, supervisor, `tkapi`, `tkmodl`, `tktool`, `tkadpt`, or `tkexec` boundary
+tile, supervisor, `tkgate`, `tkmodl`, `tktool`, `tkadpt`, or `tkexec` boundary
 that already knows the operation outcome.
 
 Do not create a second tracing bootstrap path inside helper code. If tracing is
@@ -1786,7 +1786,7 @@ describe orchestration boundaries:
 - `tkpoly-evaluate`
 - `tkaudt-append`
 - `tkrepl-compare`
-- future `tkapi-request`, `tkmodl-request`, `tktool-call`, `tkadpt-request`,
+- future `tkgate-request`, `tkmodl-request`, `tktool-call`, `tkadpt-request`,
   and `tkexec-action`
 
 Do not put tx hashes, event IDs, account IDs, addresses, audit hashes, header

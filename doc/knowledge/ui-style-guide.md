@@ -1804,7 +1804,7 @@ ADR-0002 owns:
 - channels and queues;
 - thread ownership;
 - model and ViewModel boundaries;
-- `tk_ui` and `tk_api` communication.
+- `tk_ui` and `tk_gate` communication.
 
 The runtime and API contracts own:
 
