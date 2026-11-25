@@ -198,8 +198,10 @@ tkdisp_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
         FD_LOG_ERR(( "tkdisp: CNC object not found for tile %lu", tile->id ));
     stk_diag_out_init( &ctx->diag, topo, tile, 1UL );
 
-    if( FD_UNLIKELY( tile->in_cnt!=2UL || tile->out_cnt!=1UL ) )
-        FD_LOG_ERR(( "tkdisp: expected two inputs (events, results) and one output, found %lu and %lu", tile->in_cnt, tile->out_cnt ));
+    /* stk_diag_out_init above already checked one pipeline output plus an
+       optional diagnostic link. */
+    if( FD_UNLIKELY( tile->in_cnt!=2UL ) )
+        FD_LOG_ERR(( "tkdisp: expected two inputs (events, results), found %lu", tile->in_cnt ));
     if( FD_UNLIKELY( !tkdisp_template_set ) )
         FD_LOG_ERR(( "tkdisp: the payment-event template was not set" ));
 

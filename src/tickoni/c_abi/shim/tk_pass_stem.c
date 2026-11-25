@@ -8,7 +8,10 @@
  * every other tile.  One implementation, three registered identities:
  *
  *   tkcase   forwards every fragment it receives, unchanged, to each of its
- *            outputs (tkpoly and tkdisp).  No case state, no routing decision.
+ *            pipeline outputs (tkpoly and tkdisp).  No case state, no routing
+ *            decision.  Where the topology wires it to tkdiag, that link is
+ *            its last output: it never carries an event, only one diagnostic
+ *            fragment per forwarded event (stem_diag.h).
  *   tktool   consumes and counts its input; publishes nothing.
  *   tkadpt   consumes and counts its input; publishes nothing.
  *
@@ -26,6 +29,7 @@
 #include "firedancer.h"
 #include "audit_schema.h"
 #include "tickoni/c_abi/shim/stem_helpers.h"
+#include "tickoni/c_abi/shim/stem_diag.h"
 #include "tickoni/c_abi/topo_run/tk_pass_stem.h"
 
 #include "disco/topo/fd_topo.h"
@@ -47,8 +51,9 @@ typedef struct {
     int      forward;             /* tkcase: copy to every output */
     void *   cnc;
     stk_link_in_t  in;
-    ulong          out_cnt;
+    ulong          out_cnt;       /* pipeline outputs; the diagnostic link is not counted */
     stk_link_out_t out[TKPASS_MAX_OUTS];
+    stk_diag_out_t diag;
     uint64_t event_count;
     int      input_exhausted;
 } tkpass_ctx_t;
@@ -124,9 +129,14 @@ tkpass_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
         FD_LOG_ERR(( "%s: CNC object not found for tile %lu", tile->name, tile->id ));
     if( FD_UNLIKELY( tile->in_cnt!=1UL ) )
         FD_LOG_ERR(( "%s: expected exactly one input link, found %lu", tile->name, tile->in_cnt ));
-    if( FD_UNLIKELY( tile->out_cnt>TKPASS_MAX_OUTS ) )
-        FD_LOG_ERR(( "%s: at most %lu output links, found %lu", tile->name, TKPASS_MAX_OUTS, tile->out_cnt ));
-    if( FD_UNLIKELY( ctx->forward && tile->out_cnt==0UL ) )
+    /* The optional diagnostic link is the last output; stk_diag_out_init fails
+       closed if a tile that is not a diagnostic producer (tktool, tkadpt) is
+       wired to tkdiag. */
+    ulong pipeline_out_cnt = tile->out_cnt - ( stk_diag_out_find( topo, tile )!=ULONG_MAX ? 1UL : 0UL );
+    stk_diag_out_init( &ctx->diag, topo, tile, pipeline_out_cnt );
+    if( FD_UNLIKELY( pipeline_out_cnt>TKPASS_MAX_OUTS ) )
+        FD_LOG_ERR(( "%s: at most %lu output links, found %lu", tile->name, TKPASS_MAX_OUTS, pipeline_out_cnt ));
+    if( FD_UNLIKELY( ctx->forward && pipeline_out_cnt==0UL ) )
         FD_LOG_ERR(( "%s: a forwarding tile needs an output link", tile->name ));
     fd_topo_link_t const * in_link = &topo->links[tile->in_link_id[0]];
     if( FD_UNLIKELY( in_link->mtu>TKPASS_MTU ) )
@@ -134,8 +144,8 @@ tkpass_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     stk_link_in_init( &ctx->in, topo, tile, 0UL, 1UL );
 
     /* A forwarded fragment must fit every output it is copied to. */
-    ctx->out_cnt = tile->out_cnt;
-    for( ulong o=0UL; o<tile->out_cnt; o++ )
+    ctx->out_cnt = pipeline_out_cnt;
+    for( ulong o=0UL; o<pipeline_out_cnt; o++ )
         stk_link_out_init( &ctx->out[o], topo, tile, o, ctx->forward ? in_link->mtu : 1UL );
 }
 
@@ -167,7 +177,7 @@ tkpass_after_frag( tkpass_ctx_t *      ctx,
                    ulong               tsorig,
                    ulong               tspub,
                    fd_stem_context_t * stem ) {
-    (void)in_idx; (void)seq; (void)sz; (void)tsorig; (void)tspub;
+    (void)sz; (void)tsorig; (void)tspub;
 
     if( !ctx->stage_valid ) return;
     ctx->stage_valid = 0;
@@ -181,6 +191,8 @@ tkpass_after_frag( tkpass_ctx_t *      ctx,
         STK_EVENT_EXHAUSTED( ctx, ctx->event_count, ctx->forwarded );
     }
     stk_publish_counter( ctx->cnc, 0UL, ctx->consumed );
+    /* Unreliable diagnostic link: draws no credit, so STEM_BURST is unchanged. */
+    stk_diag_publish( &ctx->diag, stem, in_idx, seq, ctx->consumed, 0UL, 0UL );
 }
 
 static void

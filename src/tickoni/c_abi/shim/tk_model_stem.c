@@ -437,8 +437,8 @@ tkmodl_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
        describe.  Validate before indexing the link arrays. */
     if( FD_UNLIKELY( tile->in_cnt != 1UL ) )
         FD_LOG_ERR(( "tkmodl: expected exactly one input link, found %lu", tile->in_cnt ));
-    if( FD_UNLIKELY( tile->out_cnt != 2UL ) )
-        FD_LOG_ERR(( "tkmodl: expected exactly two output links, found %lu", tile->out_cnt ));
+    /* stk_diag_out_init above already checked two pipeline outputs plus an
+       optional diagnostic link, which is last: outputs 0 and 1 are pipeline. */
     stk_link_in_init( &ctx->in, topo, tile, 0UL, (ulong)TK_MP_LINK_MTU );
 
     /* Bind outputs by consumer identity, not declaration order. */
