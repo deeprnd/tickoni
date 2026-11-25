@@ -1,3 +1,13 @@
+//! Audit event JSONL serialization.
+//!
+//! Converts `schema.AuditEvent` records into one-line JSON for the append-only
+//! audit log. Handles all 14 payload record types (source_event, normalization,
+//! policy_decision, model_call, financial_adapter_call, proposal,
+//! destination_check, limit_check, approval_required, denial,
+//! telemetry_checkpoint, replay_result, deduplication, case_creation).
+//!
+//! Usage: call `formatJsonLine` with an AuditEvent and a `std.io.Writer` to
+//! emit a single JSONL record followed by a newline.
 const std = @import("std");
 const schema = @import("audit_schema");
 const hash = @import("hash.zig");
