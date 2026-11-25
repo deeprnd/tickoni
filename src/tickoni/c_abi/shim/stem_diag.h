@@ -1,8 +1,9 @@
 /* stem_diag.h — producer side of the diagnostic fan-in for the fd_stem tiles
-   (tkings, tknorm, tkdedu, tkpoly, tkaudt).
+   (the spine tkings, tknorm, tkdedu, tkpoly, tkaudt and the runtime tiles
+   tkgate, tkcase, tkdisp, tkagnt, tkmodl).
 
    A producer's diagnostic link is OPTIONAL: it exists only in a topology that
-   wires the tile to tkdiag (paymentPipelineProcess()).  stk_diag_out_init finds
+   wires the tile to tkdiag (paymentPipelineProcess(), investmentWorkflow()).  stk_diag_out_init finds
    it by its consumer's identity, not by position, and leaves `present` at 0 when
    there is none; stk_diag_publish is then a no-op, so the same tile runs
    unchanged in the minimal topologies and in the full workflow.  An all-zero
@@ -64,6 +65,30 @@ typedef struct {
     uint64_t       max_queue_depth;
 } stk_diag_out_t;
 
+/* Index of this tile's output link whose consumer is tkdiag, or ULONG_MAX when
+   it has none.  Fails closed (FD_LOG_ERR) on more than one.  A tile whose
+   pipeline output count depends on the topology (tkagnt, tk_pass_stem.c)
+   subtracts this link to get the count it passes to stk_diag_out_init. */
+static inline ulong
+stk_diag_out_find( fd_topo_t const *       topo,
+                   fd_topo_tile_t const *  tile ) {
+    ulong found = ULONG_MAX;
+    for( ulong o=0UL; o<tile->out_cnt; o++ ) {
+        int to_diag = 0;
+        for( ulong t=0UL; t<topo->tile_cnt && !to_diag; t++ ) {
+            fd_topo_tile_t const * consumer = &topo->tiles[t];
+            if( strcmp( consumer->name, TILE_ID_TKDIAG )!=0 ) continue;
+            for( ulong j=0UL; j<consumer->in_cnt; j++ )
+                if( consumer->in_link_id[j]==tile->out_link_id[o] ) { to_diag = 1; break; }
+        }
+        if( !to_diag ) continue;
+        if( FD_UNLIKELY( found!=ULONG_MAX ) )
+            FD_LOG_ERR(( "%s: more than one diagnostic link to tkdiag", tile->name ));
+        found = o;
+    }
+    return found;
+}
+
 /* Finds this tile's diagnostic output: the out link whose consumer is tkdiag.
    `pipeline_out_cnt` is the number of pipeline output links the tile has (1 for
    tknorm, tkdedu and tkpoly, 0 for the sink tkaudt).  The tile then has exactly
@@ -81,19 +106,10 @@ stk_diag_out_init( stk_diag_out_t *        d,
                    ulong                   pipeline_out_cnt ) {
     memset( d, 0, sizeof(*d) );
 
-    for( ulong o=0UL; o<tile->out_cnt; o++ ) {
-        int to_diag = 0;
-        for( ulong t=0UL; t<topo->tile_cnt && !to_diag; t++ ) {
-            fd_topo_tile_t const * consumer = &topo->tiles[t];
-            if( strcmp( consumer->name, TILE_ID_TKDIAG )!=0 ) continue;
-            for( ulong j=0UL; j<consumer->in_cnt; j++ )
-                if( consumer->in_link_id[j]==tile->out_link_id[o] ) { to_diag = 1; break; }
-        }
-        if( !to_diag ) continue;
-        if( FD_UNLIKELY( d->present ) )
-            FD_LOG_ERR(( "%s: more than one diagnostic link to tkdiag", tile->name ));
+    ulong diag_o = stk_diag_out_find( topo, tile );
+    if( diag_o!=ULONG_MAX ) {
         d->present = 1;
-        d->out_idx = o;
+        d->out_idx = diag_o;
     }
 
     ulong expected_out_cnt = pipeline_out_cnt + ( d->present ? 1UL : 0UL );

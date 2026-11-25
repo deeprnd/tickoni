@@ -8,7 +8,8 @@
 
    Who sends what:
 
-     tkings, tknorm, tkdedu, tkpoly, tkaudt  ->  tkdiag
+     tkings, tknorm, tkdedu, tkpoly, tkaudt        (the spine)
+     tkgate, tkcase, tkdisp, tkagnt, tkmodl        (the runtime tiles)  ->  tkdiag
          one fragment per processed event, over a dedicated UNRELIABLE link
          (depth TK_DIAG_LINK_DEPTH, MTU TK_DIAG_LINK_MTU).  A producer never
          waits for tkdiag; tkdiag keeps only the latest fragment per input.
@@ -19,7 +20,9 @@
 
      events_processed    every producer
      errors              tknorm invalid, tkdedu duplicates, tkpoly denied,
-                         tkaudt rejected records
+                         tkaudt rejected records, tkgate wire-invalid
+                         fragments, tkmodl dropped requests, tkagnt
+                         mismatched or dropped results
      backpressure_waits  tkings (its pipeline link's producer waits)
      audit_records       tkaudt
      max_queue_depth, sandbox_failures, replay_checked, replay_match, crashed
@@ -34,13 +37,21 @@
 #include <stddef.h>
 #include <string.h>
 
-/* Tile type codes, in pipeline order. */
+/* Tile type codes.  Append-only: a code never changes meaning.  1 to 5 are
+   the spine in pipeline order; 6 to 10 the runtime tiles in request-flow order.
+   Valid codes are TK_DIAG_TYPE_INGEST..TK_DIAG_TYPE_LAST. */
 enum {
     TK_DIAG_TYPE_INGEST    = 1,
     TK_DIAG_TYPE_NORMALIZE = 2,
     TK_DIAG_TYPE_DEDUPE    = 3,
     TK_DIAG_TYPE_POLICY    = 4,
-    TK_DIAG_TYPE_AUDIT     = 5
+    TK_DIAG_TYPE_AUDIT     = 5,
+    TK_DIAG_TYPE_GATE      = 6,
+    TK_DIAG_TYPE_CASE      = 7,
+    TK_DIAG_TYPE_DISPATCH  = 8,
+    TK_DIAG_TYPE_AGENT     = 9,
+    TK_DIAG_TYPE_MODEL     = 10,
+    TK_DIAG_TYPE_LAST      = TK_DIAG_TYPE_MODEL
 };
 
 /* Diagnostic link shape.  The MTU is sizeof(diag_fragment_t). */
@@ -49,8 +60,9 @@ enum {
     TK_DIAG_LINK_MTU   = 128
 };
 
-/* Most inputs tkdiag aggregates: one per diagnostic producer, with headroom. */
-enum { TKDIAG_MAX_INPUTS = 8 };
+/* Most inputs tkdiag aggregates: one per diagnostic producer type (ten), with
+   headroom. */
+enum { TKDIAG_MAX_INPUTS = 16 };
 
 typedef struct {
     uint32_t tile_id;            /*   0  Firedancer tile index of the sender */
@@ -92,6 +104,11 @@ tk_diag_type_for_tile_name( char const * name ) {
     if( strcmp( name, TILE_ID_TKDEDU )==0 ) return TK_DIAG_TYPE_DEDUPE;
     if( strcmp( name, TILE_ID_TKPOLY )==0 ) return TK_DIAG_TYPE_POLICY;
     if( strcmp( name, TILE_ID_TKAUDT )==0 ) return TK_DIAG_TYPE_AUDIT;
+    if( strcmp( name, TILE_ID_TKGATE )==0 ) return TK_DIAG_TYPE_GATE;
+    if( strcmp( name, TILE_ID_TKCASE )==0 ) return TK_DIAG_TYPE_CASE;
+    if( strcmp( name, TILE_ID_TKDISP )==0 ) return TK_DIAG_TYPE_DISPATCH;
+    if( strcmp( name, TILE_ID_TKAGNT )==0 ) return TK_DIAG_TYPE_AGENT;
+    if( strcmp( name, TILE_ID_TKMODL )==0 ) return TK_DIAG_TYPE_MODEL;
     return 0U;
 }
 
@@ -101,7 +118,7 @@ tk_diag_type_for_tile_name( char const * name ) {
 static inline int
 tk_diag_fragment_valid( diag_fragment_t const * f ) {
     if( !f ) return 0;
-    if( f->tile_type<TK_DIAG_TYPE_INGEST || f->tile_type>TK_DIAG_TYPE_AUDIT ) return 0;
+    if( f->tile_type<TK_DIAG_TYPE_INGEST || f->tile_type>TK_DIAG_TYPE_LAST ) return 0;
     if( f->seq==0UL ) return 0;
     if( f->crashed<0 || f->crashed>1 ) return 0;
     if( f->replay_checked<0 || f->replay_checked>1 ) return 0;
@@ -152,7 +169,7 @@ tkdiag_agg_init( tkdiag_agg_t *   agg,
     memset( agg, 0, sizeof(*agg) );
     if( in_cnt<1UL || in_cnt>(uint64_t)TKDIAG_MAX_INPUTS || !tile_id || !tile_type ) return -1;
     for( uint64_t i=0UL; i<in_cnt; i++ ) {
-        if( tile_type[i]<TK_DIAG_TYPE_INGEST || tile_type[i]>TK_DIAG_TYPE_AUDIT ) { memset( agg, 0, sizeof(*agg) ); return -1; }
+        if( tile_type[i]<TK_DIAG_TYPE_INGEST || tile_type[i]>TK_DIAG_TYPE_LAST ) { memset( agg, 0, sizeof(*agg) ); return -1; }
         for( uint64_t j=0UL; j<i; j++ )
             if( tile_type[j]==tile_type[i] ) { memset( agg, 0, sizeof(*agg) ); return -1; }
         agg->bound_tile_id  [i] = tile_id  [i];
