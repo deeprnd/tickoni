@@ -14,7 +14,7 @@ pub const shim_c_files = &.{
     "topob.c",
     "tile_run.c",
     "tk_audit_stem.c",
-    "tk_api_stem.c",
+    "tk_gate_stem.c",
     "tk_ingest_stem.c",
     "tk_normalize_stem.c",
     "tk_dedu_stem.c",

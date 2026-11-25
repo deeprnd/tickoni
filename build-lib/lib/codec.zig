@@ -130,7 +130,7 @@ pub fn addTickoniSupervisorShimLibrary(
         "src/tickoni/c_abi/shim/tile_run.c",
         "src/tickoni/c_abi/shim/tk_metric_tile.c",
         "src/tickoni/c_abi/shim/tk_audit_stem.c",
-        "src/tickoni/c_abi/shim/tk_api_stem.c",
+        "src/tickoni/c_abi/shim/tk_gate_stem.c",
         "src/tickoni/c_abi/shim/tk_ingest_stem.c",
         "src/tickoni/c_abi/shim/tk_normalize_stem.c",
         "src/tickoni/c_abi/shim/tk_dedu_stem.c",
