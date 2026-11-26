@@ -29,7 +29,8 @@ pub const magic: u32 = 0x544b5453; // "TKST"
 /// v5: per-channel `reliability`. The diagnostic fan-in links are lossy
 /// (unreliable consumers), and a child that rebuilt them reliable would wire a
 /// different consumer than the supervisor did.
-pub const version: u16 = 5;
+/// v6: `case_rng_seed`, the seed of tkcase's case-id generator.
+pub const version: u16 = 6;
 
 pub const max_tiles: usize = 32;
 pub const max_channels: usize = 64;
@@ -66,6 +67,12 @@ pub const TopologySpec = struct {
     /// self-exec'd child must feed topo_build.build the same value or their
     /// object offsets diverge. 0 selects the tile's default reservation.
     event_count: u64 = 0,
+    /// Seed of tkcase's case-id generator (tk_case_stem.c). 0 seeds it from the
+    /// tile's tick counter: a fresh random case id every run. A nonzero seed
+    /// repeats the run's case id, so the same inputs commit the same audit
+    /// chain. Not a layout input; it travels here because the tkcase child
+    /// reads its run parameters from this spec.
+    case_rng_seed: u64 = 0,
 
     pub fn fromTopology(topo: topology.Topology, metric_port: u16, event_count: u64) error{ TooManyTiles, TooManyChannels, MissingWorkspaceName }!TopologySpec {
         const log = logger.get();

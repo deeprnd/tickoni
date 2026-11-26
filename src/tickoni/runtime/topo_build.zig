@@ -193,6 +193,9 @@ pub fn build(
     // offset after tkdedu's shifted.
     c_abi.tkdedu.setEventCount(event_count);
     log.kvFmt("topo_build", "build", "tkdedu event_count={d}", .{event_count});
+    // tkcase's capsule holds every event of the run, so its footprint is a
+    // function of event_count too: same rule as tkdedu.
+    c_abi.tkcase.setEventCount(event_count);
 
     // tkaudt, tknorm and tkpoly event_count for shutdown gating.
     // Unlike tkdedu (where event_count affects scratch footprint), these tiles
@@ -207,7 +210,6 @@ pub fn build(
     c_abi.tkmodl.setEventCount(event_count);
     c_abi.tkagnt.setEventCount(event_count);
     c_abi.tkdisp.setEventCount(event_count);
-    c_abi.tkpass.setEventCount(event_count);
 
     const align_check = c_abi.topob.topoAlignof();
     std.debug.print("[topo-build] alignof={d} <= {d} check={}\n", .{ align_check, topo_alloc_align.toByteUnits(), align_check <= topo_alloc_align.toByteUnits() });
