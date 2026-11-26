@@ -31,6 +31,7 @@ extern fn tkcase_consumed(scratch: ?*anyopaque) usize;
 extern fn tkcase_forwarded(scratch: ?*anyopaque) usize;
 extern fn tkcase_case_audit_emitted(scratch: ?*anyopaque) usize;
 extern fn tkcase_capsule_count(scratch: ?*anyopaque) usize;
+extern fn tkcase_capsule_hash(scratch: ?*anyopaque) usize;
 extern fn tkcase_scope_copy(scratch: ?*anyopaque, dst: *anyopaque, dst_sz: usize) void;
 extern fn tkcase_capsule_copy(scratch: ?*anyopaque, idx: usize, dst: *anyopaque, dst_sz: usize) void;
 extern fn tk_topob_tickoni_tile_scratch_footprint(tile_name: [*:0]const u8) usize;
@@ -83,6 +84,12 @@ pub fn caseAuditEmitted(scratch: ?*anyopaque) u64 {
 /// Events in the case capsule.
 pub fn capsuleCount(scratch: ?*anyopaque) u64 {
     return tkcase_capsule_count(scratch);
+}
+
+/// The capsule's running hash (tk_capsule_hash.h): what tkcase reports to
+/// tkrepl in its capsule summary.
+pub fn capsuleHash(scratch: ?*anyopaque) u64 {
+    return tkcase_capsule_hash(scratch);
 }
 
 /// Copies the case scope out of the tile's scratch.

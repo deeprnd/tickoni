@@ -3,6 +3,7 @@
      tkdedu --(TkEvent)--> tkcase --(TkEvent)----------> tkpoly
                                   --(TkEvent)----------> tkdisp
                                   --(TkCaseAuditMsg)---> tkaudt
+                                  --(TkEvent ..., TkCaseCapsuleMsg)--> tkrepl   (when the topology has tkrepl)
                                   --(diag fragment)----> tkdiag   (optional, last)
 
    V1 runs one case per run (plans/v2.NN-s03-tkcase-fd-stem-migration.md):
@@ -28,6 +29,13 @@
      The audit link is reliable: tkcase waits for tkaudt, never drops.
      tkaudt commits the creation record before any record of the case and the
      completion record after the case's last one.
+   - Replay side-channel.  Where the topology has tkrepl, every event appended
+     to the capsule is also published to it as forwarded, and the event that
+     closes the case is followed by one TkCaseCapsuleMsg naming what the
+     capsule holds: case id, event count, first and last source offset, and
+     the capsule hash (tk_capsule_hash.h), which tkcase folds as it appends.
+     tkrepl replays the capsule against it (tkrepl_frag.h).  The link is
+     reliable like every other.
 
    The case-id generator is seeded from the tile's tick counter, unless the run
    sets a seed (tkcase_set_rng_seed, from TopologySpec.case_rng_seed): then the
@@ -38,13 +46,15 @@
    copy of the event, AFTER_FRAG commits (case open, capsule, counters, all
    publishes).  The case_id draw is in AFTER_FRAG because it advances the RNG.
    STEM_BURST is 2: the audit link gets two publishes in one iteration when a
-   one-event run opens and closes its case on the same event; each event link
-   gets one. */
+   one-event run opens and closes its case on the same event, and the replay
+   link two (the event and the summary) on the event that closes the case;
+   each event link gets one. */
 
 #define _GNU_SOURCE
 
 #include "firedancer.h"
 #include "audit_schema.h"
+#include "tk_capsule_hash.h"
 #include "tickoni/c_abi/shim/stem_helpers.h"
 #include "tickoni/c_abi/shim/stem_diag.h"
 #include "tickoni/c_abi/topo_run/tk_case_stem.h"
@@ -57,9 +67,11 @@
 #include <string.h>
 #include <stddef.h>
 
-/* Pipeline outputs, in topology order.  The diagnostic link, when wired, is
-   the next one and is not counted here. */
-enum { TKCASE_OUT_POLY = 0, TKCASE_OUT_DISP = 1, TKCASE_OUT_AUDIT = 2, TKCASE_OUT_CNT = 3 };
+/* Pipeline outputs, in topology order: three always, then the replay link
+   where the topology has tkrepl.  The diagnostic link, when wired, is the next
+   one and is not counted here. */
+enum { TKCASE_OUT_POLY = 0, TKCASE_OUT_DISP = 1, TKCASE_OUT_AUDIT = 2, TKCASE_OUT_REPL = 3, TKCASE_OUT_MAX = 4 };
+#define TKCASE_OUT_CNT 3UL   /* outputs every topology wires */
 
 typedef struct {
     fd_rng_t       rng[1];             /* case ids */
@@ -69,9 +81,11 @@ typedef struct {
     uint64_t       forwarded;          /* event fragments published, summed over tkpoly and tkdisp */
     uint64_t       case_audit_emitted; /* lifecycle records published to tkaudt */
 
-    /* The capsule: capsule_cap TkEvents in scratch, after the context. */
+    /* The capsule: capsule_cap TkEvents in scratch, after the context, and
+       its running hash (tk_capsule_hash.h). */
     uint64_t       capsule_cap;
     uint64_t       capsule_count;
+    uint64_t       capsule_hash;
     TkEvent *      capsule;
 
     int            stage_valid;
@@ -79,7 +93,8 @@ typedef struct {
 
     void *         cnc;
     stk_link_in_t  in;
-    stk_link_out_t out[TKCASE_OUT_CNT];
+    stk_link_out_t out[TKCASE_OUT_MAX];
+    int            has_repl;           /* the replay link is wired */
     stk_diag_out_t diag;
 
     uint64_t       event_count;        /* shutdown gate and case close; 0 = no gate */
@@ -186,6 +201,7 @@ tkcase_privileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) {
     ctx->event_count = tkcase_event_count_param;
     ctx->capsule_cap = tkcase_layout_capsule_cap();
     ctx->capsule     = tkcase_capsule_of( ctx );
+    ctx->capsule_hash = TK_CAPSULE_HASH_INIT;
     ulong seed = tkcase_rng_seed_param;
     uint  seq  = seed ? (uint)seed : (uint)fd_tickcount();
     ulong idx  = seed ? seed>>32   : 0UL;
@@ -207,18 +223,25 @@ tkcase_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
     if( FD_UNLIKELY( tile->in_cnt!=1UL ) )
         FD_LOG_ERR(( "tkcase: expected exactly one input link, found %lu", tile->in_cnt ));
 
-    /* Exactly the three pipeline outputs, plus the optional diagnostic link
-       last (stk_diag_out_init fails closed on anything else). */
-    stk_diag_out_init( &ctx->diag, topo, tile, (ulong)TKCASE_OUT_CNT );
+    /* The three pipeline outputs, then the replay link when the topology has
+       tkrepl, plus the optional diagnostic link last (stk_diag_out_init fails
+       closed on anything else). */
+    ctx->has_repl = 0;
+    for( ulong t=0UL; t<topo->tile_cnt; t++ )
+        if( !strcmp( topo->tiles[t].name, TILE_ID_TKREPL ) ) ctx->has_repl = 1;
+    ulong out_cnt = TKCASE_OUT_CNT + (ulong)ctx->has_repl;
+    stk_diag_out_init( &ctx->diag, topo, tile, out_cnt );
     stk_link_in_init ( &ctx->in, topo, tile, 0UL, (ulong)TK_EVENT_SIZE );
     stk_link_out_init( &ctx->out[TKCASE_OUT_POLY],  topo, tile, (ulong)TKCASE_OUT_POLY,  (ulong)TK_EVENT_SIZE );
     stk_link_out_init( &ctx->out[TKCASE_OUT_DISP],  topo, tile, (ulong)TKCASE_OUT_DISP,  (ulong)TK_EVENT_SIZE );
     stk_link_out_init( &ctx->out[TKCASE_OUT_AUDIT], topo, tile, (ulong)TKCASE_OUT_AUDIT, sizeof(TkCaseAuditMsg) );
+    if( ctx->has_repl )
+        stk_link_out_init( &ctx->out[TKCASE_OUT_REPL], topo, tile, (ulong)TKCASE_OUT_REPL, (ulong)TK_EVENT_SIZE );
 
     /* Each output must go where its index says: a swapped link would send the
        audit record to tkpoly or an event to tkaudt. */
-    static char const * const want[ TKCASE_OUT_CNT ] = { TILE_ID_TKPOLY, TILE_ID_TKDISP, TILE_ID_TKAUDT };
-    for( ulong o=0UL; o<(ulong)TKCASE_OUT_CNT; o++ ) {
+    static char const * const want[ TKCASE_OUT_MAX ] = { TILE_ID_TKPOLY, TILE_ID_TKDISP, TILE_ID_TKAUDT, TILE_ID_TKREPL };
+    for( ulong o=0UL; o<out_cnt; o++ ) {
         char const * consumer = NULL;
         for( ulong t=0UL; t<topo->tile_cnt && !consumer; t++ ) {
             fd_topo_tile_t const * other = &topo->tiles[t];
@@ -229,8 +252,8 @@ tkcase_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile ) 
             FD_LOG_ERR(( "tkcase: output %lu must feed %s, found %s", o, want[o], consumer ? consumer : "no consumer" ));
     }
 
-    FD_LOG_NOTICE(( "tkcase: unprivileged init tile_id=%lu cnc=%p diag=%d",
-                    tile->id, ctx->cnc, ctx->diag.present ));
+    FD_LOG_NOTICE(( "tkcase: unprivileged init tile_id=%lu cnc=%p repl=%d diag=%d",
+                    tile->id, ctx->cnc, ctx->has_repl, ctx->diag.present ));
 }
 
 /* ─── DURING_FRAG: stage only ─── */
@@ -305,6 +328,24 @@ tkcase_publish_lifecycle( tkcase_ctx_t *       ctx,
     ctx->case_audit_emitted += 1UL;
 }
 
+/* The capsule summary to tkrepl, after the event that closes the case. */
+static void
+tkcase_publish_capsule( tkcase_ctx_t *       ctx,
+                        fd_stem_context_t *  stem,
+                        TkEvent const *      ev ) {
+    TkCaseCapsuleMsg * m = (TkCaseCapsuleMsg *)stk_link_out_laddr( &ctx->out[TKCASE_OUT_REPL] );
+    memset( m, 0, sizeof(*m) );
+    m->version             = TK_REPL_WIRE_VERSION;
+    m->case_id             = ctx->scope.case_id;
+    m->event_count         = ctx->capsule_count;
+    m->first_source_offset = ctx->scope.first_source_offset;
+    m->last_source_offset  = ctx->scope.last_source_offset;
+    m->capsule_hash        = ctx->capsule_hash;
+    memcpy( m->trace_id, ev->trace_id, sizeof(m->trace_id) );
+    stk_link_out_commit( &ctx->out[TKCASE_OUT_REPL], stem, (ulong)TKCASE_OUT_REPL,
+                         TK_LINK_SIG_CASE_CAPSULE, sizeof(*m), fd_frag_meta_ctl( 0UL, 1, 1, 0 ) );
+}
+
 /* ─── AFTER_FRAG: commit ─── */
 
 static void
@@ -343,6 +384,7 @@ tkcase_after_frag( tkcase_ctx_t *      ctx,
     /* Attach and record. */
     ev->case_id = ctx->scope.case_id;
     ctx->capsule[ ctx->capsule_count++ ] = *ev;
+    ctx->capsule_hash = tk_capsule_hash_append( ctx->capsule_hash, ev );
     ctx->scope.event_count        += 1UL;
     ctx->scope.last_source_offset  = ev->source_offset;
     ctx->consumed                 += 1UL;
@@ -353,12 +395,15 @@ tkcase_after_frag( tkcase_ctx_t *      ctx,
     stk_link_out_publish( &ctx->out[TKCASE_OUT_POLY], stem, (ulong)TKCASE_OUT_POLY, TK_LINK_SIG_EVENT, ev, sizeof(*ev) );
     stk_link_out_publish( &ctx->out[TKCASE_OUT_DISP], stem, (ulong)TKCASE_OUT_DISP, TK_LINK_SIG_EVENT, ev, sizeof(*ev) );
     ctx->forwarded += 2UL;
+    if( ctx->has_repl )
+        stk_link_out_publish( &ctx->out[TKCASE_OUT_REPL], stem, (ulong)TKCASE_OUT_REPL, TK_LINK_SIG_EVENT, ev, sizeof(*ev) );
 
     /* The event that exhausts the run's count closes the case.  Checked on the
        post-increment count so the gate fires on the Nth event. */
     if( ctx->event_count && ctx->consumed>=ctx->event_count && ctx->scope.state==TK_CASE_STATE_ACTIVE ) {
         ctx->scope.state = TK_CASE_STATE_COMPLETED;
         tkcase_publish_lifecycle( ctx, stem, RECORD_CASE_COMPLETION, ev );
+        if( ctx->has_repl ) tkcase_publish_capsule( ctx, stem, ev );
     }
 
     stk_publish_counter( ctx->cnc, 0UL, ctx->forwarded );
@@ -428,6 +473,7 @@ ulong tkcase_consumed( void * scratch )      { return TKCASE_CTX(scratch)->consu
 ulong tkcase_forwarded( void * scratch )     { return TKCASE_CTX(scratch)->forwarded; }
 ulong tkcase_case_audit_emitted( void * scratch ) { return TKCASE_CTX(scratch)->case_audit_emitted; }
 ulong tkcase_capsule_count( void * scratch ) { return TKCASE_CTX(scratch)->capsule_count; }
+ulong tkcase_capsule_hash( void * scratch )  { return TKCASE_CTX(scratch)->capsule_hash; }
 
 void
 tkcase_scope_copy( void * scratch, void * dst, ulong dst_sz ) {

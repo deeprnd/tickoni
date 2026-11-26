@@ -19,10 +19,16 @@
 
    Case order (a tkcase input, the workflow topologies): the run's case
    creation record is the first record of the chain, and its completion record
-   the last.  Every other input is held upstream (BEFORE_FRAG -1) until the
-   creation record is committed; the completion record is held here until the
-   policy record and, in ordered mode, the agent record of every event the case
-   holds are committed.  The event gate also waits for it.
+   the last of the case.  Every other input is held upstream (BEFORE_FRAG -1)
+   until the creation record is committed; the completion record is held here
+   until the policy record and, in ordered mode, the agent record of every event
+   the case holds are committed.  The event gate also waits for it.
+
+   Replay result (a tkrepl input, which only a topology with tkcase has): the
+   verdict of replaying the closed case's capsule, one RECORD_REPLAY_RESULT
+   record.  Its input is held upstream until the completion record is
+   committed, so it is the chain's last record, and the event gate waits for it
+   too.
 */
 
 #define _GNU_SOURCE
@@ -70,7 +76,7 @@ extern ulong tk_topo_audit_watermark_obj( fd_topo_t const * topo );
    workflow.  No tool or adapter audit record exists yet, so these links are bound
    (the topology declares them) and carry nothing: a fragment that arrives on one
    is not audited. */
-enum { TKAUDT_ROLE_EVENT = 0, TKAUDT_ROLE_MODEL = 1, TKAUDT_ROLE_AGENT = 2, TKAUDT_ROLE_IDLE = 3, TKAUDT_ROLE_CASE = 4 };
+enum { TKAUDT_ROLE_EVENT = 0, TKAUDT_ROLE_MODEL = 1, TKAUDT_ROLE_AGENT = 2, TKAUDT_ROLE_IDLE = 3, TKAUDT_ROLE_CASE = 4, TKAUDT_ROLE_REPLAY = 5 };
 
 typedef struct {
     /* Audit state */
@@ -146,6 +152,10 @@ typedef struct {
     int      case_close_held;     /* a completion record waits for the case's last records */
     uint64_t case_close_events;   /* ... the number of events it closes over */
     AuditEvent case_close_ev;
+
+    /* Replay result (a tkrepl input): see the file comment. */
+    int      has_replay_input;
+    int      replay_committed;    /* the replay result record is committed */
 
     /* The record DURING_FRAG built, awaiting AFTER_FRAG. */
     uint8_t  stage_role;
@@ -333,6 +343,7 @@ tk_audit_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile 
         else if( producer && ( strcmp( producer, TILE_ID_TKTOOL )==0 ||
                                strcmp( producer, TILE_ID_TKADPT )==0 ) ) ctx->in_role[i] = TKAUDT_ROLE_IDLE;
         else if( producer && strcmp( producer, TILE_ID_TKCASE )==0 ) ctx->in_role[i] = TKAUDT_ROLE_CASE;
+        else if( producer && strcmp( producer, TILE_ID_TKREPL )==0 ) ctx->in_role[i] = TKAUDT_ROLE_REPLAY;
         else                                                         ctx->in_role[i] = TKAUDT_ROLE_EVENT;
         if( ctx->in_role[i]==TKAUDT_ROLE_AGENT ) ctx->ordered = 1;
     }
@@ -343,7 +354,16 @@ tk_audit_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile 
                 FD_LOG_ERR(( "tkaudt: more than one case-audit input" ));
             ctx->has_case_input = 1;
         }
+        if( ctx->in_role[i]==TKAUDT_ROLE_REPLAY ) {
+            if( FD_UNLIKELY( ctx->has_replay_input ) )
+                FD_LOG_ERR(( "tkaudt: more than one replay-result input" ));
+            ctx->has_replay_input = 1;
+        }
     }
+    /* A replay result is the verdict on a closed case: without the case it
+       could never be placed in the chain. */
+    if( FD_UNLIKELY( ctx->has_replay_input && !ctx->has_case_input ) )
+        FD_LOG_ERR(( "tkaudt: a replay-result input requires a case-audit input" ));
 
     /* Publish the committed-order watermark when the topology declares one. */
     ulong wm_obj = tk_topo_audit_watermark_obj( topo );
@@ -442,6 +462,14 @@ tk_audit_compute_record_hash( AuditEvent * event ) {
         fd_siphash13_append( sip, p->classification_code,          sizeof(p->classification_code) );
         break;
     }
+    case RECORD_REPLAY_RESULT: {
+        /* Matches hash.zig case 11 (wire.ReplayResultPayload field order). */
+        WireReplayResultPayload const * p = &event->replay_result;
+        fd_siphash13_append( sip, (uchar *)&p->capsule_id,          sizeof(p->capsule_id) );
+        fd_siphash13_append( sip, (uchar *)&p->divergences,         sizeof(p->divergences) );
+        fd_siphash13_append( sip, (uchar *)&p->first_divergent_seq, sizeof(p->first_divergent_seq) );
+        break;
+    }
     case RECORD_CASE_CREATION:
     case RECORD_CASE_COMPLETION: {
         /* Matches hash.zig cases 13 and 14 (wire.CaseCreationPayload field order). */
@@ -491,7 +519,8 @@ tk_audit_compute_record_hash( AuditEvent * event ) {
    without both a spine event chain and agent runs, is taken as it arrives.
 
    Case order comes first: with a case input, every other input is left queued
-   upstream until the case's creation record is committed. */
+   upstream until the case's creation record is committed, and the replay
+   result until its completion record is. */
 static int
 tk_audit_before_frag( tk_audit_ctx_t * ctx,
                       ulong            in_idx,
@@ -501,6 +530,7 @@ tk_audit_before_frag( tk_audit_ctx_t * ctx,
     if( FD_UNLIKELY( in_idx>=ctx->in_cnt ) ) return 0;
     uint8_t role = ctx->in_role[in_idx];
     if( ctx->has_case_input && role!=TKAUDT_ROLE_CASE && !ctx->case_opened ) return -1;
+    if( role==TKAUDT_ROLE_REPLAY ) return ctx->case_closed ? 0 : -1;
     if( FD_LIKELY( !ctx->ordered || !ctx->has_event_input ) ) return 0;
     if( role!=TKAUDT_ROLE_EVENT ) return 0;
     return ctx->event_committed > ctx->agent_committed ? -1 : 0;
@@ -537,8 +567,11 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
     int is_model = ( role==TKAUDT_ROLE_MODEL );
     int is_agent = ( role==TKAUDT_ROLE_AGENT );
     int is_case  = ( role==TKAUDT_ROLE_CASE );
+    int is_repl  = ( role==TKAUDT_ROLE_REPLAY );
     if( is_case ) {
         if( FD_UNLIKELY( sig!=TK_LINK_SIG_CASE_AUDIT ) ) return;
+    } else if( is_repl ) {
+        if( FD_UNLIKELY( sig!=TK_LINK_SIG_REPLAY_AUDIT ) ) return;
     } else if( is_model ) {
         if( FD_UNLIKELY( sig!=TK_LINK_SIG_MODEL_CALL && sig!=TK_LINK_SIG_MODEL_DENIAL ) ) return;
     } else if( is_agent ) {
@@ -547,7 +580,7 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
         if( FD_UNLIKELY( sig!=TK_LINK_SIG_EVENT ) ) return;
     }
 
-    ulong want = is_case ? sizeof(TkCaseAuditMsg) : is_model ? sizeof(ModelAuditMsg) : is_agent ? sizeof(TkAgentAuditMsg) : (ulong)TK_EVENT_SIZE;
+    ulong want = is_case ? sizeof(TkCaseAuditMsg) : is_repl ? sizeof(TkReplAuditMsg) : is_model ? sizeof(ModelAuditMsg) : is_agent ? sizeof(TkAgentAuditMsg) : (ulong)TK_EVENT_SIZE;
     if( !stk_validate_frag( sz, want, in->wksp ) )
         return;
 
@@ -582,6 +615,24 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
         event->record_type   = c.record_type;
         event->case_creation = c.payload;
         ctx->stage_seq   = c.event_count;
+        ctx->stage_valid = 1;
+        return;
+    }
+
+    if( is_repl ) {
+        TkReplAuditMsg r;
+        memcpy( &r, stk_link_in_laddr( in, chunk ), sizeof(r) );   /* one copy: validate and build from it */
+        if( r.version!=TK_REPL_WIRE_VERSION ) return;
+        if( r.record_type!=RECORD_REPLAY_RESULT ) return;
+        if( r.case_id==0UL ) return;
+
+        memcpy( event->header.trace_id, r.trace_id, sizeof(event->header.trace_id) );
+        event->header.case_id         = r.case_id;
+        event->header.source_offset   = r.source_offset;
+        memcpy( event->header.tile_id, TILE_ID_TKREPL, sizeof(event->header.tile_id) );
+        memcpy( event->header.policy_version, AUDIT_POLICY_VER, sizeof(AUDIT_POLICY_VER) );
+        event->record_type   = r.record_type;
+        event->replay_result = r.payload;
         ctx->stage_valid = 1;
         return;
     }
@@ -753,6 +804,17 @@ tk_audit_case_stage( tk_audit_ctx_t * ctx ) {
     ctx->case_close_ev     = ctx->stage;
 }
 
+/* Replay result: committed once, after the case it replays is closed (BEFORE_FRAG
+   has held it until then), and only for that case. */
+static void
+tk_audit_replay_stage( tk_audit_ctx_t * ctx ) {
+    if( !ctx->case_closed || ctx->replay_committed || ctx->stage.header.case_id!=ctx->case_id ) {
+        ctx->rejected += 1UL;
+        return;
+    }
+    if( tk_audit_commit( ctx, &ctx->stage ) ) ctx->replay_committed = 1;
+}
+
 /* AFTER_FRAG is the commit point: the first callback fd_stem reaches after
    its post-DURING_FRAG overrun re-check, so the only place the staged record
    is known to have been built from an intact fragment.  Appending and
@@ -776,6 +838,8 @@ tk_audit_after_frag( tk_audit_ctx_t *    ctx,
 
     if( ctx->stage_role==TKAUDT_ROLE_CASE ) {
         tk_audit_case_stage( ctx );
+    } else if( ctx->stage_role==TKAUDT_ROLE_REPLAY ) {
+        tk_audit_replay_stage( ctx );
     } else if( ctx->stage_role==TKAUDT_ROLE_EVENT || !ctx->ordered ) {
         /* Arrival order is the order: a single deterministic producer chain,
            or no agent to order against.  (With both, BEFORE_FRAG has already
@@ -821,14 +885,17 @@ tk_audit_after_frag( tk_audit_ctx_t *    ctx,
     /* Event-count gating: in ordered mode an agent run is the unit (one per
        accepted request), and when a spine event chain also feeds this tile its
        records must all be in as well; otherwise the record count, less the case
-       records.  With a case input the case must also be closed.  Checked after
-       the commit so the gate fires on the Nth unit and the tile exits promptly. */
-    uint64_t gate = ctx->audited - (uint64_t)ctx->case_opened - (uint64_t)ctx->case_closed;
+       records.  With a case input the case must also be closed, and with a
+       replay input its replay result committed.  Checked after the commit so
+       the gate fires on the Nth unit and the tile exits promptly. */
+    uint64_t gate = ctx->audited - (uint64_t)ctx->case_opened - (uint64_t)ctx->case_closed
+                  - (uint64_t)ctx->replay_committed;
     if( ctx->ordered ) {
         gate = ctx->agent_committed;
         if( ctx->has_event_input && ctx->event_committed<gate ) gate = ctx->event_committed;
     }
     if( ctx->has_case_input && !ctx->case_closed ) gate = 0UL;
+    if( ctx->has_replay_input && !ctx->replay_committed ) gate = 0UL;
     STK_EVENT_EXHAUSTED(ctx, ctx->event_count, gate);
 
     /* Publish progress to CNC app[0] for supervisor snapshots. */
@@ -1074,6 +1141,12 @@ tk_audit_agent_committed( void * scratch ) {
 ulong
 tk_audit_case_closed( void * scratch ) {
     return (ulong)STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN)->case_closed;
+}
+
+/* 1 once the run's replay result record is committed (a tkrepl input). */
+ulong
+tk_audit_replay_committed( void * scratch ) {
+    return (ulong)STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN)->replay_committed;
 }
 
 ulong

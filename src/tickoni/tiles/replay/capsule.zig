@@ -62,19 +62,9 @@ pub const ReplayCapsuleWire = struct {
     },
 };
 
-pub const DivergenceTracker = struct {
-    count: u64 = 0,
-    first_field: []const u8 = "",
-    first_seq: u64 = 0,
-
-    pub fn note(self: *DivergenceTracker, field: []const u8, seq: u64) void {
-        self.count += 1;
-        if (self.first_seq == 0) {
-            self.first_field = field;
-            self.first_seq = seq;
-        }
-    }
-};
+/// One definition for every replay verifier, owned by the tkrepl verdict
+/// module (decision.zig).
+pub const DivergenceTracker = @import("replay_decision").DivergenceTracker;
 
 pub const LoadedReplayCapsule = struct {
     raw: []u8,

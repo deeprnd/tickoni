@@ -51,6 +51,7 @@ extern fn tk_audit_record_denial_reason_code(scratch: ?*anyopaque, idx: usize) c
 extern fn tk_audit_agent_committed(scratch: ?*anyopaque) usize;
 extern fn tk_audit_rejected_count(scratch: ?*anyopaque) usize;
 extern fn tk_audit_case_closed(scratch: ?*anyopaque) usize;
+extern fn tk_audit_replay_committed(scratch: ?*anyopaque) usize;
 extern fn tk_audit_held_model_count(scratch: ?*anyopaque) usize;
 extern fn tk_audit_held_agent_count(scratch: ?*anyopaque) usize;
 extern fn tk_audit_record_proposal_hash(scratch: ?*anyopaque, idx: usize) u64;
@@ -136,9 +137,15 @@ pub fn agentCommitted(scratch: ?*anyopaque) usize {
 }
 
 /// True once the run's case completion record is committed (topologies with
-/// tkcase): the chain's last record.
+/// tkcase): the case's last record.
 pub fn caseClosed(scratch: ?*anyopaque) bool {
     return tk_audit_case_closed(scratch) != 0;
+}
+
+/// True once the run's replay result record is committed (topologies with
+/// tkcase and tkrepl): the chain's last record, after the case completion.
+pub fn replayCommitted(scratch: ?*anyopaque) bool {
+    return tk_audit_replay_committed(scratch) != 0;
 }
 
 /// Records tkaudt refused: late, duplicate, out of order, or no room to hold.

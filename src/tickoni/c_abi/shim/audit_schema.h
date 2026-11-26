@@ -459,6 +459,7 @@ typedef struct {
         WireProposalPayload   proposal;
         WireDenialPayload     denial;
         WireCaseCreationPayload case_creation;   /* RECORD_CASE_CREATION and RECORD_CASE_COMPLETION */
+        WireReplayResultPayload replay_result;   /* RECORD_REPLAY_RESULT */
     };
 } AuditEvent;                   /* 488 */
 
@@ -486,5 +487,6 @@ _Static_assert( offsetof(AuditHeader, capability_envelope_id)==112UL, "AuditHead
 #include "tk_agent_wire.h"
 #include "tk_event_wire.h"
 #include "tk_diag_fragment.h"
+#include "tkrepl_frag.h"
 
 #endif /* __AUDIT_SCHEMA_H__ */
