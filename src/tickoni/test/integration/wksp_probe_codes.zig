@@ -1,7 +1,6 @@
 /// Exit codes of tk-wksp-probe, shared by the probe (wksp_probe_main.zig) and
 /// the test that reads them (test_process_wksp_exclusive_create.zig), so the
 /// two cannot drift.
-
 /// The probe created the workspace (and deleted it again).
 pub const created: u8 = 0;
 /// The create failed.
