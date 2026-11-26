@@ -380,6 +380,18 @@ pub fn strategy(
     });
     run_count += 1;
 
+    // c_abi/tkcase.zig — identity, scratch contract (the capsule sized by the
+    // run's event count) and wire sizes of the case router stem shim.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tkcase-identity",
+        .source_file = "src/tickoni/c_abi/tkcase.zig",
+        .imports = &.{
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+        },
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
     // c_abi/tkdiag.zig — identity and scratch contract for the fan-in collector
     // stem shim registered as tkdiag, plus the fragment layout and aggregation
     // rules of tk_diag_fragment.h.
@@ -808,6 +820,35 @@ pub fn strategy(
 
         const test_exe = b.addExecutable(.{
             .name = "test-tkaudt-during-frag",
+            .root_module = test_lib.root_module,
+        });
+
+        run_sequence[run_count] = test_exe;
+        run_count += 1;
+    }
+
+    // === tkcase AFTER_FRAG unit test ===
+    // Compiles the real tile source into the test and drives the real
+    // tkcase_during_frag / tkcase_after_frag over real mcaches: case opening,
+    // case id stamping, forwarding to tkpoly and tkdisp, the capsule, and the
+    // creation and completion records to tkaudt. Reuses the tkmodl stub for the
+    // topology and liveness symbols the tile references but the test never runs.
+    {
+        const test_lib = codec.addTickoniShimLibrary(b, target, optimize, "test-tkcase-after-frag-lib", &.{
+            "src/tickoni/test/unit/test_tkcase_after_frag.c",
+            "src/tickoni/test/unit/test_tkmodl_during_frag_stub.c",
+        });
+        test_lib.root_module.addIncludePath(b.path("src/tickoni/c_abi/shim"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/src"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/firedancer"));
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_disco.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
+        codec.linkTickoniWindowsUuid(b, test_lib, fd_lib_dir);
+
+        const test_exe = b.addExecutable(.{
+            .name = "test-tkcase-after-frag",
             .root_module = test_lib.root_module,
         });
 

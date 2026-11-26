@@ -49,6 +49,7 @@ fn addTickoniTopoRunShims(b: *std.Build, step: *std.Build.Step.Compile) void {
             "src/tickoni/c_abi/shim/tk_model_stem.c",
             "src/tickoni/c_abi/shim/tk_agent_stem.c",
             "src/tickoni/c_abi/shim/tk_disp_stem.c",
+            "src/tickoni/c_abi/shim/tk_case_stem.c",
             "src/tickoni/c_abi/shim/tk_pass_stem.c",
             "src/tickoni/c_abi/shim/tk_diag_stem.c",
         },

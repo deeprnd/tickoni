@@ -22,6 +22,7 @@ pub const shim_c_files = &.{
     "tk_model_stem.c",
     "tk_agent_stem.c",
     "tk_disp_stem.c",
+    "tk_case_stem.c",
     "tk_pass_stem.c",
     "tk_diag_stem.c",
     "ballet.c",
@@ -122,7 +123,7 @@ pub fn addPlainTestRun(
 /// 48+ test binaries chain their stdout/stderr — the buffer fills and
 /// blocks the writer before the reader can drain it.
 /// Most test binaries one chained series (and so one lane) can hold.
-pub const max_test_run_series: usize = 66;
+pub const max_test_run_series: usize = 72;
 
 pub fn addPlainTestRunSeries(
     b: *std.Build,
