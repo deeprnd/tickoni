@@ -134,6 +134,7 @@ pub fn strategy(
             .{ .name = "audit_consts", .module = shared.audit_consts },
             .{ .name = "audit_mod", .module = shared.audit_mod },
             .{ .name = "agent_decision", .module = shared.agent_decision },
+            .{ .name = "replay_decision", .module = shared.replay_decision },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "util", .module = shared.util },
             .{ .name = "logger", .module = shared.logger },
