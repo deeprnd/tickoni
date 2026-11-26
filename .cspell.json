@@ -464,6 +464,7 @@
     "seccomp",
     "Seccomp",
     "seccomppolicy",
+    "seedable",
     "Semgrep",
     "SEPA",
     "SHIPPABILITY",

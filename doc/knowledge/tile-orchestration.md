@@ -397,8 +397,12 @@ terminal result per accepted request after its audit record is committed; and
 `tkdisp` (`shim/tk_disp_stem.c`), the bounded sink for those terminal results,
 which in the full workflow is also the scheduler that sends one agent request
 per event from a run-configured template. The full workflow also runs
-`tkcase`, `tktool` and `tkadpt` as placeholder stem tiles (`shim/tk_pass_stem.c`:
-`tkcase` forwards, the other two are idle) with no case, tool or adapter logic.
+`tkcase` (`shim/tk_case_stem.c`), the case router: the first event opens the
+run's one case under a generated `case_id`, every event is stamped with it, kept
+in the case capsule and forwarded to `tkpoly` and `tkdisp`, and the case's
+creation and completion are audited to `tkaudt`; and `tktool` and `tkadpt` as
+idle placeholder stem tiles (`shim/tk_pass_stem.c`) with no tool or adapter
+logic.
 All run in the agent process topology `agentProcess(n)` (1 to 11 `tkmodl`
 instances) and in `investmentWorkflow()`; see
 [`plans/v2.NN-sXX-tkagnt-fd-stem-migration-done.md`](../execution/plans/v2.NN-sXX-tkagnt-fd-stem-migration-done.md)
