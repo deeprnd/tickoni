@@ -84,15 +84,7 @@ pub fn main(init: std.process.Init) !void {
         std.process.exit(0);
     }
 
-    // Internal supervisor-to-child handoff for v2.14.S1 process mode
-    if (std.mem.eql(u8, cmd, "__tile-run")) {
-        const spec_path = if (arg_count > 1) args[1] else std.process.exit(1);
-        std.process.exit(tile_main.run(init.io, init.gpa, spec_path));
-    }
-
-    // Internal supervisor-to-child handoff for stem tiles (tkaudt):
-    // minimal boot + topology rebuild without Zig callbacks; dispatches
-    // to the tile's own fd_stem-based run loop.
+    // Internal supervisor-to-child handoff for fd_stem tiles.
     if (std.mem.eql(u8, cmd, "__stem-run")) {
         const spec_path = if (arg_count > 1) args[1] else std.process.exit(1);
         std.process.exit(tile_main.stemRun(init.io, init.gpa, spec_path));

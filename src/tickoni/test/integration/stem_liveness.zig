@@ -8,8 +8,7 @@
 /// omits it stays `.running` forever, however wedged, so a `.running` state
 /// is not evidence of progress. These helpers assert the evidence directly:
 ///
-///   * every stem tile of a run (chosen from tile_registry.zig by launch mode,
-///     plus the metric tile; not a hand-kept list) is at CNC `RUN` and its
+///   * every registered tile of a run is at CNC `RUN` and its
 ///     heartbeat advances while it is idle;
 ///   * a stem tile frozen with SIGSTOP is classified `.stale` by
 ///     `refreshProcessHealth`, and one frozen tile does not make its siblings
@@ -42,15 +41,10 @@ const advance_polls: u32 = 400;
 /// 6 s: the stale threshold plus ample slack.
 const stale_polls: u32 = 1200;
 
-/// Whether the tile at topology index `idx` runs an fd_stem loop. That is every
-/// registry `.stem` tile, plus the metric tile: it runs `fd_metric_tile.c`'s
-/// stem loop but is launched under `__tile-run`, so its registry launch mode is
-/// `.tile` and does not identify it.
+/// Whether the tile at topology index `idx` has a registered fd_stem loop.
 pub fn isStem(idx: usize, sup: *const Supervisor) bool {
     const id = sup.topo.tiles[idx].name;
-    if (id.eql(rt.tile_ids.metric)) return true;
-    const entry = tile_registry.findById(id) orelse return false;
-    return entry.launch_mode == .stem;
+    return tile_registry.findById(id) != null;
 }
 
 /// Index of the tile with this id (instance 0) in the supervisor's topology.

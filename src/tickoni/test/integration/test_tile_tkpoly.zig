@@ -639,8 +639,7 @@ test "tkpoly_integration: positive event count naturally stops tkpoly at N=1" {
 // disabled so the tile stays alive indefinitely.  It honors CNC HALT and
 // stops cleanly without forced termination.
 //
-// P6.2 — that the supervisor selects the stem dispatcher ("__stem-run", not
-// the generic "__tile-run" Zig-callback path) for tkpoly is asserted in
+// P6.2 — that the supervisor selects the stem dispatcher for tkpoly is asserted in
 // supervisor.zig's tileArgv tests, on every platform.
 test "tkpoly_integration: administrative HALT with zero event count" {
     const shouldSkip = false;

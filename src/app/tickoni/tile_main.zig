@@ -1,38 +1,13 @@
-/// Entrypoint for the internal `__tile-run <spec-file>` subcommand that
-/// src/app/tickoni/supervisor.zig's startPaymentPipelineProcess self-execs
-/// into for every v2.14.S1 process-mode tile. Not part of the advertised
-/// CLI surface (see main.zig's usage text) — this is a supervisor-to-child
-/// handoff, matching the Firedancer convention of one binary re-execd per
-/// tile rather than a family of small per-tile binaries.
-///
-/// The generic single-tile boot/heartbeat/halt lifecycle lives in
-/// src/tickoni/runtime/tile_process.zig; this file only looks up this
-/// tile's process-mode callback in tile_registry.zig (v2.14.S8.T1's single
-/// source of truth for tile id -> behavior) and runs it.
-///
-/// stemRun: minimal boot path for stem tiles (tkaudt). Skips Zig callbacks
-/// and heartbeat/halt loop — dispatches straight to the tile's own
-/// fd_stem-based run loop via c_abi.topo_run.runTileSimple.
+/// Internal `__stem-run <spec-file>` child entry point. Rebuilds the topology
+/// and dispatches to the tile's fd_stem-based run loop.
 const std = @import("std");
 const rt = @import("runtime");
 const c_abi = @import("c_abi");
-const tile_registry = @import("tile_registry.zig");
 const config = @import("tile_main_config.zig");
 const model_instances = @import("model_instances.zig");
 const logger = @import("logger");
 
-pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) u8 {
-    const log = logger.get();
-    log.enter("tile_main", "run");
-    defer log.exit("tile_main", "run");
-
-    log.debug("tile_main", "run", "loading spec from file");
-    return rt.tile_process.run(io, allocator, spec_path, runPipelineStage);
-}
-
-/// Minimal boot path for stem tiles (tkaudt). Does NOT set up Zig callbacks
-/// or a heartbeat loop — the tile's own fd_stem-based run loop (TK_AUDIT_RUN)
-/// handles its full lifecycle via its own privileged_init and stem_run.
+/// The tile's own fd_stem loop handles its lifecycle.
 ///
 /// Returns 1 if setup fails before the harness call; 0 if the tile runs to
 /// completion and the harness returns cleanly.
@@ -93,7 +68,7 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
     // Firedancer's fd_topo_run_tile (called via runTileSimple below) handles
     // workspace joining internally: it calls fd_topo_join_tile_workspaces
     // before privileged_init, scratch allocation, and tile_run->run. This
-    // matches the tkings/__tile-run path and avoids a double-join that
+    // avoids a double-join that
     // corrupts workspace state (stemRun's explicit topoJoinWorkspaces +
     // topoWkspNewChild + Firedancer's internal join caused SIGSEGV in tkaudt).
     std.debug.print("[tile-main] stemRun: skipping explicit workspace join (fd_topo_run_tile handles it)\n", .{});
@@ -111,8 +86,7 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
         return 1;
     }
     // Test-build liveness faults apply to whichever stem tile the supervisor
-    // selected, through the shared stem liveness path (stk_cnc_liveness), the
-    // way tile_process.zig applies crash_after_heartbeats to Zig tiles.
+    // selected, through the shared stem liveness path (stk_cnc_liveness).
     if (rt.test_build.enabled) c_abi.cnc.setLivenessFaults(spec.crash_after_heartbeats, spec.stuck_after_heartbeats);
     // tkpoly is the only stem tile with a behavior parameter outside
     // TopologySpec: the signed policy limit lives in payment_pipeline.config,
@@ -191,28 +165,6 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
     // this line is never reached and the crash output comes from the C side.
     std.debug.print("[tile-main] stemRun: runTileSimple returned\n", .{});
     return 0;
-}
-
-/// Dispatches the deterministic payment pipeline stage for this tile's
-/// role and runs it to completion (bounded by the shared payment-pipeline
-/// config's event_count). Runs
-/// before the heartbeat/halt-wait loop above so the supervisor's stop
-/// sequence (signal every cnc to halt, wait for exit) stays uniform
-/// whether or not a tile has pipeline work.
-///
-/// metric/tkdiag have no process-mode pipeline role, and every stem tile runs
-/// through stemRun — see the module doc comment in
-/// tiles/payment_pipeline/process.zig for the scope boundary; their
-/// tile_registry entry has process_fn == null and is a no-op here.
-fn runPipelineStage(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) !void {
-    const log = logger.get();
-    log.enter("tile_main", "runPipelineStage");
-    defer log.exit("tile_main", "runPipelineStage");
-
-    const entry = tile_registry.findById(spec.tile_id) orelse return error.UnregisteredTile;
-    log.debug("tile_main", "runPipelineStage", "tile found in registry");
-    const process_fn = entry.process_fn orelse return;
-    try process_fn(io, wksp, spec, cnc, allocator);
 }
 
 test {

@@ -1,36 +1,23 @@
 /// v2.14.S8.T1: single source of truth for tile id -> behavior. Before this
-/// file, tile identity was independently mapped in four places: supervisor's
-/// process-mode spawn (position-indexed), supervisor's snapshotProcessMetrics
-/// (string-matched), tile_main's process dispatch (string-matched if/else),
-/// and process.zig's counter indices (positionally assumed, unowned).
+/// file, tile identity was independently mapped in several places: supervisor's
+/// spawn (position-indexed), supervisor's snapshotProcessMetrics
+/// (string-matched), and process.zig's counter indices
+/// (positionally assumed, unowned).
 ///
 /// This registry follows Firedancer's TILES[] + one-dispatcher pattern: one
-/// array of TileEntry, looked up by TileId, that owns a tile's launch mode,
-/// process-mode run callback, and counter schema. Every
-/// consumer of tile identity reads from here instead of recreating the
-/// mapping.
+/// array of TileEntry, looked up by TileId, that owns a tile's counter
+/// schema and link cardinality. Consumers look up tile identity here.
 const std = @import("std");
 const rt = @import("runtime");
 const c_abi = @import("c_abi");
 const tile_ids = rt.tile_ids;
-
-/// Process-mode run callback: joins this tile's links from the launch spec
-/// and runs its pipeline stage. Not every tile has a process-mode role yet
-/// (see TileEntry.process_fn).
-pub const ProcessFn = *const fn (
-    io: std.Io,
-    wksp: *c_abi.wksp.Wksp,
-    spec: *const rt.launch_spec.LaunchSpec,
-    cnc: *c_abi.cnc.Cnc,
-    allocator: std.mem.Allocator,
-) anyerror!void;
 
 /// Named meaning of a cnc app-region counter index, so supervisor.zig's
 /// snapshotProcessMetrics can read counters without knowing per-tile which
 /// index means what. See tiles/payment_pipeline/process.zig's
 /// rt.cnc_counters.appCounterWrite call sites for where each index is
 /// written. Observer tiles (tkrepl, metric, tkdiag) use additional fields
-/// for process-mode visibility.
+/// for process visibility.
 pub const CounterField = enum {
     /// tkgate: events forwarded to tkings.
     api_published,
@@ -45,7 +32,7 @@ pub const CounterField = enum {
     allowed,
     denied,
     audited,
-    // Observer tile counters (process-mode)
+    // Observer tile counters
     replay_checked,
     replay_match,
     metric_snapshots,
@@ -73,8 +60,6 @@ pub const CounterField = enum {
 
 pub const CounterSchemaEntry = struct { idx: u8, field: CounterField };
 
-pub const LaunchMode = enum { tile, stem };
-
 /// A tile's part in the diagnostic fan-in (plans/v2.10-s14-tkdiag-fan-in.md).
 /// A `producer` may have one extra, optional output link to tkdiag, which is
 /// not part of its pipeline link count (`in_cnt`/`out_cnt`); the `collector`
@@ -83,11 +68,6 @@ pub const DiagRole = enum { none, producer, collector };
 
 pub const TileEntry = struct {
     id: rt.tile.TileId,
-    launch_mode: LaunchMode = .tile,
-    /// Null for every stem tile, and for tiles with no process-mode pipeline
-    /// role (metric, tkdiag) — see tiles/payment_pipeline/process.zig's module
-    /// doc comment for that scope boundary.
-    process_fn: ?ProcessFn = null,
     counters: []const CounterSchemaEntry = &.{},
     /// Expected link cardinality (v2.14.S8 registry responsibility).
     /// v2.14.S8.T2 wires these into real validation: validate(topo) below
@@ -155,8 +135,6 @@ fn id(comptime s: []const u8) rt.tile.TileId {
 pub const entries = [_]TileEntry{
     .{
         .id = tile_ids.tkings,
-        .launch_mode = .stem,
-        .process_fn = null,
         // Its one input is its only source: tkgate's output where the topology
         // has tkgate, otherwise a link fed from outside the tile graph (a test
         // harness, later tkrepl).
@@ -166,24 +144,18 @@ pub const entries = [_]TileEntry{
         .diag = .producer,
     },
     // tknorm migrated to fd_stem tile — lifecycle owned by
-    // TK_NORM_RUN's privileged_init / stem_run, not the process-mode
-    // callback path below.
+    // TK_NORM_RUN's privileged_init / stem_run.
     .{
         .id = tile_ids.tknorm,
-        .launch_mode = .stem,
-        .process_fn = null,
         .counters = &.{ .{ .idx = 0, .field = .normalized }, .{ .idx = 1, .field = .invalid } },
         .in_cnt = 1,
         .out_cnt = 1,
         .diag = .producer,
     },
     // tkdedu migrated to fd_stem tile — lifecycle owned by
-    // TK_DEDU_RUN's privileged_init / stem_run, not the process-mode
-    // callback path below.
+    // TK_DEDU_RUN's privileged_init / stem_run.
     .{
         .id = tile_ids.tkdedu,
-        .launch_mode = .stem,
-        .process_fn = null,
         .counters = &.{.{ .idx = 0, .field = .duplicates }},
         .in_cnt = 1,
         .out_cnt = 1,
@@ -191,20 +163,15 @@ pub const entries = [_]TileEntry{
     },
     .{
         .id = tile_ids.tkpoly,
-        .launch_mode = .stem,
-        .process_fn = null,
         .counters = &.{ .{ .idx = 0, .field = .allowed }, .{ .idx = 1, .field = .denied } },
         .in_cnt = 1,
         .out_cnt = 1,
         .diag = .producer,
     },
     // tkaudt migrated to fd_stem tile (Phase 4.1) — lifecycle owned by
-    // TK_AUDIT_RUN's privileged_init / stem_run, not the process-mode
-    // callback path below.
+    // TK_AUDIT_RUN's privileged_init / stem_run.
     .{
         .id = tile_ids.tkaudt,
-        .launch_mode = .stem,
-        .process_fn = null,
         .counters = &.{.{ .idx = 0, .field = .audited }},
         .in_cnt = 1,
         .cardinality = .audit_fan_in,
@@ -217,8 +184,6 @@ pub const entries = [_]TileEntry{
     // which tkdiag also reads.
     .{
         .id = tile_ids.tkrepl,
-        .launch_mode = .stem,
-        .process_fn = null,
         .counters = &.{ .{ .idx = 0, .field = .replay_checked }, .{ .idx = 1, .field = .replay_match } },
         .cardinality = .replay,
     },
@@ -226,8 +191,6 @@ pub const entries = [_]TileEntry{
     // tk_metric_run → fd_tile_metric.run. No pipeline links (observer only).
     .{
         .id = tile_ids.metric,
-        .launch_mode = .stem,
-        .process_fn = null,
         .counters = &.{
             .{ .idx = 0, .field = .metric_snapshots },
             .{ .idx = 1, .field = .metric_backpressure_waits },
@@ -237,8 +200,8 @@ pub const entries = [_]TileEntry{
         .out_cnt = 0,
     },
     // tkdiag migrated to fd_stem tile — lifecycle owned by
-    // TK_DIAG_RUN's privileged_init / stem_run, not the process-mode
-    // callback path. The diagnostic collector: no pipeline link and no output;
+    // TK_DIAG_RUN's privileged_init / stem_run. The diagnostic collector:
+    // no pipeline link and no output;
     // its inputs are the unreliable diagnostic links of the diagnostic
     // producers (DiagRole), when the topology wires them. tk_diag_stem.c is the
     // sole writer of these five slots. Slot 0 counts the tiles that died
@@ -247,7 +210,6 @@ pub const entries = [_]TileEntry{
     // fan-in.
     .{
         .id = tile_ids.tkdiag,
-        .launch_mode = .stem,
         .counters = &.{
             .{ .idx = 0, .field = .diag_crashed_tile },
             .{ .idx = 1, .field = .diag_sandbox_failures },
@@ -262,8 +224,6 @@ pub const entries = [_]TileEntry{
     // Slots 0/1 are allowed (served from a captured result) and denied.
     .{
         .id = tile_ids.tkmodl,
-        .launch_mode = .stem,
-        .process_fn = null,
         .counters = &.{ .{ .idx = 0, .field = .allowed }, .{ .idx = 1, .field = .denied } },
         .in_cnt = 1,
         .out_cnt = 2,
@@ -276,8 +236,6 @@ pub const entries = [_]TileEntry{
     // by the tile; slots follow tk_agent_stem.c.
     .{
         .id = tile_ids.tkagnt,
-        .launch_mode = .stem,
-        .process_fn = null,
         .counters = &.{
             .{ .idx = 0, .field = .agent_dispatched },
             .{ .idx = 1, .field = .agent_results },
@@ -294,8 +252,6 @@ pub const entries = [_]TileEntry{
     // slot.
     .{
         .id = tile_ids.tkdisp,
-        .launch_mode = .stem,
-        .process_fn = null,
         .counters = &.{},
         .in_cnt = 2,
         .out_cnt = 1,
@@ -308,8 +264,6 @@ pub const entries = [_]TileEntry{
     // forwarded event fragment count (tkpoly and tkdisp).
     .{
         .id = tile_ids.tkcase,
-        .launch_mode = .stem,
-        .process_fn = null,
         .counters = &.{.{ .idx = 0, .field = .forwarded }},
         .in_cnt = 1,
         .out_cnt = 3,
@@ -321,16 +275,12 @@ pub const entries = [_]TileEntry{
     // consumers. Nothing is published on their audit links.
     .{
         .id = tile_ids.tktool,
-        .launch_mode = .stem,
-        .process_fn = null,
         .counters = &.{},
         .in_cnt = 1,
         .out_cnt = 2,
     },
     .{
         .id = tile_ids.tkadpt,
-        .launch_mode = .stem,
-        .process_fn = null,
         .counters = &.{},
         .in_cnt = 1,
         .out_cnt = 1,
@@ -340,8 +290,6 @@ pub const entries = [_]TileEntry{
     // its one output is tkings's input, a reliable link.
     .{
         .id = tile_ids.tkgate,
-        .launch_mode = .stem,
-        .process_fn = null,
         .counters = &.{ .{ .idx = 0, .field = .api_published }, .{ .idx = 1, .field = .api_wire_invalid } },
         .in_cnt = 1,
         .out_cnt = 1,

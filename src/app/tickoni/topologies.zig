@@ -145,7 +145,7 @@ const investment_api_idx: u32 = 14;
 
 /// ── Investment Topology Links ──
 /// One reliable shared-memory link of the full workflow, in the one workspace
-/// every process-mode tile joins.
+/// every child tile joins.
 fn investmentLink(src: u32, dst: u32, depth: u32, mtu: u32) Channel {
     return .{
         .src_idx = src,
@@ -258,7 +258,7 @@ pub fn paymentPipeline() Topology {
 /// or, for a payment event, a fixed, config-supplied template. tkrepl is the
 /// replay side-channel, not part of the spine: it replays the closed case's
 /// capsule and tkaudt commits its verdict as the chain's last record.
-/// Status: runnable, through the supervisor's process-mode start path
+/// Status: runnable, through the supervisor's process start path
 /// (Supervisor.startPaymentPipelineProcess) given a dispatch template and the
 /// per-instance tkmodl configuration; exercised end to end by
 /// src/tickoni/test/integration/test_tile_tkagnt.zig.
@@ -277,7 +277,7 @@ pub fn investmentWorkflow() Topology {
 // instead of the heap-backed dev/test ring, plus the 5 lossy diagnostic
 // channels of the tkdiag fan-in. All tiles are floating (no
 // hard exclusive-core requirement); src/app/tickoni/supervisor.zig's
-// process-mode start path assigns concrete CPU placement per config.
+// process start path assigns concrete CPU placement per config.
 const payment_process_channels = [_]Channel{
     .{
         .src_idx = 0,
