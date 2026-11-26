@@ -23,7 +23,7 @@
                anything.
      tknorm    validates the kind's fields and stamps event_hash.
      tkdedu    stamps duplicate.
-     tkcase    will stamp case_id (0 until the tkcase plan).
+     tkcase    stamps case_id: the run's case (tk_case_stem.c).
      tkpoly    stamps decision and decided_by (tknorm stamps them for a
                malformed event).
      every     spine tile increments pipeline_hops.
@@ -86,7 +86,7 @@ typedef struct {
         TkEventPayment     payment;
         TkAgentRequestMsg  agent_request;
     } body;                            /* 80 */
-} TkEvent;                             /* 400 */
+} TkEvent;                             /* 416 */
 
 #define TK_EVENT_SIZE sizeof(TkEvent)
 
@@ -96,7 +96,7 @@ _Static_assert( offsetof(TkEvent, idempotency_key)==32UL, "TkEvent.idempotency_k
 _Static_assert( offsetof(TkEvent, source_offset)==40UL,  "TkEvent.source_offset ABI drift" );
 _Static_assert( offsetof(TkEvent, decided_by)==64UL,     "TkEvent.decided_by ABI drift" );
 _Static_assert( offsetof(TkEvent, body)==80UL,           "TkEvent.body ABI drift" );
-_Static_assert( sizeof(TkEvent)==400UL,                  "TkEvent wire size drift" );
+_Static_assert( sizeof(TkEvent)==416UL,                  "TkEvent wire size drift" );
 _Static_assert( sizeof(TkEvent)<=(unsigned long)TK_EVENT_LINK_MTU, "TkEvent must fit a spine link" );
 
 #endif /* __TK_EVENT_WIRE_H__ */

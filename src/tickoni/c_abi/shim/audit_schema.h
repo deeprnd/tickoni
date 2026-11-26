@@ -89,6 +89,7 @@ enum {
     RECORD_REPLAY_RESULT          = 11,
     RECORD_DUPLICATION            = 12,
     RECORD_CASE_CREATION          = 13,
+    RECORD_CASE_COMPLETION        = 14,
 };
 
 /* ─── Header (matches Zig audit.Header struct) ─── */
@@ -269,7 +270,7 @@ enum {
 #define TKMODL_REPLAY_MODE_LIVE    0
 #define TKMODL_REPLAY_MODE_REPLAY  1
 
-/* tkagnt -> tkmodl (the scope of an agent request, TkAgentRequestMsg).  288 bytes. */
+/* tkagnt -> tkmodl (the scope of an agent request, TkAgentRequestMsg).  304 bytes. */
 typedef struct {
     uint16_t  version;                /* 0   - TKMODL_WIRE_VERSION */
     uint8_t   replay_mode;            /* 2   - TKMODL_REPLAY_MODE_* */
@@ -294,7 +295,8 @@ typedef struct {
     uint8_t   policy_version[TKMODL_POLICY_VERSION_LEN];        /* 208 */
     uint8_t   budget_id[TKMODL_BUDGET_LEN];                     /* 240 */
     _Alignas(16) uint8_t trace_id[TK_TRACE_ID_SZ]; /* 272 - request trace; stamped by tkdisp from the event */
-} ModelRequestMsg;                    /* 288 */
+    uint64_t  case_id;                /* 288 - the event's case (TkEvent.case_id); stamped by tkdisp */
+} ModelRequestMsg;                    /* 304 */
 
 /* tkmodl -> tkagnt.  136 bytes. */
 typedef struct {
@@ -318,7 +320,7 @@ typedef struct {
 
 /* tkmodl -> tkaudt.  Carries exactly one record; record_type selects the
    union member (RECORD_MODEL_CALL for allowed requests, RECORD_DENIAL for
-   denied ones).  The audit record header is built by tkaudt. */
+   denied ones).  The audit record header is built by tkaudt.  240 bytes. */
 typedef struct {
     uint16_t  version;                /* 0 */
     uint8_t   record_type;            /* 2 - RecordType */
@@ -332,7 +334,57 @@ typedef struct {
         WireModelCallPayload model_call;
         WireDenialPayload    denial;
     } payload;                        /* 80 */
-} ModelAuditMsg;                    /* 224 */
+    uint64_t  case_id;                /* 224 - the request's case; becomes header.case_id */
+} ModelAuditMsg;                    /* 240 */
+
+/* ─── tkcase wire contract (wire version 1) ───
+
+   tkcase opens one case per run on its first event and closes it on the event
+   that exhausts the run's event count (tk_case_stem.c).  Each transition is
+   one TkCaseAuditMsg to tkaudt: RECORD_CASE_CREATION, then
+   RECORD_CASE_COMPLETION.  Both carry the WireCaseCreationPayload shape, with
+   basket_id = case_id and zero counts.  The audit record header is built by
+   tkaudt from the message. */
+
+#define TK_CASE_WIRE_VERSION       1
+#define TK_LINK_SIG_CASE_AUDIT     0x4341UL   /* "CA": tkcase -> tkaudt */
+
+/* TkCaseScope.state */
+enum {
+    TK_CASE_STATE_NONE      = 0,   /* no event yet: no case */
+    TK_CASE_STATE_ACTIVE    = 1,
+    TK_CASE_STATE_COMPLETED = 2
+};
+
+/* MTU of the tkcase -> tkaudt link: one TkCaseAuditMsg per fragment. */
+enum { TK_CASE_AUDIT_LINK_MTU = 128 };
+
+/* The scope of a run's case, as tkcase holds it.  workflow, actor_id and
+   account_id come from the opening event (an agent request's model-request
+   scope, or a payment's account); they are zero where the event names none. */
+typedef struct {
+    uint64_t  case_id;                 /* 0  - random, nonzero once the case is open */
+    uint64_t  actor_id;                /* 8  */
+    uint64_t  account_id;              /* 16 */
+    uint64_t  event_count;             /* 24 - events attached to the case */
+    uint64_t  first_source_offset;     /* 32 - the opening event's */
+    uint64_t  last_source_offset;      /* 40 - the latest event's */
+    uint8_t   workflow[TKMODL_WORKFLOW_LEN]; /* 48 */
+    uint8_t   state;                   /* 64 - TK_CASE_STATE_* */
+    uint8_t   _pad[7];                 /* 65 */
+} TkCaseScope;                         /* 72 */
+
+/* tkcase -> tkaudt.  80 bytes. */
+typedef struct {
+    uint16_t  version;                 /* 0  - TK_CASE_WIRE_VERSION */
+    uint8_t   record_type;             /* 2  - RECORD_CASE_CREATION or RECORD_CASE_COMPLETION */
+    uint8_t   _pad0[5];                /* 3  */
+    uint64_t  case_id;                 /* 8  - becomes header.case_id; nonzero */
+    uint64_t  source_offset;           /* 16 - the triggering event's; becomes header.source_offset */
+    uint64_t  event_count;             /* 24 - events attached when the record was emitted */
+    _Alignas(16) uint8_t trace_id[TK_TRACE_ID_SZ]; /* 32 - the triggering event's; becomes header.trace_id */
+    WireCaseCreationPayload payload;   /* 48 */
+} TkCaseAuditMsg;                      /* 80 */
 
 /* ─── tkmodl runtime configuration (supervisor -> tkmodl child handoff) ───
 
@@ -406,20 +458,28 @@ typedef struct {
         WireModelCallPayload  model_call;
         WireProposalPayload   proposal;
         WireDenialPayload     denial;
+        WireCaseCreationPayload case_creation;   /* RECORD_CASE_CREATION and RECORD_CASE_COMPLETION */
     };
 } AuditEvent;                   /* 488 */
 
 #define AUDIT_EVENT_SIZE sizeof(AuditEvent)
 
-_Static_assert( sizeof(ModelRequestMsg)==288UL, "ModelRequestMsg wire size drift" );
+_Static_assert( sizeof(ModelRequestMsg)==304UL, "ModelRequestMsg wire size drift" );
+_Static_assert( offsetof(ModelRequestMsg, case_id)==288UL, "ModelRequestMsg.case_id ABI drift" );
 _Static_assert( offsetof(ModelRequestMsg, trace_id)==272UL, "ModelRequestMsg.trace_id ABI drift" );
 _Static_assert( offsetof(ModelRequestMsg, model_id)==80UL, "ModelRequestMsg.model_id ABI drift" );
 _Static_assert( sizeof(ModelResultMsg)==136UL, "ModelResultMsg wire size drift" );
 _Static_assert( offsetof(ModelResultMsg, model_id)==72UL, "ModelResultMsg.model_id ABI drift" );
 _Static_assert( offsetof(ModelAuditMsg, payload)==80UL, "ModelAuditMsg.payload ABI drift" );
-_Static_assert( sizeof(ModelAuditMsg)==224UL, "ModelAuditMsg wire size drift" );
+_Static_assert( sizeof(ModelAuditMsg)==240UL, "ModelAuditMsg wire size drift" );
+_Static_assert( offsetof(ModelAuditMsg, case_id)==224UL, "ModelAuditMsg.case_id ABI drift" );
 _Static_assert( offsetof(ModelAuditMsg, trace_id)==64UL, "ModelAuditMsg.trace_id ABI drift" );
 _Static_assert( offsetof(AuditHeader, trace_id)==16UL, "AuditHeader.trace_id ABI drift" );
+_Static_assert( sizeof(TkCaseScope)==72UL, "TkCaseScope wire size drift" );
+_Static_assert( sizeof(TkCaseAuditMsg)==80UL, "TkCaseAuditMsg wire size drift" );
+_Static_assert( offsetof(TkCaseAuditMsg, trace_id)==32UL, "TkCaseAuditMsg.trace_id ABI drift" );
+_Static_assert( offsetof(TkCaseAuditMsg, payload)==48UL, "TkCaseAuditMsg.payload ABI drift" );
+_Static_assert( sizeof(TkCaseAuditMsg)<=(unsigned long)TK_CASE_AUDIT_LINK_MTU, "TkCaseAuditMsg must fit its link" );
 _Static_assert( offsetof(AuditHeader, case_id)==104UL, "AuditHeader.case_id ABI drift" );
 _Static_assert( offsetof(AuditHeader, capability_envelope_id)==112UL, "AuditHeader.capability_envelope_id ABI drift" );
 

@@ -54,7 +54,7 @@ typedef struct {
     TkPromptRef      prompt_ref;       /* 8  */
     uint8_t          _pad1[8];         /* 24 - align scope (16-byte trace_id) */
     ModelRequestMsg  scope;            /* 32 */
-} TkAgentRequestMsg;                   /* 320 */
+} TkAgentRequestMsg;                   /* 336 */
 
 /* Terminal outcome of one agent run. */
 enum {
@@ -112,7 +112,8 @@ typedef struct {
         WireProposalPayload proposal;
         WireDenialPayload   denial;
     } payload;                         /* 80 */
-} TkAgentAuditMsg;                  /* 224 */
+    uint64_t  case_id;                 /* 224 - the run's case (its request's); becomes header.case_id */
+} TkAgentAuditMsg;                  /* 240 */
 
 #define TK_LINK_SIG_AGENT_AUDIT   0x4147UL   /* "AG": tkagnt -> tkaudt */
 #define TK_LINK_SIG_MODEL_RESULT  0x4d52UL   /* "MR": tkmodl -> tkagnt result fragments */
@@ -137,7 +138,7 @@ enum {
 };
 
 _Static_assert( sizeof(TkPromptRef)==16UL,         "TkPromptRef wire size drift" );
-_Static_assert( sizeof(TkAgentRequestMsg)==320UL,  "TkAgentRequestMsg wire size drift" );
+_Static_assert( sizeof(TkAgentRequestMsg)==336UL,  "TkAgentRequestMsg wire size drift" );
 _Static_assert( offsetof(TkAgentRequestMsg, prompt_ref)==8UL, "TkAgentRequestMsg.prompt_ref ABI drift" );
 _Static_assert( offsetof(TkAgentRequestMsg, scope)==32UL, "TkAgentRequestMsg.scope ABI drift" );
 _Static_assert( sizeof(TkAgentRequestMsg)<=(unsigned long)TK_AGENT_REQUEST_LINK_MTU, "TkAgentRequestMsg must fit its link" );
@@ -145,7 +146,8 @@ _Static_assert( sizeof(TkAgentResultMsg)==112UL,   "TkAgentResultMsg wire size d
 _Static_assert( offsetof(TkAgentResultMsg, run_id)==16UL, "TkAgentResultMsg.run_id ABI drift" );
 _Static_assert( offsetof(TkAgentResultMsg, trace_id)==96UL, "TkAgentResultMsg.trace_id ABI drift" );
 _Static_assert( offsetof(TkAgentAuditMsg, payload)==80UL, "TkAgentAuditMsg.payload ABI drift" );
-_Static_assert( sizeof(TkAgentAuditMsg)==224UL,    "TkAgentAuditMsg wire size drift" );
+_Static_assert( sizeof(TkAgentAuditMsg)==240UL,    "TkAgentAuditMsg wire size drift" );
+_Static_assert( offsetof(TkAgentAuditMsg, case_id)==224UL, "TkAgentAuditMsg.case_id ABI drift" );
 _Static_assert( sizeof(TkAgentAuditMsg)<=(unsigned long)TK_AGENT_AUDIT_LINK_MTU,   "TkAgentAuditMsg must fit its link" );
 _Static_assert( sizeof(TkAgentResultMsg)<=(unsigned long)TK_AGENT_RESULT_LINK_MTU, "TkAgentResultMsg must fit its link" );
 

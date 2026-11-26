@@ -287,14 +287,15 @@ tkdisp_after_frag( tkdisp_ctx_t *      ctx,
 
     if( !ctx->stage_is_result ) {
         /* before_frag guaranteed room.  The request is the event's own for an
-           agent request, else the template; tkdisp stamps only its run and
-           trace ids. */
+           agent request, else the template; tkdisp stamps only its run, trace
+           and case ids. */
         TkEvent const * ev = &ctx->stage_event;
         ulong tail = (ctx->queue_head + ctx->queue_cnt) % TKDISP_QUEUE_CAPACITY;
         TkAgentRequestMsg * req = &ctx->queue[tail];
         *req = ev->kind==TK_EVENT_KIND_AGENT_REQUEST ? ev->body.agent_request : tkdisp_template;
         req->scope.run_id   = ev->source_offset + 1UL;
         memcpy( req->scope.trace_id, ev->trace_id, sizeof(req->scope.trace_id) );
+        req->scope.case_id  = ev->case_id;
         ctx->queue_cnt  += 1UL;
         ctx->events_seen += 1UL;
         return;
