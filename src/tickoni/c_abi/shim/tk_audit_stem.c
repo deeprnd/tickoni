@@ -16,6 +16,13 @@
      last, over an unreliable link.
    - AFTER_CREDIT: not defined — tkaudt has no fragment-independent work.
    - SHOULD_SHUTDOWN: exit on the supervisor's CNC HALT signal
+
+   Case order (a tkcase input, the workflow topologies): the run's case
+   creation record is the first record of the chain, and its completion record
+   the last.  Every other input is held upstream (BEFORE_FRAG -1) until the
+   creation record is committed; the completion record is held here until the
+   policy record and, in ordered mode, the agent record of every event the case
+   holds are committed.  The event gate also waits for it.
 */
 
 #define _GNU_SOURCE
@@ -63,7 +70,7 @@ extern ulong tk_topo_audit_watermark_obj( fd_topo_t const * topo );
    workflow.  No tool or adapter audit record exists yet, so these links are bound
    (the topology declares them) and carry nothing: a fragment that arrives on one
    is not audited. */
-enum { TKAUDT_ROLE_EVENT = 0, TKAUDT_ROLE_MODEL = 1, TKAUDT_ROLE_AGENT = 2, TKAUDT_ROLE_IDLE = 3 };
+enum { TKAUDT_ROLE_EVENT = 0, TKAUDT_ROLE_MODEL = 1, TKAUDT_ROLE_AGENT = 2, TKAUDT_ROLE_IDLE = 3, TKAUDT_ROLE_CASE = 4 };
 
 typedef struct {
     /* Audit state */
@@ -131,9 +138,18 @@ typedef struct {
        NULL when the topology has no watermark. */
     ulong *  watermark;
 
+    /* Case order (a tkcase input): see the file comment.  One case per run. */
+    int      has_case_input;
+    int      case_opened;         /* the creation record is committed */
+    int      case_closed;         /* the completion record is committed */
+    uint64_t case_id;             /* the creation record's */
+    int      case_close_held;     /* a completion record waits for the case's last records */
+    uint64_t case_close_events;   /* ... the number of events it closes over */
+    AuditEvent case_close_ev;
+
     /* The record DURING_FRAG built, awaiting AFTER_FRAG. */
     uint8_t  stage_role;
-    uint64_t stage_seq;           /* model: request_id; agent: agent_seq */
+    uint64_t stage_seq;           /* model: request_id; agent: agent_seq; case: event_count */
     uint8_t  stage_has_model;     /* agent: a model record precedes it */
     AuditEvent stage;
 
@@ -316,11 +332,18 @@ tk_audit_unprivileged_init( fd_topo_t const * topo, fd_topo_tile_t const * tile 
         else if( producer && strcmp( producer, TILE_ID_TKAGNT )==0 ) ctx->in_role[i] = TKAUDT_ROLE_AGENT;
         else if( producer && ( strcmp( producer, TILE_ID_TKTOOL )==0 ||
                                strcmp( producer, TILE_ID_TKADPT )==0 ) ) ctx->in_role[i] = TKAUDT_ROLE_IDLE;
+        else if( producer && strcmp( producer, TILE_ID_TKCASE )==0 ) ctx->in_role[i] = TKAUDT_ROLE_CASE;
         else                                                         ctx->in_role[i] = TKAUDT_ROLE_EVENT;
         if( ctx->in_role[i]==TKAUDT_ROLE_AGENT ) ctx->ordered = 1;
     }
-    for( ulong i=0UL; i<tile->in_cnt; i++ )
+    for( ulong i=0UL; i<tile->in_cnt; i++ ) {
         if( ctx->in_role[i]==TKAUDT_ROLE_EVENT ) ctx->has_event_input = 1;
+        if( ctx->in_role[i]==TKAUDT_ROLE_CASE ) {
+            if( FD_UNLIKELY( ctx->has_case_input ) )
+                FD_LOG_ERR(( "tkaudt: more than one case-audit input" ));
+            ctx->has_case_input = 1;
+        }
+    }
 
     /* Publish the committed-order watermark when the topology declares one. */
     ulong wm_obj = tk_topo_audit_watermark_obj( topo );
@@ -419,6 +442,16 @@ tk_audit_compute_record_hash( AuditEvent * event ) {
         fd_siphash13_append( sip, p->classification_code,          sizeof(p->classification_code) );
         break;
     }
+    case RECORD_CASE_CREATION:
+    case RECORD_CASE_COMPLETION: {
+        /* Matches hash.zig cases 13 and 14 (wire.CaseCreationPayload field order). */
+        WireCaseCreationPayload const * p = &event->case_creation;
+        fd_siphash13_append( sip, (uchar *)&p->basket_id,             sizeof(p->basket_id) );
+        fd_siphash13_append( sip, (uchar *)&p->instrument_count,      sizeof(p->instrument_count) );
+        fd_siphash13_append( sip, (uchar *)&p->rejected_count,        sizeof(p->rejected_count) );
+        fd_siphash13_append( sip, (uchar *)&p->total_allocated_cents, sizeof(p->total_allocated_cents) );
+        break;
+    }
     default: {
         /* Payload for policy_decision (record_type == 2).
            Matches wire.PolicyDecisionPayload field order:
@@ -455,15 +488,21 @@ tk_audit_compute_record_hash( AuditEvent * event ) {
    lossless backpressure, nothing is dropped) until the agent record of event n-1
    is committed, so the chain reads policy, model, agent for one event before
    the next event's policy record.  Every other input, and every topology
-   without both a spine event chain and agent runs, is taken as it arrives. */
+   without both a spine event chain and agent runs, is taken as it arrives.
+
+   Case order comes first: with a case input, every other input is left queued
+   upstream until the case's creation record is committed. */
 static int
 tk_audit_before_frag( tk_audit_ctx_t * ctx,
                       ulong            in_idx,
                       ulong            seq,
                       ulong            sig ) {
     (void)seq; (void)sig;
+    if( FD_UNLIKELY( in_idx>=ctx->in_cnt ) ) return 0;
+    uint8_t role = ctx->in_role[in_idx];
+    if( ctx->has_case_input && role!=TKAUDT_ROLE_CASE && !ctx->case_opened ) return -1;
     if( FD_LIKELY( !ctx->ordered || !ctx->has_event_input ) ) return 0;
-    if( in_idx>=ctx->in_cnt || ctx->in_role[in_idx]!=TKAUDT_ROLE_EVENT ) return 0;
+    if( role!=TKAUDT_ROLE_EVENT ) return 0;
     return ctx->event_committed > ctx->agent_committed ? -1 : 0;
 }
 
@@ -497,7 +536,10 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
     if( FD_UNLIKELY( role==TKAUDT_ROLE_IDLE ) ) return;    /* no record type is defined for it yet */
     int is_model = ( role==TKAUDT_ROLE_MODEL );
     int is_agent = ( role==TKAUDT_ROLE_AGENT );
-    if( is_model ) {
+    int is_case  = ( role==TKAUDT_ROLE_CASE );
+    if( is_case ) {
+        if( FD_UNLIKELY( sig!=TK_LINK_SIG_CASE_AUDIT ) ) return;
+    } else if( is_model ) {
         if( FD_UNLIKELY( sig!=TK_LINK_SIG_MODEL_CALL && sig!=TK_LINK_SIG_MODEL_DENIAL ) ) return;
     } else if( is_agent ) {
         if( FD_UNLIKELY( sig!=TK_LINK_SIG_AGENT_AUDIT ) ) return;
@@ -505,7 +547,7 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
         if( FD_UNLIKELY( sig!=TK_LINK_SIG_EVENT ) ) return;
     }
 
-    ulong want = is_model ? sizeof(ModelAuditMsg) : is_agent ? sizeof(TkAgentAuditMsg) : (ulong)TK_EVENT_SIZE;
+    ulong want = is_case ? sizeof(TkCaseAuditMsg) : is_model ? sizeof(ModelAuditMsg) : is_agent ? sizeof(TkAgentAuditMsg) : (ulong)TK_EVENT_SIZE;
     if( !stk_validate_frag( sz, want, in->wksp ) )
         return;
 
@@ -525,6 +567,25 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
     ctx->stage_seq       = 0UL;
     ctx->stage_has_model = 0;
 
+    if( is_case ) {
+        TkCaseAuditMsg c;
+        memcpy( &c, stk_link_in_laddr( in, chunk ), sizeof(c) );   /* one copy: validate and build from it */
+        if( c.version!=TK_CASE_WIRE_VERSION ) return;
+        if( c.record_type!=RECORD_CASE_CREATION && c.record_type!=RECORD_CASE_COMPLETION ) return;
+        if( c.case_id==0UL || c.event_count==0UL ) return;
+
+        memcpy( event->header.trace_id, c.trace_id, sizeof(event->header.trace_id) );
+        event->header.case_id         = c.case_id;
+        event->header.source_offset   = c.source_offset;
+        memcpy( event->header.tile_id, TILE_ID_TKCASE, sizeof(event->header.tile_id) );
+        memcpy( event->header.policy_version, AUDIT_POLICY_VER, sizeof(AUDIT_POLICY_VER) );
+        event->record_type   = c.record_type;
+        event->case_creation = c.payload;
+        ctx->stage_seq   = c.event_count;
+        ctx->stage_valid = 1;
+        return;
+    }
+
     if( is_model ) {
         ModelAuditMsg const * msg = stk_link_in_laddr( in, chunk );
         ModelAuditMsg m;
@@ -535,6 +596,7 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
 
         memcpy( event->header.trace_id, m.trace_id, sizeof(event->header.trace_id) );
         event->header.run_id          = m.run_id;
+        event->header.case_id         = m.case_id;
         event->header.source_offset   = m.request_id;
         memcpy( event->header.tile_id, TILE_ID_TKMODL, sizeof(event->header.tile_id) );
         memcpy( event->header.policy_version, m.policy_version,
@@ -559,6 +621,7 @@ tk_audit_during_frag( tk_audit_ctx_t * ctx,
 
         memcpy( event->header.trace_id, a.trace_id, sizeof(event->header.trace_id) );
         event->header.run_id          = a.run_id;
+        event->header.case_id         = a.case_id;
         event->header.source_offset   = a.agent_seq;
         memcpy( event->header.tile_id, TILE_ID_TKAGNT, sizeof(event->header.tile_id) );
         memcpy( event->header.policy_version, a.policy_version,
@@ -653,6 +716,43 @@ tk_audit_drain( tk_audit_ctx_t * ctx ) {
     }
 }
 
+/* Case order: commits the held completion record once every event it closes
+   over has its records in: the policy record (when a spine event chain feeds
+   this tile) and, in ordered mode, the agent record. */
+static void
+tk_audit_case_drain( tk_audit_ctx_t * ctx ) {
+    if( !ctx->case_close_held ) return;
+    uint64_t n = ctx->case_close_events;
+    if( ctx->has_event_input && ctx->event_committed<n ) return;
+    if( ctx->ordered && ctx->agent_committed<n ) return;
+    if( tk_audit_commit( ctx, &ctx->case_close_ev ) ) ctx->case_closed = 1;
+    ctx->case_close_held = 0;
+}
+
+/* Case order: the creation record commits on arrival (BEFORE_FRAG has held
+   everything else back); the completion record is held for tk_audit_case_drain.
+   One case per run: a second creation, a completion for another case or before
+   the creation, and a second completion are refused. */
+static void
+tk_audit_case_stage( tk_audit_ctx_t * ctx ) {
+    if( ctx->stage.record_type==RECORD_CASE_CREATION ) {
+        if( ctx->case_opened ) { ctx->rejected += 1UL; return; }
+        if( tk_audit_commit( ctx, &ctx->stage ) ) {
+            ctx->case_opened = 1;
+            ctx->case_id     = ctx->stage.header.case_id;
+        }
+        return;
+    }
+    if( !ctx->case_opened || ctx->case_closed || ctx->case_close_held ||
+        ctx->stage.header.case_id!=ctx->case_id ) {
+        ctx->rejected += 1UL;
+        return;
+    }
+    ctx->case_close_held   = 1;
+    ctx->case_close_events = ctx->stage_seq;
+    ctx->case_close_ev     = ctx->stage;
+}
+
 /* AFTER_FRAG is the commit point: the first callback fd_stem reaches after
    its post-DURING_FRAG overrun re-check, so the only place the staged record
    is known to have been built from an intact fragment.  Appending and
@@ -674,7 +774,9 @@ tk_audit_after_frag( tk_audit_ctx_t *    ctx,
         return;
     ctx->stage_valid = 0;
 
-    if( ctx->stage_role==TKAUDT_ROLE_EVENT || !ctx->ordered ) {
+    if( ctx->stage_role==TKAUDT_ROLE_CASE ) {
+        tk_audit_case_stage( ctx );
+    } else if( ctx->stage_role==TKAUDT_ROLE_EVENT || !ctx->ordered ) {
         /* Arrival order is the order: a single deterministic producer chain,
            or no agent to order against.  (With both, BEFORE_FRAG has already
            held this record back until the previous event's agent record is
@@ -714,16 +816,19 @@ tk_audit_after_frag( tk_audit_ctx_t *    ctx,
         }
     }
     if( ctx->ordered ) tk_audit_drain( ctx );
+    if( ctx->has_case_input ) tk_audit_case_drain( ctx );
 
     /* Event-count gating: in ordered mode an agent run is the unit (one per
        accepted request), and when a spine event chain also feeds this tile its
-       records must all be in as well; otherwise the record count.  Checked after
+       records must all be in as well; otherwise the record count, less the case
+       records.  With a case input the case must also be closed.  Checked after
        the commit so the gate fires on the Nth unit and the tile exits promptly. */
-    uint64_t gate = ctx->audited;
+    uint64_t gate = ctx->audited - (uint64_t)ctx->case_opened - (uint64_t)ctx->case_closed;
     if( ctx->ordered ) {
         gate = ctx->agent_committed;
         if( ctx->has_event_input && ctx->event_committed<gate ) gate = ctx->event_committed;
     }
+    if( ctx->has_case_input && !ctx->case_closed ) gate = 0UL;
     STK_EVENT_EXHAUSTED(ctx, ctx->event_count, gate);
 
     /* Publish progress to CNC app[0] for supervisor snapshots. */
@@ -963,6 +1068,12 @@ tk_audit_record_denial_failed_scope_dim( void * scratch, ulong idx, uint8_t * ds
 ulong
 tk_audit_agent_committed( void * scratch ) {
     return STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN)->agent_committed;
+}
+
+/* 1 once the run's case completion record is committed (a tkcase input). */
+ulong
+tk_audit_case_closed( void * scratch ) {
+    return (ulong)STK_GET_CTX(tk_audit_ctx_t, scratch, TKAUDT_CTX_ALIGN)->case_closed;
 }
 
 ulong

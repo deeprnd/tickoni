@@ -58,6 +58,7 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
 #include "../topo_run/tk_model_stem.h"
 #include "../topo_run/tk_agent_stem.h"
 #include "../topo_run/tk_disp_stem.h"
+#include "../topo_run/tk_case_stem.h"
 #include "../topo_run/tk_pass_stem.h"
 #include "../topo_run/tk_diag_stem.h"
 #include "../topo_run/tk_ingest_stem.h"

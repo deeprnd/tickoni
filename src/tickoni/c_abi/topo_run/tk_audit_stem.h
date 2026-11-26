@@ -78,6 +78,8 @@ extern ulong tk_audit_record_model_policy_decision_id( void * scratch, ulong idx
 extern ulong tk_audit_record_model_replay_substitution_id( void * scratch, ulong idx );
 extern uint  tk_audit_record_denial_reason_code( void * scratch, ulong idx );
 extern ulong tk_audit_agent_committed( void * scratch );
+/* 1 once the run's case completion record is committed (a tkcase input). */
+extern ulong tk_audit_case_closed( void * scratch );
 extern ulong tk_audit_rejected_count( void * scratch );
 extern ulong tk_audit_held_model_count( void * scratch );
 extern ulong tk_audit_held_agent_count( void * scratch );
