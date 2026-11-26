@@ -52,19 +52,26 @@ pub fn createSupervisorExe(
         .name = "tickoni-supervisor",
         .root_module = main_mod,
     });
-    linkRuntimeExe(b, exe, target, optimize, fd_lib_dir);
+    linkRuntimeExe(b, exe, target, optimize, fd_lib_dir, .with_tile_entry);
     return exe;
 }
 
+/// Whether an executable links tile_run.c, the tile entry shim. Its static
+/// TK_TILE_RUN struct references tk_tile_privileged_init/tk_tile_run, which
+/// only runtime/tile_process.zig exports (see tile_run.zig), so only an
+/// executable that runs tiles may link it.
+const TileEntry = enum { with_tile_entry, without_tile_entry };
+
 /// Link an executable against the Tickoni runtime: the Firedancer libraries
 /// and every shim, the same way on each OS. The supervisor and the test-only
-/// probe share this one recipe.
+/// probe share this one recipe; only the supervisor runs tiles.
 fn linkRuntimeExe(
     b: *std.Build,
     exe: *std.Build.Step.Compile,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     fd_lib_dir: []const u8,
+    tile_entry: TileEntry,
 ) void {
     if (target.result.os.tag == .windows) {
         exe.root_module.linkLibrary(codec.addTickoniSupervisorShimLibrary(b, target, optimize));
@@ -75,7 +82,7 @@ fn linkRuntimeExe(
         codec.linkTickoniCodec(b, exe, fd_lib_dir);
         firedancer.linkTickoniFiredancer(b, exe, fd_lib_dir);
         topo_run.linkTickoniTopoRun(b, exe, fd_lib_dir);
-        tile_run.linkTickoniTileRun(b, exe, fd_lib_dir);
+        if (tile_entry == .with_tile_entry) tile_run.linkTickoniTileRun(b, exe, fd_lib_dir);
         codec.addTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
         exe.root_module.linkSystemLibrary("atomic", .{});
         exe.root_module.linkSystemLibrary("zstd", .{});
@@ -83,7 +90,7 @@ fn linkRuntimeExe(
         codec.linkTickoniCodec(b, exe, fd_lib_dir);
         firedancer.linkTickoniFiredancer(b, exe, fd_lib_dir);
         topo_run.linkTickoniTopoRun(b, exe, fd_lib_dir);
-        tile_run.linkTickoniTileRun(b, exe, fd_lib_dir);
+        if (tile_entry == .with_tile_entry) tile_run.linkTickoniTileRun(b, exe, fd_lib_dir);
         codec.addTickoniSystemLibraries(b, exe, fd_lib_dir, &.{ "fd_disco", "fd_waltz", "fd_tango", "fd_ballet", "fd_util" });
         exe.root_module.linkSystemLibrary("zstd", .{});
     }
@@ -118,7 +125,7 @@ pub fn createWkspProbeExe(
         .name = "tk-wksp-probe",
         .root_module = probe_mod,
     });
-    linkRuntimeExe(b, exe, target, optimize, fd_lib_dir);
+    linkRuntimeExe(b, exe, target, optimize, fd_lib_dir, .without_tile_entry);
     return exe;
 }
 
