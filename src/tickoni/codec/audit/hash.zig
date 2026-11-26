@@ -153,6 +153,13 @@ fn eqlPayload(a: schema.AuditEvent.Payload, b: schema.AuditEvent.Payload) bool {
                 av.total_allocated_cents == bv.total_allocated_cents,
             else => false,
         },
+        .case_completion => |av| switch (b) {
+            .case_completion => |bv| av.basket_id == bv.basket_id and
+                av.instrument_count == bv.instrument_count and
+                av.rejected_count == bv.rejected_count and
+                av.total_allocated_cents == bv.total_allocated_cents,
+            else => false,
+        },
     };
 }
 
@@ -273,8 +280,8 @@ pub fn computeWireRecordHash(event: wire.Event) u64 {
             c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&p.idempotency_key));
             c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&p.is_duplicate));
         },
-        13 => {
-            const p = &event.payload.case_creation;
+        13, 14 => {
+            const p = if (event.record_type == 13) &event.payload.case_creation else &event.payload.case_completion;
             c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&p.basket_id));
             c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&p.instrument_count));
             c_abi.ballet.siphashAppend(&sip, std.mem.asBytes(&p.rejected_count));

@@ -53,6 +53,7 @@ pub const Payload = union(enum) {
     replay_result: ReplayResultPayload,
     deduplication: DeduplicationPayload,
     case_creation: CaseCreationPayload,
+    case_completion: CaseCreationPayload,
 };
 
 pub const Event = struct {
@@ -176,6 +177,12 @@ fn toWirePayload(payload: audit_schema.AuditEvent.Payload) Payload {
             .rejected_count = p.rejected_count,
             .total_allocated_cents = p.total_allocated_cents,
         } },
+        .case_completion => |p| .{ .case_completion = .{
+            .basket_id = p.basket_id,
+            .instrument_count = p.instrument_count,
+            .rejected_count = p.rejected_count,
+            .total_allocated_cents = p.total_allocated_cents,
+        } },
     };
 }
 
@@ -276,6 +283,12 @@ fn fromWirePayload(
             .rejected_count = payload.case_creation.rejected_count,
             .total_allocated_cents = payload.case_creation.total_allocated_cents,
         } },
+        .case_completion => .{ .case_completion = .{
+            .basket_id = payload.case_completion.basket_id,
+            .instrument_count = payload.case_completion.instrument_count,
+            .rejected_count = payload.case_completion.rejected_count,
+            .total_allocated_cents = payload.case_completion.total_allocated_cents,
+        } },
     };
 }
 
@@ -310,6 +323,7 @@ test "wire Payload union field names match canonical schema" {
             "replay_result",
             "deduplication",
             "case_creation",
+            "case_completion",
         };
         if (wire_names.len != expected_names.len) {
             @compileError("wire Payload union has " ++ std.fmt.bufPrint(

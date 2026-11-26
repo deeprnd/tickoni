@@ -4,7 +4,7 @@ const wire = @import("wire.zig");
 
 // ---------------------------------------------------------------------------
 // Protobuf field numbers (audit header). Oneof payload field = payload_base
-// + record_type (0..13).
+// + record_type (0..14).
 // ---------------------------------------------------------------------------
 const field_schema_version: u32 = 1;
 const field_run_id: u32 = 2;
@@ -193,6 +193,13 @@ pub fn formatProtobuf(
             if (!c_abi.ballet.pbPushUint32(&enc, 3, p.rejected_count)) return wire.status_no_space;
             if (!c_abi.ballet.pbPushInt64(&enc, 4, p.total_allocated_cents)) return wire.status_no_space;
         },
+        14 => {
+            const p = &event.payload.case_completion;
+            if (!c_abi.ballet.pbPushUint64(&enc, 1, p.basket_id)) return wire.status_no_space;
+            if (!c_abi.ballet.pbPushUint32(&enc, 2, p.instrument_count)) return wire.status_no_space;
+            if (!c_abi.ballet.pbPushUint32(&enc, 3, p.rejected_count)) return wire.status_no_space;
+            if (!c_abi.ballet.pbPushInt64(&enc, 4, p.total_allocated_cents)) return wire.status_no_space;
+        },
         else => return wire.status_invalid_field,
     }
     if (!c_abi.ballet.pbSubmsgClose(&enc)) return wire.status_no_space;
@@ -280,7 +287,7 @@ pub fn parseProtobuf(
                 if (tlv.wire_type != c_abi.ballet.pb_wire_type_len) return wire.status_invalid_protobuf;
                 copyLenBytes(&event.header.manifest_id, &inbuf, tlv.len()) catch |err| return statusFromErr(err);
             },
-            12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25 => {
+            12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26 => {
                 if (tlv.wire_type != c_abi.ballet.pb_wire_type_len) return wire.status_invalid_protobuf;
                 if (c_abi.ballet.pbInbufSz(&inbuf) < tlv.len()) return wire.status_invalid_protobuf;
                 const rt = tlv.field_id - field_payload_base;
@@ -576,6 +583,25 @@ fn parsePayload(record_type: u32, inbuf: *c_abi.ballet.PbInbuf, payload: *wire.P
                 4 => {
                     if (tlv.wire_type != c_abi.ballet.pb_wire_type_varint) return wire.status_invalid_protobuf;
                     payload.case_creation.total_allocated_cents = @bitCast(tlv.varint);
+                },
+                else => if (tlv.wire_type == c_abi.ballet.pb_wire_type_len) skipBytes(inbuf, tlv.len()),
+            },
+            14 => switch (tlv.field_id) {
+                1 => {
+                    if (tlv.wire_type != c_abi.ballet.pb_wire_type_varint) return wire.status_invalid_protobuf;
+                    payload.case_completion.basket_id = tlv.varint;
+                },
+                2 => {
+                    if (tlv.wire_type != c_abi.ballet.pb_wire_type_varint) return wire.status_invalid_protobuf;
+                    payload.case_completion.instrument_count = truncateChecked(u8, tlv.varint) orelse return wire.status_invalid_protobuf;
+                },
+                3 => {
+                    if (tlv.wire_type != c_abi.ballet.pb_wire_type_varint) return wire.status_invalid_protobuf;
+                    payload.case_completion.rejected_count = truncateChecked(u8, tlv.varint) orelse return wire.status_invalid_protobuf;
+                },
+                4 => {
+                    if (tlv.wire_type != c_abi.ballet.pb_wire_type_varint) return wire.status_invalid_protobuf;
+                    payload.case_completion.total_allocated_cents = @bitCast(tlv.varint);
                 },
                 else => if (tlv.wire_type == c_abi.ballet.pb_wire_type_len) skipBytes(inbuf, tlv.len()),
             },
