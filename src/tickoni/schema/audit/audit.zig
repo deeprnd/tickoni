@@ -55,6 +55,8 @@ pub const RecordType = enum(u8) {
     replay_result = 11,
     deduplication = 12,
     case_creation = 13,
+    /// tkcase closes the run's case (same payload shape as case_creation).
+    case_completion = 14,
 };
 
 // ─── Layout assertion helper ───
@@ -212,6 +214,7 @@ pub const RECORD_TELEMETRY_CHECKPOINT: u64 = 10;
 pub const RECORD_REPLAY_RESULT: u64 = 11;
 pub const RECORD_DUPLICATION: u64 = 12;
 pub const RECORD_CASE_CREATION: u64 = 13;
+pub const RECORD_CASE_COMPLETION: u64 = 14;
 
 // ─── Zig AuditEvent (union-based, no C counterpart) ───
 
@@ -234,5 +237,6 @@ pub const AuditEvent = struct {
         replay_result: ReplayResultPayload,
         deduplication: DeduplicationPayload,
         case_creation: CaseCreationPayload,
+        case_completion: CaseCreationPayload,
     };
 };

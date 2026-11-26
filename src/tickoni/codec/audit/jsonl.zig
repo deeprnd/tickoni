@@ -50,6 +50,7 @@ pub fn formatJsonLine(event: schema.AuditEvent, writer: anytype) !void {
         .replay_result => "replay_result",
         .deduplication => "deduplication",
         .case_creation => "case_creation",
+        .case_completion => "case_completion",
     };
     try writer.print("\"record_type\":\"{s}\",", .{record_type});
     try writer.writeAll("\"payload\":");
@@ -165,7 +166,7 @@ fn writePayloadJson(payload: schema.AuditEvent.Payload, writer: anytype) !void {
             try writer.print("\"is_duplicate\":{s}", .{if (p.is_duplicate) "true" else "false"});
             try writer.writeAll("}");
         },
-        .case_creation => |p| {
+        .case_creation, .case_completion => |p| {
             try writer.writeAll("{");
             try writer.print("\"basket_id\":{d},", .{p.basket_id});
             try writer.print("\"instrument_count\":{d},", .{p.instrument_count});

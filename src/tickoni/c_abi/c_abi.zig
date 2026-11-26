@@ -17,6 +17,7 @@ pub const tkpoly = @import("tkpoly.zig");
 pub const tkmodl = @import("tkmodl.zig");
 pub const tkagnt = @import("tkagnt.zig");
 pub const tkdisp = @import("tkdisp.zig");
+pub const tkcase = @import("tkcase.zig");
 pub const tkpass = @import("tkpass.zig");
 pub const multipart = @import("multipart.zig");
 pub const tkaudit = @import("c_abi_audit");
