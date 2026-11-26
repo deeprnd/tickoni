@@ -72,6 +72,14 @@ This is the ESB's validation role: it doesn't understand content, it validates t
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  tkdisp (enterprise service bus — central routing hub) — THREE PATHS, ONE TILE ID         │
 │                                                                             │
+│  **Replay side-channel** (UC-11 only — test infrastructure, not in the      │
+│  main spine): tkrepl reads a replay capsule from tkcase + tkaudt, runs      │
+│  deterministic replay with external effects disabled, and returns a         │
+│  divergence report or decision narrative to tk_gate.                        │
+│                                                                             │
+│  tkcase.capsule + tkaudt ──> tkrepl ──> tk_gate ──> Terminal               │
+│  (UC-11 only)                                                             │
+│                                                                             │
 │  tkcase ──> tkdisp ──┐                      │                               │
 │                       │ tkdisp routing       │                               │
 │                       │ decision:            │                               │
@@ -256,3 +264,4 @@ Layer 3: tkdisp ESB routing + Result Retrieval (ALL use cases, different paths)
 8. **tk_gate handles result formatting** — it retrieves from tkdisp's result ring or the case/audit store and formats responses for the terminal, symmetric to tknorm which normalizes inbound events
 9. **The terminal only sees tk_gate** — it doesn't know or care which pipeline tiles processed its command
 10. **Request-response contract**: tkdisp enforces one-request-one-result. Results must include a request_id that tkdisp validates against its outstanding-requests table. Rogue or compromised tkagnt cannot inject arbitrary results — tkdisp rejects unknown request IDs and duplicates
+11. **Replay side-channel**: tkrepl is not in the main deterministic pipeline spine. It is a side-channel used only by UC-11 (Agent Decision Audit): tkrepl reads a capsule from tkcase + tkaudt, runs deterministic replay with external effects disabled, and returns a divergence report or decision narrative to tk_gate for the terminal
