@@ -500,7 +500,7 @@ buffer) and hosts the HTTP server state. The `metric_tile_obj_id` field in
 | Workspace creation | `fd_topo_create_workspace()` → hugetlbfs | `wkspNewNamed()` → normal pages |
 | Workspace join | `fd_topo_join_workspace()` | `topoJoinWorkspaces()` |
 | Object callbacks | `src/app/shared/fd_obj_callbacks.c` | `shim/topob.c` (6-entry array, no fdctl coupling) |
-| Tile launch | `fd_topo_run_tile()` | Supervisor spawns one child process per tile; `tile_process.zig` invokes `fd_topo_run_tile()` inside that child |
+| Tile launch | `fd_topo_run_tile()` | Supervisor spawns one child process per tile; `tile_main.zig` dispatches the stem descriptor through `c_abi.topo_run.runTileSimple()` inside that child |
 | Workspace backing | hugetlbfs (root, Linux-only) | normal pages (4 KiB, cross-platform) |
 | Workspace count | ~35+ (validator-dependent) | 3 (Phase 0) |
 
