@@ -395,10 +395,24 @@ fd_shmem_create_multi_flags( char const *  name,
     fd_memset( nodemask, 0, 8UL*((FD_SHMEM_NUMA_MAX+63UL)/64UL) );
     nodemask[ sub_numa_idx >> 6 ] = 1UL << (sub_numa_idx & 63UL);
 
-    if( FD_UNLIKELY( fd_numa_mbind( sub_shmem, sub_sz, MPOL_BIND, nodemask, FD_SHMEM_NUMA_MAX, MPOL_MF_MOVE|MPOL_MF_STRICT ) ) ) {
-      FD_LOG_WARNING(( "sub[%lu]: fd_numa_mbind(\"%s\",%lu KiB,MPOL_BIND,1UL<<%lu,MPOL_MF_MOVE|MPOL_MF_STRICT) failed (%i-%s)",
-                       sub_idx, path, sub_sz>>10, sub_numa_idx, errno, fd_io_strerror( errno ) ));
-      ERROR( unmap );
+    /* For normal (4 KiB) pages, mbind is best-effort and not strict, as
+       mlock is above and as in fd_shmem_acquire_multi.  A normal-page
+       workspace is backed by an ordinary file (FD_SHMEM_PATH/.normal), and
+       MPOL_MF_STRICT|MPOL_MF_MOVE fails with EIO whenever one of its page
+       cache pages cannot be migrated at that moment (seen transiently on
+       Linux x86_64 in the integration lane).  The pages are already mapped;
+       a cross-NUMA page is acceptable for them.  Huge/gigantic pages keep
+       the strict binding. */
+    int mbind_strict = page_sz != FD_SHMEM_NORMAL_PAGE_SZ;
+    if( FD_UNLIKELY( fd_numa_mbind( sub_shmem, sub_sz, MPOL_BIND, nodemask, FD_SHMEM_NUMA_MAX,
+                                    mbind_strict ? MPOL_MF_MOVE|MPOL_MF_STRICT : MPOL_MF_MOVE ) ) ) {
+      if( FD_UNLIKELY( mbind_strict ) ) {
+        FD_LOG_WARNING(( "sub[%lu]: fd_numa_mbind(\"%s\",%lu KiB,MPOL_BIND,1UL<<%lu,MPOL_MF_MOVE|MPOL_MF_STRICT) failed (%i-%s)",
+                         sub_idx, path, sub_sz>>10, sub_numa_idx, errno, fd_io_strerror( errno ) ));
+        ERROR( unmap );
+      }
+      FD_LOG_DEBUG(( "sub[%lu]: fd_numa_mbind(\"%s\",%lu KiB) best-effort skipped (%i-%s)",
+                     sub_idx, path, sub_sz>>10, errno, fd_io_strerror( errno ) ));
     }
 
     /* And since the fd_numa_mbind still often will ignore requests, we
