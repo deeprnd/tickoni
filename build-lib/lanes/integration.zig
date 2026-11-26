@@ -46,9 +46,9 @@ pub const LaneKind = enum {
     domain,
 };
 
-/// Max possible run count across all lane kinds (all=26: 10 tile files,
-/// 8 process files, 1 mock-server/model-HTTP series and 7 domain files).
-const max_run_count: usize = 26;
+/// Max possible run count across all lane kinds (all=27: 10 tile files,
+/// 9 process files, 1 mock-server/model-HTTP series and 7 domain files).
+const max_run_count: usize = 27;
 
 /// Register integration tests for the requested lane kind.
 pub fn strategy(
@@ -143,6 +143,7 @@ pub fn strategy(
         "src/tickoni/test/integration/test_process_shutdown_reap.zig",
         "src/tickoni/test/integration/test_process_cpu_placement.zig",
         "src/tickoni/test/integration/test_process_fixture_parity.zig",
+        "src/tickoni/test/integration/test_process_wksp_exclusive_create.zig",
         "src/tickoni/test/integration/test_link_bounds.zig",
         "src/tickoni/test/integration/test_minimal_setup.zig",
         "src/tickoni/test/integration/test_stem_heartbeat.zig",

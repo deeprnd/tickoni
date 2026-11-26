@@ -1228,13 +1228,18 @@ test "metric_tile_integration: a metric_in workspace that cannot be created fail
     const len = try tmp.dir.realPath(std.testing.io, &path_buf);
     const run_dir = path_buf[0..len];
 
-    // A directory where metric_in's backing file goes: the stale-file cleanup
-    // cannot remove it and the exclusive create fails, as any create failure
-    // (EEXIST, EIO, ENOSPC) would.
-    var blocker_buf: [std.fs.max_path_bytes]u8 = undefined;
-    const blocker = try std.fmt.bufPrint(&blocker_buf, "{s}/.normal/tickoni_metric_in.wksp", .{run_dir});
-    var blocker_dir = try std.Io.Dir.cwd().createDirPathOpen(std.testing.io, blocker, .{});
-    blocker_dir.close(std.testing.io);
+    // Make the stale-workspace cleanup unable to remove metric_in and the
+    // exclusive create fail, as any create failure (EEXIST, EIO, ENOSPC) would.
+    var held_name_buf: [runtime.topo_build.concrete_workspace_name_cap]u8 = undefined;
+    const held_name = try runtime.topo_build.concreteWorkspaceName(&held_name_buf, std.mem.span(c_abi.wksp.wksp_name_metric_in));
+    const run_dir_z = try std.testing.allocator.dupeSentinel(u8, run_dir, 0);
+    defer std.testing.allocator.free(run_dir_z);
+    var normal_dir_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const normal_dir = try std.fmt.bufPrint(&normal_dir_buf, "{s}/.normal", .{run_dir});
+    var normal_dir_handle = try std.Io.Dir.cwd().createDirPathOpen(std.testing.io, normal_dir, .{});
+    normal_dir_handle.close(std.testing.io);
+    try c_abi.wksp.faultBlockName(run_dir_z, held_name);
+    defer c_abi.wksp.faultUnblockName(run_dir_z, held_name);
 
     var sup = try Supervisor.init(std.testing.allocator, topologies.paymentPipelineProcess());
     defer sup.deinit();

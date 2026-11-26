@@ -52,6 +52,20 @@ pub fn createSupervisorExe(
         .name = "tickoni-supervisor",
         .root_module = main_mod,
     });
+    linkRuntimeExe(b, exe, target, optimize, fd_lib_dir);
+    return exe;
+}
+
+/// Link an executable against the Tickoni runtime: the Firedancer libraries
+/// and every shim, the same way on each OS. The supervisor and the test-only
+/// probe share this one recipe.
+fn linkRuntimeExe(
+    b: *std.Build,
+    exe: *std.Build.Step.Compile,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    fd_lib_dir: []const u8,
+) void {
     if (target.result.os.tag == .windows) {
         exe.root_module.linkLibrary(codec.addTickoniSupervisorShimLibrary(b, target, optimize));
         codec.addWindowsFdManifestFixups(b, exe, b.fmt("{s}/fd_windows_zig_supervisor_link.txt", .{fd_lib_dir}));
@@ -79,6 +93,32 @@ pub fn createSupervisorExe(
         exe.root_module.link_libc = true;
         exe.root_module.addIncludePath(b.path("src/tickoni/c_abi/include"));
     }
+}
+
+/// Create the test-only workspace probe executable (tk-wksp-probe): a second
+/// OS process that tries to create a named workspace. See wksp_probe_main.zig.
+pub fn createWkspProbeExe(
+    b: *std.Build,
+    shared: Shared,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    fd_lib_dir: []const u8,
+) *std.Build.Step.Compile {
+    const probe_mod = b.createModule(.{
+        .root_source_file = b.path("src/tickoni/test/integration/wksp_probe_main.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "runtime", .module = shared.runtime },
+            .{ .name = "c_abi", .module = shared.c_abi },
+            .{ .name = "logger", .module = shared.logger },
+        },
+    });
+    const exe = b.addExecutable(.{
+        .name = "tk-wksp-probe",
+        .root_module = probe_mod,
+    });
+    linkRuntimeExe(b, exe, target, optimize, fd_lib_dir);
     return exe;
 }
 

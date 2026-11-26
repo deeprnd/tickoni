@@ -86,6 +86,12 @@ pub fn build(b: *std.Build) void {
 
     // Unit + integration + system lanes
     if (build_tests) {
+        // Test-only second process for the workspace exclusive-create test.
+        // Installed with the supervisor: every test that spawns the
+        // supervisor binary already waits on exe_install, so the probe is in
+        // the prefix before any test runs.
+        const probe_exe = helpers.createWkspProbeExe(b, shared, target, optimize, fd_lib_dir);
+        exe_install.step.dependOn(&b.addInstallArtifact(probe_exe, .{}).step);
         test_lanes.registerTestLanes(b, shared, tm, target, optimize, fd_lib_dir, exe, exe_install, cli_exe_install);
     }
 
