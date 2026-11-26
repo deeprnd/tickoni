@@ -23,6 +23,7 @@ pub const shim_c_files = &.{
     "tk_agent_stem.c",
     "tk_disp_stem.c",
     "tk_case_stem.c",
+    "tk_repl_stem.c",
     "tk_pass_stem.c",
     "tk_diag_stem.c",
     "ballet.c",

@@ -291,6 +291,7 @@ pub fn strategy(
             .{ .name = "audit_consts", .module = shared.audit_consts },
             .{ .name = "audit_mod", .module = shared.audit_mod },
             .{ .name = "agent_decision", .module = shared.agent_decision },
+            .{ .name = "replay_decision", .module = shared.replay_decision },
             .{ .name = "c_abi", .module = shared.c_abi },
             .{ .name = "logger", .module = shared.logger },
             .{ .name = "util", .module = shared.util },
@@ -356,6 +357,19 @@ pub fn strategy(
     });
     run_count += 1;
 
+    // tiles/replay/decision.zig — Zig-owned replay verdict over a case capsule
+    // (pure, plain-data in/out) and the C hook table tkrepl applies it through.
+    // audit_mod carries the shared hook types (tkrepl_frag.h).
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-replay-decision",
+        .source_file = "src/tickoni/tiles/replay/decision.zig",
+        .imports = &.{
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+        },
+        .linkage = .{},
+    });
+    run_count += 1;
+
     // c_abi/tkagnt.zig — identity, scratch contract and configuration
     // validation for the agent-worker stem shim registered as tkagnt.
     run_sequence[run_count] = tb.registerRunTest(.{
@@ -385,6 +399,18 @@ pub fn strategy(
     run_sequence[run_count] = tb.registerRunTest(.{
         .name = "test-tkcase-identity",
         .source_file = "src/tickoni/c_abi/tkcase.zig",
+        .imports = &.{
+            .{ .name = "audit_mod", .module = shared.audit_mod },
+        },
+        .linkage = .{ .needs_firedancer = true, .needs_topo_run = true },
+    });
+    run_count += 1;
+
+    // c_abi/tkrepl.zig — identity, scratch contract, hook refusal and wire sizes
+    // of the replay stem shim.
+    run_sequence[run_count] = tb.registerRunTest(.{
+        .name = "test-tkrepl-identity",
+        .source_file = "src/tickoni/c_abi/tkrepl.zig",
         .imports = &.{
             .{ .name = "audit_mod", .module = shared.audit_mod },
         },
@@ -849,6 +875,36 @@ pub fn strategy(
 
         const test_exe = b.addExecutable(.{
             .name = "test-tkcase-after-frag",
+            .root_module = test_lib.root_module,
+        });
+
+        run_sequence[run_count] = test_exe;
+        run_count += 1;
+    }
+
+    // === tkrepl AFTER_FRAG unit test ===
+    // Compiles the real tile source into the test and drives the real
+    // tkrepl_during_frag / tkrepl_after_frag over a real mcache and CNC: the
+    // capsule fold, the one verdict request, the RECORD_REPLAY_RESULT record to
+    // tkaudt and the CNC result slots. A recording stub stands in for the Zig
+    // verdict (tested in test-replay-decision). Reuses the tkmodl stub for the
+    // topology and liveness symbols the tile references but the test never runs.
+    {
+        const test_lib = codec.addTickoniShimLibrary(b, target, optimize, "test-tkrepl-after-frag-lib", &.{
+            "src/tickoni/test/unit/test_tkrepl_after_frag.c",
+            "src/tickoni/test/unit/test_tkmodl_during_frag_stub.c",
+        });
+        test_lib.root_module.addIncludePath(b.path("src/tickoni/c_abi/shim"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/src"));
+        test_lib.root_module.addIncludePath(b.path("build/fd-tickoni-fd/firedancer"));
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_tango.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_util.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_disco.a", .{fd_lib_dir}) });
+        test_lib.root_module.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libfd_ballet.a", .{fd_lib_dir}) });
+        codec.linkTickoniWindowsUuid(b, test_lib, fd_lib_dir);
+
+        const test_exe = b.addExecutable(.{
+            .name = "test-tkrepl-after-frag",
             .root_module = test_lib.root_module,
         });
 

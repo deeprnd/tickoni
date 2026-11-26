@@ -182,6 +182,7 @@ pub const ModuleFactory = struct {
                 .{ .name = "tkpoly", .module = tkpoly_int_mod },
                 .{ .name = "trade_ticket", .module = self.tm.trade_ticket },
                 .{ .name = "fixture_paths", .module = self.shared.fixture_paths },
+                .{ .name = "replay_decision", .module = self.shared.replay_decision },
             },
         });
 

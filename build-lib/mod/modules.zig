@@ -9,6 +9,7 @@ pub const Shared = struct {
     runtime: *std.Build.Module,
     topologies: *std.Build.Module,
     agent_decision: *std.Build.Module,
+    replay_decision: *std.Build.Module,
     audit_schema: *std.Build.Module,
     audit_consts: *std.Build.Module,
     audit_mod: *std.Build.Module,
@@ -324,6 +325,17 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
             .{ .name = "audit_mod", .module = audit_mod },
         },
     });
+    // Zig-owned replay verdict (and the C hook table tkrepl applies it
+    // through); the app reaches it through the tiles module, and the capsule
+    // verifiers share its DivergenceTracker.
+    const replay_decision_mod = b.addModule("replay_decision", .{
+        .root_source_file = b.path("src/tickoni/tiles/replay/decision.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "audit_mod", .module = audit_mod },
+        },
+    });
     const tiles_mod = b.addModule("tiles", .{
         .root_source_file = b.path("src/tickoni/tiles/payment_pipeline/mod.zig"),
         .target = target,
@@ -339,6 +351,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
             .{ .name = "util", .module = util_mod },
             .{ .name = "logger", .module = logger_mod },
             .{ .name = "agent_decision", .module = agent_decision_mod },
+            .{ .name = "replay_decision", .module = replay_decision_mod },
         },
     });
     const tile_registry_mod = b.addModule("tile_registry", .{
@@ -368,6 +381,7 @@ pub fn modules(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         .runtime = runtime_mod,
         .topologies = topologies_named_mod,
         .agent_decision = agent_decision_mod,
+        .replay_decision = replay_decision_mod,
         .tile_registry = tile_registry_mod,
         .tkpoly_bounded = tkpoly_bounded_mod,
         .audit_schema = audit_schema_mod,
