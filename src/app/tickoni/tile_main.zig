@@ -145,6 +145,18 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
         };
     }
 
+    // tkrepl: Zig owns the replay verdict. Register it before the C harness
+    // runs; a tile with a capsule to replay refuses to start without it.
+    if (rt.tile_ids.tkrepl.eql(spec.tile_id)) {
+        config.loadReplaySetup() catch |err| {
+            std.debug.print(
+                "tile_main: tkrepl verdict hook setup failed for tile {d}: {t}\n",
+                .{ spec.tile_idx, err },
+            );
+            return 1;
+        };
+    }
+
     // tkagnt: Zig owns its decisions. Register them and the tier-to-instance
     // routes before the C harness runs; the tile refuses to start without them.
     if (rt.tile_ids.tkagnt.eql(spec.tile_id)) {
@@ -188,10 +200,10 @@ pub fn stemRun(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8) 
 /// sequence (signal every cnc to halt, wait for exit) stays uniform
 /// whether or not a tile has pipeline work.
 ///
-/// tkrepl/metric/tkdiag have no process-mode pipeline role yet — see the
-/// module doc comment in tiles/payment_pipeline/process.zig for the scope
-/// boundary; their tile_registry entry has process_fn == null and is a
-/// no-op here.
+/// metric/tkdiag have no process-mode pipeline role, and every stem tile runs
+/// through stemRun — see the module doc comment in
+/// tiles/payment_pipeline/process.zig for the scope boundary; their
+/// tile_registry entry has process_fn == null and is a no-op here.
 fn runPipelineStage(io: std.Io, wksp: *c_abi.wksp.Wksp, spec: *const rt.launch_spec.LaunchSpec, cnc: *c_abi.cnc.Cnc, allocator: std.mem.Allocator) !void {
     const log = logger.get();
     log.enter("tile_main", "runPipelineStage");

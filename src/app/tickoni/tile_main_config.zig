@@ -81,6 +81,13 @@ pub fn loadModelConfig(
     return inst.tier;
 }
 
+/// Prepares this tkrepl child before the C harness runs: registers the
+/// Zig-owned replay verdict (tiles/replay/decision.zig). The tile never decides
+/// a divergence itself and refuses to replay a capsule without it.
+pub fn loadReplaySetup() !void {
+    try c_abi.tkrepl.setHooks(&tiles.replay_decision.hooks);
+}
+
 /// Prepares this tkagnt child before the C harness runs: registers the Zig-owned
 /// decision hooks, installs the run's prompt table from `tkagnt.prompts`, and
 /// declares which tkmodl instance serves which tier by reading each instance's
