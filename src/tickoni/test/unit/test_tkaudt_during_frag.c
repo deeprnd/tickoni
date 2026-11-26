@@ -41,6 +41,12 @@
       event it closes over has its policy and agent records in.  The event gate
       waits for the completion.  A second creation, a completion for another
       case or before the creation, and a malformed case record are refused.
+  10. Replay result (a tkrepl input as well): its input is held upstream until
+      the case's completion record is committed, so the RECORD_REPLAY_RESULT
+      record is the chain's last; it carries the case, the capsule's last
+      offset and trace, and the verdict payload, which is hashed.  The event
+      gate waits for it.  A result for another case, a second result and a
+      malformed result are refused.
 */
 
 #define _GNU_SOURCE
@@ -761,6 +767,119 @@ test_event_count_gate_waits_for_the_case_to_close( void ) {
     CHECK( u.case_closed && u.input_exhausted==1 && u.audit_count==4UL, "the second event releases the completion and ends the run" );
 }
 
+/* ─── Replay result ─── */
+
+#define ROLE_REPL_IN  4UL
+
+static void
+replay_ctx_init( tk_audit_ctx_t * ctx ) {
+    case_ctx_init( ctx );
+    ctx->in_cnt           = 5UL;
+    ctx->in[4].chunk0     = IN0_CHUNK0;
+    ctx->in[4].wmark      = IN0_WMARK;
+    ctx->in_role[4]       = TKAUDT_ROLE_REPLAY;
+    ctx->has_replay_input = 1;
+}
+
+static TkReplAuditMsg
+replay_msg( uint64_t case_id, uint64_t offset, uint64_t capsule_id, uint64_t divergences, uint64_t first_seq ) {
+    TkReplAuditMsg r;
+    memset( &r, 0, sizeof(r) );
+    r.version                     = TK_REPL_WIRE_VERSION;
+    r.record_type                 = RECORD_REPLAY_RESULT;
+    r.case_id                     = case_id;
+    r.source_offset               = offset;
+    trace_set( r.trace_id, 0x7ca5eUL + offset );
+    r.payload.capsule_id          = capsule_id;
+    r.payload.divergences         = divergences;
+    r.payload.first_divergent_seq = first_seq;
+    return r;
+}
+
+/* Delivered the way fd_stem would: only if BEFORE_FRAG lets it through. */
+static int
+feed_replay_msg( tk_audit_ctx_t * ctx, TkReplAuditMsg const * r ) {
+    if( tk_audit_before_frag( ctx, ROLE_REPL_IN, 0UL, TK_LINK_SIG_REPLAY_AUDIT )!=0 ) return 0;
+    memcpy( g_buf + ORD_CHUNK_M*CHUNK_BYTES, r, sizeof(*r) );
+    commit_frag( ctx, ROLE_REPL_IN, TK_LINK_SIG_REPLAY_AUDIT, sizeof(*r) );
+    return 1;
+}
+
+/* One event through the whole case, without the replay result. */
+static void
+replay_case_closed( tk_audit_ctx_t * ctx ) {
+    feed_case( ctx, RECORD_CASE_CREATION, 1UL, 0UL );
+    feed_payment( ctx, 1 ); feed_model( ctx, 1 ); feed_agent( ctx, 1, 1 );
+    feed_case( ctx, RECORD_CASE_COMPLETION, 1UL, 0UL );
+}
+
+static void
+test_the_replay_result_is_the_chains_last_record( void ) {
+    tk_audit_ctx_t ctx; replay_ctx_init( &ctx );
+    ctx.event_count = 1UL;
+    TkReplAuditMsg r = replay_msg( CASE_ID, 0UL, 0xca95UL, 0UL, 0UL );
+    CHECK( !feed_replay_msg( &ctx, &r ), "the replay result waits for the case creation record" );
+    feed_case( &ctx, RECORD_CASE_CREATION, 1UL, 0UL );
+    CHECK( !feed_replay_msg( &ctx, &r ), "and for the completion record" );
+    feed_payment( &ctx, 1 ); feed_model( &ctx, 1 ); feed_agent( &ctx, 1, 1 );
+    feed_case( &ctx, RECORD_CASE_COMPLETION, 1UL, 0UL );
+    CHECK( ctx.case_closed && ctx.input_exhausted==0, "the case is closed, the run waits for its replay result" );
+    CHECK( feed_replay_msg( &ctx, &r ), "the replay result is taken once the case is closed" );
+    CHECK( ctx.replay_committed && ctx.input_exhausted==1, "the replay result ends the run" );
+    CHECK( ctx.audit_count==6UL, "creation, three event records, completion, replay result" );
+    AuditEvent const * x = &ctx.audit_records[5];
+    CHECK( x->record_type==RECORD_REPLAY_RESULT, "the last record is the replay result" );
+    CHECK( x->header.case_id==CASE_ID && x->header.source_offset==0UL && trace_is( x->header.trace_id, 0x7ca5eUL ),
+           "for the case, at the capsule's last offset and trace" );
+    CHECK( !memcmp( x->header.tile_id, TILE_ID_TKREPL, sizeof(x->header.tile_id) ), "tkrepl produced it" );
+    CHECK( x->replay_result.capsule_id==0xca95UL && x->replay_result.divergences==0UL &&
+           x->replay_result.first_divergent_seq==0UL, "the verdict payload" );
+    CHECK( x->header.prev_hash==ctx.audit_records[4].header.record_hash, "chained after the completion record" );
+    CHECK( tk_audit_replay_committed( &ctx )==1UL, "the accessor reports it" );
+
+    /* The payload is hashed: a divergent verdict chains differently.  (Contexts
+       share the record buffer: keep the hash first.) */
+    uint64_t match_hash = x->header.record_hash;
+    tk_audit_ctx_t d; replay_ctx_init( &d );
+    replay_case_closed( &d );
+    TkReplAuditMsg rd = replay_msg( CASE_ID, 0UL, 0xca95UL, 1UL, 2UL );
+    feed_replay_msg( &d, &rd );
+    CHECK( d.audit_count==6UL && d.audit_records[5].header.record_hash!=match_hash, "the verdict is part of the record hash" );
+}
+
+static void
+test_replay_protocol_violations_are_refused( void ) {
+    tk_audit_ctx_t ctx; replay_ctx_init( &ctx );
+    replay_case_closed( &ctx );
+    TkReplAuditMsg other = replay_msg( CASE_ID+1UL, 0UL, 1UL, 0UL, 0UL );
+    feed_replay_msg( &ctx, &other );
+    CHECK( ctx.rejected==1UL && !ctx.replay_committed, "a result for another case is refused" );
+    TkReplAuditMsg r = replay_msg( CASE_ID, 0UL, 1UL, 0UL, 0UL );
+    feed_replay_msg( &ctx, &r );
+    feed_replay_msg( &ctx, &r );
+    CHECK( ctx.replay_committed && ctx.rejected==2UL && ctx.audit_count==6UL, "a second result is refused: one case per run" );
+
+    tk_audit_ctx_t bad; replay_ctx_init( &bad );
+    replay_case_closed( &bad );
+    TkReplAuditMsg m;
+    m = replay_msg( CASE_ID, 0UL, 1UL, 0UL, 0UL ); m.version = 0;
+    feed_replay_msg( &bad, &m );
+    CHECK( !bad.replay_committed && bad.stage_valid==0, "a wrong wire version is not staged" );
+    m = replay_msg( CASE_ID, 0UL, 1UL, 0UL, 0UL ); m.record_type = RECORD_CASE_COMPLETION;
+    feed_replay_msg( &bad, &m );
+    CHECK( !bad.replay_committed, "a record type other than the replay result is not staged" );
+    m = replay_msg( 0UL, 0UL, 1UL, 0UL, 0UL );
+    feed_replay_msg( &bad, &m );
+    CHECK( !bad.replay_committed, "a zero case id is not staged" );
+    m = replay_msg( CASE_ID, 0UL, 1UL, 0UL, 0UL );
+    memcpy( g_buf + ORD_CHUNK_M*CHUNK_BYTES, &m, sizeof(m) );
+    tk_audit_during_frag( &bad, ROLE_REPL_IN, 0UL, TK_LINK_SIG_CASE_AUDIT, ORD_CHUNK_M, sizeof(m), 0UL );
+    CHECK( bad.stage_valid==0, "a case sig on the replay input is rejected" );
+    tk_audit_during_frag( &bad, ROLE_REPL_IN, 0UL, TK_LINK_SIG_REPLAY_AUDIT, ORD_CHUNK_M, sizeof(m)-1UL, 0UL );
+    CHECK( bad.stage_valid==0, "a short replay result is rejected" );
+    CHECK( bad.audit_count==5UL, "nothing malformed reaches the chain" );
+}
+
 int
 main( void ) {
     test_each_input_stages_its_own_record();
@@ -786,6 +905,8 @@ main( void ) {
     test_case_records_carry_their_case();
     test_case_protocol_violations_are_refused();
     test_event_count_gate_waits_for_the_case_to_close();
+    test_the_replay_result_is_the_chains_last_record();
+    test_replay_protocol_violations_are_refused();
     if( g_failed ) { fprintf( stderr, "tkaudt DURING_FRAG tests FAILED\n" ); return 1; }
     printf( "all tkaudt DURING_FRAG tests passed\n" );
     return 0;
