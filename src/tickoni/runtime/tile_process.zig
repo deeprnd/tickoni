@@ -186,6 +186,8 @@ pub fn run(io: std.Io, allocator: std.mem.Allocator, spec_path: []const u8, work
     std.debug.print("[tile-process] topo_desc: tile_cnt={d} chan_cnt={d} ws={s}\\n", .{ topo_desc.tiles.len, topo_desc.channels.len, spec.workspace_name.slice() });
     std.debug.print("[tile-process] topo_spec: magic={x} version={d} tile_cnt={d} chan_cnt={d} ws={s}\n", .{ topo_spec.magic_field, topo_spec.version_field, topo_spec.tile_cnt, topo_spec.channel_cnt, topo_spec.workspace_name.slice() });
 
+    // tkcase's case-id seed (0: from the tick counter). Read in its privileged_init.
+    c_abi.tkcase.setRngSeed(topo_spec.case_rng_seed);
     const built = topo_build.build(allocator, topo_desc, spec.workspace_name.slice(), topo_spec.metric_port, topo_spec.event_count) catch |err| {
         std.debug.print("tile_process: failed to rebuild topology for tile {d}: {t}\n", .{ spec.tile_idx, err });
         return 1;
