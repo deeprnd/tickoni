@@ -201,8 +201,12 @@ pub const entries = [_]TileEntry{
         .id = tile_ids.tkrepl,
         .counters = &.{ .{ .idx = 0, .field = .replay_checked }, .{ .idx = 1, .field = .replay_match } },
     },
+    // metric: fd_stem tile — delegates to fd_metric_tile.c's stem loop via
+    // tk_metric_run → fd_tile_metric.run. No pipeline links (observer only).
     .{
         .id = tile_ids.metric,
+        .launch_mode = .stem,
+        .process_fn = null,
         .counters = &.{
             .{ .idx = 0, .field = .metric_snapshots },
             .{ .idx = 1, .field = .metric_backpressure_waits },
