@@ -41,7 +41,7 @@ const event_wire_version: u16 = 1; // TK_EVENT_WIRE_VERSION
 
 comptime {
     // The local names above are the C header's (shim/tk_event_wire.h).
-    std.debug.assert(@sizeOf(TkEvent) == 400);
+    std.debug.assert(@sizeOf(TkEvent) == 416);
 }
 
 /// Trace id of the event at stream `offset`: nonzero, one per request.

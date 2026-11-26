@@ -34,6 +34,13 @@
       agent record is committed, and an agent record waits for its own event's
       payment record.  Without both a payment chain and agent runs, nothing is
       held back.
+   9. Case order (a tkcase input as well): the case creation record is the
+      chain's first record and the completion record its last, whatever order
+      they reach tkaudt in: every other input is held upstream until the
+      creation record commits, and the completion record is held until every
+      event it closes over has its policy and agent records in.  The event gate
+      waits for the completion.  A second creation, a completion for another
+      case or before the creation, and a malformed case record are refused.
 */
 
 #define _GNU_SOURCE
@@ -273,6 +280,7 @@ feed_agent( tk_audit_ctx_t * ctx, uint64_t seq, int has_model ) {
     a.run_id           = 100UL+seq;
     a.agent_seq        = seq;
     a.payload.proposal.proposal_hash = 1000UL+seq;
+    a.case_id          = 0xca5eUL;
     memcpy( g_buf + ORD_CHUNK_M*CHUNK_BYTES, &a, sizeof(a) );
     commit_frag( ctx, ROLE_AGENT_IN, TK_LINK_SIG_AGENT_AUDIT, sizeof(a) );
 }
@@ -353,6 +361,7 @@ test_agent_record_without_model_does_not_wait( void ) {
     tk_audit_ctx_t ctx; ordered_ctx_init( &ctx );
     feed_agent( &ctx, 1, 0 );
     CHECK( ctx.audit_count==1UL && ctx.agent_committed==1UL, "a record with no model record commits alone" );
+    CHECK( ctx.audit_records[0].header.case_id==0xca5eUL, "the agent record carries its run's case id" );
     CHECK( fd_fseq_query( ctx.watermark )==1UL, "watermark advanced" );
     feed_model( &ctx, 2 ); feed_agent( &ctx, 2, 1 );
     CHECK( ctx.audit_count==3UL, "the next ordinal commits normally" );
@@ -423,10 +432,12 @@ test_event_record_carries_the_trace_and_case( void ) {
     m.version     = TKMODL_WIRE_VERSION;
     m.record_type = RECORD_MODEL_CALL;
     trace_set( m.trace_id, 0x7a12UL );
+    m.case_id     = 0xca5eUL;
     memcpy( g_buf + IN1_CHUNK0*CHUNK_BYTES, &m, sizeof(m) );
     frag_model( &ctx, 1UL, IN1_CHUNK0 );
     tk_audit_after_frag( &ctx, 1UL, 0UL, 0UL, 0UL, 0UL, 0UL, NULL );
     CHECK( ctx.audit_count==2UL && trace_is( ctx.audit_records[1].header.trace_id, 0x7a12UL ), "the model record carries its trace id" );
+    CHECK( ctx.audit_records[1].header.case_id==0xca5eUL, "the model record carries its request's case id" );
 
     /* The trace id is hashed: the same record with another trace chains
        differently.  (Contexts share the record buffer: keep the hash first.) */
@@ -563,6 +574,193 @@ test_wrong_sig_for_role_is_rejected( void ) {
     CHECK( ctx.stage_valid==0, "an agent sig on the model input is rejected" );
 }
 
+/* ─── Case order ─── */
+
+#define ROLE_CASE_IN  3UL
+#define CASE_ID       ((uint64_t)0xc0ffee5eedUL)
+
+static void
+case_ctx_init( tk_audit_ctx_t * ctx ) {
+    event_ordered_ctx_init( ctx );
+    ctx->in_cnt          = 4UL;
+    ctx->in[3].chunk0    = IN0_CHUNK0;
+    ctx->in[3].wmark     = IN0_WMARK;
+    ctx->in_role[3]      = TKAUDT_ROLE_CASE;
+    ctx->has_case_input  = 1;
+}
+
+static TkCaseAuditMsg
+case_msg( uint8_t record_type, uint64_t case_id, uint64_t event_count, uint64_t offset ) {
+    TkCaseAuditMsg c;
+    memset( &c, 0, sizeof(c) );
+    c.version       = TK_CASE_WIRE_VERSION;
+    c.record_type   = record_type;
+    c.case_id       = case_id;
+    c.source_offset = offset;
+    c.event_count   = event_count;
+    trace_set( c.trace_id, 0x7ca5eUL + offset );
+    c.payload.basket_id = case_id;
+    return c;
+}
+
+/* Delivered the way fd_stem would: only if BEFORE_FRAG lets it through. */
+static int
+feed_case_msg( tk_audit_ctx_t * ctx, TkCaseAuditMsg const * c ) {
+    if( tk_audit_before_frag( ctx, ROLE_CASE_IN, 0UL, TK_LINK_SIG_CASE_AUDIT )!=0 ) return 0;
+    memcpy( g_buf + ORD_CHUNK_M*CHUNK_BYTES, c, sizeof(*c) );
+    commit_frag( ctx, ROLE_CASE_IN, TK_LINK_SIG_CASE_AUDIT, sizeof(*c) );
+    return 1;
+}
+
+static int
+feed_case( tk_audit_ctx_t * ctx, uint8_t record_type, uint64_t event_count, uint64_t offset ) {
+    TkCaseAuditMsg c = case_msg( record_type, CASE_ID, event_count, offset );
+    return feed_case_msg( ctx, &c );
+}
+
+static int
+case_order_is( tk_audit_ctx_t const * ctx ) {
+    /* C (offset 0), P1, M1, A1, P2, M2, A2, X (offset 1). */
+    uint64_t const seqs[]  = { 0, 0, 1, 1, 1, 2, 2, 1 };
+    uint8_t  const types[] = { RECORD_CASE_CREATION,
+                               RECORD_POLICY_DECISION, RECORD_MODEL_CALL, RECORD_PROPOSAL,
+                               RECORD_POLICY_DECISION, RECORD_MODEL_CALL, RECORD_PROPOSAL,
+                               RECORD_CASE_COMPLETION };
+    return committed_is( ctx, 8UL, seqs, types );
+}
+
+static void
+test_nothing_precedes_the_case_creation_record( void ) {
+    tk_audit_ctx_t ctx; case_ctx_init( &ctx );
+    CHECK( tk_audit_before_frag( &ctx, 0UL, 0UL, TK_LINK_SIG_EVENT )==-1, "a payment record waits for the case creation record" );
+    CHECK( tk_audit_before_frag( &ctx, ROLE_MODEL_IN, 0UL, TK_LINK_SIG_MODEL_CALL )==-1, "a model record waits for the case creation record" );
+    CHECK( tk_audit_before_frag( &ctx, ROLE_AGENT_IN, 0UL, TK_LINK_SIG_AGENT_AUDIT )==-1, "an agent record waits for the case creation record" );
+    CHECK( tk_audit_before_frag( &ctx, ROLE_CASE_IN, 0UL, TK_LINK_SIG_CASE_AUDIT )==0, "the case input is never held back" );
+    CHECK( !feed_payment( &ctx, 1 ) && ctx.audit_count==0UL, "nothing commits before the case is open" );
+    CHECK( feed_case( &ctx, RECORD_CASE_CREATION, 1UL, 0UL ), "the creation record is taken" );
+    CHECK( ctx.audit_count==1UL && ctx.case_opened, "the creation record commits on arrival" );
+    CHECK( feed_payment( &ctx, 1 ), "payment 1 is taken once the case is open" );
+}
+
+static void
+test_case_order_is_independent_of_arrival( void ) {
+    uint64_t heads[2] = {0,0};
+    /* S1: completion last, as tkcase publishes it relative to its own events. */
+    {
+        tk_audit_ctx_t ctx; case_ctx_init( &ctx );
+        feed_case( &ctx, RECORD_CASE_CREATION, 1UL, 0UL );
+        feed_payment( &ctx, 1 ); feed_model( &ctx, 1 ); feed_agent( &ctx, 1, 1 );
+        feed_payment( &ctx, 2 ); feed_model( &ctx, 2 ); feed_agent( &ctx, 2, 1 );
+        feed_case( &ctx, RECORD_CASE_COMPLETION, 2UL, 1UL );
+        CHECK( case_order_is( &ctx ), "natural arrival commits creation first and completion last" );
+        heads[0] = ctx.prev_hash;
+    }
+    /* S2: the completion record arrives before event 2's records (it is on its own link). */
+    {
+        tk_audit_ctx_t ctx; case_ctx_init( &ctx );
+        feed_case( &ctx, RECORD_CASE_CREATION, 1UL, 0UL );
+        feed_payment( &ctx, 1 );
+        feed_case( &ctx, RECORD_CASE_COMPLETION, 2UL, 1UL );
+        CHECK( ctx.case_close_held && !ctx.case_closed, "an early completion record is held" );
+        feed_model( &ctx, 1 ); feed_agent( &ctx, 1, 1 );
+        CHECK( ctx.case_close_held, "event 1 alone does not release a completion over two events" );
+        feed_payment( &ctx, 2 ); feed_model( &ctx, 2 );
+        CHECK( ctx.case_close_held, "event 2's agent record is still missing" );
+        feed_agent( &ctx, 2, 1 );
+        CHECK( case_order_is( &ctx ), "an early completion commits after the case's last record" );
+        heads[1] = ctx.prev_hash;
+    }
+    CHECK( heads[0]!=0UL && heads[0]==heads[1], "the chain head must be identical for either arrival order" );
+}
+
+static void
+test_case_records_carry_their_case( void ) {
+    tk_audit_ctx_t ctx; case_ctx_init( &ctx );
+    feed_case( &ctx, RECORD_CASE_CREATION, 1UL, 4UL );
+    AuditEvent const * r = &ctx.audit_records[0];
+    CHECK( r->record_type==RECORD_CASE_CREATION, "a creation record" );
+    CHECK( r->header.case_id==CASE_ID, "the record header carries the case id" );
+    CHECK( r->header.source_offset==4UL, "the record header carries the opening event's offset" );
+    CHECK( trace_is( r->header.trace_id, 0x7ca5eUL + 4UL ), "the record header carries the opening event's trace" );
+    CHECK( !memcmp( r->header.tile_id, TILE_ID_TKCASE, sizeof(r->header.tile_id) ), "tkcase produced it" );
+    CHECK( r->case_creation.basket_id==CASE_ID && r->case_creation.instrument_count==0 &&
+           r->case_creation.rejected_count==0 && r->case_creation.total_allocated_cents==0,
+           "the payload is basket_id = case id with zero counts" );
+
+    /* The payload is hashed: another case id chains differently.  (Contexts
+       share the record buffer: keep the hash first.) */
+    uint64_t first_hash = r->header.record_hash;
+    tk_audit_ctx_t other; case_ctx_init( &other );
+    TkCaseAuditMsg c = case_msg( RECORD_CASE_CREATION, CASE_ID+1UL, 1UL, 4UL );
+    feed_case_msg( &other, &c );
+    CHECK( other.audit_count==1UL && other.audit_records[0].header.record_hash!=first_hash, "the case id is part of the record hash" );
+}
+
+static void
+test_case_protocol_violations_are_refused( void ) {
+    tk_audit_ctx_t ctx; case_ctx_init( &ctx );
+    feed_case( &ctx, RECORD_CASE_COMPLETION, 1UL, 0UL );
+    CHECK( ctx.rejected==1UL && !ctx.case_close_held && ctx.audit_count==0UL, "a completion before the creation is refused" );
+    feed_case( &ctx, RECORD_CASE_CREATION, 1UL, 0UL );
+    feed_case( &ctx, RECORD_CASE_CREATION, 1UL, 0UL );
+    CHECK( ctx.rejected==2UL && ctx.audit_count==1UL, "a second creation is refused: one case per run" );
+    TkCaseAuditMsg c = case_msg( RECORD_CASE_COMPLETION, CASE_ID+1UL, 1UL, 0UL );
+    feed_case_msg( &ctx, &c );
+    CHECK( ctx.rejected==3UL && !ctx.case_close_held, "a completion for another case is refused" );
+    feed_case( &ctx, RECORD_CASE_COMPLETION, 1UL, 0UL );
+    feed_case( &ctx, RECORD_CASE_COMPLETION, 1UL, 0UL );
+    CHECK( ctx.rejected==4UL, "a second completion is refused" );
+
+    /* Malformed records are not staged at all. */
+    tk_audit_ctx_t bad; case_ctx_init( &bad );
+    TkCaseAuditMsg m;
+    m = case_msg( RECORD_CASE_CREATION, CASE_ID, 1UL, 0UL ); m.version = 0;
+    feed_case_msg( &bad, &m );
+    CHECK( bad.audit_count==0UL && bad.stage_valid==0, "a wrong wire version is not staged" );
+    m = case_msg( RECORD_CASE_CREATION, 0UL, 1UL, 0UL );
+    feed_case_msg( &bad, &m );
+    CHECK( bad.audit_count==0UL, "a zero case id is not staged" );
+    m = case_msg( RECORD_CASE_CREATION, CASE_ID, 0UL, 0UL );
+    feed_case_msg( &bad, &m );
+    CHECK( bad.audit_count==0UL, "a zero event count is not staged" );
+    m = case_msg( RECORD_POLICY_DECISION, CASE_ID, 1UL, 0UL );
+    feed_case_msg( &bad, &m );
+    CHECK( bad.audit_count==0UL, "a record type other than creation or completion is not staged" );
+    m = case_msg( RECORD_CASE_CREATION, CASE_ID, 1UL, 0UL );
+    memcpy( g_buf + ORD_CHUNK_M*CHUNK_BYTES, &m, sizeof(m) );
+    tk_audit_during_frag( &bad, ROLE_CASE_IN, 0UL, TK_LINK_SIG_EVENT, ORD_CHUNK_M, sizeof(m), 0UL );
+    CHECK( bad.stage_valid==0, "an event sig on the case input is rejected" );
+    tk_audit_during_frag( &bad, ROLE_CASE_IN, 0UL, TK_LINK_SIG_CASE_AUDIT, ORD_CHUNK_M, sizeof(m)-1UL, 0UL );
+    CHECK( bad.stage_valid==0, "a short case record is rejected" );
+    CHECK( !bad.case_opened, "no malformed record opens the case" );
+}
+
+static void
+test_event_count_gate_waits_for_the_case_to_close( void ) {
+    tk_audit_ctx_t ctx; case_ctx_init( &ctx );
+    ctx.event_count = 1UL;
+    feed_case( &ctx, RECORD_CASE_CREATION, 1UL, 0UL );
+    feed_payment( &ctx, 1 ); feed_model( &ctx, 1 ); feed_agent( &ctx, 1, 1 );
+    CHECK( ctx.input_exhausted==0, "the last event's records are in, but the case is still open" );
+    feed_case( &ctx, RECORD_CASE_COMPLETION, 1UL, 0UL );
+    CHECK( ctx.case_closed && ctx.input_exhausted==1, "the completion record ends the run" );
+    CHECK( ctx.audit_count==5UL && ctx.audit_records[4].record_type==RECORD_CASE_COMPLETION, "it is the last record" );
+
+    /* Unordered mode (no agent input): the record-count gate does not count the
+       case's own records. */
+    tk_audit_ctx_t u; ctx_init( &u );
+    u.in_cnt = 4UL; u.in[3].chunk0 = IN0_CHUNK0; u.in[3].wmark = IN0_WMARK;
+    u.in[0].chunk0 = IN0_CHUNK0; u.in[0].wmark = IN0_WMARK;
+    u.in_role[3] = TKAUDT_ROLE_CASE; u.has_case_input = 1; u.has_event_input = 1;
+    u.event_count = 2UL;
+    feed_case( &u, RECORD_CASE_CREATION, 1UL, 0UL );
+    feed_payment( &u, 1 );
+    feed_case( &u, RECORD_CASE_COMPLETION, 2UL, 1UL );
+    CHECK( u.input_exhausted==0 && u.case_close_held, "two records committed, one of them the case's: not the end" );
+    feed_payment( &u, 2 );
+    CHECK( u.case_closed && u.input_exhausted==1 && u.audit_count==4UL, "the second event releases the completion and ends the run" );
+}
+
 int
 main( void ) {
     test_each_input_stages_its_own_record();
@@ -583,6 +781,11 @@ main( void ) {
     test_nothing_is_held_back_without_both_a_payment_chain_and_agent_runs();
     test_event_count_gate_waits_for_both_streams();
     test_wrong_sig_for_role_is_rejected();
+    test_nothing_precedes_the_case_creation_record();
+    test_case_order_is_independent_of_arrival();
+    test_case_records_carry_their_case();
+    test_case_protocol_violations_are_refused();
+    test_event_count_gate_waits_for_the_case_to_close();
     if( g_failed ) { fprintf( stderr, "tkaudt DURING_FRAG tests FAILED\n" ); return 1; }
     printf( "all tkaudt DURING_FRAG tests passed\n" );
     return 0;

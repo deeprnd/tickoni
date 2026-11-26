@@ -13,10 +13,12 @@
 ///   * every accepted agent request ends in exactly one terminal result, in
 ///     admission order, with the model's answer attributed to the instance that
 ///     served it;
-///   * the committed audit sequence is the event order -- for each event, its
-///     policy decision, then the model record (if any) and the agent record of
-///     its run -- every record carrying the event's trace id, with a contiguous
-///     hash chain that the independent Zig codec re-derives byte for byte;
+///   * the committed audit sequence is the case's creation record, then the
+///     event order -- for each event, its policy decision, then the model record
+///     (if any) and the agent record of its run -- then the case's completion
+///     record; every record carrying its event's trace id and the run's one
+///     case id, with a contiguous hash chain that the
+///     independent Zig codec re-derives byte for byte;
 ///   * prompts and responses larger than one fragment (and than the 16-bit fd
 ///     size) cross every link intact, and audit records carry hashes only;
 ///   * a request for a tier that is not configured is an audited denial with no
@@ -52,6 +54,8 @@ const record_policy_decision: u32 = 2;
 const record_model_call: u32 = 3;
 const record_proposal: u32 = 5;
 const record_denial: u32 = 9;
+const record_case_creation: u32 = 13;
+const record_case_completion: u32 = 14;
 
 const max_polls: u32 = 2000;
 const poll_ns: u64 = 5 * std.time.ns_per_ms;
@@ -129,6 +133,20 @@ fn startAgentRun(
     event_count: u64,
     source: mrs.ModelRequestSource,
 ) !void {
+    // 0: tkcase seeds its case-id generator from its tick counter.
+    try startAgentRunSeeded(run, n, specs, event_count, source, 0);
+}
+
+/// `startAgentRun` with a fixed tkcase case-id seed, so the run's case id (and
+/// with it the audit chain) repeats across runs of the same inputs.
+fn startAgentRunSeeded(
+    run: *AgentRun,
+    comptime n: usize,
+    specs: []const InstanceSpec,
+    event_count: u64,
+    source: mrs.ModelRequestSource,
+    case_rng_seed: u64,
+) !void {
     std.debug.assert(specs.len == n);
     run.harness = .{};
     run.tmp = util.tmpDir();
@@ -151,12 +169,14 @@ fn startAgentRun(
         // tkdisp needs its payment template even when only agent requests arrive.
         .dispatch_template = source,
         .agent_prompts = run.built.prompts,
+        .case_rng_seed = case_rng_seed,
     });
     try run.harness.start(std.testing.allocator, &run.sup, .{ .agent_requests = source }, event_count);
 }
 
 /// Polls until every accepted request has its terminal result committed at
-/// tkdisp and its agent record committed at tkaudt.
+/// tkdisp and its agent record committed at tkaudt, and the case's completion
+/// record (the chain's last) is committed.
 fn waitForRun(sup: *Supervisor, event_count: u64) void {
     const agent = tileScratch(sup, "tkagnt", 0) catch return;
     const audit = tileScratch(sup, "tkaudt", 0) catch return;
@@ -165,6 +185,7 @@ fn waitForRun(sup: *Supervisor, event_count: u64) void {
     while (poll < max_polls) : (poll += 1) {
         if (c_abi.tkdisp.resultCount(disp) >= event_count and
             c_abi.tkaudit.agentCommitted(audit) >= event_count and
+            c_abi.tkaudit.caseClosed(audit) and
             c_abi.tkagnt.terminalDone(agent) >= event_count) return;
         util.process.sleepNanos(poll_ns);
     }
@@ -179,17 +200,19 @@ fn startWorkflowRun(
     event_count: u64,
     template: mrs.ModelRequestSource,
 ) !void {
-    // 0 derives the supervisor's default stale threshold.
-    try startWorkflowRunStale(run, specs, event_count, template, 0);
+    // 0 derives the supervisor's default stale threshold; an unseeded case id.
+    try startWorkflowRunStale(run, specs, event_count, template, 0, 0);
 }
 
-/// `startWorkflowRun` with an explicit heartbeat stale threshold.
+/// `startWorkflowRun` with an explicit heartbeat stale threshold and tkcase
+/// case-id seed (0: from the tile's tick counter).
 fn startWorkflowRunStale(
     run: *AgentRun,
     specs: []const InstanceSpec,
     event_count: u64,
     template: mrs.ModelRequestSource,
     stale_after_ns: u64,
+    case_rng_seed: u64,
 ) !void {
     run.harness = .{};
     run.tmp = util.tmpDir();
@@ -213,19 +236,22 @@ fn startWorkflowRunStale(
         .dispatch_template = template,
         .agent_prompts = run.built.prompts,
         .model_configs = run.built.configs,
+        .case_rng_seed = case_rng_seed,
     });
     if (event_count > 0) try run.harness.start(std.testing.allocator, &run.sup, .{ .payments = .{ .event_count = event_count } }, event_count);
 }
 
 /// Polls until every event has its terminal result at tkdisp and every record
-/// (one policy decision, one model call and one proposal per event) is committed.
+/// (the case's creation record, one policy decision, one model call and one
+/// proposal per event, and the case's completion record) is committed.
 fn waitForWorkflow(sup: *Supervisor, event_count: u64) void {
     const audit = tileScratch(sup, "tkaudt", 0) catch return;
     const disp = tileScratch(sup, "tkdisp", 0) catch return;
     var poll: u32 = 0;
     while (poll < max_polls) : (poll += 1) {
         if (c_abi.tkdisp.resultCount(disp) >= event_count and
-            c_abi.tkaudit.recordCount(audit) >= 3 * event_count) return;
+            c_abi.tkaudit.caseClosed(audit) and
+            c_abi.tkaudit.recordCount(audit) >= 3 * event_count + 2) return;
         util.process.sleepNanos(poll_ns);
     }
 }
@@ -327,7 +353,10 @@ fn expectRun(
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkagnt.transportDropped(agent));
 
     var ok_runs: u64 = 0;
-    var rec: usize = 0; // next committed audit record
+    // The case: one per run, opened by the first event and closed by the last.
+    const case_id = try expectCase(sup, event_count);
+    try expectCaseRecord(audit, 0, record_case_creation, case_id, 0);
+    var rec: usize = 1; // next committed audit record
     var offset: u64 = 0;
     while (offset < event_count) : (offset += 1) {
         const want = expectedFor(source, specs, offset);
@@ -364,6 +393,7 @@ fn expectRun(
         try std.testing.expectEqual(offset, c_abi.tkaudit.recordSourceOffset(audit, rec));
         try std.testing.expectEqual(@as(u8, 0), c_abi.tkaudit.recordOutcome(audit, rec));
         try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(offset))), c_abi.trace_id.toInt(c_abi.tkaudit.recordTraceId(audit, rec)));
+        try std.testing.expectEqual(case_id, c_abi.tkaudit.recordCaseId(audit, rec));
         var by: [6]u8 = undefined;
         c_abi.tkaudit.recordDecidedBy(audit, rec, &by);
         try std.testing.expectEqualStrings("tkpoly", &by);
@@ -371,6 +401,7 @@ fn expectRun(
         if (want.model_record != .none) {
             try expectRecordHeader(audit, rec, "tkmodl", seq);
             try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(offset))), c_abi.trace_id.toInt(c_abi.tkaudit.recordTraceId(audit, rec)));
+            try std.testing.expectEqual(case_id, c_abi.tkaudit.recordCaseId(audit, rec));
             switch (want.model_record) {
                 .call => {
                     try std.testing.expectEqual(record_model_call, c_abi.tkaudit.recordType(audit, rec));
@@ -392,6 +423,7 @@ fn expectRun(
         }
         try expectRecordHeader(audit, rec, "tkagnt", seq);
         try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(offset))), c_abi.trace_id.toInt(c_abi.tkaudit.recordTraceId(audit, rec)));
+        try std.testing.expectEqual(case_id, c_abi.tkaudit.recordCaseId(audit, rec));
         try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(offset))), c_abi.trace_id.toInt(r.trace_id));
         if (want.outcome == .ok) {
             try std.testing.expectEqual(record_proposal, c_abi.tkaudit.recordType(audit, rec));
@@ -405,6 +437,8 @@ fn expectRun(
         }
         rec += 1;
     }
+    try expectCaseRecord(audit, rec, record_case_completion, case_id, event_count - 1);
+    rec += 1;
     try std.testing.expectEqual(@as(usize, rec), c_abi.tkaudit.recordCount(audit));
 
     // The hash chain is contiguous from the zero seed.
@@ -418,6 +452,51 @@ fn expectRun(
         try std.testing.expect(c_abi.tkaudit.recordHash(audit, i) != 0);
     }
     return ok_runs;
+}
+
+/// tkcase's own view of the run's one case: open on the first event, closed on
+/// the last, every event attached (stamped and in the capsule, in arrival order)
+/// and forwarded to both consumers. Returns the case id.
+fn expectCase(sup: *Supervisor, event_count: u64) !u64 {
+    const case = try tileScratch(sup, "tkcase", 0);
+    const scope = c_abi.tkcase.scope(case);
+    try std.testing.expect(scope.case_id != 0);
+    try std.testing.expectEqual(@backingInt(c_abi.tkcase.State.completed), scope.state);
+    try std.testing.expectEqual(event_count, scope.event_count);
+    try std.testing.expectEqual(@as(u64, 0), scope.first_source_offset);
+    try std.testing.expectEqual(event_count - 1, scope.last_source_offset);
+    try std.testing.expectEqual(event_count, c_abi.tkcase.consumed(case));
+    try std.testing.expectEqual(2 * event_count, c_abi.tkcase.forwarded(case));
+    try std.testing.expectEqual(@as(u64, 2), c_abi.tkcase.caseAuditEmitted(case));
+    try std.testing.expectEqual(event_count, c_abi.tkcase.capsuleCount(case));
+    var i: usize = 0;
+    while (i < event_count) : (i += 1) {
+        const ev = c_abi.tkcase.capsuleEvent(case, i);
+        try std.testing.expectEqual(@as(u64, i), ev.source_offset);
+        try std.testing.expectEqual(scope.case_id, ev.case_id);
+        try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(i))), c_abi.trace_id.toInt(ev.trace_id));
+    }
+    // CNC slot 0 carries the forwarded count (tile_registry.zig).
+    try std.testing.expectEqual(2 * event_count, sup.snapshotProcessMetrics().forwarded);
+    return scope.case_id;
+}
+
+/// A case lifecycle record: produced by tkcase, for the run's case, triggered by
+/// the event at `offset` (whose trace it carries), payload basket_id = case id.
+fn expectCaseRecord(audit: ?*anyopaque, idx: usize, record_type: u32, case_id: u64, offset: u64) !void {
+    try std.testing.expectEqual(record_type, c_abi.tkaudit.recordType(audit, idx));
+    try std.testing.expectEqual(case_id, c_abi.tkaudit.recordCaseId(audit, idx));
+    try std.testing.expectEqual(offset, c_abi.tkaudit.recordSourceOffset(audit, idx));
+    try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(offset))), c_abi.trace_id.toInt(c_abi.tkaudit.recordTraceId(audit, idx)));
+    var producer: [6]u8 = undefined;
+    c_abi.tkaudit.recordDecidedBy(audit, idx, &producer);
+    try std.testing.expectEqualStrings("tkcase", &producer);
+    var ev: c_abi.tkaudit.CAuditEvent = undefined;
+    c_abi.tkaudit.recordCopy(audit, idx, &ev);
+    try std.testing.expectEqual(case_id, ev.unnamed_0.case_creation.basket_id);
+    try std.testing.expectEqual(@as(u8, 0), ev.unnamed_0.case_creation.instrument_count);
+    try std.testing.expectEqual(@as(u8, 0), ev.unnamed_0.case_creation.rejected_count);
+    try std.testing.expectEqual(@as(i64, 0), ev.unnamed_0.case_creation.total_allocated_cents);
 }
 
 fn expectRecordHeader(audit: ?*anyopaque, idx: usize, producer_name: []const u8, seq: u64) !void {
@@ -458,15 +537,26 @@ fn zigHashOfCommittedRecord(ev: c_abi.tkaudit.CAuditEvent) !u64 {
             .taxonomy_version = ev.unnamed_0.denial.taxonomy_version,
             .classification_code = ev.unnamed_0.denial.classification_code,
         } },
+        record_case_creation => .{ .case_creation = caseZigPayload(ev) },
+        record_case_completion => .{ .case_completion = caseZigPayload(ev) },
         else => return error.UnexpectedRecordType,
     };
     return audit_zig.computeRecordHash(.{ .header = ev.header, .payload = payload });
 }
 
+fn caseZigPayload(ev: c_abi.tkaudit.CAuditEvent) audit_zig.CaseCreationPayload {
+    return .{
+        .basket_id = ev.unnamed_0.case_creation.basket_id,
+        .instrument_count = ev.unnamed_0.case_creation.instrument_count,
+        .rejected_count = ev.unnamed_0.case_creation.rejected_count,
+        .total_allocated_cents = ev.unnamed_0.case_creation.total_allocated_cents,
+    };
+}
+
 /// Re-hashes every committed record with the Zig codec and compares. Returns
 /// which record types the comparison covered, so a caller can assert that it
 /// exercised the types its run is meant to produce.
-const HashCoverage = struct { policy_decision: bool = false, model_call: bool = false, proposal: bool = false, denial: bool = false };
+const HashCoverage = struct { policy_decision: bool = false, model_call: bool = false, proposal: bool = false, denial: bool = false, case_creation: bool = false, case_completion: bool = false };
 
 fn expectZigHashParity(sup: *Supervisor) !HashCoverage {
     const audit = try tileScratch(sup, "tkaudt", 0);
@@ -482,6 +572,8 @@ fn expectZigHashParity(sup: *Supervisor) !HashCoverage {
             record_model_call => saw.model_call = true,
             record_proposal => saw.proposal = true,
             record_denial => saw.denial = true,
+            record_case_creation => saw.case_creation = true,
+            record_case_completion => saw.case_completion = true,
             else => {},
         }
     }
@@ -561,9 +653,10 @@ test "tkagnt_tile: every model denial is audited, answered once, and carries its
 
     const ok = try expectRun(&run.sup, source, &specs, event_count);
     try std.testing.expectEqual(@as(u64, 2), ok);
-    // The parity check covered all three record types the run commits.
+    // The parity check covered every record type the run commits.
     const covered = try expectZigHashParity(&run.sup);
-    try std.testing.expect(covered.model_call and covered.proposal and covered.denial);
+    try std.testing.expect(covered.policy_decision and covered.model_call and covered.proposal and covered.denial);
+    try std.testing.expect(covered.case_creation and covered.case_completion);
 
     const agent = try tileScratch(&run.sup, "tkagnt", 0);
     try std.testing.expectEqual(@as(u64, 10), c_abi.tkagnt.denied(agent));
@@ -575,9 +668,10 @@ test "tkagnt_tile: every model denial is audited, answered once, and carries its
     // A missing-scope denial names the missing field in tkmodl's own record.
     const audit = try tileScratch(&run.sup, "tkaudt", 0);
     // Run 2 (index 1) is missing_budget: committed records are
-    // [policy, model call, proposal, policy, model denial, agent denial, ...].
+    // [case creation, policy, model call, proposal, policy, model denial,
+    // agent denial, ...].
     var dim: [32]u8 = undefined;
-    c_abi.tkaudit.recordDenialFailedScopeDim(audit, 4, &dim);
+    c_abi.tkaudit.recordDenialFailedScopeDim(audit, 5, &dim);
     try std.testing.expectEqualStrings("budget_id", std.mem.sliceTo(&dim, 0));
 }
 
@@ -780,7 +874,9 @@ test "tkagnt_tile: the same accepted requests and captures commit the same audit
     if (shouldSkip) return error.SkipZigTest;
     // Replay determinism at the audit layer: two independent runs of the same
     // requests against the same captures commit identical chain heads, even
-    // though model processes and arrival times differ between the runs.
+    // though model processes and arrival times differ between the runs. The
+    // case id is generated, so the runs share a fixed tkcase seed: the same
+    // seed opens the same case.
     const specs = [_]InstanceSpec{
         .{ .kind_id = 0, .tier = .low },
         .{ .kind_id = 1, .tier = .medium },
@@ -793,18 +889,45 @@ test "tkagnt_tile: the same accepted requests and captures commit the same audit
     const event_count: u64 = 24;
 
     var heads: [2]u64 = undefined;
-    for (&heads) |*head| {
+    var case_ids: [2]u64 = undefined;
+    for (&heads, &case_ids) |*head, *case_id| {
         var run: AgentRun = undefined;
-        try startAgentRun(&run, 3, &specs, event_count, source);
+        try startAgentRunSeeded(&run, 3, &specs, event_count, source, fixed_case_rng_seed);
         defer run.deinit();
         waitForRun(&run.sup, event_count);
         try expectNoCrash(&run.sup);
         _ = try expectRun(&run.sup, source, &specs, event_count);
         const audit = try tileScratch(&run.sup, "tkaudt", 0);
         head.* = c_abi.tkaudit.recordHash(audit, c_abi.tkaudit.recordCount(audit) - 1);
+        case_id.* = c_abi.tkcase.scope(try tileScratch(&run.sup, "tkcase", 0)).case_id;
     }
     try std.testing.expect(heads[0] != 0);
+    try std.testing.expectEqual(case_ids[0], case_ids[1]);
     try std.testing.expectEqual(heads[0], heads[1]);
+}
+
+/// The fixed tkcase case-id seed of the determinism tests.
+const fixed_case_rng_seed: u64 = 0x7c45e_5eed;
+
+test "tkagnt_tile: unseeded runs open their case under different generated ids" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+    // A case id is a generated identifier, not derived from the events: the
+    // same requests open a different case on every unseeded run.
+    const specs = [_]InstanceSpec{.{ .kind_id = 0, .tier = .low }};
+    const source = singleSource(.valid_replay, .low, .{});
+    const event_count: u64 = 3;
+    var case_ids: [2]u64 = undefined;
+    for (&case_ids) |*case_id| {
+        var run: AgentRun = undefined;
+        try startAgentRun(&run, 1, &specs, event_count, source);
+        defer run.deinit();
+        waitForRun(&run.sup, event_count);
+        try expectNoCrash(&run.sup);
+        _ = try expectRun(&run.sup, source, &specs, event_count);
+        case_id.* = c_abi.tkcase.scope(try tileScratch(&run.sup, "tkcase", 0)).case_id;
+    }
+    try std.testing.expect(case_ids[0] != case_ids[1]);
 }
 
 test "tkagnt_tile: an administrative HALT with nothing in flight stops every tile cleanly" {
@@ -960,10 +1083,12 @@ test "tkagnt_tile: a model that stops answering ends each run in an audited time
     try std.testing.expectEqual(event_count, c_abi.tkdisp.resultCount(disp));
     try std.testing.expectEqual(event_count, c_abi.tkaudit.agentCommitted(audit));
 
-    // Walk the committed chain against the terminal results: each event's policy
-    // decision, then for an OK run a model record and a proposal, for a timed-out
-    // run a single agent denial.
-    var rec: usize = 0;
+    // Walk the committed chain against the terminal results: the case's
+    // creation record, then each event's policy decision, then for an OK run a
+    // model record and a proposal, for a timed-out run a single agent denial,
+    // and last the case's completion record.
+    try std.testing.expectEqual(record_case_creation, c_abi.tkaudit.recordType(audit, 0));
+    var rec: usize = 1;
     var timeouts: u64 = 0;
     var i: usize = 0;
     while (i < event_count) : (i += 1) {
@@ -985,6 +1110,8 @@ test "tkagnt_tile: a model that stops answering ends each run in an audited time
         }
     }
     try std.testing.expect(timeouts >= 1);
+    try std.testing.expectEqual(record_case_completion, c_abi.tkaudit.recordType(audit, rec));
+    rec += 1;
     try std.testing.expectEqual(rec, c_abi.tkaudit.recordCount(audit));
     try std.testing.expectEqual(event_count, c_abi.tkagnt.terminalDone(agent));
 }
@@ -1016,9 +1143,9 @@ test "tkagnt_tile: embedding governance denies a model or vector width the insta
     try std.testing.expectEqual(@as(u64, 3), c_abi.tkagnt.embeddings(agent));
     // The dimension denial carries its own reason in tkmodl's audit record.
     const audit = try tileScratch(&run.sup, "tkaudt", 0);
-    // Committed order: [policy, call, proposal] for run 1, then [policy,
-    // denial(10), agent denial] for run 2 (bad width).
-    try std.testing.expectEqual(@as(u32, 10), c_abi.tkaudit.recordDenialReasonCode(audit, 4));
+    // Committed order: the case's creation record, [policy, call, proposal] for
+    // run 1, then [policy, denial(10), agent denial] for run 2 (bad width).
+    try std.testing.expectEqual(@as(u32, 10), c_abi.tkaudit.recordDenialReasonCode(audit, 5));
 }
 
 test "tkagnt_tile: the full investment workflow turns each event into one audited agent run" {
@@ -1034,15 +1161,15 @@ test "tkagnt_tile: the full investment workflow turns each event into one audite
     try expectNoCrash(&run.sup);
 
     const alloc = std.testing.allocator;
-    const case = try tileScratch(&run.sup, "tkcase", 0);
     const tool = try tileScratch(&run.sup, "tktool", 0);
     const adapter = try tileScratch(&run.sup, "tkadpt", 0);
     const disp = try tileScratch(&run.sup, "tkdisp", 0);
     const agent = try tileScratch(&run.sup, "tkagnt", 0);
     const audit = try tileScratch(&run.sup, "tkaudt", 0);
 
-    // tkcase forwarded every event; the idle tool and adapter tiles saw nothing.
-    try std.testing.expectEqual(event_count, c_abi.tkpass.forwarded(case));
+    // tkcase attached every event to the run's case and forwarded it to tkpoly
+    // and tkdisp; the idle tool and adapter tiles saw nothing.
+    const case_id = try expectCase(&run.sup, event_count);
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkpass.consumed(tool));
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkpass.consumed(adapter));
 
@@ -1068,21 +1195,27 @@ test "tkagnt_tile: the full investment workflow turns each event into one audite
         try std.testing.expectEqual(@as(u8, @backingInt(Tier.low)), r.source_tier);
     }
 
-    // The audit chain holds, per event, its policy decision (from the spine),
-    // then the model record and the agent record of its admission ordinal.
+    // The audit chain holds the case's creation record, then per event its
+    // policy decision (from the spine), the model record and the agent record of
+    // its admission ordinal, then the case's completion record.
     try std.testing.expectEqual(event_count, c_abi.tkaudit.agentCommitted(audit));
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkaudit.rejectedCount(audit));
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkaudit.heldModelCount(audit));
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkaudit.heldAgentCount(audit));
     const count = c_abi.tkaudit.recordCount(audit);
-    try std.testing.expectEqual(@as(usize, 3 * event_count), count);
+    try std.testing.expectEqual(@as(usize, 3 * event_count + 2), count);
+    try expectCaseRecord(audit, 0, record_case_creation, case_id, 0);
+    try expectCaseRecord(audit, count - 1, record_case_completion, case_id, event_count - 1);
 
     // One chain in event order: for event e, its policy decision (source offset
-    // e), then its model record and its agent record (admission ordinal e + 1).
-    // Nothing interleaves differently from run to run.
+    // e, the run's case), then its model record and its agent record (admission
+    // ordinal e + 1). Nothing interleaves differently from run to run.
     var e: usize = 0;
     while (e < event_count) : (e += 1) {
-        const first = 3 * e;
+        const first = 1 + 3 * e;
+        // The event's case on all three of its records: tkdisp stamps it on the
+        // request, tkmodl and tkagnt carry it into their audit records.
+        for (0..3) |k| try std.testing.expectEqual(case_id, c_abi.tkaudit.recordCaseId(audit, first + k));
         try std.testing.expectEqual(record_policy_decision, c_abi.tkaudit.recordType(audit, first));
         try std.testing.expectEqual(@as(u64, e), c_abi.tkaudit.recordSourceOffset(audit, first));
         // One trace per event, on all three of its records.
@@ -1126,13 +1259,14 @@ test "tkagnt_tile: the full workflow commits the same event-ordered chain on eve
     var heads: [3]u64 = undefined;
     for (&heads) |*head| {
         var run: AgentRun = undefined;
-        try startWorkflowRun(&run, &specs, event_count, template);
+        // A fixed case-id seed: the same inputs open the same case.
+        try startWorkflowRunStale(&run, &specs, event_count, template, 0, fixed_case_rng_seed);
         defer run.deinit();
         waitForWorkflow(&run.sup, event_count);
         try expectNoCrash(&run.sup);
         const audit = try tileScratch(&run.sup, "tkaudt", 0);
         const count = c_abi.tkaudit.recordCount(audit);
-        try std.testing.expectEqual(@as(usize, 3 * event_count), count);
+        try std.testing.expectEqual(@as(usize, 3 * event_count + 2), count);
         head.* = c_abi.tkaudit.recordHash(audit, count - 1);
     }
     try std.testing.expect(heads[0] != 0);
@@ -1153,7 +1287,7 @@ test "tkagnt_tile: every stem tile of the full workflow reaches CNC RUN and adva
 
     const specs = [_]InstanceSpec{.{ .kind_id = 0, .tier = .low }};
     var run: AgentRun = undefined;
-    try startWorkflowRunStale(&run, &specs, 0, singleSource(.valid_replay, .low, .{}), stem_liveness.stale_after_ns);
+    try startWorkflowRunStale(&run, &specs, 0, singleSource(.valid_replay, .low, .{}), stem_liveness.stale_after_ns, 0);
     defer run.deinit();
 
     try stem_liveness.expectStemTilesAlive(&run.sup);
@@ -1167,7 +1301,7 @@ test "tkagnt_tile: a frozen stem tile of the full workflow is classified stale a
 
     const specs = [_]InstanceSpec{.{ .kind_id = 0, .tier = .low }};
     var run: AgentRun = undefined;
-    try startWorkflowRunStale(&run, &specs, 0, singleSource(.valid_replay, .low, .{}), stem_liveness.stale_after_ns);
+    try startWorkflowRunStale(&run, &specs, 0, singleSource(.valid_replay, .low, .{}), stem_liveness.stale_after_ns, 0);
     defer run.deinit();
     try stem_liveness.expectStemTilesAlive(&run.sup);
 

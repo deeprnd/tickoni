@@ -59,6 +59,8 @@ const record_policy_decision: u32 = 2;
 const record_model_call: u32 = 3;
 const record_proposal: u32 = 5;
 const record_denial: u32 = 9;
+const record_case_creation: u32 = 13;
+const record_case_completion: u32 = 14;
 
 const producer_tkmodl = "tkmodl";
 
@@ -526,6 +528,16 @@ fn zigHashOfCommittedRecord(ev: c_abi.tkaudit.CAuditEvent) !u64 {
             .taxonomy_version = ev.unnamed_0.denial.taxonomy_version,
             .classification_code = ev.unnamed_0.denial.classification_code,
         } },
+        // tkcase's case creation and completion records open and close the chain.
+        record_case_creation, record_case_completion => blk: {
+            const p: audit_zig.CaseCreationPayload = .{
+                .basket_id = ev.unnamed_0.case_creation.basket_id,
+                .instrument_count = ev.unnamed_0.case_creation.instrument_count,
+                .rejected_count = ev.unnamed_0.case_creation.rejected_count,
+                .total_allocated_cents = ev.unnamed_0.case_creation.total_allocated_cents,
+            };
+            break :blk if (ev.record_type == record_case_creation) .{ .case_creation = p } else .{ .case_completion = p };
+        },
         else => return error.UnexpectedRecordType,
     };
     return audit_zig.computeRecordHash(.{ .header = ev.header, .payload = payload });

@@ -1211,3 +1211,41 @@ test "metric_tile_integration: /metrics carries per-tile OS-level metrics writte
     defer std.testing.allocator.free(body);
     try std.testing.expect(tilesHaveOsMetrics(body));
 }
+
+// ---------------------------------------------------------------------------
+// Test: a metric workspace the supervisor cannot create fails the start with an
+// error. Every tile joins every topology workspace, so the run must not go on
+// without it (it used to be ignored, then caught only by a debug assert).
+// ---------------------------------------------------------------------------
+
+test "metric_tile_integration: a metric_in workspace that cannot be created fails the start closed" {
+    const shouldSkip = false;
+    if (shouldSkip) return error.SkipZigTest;
+    var tmp = util.tmpDir();
+    defer tmp.cleanup();
+
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const len = try tmp.dir.realPath(std.testing.io, &path_buf);
+    const run_dir = path_buf[0..len];
+
+    // A directory where metric_in's backing file goes: the stale-file cleanup
+    // cannot remove it and the exclusive create fails, as any create failure
+    // (EEXIST, EIO, ENOSPC) would.
+    var blocker_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const blocker = try std.fmt.bufPrint(&blocker_buf, "{s}/.normal/tickoni_metric_in.wksp", .{run_dir});
+    var blocker_dir = try std.Io.Dir.cwd().createDirPathOpen(std.testing.io, blocker, .{});
+    blocker_dir.close(std.testing.io);
+
+    var sup = try Supervisor.init(std.testing.allocator, topologies.paymentPipelineProcess());
+    defer sup.deinit();
+    var ws_buf: [16]u8 = undefined;
+    try std.testing.expectError(error.MetricInWkspCreateFailed, sup.startPaymentPipelineProcess(std.testing.io, .{
+        .run_dir = run_dir,
+        .event_count = 1,
+        .tile_exe_path = "build/zig-out/bin/tickoni-supervisor",
+        .workspace_name = util.nextWorkspaceName(&ws_buf),
+        .metric_port = util.nextMetricPort(),
+    }));
+    // Nothing was started.
+    try std.testing.expect(sup.process_state == null);
+}
