@@ -99,7 +99,13 @@ Tickoni-owned Zig:
   then `test-integration-tk-infra-process`, one after the other
 - `just test-integration-tk-infra-tile` — one test file per tile (`test_tile_*.zig`)
 - `just test-integration-tk-infra-process` — supervisor, topology, link, heartbeat and
-  model-HTTP files (everything in the infra lane that is not a `test_tile_*.zig` file)
+  model-HTTP files (everything in the infra lane that is not a `test_tile_*.zig` file).
+  `test_process_wksp_exclusive_create.zig` checks that a workspace name another
+  process holds cannot be created again, on every OS. It spawns `tk-wksp-probe`, a
+  test-only executable built under `-Dtest` and installed next to `tickoni-supervisor`.
+  The Windows side of that rule lives in `src/util/shmem/fd_shmem_windows.c`, part of
+  the prebuilt Firedancer libraries: after changing it, run `just build-fd` before the
+  lane, because `zig build` does not rebuild them.
 - `just test-integration-tk-domain` — investment policy, trades, replay
 - `just test-integration-cli` — CLI integration tests (spawn the `tickoni` binary)
 - `just test-system-tk` — System tests with live llama.cpp server
@@ -197,7 +203,7 @@ reference for which commands exist and which are stubbed.
 | `test-integration-tk-windows-x86` | Tickoni integration — Windows x86 | Windows x86 | Active |
 | `test-integration-tk-infra` | Infra lane: `-tile`, then `-process`, sequentially (never concurrent: both spawn tile processes that share ports and workspaces) | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
 | `test-integration-tk-infra-tile` | Per-tile files: metric, tkagnt, tkgate, tkaudt, tkdedu, tkdiag, tkings, tkmodl, tknorm, tkpoly | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
-| `test-integration-tk-infra-process` | Process, topology, link-bound, minimal-setup and stem-heartbeat files, plus the mock-server and model-HTTP series | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
+| `test-integration-tk-infra-process` | Process, topology, link-bound, minimal-setup, stem-heartbeat and workspace exclusive-create files, plus the mock-server and model-HTTP series | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
 | `test-integration-tk-domain` | Domain lane: investment policy, allowed/blocked trades, replay | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
 | `test-integration-cli` | CLI integration (spawn tickoni binary) | Linux x86, ARM; macOS x86, ARM; Windows x86, ARM | Active |
 | `test-integration-cli-linux-arm` | CLI integration — Linux ARM | Linux ARM | Active |

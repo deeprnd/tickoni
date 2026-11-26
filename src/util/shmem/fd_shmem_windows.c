@@ -204,6 +204,19 @@ fd_shmem_create_multi(char const *name,
         return err == ERROR_ALREADY_EXISTS ? EEXIST : EINVAL;
     }
 
+    /* Exclusive create (the POSIX backend's O_CREAT|O_EXCL).  When a mapping
+       with this name already exists in the kernel, CreateFileMapping does not
+       fail: it returns a handle to the existing mapping and sets the last
+       error to ERROR_ALREADY_EXISTS.  The in-process region table above only
+       sees this process's regions, so a name held by another process would
+       otherwise be silently shared and then zeroed by the memset below.
+       GetLastError must be read before any other call can overwrite it. */
+    if(GetLastError() == ERROR_ALREADY_EXISTS) {
+        CloseHandle(mapping_handle);
+        FD_LOG_WARNING(("fd_shmem_create_multi: region already exists in another process (%s)", name));
+        return EEXIST;
+    }
+
     /* Zero-initialize the memory by mapping and memset */
     void *base = MapViewOfFile(
         mapping_handle,

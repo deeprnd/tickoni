@@ -107,6 +107,28 @@ pub fn wkspExistsNamed(name: [*:0]const u8) bool {
 }
 
 // ---------------------------------------------------------------------------
+// Test fault injection. One portable interface; shim/wksp.c has one
+// implementation per OS (a directory in the workspace's place where a
+// workspace is a file, a joined mapping where it is a kernel object). Tests
+// use it so they carry no OS branches.
+// ---------------------------------------------------------------------------
+
+extern fn tk_wksp_fault_block_name(shmem_path: [*:0]const u8, name: [*:0]const u8) c_int;
+extern fn tk_wksp_fault_unblock_name(shmem_path: [*:0]const u8, name: [*:0]const u8) void;
+
+/// Makes `name` impossible to create until faultUnblockName: the next
+/// wkspNewNamed on it fails, even after the caller's stale-workspace cleanup.
+/// `shmem_path` is the --shmem-path the process boots with; it need not be
+/// booted yet. One name at a time. Pair every success with faultUnblockName.
+pub fn faultBlockName(shmem_path: [*:0]const u8, name: [*:0]const u8) error{WkspFaultBlockFailed}!void {
+    if (tk_wksp_fault_block_name(shmem_path, name) != 0) return error.WkspFaultBlockFailed;
+}
+
+pub fn faultUnblockName(shmem_path: [*:0]const u8, name: [*:0]const u8) void {
+    tk_wksp_fault_unblock_name(shmem_path, name);
+}
+
+// ---------------------------------------------------------------------------
 // Canonical workspace names for Tickoni topology.
 // These mirror Firedancer's workspace name conventions used by
 // the metric tile (fd_tile_metric.name = "metric") and the
