@@ -514,13 +514,14 @@ test "minimal_setup_integration: harness → tkgate → spine → tkdisp → tka
     }
 
     // Wait for the agent to deliver every terminal result. Per event: the
-    // spine's policy decision, one tkmodl record and one agent record.
+    // spine's policy decision, one tkmodl record and one agent record; plus the
+    // case's creation and completion records from tkcase.
     const max_polls: u32 = 1200;
     var poll: u32 = 0;
     var metrics = sup.snapshotProcessMetrics();
     while (poll < max_polls) : (poll += 1) {
         metrics = sup.snapshotProcessMetrics();
-        if (metrics.produced >= event_count and metrics.audited >= 3 * event_count) break;
+        if (metrics.produced >= event_count and metrics.audited >= 3 * event_count + 2) break;
         util.process.sleepNanos(5 * std.time.ns_per_ms);
     }
     metrics = sup.snapshotProcessMetrics();
@@ -537,8 +538,10 @@ test "minimal_setup_integration: harness → tkgate → spine → tkdisp → tka
     // `allowed` sums tkpoly's and tkmodl's: each request is allowed by both.
     try std.testing.expectEqual(2 * event_count, metrics.allowed);
     try std.testing.expectEqual(@as(u64, 0), metrics.denied);
-    try std.testing.expectEqual(3 * event_count, metrics.audited);
+    try std.testing.expectEqual(3 * event_count + 2, metrics.audited);
     try std.testing.expectEqual(event_count, metrics.agent_dispatched);
+    // tkcase forwards each event to tkpoly and tkdisp (CNC slot 0).
+    try std.testing.expectEqual(2 * event_count, metrics.forwarded);
 
     harness.finish();
     sup.stopProcess(std.testing.io) catch |err| std.log.err("teardown stop: {any}", .{err});
