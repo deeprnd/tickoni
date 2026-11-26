@@ -10,11 +10,6 @@ const std = @import("std");
 /// Tickoni, even by name — Topo/TopoTile below are opaque; nothing outside
 /// this file may construct or introspect them.
 ///
-/// v2.14.S8.T3 delivers only this adapter. Nothing calls it yet: building
-/// a real fd_topo_t/fd_topo_tile_t (a thin Tickoni struct embedding their
-/// Solana-free fields) and migrating tile_process.zig's lifecycle to call
-/// topoRunTile is v2.14.S8.T4.
-///
 /// Link requirements: -lfd_disco -lfd_ballet -lfd_waltz (plus -lfd_tango
 /// -lfd_util, already required by other c_abi wrappers) and
 /// shim/topo_run.c at link time.
@@ -41,16 +36,13 @@ extern fn tk_topo_run_tile(
     allow_fd: c_int,
     /// *const fd_topo_run_tile_t. Stays untyped here too — the shim casts
     /// and forwards without needing the real 9-field struct layout on the
-    /// Zig side; T4 defines the matching Zig type for Tickoni's own
-    /// callbacks and passes its address through here.
+    /// Zig side.
     tile_run: *anyopaque,
 ) void;
 
-/// v2.14.S8.T4: simplified entry point wired to Tickoni's own
-/// fd_topo_run_tile_t (built entirely inside shim/tile_run.c from two
-/// Zig `export fn` callbacks — see tile_process.zig's
-/// tk_tile_privileged_init/tk_tile_run). Linux dispatches directly to
-/// upstream fd_topo_run_tile(); non-Linux dispatches to Tickoni's shim.
+/// Simplified entry point dispatching each registered tile to its stem run
+/// descriptor. Linux dispatches directly to upstream fd_topo_run_tile();
+/// non-Linux dispatches to Tickoni's shim.
 /// sandbox=0, current process's own uid/gid, regular core dumps.
 extern fn tk_topo_run_tile_simple(topo: *Topo, tile: *TopoTile) void;
 extern fn tk_topo_run_tile_simple_uses_upstream() c_int;
