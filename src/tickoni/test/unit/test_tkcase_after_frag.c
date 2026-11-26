@@ -24,6 +24,12 @@
       sig, a wrong size and a chunk outside the input's range; AFTER_FRAG with
       nothing staged publishes and commits nothing.
    6. Two runs draw different case ids (a case id is generated, not derived).
+   7. With tkrepl in the topology, every event appended to the capsule also goes
+      to tkrepl as forwarded, and the event that closes the case is followed
+      there by one TkCaseCapsuleMsg: case id, event count, first and last
+      source offset, the closing event's trace and the capsule hash of
+      tk_capsule_hash.h over every event.  Two publishes on the replay link in
+      that iteration: within STEM_BURST.  Without tkrepl nothing goes there.
 */
 
 #define _GNU_SOURCE
@@ -42,20 +48,20 @@
 #define CAPSULE_CAP   16UL
 
 static uint8_t g_buf[ BUF_CHUNKS * 64UL ] __attribute__((aligned(64)));
-static uint8_t g_mcache_mem[ TKCASE_OUT_CNT ][ FD_MCACHE_FOOTPRINT( OUT_DEPTH, 0UL ) ] __attribute__((aligned(FD_MCACHE_ALIGN)));
+static uint8_t g_mcache_mem[ TKCASE_OUT_MAX ][ FD_MCACHE_FOOTPRINT( OUT_DEPTH, 0UL ) ] __attribute__((aligned(FD_MCACHE_ALIGN)));
 static TkEvent g_capsule[ CAPSULE_CAP ];
 
 /* Each output's dcache range, disjoint from the input's and from each other. */
-static ulong const OUT_CHUNK0[ TKCASE_OUT_CNT ] = {  40UL, 160UL, 280UL };
-static ulong const OUT_WMARK [ TKCASE_OUT_CNT ] = { 140UL, 260UL, 380UL };
+static ulong const OUT_CHUNK0[ TKCASE_OUT_MAX ] = {  40UL, 160UL, 280UL, 400UL };
+static ulong const OUT_WMARK [ TKCASE_OUT_MAX ] = { 140UL, 260UL, 380UL, 500UL };
 
 typedef struct {
-    fd_frag_meta_t *  mcaches[ TKCASE_OUT_CNT ];
-    ulong             seqs   [ TKCASE_OUT_CNT ];
-    ulong             depths [ TKCASE_OUT_CNT ];
-    ulong             cr_avail[ TKCASE_OUT_CNT ];
+    fd_frag_meta_t *  mcaches[ TKCASE_OUT_MAX ];
+    ulong             seqs   [ TKCASE_OUT_MAX ];
+    ulong             depths [ TKCASE_OUT_MAX ];
+    ulong             cr_avail[ TKCASE_OUT_MAX ];
     ulong             min_cr_avail;
-    int               out_reliable[ TKCASE_OUT_CNT ];
+    int               out_reliable[ TKCASE_OUT_MAX ];
     fd_stem_context_t stem;
 } fake_stem_t;
 
@@ -65,7 +71,7 @@ static int g_failed = 0;
 static void
 fake_stem_init( fake_stem_t * f ) {
     memset( f, 0, sizeof(*f) );
-    for( ulong o=0UL; o<(ulong)TKCASE_OUT_CNT; o++ ) {
+    for( ulong o=0UL; o<(ulong)TKCASE_OUT_MAX; o++ ) {
         f->mcaches[o]      = fd_mcache_join( fd_mcache_new( g_mcache_mem[o], OUT_DEPTH, 0UL, 0UL ) );
         f->depths[o]       = OUT_DEPTH;
         f->cr_avail[o]     = OUT_DEPTH;
@@ -95,7 +101,7 @@ ctx_init( tkcase_ctx_t * ctx, uint64_t event_count, uint seed ) {
     ctx->in.wksp     = g_buf;
     ctx->in.chunk0   = IN_CHUNK0;
     ctx->in.wmark    = IN_WMARK;
-    for( ulong o=0UL; o<(ulong)TKCASE_OUT_CNT; o++ ) {
+    for( ulong o=0UL; o<(ulong)TKCASE_OUT_MAX; o++ ) {
         ctx->out[o].wksp   = g_buf;
         ctx->out[o].chunk0 = OUT_CHUNK0[o];
         ctx->out[o].wmark  = OUT_WMARK[o];
@@ -282,6 +288,48 @@ test_case_ids_are_generated_per_run( void ) {
     CHECK( first!=0UL && b.scope.case_id!=0UL && first!=b.scope.case_id, "the same event opens a different case in another run" );
 }
 
+static void
+test_the_replay_link_streams_the_capsule( void ) {
+    tkcase_ctx_t ctx; fake_stem_t f; fake_stem_init( &f ); ctx_init( &ctx, 3UL, 61U );
+    ctx.has_repl = 1;
+    uint64_t h = TK_CAPSULE_HASH_INIT;
+    for( uint64_t i=0UL; i<3UL; i++ ) {
+        TkEvent ev = agent_event( i );
+        feed( &ctx, &f, &ev );
+        h = tk_capsule_hash_append( h, &g_capsule[i] );
+        if( i<2UL ) CHECK( f.seqs[TKCASE_OUT_REPL]==i+1UL, "one fragment to tkrepl per event before the close" );
+    }
+    CHECK( ctx.capsule_hash==h, "the capsule hash folds every event as appended" );
+    CHECK( f.seqs[TKCASE_OUT_REPL]==4UL, "three events and the summary to tkrepl" );
+    for( uint64_t i=0UL; i<3UL; i++ ) {
+        fd_frag_meta_t const * meta = published( &f, TKCASE_OUT_REPL, i );
+        CHECK( meta->sig==TK_LINK_SIG_EVENT && meta->sz==TK_EVENT_SIZE, "a whole TkEvent fragment" );
+        CHECK( meta->chunk>=OUT_CHUNK0[TKCASE_OUT_REPL] && meta->chunk<=OUT_WMARK[TKCASE_OUT_REPL], "written into the replay link's dcache" );
+        CHECK( !memcmp( published_bytes( &f, TKCASE_OUT_REPL, i ), &g_capsule[i], sizeof(TkEvent) ), "the event as the capsule holds it" );
+    }
+    fd_frag_meta_t const * meta = published( &f, TKCASE_OUT_REPL, 3UL );
+    CHECK( meta->sig==TK_LINK_SIG_CASE_CAPSULE && meta->sz==sizeof(TkCaseCapsuleMsg), "then the summary on its sig" );
+    TkCaseCapsuleMsg const * m = published_bytes( &f, TKCASE_OUT_REPL, 3UL );
+    CHECK( m->version==TK_REPL_WIRE_VERSION && m->case_id==ctx.scope.case_id, "for the run's case" );
+    CHECK( m->event_count==3UL && m->first_source_offset==0UL && m->last_source_offset==2UL, "naming the capsule's events" );
+    CHECK( m->capsule_hash==h, "and their capsule hash" );
+    CHECK( m->trace_id[0]==(uint8_t)(0x40 + 2), "with the closing event's trace" );
+    CHECK( f.cr_avail[TKCASE_OUT_REPL]==OUT_DEPTH-4UL, "one credit per fragment" );
+    CHECK( ctx.forwarded==6UL, "the forwarded count stays tkpoly and tkdisp only" );
+
+    /* One event: the event and the summary in one iteration. */
+    tkcase_ctx_t one; fake_stem_t g; fake_stem_init( &g ); ctx_init( &one, 1UL, 62U );
+    one.has_repl = 1;
+    TkEvent ev = agent_event( 0 );
+    feed( &one, &g, &ev );
+    CHECK( g.seqs[TKCASE_OUT_REPL]==2UL && g.cr_avail[TKCASE_OUT_REPL]==OUT_DEPTH-2UL, "two publishes on the replay link: within STEM_BURST" );
+
+    /* Without tkrepl nothing goes to output 3. */
+    tkcase_ctx_t none; fake_stem_t n; fake_stem_init( &n ); ctx_init( &none, 1UL, 63U );
+    feed( &none, &n, &ev );
+    CHECK( n.seqs[TKCASE_OUT_REPL]==0UL, "no replay link, no replay fragment" );
+}
+
 int
 main( void ) {
     test_first_event_opens_the_case();
@@ -289,6 +337,7 @@ main( void ) {
     test_the_last_event_closes_the_case();
     test_during_frag_stages_only_and_rejects_bad_fragments();
     test_case_ids_are_generated_per_run();
+    test_the_replay_link_streams_the_capsule();
     if( g_failed ) { fprintf( stderr, "tkcase AFTER_FRAG tests FAILED\n" ); return 1; }
     printf( "all tkcase AFTER_FRAG tests passed\n" );
     return 0;

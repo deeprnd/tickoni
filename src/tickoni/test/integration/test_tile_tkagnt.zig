@@ -56,6 +56,7 @@ const record_proposal: u32 = 5;
 const record_denial: u32 = 9;
 const record_case_creation: u32 = 13;
 const record_case_completion: u32 = 14;
+const record_replay_result: u32 = 11;
 
 const max_polls: u32 = 2000;
 const poll_ns: u64 = 5 * std.time.ns_per_ms;
@@ -243,7 +244,8 @@ fn startWorkflowRunStale(
 
 /// Polls until every event has its terminal result at tkdisp and every record
 /// (the case's creation record, one policy decision, one model call and one
-/// proposal per event, and the case's completion record) is committed.
+/// proposal per event, the case's completion record, and tkrepl's replay
+/// result) is committed.
 fn waitForWorkflow(sup: *Supervisor, event_count: u64) void {
     const audit = tileScratch(sup, "tkaudt", 0) catch return;
     const disp = tileScratch(sup, "tkdisp", 0) catch return;
@@ -251,7 +253,8 @@ fn waitForWorkflow(sup: *Supervisor, event_count: u64) void {
     while (poll < max_polls) : (poll += 1) {
         if (c_abi.tkdisp.resultCount(disp) >= event_count and
             c_abi.tkaudit.caseClosed(audit) and
-            c_abi.tkaudit.recordCount(audit) >= 3 * event_count + 2) return;
+            c_abi.tkaudit.replayCommitted(audit) and
+            c_abi.tkaudit.recordCount(audit) >= 3 * event_count + 3) return;
         util.process.sleepNanos(poll_ns);
     }
 }
@@ -481,6 +484,46 @@ fn expectCase(sup: *Supervisor, event_count: u64) !u64 {
     return scope.case_id;
 }
 
+/// tkrepl's replay of the run's case capsule: it folded every event tkcase
+/// streamed it to the capsule hash tkcase recorded, found no divergence, and
+/// reported it on its CNC slots. The record tkaudt committed for it is checked
+/// by `expectReplayRecord`.
+fn expectReplay(sup: *Supervisor, event_count: u64) !void {
+    const repl = try tileScratch(sup, "tkrepl", 0);
+    const case = try tileScratch(sup, "tkcase", 0);
+    try std.testing.expect(c_abi.tkrepl.replayChecked(repl));
+    try std.testing.expect(c_abi.tkrepl.replayMatch(repl));
+    try std.testing.expectEqual(event_count, c_abi.tkrepl.observedCount(repl));
+    try std.testing.expectEqual(c_abi.tkcase.capsuleHash(case), c_abi.tkrepl.observedHash(repl));
+    try std.testing.expect(c_abi.tkrepl.observedHash(repl) != 0);
+    try std.testing.expectEqual(@as(u64, 0), c_abi.tkrepl.rejected(repl));
+    const v = c_abi.tkrepl.verdict(repl);
+    try std.testing.expectEqual(@as(u64, 0), v.divergences);
+    try std.testing.expectEqual(@as(u64, 0), v.first_divergent_seq);
+    // CNC slots 0/1 (tile_registry.zig), which tkdiag reads too.
+    const m = sup.snapshotProcessMetrics();
+    try std.testing.expectEqual(@as(u64, 1), m.replay_checked);
+    try std.testing.expectEqual(@as(u64, 1), m.replay_match);
+}
+
+/// The replay result record: produced by tkrepl for the run's case, at the
+/// capsule's last event (whose trace it carries), capsule_id = tkcase's capsule
+/// hash, no divergence.
+fn expectReplayRecord(sup: *Supervisor, audit: ?*anyopaque, idx: usize, case_id: u64, offset: u64) !void {
+    try std.testing.expectEqual(record_replay_result, c_abi.tkaudit.recordType(audit, idx));
+    try std.testing.expectEqual(case_id, c_abi.tkaudit.recordCaseId(audit, idx));
+    try std.testing.expectEqual(offset, c_abi.tkaudit.recordSourceOffset(audit, idx));
+    try std.testing.expectEqual(@as(u128, @intCast(ingest.traceIdAt(offset))), c_abi.trace_id.toInt(c_abi.tkaudit.recordTraceId(audit, idx)));
+    var producer: [6]u8 = undefined;
+    c_abi.tkaudit.recordDecidedBy(audit, idx, &producer);
+    try std.testing.expectEqualStrings("tkrepl", &producer);
+    var ev: c_abi.tkaudit.CAuditEvent = undefined;
+    c_abi.tkaudit.recordCopy(audit, idx, &ev);
+    try std.testing.expectEqual(c_abi.tkcase.capsuleHash(try tileScratch(sup, "tkcase", 0)), ev.unnamed_0.replay_result.capsule_id);
+    try std.testing.expectEqual(@as(u64, 0), ev.unnamed_0.replay_result.divergences);
+    try std.testing.expectEqual(@as(u64, 0), ev.unnamed_0.replay_result.first_divergent_seq);
+}
+
 /// A case lifecycle record: produced by tkcase, for the run's case, triggered by
 /// the event at `offset` (whose trace it carries), payload basket_id = case id.
 fn expectCaseRecord(audit: ?*anyopaque, idx: usize, record_type: u32, case_id: u64, offset: u64) !void {
@@ -539,6 +582,11 @@ fn zigHashOfCommittedRecord(ev: c_abi.tkaudit.CAuditEvent) !u64 {
         } },
         record_case_creation => .{ .case_creation = caseZigPayload(ev) },
         record_case_completion => .{ .case_completion = caseZigPayload(ev) },
+        record_replay_result => .{ .replay_result = .{
+            .capsule_id = ev.unnamed_0.replay_result.capsule_id,
+            .divergences = ev.unnamed_0.replay_result.divergences,
+            .first_divergent_seq = ev.unnamed_0.replay_result.first_divergent_seq,
+        } },
         else => return error.UnexpectedRecordType,
     };
     return audit_zig.computeRecordHash(.{ .header = ev.header, .payload = payload });
@@ -556,7 +604,7 @@ fn caseZigPayload(ev: c_abi.tkaudit.CAuditEvent) audit_zig.CaseCreationPayload {
 /// Re-hashes every committed record with the Zig codec and compares. Returns
 /// which record types the comparison covered, so a caller can assert that it
 /// exercised the types its run is meant to produce.
-const HashCoverage = struct { policy_decision: bool = false, model_call: bool = false, proposal: bool = false, denial: bool = false, case_creation: bool = false, case_completion: bool = false };
+const HashCoverage = struct { policy_decision: bool = false, model_call: bool = false, proposal: bool = false, denial: bool = false, case_creation: bool = false, case_completion: bool = false, replay_result: bool = false };
 
 fn expectZigHashParity(sup: *Supervisor) !HashCoverage {
     const audit = try tileScratch(sup, "tkaudt", 0);
@@ -574,6 +622,7 @@ fn expectZigHashParity(sup: *Supervisor) !HashCoverage {
             record_denial => saw.denial = true,
             record_case_creation => saw.case_creation = true,
             record_case_completion => saw.case_completion = true,
+            record_replay_result => saw.replay_result = true,
             else => {},
         }
     }
@@ -1168,8 +1217,10 @@ test "tkagnt_tile: the full investment workflow turns each event into one audite
     const audit = try tileScratch(&run.sup, "tkaudt", 0);
 
     // tkcase attached every event to the run's case and forwarded it to tkpoly
-    // and tkdisp; the idle tool and adapter tiles saw nothing.
+    // and tkdisp; the idle tool and adapter tiles saw nothing. tkrepl replayed
+    // the case's capsule and found it intact.
     const case_id = try expectCase(&run.sup, event_count);
+    try expectReplay(&run.sup, event_count);
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkpass.consumed(tool));
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkpass.consumed(adapter));
 
@@ -1197,15 +1248,17 @@ test "tkagnt_tile: the full investment workflow turns each event into one audite
 
     // The audit chain holds the case's creation record, then per event its
     // policy decision (from the spine), the model record and the agent record of
-    // its admission ordinal, then the case's completion record.
+    // its admission ordinal, then the case's completion record, and last
+    // tkrepl's replay result.
     try std.testing.expectEqual(event_count, c_abi.tkaudit.agentCommitted(audit));
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkaudit.rejectedCount(audit));
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkaudit.heldModelCount(audit));
     try std.testing.expectEqual(@as(u64, 0), c_abi.tkaudit.heldAgentCount(audit));
     const count = c_abi.tkaudit.recordCount(audit);
-    try std.testing.expectEqual(@as(usize, 3 * event_count + 2), count);
+    try std.testing.expectEqual(@as(usize, 3 * event_count + 3), count);
     try expectCaseRecord(audit, 0, record_case_creation, case_id, 0);
-    try expectCaseRecord(audit, count - 1, record_case_completion, case_id, event_count - 1);
+    try expectCaseRecord(audit, count - 2, record_case_completion, case_id, event_count - 1);
+    try expectReplayRecord(&run.sup, audit, count - 1, case_id, event_count - 1);
 
     // One chain in event order: for event e, its policy decision (source offset
     // e, the run's case), then its model record and its agent record (admission
@@ -1266,7 +1319,9 @@ test "tkagnt_tile: the full workflow commits the same event-ordered chain on eve
         try expectNoCrash(&run.sup);
         const audit = try tileScratch(&run.sup, "tkaudt", 0);
         const count = c_abi.tkaudit.recordCount(audit);
-        try std.testing.expectEqual(@as(usize, 3 * event_count + 2), count);
+        try std.testing.expectEqual(@as(usize, 3 * event_count + 3), count);
+        // The head is the replay result's: it covers the capsule hash too.
+        try std.testing.expectEqual(record_replay_result, c_abi.tkaudit.recordType(audit, count - 1));
         head.* = c_abi.tkaudit.recordHash(audit, count - 1);
     }
     try std.testing.expect(heads[0] != 0);

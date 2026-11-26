@@ -336,10 +336,10 @@ test "every scratch-owning tile object is laid out at its required alignment" {
     );
     defer built.deinit(std.testing.allocator);
 
-    // tkgate, tkings, tknorm, tkdedu, tkaudt, tkpoly, metric and tkdiag each own
-    // tile-local scratch; the rest report footprint 1 and carry no alignment
-    // property.
-    const expected_scratch_owners: usize = 8;
+    // Every tile of the payment process topology is a stem tile with
+    // tile-local scratch: tkgate, tkings, tknorm, tkdedu, tkaudt, tkpoly, tkrepl,
+    // metric and tkdiag.
+    const expected_scratch_owners: usize = 9;
     var checked: usize = 0;
 
     for (topologies.paymentPipelineProcess().tiles) |t| {
