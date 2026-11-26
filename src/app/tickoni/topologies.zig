@@ -28,6 +28,15 @@ pub const event_link_mtu: u32 = audit_mod.TK_EVENT_LINK_MTU;
 pub const case_audit_link_depth: u32 = 32;
 pub const case_audit_link_mtu: u32 = audit_mod.TK_CASE_AUDIT_LINK_MTU;
 
+/// The replay side-channel (shim/tkrepl_frag.h). tkcase -> tkrepl streams the
+/// case capsule: every event, then one summary, so it is shaped like a spine
+/// link. tkrepl -> tkaudt carries the one replay verdict of the run. Both are
+/// reliable.
+pub const replay_capsule_link_depth: u32 = 64;
+pub const replay_capsule_link_mtu: u32 = audit_mod.TK_REPL_CAPSULE_LINK_MTU;
+pub const replay_audit_link_depth: u32 = 32;
+pub const replay_audit_link_mtu: u32 = audit_mod.TK_REPL_AUDIT_LINK_MTU;
+
 /// ── Helper Functions ──
 /// tkings's input in the isolation fixtures, which have no tkgate: the one link
 /// no tile produces (`rt.link.external_src`, Firedancer's permit_no_producers),
@@ -169,6 +178,11 @@ const investment_channels = [_]Channel{
     // completion records (its third output, after tkpoly and tkdisp).
     investmentLink(4, 5, 64, event_link_mtu),
     investmentLink(3, 5, case_audit_link_depth, case_audit_link_mtu),
+    // The replay side-channel: tkcase -> tkrepl (the case capsule, tkcase's
+    // fourth output, before its diagnostic link) and tkrepl -> tkaudt (the
+    // replay verdict).
+    investmentLink(3, 11, replay_capsule_link_depth, replay_capsule_link_mtu),
+    investmentLink(11, 5, replay_audit_link_depth, replay_audit_link_mtu),
     investmentLink(8, 5, 32, 256),
     investmentLink(9, 5, 32, 256),
     investmentLink(10, 5, 32, 256),
@@ -233,15 +247,17 @@ pub fn paymentPipeline() Topology {
 ///   model:     tkagnt -> tkmodl -> tkagnt (request, result); tkmodl -> tkaudt (audit)
 ///   agent:     tkagnt -> tkaudt (audit), tkagnt -> tkdisp (terminal result)
 ///   idle:      tkagnt -> tktool -> tkadpt, and tktool, tkadpt -> tkaudt
-///   tkrepl, metric and tkdiag observe the run.
+///   replay:    tkcase -> tkrepl (the case capsule), tkrepl -> tkaudt (the verdict)
+///   metric and tkdiag observe the run.
 ///
 /// tkcase opens the run's case on its first event, stamps every event with the
 /// case id and audits the case's creation and completion. tktool and tkadpt are
 /// config-driven placeholders: they carry no tool or adapter logic. tkdisp is
 /// the scheduler that turns each event it
 /// receives from tkcase into one agent request: an agent-request event's own,
-/// or, for a payment event, a fixed, config-supplied template. `tkaudt -> tkrepl` is not a link: replay reads the committed audit
-/// chain, which has no consumer tile yet.
+/// or, for a payment event, a fixed, config-supplied template. tkrepl is the
+/// replay side-channel, not part of the spine: it replays the closed case's
+/// capsule and tkaudt commits its verdict as the chain's last record.
 /// Status: runnable, through the supervisor's process-mode start path
 /// (Supervisor.startPaymentPipelineProcess) given a dispatch template and the
 /// per-instance tkmodl configuration; exercised end to end by
@@ -708,17 +724,45 @@ test "investmentWorkflow is runnable: spine links are reliable shared-memory lin
     }
 }
 
-test "investmentWorkflow has no tkaudt -> tkrepl link and keeps the observers unlinked" {
+test "investmentWorkflow wires tkrepl only as the replay side-channel: capsule from tkcase, verdict to tkaudt" {
     const topo = investmentWorkflow();
+    const case: u32 = 3;
     const audit: u32 = 5;
     const repl: u32 = 11;
     try std.testing.expect(topo.tiles[repl].name.eql(tile_ids.tkrepl));
+    var into: usize = 0;
+    var out_of: usize = 0;
+    var case_outs: usize = 0;
     for (topo.channels) |ch| {
-        try std.testing.expect(ch.src_idx != repl and ch.dst_idx != repl);
-        // tkaudt may now have a diagnostic output; only reject audit -> tkrepl.
+        if (ch.src_idx == case and !topo.tiles[ch.dst_idx].name.eql(tile_ids.tkdiag)) case_outs += 1;
+        if (ch.dst_idx == repl) {
+            into += 1;
+            try std.testing.expectEqual(case, ch.src_idx);
+            try std.testing.expectEqual(rt.link.LinkReliability.reliable, ch.reliability);
+            try std.testing.expect(ch.mtu >= @sizeOf(audit_mod.TkEvent));
+            try std.testing.expect(ch.mtu >= @sizeOf(audit_mod.TkCaseCapsuleMsg));
+            // The capsule link is tkcase's fourth output: tkpoly, tkdisp, tkaudt, tkrepl.
+            try std.testing.expectEqual(@as(usize, 4), case_outs);
+        }
+        if (ch.src_idx == repl) {
+            out_of += 1;
+            try std.testing.expectEqual(audit, ch.dst_idx);
+            try std.testing.expectEqual(rt.link.LinkReliability.reliable, ch.reliability);
+            try std.testing.expect(ch.mtu >= @sizeOf(audit_mod.TkReplAuditMsg));
+        }
+        // Nothing flows from tkaudt back to tkrepl.
         try std.testing.expect(!(ch.src_idx == audit and ch.dst_idx == repl));
     }
-    try std.testing.expectEqual(@as(usize, 29), topo.channels.len);
+    try std.testing.expectEqual(@as(usize, 1), into);
+    try std.testing.expectEqual(@as(usize, 1), out_of);
+    try std.testing.expectEqual(@as(usize, 31), topo.channels.len);
+}
+
+test "paymentPipelineProcess keeps tkrepl unlinked: no tkcase, no capsule to replay" {
+    const topo = paymentPipelineProcess();
+    const repl: u32 = 5;
+    try std.testing.expect(topo.tiles[repl].name.eql(tile_ids.tkrepl));
+    for (topo.channels) |ch| try std.testing.expect(ch.src_idx != repl and ch.dst_idx != repl);
 }
 
 test "investmentWorkflow includes tkmodl tktool tkadpt and passes validation" {
@@ -794,8 +838,8 @@ test "investmentWorkflow fans one diagnostic link per producer tile to tkdiag" {
     const diag: u32 = 13;
     try std.testing.expect(topo.tiles[diag].name.eql(tile_ids.tkdiag));
     // Producers in topology order: tkings(0), tknorm(1), tkdedu(2), tkcase(3),
-    // tkpoly(4), tkaudt(5), tkdisp(6), tkagnt(7), tkmodl(8) at channels 17..25,
-    // tkgate(14) at channel 27 (after apiOutput at 26).
+    // tkpoly(4), tkaudt(5), tkdisp(6), tkagnt(7), tkmodl(8) at channels 19..27,
+    // tkgate(14) at channel 29 (after apiOutput at 28).
     const p_indices = [_]u32{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 14 };
     const p_names = [_]*const rt.tile.TileId{
         &tile_ids.tkings, &tile_ids.tknorm, &tile_ids.tkdedu, &tile_ids.tkcase,
@@ -803,7 +847,7 @@ test "investmentWorkflow fans one diagnostic link per producer tile to tkdiag" {
         &tile_ids.tkmodl, &tile_ids.tkgate,
     };
     for (p_indices, 0..) |src, i| {
-        const ch_idx: usize = if (i == 9) 27 else 17 + i;
+        const ch_idx: usize = if (i == 9) 29 else 19 + i;
         const ch = topo.channels[ch_idx];
         try std.testing.expectEqual(src, ch.src_idx);
         try std.testing.expect(topo.tiles[ch.src_idx].name.eql(p_names[i].*));
@@ -834,10 +878,10 @@ test "agentProcess has N+10 tiles and 3N+12 channels and passes validation for e
 }
 
 /// tkcase's outputs in channel order: tkpoly, tkdisp, tkaudt, then (where the
-/// topology has tkdiag) the diagnostic link. tk_case_stem.c binds them by
-/// index and checks each consumer.
-fn expectCaseOutputs(topo: Topology, case_idx: u32, poly: u32, disp: u32, audit: u32) !void {
-    var outs: [4]u32 = undefined;
+/// topology has tkrepl) tkrepl and (where it has tkdiag) the diagnostic link.
+/// tk_case_stem.c binds them by index and checks each consumer.
+fn expectCaseOutputs(topo: Topology, case_idx: u32, poly: u32, disp: u32, audit: u32, repl: ?u32) !void {
+    var outs: [5]u32 = undefined;
     var n: usize = 0;
     for (topo.channels) |ch| {
         if (ch.src_idx != case_idx) continue;
@@ -852,12 +896,18 @@ fn expectCaseOutputs(topo: Topology, case_idx: u32, poly: u32, disp: u32, audit:
     }
     try std.testing.expect(n >= 3);
     try std.testing.expectEqualSlices(u32, &.{ poly, disp, audit }, outs[0..3]);
+    if (repl) |r| {
+        try std.testing.expect(n >= 4);
+        try std.testing.expectEqual(r, outs[3]);
+    } else {
+        for (outs[3..n]) |dst| try std.testing.expect(topo.tiles[dst].name.eql(tile_ids.tkdiag));
+    }
 }
 
-test "tkcase feeds tkpoly, tkdisp and tkaudt in that order in both workflow topologies" {
-    try expectCaseOutputs(investmentWorkflow(), 3, 4, 6, 5);
+test "tkcase feeds tkpoly, tkdisp and tkaudt in that order in both workflow topologies, then tkrepl where it runs" {
+    try expectCaseOutputs(investmentWorkflow(), 3, 4, 6, 5, 11);
     const G = AgentGraph(2);
-    try expectCaseOutputs(agentProcess(2), G.idx_case, G.idx_poly, G.idx_disp, G.idx_audit);
+    try expectCaseOutputs(agentProcess(2), G.idx_case, G.idx_poly, G.idx_disp, G.idx_audit, null);
 }
 
 test "agentProcess routes every event through the spine and agent requests only through tkdisp" {

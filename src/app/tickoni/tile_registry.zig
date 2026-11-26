@@ -84,8 +84,8 @@ pub const DiagRole = enum { none, producer, collector };
 pub const TileEntry = struct {
     id: rt.tile.TileId,
     launch_mode: LaunchMode = .tile,
-    /// Null for tiles with no process-mode pipeline role yet (tkrepl,
-    /// metric, tkdiag) — see tiles/payment_pipeline/process.zig's module
+    /// Null for every stem tile, and for tiles with no process-mode pipeline
+    /// role (metric, tkdiag) — see tiles/payment_pipeline/process.zig's module
     /// doc comment for that scope boundary.
     process_fn: ?ProcessFn = null,
     counters: []const CounterSchemaEntry = &.{},
@@ -115,9 +115,18 @@ pub const Cardinality = enum {
     fixed,
     /// tkaudt: one model-audit link per tkmodl plus one agent-audit link per
     /// tkagnt, one idle link per tktool and tkadpt, the payment chain's link
-    /// from each tkpoly, and the case-audit link from each tkcase; with no
-    /// tkmodl, `in_cnt` (the payment-pipeline chain end).
+    /// from each tkpoly, the case-audit link from each tkcase, and the
+    /// replay-result link from tkrepl when it has a capsule to replay
+    /// (`replayLinks`); with no tkmodl, `in_cnt` (the payment-pipeline chain
+    /// end).
     audit_fan_in,
+    /// tkcase: `in_cnt` inputs; `out_cnt` outputs plus the capsule link to
+    /// each tkrepl.
+    case_fan,
+    /// tkrepl: the replay side-channel, `replayLinks` inputs (the capsule from
+    /// tkcase) and as many outputs (the verdict to tkaudt); none in a topology
+    /// without tkcase.
+    replay,
     /// tkagnt: one request input plus one result input per tkmodl; one request
     /// output per tkmodl plus the audit and terminal-result outputs, and one idle
     /// output to each tktool.
@@ -201,9 +210,17 @@ pub const entries = [_]TileEntry{
         .cardinality = .audit_fan_in,
         .diag = .producer,
     },
+    // tkrepl: the replay side-channel (tk_repl_stem.c). Where the topology has
+    // tkcase, one input (the case capsule tkcase streams it) and one output
+    // (the replay verdict, RECORD_REPLAY_RESULT, to tkaudt); otherwise no link,
+    // and it stops on CNC HALT. Slots 0/1 are replay_checked and replay_match,
+    // which tkdiag also reads.
     .{
         .id = tile_ids.tkrepl,
+        .launch_mode = .stem,
+        .process_fn = null,
         .counters = &.{ .{ .idx = 0, .field = .replay_checked }, .{ .idx = 1, .field = .replay_match } },
+        .cardinality = .replay,
     },
     // metric: fd_stem tile — delegates to fd_metric_tile.c's stem loop via
     // tk_metric_run → fd_tile_metric.run. No pipeline links (observer only).
@@ -286,8 +303,9 @@ pub const entries = [_]TileEntry{
     },
     // tkcase: the case router (tk_case_stem.c). One event input from tkdedu;
     // outputs to tkpoly and tkdisp (every event, stamped with the run's case
-    // id) and to tkaudt (the case creation and completion records). Slot 0 is
-    // the forwarded event fragment count.
+    // id), to tkaudt (the case creation and completion records) and, where the
+    // topology has tkrepl, to tkrepl (the case capsule). Slot 0 is the
+    // forwarded event fragment count (tkpoly and tkdisp).
     .{
         .id = tile_ids.tkcase,
         .launch_mode = .stem,
@@ -295,6 +313,7 @@ pub const entries = [_]TileEntry{
         .counters = &.{.{ .idx = 0, .field = .forwarded }},
         .in_cnt = 1,
         .out_cnt = 3,
+        .cardinality = .case_fan,
         .diag = .producer,
     },
     // tktool and tkadpt: config-driven placeholders of the full workflow
@@ -345,18 +364,25 @@ fn countTilesNamed(topo: rt.topology.Topology, name: rt.tile.TileId) usize {
     return n;
 }
 
+/// Links of the replay side-channel: tkcase -> tkrepl and tkrepl -> tkaudt
+/// each, when the topology has both tkcase and tkrepl (one of each at most).
+pub fn replayLinks(topo: rt.topology.Topology) usize {
+    return @min(countTilesNamed(topo, tile_ids.tkcase), countTilesNamed(topo, tile_ids.tkrepl));
+}
+
 /// Inbound links this entry expects for one descriptor of the topology.
 pub fn expectedInCnt(entry: *const TileEntry, topo: rt.topology.Topology) usize {
     const models = countTilesNamed(topo, tile_ids.tkmodl);
     return switch (entry.cardinality) {
-        .fixed => entry.in_cnt,
+        .fixed, .case_fan => entry.in_cnt,
         .audit_fan_in => if (models > 0)
             models + countTilesNamed(topo, tile_ids.tkagnt) + countTilesNamed(topo, tile_ids.tktool) +
                 countTilesNamed(topo, tile_ids.tkadpt) + countTilesNamed(topo, tile_ids.tkpoly) +
-                countTilesNamed(topo, tile_ids.tkcase)
+                countTilesNamed(topo, tile_ids.tkcase) + replayLinks(topo)
         else
             entry.in_cnt,
         .agent_fan => 1 + models,
+        .replay => replayLinks(topo),
     };
 }
 
@@ -365,6 +391,8 @@ pub fn expectedOutCnt(entry: *const TileEntry, topo: rt.topology.Topology) usize
     return switch (entry.cardinality) {
         .fixed, .audit_fan_in => entry.out_cnt,
         .agent_fan => countTilesNamed(topo, tile_ids.tkmodl) + 2 + countTilesNamed(topo, tile_ids.tktool),
+        .case_fan => entry.out_cnt + countTilesNamed(topo, tile_ids.tkrepl),
+        .replay => replayLinks(topo),
     };
 }
 

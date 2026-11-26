@@ -330,6 +330,60 @@ test "tkcase publishes its forwarded count in CNC slot 0" {
     try std.testing.expectEqual(CounterField.forwarded, tkcase.counters[0].field);
 }
 
+test "tkrepl is a stem tile publishing replay_checked and replay_match in CNC slots 0 and 1" {
+    const tkrepl = findById(tile_ids.tkrepl).?;
+    try std.testing.expectEqual(LaunchMode.stem, tkrepl.launch_mode);
+    try std.testing.expect(tkrepl.process_fn == null);
+    try std.testing.expectEqual(@as(usize, 2), tkrepl.counters.len);
+    try std.testing.expectEqual(@as(u8, 0), tkrepl.counters[0].idx);
+    try std.testing.expectEqual(CounterField.replay_checked, tkrepl.counters[0].field);
+    try std.testing.expectEqual(@as(u8, 1), tkrepl.counters[1].idx);
+    try std.testing.expectEqual(CounterField.replay_match, tkrepl.counters[1].field);
+    try std.testing.expectEqual(reg.DiagRole.none, tkrepl.diag);
+}
+
+test "the replay side-channel exists only where the topology has both tkcase and tkrepl" {
+    const tkrepl = findById(tile_ids.tkrepl).?;
+    const tkcase = findById(tile_ids.tkcase).?;
+    const tkaudt = findById(tile_ids.tkaudt).?;
+
+    // tkcase and tkrepl (and a tkmodl, so tkaudt counts its fan-in): one link
+    // each way, and one more input for tkaudt.
+    const with_repl = [_]rt.tile.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkcase },
+        .{ .id = 1, .name = tile_ids.tkaudt },
+        .{ .id = 2, .name = tile_ids.tkrepl },
+        .{ .id = 3, .name = tile_ids.tkmodl },
+    };
+    const repl_topo = rt.topology.Topology{ .tiles = &with_repl, .channels = &.{} };
+    try std.testing.expectEqual(@as(usize, 1), reg.replayLinks(repl_topo));
+    try std.testing.expectEqual(@as(usize, 1), reg.expectedInCnt(tkrepl, repl_topo));
+    try std.testing.expectEqual(@as(usize, 1), reg.expectedOutCnt(tkrepl, repl_topo));
+    try std.testing.expectEqual(@as(usize, 4), reg.expectedOutCnt(tkcase, repl_topo));
+    // tkmodl, tkcase and tkrepl feed tkaudt.
+    try std.testing.expectEqual(@as(usize, 3), reg.expectedInCnt(tkaudt, repl_topo));
+
+    // No tkrepl (the agent topologies): tkcase keeps its three outputs.
+    const no_repl = [_]rt.tile.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkcase },
+        .{ .id = 1, .name = tile_ids.tkaudt },
+        .{ .id = 2, .name = tile_ids.tkmodl },
+    };
+    const case_topo = rt.topology.Topology{ .tiles = &no_repl, .channels = &.{} };
+    try std.testing.expectEqual(@as(usize, 3), reg.expectedOutCnt(tkcase, case_topo));
+    try std.testing.expectEqual(@as(usize, 2), reg.expectedInCnt(tkaudt, case_topo));
+
+    // No tkcase (the payment pipeline): tkrepl has no capsule, so no link.
+    const no_case = [_]rt.tile.TileDescriptor{
+        .{ .id = 0, .name = tile_ids.tkaudt },
+        .{ .id = 1, .name = tile_ids.tkrepl },
+    };
+    const pay_topo = rt.topology.Topology{ .tiles = &no_case, .channels = &.{} };
+    try std.testing.expectEqual(@as(usize, 0), reg.replayLinks(pay_topo));
+    try std.testing.expectEqual(@as(usize, 0), reg.expectedInCnt(tkrepl, pay_topo));
+    try std.testing.expectEqual(@as(usize, 0), reg.expectedOutCnt(tkrepl, pay_topo));
+}
+
 test "launch mode is owned by the registry" {
     try std.testing.expectEqual(LaunchMode.stem, findById(tile_ids.tkings).?.launch_mode);
     inline for (.{ tile_ids.tknorm, tile_ids.tkdedu, tile_ids.tkpoly, tile_ids.tkaudt }) |tile_id| {
@@ -626,7 +680,7 @@ test "validate rejects empty link arrays for tiles that require links" { // tkin
     try std.testing.expectError(error.LinkCardinalityMismatch, validate(topo));
 }
 
-test "validate accepts tiles with zero links when registry expects zero" { // tkrepl, metric, tkdiag have in_cnt == 0 and out_cnt == 0 — a
+test "validate accepts tiles with zero links when registry expects zero" { // tkrepl (without tkcase), metric, tkdiag have in_cnt == 0 and out_cnt == 0 — a
     // topology with 0 channels should still validate for these tiles.
     const entry = findById(tile_ids.tkrepl).?;
     try std.testing.expectEqual(@as(u8, 0), entry.in_cnt);
