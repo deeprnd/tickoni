@@ -172,9 +172,8 @@ ulong tk_cnc_signal_query( fd_cnc_t const * cnc ) { return fd_cnc_signal_query( 
    them from the child's LaunchSpec before the C harness runs).  Every stem
    tile's housekeeping calls stk_cnc_liveness (stem_helpers.h), which calls
    tk_cnc_liveness_fault_check right after the heartbeat.  This is the stem
-   counterpart of tile_process.zig's crash_after_heartbeats hook, so the
-   supervisor's crash and staleness handling is exercised on any stem tile the
-   same way, without a hook inside any tile:
+   supervisor's crash and staleness handling is exercised on any stem tile
+   without a hook inside the tile:
 
    - crash: at heartbeat `crash_after_heartbeats` (> 0) the process exits(1)
      without a clean CNC transition;
