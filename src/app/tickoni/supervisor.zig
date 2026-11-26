@@ -47,6 +47,12 @@ pub const ProcessPipelineConfig = struct {
     /// input link.
     event_count: u64 = 10_000,
     policy_limit_cents: i64 = 100_000,
+    /// Seed of tkcase's case-id generator. 0, the default, seeds it from the
+    /// tile's tick counter, so every run opens its case under a fresh random
+    /// id. A nonzero seed makes the case id, and so the audit chain, repeat
+    /// across runs of the same inputs (the determinism tests fix it). Travels
+    /// in TopologySpec.case_rng_seed.
+    case_rng_seed: u64 = 0,
     /// Test-build tkmodl topologies: the per-instance tkmodl configuration set
     /// (tier, limits, allowlist, fixture table). The set must match the
     /// topology's tkmodl tiles one-to-one; a missing, duplicate or unmatched
@@ -515,20 +521,13 @@ pub const Supervisor = struct {
         // Also clean up any stale metric/metric_in workspaces from a prior
         // run so wkspNewNamed's O_EXCL doesn't fail closed on the second
         // test invocation.
-        {
-            var stale_name: [64]u8 = undefined;
-            const printed = std.fmt.bufPrint(&stale_name, "{s}_{s}.wksp", .{ rt.topo_build.app_name, c_abi.wksp.wksp_name_metric }) catch &stale_name;
-            stale_name[printed.len] = 0;
-            if (c_abi.wksp.wkspExistsNamed(@ptrCast(&stale_name))) {
-                _ = c_abi.wksp.wkspDeleteNamed(@ptrCast(&stale_name));
-            }
-        }
-        {
-            var stale_name: [64]u8 = undefined;
-            const printed = std.fmt.bufPrint(&stale_name, "{s}_{s}.wksp", .{ rt.topo_build.app_name, c_abi.wksp.wksp_name_metric_in }) catch &stale_name;
-            stale_name[printed.len] = 0;
-            if (c_abi.wksp.wkspExistsNamed(@ptrCast(&stale_name))) {
-                _ = c_abi.wksp.wkspDeleteNamed(@ptrCast(&stale_name));
+        var metric_name_buf: [rt.topo_build.concrete_workspace_name_cap]u8 = undefined;
+        const metric_name_z = try rt.topo_build.concreteWorkspaceName(&metric_name_buf, std.mem.span(c_abi.wksp.wksp_name_metric));
+        var metric_in_name_buf: [rt.topo_build.concrete_workspace_name_cap]u8 = undefined;
+        const metric_in_name_z = try rt.topo_build.concreteWorkspaceName(&metric_in_name_buf, std.mem.span(c_abi.wksp.wksp_name_metric_in));
+        for ([_][*:0]const u8{ metric_name_z, metric_in_name_z }) |stale_name| {
+            if (c_abi.wksp.wkspExistsNamed(stale_name)) {
+                _ = c_abi.wksp.wkspDeleteNamed(stale_name);
             }
         }
 
@@ -583,12 +582,13 @@ pub const Supervisor = struct {
             metric_page_cnt = metric_footprint / c_abi.wksp.shmem_normal_page_sz + 16;
             var metric_sub_page_cnt: [1]usize = .{metric_page_cnt};
             var metric_sub_cpu_idx: [1]usize = .{0};
-            var metric_name_buf: [64]u8 = undefined;
-            const metric_name_z = try std.fmt.bufPrint(&metric_name_buf, "tickoni_metric.wksp", .{});
-            metric_name_buf[metric_name_z.len] = 0;
-            if (c_abi.wksp.wkspNewNamed(@ptrCast(&metric_name_buf), c_abi.wksp.shmem_normal_page_sz, 1, &metric_sub_page_cnt, &metric_sub_cpu_idx, 0o600, 1, metric_part_max) == 0) {
-                metric_wksp_ptr = c_abi.wksp.wkspAttach(@ptrCast(&metric_name_buf));
+            // Fail closed: every tile joins every topology workspace, so a run
+            // without this one cannot start.
+            if (c_abi.wksp.wkspNewNamed(metric_name_z, c_abi.wksp.shmem_normal_page_sz, 1, &metric_sub_page_cnt, &metric_sub_cpu_idx, 0o600, 1, metric_part_max) != 0) {
+                log.kvFmt("supervisor", "startPaymentPipelineProcess", "metric workspace create failed: {s}", .{metric_name_z});
+                return error.MetricWkspCreateFailed;
             }
+            metric_wksp_ptr = c_abi.wksp.wkspAttach(metric_name_z) orelse return error.MetricWkspAttachFailed;
         }
         if (metric_in_wksp_idx != c_abi.topob.not_found) {
             metric_in_footprint = c_abi.topob.topoWkspFootprint(built_topo.topo, metric_in_wksp_idx);
@@ -596,12 +596,11 @@ pub const Supervisor = struct {
             metric_in_page_cnt = metric_in_footprint / c_abi.wksp.shmem_normal_page_sz + 16;
             var metric_in_sub_page_cnt: [1]usize = .{metric_in_page_cnt};
             var metric_in_sub_cpu_idx: [1]usize = .{0};
-            var metric_in_name_buf: [64]u8 = undefined;
-            const metric_in_name_z = try std.fmt.bufPrint(&metric_in_name_buf, "tickoni_metric_in.wksp", .{});
-            metric_in_name_buf[metric_in_name_z.len] = 0;
-            if (c_abi.wksp.wkspNewNamed(@ptrCast(&metric_in_name_buf), c_abi.wksp.shmem_normal_page_sz, 1, &metric_in_sub_page_cnt, &metric_in_sub_cpu_idx, 0o600, 1, metric_in_part_max) == 0) {
-                metric_in_wksp_ptr = c_abi.wksp.wkspAttach(@ptrCast(&metric_in_name_buf));
+            if (c_abi.wksp.wkspNewNamed(metric_in_name_z, c_abi.wksp.shmem_normal_page_sz, 1, &metric_in_sub_page_cnt, &metric_in_sub_cpu_idx, 0o600, 1, metric_in_part_max) != 0) {
+                log.kvFmt("supervisor", "startPaymentPipelineProcess", "metric_in workspace create failed: {s}", .{metric_in_name_z});
+                return error.MetricInWkspCreateFailed;
             }
+            metric_in_wksp_ptr = c_abi.wksp.wkspAttach(metric_in_name_z) orelse return error.MetricInWkspAttachFailed;
         }
 
         // v2.22.S4 Task 0: Set wksp ptr + create objects for metric/metric_in
@@ -638,7 +637,8 @@ pub const Supervisor = struct {
         c_abi.topob.topoWkspNew(built_topo.topo, built_topo.wksp_idx);
 
         // Verify all known topology workspaces were joined and have non-zero footprint.
-        // Catches wksp join failures (ptr=NULL) and allocation failures early.
+        // Catches wksp join failures (ptr=NULL) and allocation failures early,
+        // as errors: a std.debug.assert would be compiled out of a release build.
         // Metric workspaces are only created when the metric tile is present,
         // so skip their validation when has_metric_tile is false.
         std.debug.print("[sup-debug] About to validate workspaces\\n", .{});
@@ -647,23 +647,23 @@ pub const Supervisor = struct {
                 c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.wksp_idx),
                 c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx),
             });
-            std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.wksp_idx));
-            std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx) > 0);
+            if (!c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.wksp_idx)) return error.WkspNotJoined;
+            if (c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.wksp_idx) == 0) return error.WkspEmptyFootprint;
             if (built_topo.metric_wksp_idx != c_abi.topob.not_found) {
                 std.debug.print("[sup-debug] Validating metric wksp joined={any} footprint={d}\\n", .{
                     c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_wksp_idx),
                     c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_wksp_idx),
                 });
-                std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_wksp_idx));
-                std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_wksp_idx) > 0);
+                if (!c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_wksp_idx)) return error.MetricWkspNotJoined;
+                if (c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_wksp_idx) == 0) return error.MetricWkspEmptyFootprint;
             }
             if (built_topo.metric_in_wksp_idx != c_abi.topob.not_found) {
                 std.debug.print("[sup-debug] Validating metric_in wksp joined={any} footprint={d}\\n", .{
                     c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_in_wksp_idx),
                     c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_in_wksp_idx),
                 });
-                std.debug.assert(c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_in_wksp_idx));
-                std.debug.assert(c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_in_wksp_idx) > 0);
+                if (!c_abi.topob.topoValidateWorkspaceJoined(built_topo.topo, built_topo.metric_in_wksp_idx)) return error.MetricInWkspNotJoined;
+                if (c_abi.topob.topoWkspFootprint(built_topo.topo, built_topo.metric_in_wksp_idx) == 0) return error.MetricInWkspEmptyFootprint;
             }
         }
         std.debug.print("[sup-debug] Workspace validation passed\\n", .{});
@@ -765,6 +765,7 @@ pub const Supervisor = struct {
         const topology_spec_path = try std.fmt.allocPrint(self.allocator, "{s}/topology.spec", .{config.run_dir});
         defer self.allocator.free(topology_spec_path);
         var topology_spec = try rt.topology_spec.TopologySpec.fromTopology(self.topo, config.metric_port, config.event_count);
+        topology_spec.case_rng_seed = config.case_rng_seed;
         std.debug.print("[sup-debug] TOPO_SPEC: sizeof={d} magic={x} version={d} tile_cnt={d} chan_cnt={d}\n", .{
             @sizeOf(rt.topology_spec.TopologySpec),
             topology_spec.magic_field,
@@ -1086,6 +1087,8 @@ pub const Supervisor = struct {
         agent_denied: u64 = 0,
         agent_tokens: u64 = 0,
         agent_embeddings: u64 = 0,
+        /// tkcase: event fragments forwarded, summed over tkpoly and tkdisp.
+        forwarded: u64 = 0,
     };
 
     /// v2.14.S1.T14 visibility: the CPU placement layout validated at
@@ -1170,6 +1173,7 @@ pub const Supervisor = struct {
                                         .agent_denied => snap.agent_denied = v,
                                         .agent_tokens => snap.agent_tokens = v,
                                         .agent_embeddings => snap.agent_embeddings = v,
+                                        .forwarded => snap.forwarded = v,
                                     }
                                 }
                             }
@@ -1232,6 +1236,7 @@ pub const Supervisor = struct {
                                             .agent_denied => snap.agent_denied = v,
                                             .agent_tokens => snap.agent_tokens = v,
                                             .agent_embeddings => snap.agent_embeddings = v,
+                                            .forwarded => snap.forwarded = v,
                                         }
                                     }
                                 }
@@ -1284,6 +1289,7 @@ pub const Supervisor = struct {
                     .agent_denied => snap.agent_denied = v,
                     .agent_tokens => snap.agent_tokens = v,
                     .agent_embeddings => snap.agent_embeddings = v,
+                    .forwarded => snap.forwarded = v,
                 }
             }
         }
@@ -1393,6 +1399,7 @@ pub const Supervisor = struct {
                 .agent_denied => snap.agent_denied = v,
                 .agent_tokens => snap.agent_tokens = v,
                 .agent_embeddings => snap.agent_embeddings = v,
+                .forwarded => snap.forwarded = v,
             }
         }
         return snap;

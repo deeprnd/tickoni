@@ -62,6 +62,9 @@ pub const CounterField = enum {
     agent_denied,
     agent_tokens,
     agent_embeddings,
+    /// tkcase: event fragments forwarded, summed over its tkpoly and tkdisp
+    /// outputs (two per event).
+    forwarded,
     // Index 2 on the metric tile's CNC app-region holds boot_ts
     // written by tk_metric_run after CNC join. Supervisor reads it via
     // metric_boot_timestamp to verify unprivileged_init ran.
@@ -111,8 +114,9 @@ pub const Cardinality = enum {
     /// in_cnt / out_cnt as written.
     fixed,
     /// tkaudt: one model-audit link per tkmodl plus one agent-audit link per
-    /// tkagnt, one idle link per tktool and tkadpt, and the payment chain's link
-    /// from each tkpoly; with no tkmodl, `in_cnt` (the payment-pipeline chain end).
+    /// tkagnt, one idle link per tktool and tkadpt, the payment chain's link
+    /// from each tkpoly, and the case-audit link from each tkcase; with no
+    /// tkmodl, `in_cnt` (the payment-pipeline chain end).
     audit_fan_in,
     /// tkagnt: one request input plus one result input per tkmodl; one request
     /// output per tkmodl plus the audit and terminal-result outputs, and one idle
@@ -280,19 +284,22 @@ pub const entries = [_]TileEntry{
         .out_cnt = 1,
         .diag = .producer,
     },
-    // tkcase, tktool and tkadpt: config-driven placeholders of the full
-    // workflow (tk_pass_stem.c). They carry no case, tool or adapter logic:
-    // tkcase forwards each event to its two consumers, tktool and tkadpt are
-    // idle bounded consumers. Nothing is published on their audit links.
+    // tkcase: the case router (tk_case_stem.c). One event input from tkdedu;
+    // outputs to tkpoly and tkdisp (every event, stamped with the run's case
+    // id) and to tkaudt (the case creation and completion records). Slot 0 is
+    // the forwarded event fragment count.
     .{
         .id = tile_ids.tkcase,
         .launch_mode = .stem,
         .process_fn = null,
-        .counters = &.{},
+        .counters = &.{.{ .idx = 0, .field = .forwarded }},
         .in_cnt = 1,
-        .out_cnt = 2,
+        .out_cnt = 3,
         .diag = .producer,
     },
+    // tktool and tkadpt: config-driven placeholders of the full workflow
+    // (tk_pass_stem.c). They carry no tool or adapter logic: idle bounded
+    // consumers. Nothing is published on their audit links.
     .{
         .id = tile_ids.tktool,
         .launch_mode = .stem,
@@ -345,7 +352,8 @@ pub fn expectedInCnt(entry: *const TileEntry, topo: rt.topology.Topology) usize 
         .fixed => entry.in_cnt,
         .audit_fan_in => if (models > 0)
             models + countTilesNamed(topo, tile_ids.tkagnt) + countTilesNamed(topo, tile_ids.tktool) +
-                countTilesNamed(topo, tile_ids.tkadpt) + countTilesNamed(topo, tile_ids.tkpoly)
+                countTilesNamed(topo, tile_ids.tkadpt) + countTilesNamed(topo, tile_ids.tkpoly) +
+                countTilesNamed(topo, tile_ids.tkcase)
         else
             entry.in_cnt,
         .agent_fan => 1 + models,
