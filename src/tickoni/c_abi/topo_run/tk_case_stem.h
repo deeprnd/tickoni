@@ -35,6 +35,7 @@ extern ulong tkcase_consumed( void * scratch );             /* events committed 
 extern ulong tkcase_forwarded( void * scratch );            /* event fragments published, summed over tkpoly and tkdisp */
 extern ulong tkcase_case_audit_emitted( void * scratch );   /* lifecycle records published */
 extern ulong tkcase_capsule_count( void * scratch );        /* events in the capsule */
+extern ulong tkcase_capsule_hash( void * scratch );         /* their capsule hash (tk_capsule_hash.h) */
 extern void  tkcase_scope_copy( void * scratch, void * dst, ulong dst_sz );                /* dst_sz == sizeof(TkCaseScope) */
 extern void  tkcase_capsule_copy( void * scratch, ulong idx, void * dst, ulong dst_sz );   /* dst_sz == sizeof(TkEvent) */
 

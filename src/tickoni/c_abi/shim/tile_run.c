@@ -59,6 +59,7 @@ extern void tk_topo_run_tile( void * topo, void * tile, int sandbox,
 #include "../topo_run/tk_agent_stem.h"
 #include "../topo_run/tk_disp_stem.h"
 #include "../topo_run/tk_case_stem.h"
+#include "../topo_run/tk_repl_stem.h"
 #include "../topo_run/tk_pass_stem.h"
 #include "../topo_run/tk_diag_stem.h"
 #include "../topo_run/tk_ingest_stem.h"
@@ -186,6 +187,12 @@ tile_is_disp( fd_topo_tile_t * tile ) {
   return tile!=NULL && strcmp( tile->name, TILE_ID_TKDISP ) == 0;
 }
 
+/* Predicate that matches the tkrepl replay tile. */
+static int
+tile_is_replay( fd_topo_tile_t * tile ) {
+  return tile!=NULL && strcmp( tile->name, TILE_ID_TKREPL ) == 0;
+}
+
 /* Predicate that matches the tkdiag diagnostic observer tile. */
 static int
 tile_is_diag( fd_topo_tile_t * tile ) {
@@ -276,6 +283,8 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
     run_tile = &TK_ADPT_RUN;
   } else if( tile_is_diag( tile_c ) ) {
     run_tile = &TK_DIAG_RUN;
+  } else if( tile_is_replay( tile_c ) ) {
+    run_tile = &TK_REPL_RUN;
   } else {
     run_tile = &TK_TILE_RUN;
   }
@@ -294,6 +303,7 @@ tk_topo_run_tile_simple( void * topo, void * tile ) {
   (void)tile_is_tool;
   (void)tile_is_adpt;
   (void)tile_is_diag;
+  (void)tile_is_replay;
   run_tile = &TK_TILE_RUN;
 #endif
 

@@ -457,6 +457,7 @@ tk_topo_find_tile_obj( fd_topo_t const * topo, ulong tile_id, char const * obj_t
 #include "../topo_run/tk_agent_stem.h"
 #include "../topo_run/tk_disp_stem.h"
 #include "../topo_run/tk_case_stem.h"
+#include "../topo_run/tk_repl_stem.h"
 #include "../topo_run/tk_pass_stem.h"
 #include "../topo_run/tk_diag_stem.h"
 #include "audit_schema.h"
@@ -521,6 +522,11 @@ tk_topob_tickoni_tile_scratch_requirements( char const * tile_name,
   if( strcmp( tile_name, TILE_ID_TKCASE ) == 0 ) {
     *alignment_out  = tkcase_tile_scratch_align();
     *footprint_out  = tkcase_tile_scratch_footprint();
+    return;
+  }
+  if( strcmp( tile_name, TILE_ID_TKREPL ) == 0 ) {
+    *alignment_out  = tkrepl_tile_scratch_align();
+    *footprint_out  = tkrepl_tile_scratch_footprint();
     return;
   }
   if( strcmp( tile_name, TILE_ID_TKTOOL ) == 0 ||
