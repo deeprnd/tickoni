@@ -277,7 +277,8 @@ test "the full workflow's links follow from which placeholder tiles the topology
     const tkadpt = findById(tile_ids.tkadpt).?;
 
     // One model: tkaudt takes the payment chain (tkpoly), the model, the agent,
-    // and one idle link each from tktool and tkadpt; tkagnt sends one more idle
+    // the case-audit link from tkcase, and one idle link each from tktool and
+    // tkadpt; tkagnt sends one more idle
     // link to tktool; tkdisp becomes a scheduler (events and results in, the
     // agent request link out).
     const full = [_]rt.tile.TileDescriptor{
@@ -291,15 +292,16 @@ test "the full workflow's links follow from which placeholder tiles the topology
         .{ .id = 7, .name = tile_ids.tkadpt },
     };
     const topo = rt.topology.Topology{ .tiles = &full, .channels = &.{} };
-    try std.testing.expectEqual(@as(usize, 5), reg.expectedInCnt(tkaudt, topo));
+    try std.testing.expectEqual(@as(usize, 6), reg.expectedInCnt(tkaudt, topo));
     try std.testing.expectEqual(@as(usize, 2), reg.expectedInCnt(tkagnt, topo));
     try std.testing.expectEqual(@as(usize, 4), reg.expectedOutCnt(tkagnt, topo));
     try std.testing.expectEqual(@as(usize, 2), reg.expectedInCnt(tkdisp, topo));
     try std.testing.expectEqual(@as(usize, 1), reg.expectedOutCnt(tkdisp, topo));
 
-    // The placeholders' own shapes are fixed.
+    // tkcase and the placeholders have fixed shapes: tkcase takes tkdedu's
+    // events and feeds tkpoly, tkdisp and tkaudt.
     try std.testing.expectEqual(@as(u8, 1), tkcase.in_cnt);
-    try std.testing.expectEqual(@as(u8, 2), tkcase.out_cnt);
+    try std.testing.expectEqual(@as(u8, 3), tkcase.out_cnt);
     try std.testing.expectEqual(@as(u8, 1), tktool.in_cnt);
     try std.testing.expectEqual(@as(u8, 2), tktool.out_cnt);
     try std.testing.expectEqual(@as(u8, 1), tkadpt.in_cnt);
@@ -318,6 +320,14 @@ test "the full workflow's links follow from which placeholder tiles the topology
     try std.testing.expectEqual(@as(usize, 1), reg.expectedOutCnt(tkdisp, no_tools));
     try std.testing.expectEqual(@as(usize, 2), reg.expectedInCnt(tkaudt, no_tools));
     try std.testing.expectEqual(@as(usize, 3), reg.expectedOutCnt(tkagnt, no_tools));
+}
+
+test "tkcase publishes its forwarded count in CNC slot 0" {
+    const tkcase = findById(tile_ids.tkcase).?;
+    try std.testing.expectEqual(LaunchMode.stem, tkcase.launch_mode);
+    try std.testing.expectEqual(@as(usize, 1), tkcase.counters.len);
+    try std.testing.expectEqual(@as(u8, 0), tkcase.counters[0].idx);
+    try std.testing.expectEqual(CounterField.forwarded, tkcase.counters[0].field);
 }
 
 test "launch mode is owned by the registry" {

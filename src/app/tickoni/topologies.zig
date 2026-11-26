@@ -23,6 +23,11 @@ pub const diag_link_mtu: u32 = audit_mod.TK_DIAG_LINK_MTU;
 /// MTU of every spine link: one TkEvent per fragment (shim/tk_event_wire.h).
 pub const event_link_mtu: u32 = audit_mod.TK_EVENT_LINK_MTU;
 
+/// tkcase -> tkaudt: the case lifecycle records (shim/audit_schema.h). A
+/// reliable link like every audit link; at most two records per run.
+pub const case_audit_link_depth: u32 = 32;
+pub const case_audit_link_mtu: u32 = audit_mod.TK_CASE_AUDIT_LINK_MTU;
+
 /// ── Helper Functions ──
 /// tkings's input in the isolation fixtures, which have no tkgate: the one link
 /// no tile produces (`rt.link.external_src`, Firedancer's permit_no_producers),
@@ -160,8 +165,10 @@ const investment_channels = [_]Channel{
     investmentLink(7, 9, 32, 512),
     investmentLink(9, 10, 32, 512),
     // Every audit producer feeds tkaudt. tktool and tkadpt have no audit record
-    // type yet, so their links are idle.
+    // type yet, so their links are idle. tkcase's carries the case creation and
+    // completion records (its third output, after tkpoly and tkdisp).
     investmentLink(4, 5, 64, event_link_mtu),
+    investmentLink(3, 5, case_audit_link_depth, case_audit_link_mtu),
     investmentLink(8, 5, 32, 256),
     investmentLink(9, 5, 32, 256),
     investmentLink(10, 5, 32, 256),
@@ -222,13 +229,16 @@ pub fn paymentPipeline() Topology {
 ///
 ///   events:    (terminal tile) -> tkgate -> tkings -> tknorm -> tkdedu -> tkcase -> tkpoly -> tkaudt
 ///   dispatch:  tkcase -> tkdisp -> tkagnt (agent request)
+///   case:      tkcase -> tkaudt (case creation and completion records)
 ///   model:     tkagnt -> tkmodl -> tkagnt (request, result); tkmodl -> tkaudt (audit)
 ///   agent:     tkagnt -> tkaudt (audit), tkagnt -> tkdisp (terminal result)
 ///   idle:      tkagnt -> tktool -> tkadpt, and tktool, tkadpt -> tkaudt
 ///   tkrepl, metric and tkdiag observe the run.
 ///
-/// tkcase, tktool and tkadpt are config-driven placeholders: they carry no case,
-/// tool or adapter logic. tkdisp is the scheduler that turns each event it
+/// tkcase opens the run's case on its first event, stamps every event with the
+/// case id and audits the case's creation and completion. tktool and tkadpt are
+/// config-driven placeholders: they carry no tool or adapter logic. tkdisp is
+/// the scheduler that turns each event it
 /// receives from tkcase into one agent request: an agent-request event's own,
 /// or, for a payment event, a fixed, config-supplied template. `tkaudt -> tkrepl` is not a link: replay reads the committed audit
 /// chain, which has no consumer tile yet.
@@ -491,10 +501,11 @@ pub fn minimalWithDeduProcess() Topology {
 /// ── Agent Process ──
 /// The agent process graph for `n` configured tkmodl instances (1..11): every
 /// event takes the spine, and agent requests reach tkagnt only through tkdisp
-/// (plan v2.NN rev 2, D2). N+10 tiles and 3N+11 channels.
+/// (plan v2.NN rev 2, D2). N+10 tiles and 3N+12 channels.
 ///
 ///   (terminal tile) -> tkgate -> tkings -> tknorm -> tkdedu -> tkcase -> tkpoly -> tkaudt
 ///                                              tkcase -> tkdisp -> tkagnt
+///                                              tkcase -> tkaudt  (case lifecycle records)
 ///   tkagnt --model request--> tkmodl#k --model result--> tkagnt    (per model)
 ///                             tkmodl#k --model audit---> tkaudt    (per model)
 ///   tkagnt --agent audit-----> tkaudt
@@ -504,7 +515,8 @@ pub fn minimalWithDeduProcess() Topology {
 /// Tile order: tkings, tknorm, tkdedu, tkcase, tkpoly, tkaudt, tkdisp, tkagnt,
 /// tkmodl kind 0..n-1, metric, tkgate. Channels: the six spine links, tkdisp ->
 /// tkagnt, then per model k request, audit, result in that order, then the
-/// agent's audit and terminal-result links, then tkgate -> tkings, and last
+/// agent's audit and terminal-result links, then tkcase -> tkaudt (tkcase's
+/// third output), then tkgate -> tkings, and last
 /// tkgate's externally produced input (`rt.link.external_src`): the test
 /// harness publishes TkEvents on it, standing in for the terminal tile.
 /// Which tier a tkmodl instance serves is not part of the topology: it is the
@@ -527,7 +539,7 @@ fn AgentGraph(comptime n: usize) type {
         pub const idx_metric = first_model_idx + n;
         pub const idx_api = idx_metric + 1;
         pub const tile_cnt = 10 + n;
-        pub const channel_cnt = 11 + 3 * n;
+        pub const channel_cnt = 12 + 3 * n;
         /// Index of the tkgate -> tkings channel.
         pub const api_output_idx = channel_cnt - 2;
         /// Index of tkgate's externally produced input channel.
@@ -582,6 +594,7 @@ fn AgentGraph(comptime n: usize) type {
             }
             c[7 + 3 * n] = channel(idx_agent, idx_audit, depth, audit_mod.TK_AGENT_AUDIT_LINK_MTU);
             c[8 + 3 * n] = channel(idx_agent, idx_disp, depth, audit_mod.TK_AGENT_RESULT_LINK_MTU);
+            c[9 + 3 * n] = channel(idx_case, idx_audit, case_audit_link_depth, case_audit_link_mtu);
             c[api_output_idx] = channel(idx_api, idx_ings, 64, event_link_mtu);
             c[api_input_idx] = channel(rt.link.external_src, idx_api, 64, event_link_mtu);
             break :blk c;
@@ -705,7 +718,7 @@ test "investmentWorkflow has no tkaudt -> tkrepl link and keeps the observers un
         // tkaudt may now have a diagnostic output; only reject audit -> tkrepl.
         try std.testing.expect(!(ch.src_idx == audit and ch.dst_idx == repl));
     }
-    try std.testing.expectEqual(@as(usize, 28), topo.channels.len);
+    try std.testing.expectEqual(@as(usize, 29), topo.channels.len);
 }
 
 test "investmentWorkflow includes tkmodl tktool tkadpt and passes validation" {
@@ -781,8 +794,8 @@ test "investmentWorkflow fans one diagnostic link per producer tile to tkdiag" {
     const diag: u32 = 13;
     try std.testing.expect(topo.tiles[diag].name.eql(tile_ids.tkdiag));
     // Producers in topology order: tkings(0), tknorm(1), tkdedu(2), tkcase(3),
-    // tkpoly(4), tkaudt(5), tkdisp(6), tkagnt(7), tkmodl(8) at channels 16..24,
-    // tkgate(14) at channel 26 (after apiOutput at 25).
+    // tkpoly(4), tkaudt(5), tkdisp(6), tkagnt(7), tkmodl(8) at channels 17..25,
+    // tkgate(14) at channel 27 (after apiOutput at 26).
     const p_indices = [_]u32{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 14 };
     const p_names = [_]*const rt.tile.TileId{
         &tile_ids.tkings, &tile_ids.tknorm, &tile_ids.tkdedu, &tile_ids.tkcase,
@@ -790,7 +803,7 @@ test "investmentWorkflow fans one diagnostic link per producer tile to tkdiag" {
         &tile_ids.tkmodl, &tile_ids.tkgate,
     };
     for (p_indices, 0..) |src, i| {
-        const ch_idx: usize = if (i == 9) 26 else 16 + i;
+        const ch_idx: usize = if (i == 9) 27 else 17 + i;
         const ch = topo.channels[ch_idx];
         try std.testing.expectEqual(src, ch.src_idx);
         try std.testing.expect(topo.tiles[ch.src_idx].name.eql(p_names[i].*));
@@ -808,16 +821,43 @@ test "investmentWorkflow fans one diagnostic link per producer tile to tkdiag" {
     }
 }
 
-test "agentProcess has N+10 tiles and 3N+11 channels and passes validation for every supported N" {
+test "agentProcess has N+10 tiles and 3N+12 channels and passes validation for every supported N" {
     inline for (.{ 1, 2, 3, 5, 11 }) |n| {
         const topo = agentProcess(n);
         try topo.validate();
         try std.testing.expectEqual(@as(usize, n + 10), topo.tiles.len);
-        try std.testing.expectEqual(@as(usize, 3 * n + 11), topo.channels.len);
+        try std.testing.expectEqual(@as(usize, 3 * n + 12), topo.channels.len);
     }
-    // The 11-model maximum: 21 tiles, 44 channels.
+    // The 11-model maximum: 21 tiles, 45 channels.
     try std.testing.expectEqual(@as(usize, 21), agentProcess(11).tiles.len);
-    try std.testing.expectEqual(@as(usize, 44), agentProcess(11).channels.len);
+    try std.testing.expectEqual(@as(usize, 45), agentProcess(11).channels.len);
+}
+
+/// tkcase's outputs in channel order: tkpoly, tkdisp, tkaudt, then (where the
+/// topology has tkdiag) the diagnostic link. tk_case_stem.c binds them by
+/// index and checks each consumer.
+fn expectCaseOutputs(topo: Topology, case_idx: u32, poly: u32, disp: u32, audit: u32) !void {
+    var outs: [4]u32 = undefined;
+    var n: usize = 0;
+    for (topo.channels) |ch| {
+        if (ch.src_idx != case_idx) continue;
+        outs[n] = ch.dst_idx;
+        n += 1;
+        if (ch.dst_idx == audit) {
+            try std.testing.expectEqual(rt.link.LinkReliability.reliable, ch.reliability);
+            try std.testing.expectEqual(case_audit_link_mtu, ch.mtu);
+            try std.testing.expect(ch.mtu >= @sizeOf(audit_mod.TkCaseAuditMsg));
+            try std.testing.expect(std.math.isPowerOfTwo(ch.depth));
+        }
+    }
+    try std.testing.expect(n >= 3);
+    try std.testing.expectEqualSlices(u32, &.{ poly, disp, audit }, outs[0..3]);
+}
+
+test "tkcase feeds tkpoly, tkdisp and tkaudt in that order in both workflow topologies" {
+    try expectCaseOutputs(investmentWorkflow(), 3, 4, 6, 5);
+    const G = AgentGraph(2);
+    try expectCaseOutputs(agentProcess(2), G.idx_case, G.idx_poly, G.idx_disp, G.idx_audit);
 }
 
 test "agentProcess routes every event through the spine and agent requests only through tkdisp" {
@@ -868,8 +908,9 @@ test "agentProcess links are reliable shared-memory links sized for their record
     try std.testing.expect(topo.channels[6].mtu >= @sizeOf(audit_mod.TkAgentRequestMsg));
     try std.testing.expectEqual(@as(u32, audit_mod.TK_MP_LINK_MTU), topo.channels[7].mtu);
     try std.testing.expect(topo.channels[8].mtu >= @sizeOf(audit_mod.ModelAuditMsg));
-    try std.testing.expect(topo.channels[topo.channels.len - 4].mtu >= @sizeOf(audit_mod.TkAgentAuditMsg));
-    try std.testing.expect(topo.channels[topo.channels.len - 3].mtu >= @sizeOf(audit_mod.TkAgentResultMsg));
+    try std.testing.expect(topo.channels[topo.channels.len - 5].mtu >= @sizeOf(audit_mod.TkAgentAuditMsg));
+    try std.testing.expect(topo.channels[topo.channels.len - 4].mtu >= @sizeOf(audit_mod.TkAgentResultMsg));
+    try std.testing.expect(topo.channels[topo.channels.len - 3].mtu >= @sizeOf(audit_mod.TkCaseAuditMsg));
     try std.testing.expect(topo.channels[topo.channels.len - 2].mtu >= @sizeOf(audit_mod.TkEvent));
     try std.testing.expect(topo.channels[topo.channels.len - 1].mtu >= @sizeOf(audit_mod.TkEvent));
 }
