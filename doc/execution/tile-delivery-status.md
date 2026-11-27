@@ -225,13 +225,13 @@ publishes per stem iteration.
 | `tkcase` (case router) | 1-in, 3-out (`tkpoly`, `tkdisp`, `tkaudt`, plus an optional lossy diagnostic link to `tkdiag`, always its last output) | Conforms | `shim/tk_case_stem.c`. `DURING_FRAG` validates (sig, size, chunk range) and stages a copy of the event; `AFTER_FRAG` opens the case on the first event (the `case_id` draw advances the RNG, so it is not in `DURING_FRAG`), stamps the event, appends it to the capsule, publishes the creation record, the event to both consumers and, on the last event, the completion record (`STEM_BURST` 2: a one-event run publishes both lifecycle records in one iteration), then the counter and the diagnostic fragment, and applies the event gate. |
 | `tktool`, `tkadpt` (placeholders) | 1-in 2-out, 1-in 1-out | Conforms | One stem implementation (`shim/tk_pass_stem.c`): `DURING_FRAG` validates and stages, `AFTER_FRAG` counts. Idle bounded consumers that stop on HALT; they never publish. No tool or adapter logic. |
 | `tkdiag` (diagnostics and fan-in collector) | N-in (one unreliable diagnostic link per diagnostic producer: the spine tiles `tkings`, `tknorm`, `tkdedu`, `tkpoly`, `tkaudt` and the runtime tiles `tkgate`, `tkcase`, `tkdisp`, `tkagnt`, `tkmodl`; at most `TKDIAG_MAX_INPUTS` = 16), 0-out | Conforms | One stem implementation (`shim/tk_diag_stem.c`), modelled on Firedancer's diag tile. `BEFORE_CREDIT` (every 100 ms, never sleeping) reads each tile's OS process statistics through the portable `shim/tk_os_stats.h` (one implementation per OS) into that tile's metrics region, applies the liveness rule (process gone while `TILE_STATUS` is not "shutdown": a crash, logged once) and reads tkrepl's CNC for the replay result. `DURING_FRAG` bounds-checks the chunk and size and stages a copy of the fragment; `AFTER_FRAG` offers it to the aggregation (`tkdiag_agg_accept` in `shim/tk_diag_fragment.h`: shape, sender identity bound from the topology, strictly increasing `seq`). `METRICS_WRITE` publishes the `tkdiag` metrics kind; CNC slots 0 to 4 for the supervisor. No publish (`STEM_BURST` 1, `out_cnt` 0), no `AFTER_CREDIT`, no socket: the metric tile serves its metrics. Plus the shared `DURING_HOUSEKEEPING` heartbeat. Fails closed on an output link, a reliable input, an input whose producer is not a diagnostic producer, or two inputs of one producer type (so a topology wired to tkdiag carries at most one instance of each producer, e.g. one tkmodl); producer type codes are `TK_DIAG_TYPE_*` 1 to 10, append-only; with no input links it still observes the tiles. `SHOULD_SHUTDOWN` is CNC HALT or tkrepl's `replay_checked`. `/proc` descriptors are opened in `privileged_init` and listed in `populate_allowed_fds`; no seccomp policy yet. See [`plans/v2.10-s14-tkdiag-fan-in.md`](plans/v2.10-s14-tkdiag-fan-in.md). |
-| `tkmetr` | 0-in, 0-out | Conforms (liveness only) | Delegates to `fd_metric_tile.c`; Tickoni authors no fragment callbacks for it. The file is also linked into the native Firedancer binaries, so liveness is a NULL-by-default hook, `fd_metric_ctx_t.liveness`, that `shim/tk_metric_tile.c` sets to `stk_cnc_liveness`; native Firedancer leaves it NULL and is unchanged. It runs its stem loop under `__tile-run` (launch mode `tile` in the registry) and never took the generic path's `RUN` and heartbeat, so the supervisor never stale-checked it. |
+| `tkmetr` | 0-in, 0-out | Conforms (liveness only) | Delegates to `fd_metric_tile.c`; Tickoni authors no fragment callbacks for it. The file is also linked into the native Firedancer binaries, so liveness is a NULL-by-default hook, `fd_metric_ctx_t.liveness`, that `shim/tk_metric_tile.c` sets to `stk_cnc_liveness`; native Firedancer leaves it NULL and is unchanged. It runs its stem loop under `__stem-run` and participates in the supervisor's staleness checks. |
 
 Every stem tile above (all twelve `tk_*_stem.c` files) and the metric tile advance the CNC heartbeat,
 and moves the CNC `BOOT -> RUN` on its first loop iteration, from
 `STEM_CALLBACK_DURING_HOUSEKEEPING` (`stk_cnc_liveness` in
 `shim/stem_helpers.h`), so the supervisor classifies a wedged or stopped stem
-tile `.stale` exactly as it does a generic-path tile. See [`knowledge/tile-orchestration.md`](../knowledge/tile-orchestration.md),
+tile `.stale` when its heartbeat stops. See [`knowledge/tile-orchestration.md`](../knowledge/tile-orchestration.md),
 "Health And Lifecycle", for the clock, units and the staleness budget.
 
 The Tickoni-authored stem tiles follow the same test/FFI pattern (see
@@ -253,8 +253,8 @@ supersedes its code sketches (publish in `AFTER_FRAG`, an unreliable link, a
 128-byte fragment). `tkings` uses `fd_stem` for its synthetic payment source under the S15
 producer-only exception (it stages in `BEFORE_CREDIT` and publishes in
 `AFTER_CREDIT`), and forwards an externally produced input in `AFTER_FRAG`. No tile
-has a process-mode source any more; `tkings` has no `process_fn`, and the
-registry has no test-source override.
+has a generic process callback any more; the registry has no launch mode or
+test-source override.
 
 ## Tile Synchronization Debt
 

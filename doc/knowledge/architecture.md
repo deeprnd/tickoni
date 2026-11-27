@@ -448,17 +448,15 @@ The Firedancer harness at `src/disco/topo/fd_topo_run.c` is a single function
 4. **Shared memory** — `mcache`, `dcache`, `fseq`, `cnc`, `fctl` (already
    wrapped by Tickoni's `c_abi` bridge)
 5. **Execution** — stem loop (`fd_stem.c`) — multi-input multiplexer with
-   callbacks (not reused by Tickoni; see tile-orchestration.md)
+   callbacks used by Tickoni tiles (see tile-orchestration.md)
 6. **Supervisor** — `run.c` fork+exec + PID namespace + `wait4` (not reused;
    Tickoni keeps its own self-exec supervisor)
 
-The harness has a clear contract: take a `fd_topo_run_tile_t` descriptor, call
-the callbacks in order, enforce sandbox and lifecycle ordering. Tickoni's own
-`tile_process.zig` is an equivalent but independent implementation of the same
-pattern, using the same Firedancer primitives through the `c_abi` bridge. The
-two implementations are structurally parallel — Tickoni does not need to replace
-`tile_process.zig` with `fd_topo_run_tile`, but keeping the callback signatures
-compatible means switching would be trivial if needed.
+The harness takes a `fd_topo_run_tile_t` descriptor, calls its callbacks in
+order, and enforces lifecycle ordering. Tickoni's supervisor starts one child
+per tile; `tile_main.zig` rebuilds the topology and dispatches its stem run
+descriptor through `c_abi.topo_run.runTileSimple` to `fd_topo_run_tile` on
+Linux or the Tickoni shim on other platforms.
 
 See [tile-orchestration.md](tile-orchestration.md) for the full reuse boundary
 and what Tickoni reuses versus rebuilds.

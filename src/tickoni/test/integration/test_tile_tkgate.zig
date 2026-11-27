@@ -56,7 +56,8 @@ const Run = struct {
             .workspace_name = util.nextWorkspaceName(&self.workspace_buf),
             .metric_port = util.nextMetricPort(),
         });
-        errdefer self.sup.stopProcess(std.testing.io) catch {};
+        errdefer self.sup.stopProcess(std.testing.io) catch |err|
+            std.log.err("tkgate: stopProcess errdefer failed: {any}", .{err});
         if (events.len != 0) try self.feed.start(std.testing.allocator, &self.sup, .{ .events = events }, 0);
     }
 

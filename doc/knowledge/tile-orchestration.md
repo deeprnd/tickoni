@@ -434,15 +434,12 @@ choice when all of the following hold:
 - the tile needs Firedancer's flow control, credit accounting, overrun
   detection, and link metrics rather than a hand-written loop.
 
-Keep a tile on the generic Tickoni callback path
-(`runtime/tile_process.zig` + a `tile_registry.zig` `process_fn`) when it is
-a source with no `in` links and an external driver (`tkings` today), when it
-must do blocking or syscall-heavy work behind the proxy pattern described
-under [Enforcement](#enforcement), or when it is an observer tile with no
-fragment flow. `tkdiag` was the one such observer on this list; the owner
-directed it onto `fd_stem` as a minimal observer (0-in, 0-out, `BEFORE_CREDIT`
-only, no fragment I/O) so that every Tickoni-authored tile shares one launch
-path and lifecycle. See
+All registered tiles now use stem descriptors. `tkings` is a stem source;
+`tkdiag` is a stem observer. Blocking or syscall-heavy work remains behind the
+proxy pattern described under [Enforcement](#enforcement). The owner directed
+`tkdiag` onto `fd_stem` as a minimal observer (0-in, 0-out, `BEFORE_CREDIT`
+only, no fragment I/O), so every Tickoni-authored tile shares one launch path
+and lifecycle. See
 [`plans/v2.NN-sXX-tkdiag-fd-stem-migration.md`](../execution/plans/v2.NN-sXX-tkdiag-fd-stem-migration.md).
 The owner has since had the whole of that migration's future work done, in
 [`plans/v2.10-s14-tkdiag-fan-in.md`](../execution/plans/v2.10-s14-tkdiag-fan-in.md),
@@ -453,11 +450,9 @@ OS-level metrics into that tile's metrics region; it reads tkrepl's replay
 result; and it publishes nothing and opens no socket. Its metrics are served by
 the metric tile, as Firedancer serves its diag tile's.
 
-Mixing the two paths in one tile is not allowed. A tile is either an fd_stem
-tile — `process_fn = null` in the registry, booted through
-`tile_main.zig`'s `stemRun`, lifecycle owned by its `fd_topo_run_tile_t` —
-or a generic tile. There is no tile that has both a stem specialization and a
-process-mode callback.
+The supervisor boots registered tiles through `tile_main.zig`'s `stemRun`;
+their `fd_topo_run_tile_t` descriptors own the lifecycle. The registry no
+longer has a process callback or launch-mode field.
 
 ### Mandatory Shape
 
@@ -676,12 +671,9 @@ backpressure) come from `fd_stem` itself and need no tile code.
 
 ### Health And Lifecycle
 
-The generic tile path (`tile_process.zig`) joins its CNC in
-`privileged_init`, transitions `BOOT -> RUN`, heartbeats during the
-halt-wait loop, and signals `BOOT` again on clean exit. A stem tile reaches
-the same supervisor-visible state through one helper in
-`shim/stem_helpers.h`, so `supervisor.zig`'s `refreshProcessHealth` covers it
-with the existing staleness model:
+Stem tiles reach the supervisor-visible CNC state through one helper in
+`shim/stem_helpers.h`, so `supervisor.zig`'s `refreshProcessHealth` covers
+them with the existing staleness model:
 
 - `stk_cnc_liveness( cnc )` — called from the tile's
   `STEM_CALLBACK_DURING_HOUSEKEEPING`, which `fd_stem` runs once per
@@ -690,7 +682,7 @@ with the existing staleness model:
   loop iteration), moves the CNC `BOOT -> RUN` with a compare-and-swap, so a
   `HALT` that arrived while the tile was booting is never overwritten. A tile
   whose loop is wedged, not scheduled or stopped stops advancing the heartbeat
-  and is classified stale like a generic-path tile.
+  and is classified stale.
 
 **Why `RUN` is signalled from the loop, not the run entry.** The stem's own
 setup runs between the run entry and the loop, and its first call to
@@ -710,15 +702,12 @@ each topology, selected from `tile_registry.zig`, rather than a hand-kept list.
 
 **The metric tile.** `metric` runs an `fd_stem` loop too, from
 `fd_metric_tile.c`, which is shared with the native Firedancer binaries and so
-cannot call Tickoni symbols. It is launched under `__tile-run` (launch mode
-`tile` in the registry) but is dispatched to its own run tile, so it never took
-the generic path's `RUN` and heartbeat either, and its CNC stayed at `BOOT`
-for the whole run. Liveness reaches it through a hook:
+cannot call Tickoni symbols. It is launched under `__stem-run` and dispatched
+to its own run descriptor. Liveness reaches it through a hook:
 `fd_metric_ctx_t.liveness`, NULL in native Firedancer, which its
 `STEM_CALLBACK_DURING_HOUSEKEEPING` calls with `ctx->cnc` when set.
 `shim/tk_metric_tile.c` sets it to `stk_cnc_liveness` in `tk_metric_run`. The
-integration lane includes metric explicitly, since the registry's launch mode
-does not identify it as a stem-loop tile.
+integration lane includes metric alongside the other registered tiles.
 
 **Which CNC belongs to which tile.** `ProcessState`'s per-tile CNC joins,
 launch-spec addresses and suppression mask, and `built_topo.tile_infos`, are
@@ -802,8 +791,8 @@ a separate dispatch or list; none is derived from another.
    or its identity tests never run.
 9. `build-lib/lanes/integration.zig` — register the tile's integration test
    file in the infra lane.
-10. `src/app/tickoni/tile_registry.zig` — `process_fn = null`, the counter
-    schema, and `in_cnt`/`out_cnt`.
+10. `src/app/tickoni/tile_registry.zig` — the counter schema and
+    `in_cnt`/`out_cnt`.
 11. `src/tickoni/runtime/topo_build.zig` — the `setEventCount` call, if the
     tile takes a runtime layout or gating parameter.
 
@@ -940,9 +929,8 @@ needs a deliberate pass.
   with only `tkdedu`'s affecting layout. This is the shared-value-with-one-
   source-of-truth rule in `AGENTS.md` pointing at a single parameter-passing
   mechanism.
-- **The `allow_shutdown` guard is pre-satisfied, so it never fires.** Both
-  boot paths set the flag before the harness call — `tile_main.zig`'s
-  `stemRun` for stem tiles, `tile_process.zig` for generic ones — and nothing
+- **The `allow_shutdown` guard is pre-satisfied, so it never fires.**
+  `tile_main.zig`'s `stemRun` sets the flag before the harness call, and nothing
   clears it, so `fd_topo_run_tile`'s "run loop returned" `FD_LOG_ERR` cannot
   distinguish an intentional exit from an unexpected return out of the stem
   loop. Each stem tile's trailing `tile->allow_shutdown = 1` is therefore
@@ -1165,8 +1153,8 @@ rules, adapter authority, or audit/replay semantics.
 #### Harness Architecture (from audit 8.md)
 
 The Firedancer harness `src/disco/topo/fd_topo_run.c` exposes a single entry
-(`fd_topo_run_tile`) that implements a 3-layer tile lifecycle. Tickoni mirrors
-this with `tile_process.zig` through the c_abi bridge:
+(`fd_topo_run_tile`) that implements a 3-layer tile lifecycle. Tickoni calls
+it through the c_abi bridge:
 
 ```text
 ┌─────────────────────────────────────────────────┐
@@ -1176,7 +1164,7 @@ this with `tile_process.zig` through the c_abi bridge:
 └─────────────────────────────────────────────────┘
                           │ self-exec launch spec
 ┌─────────────────────────────────────────────────┐
-│  Tickoni tile_process.zig / tile_main.zig       │
+│  Tickoni tile_main.zig                          │
 │  - rebuild matching topology                    │
 │  - full fd_boot: caller becomes tile 0          │
 │  - call fd_topo_run_tile through c_abi          │
@@ -1245,9 +1233,9 @@ Firedancer infrastructure decomposes into 11 reuse categories. The first 4
 require only `tk_*` shims (already covered or trivial). The remaining 7
 require deliberate Tickoni implementation or are explicitly not reused:
 
-1. **`fd_topo_run_tile` harness** — directly reused. `tile_process.zig` and
-   the dedicated stem-tile path rebuild the topology, select one tile, and call
-   the harness inside the supervisor-spawned child process.
+1. **`fd_topo_run_tile` harness** — directly reused. `tile_main.zig` rebuilds
+   the topology, selects one tile, and calls the harness inside the
+   supervisor-spawned child process.
 
 2. **Topology arrays** — `fd_topo_tile_t[32]`, `fd_topo_link_t[256]`,
    `fd_topo_wksp_t[4]` — the array-based topology is a direct match for Tickoni's
@@ -1263,22 +1251,18 @@ require deliberate Tickoni implementation or are explicitly not reused:
    Firedancer types. It can be used as-is and is not part of the Firedancer API
    surface.
 
-5. **Tile registry** — `fd_topo_run_tile_t` serves as a per-tile registry. Tickoni
-   implements this in `src/app/tickoni/tile_registry.zig` (not `topology.zig`).
-   The registry is keyed by tile ID and owns: child launch mode, process-mode run callback
-   (`ProcessFn`), counter schema
-   (`CounterSchemaEntry`), expected link cardinality (`in_cnt`/`out_cnt`),
-   and diagnostics naming. Beyond lookup and cardinality, the registry also
-   owns **process-mode dispatch wiring** (link-joining shape per tile — each
-   process-mode entry function joins the correct consumer/producer links and
-   calls into the pipeline stage) and **configured-topology validation**
+5. **Tile registry** — `fd_topo_run_tile_t` serves as a per-tile run
+   descriptor. Tickoni's `src/app/tickoni/tile_registry.zig` is keyed by tile
+   ID and owns the counter schema (`CounterSchemaEntry`), expected link
+   cardinality (`in_cnt`/`out_cnt`), and diagnostics naming. It also owns
+   **configured-topology validation**
    (`validate()` checks that every configured tile is registered, identities
    are unique, and per-tile channel counts match the registry). Registered
-   tiles may be absent from a topology. No supervisor, process dispatcher, metrics reader, or test
+   tiles may be absent from a topology. No supervisor, metrics reader, or test
    harness should recreate these mappings.
 
-6. **Heartbeat semantics** — `cnc_update` / `FD_CNC_HEARTBEAT` — the pattern is
-   proven; Tickoni's `tile_process.zig` already implements heartbeat during work.
+6. **Heartbeat semantics** — `cnc_update` / `FD_CNC_HEARTBEAT` — the stem
+   housekeeping callback advances each tile's CNC heartbeat during work.
 
 7. **Shutdown semantics** — `cnc` shutdown flag checked inside tile work loop,
    not only outside — preserved in Tickoni.
@@ -1359,12 +1343,10 @@ been resolved:
    investigation, and engine drift guard. Resolved by splitting: S8 handles the
    core tasks, T11 handles tempo/fctl shims.
 
-2. **tile_process.zig stays as product code:** The original resolution kept
-   `tile_process.zig` as the product-level self-exec boot/heartbeat/halt entry.
-   The current implementation preserves that ownership while delegating the
-   lifecycle sequence to `fd_topo_run_tile` through the adapter. Generic tiles
-   supply Tickoni callbacks; dedicated stem tiles enter their own specialization.
-   `tile_process.zig` is therefore not a second parallel harness.
+2. **One stem child path:** The original resolution kept `tile_process.zig`
+   as a product-level self-exec entry. After all tiles migrated to stem,
+   `tile_main.zig` became the sole child entry and the unused generic path was
+   removed.
 
 3. **tempo/fctl shims explicitly scoped:** Audit 8's plan requires them for
    proper stuck-tile defense. Resolved as V2.14.S8.T11.

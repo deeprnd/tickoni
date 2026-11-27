@@ -175,7 +175,10 @@ test "tkdiag_integration: a frozen tkdiag never stalls the event path, and catch
     var diag_frozen = false;
     const diag_idx = diagTileIndex(&sup);
     defer {
-        if (diag_frozen) stem_liveness.thawTile(&sup, diag_idx) catch {};
+        if (diag_frozen) stem_liveness.thawTile(&sup, diag_idx) catch |err|
+            std.log.err("tkdiag_integration: thawTile({s}) failed: {any}", .{
+                sup.topo.tiles[diag_idx].name.slice(), err,
+            });
         sup.stopProcess(std.testing.io) catch |err| @panic(@errorName(err));
         sup.deinit();
     }

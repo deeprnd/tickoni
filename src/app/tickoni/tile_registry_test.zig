@@ -10,8 +10,6 @@ const findById = reg.findById;
 const validate = reg.validate;
 const TileEntry = reg.TileEntry;
 const CounterField = reg.CounterField;
-const LaunchMode = reg.LaunchMode;
-const ProcessFn = reg.ProcessFn;
 const tiles = @import("tiles");
 
 /// Number of leading registry entries that form the Phase 0 payment pipeline
@@ -42,14 +40,6 @@ test "findById returns null for an unregistered id" {
     try std.testing.expectEqual(@as(?*const TileEntry, null), findById(unknown));
 }
 
-test "process_fn is null for tiles with no process-mode role" {
-    inline for (.{ "tkings", "tknorm", "tkdedu", "tkpoly", "tkrepl", "metric", "tkdiag", "tkmodl", "tkagnt", "tkdisp", "tkcase", "tktool", "tkadpt" }) |name| {
-        const tile_id = tile_ids.lookup(name) orelse unreachable;
-        const entry = findById(tile_id).?;
-        try std.testing.expectEqual(@as(?ProcessFn, null), entry.process_fn);
-    }
-}
-
 test "counter schema matches known field meanings" {
     const tkings = findById(tile_ids.tkings).?;
     try std.testing.expectEqual(@as(usize, 2), tkings.counters.len);
@@ -60,7 +50,6 @@ test "counter schema matches known field meanings" {
     try std.testing.expectEqual(@as(usize, 2), tkgate.counters.len);
     try std.testing.expectEqual(CounterField.api_published, tkgate.counters[0].field);
     try std.testing.expectEqual(CounterField.api_wire_invalid, tkgate.counters[1].field);
-    try std.testing.expectEqual(LaunchMode.stem, tkgate.launch_mode);
     try std.testing.expectEqual(@as(u8, 1), tkgate.in_cnt);
     try std.testing.expectEqual(@as(u8, 1), tkgate.out_cnt);
 
@@ -324,7 +313,6 @@ test "the full workflow's links follow from which placeholder tiles the topology
 
 test "tkcase publishes its forwarded count in CNC slot 0" {
     const tkcase = findById(tile_ids.tkcase).?;
-    try std.testing.expectEqual(LaunchMode.stem, tkcase.launch_mode);
     try std.testing.expectEqual(@as(usize, 1), tkcase.counters.len);
     try std.testing.expectEqual(@as(u8, 0), tkcase.counters[0].idx);
     try std.testing.expectEqual(CounterField.forwarded, tkcase.counters[0].field);
@@ -332,8 +320,6 @@ test "tkcase publishes its forwarded count in CNC slot 0" {
 
 test "tkrepl is a stem tile publishing replay_checked and replay_match in CNC slots 0 and 1" {
     const tkrepl = findById(tile_ids.tkrepl).?;
-    try std.testing.expectEqual(LaunchMode.stem, tkrepl.launch_mode);
-    try std.testing.expect(tkrepl.process_fn == null);
     try std.testing.expectEqual(@as(usize, 2), tkrepl.counters.len);
     try std.testing.expectEqual(@as(u8, 0), tkrepl.counters[0].idx);
     try std.testing.expectEqual(CounterField.replay_checked, tkrepl.counters[0].field);
@@ -382,18 +368,6 @@ test "the replay side-channel exists only where the topology has both tkcase and
     try std.testing.expectEqual(@as(usize, 0), reg.replayLinks(pay_topo));
     try std.testing.expectEqual(@as(usize, 0), reg.expectedInCnt(tkrepl, pay_topo));
     try std.testing.expectEqual(@as(usize, 0), reg.expectedOutCnt(tkrepl, pay_topo));
-}
-
-test "launch mode is owned by the registry" {
-    try std.testing.expectEqual(LaunchMode.stem, findById(tile_ids.tkings).?.launch_mode);
-    inline for (.{ tile_ids.tknorm, tile_ids.tkdedu, tile_ids.tkpoly, tile_ids.tkaudt }) |tile_id| {
-        try std.testing.expectEqual(LaunchMode.stem, findById(tile_id).?.launch_mode);
-    }
-    // tkdiag is a minimal fd_stem observer: the supervisor spawns it through
-    // __stem-run, and it has no process-mode callback.
-    const diag = findById(tile_ids.tkdiag).?;
-    try std.testing.expectEqual(LaunchMode.stem, diag.launch_mode);
-    try std.testing.expect(diag.process_fn == null);
 }
 
 test "tkdiag is the diagnostic collector: no pipeline links, no output, CNC slots 0 to 4" {
@@ -603,13 +577,6 @@ test "T10.4 positive fan-in: channel array has 2 inbound links to tkaudt" {
 // v2.14.S8.T10 subtasks: malformed harness-callback, provider-config, and
 // adapter-manifest validation tests.
 // ---------------------------------------------------------------------------
-
-test "tkings has no process callback after stem migration" {
-    const entry = findById(tile_ids.tkings).?;
-    try std.testing.expectEqual(@as(?ProcessFn, null), entry.process_fn);
-    // tkings is a stem tile whose only source is its input link.
-    try std.testing.expectEqual(LaunchMode.stem, entry.launch_mode);
-}
 
 // T10.15: provider-config validation tests — invalid CPU id, workspace name,
 // and placement mode should fail closed. These are structural checks that
