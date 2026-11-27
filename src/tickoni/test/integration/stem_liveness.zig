@@ -178,7 +178,10 @@ fn waitStale(sup: *Supervisor, idx: usize) !void {
 pub fn expectFrozenTileGoesStaleAlone(sup: *Supervisor, frozen_idx: usize) !void {
     try std.testing.expect(isStem(frozen_idx, sup));
     try freezeTile(sup, frozen_idx);
-    defer thawTile(sup, frozen_idx) catch {};
+    defer thawTile(sup, frozen_idx) catch |err|
+        std.debug.print("stem_liveness: thawTile({s}) defer failed: {any}\n", .{
+            nameOf(sup, frozen_idx), err,
+        });
 
     try waitStale(sup, frozen_idx);
     for (sup.monitor(), 0..) |h, idx| {
@@ -194,7 +197,10 @@ pub fn expectFrozenTileGoesStaleAlone(sup: *Supervisor, frozen_idx: usize) !void
 
 fn resumeAllStem(sup: *const Supervisor) void {
     for (sup.monitor(), 0..) |_, idx| {
-        if (isStem(idx, sup)) thawTile(sup, idx) catch {};
+        if (isStem(idx, sup)) thawTile(sup, idx) catch |err|
+            std.debug.print("stem_liveness: thawTile({s}) in resumeAllStem failed: {any}\n", .{
+                nameOf(sup, idx), err,
+            });
     }
 }
 
